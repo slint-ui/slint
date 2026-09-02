@@ -72,18 +72,58 @@ export component TestCase inherits Window {
                 Text { text: "Col 1"; }
             }
         }
+
+        // Column analog of `direct`: two rows sharing column 0, where row 0's
+        // cell collapses to a fixed zero width while row 1's cell keeps an
+        // unrelated, unconditional width the column must still fit. Nested in
+        // its own HorizontalLayout so width is the main axis (sized to
+        // content) rather than the VerticalLayout's stretched cross axis.
+        HorizontalLayout {
+            alignment: start;
+            direct-col := GridLayout {
+                min-width: 2px;
+                Row {
+                    Rectangle {
+                        width: show-col-0 ? 20px : 0px;
+                        height: 20px;
+                    }
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+                    }
+                }
+                Row {
+                    Rectangle {
+                        // Always occupies column 0, regardless of row 0's cell.
+                        width: 20px;
+                        height: 20px;
+                    }
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+                    }
+                }
+            }
+        }
+
+        // Reference for `frame-ok` below: the same content, sized outside
+        // any collapsed GridLayout, so the expected height doesn't need a
+        // magic pixel value that could drift with the font.
+        reference := Text { text: "Col 1"; }
     }
 
     out property <length> direct-height: direct.height;
+    out property <length> direct-col-width: direct-col.width;
     out property <length> frame-height: frame.height;
 
-    // Both must reflect the still-visible sibling's real height, not the
-    // (much smaller) explicit min-height override -- whether column 0 starts
-    // out hidden (as tested here by default) or is hidden at runtime (as
-    // tested by the code blocks below).
+    // All must reflect the still-visible sibling's real size, not the
+    // (much smaller) explicit min-height/min-width override -- whether
+    // column 0 starts out hidden (as tested here by default) or is hidden
+    // at runtime (as tested by the code blocks below).
     out property <bool> direct-ok: direct-height == 20px;
-    out property <bool> frame-ok: frame-height > 5px;
-    out property <bool> test: direct-ok && frame-ok;
+    out property <bool> direct-col-ok: direct-col-width == 40px;
+    out property <bool> frame-ok: frame-height == reference.height;
+    out property <bool> test: direct-ok && direct-col-ok && frame-ok;
 }
 
 /*
@@ -93,12 +133,14 @@ const TestCase &instance = *handle;
 // Starts with column 0 already hidden: reproduces without any interaction.
 assert(instance.get_test());
 
-// Showing and re-hiding the column must not leave either GridLayout collapsed.
+// Showing and re-hiding the column must not leave any GridLayout collapsed.
 instance.set_show_col_0(true);
 assert(instance.get_direct_ok());
+assert(instance.get_direct_col_ok());
 assert(instance.get_frame_ok());
 instance.set_show_col_0(false);
 assert(instance.get_direct_ok());
+assert(instance.get_direct_col_ok());
 assert(instance.get_frame_ok());
 ```
 
@@ -107,12 +149,14 @@ let instance = TestCase::new().unwrap();
 // Starts with column 0 already hidden: reproduces without any interaction.
 assert!(instance.get_test());
 
-// Showing and re-hiding the column must not leave either GridLayout collapsed.
+// Showing and re-hiding the column must not leave any GridLayout collapsed.
 instance.set_show_col_0(true);
 assert!(instance.get_direct_ok());
+assert!(instance.get_direct_col_ok());
 assert!(instance.get_frame_ok());
 instance.set_show_col_0(false);
 assert!(instance.get_direct_ok());
+assert!(instance.get_direct_col_ok());
 assert!(instance.get_frame_ok());
 ```
 
@@ -121,12 +165,14 @@ var instance = new slint.TestCase({});
 // Starts with column 0 already hidden: reproduces without any interaction.
 assert(instance.test);
 
-// Showing and re-hiding the column must not leave either GridLayout collapsed.
+// Showing and re-hiding the column must not leave any GridLayout collapsed.
 instance.show_col_0 = true;
 assert(instance.direct_ok);
+assert(instance.direct_col_ok);
 assert(instance.frame_ok);
 instance.show_col_0 = false;
 assert(instance.direct_ok);
+assert(instance.direct_col_ok);
 assert(instance.frame_ok);
 ```
 */
