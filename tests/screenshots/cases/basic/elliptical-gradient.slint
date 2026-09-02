@@ -1,0 +1,52 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// ROTATION_THRESHOLD=600  - because gradients are very imprecise in rotation
+
+export component TestCase inherits Window {
+    width:  64px;
+    height: 64px;
+
+    background: black;
+
+    GridLayout {
+        Row {
+            // Default ellipse: radii fit the bounding box (wider than tall here).
+            Rectangle {
+                background: @radial-gradient(ellipse, red, blue);
+                with_opacity := Rectangle {
+                    background: @radial-gradient(ellipse, limegreen 10%, transparent 50%);
+                }
+            }
+            Rectangle { background: @radial-gradient(ellipse, white 10%, #239 35%, red 85%); }
+            // Stops beyond 100%
+            Rectangle { background: @radial-gradient(ellipse, red 0%, white 50%, blue 100%, green 150%); }
+        }
+        Row {
+            Rectangle {
+                // Overlapping transparent gradients
+                background: @radial-gradient(ellipse, lightblue, red);
+                Rectangle { background: @radial-gradient(ellipse, green, transparent, rgba(255, 0, 128, 0.5)); }
+            }
+            // Multiple stops at same position
+            Rectangle { background: @radial-gradient(ellipse, blue 0%, blue 30%, yellow 30%, yellow 60%, red 60%, red 100%); }
+            // Edge case: invisible stop at 0%
+            Rectangle { background: @radial-gradient(ellipse, transparent 0%, red 1%, white 50%, transparent 100%); }
+        }
+        Row {
+            // Explicit, distinct x/y radii (flat ellipse).
+            Rectangle { background: @radial-gradient(ellipse 30px 10px, red, blue); }
+            // Explicit, distinct x/y radii (tall ellipse).
+            Rectangle { background: @radial-gradient(ellipse 10px 30px, red, blue); }
+            // Explicit radii combined with an off-center point.
+            Rectangle { background: @radial-gradient(ellipse 30px 10px at 5px 5px, red, blue); }
+        }
+    }
+
+    init => {
+        // This is a test for the binding part of #3068
+        if (with_opacity.opacity == 1) {
+            with_opacity.opacity = 0.5;
+        }
+    }
+}
