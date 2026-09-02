@@ -66,8 +66,7 @@ assert_eq!(
 
 // to_parts round-trips: re-creating a Keys from its own parts yields an equal Keys.
 for keys in [&ctrl_p, &ctrl_plus, &ctrl_shift_opt_z, &f5, &empty] {
-    let parts = keys.to_parts();
-    let back = Keys::from_parts(parts.iter().map(|p| p.as_str())).expect("valid shortcut");
+    let back = Keys::from_parts(keys.to_parts()).expect("valid shortcut");
     assert_eq!(back, *keys);
 }
 
