@@ -204,17 +204,17 @@ that generated it.
 
 The JSON value is converted to match the declared type of the property:
 
-| Slint type | Expected JSON value |
-| --- | --- |
-| `bool` | a boolean |
-| `int` | a whole number |
-| `float`, `percent` | a number |
+| Slint type                                                             | Expected JSON value                                                                                 |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `bool`                                                                 | a boolean                                                                                           |
+| `int`                                                                  | a whole number                                                                                      |
+| `float`, `percent`                                                     | a number                                                                                            |
 | `length`, `physical-length`, `duration`, `angle`, `relative-font-size` | a number, interpreted in the type's default unit (`px`, `phx`, `ms`, `deg`, or `rem`, respectively) |
-| `string` | a string |
-| `color` | a string, e.g. `"#ff0000"` or `"red"` |
-| an enum | a string naming one of its values, optionally prefixed with `"EnumName."` |
-| an array `[T]` | an array, each element converted per `T`'s row |
-| a struct | an object; each field is looked up by name and converted per its own type, recursively |
+| `string`                                                               | a string                                                                                            |
+| `color`                                                                | a string, e.g. `"#ff0000"` or `"red"`                                                               |
+| an enum                                                                | a string naming one of its values, optionally prefixed with `"EnumName."`                           |
+| an array `[T]`                                                         | an array, each element converted per `T`'s row                                                      |
+| a struct                                                               | an object; each field is looked up by name and converted per its own type, recursively              |
 
 A JSON object being converted to a struct only uses the keys that match a declared field; any
 other keys in that object are ignored. A struct field that's absent from the JSON object takes the
