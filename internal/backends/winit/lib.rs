@@ -741,6 +741,30 @@ impl Backend {
     }
 }
 
+/// Proxy of the event loop of the winit backend that was installed as the platform, so
+/// that [`invoke_from_event_loop_with_active_event_loop`] can reach it from any thread.
+static GLOBAL_PROXY: std::sync::Mutex<Option<winit::event_loop::EventLoopProxy<SlintEvent>>> =
+    std::sync::Mutex::new(None);
+
+/// Schedules a callback to be invoked in the winit event loop, and passes winit's
+/// [`ActiveEventLoop`] to it.
+///
+/// This is similar to [`slint::invoke_from_event_loop`](i_slint_core::api::invoke_from_event_loop),
+/// but the callback also receives the [`ActiveEventLoop`], which winit only exposes while the
+/// event loop is running. Use it to call winit APIs that need it, for example to create custom
+/// windows.
+///
+/// This function can be called from any thread. It returns an error if the winit backend hasn't
+/// been installed yet, or if the event loop has terminated.
+pub fn invoke_from_event_loop_with_active_event_loop(
+    func: impl FnOnce(&ActiveEventLoop) + Send + 'static,
+) -> Result<(), EventLoopError> {
+    let proxy = GLOBAL_PROXY.lock().unwrap().clone().ok_or(EventLoopError::NoEventLoopProvider)?;
+    proxy
+        .send_event(SlintEvent(CustomEvent::UserEventWithEventLoop(Box::new(func))))
+        .map_err(|_| EventLoopError::EventLoopTerminated)
+}
+
 #[allow(unused)]
 const DEFAULT_CURSOR_FLASH_CYCLE: core::time::Duration = core::time::Duration::from_millis(1000);
 
@@ -940,6 +964,7 @@ impl i_slint_core::platform::Platform for Backend {
                     .map_err(|_| EventLoopError::EventLoopTerminated)
             }
         }
+        *GLOBAL_PROXY.lock().unwrap() = Some(self.shared_data.event_loop_proxy.clone());
         Some(Box::new(Proxy(
             self.shared_data.event_loop_proxy.clone(),
             Arc::clone(&self.shared_data.event_loop_generation),
