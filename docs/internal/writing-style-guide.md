@@ -59,9 +59,9 @@ For comments in source code — both internal implementation notes and public AP
    - Use: a bare issue reference such as `#6739` when the background is worth chasing.
    - Exception: a regression test may state the old, wrong behavior, since pinning it is why the test exists.
    - Rationale: The next reader needs the code's current contract, not the discussion that produced it; `git log` and `git blame` already keep the discussion.
-5. Keep a doc comment under about ten lines.
+5. A comment shouldn't be longer than the item it describes, and rarely needs more than fifteen lines.
    - Use: a page under `docs/development/` for anything longer, linked from the comment.
-   - Rationale: A comment that outgrows the item it describes stops being read.
+   - Rationale: A comment that outgrows the code it describes stops being read.
 
 ## Diagnostics
 
