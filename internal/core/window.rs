@@ -559,6 +559,10 @@ impl PopupWindow {
     }
 }
 
+fn ordinary_popup_count(active_popups: &[PopupWindow]) -> usize {
+    active_popups.partition_point(|popup| !popup.is_overlay())
+}
+
 impl Drop for PopupWindow {
     fn drop(&mut self) {
         // Dropping the `PopupWindow` is the single choke point that every close path funnels through
@@ -769,9 +773,8 @@ impl WindowInner {
     /// Returns a slice of the active popups.
     pub fn active_popups(&self) -> core::cell::Ref<'_, [PopupWindow]> {
         let active_popups = self.active_popups.borrow();
-        let popup_count =
-            active_popups.iter().position(PopupWindow::is_overlay).unwrap_or(active_popups.len());
-        core::cell::Ref::map(active_popups, |active_popups| &active_popups[..popup_count])
+        let popup_count = ordinary_popup_count(&active_popups);
+        core::cell::Ref::map(active_popups, move |active_popups| &active_popups[..popup_count])
     }
 
     fn dispatch_to_overlay(
@@ -978,7 +981,7 @@ impl WindowInner {
         let active_popups = &WindowInner::from_pub(parent_adapter.window()).active_popups;
         let popup_count = {
             let active_popups = active_popups.borrow();
-            active_popups.iter().position(PopupWindow::is_overlay).unwrap_or(active_popups.len())
+            ordinary_popup_count(&active_popups)
         };
         let native_popup_index = active_popups.borrow().iter().position(|p| {
             if let PopupWindowLocation::TopLevel(wa) = &p.location {
@@ -2206,8 +2209,7 @@ impl WindowInner {
             role: PopupWindowRole::Popup,
         };
         let mut active_popups = self.active_popups.borrow_mut();
-        let insertion_index =
-            active_popups.iter().position(PopupWindow::is_overlay).unwrap_or(active_popups.len());
+        let insertion_index = ordinary_popup_count(&active_popups);
         active_popups.insert(insertion_index, popup);
         drop(active_popups);
 
@@ -2296,10 +2298,7 @@ impl WindowInner {
     pub fn close_all_popups(&self) {
         let popups = {
             let mut active_popups = self.active_popups.borrow_mut();
-            let popup_count = active_popups
-                .iter()
-                .position(PopupWindow::is_overlay)
-                .unwrap_or(active_popups.len());
+            let popup_count = ordinary_popup_count(&active_popups);
             active_popups.drain(..popup_count).collect::<Vec<_>>()
         };
         for popup in popups {
@@ -2311,10 +2310,7 @@ impl WindowInner {
     pub fn close_top_popup(&self) {
         let popup = {
             let mut active_popups = self.active_popups.borrow_mut();
-            active_popups
-                .iter()
-                .position(PopupWindow::is_overlay)
-                .unwrap_or(active_popups.len())
+            ordinary_popup_count(&active_popups)
                 .checked_sub(1)
                 .map(|popup_index| active_popups.remove(popup_index))
         };
@@ -2381,10 +2377,7 @@ impl WindowInner {
     pub fn clear_overlays(&self) {
         let removed_overlay = {
             let mut active_popups = self.active_popups.borrow_mut();
-            let overlay_index = active_popups
-                .iter()
-                .position(PopupWindow::is_overlay)
-                .unwrap_or(active_popups.len());
+            let overlay_index = ordinary_popup_count(&active_popups);
             if overlay_index == active_popups.len() {
                 false
             } else {
