@@ -197,3 +197,28 @@ pub fn print_to_console(env: Env, function: &str, arguments: core::fmt::Argument
 macro_rules! console_err {
     ($env:expr, $($t:tt)*) => ($crate::print_to_console($env, "error", format_args!($($t)*)))
 }
+
+/// Route Slint log messages (the `debug()` function in Slint code and runtime warnings)
+/// to `console.log`, like on wasm.
+pub(crate) fn install_log_message_handler(env: &Env, ctx: &i_slint_core::SlintContext) {
+    let env = *env;
+    ctx.set_log_message_handler(Some(Box::new(move |message| {
+        let arguments = message.message_arguments();
+        // A handle scope is needed because a message can arrive outside of any JS frame,
+        // e.g. from a timer dispatched by the integrated event loop.
+        let result = env.run_in_scope(|| {
+            match message.location() {
+                Some(l) => print_to_console(
+                    env,
+                    "log",
+                    format_args!("{}:{}:{}: {arguments}", l.path, l.line, l.column),
+                ),
+                None => print_to_console(env, "log", arguments),
+            }
+            Ok(())
+        });
+        if result.is_err() {
+            i_slint_core::debug_log::default_log_message(arguments);
+        }
+    })));
+}
