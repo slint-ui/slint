@@ -33,6 +33,7 @@ Concretely:
    - Rationale: Use exclamation points sparingly and save them for when they really count; we already have the reader's attention.
 4. In Markdown and doc comments, put each sentence on its own line, or break after a comma when a line gets long.
    - Rationale: Just like a newline after `;` in code, this keeps diffs readable and avoids reflowing a whole paragraph for one edit.
+     It also makes an overlong sentence obvious: one that fills three lines on its own needs splitting, not rewrapping.
 5. Use American English spelling.
    - Rationale: Slint's API uses American spelling (such as `color`), so the rest of our writing matches.
 
