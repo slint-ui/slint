@@ -778,7 +778,8 @@ jobs:
     # `backend-linuxkms` is the bare backend and `compat-1-2` restores its pre-1.18
     # meaning of libseat + libinput. Getting that implication wrong still compiles,
     # it just silently changes what an application links against, so assert the
-    # resolution itself. `cargo tree` only, no compilation and no system libraries.
+    # resolution itself, from the CMake options down. `cargo tree` and CMake only, no
+    # compilation and no system libraries.
     linuxkms_features:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'api_cpp') }}
         runs-on: ubuntu-24.04
