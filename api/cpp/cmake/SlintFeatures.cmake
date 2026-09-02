@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 # The SLINT_FEATURE_* options and the cargo features they select. Kept free of any
-# other dependency so scripts/check_linuxkms_features.sh can configure it on its own.
+# other dependency so api/cpp/tests/check_linuxkms_features.sh can configure it on its own.
 
 include(CMakeDependentOption)
 include(FeatureSummary)

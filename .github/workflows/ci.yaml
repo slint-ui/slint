@@ -789,7 +789,7 @@ jobs:
               with:
                   key: x-linuxkms-features
             - name: Check LinuxKMS feature resolution
-              run: ./scripts/check_linuxkms_features.sh
+              run: ./api/cpp/tests/check_linuxkms_features.sh
 
     # Compile the four combinations of the LinuxKMS backend's libseat and libinput
     # features, to catch mistakes in their `#[cfg]` gating. That a combination really
