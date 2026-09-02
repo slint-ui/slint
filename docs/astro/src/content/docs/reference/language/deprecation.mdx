@@ -15,7 +15,7 @@ component Inner {
 
 export component Example {
     inner := Inner { }
-    // Warning: The property 'old-prop' has been deprecated. Please use 'new-prop' instead
+    // Warning: The property 'old-prop' has been deprecated: Please use 'new-prop' instead
     out property <int> value: inner.old-prop;
 }
 ```
