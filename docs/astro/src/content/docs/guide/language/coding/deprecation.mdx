@@ -3,6 +3,8 @@ title: Deprecating Members
 description: Mark a property, callback, or function as deprecated and point users at the replacement.
 ---
 
+import Link from '@slint/common-files/src/components/Link.astro';
+
 The `@deprecated` annotation marks a property, callback, or function as deprecated.
 Whenever the member is accessed from outside the component that declares it, the compiler emits a warning that points to the replacement.
 This lets a component evolve its public API while giving users a migration path instead of a hard break.
@@ -57,3 +59,5 @@ export component Example {
 - The message must be a plain string literal, without any `\{}` expressions.
 - Accessing a deprecated member is only a warning, never an error, so existing code keeps compiling.
 - Accesses from within the declaring component don't warn, since that component still needs to implement the member.
+
+For the normative rules, see <Link type="DeprecationSpec" label="Deprecation" /> in the language specification.
