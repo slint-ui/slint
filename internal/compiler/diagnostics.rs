@@ -460,7 +460,7 @@ impl BuildDiagnostics {
 
     /// Same as [`Self::push_property_deprecation_warning`], but for a member of any `kind`
     /// ("property", "callback" or "function") and with a free-form message shown after
-    /// "The `kind` 'xxx' has been deprecated." An empty message is left out.
+    /// "The `kind` 'xxx' has been deprecated:". An empty message leaves the colon out too.
     pub fn push_member_deprecation_warning(
         &mut self,
         kind: &str,
@@ -469,7 +469,7 @@ impl BuildDiagnostics {
         source: &dyn Spanned,
     ) {
         let deprecated = format!("The {kind} '{name}' has been deprecated");
-        let text = if message.is_empty() { deprecated } else { format!("{deprecated}. {message}") };
+        let text = if message.is_empty() { deprecated } else { format!("{deprecated}: {message}") };
         self.push_diagnostic_with_span(
             text,
             source.to_source_location(),

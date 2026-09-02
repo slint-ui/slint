@@ -985,7 +985,7 @@ pub struct PropertyLookupResult<'a> {
     pub is_slint_sc: bool,
 
     /// Some if the property was declared with `@deprecated`: the hint message shown after
-    /// "The property 'xxx' has been deprecated." in the warning.
+    /// "The property 'xxx' has been deprecated:" in the warning.
     /// (Only set for properties declared in a component; builtin aliases use `resolved_name` instead.)
     pub deprecated: Option<SmolStr>,
 }

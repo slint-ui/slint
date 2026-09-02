@@ -17,7 +17,7 @@ Prefix the declaration with `@deprecated`, followed by the message in parenthese
 @deprecated("Please use 'new-prop' instead") in-out property <int> old-prop <=> new-prop;
 ```
 
-Accessing `old-prop` then warns with `The property 'old-prop' has been deprecated. Please use 'new-prop' instead`.
+Accessing `old-prop` then warns with `The property 'old-prop' has been deprecated: Please use 'new-prop' instead`.
 
 Write the message you want the user to read.
 There is no inference from the declaration, so say what replaces the member, even when it aliases its replacement with `<=>`.
@@ -46,7 +46,7 @@ export component Example {
         new-prop: 42;
     }
 
-    // Warning: The property 'old-prop' has been deprecated. Please use 'new-prop' instead
+    // Warning: The property 'old-prop' has been deprecated: Please use 'new-prop' instead
     property <int> value: inner.old-prop;
 }
 ```
