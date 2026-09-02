@@ -25,8 +25,9 @@ name = "slint-lsp"
 path = "main.rs"
 
 [lib]
-# lib is there only for the web
-crate-type = ["cdylib"]
+# lib is there only for the web.
+# "rlib" is also needed so cdylib don't cause error on musl (#13169)
+crate-type = ["cdylib", "rlib"]
 path = "wasm_main.rs"
 # On windows building this package creates slint-lsp.exe and slint-lsp.dll.
 # To avoid that both end up trying to create slint-lsp.pdb for their debug
