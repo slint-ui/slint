@@ -3,6 +3,8 @@ title: Shadowable Members
 description: Experimental @shadowable annotation that lets a derived component redeclare an inherited member.
 ---
 
+import Link from '@slint/common-files/src/components/Link.astro';
+
 Declaring a property, callback or function whose name already exists in the base component is normally an error:
 
 ```slint no-test
@@ -88,7 +90,7 @@ export component Derived inherits Base {
 
 - `@shadowable` can be applied to property, callback and function declarations.
 - It goes on the declaration in the *base* component: it says "this member may be shadowed", not "this member shadows".
-- It may be combined with [`@deprecated`](../deprecated/) in either order, but each annotation only once.
+- It may be combined with <Link type="Deprecation" label="@deprecated" code /> in either order, but each annotation only once.
 - A shadowing declaration in a derived component may itself be marked `@shadowable` to allow shadowing it further down.
 - Declaring the same name twice on the same element is still an error.
 - Reserved members that exist on every element, such as `x`, `y`, `width` and `height`, can't be shadowed.

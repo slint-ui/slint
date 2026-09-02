@@ -134,10 +134,7 @@ module.exports = grammar({
       ),
 
     property_deprecation: ($) =>
-      seq(
-        "@deprecated",
-        optional(seq("(", field("message", $.string_value), ")")),
-      ),
+      seq("@deprecated", "(", field("message", $.string_value), ")"),
 
     shadowable: (_) => "@shadowable",
 

@@ -11,10 +11,10 @@ export component InternalScrollView {
     in-out property <length> content-height <=> fli.content-height;
     in-out property <length> content-x <=> fli.content-x;
     in-out property <length> content-y <=> fli.content-y;
-    @deprecated in-out property <length> viewport-width <=> content-width;
-    @deprecated in-out property <length> viewport-height <=> content-height;
-    @deprecated in-out property <length> viewport-x <=> content-x;
-    @deprecated in-out property <length> viewport-y <=> content-y;
+    @deprecated("") in-out property <length> viewport-width <=> content-width;
+    @deprecated("") in-out property <length> viewport-height <=> content-height;
+    @deprecated("") in-out property <length> viewport-x <=> content-x;
+    @deprecated("") in-out property <length> viewport-y <=> content-y;
     out property <length> visible-width <=> fli.width;
     out property <length> visible-height <=> fli.height;
     in-out property <bool> has-focus <=> native.has-focus;

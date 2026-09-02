@@ -3038,7 +3038,7 @@ fn resolve_two_way_bindings_for_element(
                         && rhs_lookup.property_visibility != PropertyVisibility::Private)
                 {
                     lookup_ctx.diag.push_error(
-                        "@deprecated without a message derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated(\"...\") message instead".into(),
+                        "@deprecated(\"\") derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated(\"...\") message instead".into(),
                         &node,
                     );
                 }
