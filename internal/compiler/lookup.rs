@@ -155,7 +155,7 @@ pub enum LookupResult {
     Expression {
         expression: Expression,
         /// When set, this is deprecated, and the string is the hint message shown after
-        /// "The property 'xxx' has been deprecated." (e.g. "Please use 'yyy' instead")
+        /// "The property 'xxx' has been deprecated:" (e.g. "Please use 'yyy' instead")
         deprecated: Option<SmolStr>,
     },
     Enumeration(Arc<Enumeration>),

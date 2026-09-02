@@ -40,20 +40,20 @@ export component Test {
     inner := Inner {
         // Every way of accessing a deprecated property from outside warns.
         to-public: 1;
-//      >       <warning{The property 'to-public' has been deprecated. Please use 'public-prop' instead}
+//      >       <warning{The property 'to-public' has been deprecated: Please use 'public-prop' instead}
         tapped => { inner.to-public = 2; }
-//                        >       <warning{The property 'to-public' has been deprecated. Please use 'public-prop' instead}
+//                        >       <warning{The property 'to-public' has been deprecated: Please use 'public-prop' instead}
     }
     property <int> a: inner.to-public;
-//                          >       <warning{The property 'to-public' has been deprecated. Please use 'public-prop' instead}
+//                          >       <warning{The property 'to-public' has been deprecated: Please use 'public-prop' instead}
     property <int> b <=> inner.to-public;
-//                             >       <warning{The property 'to-public' has been deprecated. Please use 'public-prop' instead}
+//                             >       <warning{The property 'to-public' has been deprecated: Please use 'public-prop' instead}
     property <int> c: inner.to-struct;
-//                          >       <warning{The property 'to-struct' has been deprecated. Please use 'a-struct.field' instead}
+//                          >       <warning{The property 'to-struct' has been deprecated: Please use 'a-struct.field' instead}
     property <int> d: inner.to-private;
-//                          >        <warning{The property 'to-private' has been deprecated. Use 'private-prop' internally}
+//                          >        <warning{The property 'to-private' has been deprecated: Use 'private-prop' internally}
     property <int> e: inner.to-sub;
-//                          >    <warning{The property 'to-sub' has been deprecated. Set it on the inner element}
+//                          >    <warning{The property 'to-sub' has been deprecated: Set it on the inner element}
 
     // An empty message leaves the warning without a replacement hint.
     property <int> f: inner.no-advice;
