@@ -183,7 +183,7 @@ When this principle applies: any time you design syntax for a new visual or layo
 - When responding to review feedback, put the explanation in the commit message and the
   review reply, not in a new code comment.
   Add a comment only where the code itself is unclear to someone who never saw the review.
-  See rule 4 of the [Writing Style Guide](docs/internal/writing-style-guide.md).
+  See Code Comments rule 4 of the [Writing Style Guide](docs/internal/writing-style-guide.md).
 
 ## Code Style
 
