@@ -1,0 +1,28 @@
+{
+  "int_property": 5,
+  "different_name": 10,
+  "a_float": 3.5,
+  "a_string": "hello",
+  "a_bool": true,
+  "a_null": null,
+  "a_percent": 42,
+  "a_length": 10,
+  "a_duration": 250,
+  "a_angle": 90,
+  "a_color": "#ff0000",
+  "a_named_color": "red",
+  "an_enum": "bar",
+  "an_enum_prefixed": "MyEnum.baz",
+  "an_array": [1, 2, 3],
+  "a_struct": { "x": 1, "y": 2 },
+  "a_nested_struct": { "point": { "x": 3, "y": 4 }, "label": "hi" },
+  "an_array_of_structs": [ { "x": 1, "y": 1 }, { "x": 2, "y": 2 } ],
+  "a_partial_struct": { "x": 9 },
+  "a_struct_with_extra_keys": { "x": 1, "y": 2, "z": 999, "extra": "ignored" },
+
+  "element": {
+    "sub_element": {
+      "different_name": 7
+    }
+  }
+}

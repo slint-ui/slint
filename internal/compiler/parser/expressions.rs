@@ -292,10 +292,13 @@ fn parse_at_keyword(p: &mut impl Parser) {
         "keys" => {
             parse_keys(p);
         }
+        "from-json" | "from_json" => {
+            parse_from_json(p);
+        }
         _ => {
             p.consume();
             p.test(SyntaxKind::Identifier); // consume the identifier, so that autocomplete works
-            p.error("Expected 'image-url', 'tr', 'keys', 'markdown' 'conic-gradient', 'linear-gradient', or 'radial-gradient' after '@'");
+            p.error("Expected 'image-url', 'from-json', 'tr', 'keys', 'markdown' 'conic-gradient', 'linear-gradient', or 'radial-gradient' after '@'");
         }
     }
 }
@@ -782,6 +785,59 @@ fn parse_image_url(p: &mut impl Parser) {
                 break;
             }
         }
+    }
+    if !p.expect(SyntaxKind::RParent) {
+        p.until(SyntaxKind::RParent);
+    }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,AtFromJson
+/// @from-json("data.json")
+/// @from-json("data.json",)
+/// @from-json("data.json", "a/b/c")
+/// @from_json("data.json")
+/// ```
+fn parse_from_json(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::AtFromJson);
+    p.consume(); // "@"
+    p.consume(); // "from-json" or "from_json"
+    if !(p.expect(SyntaxKind::LParent)) {
+        return;
+    }
+
+    fn consume_plain_string_literal(p: &mut impl Parser, which: &str) -> bool {
+        let peek = p.peek();
+        if peek.kind() != SyntaxKind::StringLiteral {
+            p.error(format!("@from-json's {which} argument must be a plain path as a string literal"));
+            p.until(SyntaxKind::RParent);
+            return false;
+        }
+        if !peek.as_str().starts_with('"') || !peek.as_str().ends_with('"') {
+            p.error(format!(
+                "@from-json's {which} argument must be a plain path as a string literal, without any '\\{{}}' expressions"
+            ));
+            p.until(SyntaxKind::RParent);
+            return false;
+        }
+        p.expect(SyntaxKind::StringLiteral)
+    }
+
+    if !consume_plain_string_literal(&mut *p, "first") {
+        return;
+    }
+    if !p.test(SyntaxKind::Comma) {
+        if !p.test(SyntaxKind::RParent) {
+            p.error("Expected ')' or ','");
+            p.until(SyntaxKind::RParent);
+        }
+        return;
+    }
+    if p.test(SyntaxKind::RParent) {
+        return;
+    }
+    if !consume_plain_string_literal(&mut *p, "second") {
+        return;
     }
     if !p.expect(SyntaxKind::RParent) {
         p.until(SyntaxKind::RParent);

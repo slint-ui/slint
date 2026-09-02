@@ -135,6 +135,8 @@ All notable changes to this project are documented in this file.
  - Fixed conditional (ternary) expressions with arrays of structs and structs with array members. (#12845)
  - Fixed referencing a private property of the base component in a state's property value. (#1461)
  - Interpreter: Compound assignments (e.g. `x += v`) now run the property's animation.
+ - Added the `@from-json("file.json")` and `@from-json("file.json", "path/to/value")` compile-time
+   macro, which reads a value from a JSON file and converts it to match the property's type.
 
 ### Widgets
 
