@@ -36,6 +36,9 @@ public pure function name(a: int, b: string) -> int { return a; }
 A function must have a body.
 A declaration without a `{ }` block is a compile error.
 
+The modifiers may be preceded by a [`@deprecated` annotation](../deprecation/),
+which marks the function as deprecated and points users at its replacement.
+
 A function's name may not collide with a property of the same element, and may not override a non-shadowable member inherited from a base element; both are compile errors.
 
 ## Visibility

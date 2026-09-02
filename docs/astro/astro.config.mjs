@@ -411,6 +411,10 @@ export default defineConfig({
                                         slug: "reference/language/callbacks",
                                     },
                                     {
+                                        label: "Deprecation",
+                                        slug: "reference/language/deprecation",
+                                    },
+                                    {
                                         label: "Evaluation and Purity",
                                         slug: "reference/language/evaluation-and-purity",
                                     },
