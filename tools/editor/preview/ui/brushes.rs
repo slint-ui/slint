@@ -23,7 +23,7 @@ pub fn fill_from_expression(
     let (stops, angle, center, radius) = match expression {
         Expression::LinearGradient { angle, stops } => (stops, Some(&**angle), None, None),
         Expression::RadialGradient { stops, center, radius } => {
-            (stops, None, center.as_ref(), radius.as_deref())
+            (stops, None, center.as_ref(), radius.as_ref())
         }
         Expression::ConicGradient { from_angle, stops, center } => {
             (stops, Some(&**from_angle), center.as_ref(), None)
@@ -38,7 +38,7 @@ pub fn fill_from_expression(
         fill.center_x = number(x)?;
         fill.center_y = number(y)?;
     }
-    if let Some(radius) = radius {
+    if let Some((radius, _)) = radius {
         fill.custom_radius = true;
         fill.radius = number(radius)?;
     }
