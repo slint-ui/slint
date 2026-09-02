@@ -13,10 +13,6 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
     in property <length> bottom-left-radius;
     callback radius-changed(CanvasCorner, length, bool);
 
-    private property <[CanvasCorner]> name;
-
-    width: 240px;
-    height: 96px;
     out property <bool> radius-tooltip-visible;
     out property <Point> radius-tooltip-position;
     out property <length> radius-tooltip-value;
@@ -87,7 +83,6 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
         width: EditorMetrics.radius-handle-size;
         height: EditorMetrics.radius-handle-size;
         border-radius: EditorMetrics.radius-handle-size / 2;
-        background: #00000000;
         border-width: 1px;
         border-color: StudioTheme.accent-strong;
 
@@ -116,7 +111,6 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
                     root.radius-preview = root.corner-radius(corner);
                     root.radius-single-corner = root.shift-pressed || self.event-shift-pressed;
                     root.radius-dragging = false;
-                    root.selected();
                     root.interaction-started();
                     root.radius-tooltip-visible = true;
                     root.radius-tooltip-position = { x: pointer-x, y: pointer-y };
@@ -144,7 +138,6 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
                 root.radius-preview = radius;
                 root.radius-single-corner = root.shift-pressed || self.event-shift-pressed;
                 root.radius-dragging = true;
-                root.radius-tooltip-visible = true;
                 root.radius-tooltip-position = { x: pointer-x, y: pointer-y };
                 root.radius-tooltip-value = radius;
                 root.radius-changed(corner, radius, root.radius-single-corner);

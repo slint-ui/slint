@@ -178,7 +178,6 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     in property <SelectionRectangle> geometry;
     in property <bool> gesture-active;
     in property <bool> selection-area-has-hover;
-    in property <Point> hovered-hit-position;
     callback gesture-started();
     callback gesture-ended();
     callback pointer-hovered(Point);
@@ -235,14 +234,14 @@ component HoverCanvasFrame inherits MoveResizeFrame {
             Hover.element = {};
         }
     }
-    selected => {
+    move-press-started(position) => {
         if !root.gesture-active {
             root.gesture-started();
             Api.select-element(
                 Hover.element.element-path,
                 Hover.element.element-offset,
-                root.hovered-hit-position.x,
-                root.hovered-hit-position.y,
+                position.x,
+                position.y,
             );
             root.real-element-selected();
         }
@@ -273,7 +272,6 @@ component HoverCanvasFrame inherits MoveResizeFrame {
 
 export component CanvasInteractionLayer inherits Rectangle {
     in property <bool> shift-pressed;
-    private property <Point> hovered-hit-position;
     // Coordinates the selected and hover frames while a hovered item owns the pointer gesture.
     private property <bool> hover-selection-active;
     // Guard on highlight-index >= 0: after Api.unselect(), the backend still populates
@@ -288,7 +286,6 @@ export component CanvasInteractionLayer inherits Rectangle {
         if root.hover-selection-active || selection-area.pressed {
             return;
         }
-        root.hovered-hit-position = position;
         Hover.element = Api.hovered-element-at(position.x, position.y, false);
     }
 
@@ -325,7 +322,6 @@ export component CanvasInteractionLayer inherits Rectangle {
         geometry: geometry;
         gesture-active: root.hover-selection-active;
         selection-area-has-hover: selection-area.has-hover;
-        hovered-hit-position: root.hovered-hit-position;
         gesture-started => {
             root.hover-selection-active = true;
         }
