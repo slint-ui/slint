@@ -22,17 +22,17 @@ let instance = TestCase::new().unwrap();
 let text_input =
     slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::ti").next().unwrap();
 
-text_input.set_accessible_selection(2, 7);
+text_input.set_accessible_selection_offsets(2, 7);
 assert_eq!(instance.get_anchor(), 2);
 assert_eq!(instance.get_cursor(), 7);
 
 // A backwards selection keeps the focus before the anchor.
-text_input.set_accessible_selection(9, 4);
+text_input.set_accessible_selection_offsets(9, 4);
 assert_eq!(instance.get_anchor(), 9);
 assert_eq!(instance.get_cursor(), 4);
 
 // Equal offsets move the cursor without selecting anything.
-text_input.set_accessible_selection(5, 5);
+text_input.set_accessible_selection_offsets(5, 5);
 assert_eq!(instance.get_anchor(), 5);
 assert_eq!(instance.get_cursor(), 5);
 ```
@@ -45,17 +45,17 @@ auto search = slint::testing::ElementHandle::find_by_element_id(handle, "TestCas
 assert_eq(search.size(), 1);
 auto text_input = search[0];
 
-text_input.set_accessible_selection(2, 7);
+text_input.set_accessible_selection_offsets(2, 7);
 assert_eq(instance.get_anchor(), 2);
 assert_eq(instance.get_cursor(), 7);
 
 // A backwards selection keeps the focus before the anchor.
-text_input.set_accessible_selection(9, 4);
+text_input.set_accessible_selection_offsets(9, 4);
 assert_eq(instance.get_anchor(), 9);
 assert_eq(instance.get_cursor(), 4);
 
 // Equal offsets move the cursor without selecting anything.
-text_input.set_accessible_selection(5, 5);
+text_input.set_accessible_selection_offsets(5, 5);
 assert_eq(instance.get_anchor(), 5);
 assert_eq(instance.get_cursor(), 5);
 ```
