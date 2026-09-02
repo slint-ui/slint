@@ -804,8 +804,9 @@ pub struct PropertyDeclaration {
     /// inherits from, keeps this `None`.
     pub moved_from: Option<SmolStr>,
     /// Some if the property was declared with `@deprecated`. The string is the hint shown after
-    /// "The property 'xxx' has been deprecated." in the warning: either derived from the two-way
-    /// binding target, or the custom message given as argument to `@deprecated("...")`.
+    /// "The property 'xxx' has been deprecated." in the warning: either the message given as
+    /// argument to `@deprecated("...")`, or, for `@deprecated("")`, one derived from the two-way
+    /// binding target.
     pub deprecated: Option<SmolStr>,
 }
 
@@ -831,8 +832,8 @@ impl PropertyDeclaration {
         self.shadowed_name.is_some() && self.visibility == PropertyVisibility::Private
     }
 
-    /// True when declared `@deprecated` without a custom message, so the hint in
-    /// [`Self::deprecated`] is derived from the two-way binding target.
+    /// True when declared `@deprecated("")`, so the hint in [`Self::deprecated`] is derived from
+    /// the two-way binding target.
     pub fn has_derived_deprecation(&self) -> bool {
         self.deprecated.is_some()
             && self
@@ -840,7 +841,7 @@ impl PropertyDeclaration {
                 .as_ref()
                 .and_then(|n| syntax_nodes::PropertyDeclaration::new(n.clone()))
                 .and_then(|p| p.PropertyDeprecation())
-                .is_some_and(|d| d.child_token(SyntaxKind::StringLiteral).is_none())
+                .is_some_and(|d| deprecation_message(&d).is_none())
     }
 }
 
@@ -853,7 +854,7 @@ fn shadowable_attribute(
     node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@shadowable", &node))
 }
 
-/// How a `@deprecated` member without an explicit message derives its replacement hint.
+/// How a `@deprecated("")` member derives its replacement hint.
 enum DeprecationHint {
     /// A property or callback: derive it from the two-way binding target, if any.
     TwoWayBinding(Option<syntax_nodes::QualifiedName>),
@@ -861,20 +862,26 @@ enum DeprecationHint {
     MessageRequired,
 }
 
+/// The explicit message given to `@deprecated("...")`. `None` when the message is empty, meaning
+/// the hint is derived from the two-way binding target instead.
+fn deprecation_message(deprecation: &syntax_nodes::PropertyDeprecation) -> Option<SmolStr> {
+    let literal = deprecation.child_token(SyntaxKind::StringLiteral)?;
+    crate::literals::unescape_string(literal.text()).filter(|message| !message.is_empty())
+}
+
 /// The hint from a `@deprecated` attribute on a member: the explicit message, or one derived from
-/// the two-way binding target when none is given. `None` when the member isn't deprecated.
+/// the two-way binding target when the message is empty. `None` when the member isn't deprecated.
 fn member_deprecation(
     deprecation: Option<syntax_nodes::PropertyDeprecation>,
     hint: DeprecationHint,
-    tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) -> Option<SmolStr> {
     let deprecation = deprecation?;
-    if reject_experimental_feature(diag, tr, "@deprecated", &deprecation) {
-        return None;
-    }
-    if let Some(message) = deprecation.child_token(SyntaxKind::StringLiteral) {
-        return crate::literals::unescape_string(message.text());
+    // A missing message is reported by the parser, so don't pile on here.
+    let literal = deprecation.child_token(SyntaxKind::StringLiteral)?;
+    let message = crate::literals::unescape_string_reporting(Some(&literal), diag, &deprecation)?;
+    if !message.is_empty() {
+        return Some(message);
     }
     let message = match hint {
         DeprecationHint::TwoWayBinding(target) => {
@@ -895,9 +902,11 @@ fn member_deprecation(
                     return Some(format_smolstr!("Please use '{path}' instead"));
                 }
             }
-            "@deprecated without a message requires a two-way binding to derive the replacement from"
+            "@deprecated(\"\") requires a two-way binding to derive the replacement from"
         }
-        DeprecationHint::MessageRequired => "@deprecated on a function requires a message",
+        DeprecationHint::MessageRequired => {
+            "@deprecated on a function requires a non-empty message"
+        }
     };
     diag.push_error(message.into(), &deprecation);
     None
@@ -2212,7 +2221,6 @@ impl Element {
                 DeprecationHint::TwoWayBinding(
                     prop_decl.TwoWayBinding().and_then(|twb| twb.Expression().QualifiedName()),
                 ),
-                tr,
                 diag,
             );
 
@@ -2352,7 +2360,6 @@ impl Element {
                 DeprecationHint::TwoWayBinding(
                     sig_decl.TwoWayBinding().and_then(|twb| twb.Expression().QualifiedName()),
                 ),
-                tr,
                 diag,
             );
             let source_name = name;
@@ -2497,7 +2504,6 @@ impl Element {
                 deprecated: member_deprecation(
                     func.PropertyDeprecation(),
                     DeprecationHint::MessageRequired,
-                    tr,
                     diag,
                 ),
                 ..Default::default()
