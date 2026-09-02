@@ -2,70 +2,68 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::{net::SocketAddr, rc::Rc};
 
 use i_slint_core::InternalToken;
 use i_slint_core::SharedString;
+use i_slint_core::item_tree::ItemTreeRc;
+use i_slint_core::model::{ModelRc, VecModel};
 use i_slint_core::textlayout::sharedparley::fontique;
-use i_slint_core::window::WindowInner;
+use i_slint_core::window::{WindowAdapterRc, WindowInner};
 use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage, lsp_types};
 use i_slint_live_preview::remote::{Connection, ConnectionMessage, init_compiler};
 use slint::ComponentHandle as _;
+use slint_interpreter::{Struct, Value};
 
 slint::slint! {
     export { RemoteViewerWindow, RemoteViewerState } from "remote/main.slint";
     export { AttributionItem } from "remote/licenses.slint";
-
-    export struct InspectorHighlight {
-        x: length,
-        y: length,
-        width: length,
-        height: length,
-        angle: angle,
-    }
-
-    export component InspectorOverlay inherits Window {
-        in property <[InspectorHighlight]> highlights;
-
-        background: transparent;
-
-        for highlight in root.highlights: Rectangle {
-            x: highlight.x;
-            y: highlight.y;
-            width: highlight.width;
-            height: highlight.height;
-            transform-rotation: highlight.angle;
-            background: #3584e433;
-            border-color: #3584e4;
-            border-width: 1px;
-        }
-    }
 }
 
 struct Inspector {
-    component: InspectorOverlay,
-    highlights: Rc<slint::VecModel<InspectorHighlight>>,
+    highlights: Rc<VecModel<Value>>,
+    item_tree: ItemTreeRc,
+    window_adapter: WindowAdapterRc,
 }
 
 impl Inspector {
-    fn new(window: &slint::Window) -> anyhow::Result<Self> {
-        let component = InspectorOverlay::new_detached_with_existing_window(window)
+    async fn new(window: &slint::Window) -> anyhow::Result<Self> {
+        let compiler = slint_interpreter::Compiler::default();
+        let compilation_result = compiler
+            .build_from_source(
+                include_str!("remote/inspector.slint").into(),
+                PathBuf::from("inspector.slint"),
+            )
+            .await;
+        if compilation_result.has_errors() {
+            compilation_result.print_diagnostics();
+            anyhow::bail!("Cannot compile inspector overlay");
+        }
+        let definition = compilation_result
+            .component("InspectorOverlay")
+            .ok_or_else(|| anyhow::anyhow!("Inspector overlay component is missing"))?;
+        let component = definition
+            .create_detached_with_existing_window(window)
             .map_err(|error| anyhow::anyhow!("Cannot create inspector overlay: {error}"))?;
-        let highlights = Rc::new(slint::VecModel::default());
-        component.set_highlights(slint::ModelRc::new(highlights.clone()));
-        Ok(Self { component, highlights })
+        let highlights = Rc::new(VecModel::default());
+        component
+            .set_property("highlights", Value::Model(ModelRc::from(highlights.clone())))
+            .map_err(|error| anyhow::anyhow!("Cannot initialize inspector highlights: {error}"))?;
+        let item_tree = component.as_item_tree();
+        let window_adapter = WindowInner::from_pub(window).window_adapter();
+        Ok(Self { highlights, item_tree, window_adapter })
     }
 
     fn attach(&self) -> anyhow::Result<()> {
-        let window = WindowInner::from_pub(self.component.window());
-        window
-            .add_overlay(&self.component.as_item_tree())
+        WindowInner::from_pub(self.window_adapter.window())
+            .add_overlay(&self.item_tree)
             .map_err(|error| anyhow::anyhow!("Cannot show inspector overlay: {error}"))
     }
 
     fn detach(&self) {
-        WindowInner::from_pub(self.component.window()).clear_overlays();
+        WindowInner::from_pub(self.window_adapter.window()).clear_overlays();
         self.highlights.clear();
     }
 
@@ -83,16 +81,18 @@ impl Inspector {
         self.highlights.set_vec(
             rectangles
                 .into_iter()
-                .map(|geometry| InspectorHighlight {
-                    x: geometry.rect.origin.x,
-                    y: geometry.rect.origin.y,
-                    width: geometry.rect.size.width,
-                    height: geometry.rect.size.height,
-                    angle: geometry.angle,
+                .map(|geometry| {
+                    Value::Struct(Struct::from_iter([
+                        ("x".into(), Value::Number(geometry.rect.origin.x.into())),
+                        ("y".into(), Value::Number(geometry.rect.origin.y.into())),
+                        ("width".into(), Value::Number(geometry.rect.size.width.into())),
+                        ("height".into(), Value::Number(geometry.rect.size.height.into())),
+                        ("angle".into(), Value::Number(geometry.angle.into())),
+                    ]))
                 })
                 .collect::<Vec<_>>(),
         );
-        self.component.window().request_redraw();
+        self.window_adapter.window().request_redraw();
     }
 }
 
@@ -211,7 +211,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     })?;
 
     let mut placeholder = RemoteViewerWindow::new()?;
-    let inspector = Inspector::new(placeholder.window())?;
+    let inspector = Inspector::new(placeholder.window()).await?;
 
     #[cfg(not(target_vendor = "apple"))]
     let mdns = enable_mdns.then(mdns_sd::ServiceDaemon::new).transpose()?;
@@ -534,14 +534,20 @@ mod tests {
     };
     use slint::platform::{Platform, PlatformError, WindowAdapter};
 
-    slint::slint! {
-        export component TestPreview inherits Window {
-            background: white;
-        }
-    }
-
     const WIDTH: u32 = 100;
     const HEIGHT: u32 = 80;
+    const TEST_PREVIEW_SOURCE: &str = r#"
+        export component TestPreview inherits Window {
+            background: white;
+
+            Rectangle {
+                x: 20px;
+                y: 20px;
+                width: 30px;
+                height: 20px;
+            }
+        }
+    "#;
 
     struct SoftwareRendererPlatform(Rc<MinimalSoftwareWindow>);
 
@@ -579,21 +585,29 @@ mod tests {
             .unwrap();
         window_adapter.set_size(slint::PhysicalSize::new(WIDTH, HEIGHT));
 
-        let preview = TestPreview::new().unwrap();
+        let preview_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test-preview.slint");
+        let compilation_result = crate::poll_ready(
+            slint_interpreter::Compiler::default()
+                .build_from_source(TEST_PREVIEW_SOURCE.into(), preview_path.clone()),
+        );
+        assert!(!compilation_result.has_errors());
+        let preview = compilation_result.component("TestPreview").unwrap().create().unwrap();
         preview.show().unwrap();
-        let inspector = Inspector::new(preview.window()).unwrap();
         let preview_item_tree = WindowInner::from_pub(preview.window()).component();
+        let inspector = crate::poll_ready(Inspector::new(preview.window())).unwrap();
+        assert!(i_slint_core::item_tree::ItemTreeRc::ptr_eq(
+            &preview_item_tree,
+            &WindowInner::from_pub(preview.window()).component(),
+        ));
         assert!(!i_slint_core::item_tree::ItemTreeRc::ptr_eq(
             &preview_item_tree,
-            &inspector.component.as_item_tree(),
+            &inspector.item_tree,
         ));
-        inspector.highlights.set_vec(vec![InspectorHighlight {
-            x: 20.,
-            y: 20.,
-            width: 30.,
-            height: 20.,
-            angle: 0.,
-        }]);
+        let highlight = (
+            lsp_types::Url::from_file_path(&preview_path).unwrap(),
+            TEST_PREVIEW_SOURCE.find("Rectangle").unwrap() as u32,
+        );
+        inspector.update(Some(&preview), Some(&highlight));
         inspector.attach().unwrap();
 
         let mut pixels = vec![RgbPixel::default(); (WIDTH * HEIGHT) as usize];

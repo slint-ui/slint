@@ -439,35 +439,17 @@ fn generate_public_component(
 
     let experimental = compiler_config.enable_experimental;
 
-    let experimental_window_constructors: Option<TokenStream> = match llr.top_level_type {
+    let new_with_existing_window_impl: Option<TokenStream> = match llr.top_level_type {
         llr::TopLevelComponentType::Window => Some(quote!(
             #[cfg(#experimental)]
             pub fn new_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_backend()?;
-                let inner = #inner_component_id::new(sp::None)?;
+                let inner = #inner_component_id::new()?;
                 #init_bundle_translations
                 inner.globals.get().unwrap().create_window_from_existing(window)?;
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 #ensure_tree_instantiated
                 ::core::result::Result::Ok(Self(inner))
-            }
-
-            #[cfg(#experimental)]
-            #[doc(hidden)]
-            pub fn new_detached_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
-                slint::private_unstable_api::ensure_backend()?;
-                let window_adapter = sp::WindowInner::from_pub(window).window_adapter();
-                let inner = #inner_component_id::new(sp::Some(window_adapter))?;
-                #init_bundle_translations
-                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
-                sp::ensure_item_tree_instantiated(&sp::VRc::into_dyn(inner.clone()));
-                ::core::result::Result::Ok(Self(inner))
-            }
-
-            #[cfg(#experimental)]
-            #[doc(hidden)]
-            pub fn as_item_tree(&self) -> sp::ItemTreeRc {
-                sp::VRc::into_dyn(self.0.clone())
             }
         )),
         llr::TopLevelComponentType::SystemTrayIcon => None,
@@ -560,7 +542,7 @@ fn generate_public_component(
         impl #public_component_id {
             pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_backend()?;
-                let inner = #inner_component_id::new(sp::None)?;
+                let inner = #inner_component_id::new()?;
                 #init_bundle_translations
                 #eager_create_window
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
@@ -570,7 +552,7 @@ fn generate_public_component(
 
             #[cfg(#experimental)]
             pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
-                let inner = #inner_component_id::new(sp::None)?;
+                let inner = #inner_component_id::new()?;
                 #init_bundle_translations
 
                 #init_with_context
@@ -580,7 +562,7 @@ fn generate_public_component(
                 ::core::result::Result::Ok(Self(inner))
             }
 
-            #experimental_window_constructors
+            #new_with_existing_window_impl
 
             #property_and_callback_accessors
         }
@@ -717,32 +699,12 @@ fn generate_shared_globals(
             #library_shared_globals_names : sp::Rc<#library_shared_globals_types>,)*
         }
         impl SharedGlobals {
-            #pub_token fn new(root_item_tree_weak: sp::VWeak<sp::ItemTreeVTable>) -> sp::Rc<Self> {
-                Self::new_with_window_adapter(root_item_tree_weak, sp::None)
-            }
-
-            fn new_with_window_adapter(
-                root_item_tree_weak: sp::VWeak<sp::ItemTreeVTable>,
-                window_adapter: sp::Option<sp::WindowAdapterRc>,
-            ) -> sp::Rc<Self> {
-                #(let #library_shared_globals_names = {
-                    let shared_globals = #library_shared_globals_types::new(
-                        root_item_tree_weak.clone(),
-                    );
-                    if let sp::Some(window_adapter) = window_adapter.as_ref() {
-                        shared_globals.clone_with_window_adapter(window_adapter.clone())
-                    } else {
-                        shared_globals
-                    }
-                };)*
-                let window_adapter_cell = sp::OnceCell::new();
-                if let sp::Some(window_adapter) = window_adapter {
-                    window_adapter_cell.set(window_adapter).ok().unwrap();
-                }
+            #pub_token fn new(root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>) -> sp::Rc<Self> {
+                #(let #library_shared_globals_names = #library_shared_globals_types::new(root_item_tree_weak.clone());)*
                 sp::Rc::new(Self {
                     #(#global_names : #global_types::new(),)*
                     #(#from_library_global_names : #library_global_vars.clone(),)*
-                    window_adapter: window_adapter_cell,
+                    window_adapter : ::core::default::Default::default(),
                     root_item_tree_weak,
                     #(#library_shared_globals_names,)*
                 })
@@ -2369,24 +2331,12 @@ fn generate_item_tree(
         .collect::<Vec<_>>();
 
     let is_root_component = !is_popup && parent_ctx.is_none();
-    let root_window_adapter_arg =
-        is_root_component.then(|| quote!(window_adapter: sp::Option<sp::WindowAdapterRc>));
     let globals = if is_popup {
         quote!(globals)
     } else if parent_ctx.is_some() {
         quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
     } else {
-        quote!({
-            let root_item_tree_weak = sp::VRc::downgrade(&self_dyn_rc);
-            if let sp::Some(window_adapter) = window_adapter {
-                SharedGlobals::new_with_window_adapter(
-                    root_item_tree_weak,
-                    sp::Some(window_adapter),
-                )
-            } else {
-                SharedGlobals::new(root_item_tree_weak)
-            }
-        })
+        quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc)))
     };
     // The root component owns the freshly created `SharedGlobals` and is responsible for running
     // its eager initialization. The root's own `globals` field must be set *before* that init
@@ -2626,11 +2576,7 @@ fn generate_item_tree(
         #sub_comp
 
         impl #inner_component_id {
-            fn new(
-                #(parent: #parent_component_type,)*
-                #globals_arg
-                #root_window_adapter_arg
-            ) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
+            fn new(#(parent: #parent_component_type,)* #globals_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
                 #![allow(unused)]
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
