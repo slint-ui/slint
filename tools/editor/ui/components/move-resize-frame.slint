@@ -9,29 +9,29 @@ export component MoveResizeFrame inherits Rectangle {
     in property <bool> enabled: true;
     in property <string> accessible-prefix: "Selection";
     in property <bool> active;
-    in property <bool> shift-pressed: false;
-    in property <angle> rotation: 0deg;
+    in property <bool> shift-pressed;
+    in property <angle> rotation;
     in property <bool> show-resize-handles: true;
     in property <bool> show-rotation-handles: true;
     out property <bool> frame-hover: move-touch.has-hover;
     out property <bool> move-pressed: move-touch.pressed;
-    out property <bool> move-dragging: false;
-    out property <Point> move-pointer-position: { x: 0px, y: 0px };
-    out property <bool> rotating: false;
-    out property <bool> rotation-tooltip-visible: false;
-    out property <Point> rotation-tooltip-position: { x: 0px, y: 0px };
-    out property <angle> rotation-tooltip-value: 0deg;
+    out property <bool> move-dragging;
+    out property <Point> move-pointer-position;
+    out property <bool> rotating;
+    out property <bool> rotation-tooltip-visible;
+    out property <Point> rotation-tooltip-position;
+    out property <angle> rotation-tooltip-value;
     private property <length> drag-threshold: 2px;
-    private property <bool> resize-pressed: false;
-    private property <bool> resize-dragging: false;
-    private property <bool> resize-shift-pressed: false;
-    private property <CanvasCorner> resize-corner: CanvasCorner.top-left;
-    private property <Size> resize-start-size: { width: 0px, height: 0px };
-    private property <Point> resize-start-pointer: { x: 0px, y: 0px };
-    private property <Point> resize-fixed-corner: { x: 0px, y: 0px };
-    private property <angle> resize-start-rotation: 0deg;
-    private property <Point> free-resize-position: { x: 0px, y: 0px };
-    private property <Size> free-resize-size: { width: 0px, height: 0px };
+    private property <bool> resize-pressed;
+    private property <bool> resize-dragging;
+    private property <bool> resize-shift-pressed;
+    private property <CanvasCorner> resize-corner;
+    private property <Size> resize-start-size;
+    private property <Point> resize-start-pointer;
+    private property <Point> resize-fixed-corner;
+    private property <angle> resize-start-rotation;
+    private property <Point> free-resize-position;
+    private property <Size> free-resize-size;
     in property <bool> resizable: true;
     in property <bool> moveable: true;
     callback selected();
@@ -254,8 +254,8 @@ export component MoveResizeFrame inherits Rectangle {
             accessible-role: AccessibleRole.button;
             accessible-label: root.accessible-prefix + " move handle";
             accessible-enabled: root.moveable;
-            private property <Point> move-start-position: { x: 0px, y: 0px };
-            private property <Point> move-start-pointer: { x: 0px, y: 0px };
+            private property <Point> move-start-position;
+            private property <Point> move-start-pointer;
 
             changed pressed => {
                 if self.pressed {
@@ -293,8 +293,9 @@ export component MoveResizeFrame inherits Rectangle {
                 let moved-far-enough = delta.x.abs() >= root.drag-threshold
                     || delta.y.abs() >= root.drag-threshold;
                 root.move-pointer-position = pointer;
-                if self.pressed && moved-far-enough {
+                if self.pressed && !root.move-dragging && moved-far-enough {
                     root.move-dragging = true;
+                    root.interaction-started();
                 }
                 if root.move-dragging {
                     root.moved-to({
@@ -352,10 +353,10 @@ export component MoveResizeFrame inherits Rectangle {
                     accessible-role: AccessibleRole.button;
                     accessible-label: root.accessible-prefix + " rotate " + root.corner-name(corner);
                     accessible-enabled: root.show-rotation-handles;
-                    private property <bool> event-shift-pressed: false;
+                    private property <bool> event-shift-pressed;
                     private property <angle> start-rotation;
                     private property <angle> start-pointer-angle;
-                    private property <Point> press-position: { x: 0px, y: 0px };
+                    private property <Point> press-position;
 
                     pointer-event(event) => {
                         self.event-shift-pressed = event.modifiers.shift;
@@ -431,7 +432,7 @@ export component MoveResizeFrame inherits Rectangle {
                         accessible-role: AccessibleRole.button;
                         accessible-label: root.accessible-prefix + " resize " + root.corner-name(corner);
                         accessible-enabled: root.resizable;
-                        private property <bool> event-shift-pressed: false;
+                        private property <bool> event-shift-pressed;
 
                         pointer-event(event) => {
                             self.event-shift-pressed = event.modifiers.shift;

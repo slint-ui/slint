@@ -17,10 +17,10 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
 
     width: 240px;
     height: 96px;
-    out property <bool> radius-tooltip-visible: false;
-    out property <Point> radius-tooltip-position: { x: 0px, y: 0px };
-    out property <length> radius-tooltip-value: 0px;
-    private property <bool> radius-handle-active: false;
+    out property <bool> radius-tooltip-visible;
+    out property <Point> radius-tooltip-position;
+    out property <length> radius-tooltip-value;
+    private property <bool> radius-handle-active;
 
     function radius-from-handle(corner: CanvasCorner, pointer-x: length, pointer-y: length) -> length {
         let from-left = root.corner-on-left(corner) ? pointer-x : root.width - pointer-x;
@@ -77,8 +77,8 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
             mouse-cursor: pointer;
             accessible-role: AccessibleRole.button;
             accessible-label: root.accessible-prefix + " radius " + root.corner-name(corner);
-            private property <bool> event-shift-pressed: false;
-            private property <Point> press-position: { x: 0px, y: 0px };
+            private property <bool> event-shift-pressed;
+            private property <Point> press-position;
 
             pointer-event(event) => {
                 self.event-shift-pressed = event.modifiers.shift;

@@ -305,7 +305,6 @@ export component EditorCanvas inherits Rectangle {
                 );
             }
             moved-to(position) => {
-                Hover.element = {};
                 let content-position = {
                     x: position.x - EditorMetrics.phone-outer-padding,
                     y: position.y - EditorMetrics.phone-outer-padding,
