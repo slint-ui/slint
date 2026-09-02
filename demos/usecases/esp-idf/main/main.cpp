@@ -43,7 +43,8 @@ extern "C" void app_main(void)
     slint_esp_init(SlintPlatformConfiguration {
             .size = slint::PhysicalSize({ BSP_LCD_H_RES, BSP_LCD_V_RES }),
             .panel_handle = handles.panel,
-            .touch_handle = touch_handle });
+            .touch_handle = touch_handle,
+            .panel_type = SlintDisplayPanelType::MipiDsiDpi });
 
     run();
 }

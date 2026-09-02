@@ -8,6 +8,26 @@
 #include "esp_lcd_types.h"
 
 /**
+ * The type of LCD peripheral that drives the panel.
+ *
+ * Slint can't detect the peripheral from the panel handle, but needs it to select the matching
+ * display synchronization. On chips that support several peripherals, such as the ESP32-P4,
+ * set the type explicitly if the panel doesn't use the one `Auto` selects.
+ */
+enum class SlintDisplayPanelType {
+    /// Select the peripheral based on the chip's capabilities: the MIPI-DSI DPI peripheral if
+    /// the chip supports MIPI-DSI, otherwise the parallel RGB LCD peripheral.
+    Auto,
+    /// A panel driven by the parallel RGB LCD peripheral (`esp_lcd_new_rgb_panel`).
+    RgbLcd,
+    /// A DPI panel on the MIPI-DSI peripheral (`esp_lcd_new_panel_dpi`).
+    MipiDsiDpi,
+    /// A panel behind another interface (SPI, I80, ...), without peripheral-specific
+    /// synchronization.
+    Other,
+};
+
+/**
  * This data structure configures the Slint platform for use with ESP-IDF, in particular
  * the esp_lcd component (
  * https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/peripherals/lcd.html )
@@ -17,16 +37,18 @@
  *
  * * Single-buffering: Allocate one frame-buffer at a location of your choosing in RAM, and
  *                     set the `buffer1` field.
- * * Double-buffering: Call `esp_lcd_rgb_panel_get_frame_buffer` to obtain two frame buffers
+ * * Double-buffering: Call `esp_lcd_rgb_panel_get_frame_buffer` or
+ *                     `esp_lcd_dpi_panel_get_frame_buffer` to obtain two frame buffers
  *                     allocated by the `esp_lcd` driver and set `buffer1` and `buffer2`.
+ *                     On chips that support several LCD peripherals, also set `panel_type`.
  * * Line-by-line rendering: Set neither `buffer1` nor `buffer2` to instruct Slint to allocate
  *                           a buffer (with MALLOC_CAP_INTERNAL) big enough to hold one line,
  *                           render into it, and send it to the display.
  *
  *  Use single-buffering if you can allocate a buffer in a memory region that allows the esp_lcd
- *  driver to efficiently transfer to the display. Use double-buffering if your driver supports
- *  calling `esp_lcd_rgb_panel_get_frame_buffer` and the buffers can be accessed directly by the
- *  display controller. Use line-by-line rendering if you don't have sufficient memory or rendering
+ *  driver to efficiently transfer to the display. Use double-buffering if the driver for your
+ *  panel provides two frame buffers that the display controller can access directly.
+ *  Use line-by-line rendering if you don't have sufficient memory or rendering
  *  to internal memory (MALLOC_CAP_INTERNAL) and flushing to the display is faster than rendering
  *  into memory buffers that may be slower to access for the CPU.
  *
@@ -55,9 +77,9 @@ struct SlintPlatformConfiguration
     /// The buffer Slint will render into. It must have have the size of at least one frame. Slint
     /// calls esp_lcd_panel_draw_bitmap to flush the buffer to the screen.
     std::optional<std::span<PixelType>> buffer1 = {};
-    /// If specified, this is a second buffer that will be used for double-buffering. Use this if
-    /// your LCD panel supports double buffering: Call `esp_lcd_rgb_panel_get_frame_buffer` to
-    /// obtain two buffers and set `buffer` and `buffer2` in this data structure.
+    /// If specified, this is a second buffer that will be used for double-buffering. Call
+    /// `esp_lcd_rgb_panel_get_frame_buffer` or `esp_lcd_dpi_panel_get_frame_buffer` to obtain
+    /// two driver-allocated buffers and set `buffer1` and `buffer2`.
     std::optional<std::span<PixelType>> buffer2 = {};
     slint::platform::SoftwareRenderer::RenderingRotation rotation =
             slint::platform::SoftwareRenderer::RenderingRotation::NoRotation;
@@ -67,6 +89,9 @@ struct SlintPlatformConfiguration
         [[deprecated("Renamed to byte_swap")]] bool color_swap_16;
         bool byte_swap = false;
     };
+    /// The type of LCD peripheral that drives the panel. Only set this on chips that support
+    /// several peripherals, such as the ESP32-P4.
+    SlintDisplayPanelType panel_type = SlintDisplayPanelType::Auto;
 };
 
 template<typename... Args>
