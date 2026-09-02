@@ -22,27 +22,18 @@ component PhoneChrome inherits Rectangle {
 }
 
 export component EditorCanvas inherits Rectangle {
-    in property <bool> shift-pressed: false;
+    in property <bool> shift-pressed;
+    private property <length> phone-canvas-top: max(
+        40px,
+        (root.height - EditorMetrics.phone-portrait-height) / 2,
+    );
 
     accessible-role: AccessibleRole.main;
     accessible-label: "Editor canvas";
 
     callback real-element-selected();
 
-    horizontal-stretch: 1;
     background: StudioTheme.canvas;
-
-    function phone-width() -> length {
-        return EditorMetrics.phone-portrait-width;
-    }
-
-    function phone-height() -> length {
-        return EditorMetrics.phone-portrait-height;
-    }
-
-    function phone-canvas-top() -> length {
-        return max(40px, (root.height - root.phone-height()) / 2);
-    }
 
     for row in 28: Rectangle {
         y: row * 32px;
@@ -57,8 +48,6 @@ export component EditorCanvas inherits Rectangle {
     }
 
     TouchArea {
-        width: root.width;
-        height: root.height;
         mouse-cursor: EditorCursors.canvas-default;
 
         clicked => {
@@ -68,7 +57,7 @@ export component EditorCanvas inherits Rectangle {
 
     Rectangle {
         x: (parent.width - phone.width) / 2;
-        y: root.phone-canvas-top() + 18px;
+        y: root.phone-canvas-top + 18px;
         width: phone.width;
         height: phone.height;
         border-radius: EditorMetrics.phone-frame-radius;
@@ -79,14 +68,14 @@ export component EditorCanvas inherits Rectangle {
 
     phone := Rectangle {
         x: (parent.width - self.width) / 2;
-        y: root.phone-canvas-top();
-        width: root.phone-width();
-        height: root.phone-height();
+        y: root.phone-canvas-top;
+        width: EditorMetrics.phone-portrait-width;
+        height: EditorMetrics.phone-portrait-height;
         border-radius: EditorMetrics.phone-frame-radius;
         border-width: 1px;
         border-color: StudioTheme.border;
 
-        touch := TouchArea {
+        TouchArea {
             mouse-cursor: EditorCursors.canvas-default;
             clicked => {
                 Api.unselect();
@@ -137,12 +126,10 @@ export component EditorCanvas inherits Rectangle {
                 }
             }
 
-            property <DropMark> drop-mark <=> Api.drop-mark;
+            property <DropMark> drop-mark: Api.drop-mark;
             if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
-                property <length> mark-x: min(drop-mark.x1, drop-mark.x2);
-                property <length> mark-y: min(drop-mark.y1, drop-mark.y2);
-                x: mark-x;
-                y: mark-y;
+                x: min(drop-mark.x1, drop-mark.x2);
+                y: min(drop-mark.y1, drop-mark.y2);
                 width: max((drop-mark.x2 - drop-mark.x1).abs(), 2px);
                 height: max((drop-mark.y2 - drop-mark.y1).abs(), 2px);
                 border-color: StudioTheme.drop-mark-foreground;
@@ -153,6 +140,10 @@ export component EditorCanvas inherits Rectangle {
         }
 
         CanvasInteractionLayer {
+            x: EditorMetrics.phone-outer-padding;
+            y: EditorMetrics.phone-outer-padding;
+            width: parent.width - 2 * EditorMetrics.phone-outer-padding;
+            height: parent.height - 2 * EditorMetrics.phone-outer-padding;
             shift-pressed: root.shift-pressed;
             real-element-selected => {
                 root.real-element-selected();

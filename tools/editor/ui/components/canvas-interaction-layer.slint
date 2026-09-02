@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Api, Hover, SelectionRectangle } from "../api.slint";
-import { EditorCursors, EditorMetrics, StudioTheme } from "common.slint";
+import { EditorCursors, StudioTheme } from "common.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
@@ -43,11 +43,11 @@ component SelectedCanvasFrame inherits Rectangle {
     in property <bool> interaction-disabled;
     callback pointer-hovered(Point);
 
-    private property <bool> geometry-drag-active: false;
-    private property <Point> geometry-drag-position: { x: 0px, y: 0px };
-    private property <Size> geometry-drag-size: { width: 0px, height: 0px };
-    private property <bool> rotation-active: false;
-    private property <angle> pending-rotation: 0deg;
+    private property <bool> geometry-drag-active;
+    private property <Point> geometry-drag-position;
+    private property <Size> geometry-drag-size;
+    private property <bool> rotation-active;
+    private property <angle> pending-rotation;
 
     function current-corner-radius(property-name: string) -> length {
         let corner = Api.current-property-value-data(property-name);
@@ -63,8 +63,8 @@ component SelectedCanvasFrame inherits Rectangle {
         // Push live geometry so the previewed element follows the drag through
         // debug-hook overrides without writing to disk.
         Api.override-selected-element-geometry(
-            position.x - EditorMetrics.phone-outer-padding,
-            position.y - EditorMetrics.phone-outer-padding,
+            position.x,
+            position.y,
             size.width,
             size.height,
         );
@@ -87,10 +87,10 @@ component SelectedCanvasFrame inherits Rectangle {
     frame := BorderRadiusFrame {
         x: root.geometry-drag-active && root.primary
             ? root.geometry-drag-position.x
-            : root.selection.x + EditorMetrics.phone-outer-padding;
+            : root.selection.x;
         y: root.geometry-drag-active && root.primary
             ? root.geometry-drag-position.y
-            : root.selection.y + EditorMetrics.phone-outer-padding;
+            : root.selection.y;
         width: root.geometry-drag-active && root.primary
             ? root.geometry-drag-size.width
             : root.selection.width;
@@ -126,10 +126,7 @@ component SelectedCanvasFrame inherits Rectangle {
         }
         pointer-moved(position) => {
             if !self.move-pressed {
-                root.pointer-hovered({
-                    x: position.x - EditorMetrics.phone-outer-padding,
-                    y: position.y - EditorMetrics.phone-outer-padding,
-                });
+                root.pointer-hovered(position);
             }
         }
         radius-changed(corner, radius, single-corner) => {
@@ -183,16 +180,16 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     callback pointer-hovered(Point);
     callback real-element-selected();
 
-    private property <bool> geometry-drag-active: false;
-    private property <Point> geometry-drag-position: { x: 0px, y: 0px };
-    private property <Size> geometry-drag-size: { width: 0px, height: 0px };
+    private property <bool> geometry-drag-active;
+    private property <Point> geometry-drag-position;
+    private property <Size> geometry-drag-size;
 
     visible: Hover.element.valid && !Hover.element.is-selected;
     enabled: root.visible
         && !Hover.element.is-over-selected-element
         && (!root.gesture-active || root.move-pressed);
-    x: root.geometry.x + EditorMetrics.phone-outer-padding;
-    y: root.geometry.y + EditorMetrics.phone-outer-padding;
+    x: root.geometry.x;
+    y: root.geometry.y;
     width: root.geometry.width;
     height: root.geometry.height;
     rotation: root.geometry.angle;
@@ -213,8 +210,8 @@ component HoverCanvasFrame inherits MoveResizeFrame {
             height: root.geometry.height,
         };
         Api.override-selected-element-geometry(
-            position.x - EditorMetrics.phone-outer-padding,
-            position.y - EditorMetrics.phone-outer-padding,
+            position.x,
+            position.y,
             root.geometry.width,
             root.geometry.height,
         );
@@ -256,10 +253,7 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     }
     pointer-moved(position) => {
         if !root.gesture-active {
-            root.pointer-hovered({
-                x: position.x - EditorMetrics.phone-outer-padding,
-                y: position.y - EditorMetrics.phone-outer-padding,
-            });
+            root.pointer-hovered(position);
         }
     }
 
@@ -274,10 +268,10 @@ component HoverCanvasFrame inherits MoveResizeFrame {
 }
 
 export component CanvasInteractionLayer inherits Rectangle {
-    in property <bool> shift-pressed: false;
-    private property <Point> hovered-hit-position: { x: 0px, y: 0px };
+    in property <bool> shift-pressed;
+    private property <Point> hovered-hit-position;
     // Coordinates the selected and hover frames while a hovered item owns the pointer gesture.
-    private property <bool> hover-selection-active: false;
+    private property <bool> hover-selection-active;
     // Guard on highlight-index >= 0: after Api.unselect(), the backend still populates
     // current-element with the component root. Its frame would intercept future selections.
     private property <[SelectionRectangle]> selections: Api.selection.highlight-index >= 0
@@ -297,10 +291,8 @@ export component CanvasInteractionLayer inherits Rectangle {
     // Click to select the real previewed element. This sits on top of the live
     // preview so it intercepts clicks. Its pointer positions are in content coordinates.
     selection-area := TouchArea {
-        x: EditorMetrics.phone-outer-padding;
-        y: EditorMetrics.phone-outer-padding;
-        width: parent.width - 2 * EditorMetrics.phone-outer-padding;
-        height: parent.height - 2 * EditorMetrics.phone-outer-padding;
+        width: root.width;
+        height: root.height;
         mouse-cursor: EditorCursors.canvas-default;
         clicked => {
             Api.unselect();
