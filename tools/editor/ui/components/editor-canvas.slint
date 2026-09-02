@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, CanvasCorner, DropMark, HoveredElement, SelectionRectangle } from "../api.slint";
+import { Api, CanvasCorner, DropMark, Hover, SelectionRectangle } from "../api.slint";
 import { AppState, EditorCursors, EditorMetrics, PaletteComponentKind, StudioTheme } from "common.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
@@ -44,9 +44,9 @@ export component EditorCanvas inherits Rectangle {
     private property <Size> selection-drag-size;
     private property <bool> selection-rotation-active: false;
     private property <angle> selection-rotation;
-    private property <HoveredElement> hovered-element: root.empty-hovered-element();
     private property <Point> hovered-hit-position: { x: 0px, y: 0px };
     private property <bool> hover-press-active: false;
+    private property <int> hover-press-index: -1;
 
     accessible-role: AccessibleRole.main;
     accessible-label: "Editor canvas";
@@ -87,22 +87,7 @@ export component EditorCanvas inherits Rectangle {
             return;
         }
         root.hovered-hit-position = position;
-        root.hovered-element = Api.hovered-element-at(position.x, position.y, false);
-    }
-
-    pure function empty-hovered-element() -> HoveredElement {
-        return {
-            valid: false,
-            is-selected: false,
-            element-path: "",
-            element-offset: 0,
-            type-name: "",
-            x: 0px,
-            y: 0px,
-            width: 0px,
-            height: 0px,
-            angle: 0deg,
-        };
+        Hover.element = Api.hovered-element-at(position.x, position.y, false);
     }
 
     for row in 28: Rectangle {
@@ -250,6 +235,7 @@ export component EditorCanvas inherits Rectangle {
             accessible-prefix: Api.current-element.type-name;
             active: !root.hover-press-active;
             shift-pressed: root.shift-pressed;
+            show-resize-handles: primary;
             show-rotation-handles: primary;
             enable-border-radius-edits: Api.current-element.type-name == "Rectangle";
             top-left-radius: root.current-corner-radius("border-top-left-radius");
@@ -270,6 +256,7 @@ export component EditorCanvas inherits Rectangle {
             }
             interaction-started => {
                 root.selection-rotation-active = false;
+                Hover.element = {};
             }
             pointer-moved(position) => {
                 if !self.move-pressed {
@@ -318,6 +305,7 @@ export component EditorCanvas inherits Rectangle {
                 );
             }
             moved-to(position) => {
+                Hover.element = {};
                 let content-position = {
                     x: position.x - EditorMetrics.phone-outer-padding,
                     y: position.y - EditorMetrics.phone-outer-padding,
@@ -347,29 +335,32 @@ export component EditorCanvas inherits Rectangle {
             }
         }
 
-        hover-frame := MoveResizeFrame {
-            visible: root.hovered-element.valid && !root.hovered-element.is-selected;
-            enabled: self.visible;
-            x: root.hovered-element.x + EditorMetrics.phone-outer-padding;
-            y: root.hovered-element.y + EditorMetrics.phone-outer-padding;
-            width: root.hovered-element.width;
-            height: root.hovered-element.height;
-            rotation: root.hovered-element.angle;
-            active: true;
-            moveable: root.hovered-element.angle == 0deg;
+        for geometry[geometry-index] in Hover.element.geometry: hover-frame := MoveResizeFrame {
+            private property <bool> pressed-frame: geometry-index == root.hover-press-index;
+            visible: Hover.element.valid && !Hover.element.is-selected;
+            enabled: self.visible
+                && !Hover.element.is-over-selected-element
+                && (!root.hover-press-active || self.pressed-frame);
+            x: geometry.x + EditorMetrics.phone-outer-padding;
+            y: geometry.y + EditorMetrics.phone-outer-padding;
+            width: geometry.width;
+            height: geometry.height;
+            rotation: geometry.angle;
+            active: !root.hover-press-active || self.pressed-frame;
+            moveable: geometry.angle == 0deg;
             resizable: false;
             show-resize-handles: false;
             show-rotation-handles: false;
-            accessible-prefix: "Hovered " + root.hovered-element.type-name;
+            accessible-prefix: "Hovered " + Hover.element.type-name;
             accessible-role: AccessibleRole.region;
-            accessible-label: "Hovered " + root.hovered-element.type-name;
+            accessible-label: "Hovered " + Hover.element.type-name;
 
             states [
-                pressed when root.hover-press-active && !root.selection-drag-active: {
-                    visible: root.hovered-element.valid;
+                pressed when self.pressed-frame && root.hover-press-active && !root.selection-drag-active: {
+                    visible: Hover.element.valid;
                 }
-                dragging when root.hover-press-active && root.selection-drag-active: {
-                    visible: root.hovered-element.valid;
+                dragging when self.pressed-frame && root.hover-press-active && root.selection-drag-active: {
+                    visible: Hover.element.valid;
                     x: root.selection-drag-position.x;
                     y: root.selection-drag-position.y;
                     width: root.selection-drag-size.width;
@@ -379,15 +370,16 @@ export component EditorCanvas inherits Rectangle {
 
             changed frame-hover => {
                 if !self.frame-hover && !selection-area.has-hover && !root.hover-press-active {
-                    root.hovered-element = root.empty-hovered-element();
+                    Hover.element = {};
                 }
             }
             selected => {
                 if !root.hover-press-active {
+                    root.hover-press-index = geometry-index;
                     root.hover-press-active = true;
                     Api.select-element(
-                        root.hovered-element.element-path,
-                        root.hovered-element.element-offset,
+                        Hover.element.element-path,
+                        Hover.element.element-offset,
                         root.hovered-hit-position.x,
                         root.hovered-hit-position.y,
                     );
@@ -402,14 +394,14 @@ export component EditorCanvas inherits Rectangle {
                 root.selection-drag-active = true;
                 root.selection-drag-position = position;
                 root.selection-drag-size = {
-                    width: root.hovered-element.width,
-                    height: root.hovered-element.height,
+                    width: geometry.width,
+                    height: geometry.height,
                 };
                 Api.override-selected-element-geometry(
                     content-position.x,
                     content-position.y,
-                    root.hovered-element.width,
-                    root.hovered-element.height,
+                    geometry.width,
+                    geometry.height,
                 );
             }
             move-released => {
@@ -419,7 +411,8 @@ export component EditorCanvas inherits Rectangle {
                     }
                     root.selection-drag-active = false;
                     root.hover-press-active = false;
-                    root.hovered-element = root.empty-hovered-element();
+                    root.hover-press-index = -1;
+                    Hover.element = {};
                 }
             }
             pointer-moved(position) => {

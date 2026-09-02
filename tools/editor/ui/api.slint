@@ -119,14 +119,15 @@ export struct SelectionRectangle {
 export struct HoveredElement {
     valid: bool,
     is-selected: bool,
+    is-over-selected-element: bool,
     element-path: string,
     element-offset: int,
     type-name: string,
-    x: length,
-    y: length,
-    width: length,
-    height: length,
-    angle: angle,
+    geometry: [SelectionRectangle],
+}
+
+export global Hover {
+    in-out property <HoveredElement> element;
 }
 
 /// A `Selection`

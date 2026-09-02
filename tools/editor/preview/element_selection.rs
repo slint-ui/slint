@@ -415,18 +415,26 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
     select_element_node(&component_instance, &en, Some(position));
 }
 
-fn type_name(en: &i_slint_editor_preview::ElementRcNode) -> String {
-    en.with_element_debug(|di| {
-        di.node
+fn type_name(element_node: &i_slint_editor_preview::ElementRcNode) -> String {
+    element_node.with_element_debug(|debug_info| {
+        debug_info
+            .node
             .parent()
-            .and_then(|p| {
-                if p.kind() == SyntaxKind::Component {
-                    p.child_node(SyntaxKind::DeclaredIdentifier).map(|t| t.text().to_string())
+            .and_then(|parent| {
+                if parent.kind() == SyntaxKind::Component {
+                    parent
+                        .child_node(SyntaxKind::DeclaredIdentifier)
+                        .map(|identifier| identifier.text().to_string())
                 } else {
                     None
                 }
             })
-            .or_else(|| di.node.QualifiedName().map(|qn| qn.text().to_string().trim().to_string()))
+            .or_else(|| {
+                debug_info
+                    .node
+                    .QualifiedName()
+                    .map(|qualified_name| qualified_name.text().to_string().trim().to_string())
+            })
             .unwrap_or_default()
             .trim()
             .to_string()
@@ -454,18 +462,26 @@ fn hovered_element_at_impl(
             && selection.offset == offset
             && selection.instance_index == candidate.instance_index
     });
+    let is_over_selected_element = selected.is_some_and(|selection| {
+        component_instance
+            .component_positions(&selection.path, selection.offset.into())
+            .get(selection.instance_index)
+            .is_some_and(|geometry| geometry.contains(position))
+    });
 
     ui::HoveredElement {
         valid: true,
         is_selected,
+        is_over_selected_element,
         element_path: path.to_string_lossy().to_string().into(),
         element_offset: i32::try_from(u32::from(offset)).unwrap_or_default(),
         type_name: type_name(&element_node).into(),
-        x: candidate.geometry.rect.origin.x,
-        y: candidate.geometry.rect.origin.y,
-        width: candidate.geometry.rect.size.width,
-        height: candidate.geometry.rect.size.height,
-        angle: candidate.geometry.angle,
+        geometry: Rc::new(VecModel::from(selection_rectangles(
+            component_instance,
+            &path,
+            offset.into(),
+        )))
+        .into(),
     }
 }
 
@@ -766,6 +782,7 @@ mod tests {
 
     use i_slint_compiler::parser::TextSize;
     use i_slint_core::lengths::LogicalPoint;
+    use slint::Model;
     use slint_interpreter::ComponentInstance;
 
     fn demo_app() -> ComponentInstance {
@@ -1126,11 +1143,15 @@ export component MyInput {
             hovered.element_offset,
             i32::try_from(u32::from(expected_path_and_offset.1)).unwrap()
         );
-        assert_eq!(hovered.x, candidate.geometry.rect.origin.x);
-        assert_eq!(hovered.y, candidate.geometry.rect.origin.y);
-        assert_eq!(hovered.width, candidate.geometry.rect.size.width);
-        assert_eq!(hovered.height, candidate.geometry.rect.size.height);
-        assert_eq!(hovered.angle, candidate.geometry.angle);
+        let hovered_geometry = hovered
+            .geometry
+            .row_data(candidate.instance_index)
+            .expect("the hovered instance should have geometry");
+        assert_eq!(hovered_geometry.x, candidate.geometry.rect.origin.x);
+        assert_eq!(hovered_geometry.y, candidate.geometry.rect.origin.y);
+        assert_eq!(hovered_geometry.width, candidate.geometry.rect.size.width);
+        assert_eq!(hovered_geometry.height, candidate.geometry.rect.size.height);
+        assert_eq!(hovered_geometry.angle, candidate.geometry.angle);
 
         let outside = super::hovered_element_at_impl(
             &component_instance,
@@ -1217,7 +1238,9 @@ export component Demo inherits Window {{
         assert!(first.valid && second.valid);
         assert_eq!(first.element_path, second.element_path);
         assert_eq!(first.element_offset, second.element_offset);
-        assert_ne!(first.x, second.x);
+        assert_eq!(first.geometry.row_count(), 2);
+        assert_eq!(second.geometry.row_count(), 2);
+        assert_ne!(first.geometry.row_data(0).unwrap().x, first.geometry.row_data(1).unwrap().x);
 
         let selection = super::ElementSelection {
             path: PathBuf::from(first.element_path.to_string()),
@@ -1238,5 +1261,7 @@ export component Demo inherits Window {{
         );
         assert!(selected_second.is_selected);
         assert!(!selected_first.is_selected);
+        assert!(selected_second.is_over_selected_element);
+        assert!(!selected_first.is_over_selected_element);
     }
 }

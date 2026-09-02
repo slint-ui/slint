@@ -338,7 +338,7 @@ def test_overlapping_elements_update_hover_outline_to_topmost_item(
         snapshot.assert_unchanged()
 
 
-def test_selected_element_frame_refreshes_hover_outline_for_overlapping_item(
+def test_overlapping_hover_does_not_intercept_selected_element_drag(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
@@ -355,28 +355,51 @@ def test_selected_element_frame_refreshes_hover_outline_for_overlapping_item(
             x=artboard.absolute_position.x + 200,
             y=artboard.absolute_position.y + 80,
         )
+        window.dispatch_event(slint_testing.PointerMoveEvent(overlapping))
+        window_element_with_label(window, "Hovered Text")
+        initial_frame = selection_frame(window, "Rectangle")
+        target = slint_testing.LogicalPosition(
+            x=overlapping.x + 20,
+            y=overlapping.y + 16,
+        )
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(overlapping, button))
-        window.dispatch_event(
-            slint_testing.PointerMoveEvent(
-                slint_testing.LogicalPosition(
-                    x=overlapping.x + 1,
-                    y=overlapping.y + 1,
-                )
-            )
-        )
-        assert not elements_with_label(window.root_element, "Hovered Text")
-        window.dispatch_event(slint_testing.PointerReleaseEvent(overlapping, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(overlapping))
+        window.dispatch_event(slint_testing.PointerMoveEvent(target))
+        assert selection_frame(window, "Rectangle") != initial_frame
+        assert not elements_with_label(window.root_element, "Selected Text")
         wait_until(
             lambda: (
                 True
-                if elements_with_label(window.root_element, "Hovered Text")
-                and not elements_with_label(window.root_element, "Hovered Rectangle")
+                if not elements_with_label(window.root_element, "Hovered Text")
                 else None
             )
         )
-        snapshot.assert_unchanged()
+        snapshot.assert_unchanged_now()
+        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+
+
+def test_hover_outside_selected_element_can_select_and_drag_child(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_fixture_element(window, "Rectangle")
+        start = center(fixture_element(window, "Text"))
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window_element_with_label(window, "Hovered Text")
+        target = slint_testing.LogicalPosition(x=start.x + 20, y=start.y + 16)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window_element_with_label(window, "Selected Text")
+        initial_frame = selection_frame(window, "Text")
+        window.dispatch_event(slint_testing.PointerMoveEvent(target))
+        assert selection_frame(window, "Text") != initial_frame
+        snapshot.assert_unchanged_now()
+        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
 
 
 def test_selected_element_does_not_get_a_duplicate_hover_outline(
