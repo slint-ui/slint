@@ -57,6 +57,7 @@ For comments in source code — both internal implementation notes and public AP
 4. Never write what the code used to be, or what a review said about it.
    - Avoid: "the review found this wrong", "this used to be unrounded", "round 3", "see the commit message".
    - Use: a bare issue reference such as `#6739` when the background is worth chasing.
+   - Exception: a regression test may state the old, wrong behavior, since pinning it is why the test exists.
    - Rationale: The next reader needs the code's current contract, not the discussion that produced it; `git log` and `git blame` already keep the discussion.
 5. Keep a doc comment under about ten lines.
    - Use: a page under `docs/development/` for anything longer, linked from the comment.
