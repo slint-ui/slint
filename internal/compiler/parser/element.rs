@@ -655,10 +655,7 @@ fn parse_member_attributes(p: &mut impl Parser) -> Option<&'static str> {
         }
         if is_deprecated && p.test(SyntaxKind::LParent) {
             let peek = p.peek();
-            if peek.kind() != SyntaxKind::StringLiteral
-                || !peek.as_str().starts_with('"')
-                || !peek.as_str().ends_with('"')
-            {
+            if !peek.is_plain_string_literal() {
                 p.error("@deprecated message must be a plain string literal, without any '\\{}' expressions");
                 p.until(SyntaxKind::RParent);
             } else {

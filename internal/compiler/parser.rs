@@ -532,6 +532,12 @@ impl Token {
     pub fn kind(&self) -> SyntaxKind {
         self.kind
     }
+
+    pub fn is_plain_string_literal(&self) -> bool {
+        self.kind() == SyntaxKind::StringLiteral
+            && self.as_str().starts_with('"')
+            && self.as_str().ends_with('"')
+    }
 }
 
 mod parser_trait {
