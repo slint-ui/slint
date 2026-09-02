@@ -155,10 +155,10 @@ export component ScrollView {
     @shadowable in-out property <length> content-height <=> flickable.content-height;
     @shadowable in-out property <length> content-x <=> flickable.content-x;
     @shadowable in-out property <length> content-y <=> flickable.content-y;
-    @deprecated("") in-out property <length> viewport-width <=> content-width;
-    @deprecated("") in-out property <length> viewport-height <=> content-height;
-    @deprecated("") in-out property <length> viewport-x <=> content-x;
-    @deprecated("") in-out property <length> viewport-y <=> content-y;
+    @deprecated("Please use 'content-width' instead") in-out property <length> viewport-width <=> content-width;
+    @deprecated("Please use 'content-height' instead") in-out property <length> viewport-height <=> content-height;
+    @deprecated("Please use 'content-x' instead") in-out property <length> viewport-x <=> content-x;
+    @deprecated("Please use 'content-y' instead") in-out property <length> viewport-y <=> content-y;
     in property <ScrollBarPolicy> vertical-scrollbar-policy <=> vertical-bar.policy;
     in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> horizontal-bar.policy;
     in property <bool> mouse-drag-pan-enabled <=> flickable.mouse-drag-pan-enabled;

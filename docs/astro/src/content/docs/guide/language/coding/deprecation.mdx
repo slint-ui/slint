@@ -14,26 +14,28 @@ This lets a component evolve its public API while giving users a migration path 
 Prefix the declaration with `@deprecated`, followed by the message in parentheses:
 
 ```slint no-test
-@deprecated("Compute it from 'new-prop' instead") in-out property <int> older-prop: 42;
+@deprecated("Please use 'new-prop' instead") in-out property <int> old-prop <=> new-prop;
 ```
 
-Accessing `older-prop` then warns with `The property 'older-prop' has been deprecated. Compute it from 'new-prop' instead`.
+Accessing `old-prop` then warns with `The property 'old-prop' has been deprecated. Please use 'new-prop' instead`.
 
-When the replacement is a single property of the same element, bind to it with `<=>` and leave the message empty.
-The compiler derives the message from the two-way binding target:
+Write the message you want the user to read.
+There is no inference from the declaration, so say what replaces the member, even when it aliases its replacement with `<=>`.
+
+When nothing replaces the member, leave the message empty:
 
 ```slint no-test
-@deprecated("") in-out property <int> old-prop <=> new-prop;
+@deprecated("") in-out property <int> going-away;
 ```
 
-An access to `old-prop` then warns with `Please use 'new-prop' instead`.
+The warning then just reads `The property 'going-away' has been deprecated`.
 
 ## Example
 
 ```slint
 component Inner {
     in-out property <int> new-prop;
-    @deprecated("") in-out property <int> old-prop <=> new-prop;
+    @deprecated("Please use 'new-prop' instead") in-out property <int> old-prop <=> new-prop;
 
     // No warning: accesses within the declaring component are fine.
     in-out property <int> internal: old-prop;
@@ -52,10 +54,7 @@ export component Example {
 ## Rules
 
 - The message is mandatory.
-  Write `@deprecated("")` to derive it from the two-way binding target.
-- With an empty message, the declaration must use a two-way binding (`<=>`) whose target is a public property of the same element, so the replacement can be derived and reached by callers.
-  Otherwise, provide an explicit message.
-- A function has no two-way binding to derive from, so it always needs a non-empty message.
+  Write `@deprecated("")` to deprecate without advising on a replacement.
 - The message must be a plain string literal, without any `\{}` expressions.
 - Accessing a deprecated member is only a warning, never an error, so existing code keeps compiling.
 - Accesses from within the declaring component don't warn, since that component still needs to implement the member.

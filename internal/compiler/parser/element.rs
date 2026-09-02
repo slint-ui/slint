@@ -655,7 +655,7 @@ fn parse_member_attributes(p: &mut impl Parser) -> Option<&'static str> {
         }
         if is_deprecated {
             if !p.test(SyntaxKind::LParent) {
-                p.error("@deprecated requires a message in parentheses. Use '@deprecated(\"\")' to derive the message from the two-way binding target");
+                p.error("@deprecated requires a message in parentheses. Use '@deprecated(\"\")' to deprecate without advising on a replacement");
             } else {
                 let peek = p.peek();
                 if peek.kind() != SyntaxKind::StringLiteral
