@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Without a custom message, the replacement is derived from the two-way binding
+// With an empty message, the replacement is derived from the two-way binding
 // target, which must be a public property of the same element. This checks the
 // derivation, the reachability errors, and that every access path warns.
 
@@ -18,15 +18,15 @@ component Inner {
     callback tapped();
 
     // Reachable targets: the hint keeps the full path, minus a leading self/root.
-    @deprecated in-out property <int> to-public <=> public-prop;
-    @deprecated in-out property <int> to-self <=> self.public-prop;
-    @deprecated in-out property <int> to-struct <=> a-struct.field;
+    @deprecated("") in-out property <int> to-public <=> public-prop;
+    @deprecated("") in-out property <int> to-self <=> self.public-prop;
+    @deprecated("") in-out property <int> to-struct <=> a-struct.field;
 
     // Unreachable targets require an explicit message.
-    @deprecated in-out property <int> to-private <=> private-prop;
-//                                               >               <error{@deprecated without a message derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated("...") message instead}
-    @deprecated in-out property <int> to-sub <=> sub.inner-property;
-//                                           >                     <error{@deprecated without a message derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated("...") message instead}
+    @deprecated("") in-out property <int> to-private <=> private-prop;
+//                                                   >               <error{@deprecated("") derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated("...") message instead}
+    @deprecated("") in-out property <int> to-sub <=> sub.inner-property;
+//                                               >                     <error{@deprecated("") derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated("...") message instead}
 
     // An explicit message lifts the requirement on the target.
     @deprecated("Use 'private-prop' internally") in-out property <int> with-message <=> private-prop;
@@ -35,16 +35,16 @@ component Inner {
 export component Test {
     in-out property <int> root-prop;
 
-    // @deprecated also applies to a property of a nested element, relative to it.
+    // @deprecated("") also applies to a property of a nested element, relative to it.
     the-rect := Rectangle {
         in-out property <int> rn;
         private property <int> rp;
-        @deprecated in-out property <int> re-ok <=> rn;
-        @deprecated in-out property <int> re-private <=> rp;
-//                                                   >     <error{@deprecated without a message derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated("...") message instead}
+        @deprecated("") in-out property <int> re-ok <=> rn;
+        @deprecated("") in-out property <int> re-private <=> rp;
+//                                                       >     <error{@deprecated("") derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated("...") message instead}
         // Target on another element (the component root) is not reachable here.
-        @deprecated in-out property <int> re-root <=> root.root-prop;
-//                                                >                 <error{@deprecated without a message derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated("...") message instead}
+        @deprecated("") in-out property <int> re-root <=> root.root-prop;
+//                                                    >                 <error{@deprecated("") derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated("...") message instead}
         @deprecated("Use rn") in-out property <int> re-msg <=> rp;
     }
 
