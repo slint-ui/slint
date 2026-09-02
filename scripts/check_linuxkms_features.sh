@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cSpell: ignore DSLINT
 #
 # Assert how the LinuxKMS backend features resolve to the libseat and libinput
 # system dependencies.
@@ -13,7 +14,8 @@
 # wrong compiles perfectly well and silently changes what an application links
 # against, so it is checked here rather than left to review.
 #
-# Runs `cargo tree` only, no compilation, and needs no system libraries.
+# Runs `cargo tree` and CMake on a project without languages only, no compilation,
+# and needs no system libraries.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -77,6 +79,28 @@ expect "default + backend-linuxkms" true true \
 expect "default + backend-linuxkms-noseat" false true \
     -p slint-interpreter --features backend-linuxkms-noseat
 
+# expect_cmake <description> <want-libseat> <want-libinput> <cmake -D options...>
+# Configures api/cpp/cmake/SlintFeatures.cmake with the options in a fresh build
+# directory and resolves the cargo features it selects for slint-cpp.
+cmake_dir=$(mktemp -d)
+trap 'rm -rf "$cmake_dir"' EXIT
+cat > "$cmake_dir/CMakeLists.txt" <<EOF
+cmake_minimum_required(VERSION 3.21)
+project(check NONE)
+include($PWD/api/cpp/cmake/SlintFeatures.cmake)
+message(STATUS "features=\${features}")
+EOF
+configure() {
+    cmake -S "$cmake_dir" -B "$cmake_dir/build" "$@" | sed -n 's/^-- features=//p' | tr ';' ','
+}
+expect_cmake() {
+    local desc=$1 want_seat=$2 want_input=$3; shift 3
+    local features
+    rm -rf "$cmake_dir/build"
+    features=$(configure "$@")
+    expect "$desc" "$want_seat" "$want_input" -p slint-cpp --features "$features"
+}
+
 echo "== slint-cpp: each CMake option selects a capability, and they compose =="
 expect "backend-linuxkms" false false \
     -p slint-cpp --features backend-linuxkms
@@ -86,6 +110,23 @@ expect "backend-linuxkms-libinput" false true \
     -p slint-cpp --features backend-linuxkms-libinput
 expect "backend-linuxkms-libseat + libinput" true true \
     -p slint-cpp --features backend-linuxkms-libseat,backend-linuxkms-libinput
+
+echo "== CMake: SLINT_FEATURE_BACKEND_LINUXKMS selects both, the capabilities compose =="
+expect_cmake "no LinuxKMS option" false false
+expect_cmake "BACKEND_LINUXKMS" true true \
+    -DSLINT_FEATURE_BACKEND_LINUXKMS=ON
+expect_cmake "BACKEND_LINUXKMS + LIBSEAT=OFF" false true \
+    -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT=OFF
+expect_cmake "BACKEND_LINUXKMS + LIBSEAT=OFF + LIBINPUT=OFF" false false \
+    -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT=OFF
+expect_cmake "BACKEND_LINUXKMS_LIBSEAT" true false \
+    -DSLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT=ON
+expect_cmake "BACKEND_LINUXKMS_LIBINPUT" false true \
+    -DSLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT=ON
+expect_cmake "BACKEND_LINUXKMS_NOSEAT (deprecated)" false true \
+    -DSLINT_FEATURE_BACKEND_LINUXKMS_NOSEAT=ON
+expect_cmake "FREESTANDING + BACKEND_LINUXKMS" false false \
+    -DSLINT_FEATURE_FREESTANDING=ON -DSLINT_FEATURE_BACKEND_LINUXKMS=ON
 
 echo "== bindings and tools: default builds ship libinput, never libseat =="
 expect "slint-node (default)" false true \
