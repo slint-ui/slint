@@ -725,6 +725,18 @@ fn consume_plain_string_literal(
     which: Option<&str>,
 ) -> bool {
     let peek = p.peek();
+    if peek.kind() != SyntaxKind::StringLiteral {
+        p.error(match which {
+            None => format!("{function_name} must contain a plain path as a string literal"),
+            Some(which) => {
+                format!(
+                    "{function_name}'s {which} argument must be a plain path as a string literal"
+                )
+            }
+        });
+        p.until(SyntaxKind::RParent);
+        return false;
+    }
     if !peek.is_plain_string_literal() {
         p.error(match which {
             None => format!("{function_name} must contain a plain path as a string literal, without any '\\{{}}' expressions"),
