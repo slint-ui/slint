@@ -9,7 +9,7 @@
 use crate::Value;
 use core::pin::Pin;
 use i_slint_core::graphics::Brush;
-use i_slint_core::items::{ItemVTable, PropertyAnimation};
+use i_slint_core::items::{AngleInterpolation, ItemVTable, PropertyAnimation};
 use i_slint_core::properties::InterpolatedPropertyValue;
 use i_slint_core::rtti::{AnimatedBindingKind, TwoWayBindingMapping};
 use i_slint_core::{Callback, Property};
@@ -82,6 +82,15 @@ impl InterpolatedPropertyValue for Value {
             }
             (Value::Brush(a), Value::Brush(b)) => Value::Brush(Brush::interpolate(a, b, t)),
             _ => target.clone(),
+        }
+    }
+
+    fn interpolate_with_mode(&self, target: &Self, t: f32, mode: AngleInterpolation) -> Self {
+        match (self, target) {
+            (Value::Number(a), Value::Number(b)) => {
+                Value::Number((*a as f32).interpolate_with_mode(&(*b as f32), t, mode) as f64)
+            }
+            _ => self.interpolate(target, t),
         }
     }
 }

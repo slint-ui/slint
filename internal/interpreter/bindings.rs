@@ -518,6 +518,11 @@ pub(crate) fn value_to_property_animation(v: Value) -> PropertyAnimation {
     if let Some(Value::Bool(b)) = s.get_field("enabled") {
         anim.enabled = *b;
     }
+    if let Some(angle_interpolation) = s.get_field("angle-interpolation")
+        && let Ok(parsed) = angle_interpolation.clone().try_into()
+    {
+        anim.angle_interpolation = parsed;
+    }
     anim
 }
 
