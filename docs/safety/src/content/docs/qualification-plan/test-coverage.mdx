@@ -14,3 +14,14 @@ The standard sets no percentage. 9.4.4 says only that coverage judged insufficie
 
 Slint SC holds the runtime at complete line, function, and region coverage, and the build fails below it.
 Whether MC/DC is needed on top of that is still open; see the TODO in [Verification](/qualification-plan/verification/).
+
+The `.slint` code of an application is measured as well, at the level of the language rather than of the generated code.
+The compiler marks in the generated code a coverage point for every element, binding, callback handler and
+call, and for both outcomes of every `?:`, `&&`, and `||` decision.
+A mark is a macro that expands to nothing and names the point's origin in the `.slint` source, so the code
+measured is the code that ships, not an instrumented build of it.
+The generated code is measured by LLVM like any other, and the `slint-sc-coverage` tool maps the execution count
+of the code around each mark back to the `.slint` files, in the lcov format, alongside the Rust coverage.
+The decisions are spelled out in the generated code so that each outcome is its own region,
+which keeps the branch data independent of the Rust compiler's own branch coverage, which is unstable,
+and of its MC/DC, which it lacks.

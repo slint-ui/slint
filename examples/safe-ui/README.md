@@ -79,6 +79,38 @@ built with, so build the compiler with the same one. That holds for a cross
 build too: its host products sit next to the target ones, under the same
 profile. Pass `SLINT_COMPILER` to use a binary from somewhere else.
 
+## Code Coverage
+
+The Rust code is measured with [`cargo llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov), a separate
+cargo subcommand: install it and the LLVM tools once with `cargo install cargo-llvm-cov` and
+`rustup component add llvm-tools-preview`.
+The scene in `main.slint` is measured by the same run, at the level of the Slint language: the compiler marks in
+the generated code a coverage point for every element, binding, callback handler and call, and for both outcomes
+of every `?:`, `&&` and `||`, with a macro that expands to nothing, so the code measured is the code that ships.
+The `slint-sc-coverage` tool finds the marks in the generated code and maps the LLVM coverage of the code around
+them back to the `.slint` file, in the lcov format, reporting which points were never reached:
+
+```
+cargo build -p slint-compiler --no-default-features --features slint-sc
+cd examples/safe-ui
+SLINT_COMPILER=$PWD/../../target/debug/slint-compiler \
+    cargo llvm-cov --json --output-path coverage.json -p slint-safeui-app
+cargo run --manifest-path ../../Cargo.toml -p slint-sc-coverage -- \
+    --export coverage.json --generated ../../target --base-dir "$PWD" -o slint-lcov.info
+```
+
+`cargo llvm-cov` builds into its own target directory, where the build script would look for the compiler,
+hence `SLINT_COMPILER`.
+
+`../../target` is the target directory the repository's workspaces share, where the build put the generated code.
+Any lcov consumer shows the result, `genhtml` or an editor's coverage view alike, and it merges with the Rust
+coverage of the same run into one report:
+
+```
+cargo llvm-cov report --lcov --output-path lcov.info
+genhtml lcov.info slint-lcov.info -o coverage
+```
+
 ## Build System Integration
 
 Integration of this example into an existing safety domain build system works by means of CMake. In your existing `CMakeLists.txt` for your target
