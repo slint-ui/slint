@@ -48,6 +48,9 @@ All notable changes to this project are documented in this file.
  - Fixed a panic when an item is reached through a parent component that was deleted while a callback
    is still running. (#12877)
  - Fixed the MCP server not starting on Android and with custom platforms. (#12447)
+ - Fixed `ContextMenuArea` not opening on right-click when the click lands on a `TouchArea` inside it,
+   including the rows of `ListView` and `StandardTableView`; right presses are now offered to the
+   innermost `ContextMenuArea` first. (#12354)
  - winit: The `repeat` flag of `KeyEvent` is now set for held-down keys. (#12719)
  - winit: Fixed the first frame being rendered at the wrong size on Wayland, and windows being auto-sized
    below their preferred size with fractional scale factors. (#12542)
