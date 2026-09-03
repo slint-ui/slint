@@ -431,11 +431,15 @@ mod grid_internal {
                 cdata.stretch = 0.;
             }
             // A cell collapsed to a fixed zero size can pull the row/col's
-            // max below its min (#9724). Mirror box_layout_info_ortho: the
-            // minimum is the hard constraint, so raise max to meet it, and
-            // keep pref in range now that max may have moved.
-            cdata.max = cdata.max.max(cdata.min);
-            cdata.pref = cdata.pref.clamp(cdata.min, cdata.max);
+            // max below its min (#9724). The minimum is the hard constraint,
+            // so raise max to meet it, and pull pref down with it -- it was
+            // computed against the old, broken max and can now overshoot.
+            // Guarded: this must not touch rows without a min/max conflict,
+            // since to_layout_data's output also drives solve_grid_layout.
+            if cdata.max < cdata.min {
+                cdata.max = cdata.min;
+                cdata.pref = cdata.pref.min(cdata.max).max(cdata.min);
+            }
         }
         layout_data
     }
@@ -3431,94 +3435,67 @@ mod tests {
         assert!(w.is_finite() && w < Coord::MAX, "item main-axis size was {w}");
     }
 
-    /// Builds the organized_data for a single row of `num_cells` unspanned,
-    /// side-by-side cells, for use with `grid_internal::to_layout_data`.
-    fn single_row_organized_data(num_cells: usize) -> GridLayoutOrganizedData {
-        let mut result = GridLayoutOrganizedData::default();
-        let mut generator = OrganizedDataGenerator::new(&[], &[], num_cells, 0, 0, &mut result);
-        for col in 0..num_cells {
+    /// Runs `grid_internal::to_layout_data` for a single row made of one
+    /// unspanned cell per constraint, and returns that row's combined
+    /// LayoutData (min/max/pref), for testing the row/col aggregation in
+    /// isolation from the rest of GridLayout.
+    fn row_layout_data(constraints: &[LayoutInfo]) -> grid_internal::LayoutData {
+        let mut organized_data = GridLayoutOrganizedData::default();
+        let mut generator =
+            OrganizedDataGenerator::new(&[], &[], constraints.len(), 0, 0, &mut organized_data);
+        for col in 0..constraints.len() {
             generator.add(col as u16, 1, 0, 1);
         }
-        result
+        let items: Vec<LayoutItemInfo> = constraints
+            .iter()
+            .map(|constraint| LayoutItemInfo { constraint: *constraint, ..Default::default() })
+            .collect();
+        let mut layout_data = grid_internal::to_layout_data(
+            &organized_data,
+            Slice::from_slice(&items),
+            Orientation::Vertical,
+            Slice::from_slice(&[]),
+            Slice::from_slice(&[]),
+            0 as _,
+            None,
+        );
+        assert_eq!(layout_data.len(), 1);
+        layout_data.remove(0)
     }
 
     #[test]
-    fn grid_row_collapsed_cell_raises_max_and_clamps_pref() {
+    fn test_grid_row_collapsed_cell_raises_max_and_pulls_pref_down_with_it() {
         // Row with a cell collapsed to a fixed zero size (the `height: cond ?
         // x : 0px` idiom, #9724) next to a cell with an explicit min/preferred
         // and no max (e.g. `min-height: 5px; preferred-height: 50px;`).
-        let organized_data = single_row_organized_data(2);
-        let constraints = [
-            LayoutItemInfo {
-                constraint: LayoutInfo {
-                    min: 0 as _,
-                    max: 0 as _,
-                    preferred: 0 as _,
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-            LayoutItemInfo {
-                constraint: LayoutInfo { min: 5 as _, preferred: 50 as _, ..Default::default() },
-                ..Default::default()
-            },
-        ];
-        let layout_data = grid_internal::to_layout_data(
-            &organized_data,
-            Slice::from_slice(&constraints),
-            Orientation::Vertical,
-            Slice::from_slice(&[]),
-            Slice::from_slice(&[]),
-            0 as _,
-            None,
-        );
-        assert_eq!(layout_data.len(), 1);
+        let row = row_layout_data(&[
+            LayoutInfo { min: 0 as _, max: 0 as _, preferred: 0 as _, ..Default::default() },
+            LayoutInfo { min: 5 as _, preferred: 50 as _, ..Default::default() },
+        ]);
         // The collapsed cell's fixed zero pulls the row's max down to 0 while
-        // its sibling's min pulls the row's min up to 5: max must be raised
-        // to meet min, and the sibling's now out-of-range preferred (50) must
-        // be clamped down with it, not summed into the row's LayoutInfo as-is.
-        assert_eq!(layout_data[0].min, 5 as Coord);
-        assert_eq!(layout_data[0].max, 5 as Coord);
-        assert_eq!(layout_data[0].pref, 5 as Coord);
+        // its sibling's min pulls the row's min up to 5: a real conflict, so
+        // max must be raised to meet min, and the sibling's now out-of-range
+        // preferred (50) must be pulled down with it, not summed into the
+        // row's LayoutInfo as-is.
+        assert_eq!(row.min, 5 as Coord);
+        assert_eq!(row.max, 5 as Coord);
+        assert_eq!(row.pref, 5 as Coord);
     }
 
     #[test]
-    fn grid_row_without_conflicting_constraints_keeps_its_max() {
-        // No cell forces max below min here, so the row's own intersection
-        // (10) must hold as-is -- the fix must not widen a legitimate cap.
-        let organized_data = single_row_organized_data(2);
-        let constraints = [
-            LayoutItemInfo {
-                constraint: LayoutInfo {
-                    min: 0 as _,
-                    max: 10 as _,
-                    preferred: 5 as _,
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-            LayoutItemInfo {
-                constraint: LayoutInfo {
-                    min: 0 as _,
-                    max: 20 as _,
-                    preferred: 10 as _,
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-        ];
-        let layout_data = grid_internal::to_layout_data(
-            &organized_data,
-            Slice::from_slice(&constraints),
-            Orientation::Vertical,
-            Slice::from_slice(&[]),
-            Slice::from_slice(&[]),
-            0 as _,
-            None,
-        );
-        assert_eq!(layout_data.len(), 1);
-        assert_eq!(layout_data[0].min, 0 as Coord);
-        assert_eq!(layout_data[0].max, 10 as Coord);
-        assert_eq!(layout_data[0].pref, 10 as Coord);
+    fn test_grid_row_without_conflicting_constraints_keeps_its_own_pref() {
+        // No cell forces max below min here (max 10 >= min 0): not a #9724
+        // conflict, so the fix must leave this row untouched. The second
+        // cell's preferred (50) legitimately exceeds the row's own max (10)
+        // already on master; to_layout_data's output also drives
+        // solve_grid_layout, so clamping pref here would silently shrink
+        // rows that never had a min/max conflict in the first place.
+        let row = row_layout_data(&[
+            LayoutInfo { min: 0 as _, max: 10 as _, preferred: 5 as _, ..Default::default() },
+            LayoutInfo { min: 0 as _, preferred: 50 as _, ..Default::default() },
+        ]);
+        assert_eq!(row.min, 0 as Coord);
+        assert_eq!(row.max, 10 as Coord);
+        assert_eq!(row.pref, 50 as Coord);
     }
 }
