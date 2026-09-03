@@ -215,6 +215,7 @@ pub async fn run_passes(
     // and the wrapper elements the `lower_property_to_element` passes inject.
     doc.visit_all_used_components(|component| {
         lower_layout::mark_grid_h_solve_reads_v_cache(component);
+        lower_layout::mark_cell_measurement(component);
     });
     collect_globals::collect_globals(doc, diag);
     // Must be done before passes that rely on `NamedReference::is_constant`.

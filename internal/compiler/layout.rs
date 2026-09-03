@@ -78,6 +78,8 @@ impl Layout {
 pub struct LayoutItem {
     pub element: ElementRc,
     pub constraints: LayoutConstraints,
+    /// See [`CellMeasureCapability`]. Stamped by `mark_cell_measurement`.
+    pub measure_capability: CellMeasureCapability,
     /// The `cross-axis-self-alignment` property, if set.
     /// Used by box layouts and FlexboxLayout; always `None` in a GridLayout.
     pub cross_axis_self_alignment: Option<NamedReference>,
@@ -123,6 +125,24 @@ impl RowChildTemplate {
     pub fn is_repeated(&self) -> bool {
         self.repeated_element().is_some()
     }
+}
+
+/// Which parametrized layout-info query lowering uses for a cell.
+///
+/// Recorded once by `mark_cell_measurement` and read by lowering, so that the
+/// generated code and any analysis of it cannot disagree about which of the two
+/// queries a cell gets.
+///
+/// Only the decision is recorded, not the size passed with it: building that
+/// expression reaches through a base component's `layout_info_prop`, which is
+/// not anchored where `implicit_layout_info_call` expects until later, so it is
+/// built in lowering.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CellMeasureCapability {
+    /// The cell's vertical info is queried through `layoutinfo-v-with-constraint`.
+    pub height_for_width: bool,
+    /// The cell's horizontal info is queried through `layoutinfo-h-with-constraint`.
+    pub width_for_height: bool,
 }
 
 impl LayoutItem {
@@ -1033,4 +1053,129 @@ pub fn is_layout(base_type: &ElementType) -> bool {
         }
         _ => false,
     }
+}
+
+/// Whether the cell's vertical info depends on the width (height-for-width)
+/// and its horizontal info on the height (width-for-height). For a repeater,
+/// check the repeated component's root: that is the element the measure
+/// callback queries.
+pub(crate) fn cell_measure_capability(elem: &ElementRc) -> CellMeasureCapability {
+    if elem.borrow().repeated.is_some() {
+        let root = elem.borrow().base_type.as_component().root_element.clone();
+        return CellMeasureCapability {
+            height_for_width: root.borrow().inherited_layout_info_v_with_constraint().is_some(),
+            width_for_height: root.borrow().inherited_layout_info_h_with_constraint().is_some(),
+        };
+    }
+    CellMeasureCapability {
+        height_for_width: is_height_for_width_cell(elem),
+        width_for_height: elem.borrow().inherited_layout_info_h_with_constraint().is_some(),
+    }
+}
+
+/// Whether `elem` is a height-for-width cell — its vertical layout info
+/// depends on the horizontal dimension, so a cross-axis constraint must
+/// be supplied to get a meaningful answer.
+///
+/// Two cases qualify:
+/// - Builtin height-for-width items (Text with `wrap != no-wrap`, Image with
+///   aspect-ratio sizing).
+/// - Components whose subtree contains a height-for-width descendant — recognized
+///   by the presence of `Element::layout_info_v_with_constraint`.
+pub(crate) fn is_height_for_width_cell(elem: &ElementRc) -> bool {
+    let elem_b = elem.borrow();
+
+    // Component path: `layoutinfo-v-with-constraint` may live on `elem`
+    // itself or on the base component's root_element.
+    let has_constrained_layoutinfo_v = elem_b.layout_info_v_with_constraint.is_some()
+        || matches!(
+            &elem_b.base_type,
+            crate::langtype::ElementType::Component(base_comp)
+                if base_comp.root_element.borrow().layout_info_v_with_constraint.is_some()
+        );
+    if has_constrained_layoutinfo_v {
+        return true;
+    }
+
+    if elem_b.layout_info_prop(Orientation::Vertical).is_some() {
+        return false;
+    }
+    drop(elem_b);
+
+    // Builtin path.
+    matches!(
+        crate::layout::implicit_layout_info_call(
+            elem,
+            Orientation::Vertical,
+            crate::layout::BuiltinFilter::All,
+            None,
+        ),
+        Some(crate::expression_tree::Expression::FunctionCall { .. })
+    )
+}
+
+/// Whether computing `layout`'s info on `o` at a known size measures its cells
+/// rather than reading their plain layout info. See [`CellMeasureCapability`].
+pub(crate) fn box_layout_measures_its_cells(layout: &BoxLayout, o: Orientation) -> bool {
+    layout.elems.iter().any(|li| match o {
+        Orientation::Vertical => li.measure_capability.height_for_width,
+        Orientation::Horizontal => li.measure_capability.width_for_height,
+    })
+}
+
+/// Default cross-axis (width) constraint for a height-for-width cell:
+/// the element's own preferred horizontal size. Callers
+/// (`flexbox_layout_data`, `box_layout_data`,
+/// `grid_layout_cell_constraints`) may prefer the container's actual
+/// width when it is available (i.e. at solve time, or when the caller
+/// is the body of a `layoutinfo-v-with-constraint` function which
+/// received the width as a parameter).
+///
+/// Precondition: `is_height_for_width_cell(elem)` is true. After the
+/// `layoutinfo-v-with-constraint` synthesis pass, any element with
+/// `layout_info_v_with_constraint` also has `layout_info_prop` set (the
+/// constrained function is synthesized from the existing `layoutinfo-v`
+/// binding), so the `layout_info_prop` branch covers it.
+pub(crate) fn default_cross_axis_constraint(elem: &ElementRc) -> Option<Expression> {
+    let elem_b = elem.borrow();
+
+    // Route through `layoutinfo-h-with-constraint` when available so we
+    // don't trigger a `self.height` read (which cycles for column-direction
+    // flexes: their layoutinfo-h depends on self.height, itself set by the
+    // parent layout cache).
+    if let Some(constrained_nr) = elem_b.inherited_layout_info_h_with_constraint() {
+        // An NR from the base-component chain must be anchored on `elem` to
+        // resolve through the instance. An own NR must stay as-is:
+        // `move_declarations` may have moved the function onto the enclosing
+        // component's root under a renamed private name, which `elem` itself
+        // does not have.
+        let constrained_nr = if elem_b.layout_info_h_with_constraint.is_some() {
+            constrained_nr
+        } else {
+            NamedReference::new(elem, constrained_nr.name().clone())
+        };
+        let call = Expression::FunctionCall {
+            function: Callable::Function(constrained_nr),
+            arguments: vec![Expression::NumberLiteral(f32::MAX as f64, Unit::Px)],
+            source_location: None,
+        };
+        return Some(Expression::StructFieldAccess {
+            base: Box::new(call),
+            name: "preferred".into(),
+        });
+    }
+
+    // Layouts and components with their own resolved layout_info_prop.
+    if let Some((h_nr, _v_nr)) = elem_b.layout_info_prop.as_ref() {
+        return Some(Expression::StructFieldAccess {
+            base: Box::new(Expression::PropertyReference(h_nr.clone())),
+            name: "preferred".into(),
+        });
+    }
+    drop(elem_b);
+
+    // Builtins and component instances (looked up via the base component).
+    implicit_layout_info_call(elem, Orientation::Horizontal, BuiltinFilter::All, None).map(|expr| {
+        Expression::StructFieldAccess { base: Box::new(expr), name: "preferred".into() }
+    })
 }

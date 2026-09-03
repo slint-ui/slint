@@ -245,6 +245,50 @@ fn rewrite_layoutinfo_h_for_constraint(expr: &mut Expression, height_param: &Exp
     });
 }
 
+/// Record on every layout cell which parametrized layout-info query lowering
+/// will use for it.
+///
+/// Lowering reads [`crate::layout::CellMeasureCapability`] rather than deciding again.
+///
+/// Runs where [`mark_grid_h_solve_reads_v_cache`] does and for the same
+/// reasons, and adds one of its own: no later pass may change an element's
+/// `layout_info_*_with_constraint`, nor make a cell point at an element of a
+/// different capability. `inlining` does both, and upholds it only because it
+/// merges those markers onto the inlined element rather than dropping them.
+/// The `debug_assert_eq!` at each read site is what catches a pass that stops
+/// upholding it.
+///
+/// Every binding holds its own clone of the layout, so stamp them all rather
+/// than relying on the cells still being shared through their `Rc`.
+pub fn mark_cell_measurement(component: &Rc<Component>) {
+    fn stamp(item: &mut LayoutItem) {
+        item.measure_capability = crate::layout::cell_measure_capability(&item.element);
+    }
+    crate::object_tree::visit_all_expressions(component, |expr, _| {
+        expr.visit_recursive_mut(&mut |sub| match sub {
+            Expression::SolveBoxLayout(layout, _)
+            | Expression::ComputeBoxLayoutInfo { layout, .. } => {
+                layout.elems.iter_mut().for_each(stamp);
+            }
+            Expression::SolveFlexboxLayout(layout)
+            | Expression::ComputeFlexboxLayoutInfo { layout, .. } => {
+                layout.elems.iter_mut().for_each(stamp);
+            }
+            Expression::OrganizeGridLayout(grid)
+            | Expression::SolveGridLayout { layout: grid, .. }
+            | Expression::ComputeGridLayoutInfo { layout: grid, .. } => {
+                for cell in grid.elems.iter_mut() {
+                    stamp(&mut cell.item);
+                    for child in cell.cell.borrow_mut().child_items.iter_mut().flatten() {
+                        stamp(child.layout_item_mut());
+                    }
+                }
+            }
+            _ => {}
+        });
+    });
+}
+
 /// Record on every cell of a GridLayout whether solving that grid's horizontal
 /// axis can read back into its vertical cache — see
 /// [`crate::layout::GridLayoutCell::h_solve_reads_v_cache`].
@@ -2360,6 +2404,7 @@ fn create_layout_item(
     let layout_order = crate::layout::binding_reference(&actual_elem, "layout-order");
     CreateLayoutItemResult {
         item: LayoutItem {
+            measure_capability: Default::default(),
             element: item_element.clone(),
             constraints,
             cross_axis_self_alignment,
