@@ -62,6 +62,12 @@ struct Cli {
     #[arg(long = "slint-sc")]
     slint_sc: bool,
 
+    /// Instrument the generated code to count the coverage points of the .slint source.
+    /// Requires --slint-sc.
+    #[cfg(feature = "slint-sc")]
+    #[arg(long = "coverage", requires = "slint_sc")]
+    coverage: bool,
+
     /// Specify include paths for imported .slint files or image resources.
     /// This is used for including external .slint files or image resources referenced by '@image-url'.
     #[arg(short = 'I', name = "include path", number_of_values = 1)]
@@ -225,6 +231,10 @@ fn main() -> std::io::Result<()> {
 
     let mut compiler_config = CompilerConfiguration::new(format.clone());
     compiler_config.translation_domain = args.translation_domain;
+    #[cfg(feature = "slint-sc")]
+    {
+        compiler_config.coverage = args.coverage;
+    }
     #[cfg(feature = "bundle-translations")]
     if args.no_default_translation_context {
         compiler_config.default_translation_context =

@@ -79,4 +79,19 @@ runtime carries doesn't break the code built against this one.
 let _ = slint_sc::TouchEvent::Pressed { position: slint_sc::Point::new(0, 0) };
 //~ ERROR cannot create non-exhaustive variant
 ```
+
+```coverage
++ 4:36 element
++ 8:42 binding
++ 9:17 binding
++ 10:5 element
++ 11:12 binding
++ 12:12 binding
++ 13:16 binding
++ 14:17 binding
++ 15:21 binding
++ 19:9 element
++ 25:13 handler
++ 25:31 call
+```
 */

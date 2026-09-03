@@ -45,7 +45,10 @@ SLINT_TEST_REPORT="$PWD/$results/driver.json" CARGO_TERM_COLOR=never \
     | tee "$results/runtime-tests.log"
 
 # The full export (not --summary-only): the per-function region counts feed
-# the fully/partially/untested statistics in the safety manual.
-cargo llvm-cov report --remap-path-prefix --json --output-path "$out/coverage.json"
-cargo llvm-cov report --remap-path-prefix --lcov --output-path "$out/lcov.info"
-cargo llvm-cov report --remap-path-prefix --html --output-dir "$out"
+# the fully/partially/untested statistics in the safety manual. The driver
+# links the slint-sc-coverage tool, which the reports leave out: it measures
+# the runtime, it is not part of it.
+report="cargo llvm-cov report --remap-path-prefix --ignore-filename-regex tools/slint-sc-coverage"
+$report --json --output-path "$out/coverage.json"
+$report --lcov --output-path "$out/lcov.info"
+$report --html --output-dir "$out"

@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// The coverage of decisions: each outcome of a `?:`, `&&`, or `||` is a
+// coverage point, reached when the outcome came about. The test takes some
+// outcomes and never the others, and the ```coverage block states which.
+
+export component TestCase inherits Window {
+    in property <bool> a;
+    in property <bool> b;
+    // Only the true arm of the first decision, both of the nested one.
+    out property <int> nested: a ? (b ? 1 : 2) : 3;
+    // `a` is always true: `b` is always evaluated.
+    out property <bool> both: a && b;
+    // `a` is always true: `b` is never evaluated.
+    out property <bool> either: a || b;
+}
+
+/*
+```rust
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+x.set_a(true);
+for b in [false, true] {
+    x.set_b(b);
+    assert_eq!(x.get_nested(), if b { 1 } else { 2 });
+    assert_eq!(x.get_both(), b);
+    assert!(x.get_either());
+}
+```
+
+```coverage
+- 8:36 element
++ 12:32 binding
++ 12:32 branch 0 true
+- 12:32 branch 0 false
++ 12:32 branch 1 true
++ 12:32 branch 1 false
++ 14:31 binding
++ 14:31 branch 0 true
+- 14:31 branch 0 false
++ 16:33 binding
++ 16:33 branch 0 true
+- 16:33 branch 0 false
+```
+*/

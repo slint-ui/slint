@@ -48,6 +48,7 @@ members = [
   'tools/lsp',
   'tools/viewer',
   'tools/tr-extractor',
+  'tools/slint-sc-coverage',
   'xtask',
 ]
 

@@ -40,4 +40,28 @@ for (a, b) in [(false, false), (false, true), (true, false), (true, true)] {
     assert_eq!(x.get_grouped(), (a || b) && !(a && b));
 }
 ```
+
+```coverage
+- 7:36 element
++ 11:31 binding
++ 11:31 branch 0 true
++ 11:31 branch 0 false
++ 12:33 binding
++ 12:33 branch 0 true
++ 12:33 branch 0 false
++ 14:32 binding
++ 15:34 binding
++ 15:34 branch 0 true
++ 15:34 branch 0 false
++ 16:35 binding
++ 16:35 branch 0 true
++ 16:35 branch 0 false
++ 17:34 binding
++ 17:34 branch 0 true
++ 17:34 branch 0 false
++ 17:34 branch 1 true
++ 17:34 branch 1 false
++ 17:34 branch 2 true
++ 17:34 branch 2 false
+```
 */

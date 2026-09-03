@@ -7841,8 +7841,13 @@ dependencies = [
  "rayon",
  "regex",
  "serde_json",
+ "slint-sc-coverage",
  "tempfile",
 ]
+
+[[package]]
+name = "slint-sc-coverage"
+version = "1.18.0"
 
 [[package]]
 name = "slint-tr-extractor"

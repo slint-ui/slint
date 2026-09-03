@@ -14,8 +14,16 @@
 //! 5. Compares the screenshots taken with the `screenshot!` macro against the
 //!    PNG references in `tests/references/` (set `SLINT_CREATE_SCREENSHOTS=1`
 //!    to create or update them)
+//! 6. With `SLINT_SC_COVERAGE_DIR` set, compiles the case with `--coverage`,
+//!    measures the coverage of its `.slint` code and compares it with the
+//!    `` ```coverage `` block, if the case has one: one line per coverage
+//!    point, `+` when reached and `-` when not (a failure, or an empty block,
+//!    prints the block to paste)
 //!
 //! Tests run in parallel via rayon.
+
+#[path = "driver/coverage.rs"]
+mod coverage;
 
 use rayon::prelude::*;
 use regex::Regex;
@@ -35,17 +43,25 @@ fn main() {
     let target_dir = find_target_dir();
     let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
     let instrument_coverage = std::env::var_os("LLVM_PROFILE_FILE").is_some();
+    // Coverage mode: each case is compiled with --coverage, its coverage is
+    // measured (see the `coverage` module) and compared with the case's
+    // ```coverage block, and what the measuring leaves behind goes there.
+    let coverage_dir = std::env::var_os("SLINT_SC_COVERAGE_DIR").map(PathBuf::from);
     let compiler = build_compiler(&target_dir);
     let slint_sc_rlib = find_slint_sc_rlib(&target_dir);
     let rx = Regex::new(r"(?sU)\r?\n```rust( compile_fail)?\r?\n(.+)\r?\n```\r?\n").unwrap();
+    // The block may be empty, to have the measured one printed.
+    let coverage_rx = Regex::new(r"(?s)\r?\n```coverage\r?\n(.*?)```\r?\n").unwrap();
 
     let config = TestConfig {
         compiler: &compiler,
         slint_sc_rlib: &slint_sc_rlib,
         rustc: &rustc,
         instrument_coverage,
+        coverage_dir: coverage_dir.as_deref(),
         create_screenshots: std::env::var("SLINT_CREATE_SCREENSHOTS").is_ok_and(|var| var == "1"),
         rx: &rx,
+        coverage_rx: &coverage_rx,
     };
 
     let mut results: Vec<(String, Result<(), String>)> = test_files
@@ -135,8 +151,11 @@ struct TestConfig<'a> {
     slint_sc_rlib: &'a Path,
     rustc: &'a str,
     instrument_coverage: bool,
+    /// Where the measuring of a case's coverage keeps its files, in coverage mode.
+    coverage_dir: Option<&'a Path>,
     create_screenshots: bool,
     rx: &'a Regex,
+    coverage_rx: &'a Regex,
 }
 
 fn find_target_dir() -> PathBuf {
@@ -171,20 +190,20 @@ fn build_compiler(target_dir: &Path) -> PathBuf {
     compiler
 }
 
-/// Find the slint-sc rlib in the deps directory for --extern.
+/// Find the slint-sc rlib in the deps directory for --extern: the newest,
+/// as builds with other features leave theirs behind.
 fn find_slint_sc_rlib(target_dir: &Path) -> PathBuf {
     let deps_dir = target_dir.join("deps");
-    if let Ok(entries) = std::fs::read_dir(&deps_dir) {
-        for entry in entries.flatten() {
-            let name = entry.file_name();
-            let name_str = name.to_string_lossy();
-            if name_str.starts_with("libslint_sc-") && name_str.ends_with(".rlib") {
-                return entry.path();
-            }
-        }
+    let rlibs = std::fs::read_dir(&deps_dir).into_iter().flatten().flatten().filter(|entry| {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        name.starts_with("libslint_sc-") && name.ends_with(".rlib")
+    });
+    let newest = rlibs.max_by_key(|entry| entry.metadata().and_then(|m| m.modified()).ok());
+    match newest {
+        Some(entry) => entry.path(),
+        None => panic!("Could not find slint-sc rlib in {}", deps_dir.display()),
     }
-
-    panic!("Could not find slint-sc rlib in {}", deps_dir.display());
 }
 
 fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), String> {
@@ -192,13 +211,12 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
     let generated_rs = tmp.path().join("generated.rs");
 
     // Step 1: Run slint-compiler
-    let output = Command::new(config.compiler)
-        .arg("--slint-sc")
-        .arg(slint_path)
-        .arg("-o")
-        .arg(&generated_rs)
-        .output()
-        .map_err(|e| format!("slint-compiler spawn: {e}"))?;
+    let mut compiler = Command::new(config.compiler);
+    compiler.arg("--slint-sc").arg(slint_path).arg("-o").arg(&generated_rs);
+    if config.coverage_dir.is_some() {
+        compiler.arg("--coverage");
+    }
+    let output = compiler.output().map_err(|e| format!("slint-compiler spawn: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -212,11 +230,13 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
     if test_code.is_empty() {
         return Err("no ```rust test code found in comments".into());
     }
+    let expected_coverage = config.coverage_rx.captures(&source).map(|cap| cap[1].to_string());
     let gen_path = generated_rs.to_string_lossy().replace('\\', "/");
 
     // Step 3: Create test .rs file
     let test_rs = tmp.path().join("test.rs");
-    std::fs::write(&test_rs, assemble_program(&gen_path, &test_code))
+    let epilogue = if config.coverage_dir.is_some() { coverage::EPILOGUE } else { "" };
+    std::fs::write(&test_rs, assemble_program(&gen_path, &test_code, epilogue))
         .map_err(|e| format!("write test.rs: {e}"))?;
 
     // Step 4: Compile with rustc
@@ -235,7 +255,7 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
             return Err(format!("compile_fail block {i} has no //~ ERROR line"));
         }
         let fail_rs = tmp.path().join(format!("compile_fail_{i}.rs"));
-        std::fs::write(&fail_rs, assemble_program(&gen_path, block))
+        std::fs::write(&fail_rs, assemble_program(&gen_path, block, ""))
             .map_err(|e| format!("write compile_fail_{i}.rs: {e}"))?;
         let output = compile(config, &fail_rs, &tmp.path().join(format!("compile_fail_{i}")))?;
         if output.status.success() {
@@ -252,11 +272,12 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
     }
 
     // Step 5: Run the test binary
-    let run_output = Command::new(&test_bin)
-        .current_dir(tmp.path())
-        .env("SLINT_TEST_NAME", rel.file_stem().unwrap_or_default())
-        .output()
-        .map_err(|e| format!("test binary spawn: {e}"))?;
+    let mut run = Command::new(&test_bin);
+    run.current_dir(tmp.path()).env("SLINT_TEST_NAME", rel.file_stem().unwrap_or_default());
+    if config.coverage_dir.is_some() {
+        run.envs(coverage::run_env(tmp.path()));
+    }
+    let run_output = run.output().map_err(|e| format!("test binary spawn: {e}"))?;
 
     if !run_output.status.success() {
         let stderr = String::from_utf8_lossy(&run_output.stderr);
@@ -264,7 +285,21 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
         return Err(format!("test binary failed:\nstdout: {stdout}\nstderr: {stderr}"));
     }
 
-    // Step 6: Compare the screenshots against the references
+    // Step 6: In coverage mode, the coverage of the case must be what its
+    // ```coverage block states, if it has one: every point, reached or not.
+    if let Some(dir) = config.coverage_dir {
+        let case =
+            coverage::Case { tmp: tmp.path(), generated_rs: &generated_rs, test_bin: &test_bin };
+        let report = coverage::measure(&case)?;
+        if let Some(expected) = expected_coverage {
+            slint_sc_coverage::check_listing(&expected, &report.listing(slint_path))?;
+        }
+        let kept = dir.join(rel);
+        std::fs::create_dir_all(kept.parent().unwrap()).map_err(|e| format!("mkdir: {e}"))?;
+        coverage::keep(&case, &report, &kept)?;
+    }
+
+    // Step 7: Compare the screenshots against the references
     compare_screenshots(tmp.path(), rel, config.create_screenshots)
 }
 
@@ -448,8 +483,8 @@ fn extract_rust_test_code(source: &str, rx: &Regex) -> (String, Vec<String>) {
 }
 
 /// A test program: the generated code, the harness, and `body` as the main
-/// function.
-fn assemble_program(gen_path: &str, body: &str) -> String {
+/// function, followed by `epilogue`.
+fn assemble_program(gen_path: &str, body: &str, epilogue: &str) -> String {
     let harness_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/driver/harness.rs")
         .to_string_lossy()
@@ -468,6 +503,9 @@ fn assemble_program(gen_path: &str, body: &str) -> String {
     writeln!(content, "fn main() -> Result<(), std::boxed::Box<dyn std::error::Error>> {{")
         .unwrap();
     writeln!(content, "    {}", body.replace('\n', "\n    ")).unwrap();
+    if !epilogue.is_empty() {
+        writeln!(content, "    {epilogue}").unwrap();
+    }
     writeln!(content, "    Ok(())").unwrap();
     writeln!(content, "}}").unwrap();
     content
@@ -499,6 +537,9 @@ fn compile(
     // coverage report.
     if config.instrument_coverage {
         rustc_cmd.arg("-Cinstrument-coverage");
+    }
+    if config.coverage_dir.is_some() {
+        rustc_cmd.args(coverage::RUSTC_ARGS);
     }
 
     rustc_cmd.output().map_err(|e| format!("rustc spawn: {e}"))

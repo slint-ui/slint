@@ -50,4 +50,33 @@ Only the exported component names a generated struct:
 let _ = Led::new(crate::harness::WINDOW_SIZE);
 //~ ERROR undeclared type `Led`
 ```
+
+```coverage
++ 8:12 binding
++ 9:13 binding
++ 10:17 binding
+- 14:12 binding
+- 15:13 binding
++ 16:5 element
++ 17:12 binding
++ 18:12 binding
++ 19:16 binding
++ 20:17 binding
++ 21:21 binding
++ 25:41 element
++ 26:17 binding
++ 28:5 element
++ 29:12 binding
++ 30:12 binding
++ 31:9 element
++ 31:18 binding
++ 31:26 binding
++ 33:5 element
++ 34:12 binding
++ 35:12 binding
++ 36:21 binding
++ 37:9 element
++ 37:18 binding
++ 37:26 binding
+```
 */
