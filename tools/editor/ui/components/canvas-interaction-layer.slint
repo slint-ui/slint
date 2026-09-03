@@ -1,0 +1,339 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, Hover, SelectionRectangle } from "../api.slint";
+import { EditorCursors, StudioTheme } from "common.slint";
+import { BorderRadiusFrame } from "border-radius-frame.slint";
+import { MoveResizeFrame } from "move-resize-frame.slint";
+
+component CanvasValueTooltip inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    in property <string> suffix;
+    in property <string> value-label;
+    in property <Point> pointer-position;
+
+    x: root.pointer-position.x - self.width - 12px;
+    y: root.pointer-position.y - self.height - 12px;
+    width: tip.width + 14px;
+    height: tip.height + 8px;
+    border-radius: 6px;
+    background: StudioTheme.accent-strong;
+    drop-shadow-blur: 12px;
+    drop-shadow-offset-y: 4px;
+    drop-shadow-color: #33415535;
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.value-label;
+    accessible-value: root.value;
+
+    tip := Text {
+        text: root.label + " " + root.value + root.suffix;
+        color: white;
+        font-size: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+}
+
+component SelectedCanvasFrame inherits Rectangle {
+    in property <SelectionRectangle> selection;
+    in property <bool> primary;
+    in property <bool> shift-pressed;
+    in property <bool> interaction-disabled;
+    callback pointer-hovered(Point);
+
+    private property <bool> geometry-drag-active;
+    private property <Point> geometry-drag-position;
+    private property <Size> geometry-drag-size;
+    private property <bool> rotation-active;
+    private property <angle> pending-rotation;
+    private property <bool> radius-drag-active;
+
+    function current-corner-radius(property-name: string) -> length {
+        let corner = Api.current-property-value-data(property-name);
+        return corner.code != ""
+            ? corner.value-float * 1px
+            : Api.current-property-value-data("border-radius").value-float * 1px;
+    }
+
+    function has-independent-corner-radii() -> bool {
+        return Api.current-property-value-data("border-top-left-radius").code != ""
+            || Api.current-property-value-data("border-top-right-radius").code != ""
+            || Api.current-property-value-data("border-bottom-right-radius").code != ""
+            || Api.current-property-value-data("border-bottom-left-radius").code != "";
+    }
+
+    function preview-geometry(position: Point, size: Size) {
+        root.geometry-drag-active = true;
+        root.geometry-drag-position = position;
+        root.geometry-drag-size = size;
+        // Push live geometry so the previewed element follows the drag through
+        // debug-hook overrides without writing to disk.
+        Api.override-selected-element-geometry(
+            position.x,
+            position.y,
+            size.width,
+            size.height,
+        );
+    }
+
+    function finish-interaction() {
+        if root.geometry-drag-active {
+            Api.persist-selected-element-geometry();
+        }
+        if root.rotation-active {
+            Api.selected-element-rotate(root.pending-rotation);
+        }
+        if root.radius-drag-active {
+            Api.persist-selected-element-border-radius();
+        }
+        root.geometry-drag-active = false;
+        root.rotation-active = false;
+        root.radius-drag-active = false;
+    }
+
+    frame := BorderRadiusFrame {
+        x: root.selection.x;
+        y: root.selection.y;
+        width: root.selection.width;
+        height: root.selection.height;
+        rotation: root.selection.angle;
+        accessible-prefix: Api.current-element.type-name;
+        active: !root.interaction-disabled;
+        shift-pressed: root.shift-pressed;
+        show-resize-handles: root.primary;
+        show-rotation-handles: root.primary;
+        enable-border-radius-edits: root.primary && Api.current-element.type-name == "Rectangle";
+        independent-corner-radii: root.has-independent-corner-radii();
+        top-left-radius: root.current-corner-radius("border-top-left-radius");
+        top-right-radius: root.current-corner-radius("border-top-right-radius");
+        bottom-right-radius: root.current-corner-radius("border-bottom-right-radius");
+        bottom-left-radius: root.current-corner-radius("border-bottom-left-radius");
+        // Only allow move/resize for elements that have geometry outside a layout, and only
+        // when the element is not rotated (we don't support rotating + repositioning at once).
+        resizable: root.primary && Api.selection.is-resizable && root.selection.angle == 0deg;
+        moveable: root.primary && Api.selection.is-moveable && root.selection.angle == 0deg;
+        accessible-role: AccessibleRole.region;
+        accessible-label: "Selected " + Api.current-element.type-name;
+
+        rotated-to(rotation) => {
+            root.rotation-active = true;
+            root.pending-rotation = rotation;
+            Api.override-selected-element-rotation(rotation);
+        }
+        interaction-started => {
+            root.rotation-active = false;
+            root.radius-drag-active = false;
+            Hover.element = {};
+        }
+        pointer-moved(position) => {
+            if !self.move-pressed {
+                root.pointer-hovered(position);
+            }
+        }
+        radius-changed(corner, radius, single-corner) => {
+            root.radius-drag-active = true;
+            Api.override-selected-element-border-radius(corner, radius, single-corner);
+        }
+        resized-to(corner, position, size) => {
+            root.preview-geometry(position, size);
+        }
+        moved-to(position) => {
+            root.preview-geometry(position, {
+                width: root.selection.width,
+                height: root.selection.height,
+            });
+        }
+        interaction-ended => {
+            root.finish-interaction();
+        }
+    }
+
+    states [
+        geometry-dragging when root.geometry-drag-active: {
+            frame.x: root.geometry-drag-position.x;
+            frame.y: root.geometry-drag-position.y;
+            frame.width: root.geometry-drag-size.width;
+            frame.height: root.geometry-drag-size.height;
+        }
+        rotation-dragging when root.rotation-active: {
+            frame.rotation: root.pending-rotation;
+        }
+    ]
+
+    if frame.radius-tooltip-visible: CanvasValueTooltip {
+        label: "Radius";
+        value: (frame.radius-tooltip-value / 1px).to-fixed(0);
+        value-label: "Radius value";
+        pointer-position: {
+            x: frame.x + frame.radius-tooltip-position.x,
+            y: frame.y + frame.radius-tooltip-position.y,
+        };
+    }
+
+    if frame.rotation-tooltip-visible: CanvasValueTooltip {
+        private property <angle> normalized-angle: {
+            let normalized = frame.rotation-tooltip-value.mod(360deg);
+            normalized < 0deg ? normalized + 360deg : normalized
+        };
+        label: "Rotation";
+        value: "\{(self.normalized-angle / 1deg).round()}";
+        suffix: "°";
+        value-label: "Rotation angle";
+        pointer-position: frame.rotation-tooltip-position;
+    }
+}
+
+component HoverCanvasFrame inherits MoveResizeFrame {
+    in property <SelectionRectangle> geometry;
+    in property <bool> gesture-active;
+    in property <bool> selection-area-has-hover;
+    callback gesture-started();
+    callback gesture-ended();
+    callback pointer-hovered(Point);
+    callback real-element-selected();
+
+    private property <Point> geometry-drag-position;
+
+    visible: Hover.element.valid && !Hover.element.is-selected;
+    enabled: root.visible
+        && !Hover.element.is-over-selected-element
+        && (!root.gesture-active || root.move-pressed);
+    x: root.geometry.x;
+    y: root.geometry.y;
+    width: root.geometry.width;
+    height: root.geometry.height;
+    rotation: root.geometry.angle;
+    active: !root.gesture-active || root.move-pressed;
+    moveable: root.geometry.angle == 0deg;
+    resizable: false;
+    show-resize-handles: false;
+    show-rotation-handles: false;
+    accessible-prefix: "Hovered " + Hover.element.type-name;
+    accessible-role: AccessibleRole.region;
+    accessible-label: root.accessible-prefix;
+
+    function preview-geometry(position: Point) {
+        root.geometry-drag-position = position;
+        Api.override-selected-element-geometry(
+            position.x,
+            position.y,
+            root.geometry.width,
+            root.geometry.height,
+        );
+    }
+
+    function finish-interaction() {
+        if root.move-dragging {
+            Api.persist-selected-element-geometry();
+        }
+        root.gesture-ended();
+        Hover.element = {};
+    }
+
+    changed frame-hover => {
+        if !root.frame-hover && !root.selection-area-has-hover && !root.gesture-active {
+            Hover.element = {};
+        }
+    }
+    move-press-started(position) => {
+        if !root.gesture-active {
+            root.gesture-started();
+            Api.select-element(
+                Hover.element.element-path,
+                Hover.element.element-offset,
+                position.x,
+                position.y,
+            );
+            root.real-element-selected();
+        }
+    }
+    moved-to(position) => {
+        root.preview-geometry(position);
+    }
+    move-released => {
+        if root.gesture-active {
+            root.finish-interaction();
+        }
+    }
+    pointer-moved(position) => {
+        if !root.gesture-active {
+            root.pointer-hovered(position);
+        }
+    }
+
+    states [
+        dragging when root.move-dragging: {
+            x: root.geometry-drag-position.x;
+            y: root.geometry-drag-position.y;
+        }
+    ]
+}
+
+export component CanvasInteractionLayer inherits Rectangle {
+    in property <bool> shift-pressed;
+    // Coordinates the selected and hover frames while a hovered item owns the pointer gesture.
+    private property <bool> hover-selection-active;
+    // Guard on highlight-index >= 0: after Api.unselect(), the backend still populates
+    // current-element with the component root. Its frame would intercept future selections.
+    private property <[SelectionRectangle]> selections: Api.selection.highlight-index >= 0
+        ? Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset)
+        : [];
+
+    callback real-element-selected();
+
+    function update-hover(position: Point) {
+        if root.hover-selection-active || selection-area.pressed {
+            return;
+        }
+        Hover.element = Hover.element-at(position.x, position.y, false);
+    }
+
+    // Click to select the real previewed element. This sits on top of the live
+    // preview so it intercepts clicks. Its pointer positions are in content coordinates.
+    selection-area := TouchArea {
+        width: root.width;
+        height: root.height;
+        mouse-cursor: EditorCursors.canvas-default;
+        clicked => {
+            Api.unselect();
+            Api.select-at(self.pressed-x, self.pressed-y, false);
+            root.real-element-selected();
+        }
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.move {
+                root.update-hover({ x: self.mouse-x, y: self.mouse-y });
+            }
+        }
+    }
+
+    // Selected frames precede hover frames so an enabled hover frame receives input.
+    for selection[idx] in root.selections: SelectedCanvasFrame {
+        selection: selection;
+        primary: idx == Api.selection.highlight-index;
+        shift-pressed: root.shift-pressed;
+        interaction-disabled: root.hover-selection-active;
+        pointer-hovered(position) => {
+            root.update-hover(position);
+        }
+    }
+
+    for geometry in Hover.element.geometry: HoverCanvasFrame {
+        geometry: geometry;
+        gesture-active: root.hover-selection-active;
+        selection-area-has-hover: selection-area.has-hover;
+        gesture-started => {
+            root.hover-selection-active = true;
+        }
+        gesture-ended => {
+            root.hover-selection-active = false;
+        }
+        pointer-hovered(position) => {
+            root.update-hover(position);
+        }
+        real-element-selected => {
+            root.real-element-selected();
+        }
+    }
+}

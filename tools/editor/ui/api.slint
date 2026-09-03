@@ -115,6 +115,22 @@ export struct SelectionRectangle {
     angle: angle,
 }
 
+/// The topmost selectable element under a canvas position.
+export struct HoveredElement {
+    valid: bool,
+    is-selected: bool,
+    is-over-selected-element: bool,
+    element-path: string,
+    element-offset: int,
+    type-name: string,
+    geometry: [SelectionRectangle],
+}
+
+export global Hover {
+    in-out property <HoveredElement> element;
+    pure callback element-at(x: length, y: length, enter-component: bool) -> HoveredElement;
+}
+
 /// A `Selection`
 export struct Selection {
     highlight-index: int,

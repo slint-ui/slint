@@ -3,38 +3,41 @@
 
 // cspell:ignore nesw
 import { CanvasCorner } from "../api.slint";
-import { EditorMetrics, StudioTheme } from "common.slint";
+import { EditorCursors, EditorMetrics, StudioTheme } from "common.slint";
 
 export component MoveResizeFrame inherits Rectangle {
+    in property <bool> enabled: true;
     in property <string> accessible-prefix: "Selection";
     in property <bool> active;
-    in property <bool> shift-pressed: false;
-    in property <angle> rotation: 0deg;
+    in property <bool> shift-pressed;
+    in property <angle> rotation;
+    in property <bool> show-resize-handles: true;
     in property <bool> show-rotation-handles: true;
     out property <bool> frame-hover: move-touch.has-hover;
     out property <bool> move-pressed: move-touch.pressed;
-    out property <bool> move-dragging: false;
-    out property <Point> move-pointer-position: { x: 0px, y: 0px };
-    out property <bool> rotating: false;
-    out property <bool> rotation-tooltip-visible: false;
-    out property <Point> rotation-tooltip-position: { x: 0px, y: 0px };
-    out property <angle> rotation-tooltip-value: 0deg;
+    out property <bool> move-dragging;
+    out property <bool> rotating;
+    out property <bool> rotation-tooltip-visible;
+    out property <Point> rotation-tooltip-position;
+    out property <angle> rotation-tooltip-value;
     private property <length> drag-threshold: 2px;
-    private property <bool> resize-pressed: false;
-    private property <bool> resize-dragging: false;
-    private property <bool> resize-shift-pressed: false;
-    private property <CanvasCorner> resize-corner: CanvasCorner.top-left;
-    private property <Size> resize-start-size: { width: 0px, height: 0px };
-    private property <Point> resize-start-pointer: { x: 0px, y: 0px };
-    private property <Point> resize-fixed-corner: { x: 0px, y: 0px };
-    private property <angle> resize-start-rotation: 0deg;
-    private property <Point> free-resize-position: { x: 0px, y: 0px };
-    private property <Size> free-resize-size: { width: 0px, height: 0px };
+    private property <bool> resize-pressed;
+    private property <bool> resize-dragging;
+    private property <bool> resize-shift-pressed;
+    private property <CanvasCorner> resize-corner;
+    private property <Size> resize-start-size;
+    private property <Point> resize-start-pointer;
+    private property <Point> resize-fixed-corner;
+    private property <angle> resize-start-rotation;
+    private property <Point> free-resize-position;
+    private property <Size> free-resize-size;
     in property <bool> resizable: true;
     in property <bool> moveable: true;
-    callback selected();
+    callback move-press-started(Point);
     callback interaction-started();
     callback interaction-ended();
+    callback pointer-moved(Point);
+    callback move-released();
     callback moved-to(Point);
     callback resized-to(CanvasCorner, Point, Size);
     callback rotated-to(angle);
@@ -151,18 +154,10 @@ export component MoveResizeFrame inherits Rectangle {
         return (value / 15deg).round() * 15deg;
     }
 
-    pure function corner-local-x-sign(corner: CanvasCorner) -> float {
-        return root.corner-on-left(corner) ? -1 : 1;
-    }
-
-    pure function corner-local-y-sign(corner: CanvasCorner) -> float {
-        return root.corner-on-top(corner) ? -1 : 1;
-    }
-
     pure function corner-local-point(corner: CanvasCorner, size: Size) -> Point {
         return {
-            x: size.width / 2 + root.corner-local-x-sign(corner) * size.width / 2,
-            y: size.height / 2 + root.corner-local-y-sign(corner) * size.height / 2,
+            x: root.corner-on-left(corner) ? 0px : size.width,
+            y: root.corner-on-top(corner) ? 0px : size.height,
         };
     }
 
@@ -198,17 +193,13 @@ export component MoveResizeFrame inherits Rectangle {
         let target-height = root.corner-on-top(root.resize-corner)
             ? root.resize-start-size.height - delta.y
             : root.resize-start-size.height + delta.y;
-        root.store-free-resize-target-from-size({ width: target-width, height: target-height });
-    }
-
-    function store-free-resize-target-from-size(target-size: Size) {
         root.free-resize-position = root.position-for-fixed-corner(
             root.resize-corner,
             root.resize-fixed-corner,
-            target-size,
+            { width: target-width, height: target-height },
             root.resize-start-rotation,
         );
-        root.free-resize-size = target-size;
+        root.free-resize-size = { width: target-width, height: target-height };
     }
 
     function emit-resize-target() {
@@ -236,50 +227,58 @@ export component MoveResizeFrame inherits Rectangle {
         }
     }
 
-    rotated := Rectangle {
-        width: root.width;
-        height: root.height;
+    Rectangle {
         transform-origin: { x: root.width / 2, y: root.height / 2 };
         transform-rotation: root.rotation;
 
         move-touch := TouchArea {
-            width: root.width;
-            height: root.height;
-            mouse-cursor: move;
+            enabled: root.enabled;
+            mouse-cursor: EditorCursors.canvas-default;
             accessible-role: AccessibleRole.button;
             accessible-label: root.accessible-prefix + " move handle";
             accessible-enabled: root.moveable;
-            private property <Point> move-start-position: { x: 0px, y: 0px };
-            private property <Point> move-start-pointer: { x: 0px, y: 0px };
+            private property <Point> move-start-position;
+            private property <Point> move-start-pointer;
 
             changed pressed => {
                 if self.pressed {
                     root.move-dragging = false;
                     self.move-start-position = { x: root.x, y: root.y };
-                    self.move-start-pointer = root.local-point-to-parent({ x: self.mouse-x, y: self.mouse-y });
-                    root.selected();
+                    let pointer = root.local-point-to-parent({ x: self.mouse-x, y: self.mouse-y });
+                    self.move-start-pointer = pointer;
+                    root.move-press-started(pointer);
                 } else {
                     if root.move-dragging {
                         root.interaction-ended();
                     }
+                    root.move-released();
                     root.move-dragging = false;
                 }
             }
 
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.move {
+                    root.pointer-moved(root.local-point-to-parent({
+                        x: self.mouse-x,
+                        y: self.mouse-y,
+                    }));
+                }
+            }
+
             moved => {
+                let pointer = root.local-point-to-parent({ x: self.mouse-x, y: self.mouse-y });
                 if !root.moveable {
                     return;
                 }
-                let pointer = root.local-point-to-parent({ x: self.mouse-x, y: self.mouse-y });
                 let delta = {
                     x: pointer.x - self.move-start-pointer.x,
                     y: pointer.y - self.move-start-pointer.y,
                 };
                 let moved-far-enough = delta.x.abs() >= root.drag-threshold
                     || delta.y.abs() >= root.drag-threshold;
-                root.move-pointer-position = pointer;
-                if self.pressed && moved-far-enough {
+                if self.pressed && !root.move-dragging && moved-far-enough {
                     root.move-dragging = true;
+                    root.interaction-started();
                 }
                 if root.move-dragging {
                     root.moved-to({
@@ -289,16 +288,11 @@ export component MoveResizeFrame inherits Rectangle {
                 }
             }
 
-            clicked => {
-                root.selected();
-            }
         }
 
         @children
 
         if root.active && !root.move-dragging: Rectangle {
-            width: root.width;
-            height: root.height;
             border-width: 1px;
             border-color: StudioTheme.accent-strong;
 
@@ -330,17 +324,15 @@ export component MoveResizeFrame inherits Rectangle {
                 y: root.rotation-zone-y(corner);
                 width: EditorMetrics.rotation-zone-size;
                 height: EditorMetrics.rotation-zone-size;
-                background: transparent;
-
                 TouchArea {
                     mouse-cursor: root.rotation-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
                     accessible-role: AccessibleRole.button;
                     accessible-label: root.accessible-prefix + " rotate " + root.corner-name(corner);
                     accessible-enabled: root.show-rotation-handles;
-                    private property <bool> event-shift-pressed: false;
+                    private property <bool> event-shift-pressed;
                     private property <angle> start-rotation;
                     private property <angle> start-pointer-angle;
-                    private property <Point> press-position: { x: 0px, y: 0px };
+                    private property <Point> press-position;
 
                     pointer-event(event) => {
                         self.event-shift-pressed = event.modifiers.shift;
@@ -353,7 +345,6 @@ export component MoveResizeFrame inherits Rectangle {
                                 { x: parent.x, y: parent.y },
                                 { x: self.mouse-x, y: self.mouse-y },
                             );
-                            root.selected();
                             root.interaction-started();
                             root.rotating = true;
                             root.rotation-tooltip-visible = true;
@@ -383,7 +374,6 @@ export component MoveResizeFrame inherits Rectangle {
                         );
                         let angle = self.start-rotation + root.pointer-angle(local-point.x, local-point.y) - self.start-pointer-angle;
                         let target-angle = (root.shift-pressed || self.event-shift-pressed) ? root.snapped-rotation(angle) : angle;
-                        root.rotation-tooltip-visible = true;
                         root.rotation-tooltip-position = root.local-point-to-parent(local-point);
                         root.rotation-tooltip-value = target-angle;
                         root.rotated-to(target-angle);
@@ -392,8 +382,6 @@ export component MoveResizeFrame inherits Rectangle {
             }
 
             if !root.rotating: Rectangle {
-                width: root.width;
-                height: root.height;
                 for corner in [
                     CanvasCorner.top-left,
                     CanvasCorner.top-right,
@@ -408,6 +396,7 @@ export component MoveResizeFrame inherits Rectangle {
                     background: white;
                     border-width: 2px;
                     border-color: StudioTheme.accent-strong;
+                    visible: root.show-resize-handles;
 
                     TouchArea {
                         enabled: root.resizable;
@@ -415,7 +404,7 @@ export component MoveResizeFrame inherits Rectangle {
                         accessible-role: AccessibleRole.button;
                         accessible-label: root.accessible-prefix + " resize " + root.corner-name(corner);
                         accessible-enabled: root.resizable;
-                        private property <bool> event-shift-pressed: false;
+                        private property <bool> event-shift-pressed;
 
                         pointer-event(event) => {
                             self.event-shift-pressed = event.modifiers.shift;
@@ -432,7 +421,6 @@ export component MoveResizeFrame inherits Rectangle {
                                     { x: self.mouse-x, y: self.mouse-y },
                                 ));
 
-                                root.selected();
                                 root.resize-corner = corner;
                                 root.resize-pressed = true;
                                 root.resize-dragging = false;

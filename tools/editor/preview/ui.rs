@@ -84,6 +84,7 @@ pub fn initialize_editor(
 ) {
     let api = editor_ui.global::<Api>();
     let api_weak = <Api as slint::Global<'_, EditorUi>>::as_weak(&api);
+    let hover = editor_ui.global::<Hover>();
     let project = editor_ui.global::<Project>();
     let project_weak = <Project as slint::Global<'_, EditorUi>>::as_weak(&project);
 
@@ -134,6 +135,7 @@ pub fn initialize_editor(
     api.on_unselect(super::element_selection::unselect_element);
     api.on_reselect(super::element_selection::reselect_element);
     api.on_select_at(super::element_selection::select_element_at);
+    hover.on_element_at(super::element_selection::hovered_element_at);
     api.on_selection_stack_at(super::element_selection::selection_stack_at);
     api.on_filter_sort_selection_stack(super::element_selection::filter_sort_selection_stack);
     api.on_find_selected_selection_stack_frame(|stack| {

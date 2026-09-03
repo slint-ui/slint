@@ -81,15 +81,16 @@ fn element_covers_point(
     position: LogicalPoint,
     component_instance: &ComponentInstance,
     selected_element: &ElementRc,
-) -> Option<HighlightedRect> {
+) -> Option<(HighlightedRect, usize)> {
     slint_interpreter::highlight::element_positions(
         &component_instance.clone_strong().into(),
         selected_element,
         slint_interpreter::highlight::ElementPositionFilter::ExcludeClipped,
     )
-    .iter()
-    .find(|p| p.contains(position))
-    .copied()
+    .into_iter()
+    .enumerate()
+    .find(|(_, p)| p.contains(position))
+    .map(|(instance_index, geometry)| (geometry, instance_index))
 }
 
 pub fn unselect_element() {
@@ -288,6 +289,7 @@ pub struct SelectionCandidate {
     pub element: ElementRc,
     pub debug_index: usize,
     pub geometry: HighlightedRect,
+    pub instance_index: usize,
     pub is_in_root_component: bool,
 }
 
@@ -324,7 +326,9 @@ fn collect_all_element_nodes_covering_impl(
         collect_all_element_nodes_covering_impl(position, component_instance, c, result);
     }
 
-    if let Some(geometry) = element_covers_point(position, component_instance, current_element) {
+    if let Some((geometry, instance_index)) =
+        element_covers_point(position, component_instance, current_element)
+    {
         for (i, d) in ce.borrow().debug.iter().enumerate().rev() {
             if !i_slint_editor_preview::is_element_node_ignored(&d.node)
                 && !d.node.source_file.path().starts_with("builtin:/")
@@ -335,6 +339,7 @@ fn collect_all_element_nodes_covering_impl(
                     debug_index: i,
                     is_in_root_component: false,
                     geometry,
+                    instance_index,
                 });
             }
         }
@@ -377,17 +382,23 @@ pub fn collect_all_element_nodes_covering(
     elements
 }
 
+fn selection_candidate_at_impl(
+    component_instance: &ComponentInstance,
+    position: LogicalPoint,
+    enter_component: bool,
+) -> Option<SelectionCandidate> {
+    collect_all_element_nodes_covering(position, component_instance)
+        .into_iter()
+        .find(|candidate| filter_nodes_for_selection(candidate, enter_component).is_some())
+}
+
 fn select_element_at_impl(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
     enter_component: bool,
 ) -> Option<i_slint_editor_preview::ElementRcNode> {
-    for sc in &collect_all_element_nodes_covering(position, component_instance) {
-        if let Some(en) = filter_nodes_for_selection(sc, enter_component) {
-            return Some(en);
-        }
-    }
-    None
+    selection_candidate_at_impl(component_instance, position, enter_component)
+        .and_then(|candidate| candidate.as_element_node())
 }
 
 pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
@@ -402,6 +413,89 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
     };
 
     select_element_node(&component_instance, &en, Some(position));
+}
+
+fn type_name(element_node: &i_slint_editor_preview::ElementRcNode) -> String {
+    element_node.with_element_debug(|debug_info| {
+        debug_info
+            .node
+            .parent()
+            .and_then(|parent| {
+                if parent.kind() == SyntaxKind::Component {
+                    parent
+                        .child_node(SyntaxKind::DeclaredIdentifier)
+                        .map(|identifier| identifier.text().to_string())
+                } else {
+                    None
+                }
+            })
+            .or_else(|| {
+                debug_info
+                    .node
+                    .QualifiedName()
+                    .map(|qualified_name| qualified_name.text().to_string().trim().to_string())
+            })
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    })
+}
+
+fn hovered_element_at_impl(
+    component_instance: &ComponentInstance,
+    position: LogicalPoint,
+    enter_component: bool,
+    selected: Option<&ElementSelection>,
+) -> ui::HoveredElement {
+    let Some(candidate) =
+        selection_candidate_at_impl(component_instance, position, enter_component)
+    else {
+        return Default::default();
+    };
+    let Some(element_node) = candidate.as_element_node() else {
+        return Default::default();
+    };
+
+    let (path, offset) = element_node.path_and_offset();
+    let is_selected = selected.is_some_and(|selection| {
+        selection.path == path
+            && selection.offset == offset
+            && selection.instance_index == candidate.instance_index
+    });
+    let is_over_selected_element = selected.is_some_and(|selection| {
+        component_instance
+            .component_positions(&selection.path, selection.offset.into())
+            .get(selection.instance_index)
+            .is_some_and(|geometry| geometry.contains(position))
+    });
+
+    ui::HoveredElement {
+        valid: true,
+        is_selected,
+        is_over_selected_element,
+        element_path: path.to_string_lossy().to_string().into(),
+        element_offset: i32::try_from(u32::from(offset)).unwrap_or_default(),
+        type_name: type_name(&element_node).into(),
+        geometry: Rc::new(VecModel::from(selection_rectangles(
+            component_instance,
+            &path,
+            offset.into(),
+        )))
+        .into(),
+    }
+}
+
+pub fn hovered_element_at(x: f32, y: f32, enter_component: bool) -> ui::HoveredElement {
+    let Some(component_instance) = super::component_instance() else {
+        return Default::default();
+    };
+
+    hovered_element_at_impl(
+        &component_instance,
+        LogicalPoint::new(x, y),
+        enter_component,
+        super::selected_element().as_ref(),
+    )
 }
 
 pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFrame> {
@@ -686,7 +780,9 @@ mod tests {
 
     use std::path::PathBuf;
 
+    use i_slint_compiler::parser::TextSize;
     use i_slint_core::lengths::LogicalPoint;
+    use slint::Model;
     use slint_interpreter::ComponentInstance;
 
     fn demo_app() -> ComponentInstance {
@@ -1027,5 +1123,145 @@ export component MyInput {
             "selection without `enter_component` should land on the MyInput use site \
              in the main file, not on a node inside the imported component"
         );
+    }
+
+    #[test]
+    fn test_hovered_element_matches_click_selection_and_geometry() {
+        let component_instance = demo_app();
+        let position = LogicalPoint::new(100.0, 100.0);
+        let selected = super::select_element_at_impl(&component_instance, position, false)
+            .expect("a click on the center should select an element");
+        let expected_path_and_offset = selected.path_and_offset();
+        let candidate = super::selection_candidate_at_impl(&component_instance, position, false)
+            .expect("a selectable element should cover the center");
+
+        let hovered = super::hovered_element_at_impl(&component_instance, position, false, None);
+
+        assert!(hovered.valid);
+        assert_eq!(hovered.element_path, expected_path_and_offset.0.to_string_lossy());
+        assert_eq!(
+            hovered.element_offset,
+            i32::try_from(u32::from(expected_path_and_offset.1)).unwrap()
+        );
+        let hovered_geometry = hovered
+            .geometry
+            .row_data(candidate.instance_index)
+            .expect("the hovered instance should have geometry");
+        assert_eq!(hovered_geometry.x, candidate.geometry.rect.origin.x);
+        assert_eq!(hovered_geometry.y, candidate.geometry.rect.origin.y);
+        assert_eq!(hovered_geometry.width, candidate.geometry.rect.size.width);
+        assert_eq!(hovered_geometry.height, candidate.geometry.rect.size.height);
+        assert_eq!(hovered_geometry.angle, candidate.geometry.angle);
+
+        let outside = super::hovered_element_at_impl(
+            &component_instance,
+            LogicalPoint::new(201.0, 100.0),
+            false,
+            None,
+        );
+        assert!(!outside.valid);
+    }
+
+    #[test]
+    fn test_hovered_element_respects_component_boundary() {
+        use crate::preview::test::interpret_test_with_sources;
+        use i_slint_editor_preview::test::{main_test_file_name, test_file_name};
+        use std::collections::HashMap;
+
+        let main_path = main_test_file_name();
+        let controls_path = test_file_name("controls.slint");
+        let main_source = format!(
+            r#"import {{ MyInput }} from "{controls}";
+
+export component Demo inherits Window {{
+    width: 200px;
+    height: 200px;
+
+    MyInput {{
+        x: 0px; y: 0px;
+        width: 200px;
+        height: 200px;
+    }}
+}}
+"#,
+            controls = controls_path.to_string_lossy()
+        );
+        let controls_source = r#"export component MyInput {
+    width: 100%;
+    height: 100%;
+    Rectangle { }
+}
+"#;
+        let component_instance = interpret_test_with_sources(
+            "fluent",
+            HashMap::from([
+                (main_path.clone(), main_source),
+                (controls_path, controls_source.to_string()),
+            ]),
+        );
+        let position = LogicalPoint::new(100.0, 100.0);
+        let hovered = super::hovered_element_at_impl(&component_instance, position, false, None);
+
+        assert!(hovered.valid);
+        assert_eq!(PathBuf::from(hovered.element_path.to_string()), main_path);
+    }
+
+    #[test]
+    fn test_hovered_element_distinguishes_repeated_instances() {
+        let component_instance = crate::preview::test::interpret_test(
+            "fluent",
+            r#"export component Main inherits Window {
+    width: 120px;
+    height: 60px;
+
+    for i in [0, 1]: Rectangle {
+        x: i * 60px;
+        width: 50px;
+        height: 50px;
+    }
+}
+"#,
+        );
+
+        let first = super::hovered_element_at_impl(
+            &component_instance,
+            LogicalPoint::new(10.0, 10.0),
+            false,
+            None,
+        );
+        let second = super::hovered_element_at_impl(
+            &component_instance,
+            LogicalPoint::new(70.0, 10.0),
+            false,
+            None,
+        );
+        assert!(first.valid && second.valid);
+        assert_eq!(first.element_path, second.element_path);
+        assert_eq!(first.element_offset, second.element_offset);
+        assert_eq!(first.geometry.row_count(), 2);
+        assert_eq!(second.geometry.row_count(), 2);
+        assert_ne!(first.geometry.row_data(0).unwrap().x, first.geometry.row_data(1).unwrap().x);
+
+        let selection = super::ElementSelection {
+            path: PathBuf::from(first.element_path.to_string()),
+            offset: TextSize::from(first.element_offset as u32),
+            instance_index: 1,
+        };
+        let selected_second = super::hovered_element_at_impl(
+            &component_instance,
+            LogicalPoint::new(70.0, 10.0),
+            false,
+            Some(&selection),
+        );
+        let selected_first = super::hovered_element_at_impl(
+            &component_instance,
+            LogicalPoint::new(10.0, 10.0),
+            false,
+            Some(&selection),
+        );
+        assert!(selected_second.is_selected);
+        assert!(!selected_first.is_selected);
+        assert!(selected_second.is_over_selected_element);
+        assert!(!selected_first.is_over_selected_element);
     }
 }

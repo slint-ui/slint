@@ -35,6 +35,25 @@ def selection_frame(window: slint_testing.Window, kind: str) -> Frame:
     return (position.x, position.y, size.width, size.height)
 
 
+def fixture_element(window: slint_testing.Window, kind: str) -> slint_testing.Element:
+    return wait_until(
+        lambda: next(
+            iter(window.find_elements_by_id(f"Main::root-{kind.lower()}")), None
+        )
+    )
+
+
+def hover_fixture_element(
+    window: slint_testing.Window, kind: str
+) -> slint_testing.Element:
+    window.dispatch_event(
+        slint_testing.PointerMoveEvent(center(fixture_element(window, kind)))
+    )
+    return window_element_with_label(
+        window, f"Hovered {kind}", slint_testing.AccessibleRole.Region
+    )
+
+
 def same_state(left: Frame, right: Frame) -> bool:
     return all(abs(a - b) < 0.01 for a, b in zip(left, right))
 
