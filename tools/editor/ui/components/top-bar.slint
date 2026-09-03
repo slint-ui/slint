@@ -8,6 +8,7 @@ import { Project } from "../project.slint";
 
 component RunButton inherits Rectangle {
     in property <bool> enabled;
+    in property <bool> running;
     callback clicked;
 
     width: 68px;
@@ -19,7 +20,7 @@ component RunButton inherits Rectangle {
     opacity: enabled ? 1 : 0.55;
 
     Text {
-        text: "Run";
+        text: root.running ? "Running" : "Run";
         color: enabled ? white : StudioTheme.muted;
         font-size: 13px;
         font-weight: 700;
@@ -31,7 +32,7 @@ component RunButton inherits Rectangle {
         enabled: root.enabled;
         mouse-cursor: pointer;
         accessible-role: button;
-        accessible-label: "Run";
+        accessible-label: root.running ? "Running" : "Run";
         clicked => { root.clicked(); }
     }
 }
@@ -63,6 +64,7 @@ export component EditorTopBar inherits Rectangle {
         x: parent.width - self.width - 16px;
         y: (parent.height - self.height) / 2;
         enabled: Preview.can-run && Api.editor-surface-mode == EditorSurfaceMode.component;
+        running: Preview.is-running;
         clicked => { Preview.run(); }
     }
 }

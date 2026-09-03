@@ -56,9 +56,10 @@ impl ChildProcessLspToPreview {
 
         let channel = self.preview_to_lsp_channel.clone();
 
-        let preview_to_lsp_channel = self.preview_to_lsp_channel.clone();
-
         let communication_handle = tokio::spawn(async move {
+            let _exited_guard = scopeguard::guard(channel.clone(), |channel| {
+                channel.send(PreviewToLspMessage::Exited).ok();
+            });
             let reader = tokio::io::BufReader::new(from_child);
             let mut lines = reader.lines();
             while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
@@ -75,7 +76,7 @@ impl ChildProcessLspToPreview {
                         .to_string();
                 tracing::error!("{message}");
 
-                let _ = preview_to_lsp_channel.send(PreviewToLspMessage::SendShowMessage {
+                let _ = channel.send(PreviewToLspMessage::SendShowMessage {
                     message: lsp_types::ShowMessageParams {
                         typ: lsp_types::MessageType::ERROR,
                         message,
