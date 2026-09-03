@@ -722,7 +722,7 @@ pub mod winit_030 {
 
     pub use i_slint_backend_winit::{
         CustomApplicationHandler, EventLoopBuilder, EventResult, SlintEvent, WinitWindowAccessor,
-        winit,
+        invoke_from_event_loop_with_active_event_loop, winit,
     };
 
     #[deprecated(note = "Renamed to `EventResult`")]

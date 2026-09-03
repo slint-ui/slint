@@ -741,6 +741,29 @@ impl Backend {
     }
 }
 
+/// Invokes a callback taking a Winit `ActiveEVentLoop` from the main thread event loop
+pub fn invoke_from_event_loop_with_active_event_loop(
+    func: impl FnOnce(&winit::event_loop::ActiveEventLoop) + Send + 'static,
+) -> Result<(), crate::EventLoopError> {
+    i_slint_core::platform::with_event_loop_proxy(|proxy| {
+        let func = Box::new(func);
+        let event = CustomEvent::UserEvent(func);
+
+        let proxy = proxy
+            .and_then(|p| (p as &dyn core::any::Any).downcast_ref::<WinitEventLoopProxy>())
+            .ok_or(EventLoopError::NoEventLoopProvider)?
+            .0
+            .clone();
+
+        #[cfg(target_arch = "wasm32")]
+        proxy
+            .send_event(SlintEvent(CustomEvent::WakeEventLoopWorkaround))
+            .map_err(|_| EventLoopError::EventLoopTerminated)?;
+
+        proxy.send_event(SlintEvent(event)).map_err(move |_| EventLoopError::EventLoopTerminated)
+    })
+}
+
 #[allow(unused)]
 const DEFAULT_CURSOR_FLASH_CYCLE: core::time::Duration = core::time::Duration::from_millis(1000);
 
@@ -790,6 +813,42 @@ impl Drop for Backend {
         if let Some(handle) = self.xdg_watcher.borrow_mut().take() {
             handle.abort();
         }
+    }
+}
+
+struct WinitEventLoopProxy(winit::event_loop::EventLoopProxy<SlintEvent>, Arc<AtomicUsize>);
+
+impl EventLoopProxy for WinitEventLoopProxy {
+    fn quit_event_loop(&self) -> Result<(), EventLoopError> {
+        let generation = self.1.load(std::sync::atomic::Ordering::Relaxed);
+        self.0
+            .send_event(SlintEvent(CustomEvent::Exit(generation)))
+            .map_err(|_| EventLoopError::EventLoopTerminated)
+    }
+
+    fn invoke_from_event_loop(
+        &self,
+        event: Box<dyn FnOnce() + Send>,
+    ) -> Result<(), EventLoopError> {
+        // Calling send_event is usually done by winit at the bottom of the stack,
+        // in event handlers, and thus winit might decide to process the event
+        // immediately within that stack.
+        // To prevent re-entrancy issues that might happen by getting the application
+        // event processed on top of the current stack, set winit in Poll mode so that
+        // events are queued and process on top of a clean stack during a requested animation
+        // frame a few moments later.
+        // This also allows batching multiple post_event calls and redraw their state changes
+        // all at once.
+        #[cfg(target_arch = "wasm32")]
+        self.0
+            .send_event(SlintEvent(CustomEvent::WakeEventLoopWorkaround))
+            .map_err(|_| EventLoopError::EventLoopTerminated)?;
+
+        let event: Box<dyn for<'a> FnOnce(&'a ActiveEventLoop) + Send + 'static> =
+            Box::new(move |_el: &ActiveEventLoop| (event)());
+        self.0
+            .send_event(SlintEvent(CustomEvent::UserEvent(event)))
+            .map_err(|_| EventLoopError::EventLoopTerminated)
     }
 }
 
@@ -908,39 +967,7 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
-        struct Proxy(winit::event_loop::EventLoopProxy<SlintEvent>, Arc<AtomicUsize>);
-        impl EventLoopProxy for Proxy {
-            fn quit_event_loop(&self) -> Result<(), EventLoopError> {
-                let generation = self.1.load(std::sync::atomic::Ordering::Relaxed);
-                self.0
-                    .send_event(SlintEvent(CustomEvent::Exit(generation)))
-                    .map_err(|_| EventLoopError::EventLoopTerminated)
-            }
-
-            fn invoke_from_event_loop(
-                &self,
-                event: Box<dyn FnOnce() + Send>,
-            ) -> Result<(), EventLoopError> {
-                // Calling send_event is usually done by winit at the bottom of the stack,
-                // in event handlers, and thus winit might decide to process the event
-                // immediately within that stack.
-                // To prevent re-entrancy issues that might happen by getting the application
-                // event processed on top of the current stack, set winit in Poll mode so that
-                // events are queued and process on top of a clean stack during a requested animation
-                // frame a few moments later.
-                // This also allows batching multiple post_event calls and redraw their state changes
-                // all at once.
-                #[cfg(target_arch = "wasm32")]
-                self.0
-                    .send_event(SlintEvent(CustomEvent::WakeEventLoopWorkaround))
-                    .map_err(|_| EventLoopError::EventLoopTerminated)?;
-
-                self.0
-                    .send_event(SlintEvent(CustomEvent::UserEvent(event)))
-                    .map_err(|_| EventLoopError::EventLoopTerminated)
-            }
-        }
-        Some(Box::new(Proxy(
+        Some(Box::new(WinitEventLoopProxy(
             self.shared_data.event_loop_proxy.clone(),
             Arc::clone(&self.shared_data.event_loop_generation),
         )))
