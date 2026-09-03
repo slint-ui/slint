@@ -3,6 +3,9 @@
 
 use std::{cell::RefCell, ffi::OsString, path::PathBuf};
 
+#[cfg(feature = "preview-process")]
+use std::{io::BufRead, rc::Rc};
+
 use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget, PreviewToLspMessage};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt},
@@ -130,4 +133,96 @@ impl crate::LspToPreview for ChildProcessLspToPreview {
     fn preview_target(&self) -> PreviewTarget {
         PreviewTarget::ChildProcess
     }
+}
+
+#[cfg(feature = "preview-process")]
+pub struct RemoteControlledPreviewToLsp {}
+
+#[cfg(feature = "preview-process")]
+impl RemoteControlledPreviewToLsp {
+    /// Creates a `RemoteControlledPreviewToLsp` connector.
+    ///
+    /// The application's lifetime is bound to stdin.
+    /// The OS cleans up the reader thread when the process exits.
+    ///
+    /// Note: If the Slint backend has not been set yet, this will set a backend with the
+    /// default Slint BackendSelector.
+    pub fn new(
+        message_handler: impl Fn(LspToPreviewMessage) -> crate::Result<()> + Send + 'static,
+        connection_closed: impl Fn() + Send + 'static,
+    ) -> Self {
+        // Ensure the backend is set up before the reader thread starts. This fixes
+        // bug #10274 on macOS where a race condition was causing the reader thread to already
+        // process messages before the event loop was running.
+        //
+        // Use .ok() to ignore any errors, as the backend might already be set by the user and that's fine.
+        slint_interpreter::BackendSelector::new().select().ok();
+
+        std::thread::spawn(move || -> Result<(), String> {
+            let reader = std::io::BufReader::new(std::io::stdin().lock());
+            for line in reader.lines() {
+                let Ok(line) = line else {
+                    tracing::debug!("Preview: stdin closed, quitting");
+                    connection_closed();
+                    return Ok(());
+                };
+                if let Ok(message) = serde_json::from_str(&line) {
+                    message_handler(message).map_err(|error| {
+                        let error = error.to_string();
+                        tracing::error!(
+                            "Failed to queue message onto event loop - reader thread will exit: {error}"
+                        );
+                        error
+                    })?;
+                }
+            }
+            tracing::debug!("Preview: stdin EOF, quitting");
+            connection_closed();
+            Ok(())
+        });
+        Self {}
+    }
+}
+
+#[cfg(feature = "preview-process")]
+impl crate::PreviewToLsp for RemoteControlledPreviewToLsp {
+    #[allow(clippy::print_stdout)]
+    fn send(&self, message: &PreviewToLspMessage) -> crate::Result<()> {
+        let message = serde_json::to_string(message).map_err(|error| error.to_string())?;
+        println!("{message}");
+        Ok(())
+    }
+}
+
+#[cfg(feature = "preview-process")]
+pub fn run() -> crate::Result<()> {
+    let (to_preview, from_editor) = mpsc::unbounded_channel();
+    let to_editor = Rc::new(RemoteControlledPreviewToLsp::new(
+        move |message| {
+            to_preview.send(message)?;
+            Ok(())
+        },
+        || {
+            slint_interpreter::quit_event_loop().ok();
+        },
+    )) as Rc<dyn crate::PreviewToLsp>;
+
+    slint_interpreter::spawn_local(async_compat::Compat::new(async move {
+        let local_set = tokio::task::LocalSet::new();
+        local_set
+            .run_until(async move {
+                if let Err(error) = i_slint_live_preview::preview_sessions::run_with_channels(
+                    from_editor,
+                    to_editor,
+                )
+                .await
+                {
+                    tracing::error!("Preview error: {error}");
+                }
+                slint_interpreter::quit_event_loop().ok();
+            })
+            .await;
+    }))?;
+    slint_interpreter::run_event_loop()?;
+    Ok(())
 }

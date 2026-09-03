@@ -3659,6 +3659,7 @@ dependencies = [
 name = "i-slint-editor-preview"
 version = "1.18.0"
 dependencies = [
+ "async-compat",
  "directories",
  "futures-util",
  "i-slint-backend-testing",
@@ -3668,6 +3669,7 @@ dependencies = [
  "lsp-types",
  "serde",
  "serde_json",
+ "slint-interpreter",
  "smol_str 0.3.2",
  "spin_on",
  "tempfile",

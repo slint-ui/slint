@@ -79,6 +79,7 @@ preview-engine = [
   "dep:i-slint-backend-selector",
   "dep:slint-build",
   "i-slint-editor-preview/preview-engine",
+  "i-slint-editor-preview/preview-process",
 ]
 ## Build in the actual code to act as a preview for slint files. Does nothing in WASM!
 preview-builtin = ["preview-engine", "i-slint-editor-preview/preview-builtin"]
