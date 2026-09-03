@@ -1389,6 +1389,18 @@ impl ComponentDefinition {
         ))
     }
 
+    /// Instantiate the component using an existing window without replacing its component.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn create_detached_with_existing_window(
+        &self,
+        window: &Window,
+        _: i_slint_core::InternalToken,
+    ) -> Result<ComponentInstance, PlatformError> {
+        let adapter = WindowInner::from_pub(window).window_adapter();
+        Ok(ComponentInstance { inner: self.inner.create_detached_with_existing_window(adapter) })
+    }
+
     /// Private implementation of create
     pub(crate) fn create_with_options(
         &self,
@@ -1635,6 +1647,16 @@ impl ComponentInstance {
             i_slint_core::window::WindowInner::from_pub(self.window()).ensure_tree_instantiated();
         }
         Ok(())
+    }
+
+    /// Return the item tree without attaching it as the window's component.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn as_item_tree(
+        &self,
+        _: i_slint_core::InternalToken,
+    ) -> i_slint_core::item_tree::ItemTreeRc {
+        vtable::VRc::into_dyn(self.inner.vrc().clone())
     }
 
     fn is_system_tray_rooted(&self) -> bool {
