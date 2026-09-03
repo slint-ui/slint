@@ -191,6 +191,22 @@ pub const FALLBACK_FAMILIES: [fontique::GenericFamily; 2] = [
     fontique::GenericFamily::SystemUi,
 ];
 
+/// Point the sans-serif / system-ui generic families at `family_name`, so text with no explicit
+/// family resolves to it. Returns false if the family isn't registered.
+pub fn set_default_font_family(collection: &mut fontique::Collection, family_name: &str) -> bool {
+    let Some(id) = collection.family_id(family_name) else {
+        return false;
+    };
+    for generic in [
+        fontique::GenericFamily::SansSerif,
+        fontique::GenericFamily::SystemUi,
+        fontique::GenericFamily::UiSansSerif,
+    ] {
+        collection.set_generic_families(generic, core::iter::once(id));
+    }
+    true
+}
+
 /// Wrapper around fontique::Blob to permit use of the blob as a key in the cache in the different renderers,
 /// to map the blob to the native type face representation (skia_safe::Typeface, femtovg::FontId, QRawFont, etc.).
 /// The use as key also ensures the blob remains strongly referenced, so that it doesn't vanish from the
