@@ -421,6 +421,7 @@ jobs:
                   RUSTFLAGS: --cfg slint_int_coord -D warnings
               run: |
                   cargo check --target=thumbv8m.main-none-eabihf --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-st7789 --release
+                  cargo check --target=thumbv8m.main-none-eabihf --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-restouch-lcd-3-5 --release
                   cargo check --target=thumbv8m.main-none-eabihf --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-touch-lcd-2-8 --release
                   cargo check --target=thumbv7em-none-eabihf --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/stm32h735g --release
                   cargo check --target=thumbv8m.main-none-eabihf --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/stm32u5g9j-dk2 --release

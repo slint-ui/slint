@@ -170,6 +170,7 @@ driverlib
 droparea
 dropevent
 DSHIELD
+DSPI
 dsym
 dsymutil
 dustygold
@@ -392,6 +393,7 @@ machdep
 Macronix
 mainwindow
 MALLOC
+MADCTL
 manylinux
 materialui
 matplot
@@ -538,6 +540,7 @@ Renesas
 repr
 reqwest
 respawn
+restouch
 resvg
 rfind
 Rgbx
@@ -698,6 +701,7 @@ usvg
 vbus
 vecmodel
 vello
+VCOM
 veniam
 venv
 verticalbox
