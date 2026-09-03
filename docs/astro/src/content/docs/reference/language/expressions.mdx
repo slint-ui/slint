@@ -121,22 +121,6 @@ The `nine-slice` argument of full Slint is an
 error. \{#sls.expr.image.no-nine-slice}
 </OnlyInSC>
 
-<SC>
-## Image Dimensions
-
-Reading the field `width` or `height` of an expression of type `image`
-yields the dimensions of the image as an `int`: the number of pixels in each
-row, and the number of rows.
-Both are 0 for no image. \{#sls.expr.image.dimensions}
-
-```slint
-export component Example inherits Window {
-    in property <image> logo;
-    out property <int> logo-width: logo.width;
-}
-```
-</SC>
-
 ## References
 
 ```slint
