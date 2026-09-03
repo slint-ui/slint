@@ -564,7 +564,7 @@ impl Component {
                         if reject_experimental_feature(diag, tr, "interface", &node) {
                             ElementType::Error
                         } else {
-                            ElementType::Interface
+                            ElementType::Interface(None)
                         }
                     }
                     _ => ElementType::Error,
@@ -686,7 +686,7 @@ impl Component {
 
     /// This is an interface introduced with the "interface" keyword
     pub fn is_interface(&self) -> bool {
-        matches!(&self.root_element.borrow().base_type, ElementType::Interface)
+        matches!(&self.root_element.borrow().base_type, ElementType::Interface(_))
     }
 
     /// True if this component's root resolves to the `SystemTrayIcon` native
@@ -1605,7 +1605,7 @@ impl Element {
                             "Cannot create an instance of an interface; write 'implement {} <=> self;' to implement it",
                             c.id
                         )
-                    } else if parent_type == ElementType::Interface {
+                    } else if matches!(parent_type, ElementType::Interface(_)) {
                         "Interface inheritance is not supported yet".into()
                     } else {
                         "Components cannot inherit from interfaces".into()
@@ -1632,12 +1632,12 @@ impl Element {
                     ElementType::Error
                 }
             }
-        } else if parent_type == ElementType::Global || parent_type == ElementType::Interface {
+        } else if matches!(parent_type, ElementType::Global | ElementType::Interface(_)) {
             // This must be a global component or interface. It can only have properties and callbacks
             let mut error_on = |node: &dyn Spanned, what: &str| {
                 let element_type = match parent_type {
                     ElementType::Global => "A global component",
-                    ElementType::Interface => "An interface",
+                    ElementType::Interface(_) => "An interface",
                     _ => "An unexpected type",
                 };
                 diag.push_error(format!("{element_type} cannot have {what}"), node);
@@ -1663,7 +1663,7 @@ impl Element {
             node.MatchElement().for_each(|n| error_on(&n, "match elements"));
             node.SlotDeclaration().for_each(|n| error_on(&n, "slots"));
 
-            if parent_type == ElementType::Interface {
+            if matches!(parent_type, ElementType::Interface(_)) {
                 node.Binding().for_each(|n| error_on(&n, "bindings"));
                 node.TwoWayBinding().for_each(|n| error_on(&n, "two-way bindings"));
 
@@ -1684,7 +1684,7 @@ impl Element {
         } else {
             tr.empty_type()
         };
-        let is_interface = base_type == ElementType::Interface;
+        let is_interface = matches!(base_type, ElementType::Interface(_));
         // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
         let qualified_id = (!id.is_empty()).then(|| id.clone());
         if let ElementType::Component(c) = &base_type {
@@ -1847,7 +1847,7 @@ impl Element {
         }
 
         let (implemented_interfaces, child_implements) =
-            if matches!(r.base_type, ElementType::Global | ElementType::Interface) {
+            if matches!(r.base_type, ElementType::Global | ElementType::Interface(_)) {
                 // Already rejected above with a more specific diagnostic.
                 (Vec::new(), Vec::new())
             } else if r.id == "root" {
@@ -2110,14 +2110,14 @@ impl Element {
             };
 
             match (base_type.clone(), func.CodeBlock()) {
-                (ElementType::Interface, Some(code_block)) => {
+                (ElementType::Interface(_), Some(code_block)) => {
                     diag.push_error(
                         "Function declarations in interfaces must not have a body".into(),
                         &code_block,
                     );
                     continue;
                 }
-                (ElementType::Interface, None) => {
+                (ElementType::Interface(_), None) => {
                     // Do not create a binding for this function, as it is just a declaration without body. It will be
                     // implemented by the component that implements the interface.
                     r.property_declarations.insert(name, declaration);

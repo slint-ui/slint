@@ -131,7 +131,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
             i_slint_compiler::langtype::ElementType::Native(_) => unreachable!(),
             i_slint_compiler::langtype::ElementType::Error => unreachable!(),
             i_slint_compiler::langtype::ElementType::Global => break,
-            i_slint_compiler::langtype::ElementType::Interface => break,
+            i_slint_compiler::langtype::ElementType::Interface(_) => break,
         };
         elem = e;
     }

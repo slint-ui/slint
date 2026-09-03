@@ -141,7 +141,7 @@ impl NamedReference {
                 }
                 crate::langtype::ElementType::Error
                 | crate::langtype::ElementType::Global
-                | crate::langtype::ElementType::Interface => {
+                | crate::langtype::ElementType::Interface(_) => {
                     return true;
                 }
             }

@@ -2820,7 +2820,7 @@ fn continue_lookup_within_element(
     } else {
         let mut err = |extra: &str| {
             let what = match &elem.borrow().base_type {
-                ElementType::Global | ElementType::Interface => {
+                ElementType::Global | ElementType::Interface(_) => {
                     let enclosing_type = elem.borrow().enclosing_component.upgrade().unwrap();
                     assert!(enclosing_type.is_global() || enclosing_type.is_interface());
                     format!("'{}'", enclosing_type.id)
