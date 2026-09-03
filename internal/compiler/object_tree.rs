@@ -3197,7 +3197,7 @@ fn animation_element_from_node(
     diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
 ) -> Option<ElementRc> {
-    let anim_type = tr.property_animation_type_for_property(prop_type);
+    let anim_type = tr.property_animation_type_for_property(prop_type.clone());
     if !matches!(anim_type, ElementType::Builtin(..)) {
         diag.push_error(
             format!(
@@ -3208,6 +3208,20 @@ fn animation_element_from_node(
         );
         None
     } else {
+        // The `angle-interpolation` property is only meaningful for angle properties
+        if prop_type != Type::Angle {
+            for binding in anim.Binding() {
+                let Some(ident) = binding.child_token(SyntaxKind::Identifier) else {
+                    continue;
+                };
+                if parser::normalize_identifier(ident.text()) == "angle-interpolation" {
+                    diag.push_error(
+                        "The 'angle-interpolation' property is only allowed when animating angle properties".into(),
+                        &ident,
+                    );
+                }
+            }
+        }
         Some(build_animation_element(anim, anim_type, diag))
     }
 }
