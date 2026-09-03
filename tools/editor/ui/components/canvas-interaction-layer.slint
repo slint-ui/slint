@@ -307,34 +307,41 @@ export component CanvasInteractionLayer inherits Rectangle {
                 root.update-hover({ x: self.mouse-x, y: self.mouse-y });
             }
         }
-    }
+        changed has-hover => {
+            if !self.has-hover {
+                Hover.clear();
+            }
+        }
 
-    // Selected frames precede hover frames so an enabled hover frame receives input.
-    for selection[idx] in root.selections: SelectedCanvasFrame {
-        selection: selection;
-        primary: idx == Api.selection.highlight-index;
-        shift-pressed: root.shift-pressed;
-        interaction-disabled: root.hover-selection-active;
-        pointer-hovered(position) => {
-            root.update-hover(position);
+        for geometry in Hover.element.geometry: HoverCanvasFrame {
+            geometry: geometry;
+            gesture-active: root.hover-selection-active;
+            selection-area-has-hover: selection-area.has-hover;
+            gesture-started => {
+                root.hover-selection-active = true;
+            }
+            gesture-ended => {
+                root.hover-selection-active = false;
+            }
+            pointer-hovered(position) => {
+                root.update-hover(position);
+            }
+            real-element-selected => {
+                root.real-element-selected();
+            }
         }
-    }
 
-    for geometry in Hover.element.geometry: HoverCanvasFrame {
-        geometry: geometry;
-        gesture-active: root.hover-selection-active;
-        selection-area-has-hover: selection-area.has-hover;
-        gesture-started => {
-            root.hover-selection-active = true;
-        }
-        gesture-ended => {
-            root.hover-selection-active = false;
-        }
-        pointer-hovered(position) => {
-            root.update-hover(position);
-        }
-        real-element-selected => {
-            root.real-element-selected();
+        // Selected frames come after hover frames so a selection has higher precedence.
+        for selection[idx] in root.selections: SelectedCanvasFrame {
+            selection: selection;
+            primary: idx == Api.selection.highlight-index;
+            shift-pressed: root.shift-pressed;
+            interaction-disabled: root.hover-selection-active;
+            pointer-hovered(position) => {
+                // do not hover inside the selection, a hover would be misleading, as
+                // clicking still reaches the selection, not the hover.
+                Hover.clear();
+            }
         }
     }
 }

@@ -17,4 +17,7 @@ export struct HoveredElement {
 export global Hover {
     in-out property <HoveredElement> element;
     pure callback element-at(x: length, y: length, enter-component: bool) -> HoveredElement;
+    public function clear() {
+        self.element = {};
+    }
 }

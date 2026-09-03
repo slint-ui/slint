@@ -339,7 +339,7 @@ def test_overlapping_elements_update_hover_outline_to_topmost_item(
         snapshot.assert_unchanged()
 
 
-def test_overlapping_hover_does_not_intercept_selected_element_drag(
+def test_selected_element_drag_takes_precedence_over_overlapping_element(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
@@ -357,7 +357,7 @@ def test_overlapping_hover_does_not_intercept_selected_element_drag(
             y=artboard.absolute_position.y + 80,
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(overlapping))
-        window_element_with_label(window, "Hovered Text")
+        assert not elements_with_label(window.root_element, "Hovered Text")
         initial_frame = selection_frame(window, "Rectangle")
         target = slint_testing.LogicalPosition(
             x=overlapping.x + 20,
