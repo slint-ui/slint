@@ -1512,22 +1512,25 @@ impl WindowInner {
         );
 
         // Track position
-        self.focus_item_position_tracker.init(
-            (item.downgrade(), self.window_adapter_weak.clone()),
-            |(item, _)| {
-                let Some(item) = item.upgrade() else { return Default::default() };
-                Some(item.map_to_native_window(item.geometry().origin))
-            },
-            |(item, window_adapter), _| {
-                let (Some(item), Some(window_adapter)) = (item.upgrade(), window_adapter.upgrade())
-                else {
-                    return;
-                };
-                if let Some(text_input) = item.downcast::<crate::items::TextInput>() {
-                    text_input.as_pin_ref().update_ime(&window_adapter, &item);
-                }
-            },
-        );
+        if let Some(_) = item.downcast::<crate::items::TextInput>() {
+            self.focus_item_position_tracker.init(
+                (item.downgrade(), self.window_adapter_weak.clone()),
+                |(item, _)| {
+                    let Some(item) = item.upgrade() else { return Default::default() };
+                    Some(item.map_to_native_window(item.geometry().origin))
+                },
+                |(item, window_adapter), _| {
+                    let (Some(item), Some(window_adapter)) =
+                        (item.upgrade(), window_adapter.upgrade())
+                    else {
+                        return;
+                    };
+                    if let Some(text_input) = item.downcast::<crate::items::TextInput>() {
+                        text_input.as_pin_ref().update_ime(&window_adapter, &item);
+                    }
+                },
+            );
+        }
     }
 
     fn move_focus(
