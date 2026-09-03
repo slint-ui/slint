@@ -21,7 +21,7 @@ path = "lib.rs"
 preview-engine = []
 preview-builtin = ["preview-engine"]
 preview-process = [
-  "preview-engine",
+  "preview-builtin",
   "dep:async-compat",
   "dep:slint-interpreter",
   "i-slint-live-preview/preview-session",

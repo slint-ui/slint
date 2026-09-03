@@ -1,8 +1,40 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Api, EditorSurfaceMode } from "../api.slint";
+import { Preview } from "../preview.slint";
 import { EditorMetrics, StudioTheme } from "common.slint";
 import { Project } from "../project.slint";
+
+component RunButton inherits Rectangle {
+    in property <bool> enabled;
+    callback clicked;
+
+    width: 68px;
+    height: 32px;
+    border-radius: 6px;
+    background: enabled
+        ? touch.has-hover ? StudioTheme.accent-strong : StudioTheme.accent
+        : StudioTheme.panel-subtle;
+    opacity: enabled ? 1 : 0.55;
+
+    Text {
+        text: "Run";
+        color: enabled ? white : StudioTheme.muted;
+        font-size: 13px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        accessible-role: button;
+        accessible-label: "Run";
+        clicked => { root.clicked(); }
+    }
+}
 
 export component EditorTopBar inherits Rectangle {
     height: EditorMetrics.top-bar-height;
@@ -25,5 +57,12 @@ export component EditorTopBar inherits Rectangle {
             vertical-alignment: center;
             overflow: elide;
         }
+    }
+
+    RunButton {
+        x: parent.width - self.width - 16px;
+        y: (parent.height - self.height) / 2;
+        enabled: Preview.can-run && Api.editor-surface-mode == EditorSurfaceMode.component;
+        clicked => { Preview.run(); }
     }
 }

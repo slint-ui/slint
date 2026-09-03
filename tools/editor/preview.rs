@@ -108,6 +108,11 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
                 preview_component.url,
                 preview_component.component
             );
+            PREVIEW_STATE.with_borrow(|preview_state| {
+                if let Some(editor_ui) = &preview_state.editor_ui {
+                    editor_ui.global::<ui::Preview>().set_can_run(true);
+                }
+            });
             apply_preview_to_file_tree(&preview_component);
             load_preview(preview_component, LoadBehavior::BringWindowToFront);
         }

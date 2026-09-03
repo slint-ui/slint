@@ -5,6 +5,7 @@ import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, Hover } from "api.slint";
 import { Project } from "project.slint";
+import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
 import { AppState, PaletteComponentKind, SidebarToggleButton, StudioTheme } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
@@ -16,7 +17,7 @@ import { LeftPane } from "components/left-pane.slint";
 import { EditorMetrics } from "components/common.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
-export { Api, Hover, Project }
+export { Api, Hover, Preview, Project }
 
 export component EditorUi inherits Window {
     preferred-width: 1360px;

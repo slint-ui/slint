@@ -30,7 +30,7 @@ i-slint-backend-selector = { workspace = true }
 i-slint-common = { workspace = true }
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
 i-slint-core = { workspace = true, features = ["std"] }
-i-slint-editor-preview = { workspace = true, features = ["preview-engine", "preview-builtin"] }
+i-slint-editor-preview = { workspace = true, features = ["preview-engine", "preview-builtin", "preview-process"] }
 i-slint-live-preview = { workspace = true, features = ["protocol", "file-watcher"] }
 
 by_address = { workspace = true }

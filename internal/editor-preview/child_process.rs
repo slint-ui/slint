@@ -126,7 +126,7 @@ impl crate::LspToPreview for ChildProcessLspToPreview {
             tracing::debug!("Starting preview process");
             self.start_preview().unwrap();
         } else {
-            tracing::warn!("Preview not running, dropping message: {:?}", message);
+            tracing::debug!("Preview not running, dropping message: {:?}", message);
         }
     }
 
