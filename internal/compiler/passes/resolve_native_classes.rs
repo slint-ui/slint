@@ -28,7 +28,7 @@ pub fn resolve_native_classes(component: &Component) {
                     // already native
                     return;
                 }
-                ElementType::Interface | ElementType::Global | ElementType::Error => {
+                ElementType::Interface(_) | ElementType::Global | ElementType::Error => {
                     panic!("This should not happen")
                 }
             };
