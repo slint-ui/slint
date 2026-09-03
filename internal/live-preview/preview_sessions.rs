@@ -22,6 +22,15 @@ use crate::protocol::{
     SourceFileVersion,
 };
 
+#[allow(clippy::disallowed_methods)]
+fn spawn_local<Future>(future: Future) -> tokio::task::JoinHandle<Future::Output>
+where
+    Future: std::future::Future + 'static,
+    Future::Output: 'static,
+{
+    tokio::task::spawn_local(future)
+}
+
 #[derive(Clone, Debug)]
 pub struct VersionedFileContent {
     pub version: SourceFileVersion,
@@ -77,7 +86,7 @@ impl PreviewSession {
             to_editor,
         });
         let (command_sender, command_receiver) = mpsc::unbounded_channel();
-        tokio::task::spawn_local(session.clone().process_messages(command_receiver, event_handler));
+        spawn_local(session.clone().process_messages(command_receiver, event_handler));
         (session, PreviewSessionHandle { command_sender })
     }
 
@@ -421,7 +430,7 @@ pub async fn run_with_channels(
         })
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
 
-    tokio::task::spawn_local(async move {
+    spawn_local(async move {
         while let Some(message) = from_editor.recv().await {
             let should_quit = matches!(message, LspToPreviewMessage::Quit);
             if session_handle.handle_message(message).is_err() || should_quit {
