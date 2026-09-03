@@ -542,9 +542,10 @@ mod tests {
     const TEST_PREVIEW_SOURCE: &str = r#"
         export component TestPreview inherits Window {
             background: white;
+            in property <length> rectangle-x: 20px;
 
             Rectangle {
-                x: 20px;
+                x: root.rectangle-x;
                 y: 20px;
                 width: 30px;
                 height: 20px;
@@ -620,5 +621,16 @@ mod tests {
         let outside = pixels[(5 * WIDTH + 5) as usize];
         assert!(highlighted.blue > highlighted.red);
         assert_eq!((outside.red, outside.green, outside.blue), (255, 255, 255));
+
+        preview.set_property("rectangle-x", slint_interpreter::Value::Number(60.)).unwrap();
+        let mut moved_pixels = vec![RgbPixel::default(); (WIDTH * HEIGHT) as usize];
+        assert!(window_adapter.draw_if_needed(|renderer| {
+            renderer.render(moved_pixels.as_mut_slice(), WIDTH as usize);
+        }));
+
+        let old_position = moved_pixels[(25 * WIDTH + 25) as usize];
+        let new_position = moved_pixels[(25 * WIDTH + 65) as usize];
+        assert_eq!((old_position.red, old_position.green, old_position.blue), (255, 255, 255));
+        assert!(new_position.blue > new_position.red);
     }
 }
