@@ -8,13 +8,16 @@ use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, Window, WindowPosition,
     WindowSize,
 };
+use i_slint_core::items::InputType;
 use i_slint_core::menus::MenuVTable;
 use i_slint_core::graphics::IntSize;
 use i_slint_core::graphics::euclid;
 use i_slint_core::platform::{Clipboard, Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
-use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowProperties};
+use i_slint_core::window::{
+    InputMethodRequest, WindowAdapter, WindowAdapterInternal, WindowProperties,
+};
 use i_slint_core::{Brush, SharedString};
 
 type WindowAdapterUserData = *mut c_void;
@@ -50,6 +53,14 @@ pub struct CppWindowAdapter {
             &vtable::VRc<MenuVTable>,
             LogicalPosition,
         ) -> bool,
+    >,
+    /// Optional: tells the platform to start, update or stop an input method session.
+    input_method_request: Option<
+        unsafe extern "C" fn(
+            WindowAdapterUserData,
+            InputMethodRequestKind,
+            Option<&InputMethodPropertiesReprC>,
+        ),
     >,
 }
 
@@ -126,6 +137,91 @@ impl WindowAdapterInternal for CppWindowAdapter {
     ) -> bool {
         self.show_native_popup_menu
             .is_some_and(|f| unsafe { f(self.user_data, &context_menu_item, position) })
+    }
+
+    fn input_method_request(&self, request: InputMethodRequest) {
+        let Some(f) = self.input_method_request else { return };
+
+        match request {
+            InputMethodRequest::Enable(p) => unsafe {
+                f(
+                    self.user_data,
+                    InputMethodRequestKind::Enable,
+                    Some(&InputMethodPropertiesReprC::new(&p)),
+                )
+            },
+            InputMethodRequest::Update(p) => unsafe {
+                f(
+                    self.user_data,
+                    InputMethodRequestKind::Update,
+                    Some(&InputMethodPropertiesReprC::new(&p)),
+                )
+            },
+            InputMethodRequest::Disable => unsafe {
+                f(self.user_data, InputMethodRequestKind::Disable, None)
+            },
+            _ => {}
+        }
+    }
+}
+
+/// Which input method transition a text input is asking the platform for.
+///
+/// Mirrors the discriminant of [`i_slint_core::window::InputMethodRequest`], whose payload
+/// is not `repr(C)`.
+#[repr(C)]
+pub enum InputMethodRequestKind {
+    /// Begin composing; the properties describe the field being entered.
+    Enable = 0,
+    /// The field changed while composing; the properties are the new state.
+    Update = 1,
+    /// Stop composing. No properties accompany this.
+    Disable = 2,
+}
+
+/// A `repr(C)` view of [`i_slint_core::window::InputMethodProperties`].
+///
+/// The Rust type is `#[non_exhaustive]` and holds `Option`s, so it cannot cross the FFI
+/// boundary as it stands. Offsets are in bytes into `text`, matching the Rust type; a
+/// platform whose input method counts in UTF-16 has to convert.
+#[repr(C)]
+pub struct InputMethodPropertiesReprC {
+    /// The text around the cursor, excluding any pre-edit.
+    pub text: SharedString,
+    /// Byte offset of the cursor within `text`.
+    pub cursor_position: usize,
+    /// Byte offset of the other end of the selection; only meaningful with `has_anchor`.
+    pub anchor_position: usize,
+    /// Whether there is a selection, i.e. whether `anchor_position` means anything.
+    pub has_anchor: bool,
+    /// The text being composed but not yet committed. Empty when not composing.
+    pub preedit_text: SharedString,
+    /// Byte offset of the pre-edit within `text`.
+    pub preedit_offset: usize,
+    /// Top-left of the cursor rectangle, in window coordinates.
+    pub cursor_rect_origin: LogicalPosition,
+    /// Size of the cursor rectangle.
+    pub cursor_rect_size: LogicalSize,
+    /// Bottom of the anchor; only meaningful with `has_anchor`.
+    pub anchor_point: LogicalPosition,
+    /// What kind of text the field accepts.
+    pub input_type: InputType,
+}
+
+impl InputMethodPropertiesReprC {
+    fn new(p: &i_slint_core::window::InputMethodProperties) -> Self {
+        Self {
+            text: p.text.clone(),
+            cursor_position: p.cursor_position,
+            anchor_position: p.anchor_position.unwrap_or_default(),
+            has_anchor: p.anchor_position.is_some(),
+            preedit_text: p.preedit_text.clone(),
+            preedit_offset: p.preedit_offset,
+            cursor_rect_origin: p.cursor_rect_origin,
+            cursor_rect_size: p.cursor_rect_size,
+            anchor_point: p.anchor_point,
+            input_type: p.input_type,
+        }
     }
 }
 
@@ -217,6 +313,7 @@ pub unsafe extern "C" fn slint_window_adapter_new(
             set_position,
             None,
             None,
+            None,
             target,
         )
     }
@@ -251,6 +348,13 @@ pub unsafe extern "C" fn slint_window_adapter_new2(
             LogicalPosition,
         ) -> bool,
     >,
+    input_method_request: Option<
+        unsafe extern "C" fn(
+            WindowAdapterUserData,
+            InputMethodRequestKind,
+            Option<&InputMethodPropertiesReprC>,
+        ),
+    >,
     target: *mut WindowAdapterRcOpaque,
 ) {
     let window = Rc::<CppWindowAdapter>::new_cyclic(|w| CppWindowAdapter {
@@ -267,6 +371,7 @@ pub unsafe extern "C" fn slint_window_adapter_new2(
         set_position,
         supports_native_menu_bar,
         show_native_popup_menu,
+        input_method_request,
     });
 
     unsafe {

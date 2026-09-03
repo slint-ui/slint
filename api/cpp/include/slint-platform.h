@@ -175,6 +175,10 @@ class WindowAdapter
                     return reinterpret_cast<WindowAdapter *>(wa)->show_native_popup_menu(
                             *menu, position);
                 },
+                [](void *wa, cbindgen_private::InputMethodRequestKind kind,
+                   const cbindgen_private::InputMethodPropertiesReprC *properties) {
+                    reinterpret_cast<WindowAdapter *>(wa)->input_method_request(kind, properties);
+                },
                 &self);
         was_initialized = true;
         return self;
@@ -331,6 +335,25 @@ public:
     ///
     /// The default implementation returns false, and Slint renders any menu bar itself.
     virtual bool supports_native_menu_bar() { return false; }
+
+    /// Re-implement this function to drive the platform's input method.
+    ///
+    /// Slint calls this when a text input gains focus (\a kind Enable), changes while
+    /// composing (Update), or loses focus (Disable). \a properties describes the field
+    /// being edited and is null for Disable.
+    ///
+    /// A platform that implements this is expected to feed composition back with
+    /// slint::Window's input-method events. Offsets in the properties are byte offsets
+    /// into the text, so a platform counting in UTF-16 must convert.
+    ///
+    /// The default implementation does nothing, which leaves the platform's input method
+    /// uninvolved and limits text entry to whatever arrives as plain key events.
+    virtual void input_method_request(cbindgen_private::InputMethodRequestKind kind,
+                                      const cbindgen_private::InputMethodPropertiesReprC *properties)
+    {
+        (void)kind;
+        (void)properties;
+    }
 
     /// Re-implement this function to show a context menu using the platform's own menus.
     ///
