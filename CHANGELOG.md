@@ -62,6 +62,7 @@ All notable changes to this project are documented in this file.
  - Android: Fixed `Key.Back` handlers in applications targeting Android 14 or later.
  - Android: The safe-area insets now include the display cutout.
  - Android: Fixed the event loop not waking up for pending redraw requests. (#12687)
+ - esp-idf: Added `SlintPlatformConfiguration::panel_type` so MIPI-DSI panels no longer use RGB-panel APIs. (#13180)
  - LinuxKMS: Improved software rendering performance, and the `mouse-cursor` property is now honored.
  - Skia: Improved performance when rendering opaque images.
  - Skia: Fixed partially drawn frames, Vulkan validation errors, and window transparency when
@@ -72,6 +73,8 @@ All notable changes to this project are documented in this file.
  - Software renderer: Fixed a panic with very long lines of text. (#12994)
  - Software renderer: Fixed a click into text mapping to the wrong character on lines that mix
    multiple scripts.
+ - Software renderer: Fixed the rendering of rotated non-square `Path` elements. (#13136)
+ - FemtoVG: Fixed blurry images, most visibly rasterized SVG icons, at fractional device-pixel positions. (#6455)
  - wasm: Fixed keyboard modifiers being reset when the focus moves between elements. (#7347, #8606)
  - wasm: The system accent color is now picked up.
 
@@ -160,6 +163,9 @@ All notable changes to this project are documented in this file.
    model clears the selection. (#11970)
  - `ListView`: Fixed explicitly set viewport width/height being overwritten. (#5485)
  - Fixed a crash when instantiating a styled `RadioGroup` or `TabWidget` directly. (#12332)
+ - Fixed a panic when instantiating a component that inherits from `TabWidget` and declares its own `Tab`. (#13163)
+ - `SpinBox`: Fixed the up and down arrow keys not incrementing and decrementing the value.
+ - `SpinBox`: The value text, the caret, and the selection are now exposed to assistive technologies.
  - Redundant inner elements of compound widgets are now hidden from the accessibility tree.
 
 ### Rust
@@ -188,6 +194,9 @@ All notable changes to this project are documented in this file.
  - Reduced the size, compile time, and memory usage of the generated code. (#12853)
  - The `SkiaWGPU29Renderer` and `SkiaWGPU30Renderer` now support rendering to sRGB render targets. (#12458)
  - The `renderer-skia-vulkan` feature now also works on macOS, running on top of MoltenVK.
+ - Added the `backend-linuxkms-libseat` and `backend-linuxkms-libinput` Cargo features, so the LinuxKMS
+   backend can be built without libseat and libinput. (#10086)
+ - `Window::take_snapshot()` is no longer available in `no_std` builds.
  - Fixed generated code failing to borrow-check when a property read multiple times in one expression
    is passed to a function. (#12880)
  - Fixed a panic in generated code when a `for` inside a `GridLayout` has its model emptied while
@@ -204,6 +213,8 @@ All notable changes to this project are documented in this file.
    alias; previously both names were exported as equals.
  - Fixed models marking bindings dirty when a model row was read outside of a binding evaluation. (#12806)
  - Reduced the size of the generated code.
+ - The libseat and libinput support of the LinuxKMS backend can now be turned off individually with the
+   `SLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT` and `SLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT` CMake options.
  - `CMAKE_INSTALL_LIBDIR` is now honored when installing the library.
  - Fixed an abort when `slint::invoke_from_event_loop` is called before any other Slint API initialized
    the platform.
@@ -217,6 +228,8 @@ All notable changes to this project are documented in this file.
    Linux and macOS. (#12396)
  - The component constructor now accepts property and callback names in both dash and underscore
    spelling. (#12882)
+ - The `debug()` function (with its source location) and runtime warnings now print to `console.log` instead of stderr.
+ - The default `Model.setRowData` now throws when a subclass does not override it, instead of logging a message.
  - Published musl binaries, so `npm install slint-ui` works on Alpine Linux. (#12551)
 
 ### Python
@@ -244,6 +257,7 @@ All notable changes to this project are documented in this file.
  - LSP: Fixed the formatter breaking `return` statements. (#12361)
  - LSP: Errors are now reported when formatting from the command line fails. (#12890)
  - slint-viewer: Added a `--size` option to set the screenshot dimensions.
+ - slint-viewer: Added an `mcp` Cargo feature so the viewer can serve the MCP server for the previewed file. (#13111)
  - slint-viewer: Fixed `--auto-reload` not reloading when the file was given as a relative path. (#12572)
  - SlintPad: Fixed a panic when loading demos with imports. (#12486)
 
