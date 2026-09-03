@@ -742,7 +742,7 @@ impl Backend {
 }
 
 /// Proxy of the event loop of the winit backend that was installed as the platform, so
-/// that [`invoke_from_event_loop_with_active_event_loop`] can reach it from any thread.
+/// that [`invoke_from_active_event_loop`] can reach it from any thread.
 static GLOBAL_PROXY: std::sync::Mutex<Option<winit::event_loop::EventLoopProxy<SlintEvent>>> =
     std::sync::Mutex::new(None);
 
@@ -756,7 +756,7 @@ static GLOBAL_PROXY: std::sync::Mutex<Option<winit::event_loop::EventLoopProxy<S
 ///
 /// This function can be called from any thread. It returns an error if the winit backend hasn't
 /// been installed yet, or if the event loop has terminated.
-pub fn invoke_from_event_loop_with_active_event_loop(
+pub fn invoke_from_active_event_loop(
     func: impl FnOnce(&ActiveEventLoop) + Send + 'static,
 ) -> Result<(), EventLoopError> {
     let proxy = GLOBAL_PROXY.lock().unwrap().clone().ok_or(EventLoopError::NoEventLoopProvider)?;

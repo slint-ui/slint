@@ -29,7 +29,7 @@ pub enum CustomEvent {
     WakeEventLoopWorkaround,
     /// Slint internal: Invoke the
     UserEvent(Box<dyn FnOnce() + Send>),
-    /// Invoke the callback with the [`ActiveEventLoop`], for [`crate::invoke_from_event_loop_with_active_event_loop`]
+    /// Invoke the callback with the [`ActiveEventLoop`], for [`crate::invoke_from_active_event_loop`]
     UserEventWithEventLoop(Box<dyn FnOnce(&ActiveEventLoop) + Send>),
     /// Emitted from quit_event_loop with the current event loop generation
     Exit(usize),
