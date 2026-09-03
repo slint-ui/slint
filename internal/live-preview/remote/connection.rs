@@ -451,7 +451,7 @@ impl Connection {
                 // both so an admitted connection can abort the in-flight task and reset shared
                 // state before its messages race with the new client's.
                 let mut current_session: Option<(Sink, tokio::task::JoinHandle<()>, session::Sealing)> = None;
-                loop {
+                'listen: loop {
                     tokio::select! {
                         accept = listener.accept() => {
                             match accept {
@@ -498,7 +498,10 @@ impl Connection {
                                 // An aborted task can't run its end-of-loop
                                 // cleanup, so reset the shared state here so
                                 // the new client starts from a clean cache.
-                                inner_session_handle.reset().await.ok();
+                                tokio::select! {
+                                    _ = inner_session_handle.reset() => {}
+                                    _ = &mut quit_receiver => break 'listen,
+                                }
                             }
                             let handle = tokio::spawn(Self::handle_connection(
                                 source,
@@ -1203,13 +1206,14 @@ mod session_tests {
     impl Viewer {
         async fn start(policy: PairingPolicy) -> Self {
             let (sender, events) = unbounded_channel();
-            let connection = Connection::listen(
+            let (connection, _preview_session) = Connection::listen(
                 Some(std::net::SocketAddr::from(([127, 0, 0, 1], 0))),
                 None,
                 policy,
                 move |message| {
                     let _ = sender.send(message);
                 },
+                |_| {},
             )
             .await
             .unwrap();
@@ -1403,8 +1407,16 @@ mod session_tests {
         Paired { client, sealing, opening }
     }
 
-    #[tokio::test]
-    async fn correct_code_is_accepted_and_session_works() {
+    macro_rules! local_test {
+        ($name:ident, $body:block) => {
+            #[tokio::test]
+            async fn $name() {
+                tokio::task::LocalSet::new().run_until(async move $body).await;
+            }
+        };
+    }
+
+    local_test!(correct_code_is_accepted_and_session_works, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
         let (mut client, _secrets) = pair(&mut viewer).await;
 
@@ -1419,10 +1431,9 @@ mod session_tests {
         // only because both sides derived the same keys.
         client.send(&LspToPreviewMessage::Ping).await;
         assert!(matches!(client.recv().await, Some(PreviewToLspMessage::Pong)));
-    }
+    });
 
-    #[tokio::test]
-    async fn wrong_code_burns_attempts_then_closes() {
+    local_test!(wrong_code_burns_attempts_then_closes, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
         let mut client = viewer.dial().await;
         hello(&mut client, None).await;
@@ -1458,14 +1469,13 @@ mod session_tests {
             Err(PairingRejection::TooManyAttempts)
         ));
         assert!(recv(&mut client).await.is_none(), "viewer should close the socket");
-    }
+    });
 
-    /// Peers that open a socket and say nothing used to accumulate a task
-    /// and a descriptor each, without limit, until `accept` failed and took
-    /// the listener down. They are bounded now, and the listener keeps
-    /// serving real clients underneath them.
-    #[tokio::test]
-    async fn silent_peers_do_not_stop_the_listener() {
+    // Peers that open a socket and say nothing used to accumulate a task
+    // and a descriptor each, without limit, until `accept` failed and took
+    // the listener down. They are bounded now, and the listener keeps
+    // serving real clients underneath them.
+    local_test!(silent_peers_do_not_stop_the_listener, {
         let viewer = Viewer::start(PairingPolicy::Generated).await;
         let addr = format!("127.0.0.1:{}", viewer.connection.local_port());
 
@@ -1481,12 +1491,11 @@ mod session_tests {
             "the listener stopped serving while silent peers were connected"
         );
         drop(silent);
-    }
+    });
 
-    /// Nothing an observer can use may reach the wire: not the code, not the
-    /// token, not the session keys.
-    #[tokio::test]
-    async fn nothing_secret_reaches_the_wire() {
+    // Nothing an observer can use may reach the wire: not the code, not the
+    // token, not the session keys.
+    local_test!(nothing_secret_reaches_the_wire, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
         let mut client = viewer.dial().await;
 
@@ -1536,10 +1545,9 @@ mod session_tests {
         let mut again = reconnect(&viewer, &secrets).await;
         again.send(&LspToPreviewMessage::Ping).await;
         assert!(matches!(again.recv().await, Some(PreviewToLspMessage::Pong)));
-    }
+    });
 
-    #[tokio::test]
-    async fn a_token_reconnects_without_a_prompt() {
+    local_test!(a_token_reconnects_without_a_prompt, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
         let (first, secrets) = pair(&mut viewer).await;
         drop(first);
@@ -1555,12 +1563,11 @@ mod session_tests {
                 .try_recv()
                 .is_ok_and(|event| matches!(event, ConnectionMessage::PairingStarted { .. }))
         );
-    }
+    });
 
-    /// Two reconnects with one token must not share keys: recording a
-    /// session and later stealing the token opens nothing.
-    #[tokio::test]
-    async fn every_reconnect_has_fresh_keys() {
+    // Two reconnects with one token must not share keys: recording a
+    // session and later stealing the token opens nothing.
+    local_test!(every_reconnect_has_fresh_keys, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
         let (first, secrets) = pair(&mut viewer).await;
         drop(first);
@@ -1570,10 +1577,9 @@ mod session_tests {
         let a = one.sealing.seal(postcard::to_allocvec(&LspToPreviewMessage::Ping).unwrap());
         let b = two.sealing.seal(postcard::to_allocvec(&LspToPreviewMessage::Ping).unwrap());
         assert_ne!(a.unwrap(), b.unwrap(), "two sessions sealed alike");
-    }
+    });
 
-    #[tokio::test]
-    async fn an_unknown_token_falls_back_to_the_code() {
+    local_test!(an_unknown_token_falls_back_to_the_code, {
         let viewer = Viewer::start(PairingPolicy::Generated).await;
         let mut client = viewer.dial().await;
         // A token from some other viewer, or from a previous run of this one.
@@ -1587,13 +1593,12 @@ mod session_tests {
             recv(&mut client).await,
             Some(PreviewToLspMessage::PairingRequired { .. })
         ));
-    }
+    });
 
-    /// A token id crosses the wire in the clear, so anyone can announce it.
-    /// Without the token behind it, the exchange must fail and leave the
-    /// announcer no better off than any stranger.
-    #[tokio::test]
-    async fn an_id_without_the_token_is_refused() {
+    // A token id crosses the wire in the clear, so anyone can announce it.
+    // Without the token behind it, the exchange must fail and leave the
+    // announcer no better off than any stranger.
+    local_test!(an_id_without_the_token_is_refused, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
         let (first, secrets) = pair(&mut viewer).await;
         drop(first);
@@ -1614,10 +1619,9 @@ mod session_tests {
             recv(&mut sniffer).await,
             Some(PreviewToLspMessage::PairingRequired { .. })
         ));
-    }
+    });
 
-    #[tokio::test]
-    async fn a_knocker_cannot_displace_a_live_session() {
+    local_test!(a_knocker_cannot_displace_a_live_session, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
         let (mut established, _secrets) = pair(&mut viewer).await;
         // Clear the setup pairing's own prompt, so the wait below can only
@@ -1639,10 +1643,9 @@ mod session_tests {
         // The original session is untouched.
         established.send(&LspToPreviewMessage::Ping).await;
         assert!(matches!(established.recv().await, Some(PreviewToLspMessage::Pong)));
-    }
+    });
 
-    #[tokio::test]
-    async fn a_second_knocker_is_turned_away_while_a_prompt_is_up() {
+    local_test!(a_second_knocker_is_turned_away_while_a_prompt_is_up, {
         let viewer = Viewer::start(PairingPolicy::Generated).await;
         let mut first = viewer.dial().await;
         hello(&mut first, None).await;
@@ -1658,13 +1661,12 @@ mod session_tests {
             Some(PreviewToLspMessage::PairingRejected { reason: PairingRejection::Busy })
         ));
         assert!(recv(&mut second).await.is_none(), "viewer should close the second socket");
-    }
+    });
 
-    /// A prompt nobody completed starts the cool-down, and retrying inside
-    /// it is told so specifically rather than blamed on another computer
-    /// that isn't there.
-    #[tokio::test]
-    async fn a_failed_prompt_holds_off_the_next_one() {
+    // A prompt nobody completed starts the cool-down, and retrying inside
+    // it is told so specifically rather than blamed on another computer
+    // that isn't there.
+    local_test!(a_failed_prompt_holds_off_the_next_one, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
 
         let mut abandoned = viewer.dial().await;
@@ -1683,12 +1685,11 @@ mod session_tests {
             recv(&mut knocker).await,
             Some(PreviewToLspMessage::PairingRejected { reason: PairingRejection::TooSoon { .. } })
         ));
-    }
+    });
 
-    /// Pairing correctly must not cost the user a cool-down. Reloading an
-    /// editor drops its token, so this is the path straight back to a code.
-    #[tokio::test]
-    async fn a_successful_pairing_does_not_hold_off_the_next_one() {
+    // Pairing correctly must not cost the user a cool-down. Reloading an
+    // editor drops its token, so this is the path straight back to a code.
+    local_test!(a_successful_pairing_does_not_hold_off_the_next_one, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
         let (client, _secrets) = pair(&mut viewer).await;
         drop(client);
@@ -1702,30 +1703,27 @@ mod session_tests {
         };
         let code = viewer.next_code().await;
         answer_code(&mut fresh, &code, &element).await.expect("accepted");
-    }
+    });
 
-    #[tokio::test]
-    async fn a_fixed_code_is_accepted_without_reading_the_screen() {
+    local_test!(a_fixed_code_is_accepted_without_reading_the_screen, {
         let viewer = Viewer::start(PairingPolicy::Fixed("1357".into())).await;
         let (mut client, element) = knock(&viewer).await;
 
         answer_code(&mut client, "1357", &element).await.expect("accepted");
-    }
+    });
 
-    #[tokio::test]
-    async fn pairing_disabled_admits_without_a_code() {
+    local_test!(pairing_disabled_admits_without_a_code, {
         let mut viewer = Viewer::start(PairingPolicy::Disabled).await;
         let mut client = viewer.dial().await;
         hello(&mut client, None).await;
 
         assert!(matches!(recv(&mut client).await, Some(PreviewToLspMessage::PairingAccepted)));
         assert!(matches!(viewer.next_event().await, ConnectionMessage::Connected { .. }));
-    }
+    });
 
-    /// An element harvested from some other exchange must not be usable
-    /// here, even with the right code: the transcript binds both halves.
-    #[tokio::test]
-    async fn an_element_from_another_exchange_is_refused() {
+    // An element harvested from some other exchange must not be usable
+    // here, even with the right code: the transcript binds both halves.
+    local_test!(an_element_from_another_exchange_is_refused, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
         let (mut client, _element) = knock(&viewer).await;
         let code = viewer.next_code().await;
@@ -1736,10 +1734,9 @@ mod session_tests {
             answer_code(&mut client, &code, elsewhere.element()).await,
             Err(PairingRejection::BadCode)
         ));
-    }
+    });
 
-    #[tokio::test]
-    async fn a_garbage_element_is_refused() {
+    local_test!(a_garbage_element_is_refused, {
         let viewer = Viewer::start(PairingPolicy::Generated).await;
         let mut client = viewer.dial().await;
         hello(&mut client, None).await;
@@ -1764,7 +1761,7 @@ mod session_tests {
             recv(&mut client).await,
             Some(PreviewToLspMessage::PairingRejected { reason: PairingRejection::BadCode })
         ));
-    }
+    });
 }
 
 #[cfg(test)]

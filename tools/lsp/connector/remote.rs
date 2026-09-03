@@ -1204,6 +1204,7 @@ fn describe_version_mismatch(err: &tokio_tungstenite_wasm::Error) -> Option<Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+    use i_slint_live_preview::preview_sessions::{PreviewSession, PreviewSessionEvent};
     use i_slint_live_preview::protocol::PreviewComponent;
     use i_slint_live_preview::remote::{Connection, ConnectionMessage, PairingPolicy};
     use lsp_types::Url;
@@ -1212,19 +1213,36 @@ mod tests {
         port: u16,
         policy: PairingPolicy,
     ) -> (Connection, mpsc::UnboundedReceiver<ConnectionMessage>) {
+        let (connection, connection_messages, _, _) =
+            listen_with_preview_events(port, policy).await;
+        (connection, connection_messages)
+    }
+
+    async fn listen_with_preview_events(
+        port: u16,
+        policy: PairingPolicy,
+    ) -> (
+        Connection,
+        mpsc::UnboundedReceiver<ConnectionMessage>,
+        Rc<PreviewSession>,
+        mpsc::UnboundedReceiver<PreviewSessionEvent>,
+    ) {
         let (tx, rx) = mpsc::unbounded_channel();
-        let (connection, _preview_session) = Connection::listen(
+        let (preview_event_sender, preview_events) = mpsc::unbounded_channel();
+        let (connection, preview_session) = Connection::listen(
             Some(std::net::SocketAddr::from(([127, 0, 0, 1], port))),
             None,
             policy,
             move |msg| {
                 let _ = tx.send(msg);
             },
-            |_| {},
+            move |event| {
+                let _ = preview_event_sender.send(event);
+            },
         )
         .await
         .unwrap();
-        (connection, rx)
+        (connection, rx, preview_session, preview_events)
     }
 
     /// The code from the viewer's next `PairingStarted`.
@@ -1426,7 +1444,8 @@ mod tests {
     async fn traffic_over_a_paired_session_is_sealed_both_ways() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (viewer, mut viewer_rx) = listen(0, PairingPolicy::Generated).await;
+                let (viewer, mut viewer_rx, preview_session, mut preview_events) =
+                    listen_with_preview_events(0, PairingPolicy::Generated).await;
                 let port = viewer.local_port();
 
                 let (to_lsp_tx, mut to_lsp_rx) = mpsc::unbounded_channel();
@@ -1450,18 +1469,21 @@ mod tests {
                 }));
 
                 // The viewer opened the sealed frame ...
-                expect_message(
-                    &mut viewer_rx,
-                    |m| matches!(m, ConnectionMessage::ShowPreview { .. }),
+                let event = expect_message(
+                    &mut preview_events,
+                    |event| matches!(event, PreviewSessionEvent::ShowPreview { .. }),
                     "ShowPreview to arrive at the viewer",
                 )
                 .await;
+                let PreviewSessionEvent::ShowPreview { component } = event else {
+                    unreachable!()
+                };
                 // ... and its own request comes back the other way, which
                 // the connector only sees if it opens the answer.
                 // Nobody answers the request, so polling it is only how the
                 // send happens.
                 let asked = tokio::select! {
-                    _ = viewer.request_file(url.clone()) => unreachable!("nobody sent the file"),
+                    _ = preview_session.compile_component(&component) => unreachable!("nobody sent the file"),
                     msg = expect_message(
                         &mut to_lsp_rx,
                         |m| matches!(m, PreviewToLspMessage::RequestState { files, .. } if !files.is_empty()),
@@ -1483,7 +1505,8 @@ mod tests {
     async fn a_second_connect_needs_no_code() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (viewer, mut viewer_rx) = listen(0, PairingPolicy::Generated).await;
+                let (viewer, mut viewer_rx, _preview_session, mut preview_events) =
+                    listen_with_preview_events(0, PairingPolicy::Generated).await;
                 let port = viewer.local_port();
 
                 let (to_lsp_tx, mut to_lsp_rx) = mpsc::unbounded_channel();
@@ -1531,8 +1554,8 @@ mod tests {
                     component: None,
                 }));
                 expect_message(
-                    &mut viewer_rx,
-                    |m| matches!(m, ConnectionMessage::ShowPreview { .. }),
+                    &mut preview_events,
+                    |event| matches!(event, PreviewSessionEvent::ShowPreview { .. }),
                     "ShowPreview to arrive over the new session",
                 )
                 .await;
