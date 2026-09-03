@@ -56,7 +56,7 @@ assert!(ime_requests(&instance).is_empty(), "Ime requests not empty: {:?}", ime_
 instance.invoke_set_focus();
 
 let requests = ime_requests(&instance);
-assert_eq!(requests.len(), 1, "Ime requests not empty: {:?}", requests);
+assert_eq!(requests.len(), 1, "Number IME requests must be 1: {:?}", requests);
 let relevant_request = &requests[0];
 if let InputMethodRequest::Enable(p) = relevant_request {
     assert_eq!(p.cursor_rect_origin, LogicalPosition::new(0., 100.), "The Textinput must be at the top left corner of the window + 100px down because of the yellow rectangle");
@@ -75,10 +75,6 @@ if let InputMethodRequest::Update(p) = relevant_request {
 } else {
     assert!(false, "InputMethodRequest must be update but it is: {:?}", relevant_request);
 }
-
-
-
-
 ```
 
 
