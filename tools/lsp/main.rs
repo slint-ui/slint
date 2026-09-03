@@ -855,21 +855,21 @@ async fn handle_preview_to_lsp_message(
         M::SubmitPairingCode { code } => {
             tracing::debug!("Preview submitted a pairing code");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
                 remote.submit_pairing_code(code);
             }
         }
         M::CancelPairing => {
             tracing::debug!("Preview cancelled pairing");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
                 remote.cancel_pairing();
             }
         }
         M::AcceptUnpairedConnection => {
             tracing::debug!("Preview accepted an unpaired connection");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
                 remote.accept_unpaired_connection();
             }
         }
