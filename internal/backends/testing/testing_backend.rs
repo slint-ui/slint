@@ -332,6 +332,14 @@ impl TestingWindow {
         self.native_popup.set(native);
     }
 
+    pub fn ime_requests(&self) -> Vec<InputMethodRequest> {
+        self.ime_requests.borrow().clone()
+    }
+
+    pub fn clear_ime_requests(&self) {
+        self.ime_requests.borrow_mut().clear();
+    }
+
     #[allow(dead_code)] // Used by various tests
     pub fn mouse_cursor(&self) -> i_slint_core::cursor::MouseCursorInner {
         self.mouse_cursor.borrow().clone()

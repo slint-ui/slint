@@ -74,6 +74,7 @@ All notable changes to this project are documented in this file.
    multiple scripts.
  - wasm: Fixed keyboard modifiers being reset when the focus moves between elements. (#7347, #8606)
  - wasm: The system accent color is now picked up.
+ - Fixed the IME not being updated when the position of a focused, editable `TextInput` changes.
 
 ### Slint language
 
