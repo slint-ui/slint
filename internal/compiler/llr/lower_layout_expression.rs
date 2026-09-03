@@ -11,7 +11,10 @@ use super::lower_to_item_tree::LoweredElement;
 use super::{GridLayoutRepeatedElement, LayoutRepeatedElement};
 use crate::expression_tree::MinMaxOp;
 use crate::langtype::{BuiltinStruct, EnumerationValue, Struct, Type};
-use crate::layout::{FlexboxAxisRelation, GridLayoutCell, Orientation, RowColExpr};
+use crate::layout::{
+    CellMeasureCapability, FlexboxAxisRelation, GridLayoutCell, Orientation, RowColExpr,
+    default_cross_axis_constraint, is_height_for_width_cell,
+};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
 use crate::llr::{BoxMeasureCell, FlexboxMeasureCell, FlexboxMeasureCellKind};
@@ -128,7 +131,7 @@ pub(super) fn compute_box_layout_info(
     // the cross size the cell needs.
     if o != layout.orientation
         && let Some(override_expr) = cross_axis_size_override
-        && box_layout_needs_measure(layout, o)
+        && crate::layout::box_layout_measures_its_cells(layout, o)
     {
         return compute_box_layout_info_ortho_with_measure(layout, ctx, override_expr, padding, o);
     }
@@ -168,19 +171,6 @@ pub(super) fn compute_box_layout_info(
     }
 }
 
-/// Whether any cell of the box layout is height-for-width (`o` Vertical) resp.
-/// width-for-height (`o` Horizontal), so an `o`-axis info computation at a
-/// known main-axis size needs the solve-and-measure pass.
-fn box_layout_needs_measure(layout: &crate::layout::BoxLayout, o: Orientation) -> bool {
-    layout.elems.iter().any(|li| {
-        let (h4w, w4h) = cell_measure_capability(&li.element);
-        match o {
-            Orientation::Vertical => h4w,
-            Orientation::Horizontal => w4h,
-        }
-    })
-}
-
 /// Per-element measure inputs for [`llr_Expression::BoxLayoutInfoOrthoWithMeasure`]:
 /// the cell's `o`-axis `LayoutInfo` measured at its solved main size, read from
 /// the [`MEASURE_KNOWN_W_LOCAL`] resp. [`MEASURE_KNOWN_H_LOCAL`] local (the
@@ -217,8 +207,16 @@ fn box_measure_cells_for(
                 },
                 ty: Type::LogicalLength,
             };
-            let info =
-                cell_layout_info(elem, &li.constraints, ctx, o, Some(&measure_local), None, false);
+            let info = cell_layout_info(
+                elem,
+                &li.measure_capability,
+                &li.constraints,
+                ctx,
+                o,
+                Some(&measure_local),
+                None,
+                false,
+            );
             BoxMeasureCell::Static { info }
         })
         .collect()
@@ -632,30 +630,13 @@ pub(super) fn solve_flexbox_layout(
     }
 }
 
-/// Whether the cell's vertical info depends on the width (height-for-width)
-/// and its horizontal info on the height (width-for-height). For a repeater,
-/// check the repeated component's root: that is the element the measure
-/// callback queries.
-fn cell_measure_capability(elem: &ElementRc) -> (bool, bool) {
-    if elem.borrow().repeated.is_some() {
-        let root = elem.borrow().base_type.as_component().root_element.clone();
-        let h4w = root.borrow().inherited_layout_info_v_with_constraint().is_some();
-        let w4h = root.borrow().inherited_layout_info_h_with_constraint().is_some();
-        return (h4w, w4h);
-    }
-    (
-        is_height_for_width_cell(elem),
-        elem.borrow().inherited_layout_info_h_with_constraint().is_some(),
-    )
-}
-
 /// Whether any cell of the flexbox is height-for-width (or width-for-height)
 /// capable, so a solve or cross-axis info computation needs a measure callback.
 fn flexbox_needs_measure(layout: &crate::layout::FlexboxLayout) -> bool {
-    layout.elems.iter().any(|li| {
-        let (h4w, w4h) = cell_measure_capability(&li.element);
-        h4w || w4h
-    })
+    layout
+        .elems
+        .iter()
+        .any(|li| li.measure_capability.height_for_width || li.measure_capability.width_for_height)
 }
 
 /// Per-element measure inputs for `SolveFlexboxLayoutWithMeasure` and
@@ -676,7 +657,10 @@ fn measure_cells_for(
         .map(|li| {
             let elem = &li.element;
             if elem.borrow().repeated.is_some() {
-                let (h4w, w4h) = cell_measure_capability(elem);
+                let (h4w, w4h) = (
+                    li.measure_capability.height_for_width,
+                    li.measure_capability.width_for_height,
+                );
                 let w4h_only = w4h && !h4w;
                 let repeater_index =
                     match ctx.mapping.element_mapping.get(&elem.clone().into()).unwrap() {
@@ -692,7 +676,9 @@ fn measure_cells_for(
                     w4h_only,
                 };
             }
-            let (h4w, w4h) = cell_measure_capability(elem);
+            debug_assert_eq!(li.measure_capability, crate::layout::cell_measure_capability(elem));
+            let (h4w, w4h) =
+                (li.measure_capability.height_for_width, li.measure_capability.width_for_height);
             if !h4w && !w4h {
                 return FlexboxMeasureCell { kind: FlexboxMeasureCellKind::Fixed, w4h_only: false };
             }
@@ -1328,6 +1314,7 @@ fn box_layout_data(
                 .map(|li| {
                     let layout_info = cell_layout_info(
                         &li.element,
+                        &li.measure_capability,
                         &li.constraints,
                         ctx,
                         orientation,
@@ -1361,6 +1348,7 @@ fn box_layout_data(
             } else {
                 let layout_info = cell_layout_info(
                     &item.element,
+                    &item.measure_capability,
                     &item.constraints,
                     ctx,
                     orientation,
@@ -1392,6 +1380,7 @@ fn box_layout_data(
 /// on the very layout cache this solve is computed for.
 fn cell_layout_info(
     elem: &ElementRc,
+    capability: &CellMeasureCapability,
     constraints: &crate::layout::LayoutConstraints,
     ctx: &mut ExpressionLoweringCtx,
     orientation: Orientation,
@@ -1399,12 +1388,15 @@ fn cell_layout_info(
     cross_clamp: Option<&crate::expression_tree::Expression>,
     for_measure_solve: bool,
 ) -> llr_Expression {
+    // A stamp that no longer matches means a pass after `mark_cell_measurement`
+    // changed what it recorded; nothing else would notice.
+    debug_assert_eq!(*capability, crate::layout::cell_measure_capability(elem));
     let constraint = match orientation {
         Orientation::Vertical => cross_axis_size_override
-            .filter(|_| is_height_for_width_cell(elem))
+            .filter(|_| capability.height_for_width)
             .cloned()
             .or_else(|| {
-                (for_measure_solve && is_height_for_width_cell(elem))
+                (for_measure_solve && capability.height_for_width)
                     .then(|| default_cross_axis_constraint(elem))
                     .flatten()
             }),
@@ -1414,7 +1406,7 @@ fn cell_layout_info(
             // instead of reading the cell's own height — which would cycle
             // when the cell is a flex on the perpendicular
             // (horizontal-cross) axis.
-            if elem.borrow().inherited_layout_info_h_with_constraint().is_some() {
+            if capability.width_for_height {
                 Some(cross_axis_size_override.cloned().unwrap_or_else(|| {
                     crate::expression_tree::Expression::NumberLiteral(
                         f32::MAX as f64,
@@ -1710,6 +1702,7 @@ fn grid_layout_cell_constraints(
                 .map(|li| {
                     let layout_info = cell_layout_info(
                         &li.item.element,
+                        &li.item.measure_capability,
                         &li.item.constraints,
                         ctx,
                         orientation,
@@ -1763,6 +1756,7 @@ fn grid_layout_cell_constraints(
             } else {
                 let layout_info = cell_layout_info(
                     &item.item.element,
+                    &item.item.measure_capability,
                     &item.item.constraints,
                     ctx,
                     orientation,
@@ -1915,116 +1909,6 @@ fn generate_layout_padding_and_spacing(
     );
 
     (padding, spacing)
-}
-
-/// Whether `elem` is a height-for-width cell — its vertical layout info
-/// depends on the horizontal dimension, so a cross-axis constraint must
-/// be supplied to get a meaningful answer.
-///
-/// Two cases qualify:
-/// - Builtin height-for-width items (Text with `wrap != no-wrap`, Image with
-///   aspect-ratio sizing).
-/// - Components whose subtree contains a height-for-width descendant — recognized
-///   by the presence of `Element::layout_info_v_with_constraint`.
-fn is_height_for_width_cell(elem: &ElementRc) -> bool {
-    let elem_b = elem.borrow();
-
-    // Component path: `layoutinfo-v-with-constraint` may live on `elem`
-    // itself or on the base component's root_element.
-    let has_constrained_layoutinfo_v = elem_b.layout_info_v_with_constraint.is_some()
-        || matches!(
-            &elem_b.base_type,
-            crate::langtype::ElementType::Component(base_comp)
-                if base_comp.root_element.borrow().layout_info_v_with_constraint.is_some()
-        );
-    if has_constrained_layoutinfo_v {
-        return true;
-    }
-
-    if elem_b.layout_info_prop(Orientation::Vertical).is_some() {
-        return false;
-    }
-    drop(elem_b);
-
-    // Builtin path.
-    matches!(
-        crate::layout::implicit_layout_info_call(
-            elem,
-            Orientation::Vertical,
-            crate::layout::BuiltinFilter::All,
-            None,
-        ),
-        Some(crate::expression_tree::Expression::FunctionCall { .. })
-    )
-}
-
-/// Default cross-axis (width) constraint for a height-for-width cell:
-/// the element's own preferred horizontal size. Callers
-/// (`flexbox_layout_data`, `box_layout_data`,
-/// `grid_layout_cell_constraints`) may prefer the container's actual
-/// width when it is available (i.e. at solve time, or when the caller
-/// is the body of a `layoutinfo-v-with-constraint` function which
-/// received the width as a parameter).
-///
-/// Precondition: `is_height_for_width_cell(elem)` is true. After the
-/// `layoutinfo-v-with-constraint` synthesis pass, any element with
-/// `layout_info_v_with_constraint` also has `layout_info_prop` set (the
-/// constrained function is synthesized from the existing `layoutinfo-v`
-/// binding), so the `layout_info_prop` branch covers it.
-pub(crate) fn default_cross_axis_constraint(
-    elem: &ElementRc,
-) -> Option<crate::expression_tree::Expression> {
-    let elem_b = elem.borrow();
-
-    // Route through `layoutinfo-h-with-constraint` when available so we
-    // don't trigger a `self.height` read (which cycles for column-direction
-    // flexes: their layoutinfo-h depends on self.height, itself set by the
-    // parent layout cache).
-    if let Some(constrained_nr) = elem_b.inherited_layout_info_h_with_constraint() {
-        // An NR from the base-component chain must be anchored on `elem` to
-        // resolve through the instance. An own NR must stay as-is:
-        // `move_declarations` may have moved the function onto the enclosing
-        // component's root under a renamed private name, which `elem` itself
-        // does not have.
-        let constrained_nr = if elem_b.layout_info_h_with_constraint.is_some() {
-            constrained_nr
-        } else {
-            NamedReference::new(elem, constrained_nr.name().clone())
-        };
-        let call = crate::expression_tree::Expression::FunctionCall {
-            function: crate::expression_tree::Callable::Function(constrained_nr),
-            arguments: vec![crate::expression_tree::Expression::NumberLiteral(
-                f32::MAX as f64,
-                crate::expression_tree::Unit::Px,
-            )],
-            source_location: None,
-        };
-        return Some(crate::expression_tree::Expression::StructFieldAccess {
-            base: Box::new(call),
-            name: "preferred".into(),
-        });
-    }
-
-    // Layouts and components with their own resolved layout_info_prop.
-    if let Some((h_nr, _v_nr)) = elem_b.layout_info_prop.as_ref() {
-        return Some(crate::expression_tree::Expression::StructFieldAccess {
-            base: Box::new(crate::expression_tree::Expression::PropertyReference(h_nr.clone())),
-            name: "preferred".into(),
-        });
-    }
-    drop(elem_b);
-
-    // Builtins and component instances (looked up via the base component).
-    crate::layout::implicit_layout_info_call(
-        elem,
-        Orientation::Horizontal,
-        crate::layout::BuiltinFilter::All,
-        None,
-    )
-    .map(|expr| crate::expression_tree::Expression::StructFieldAccess {
-        base: Box::new(expr),
-        name: "preferred".into(),
-    })
 }
 
 /// Subtract `geometry`'s padding on the `axis` from `base`. Turns an outer size
