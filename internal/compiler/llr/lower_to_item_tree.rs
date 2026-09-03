@@ -408,7 +408,7 @@ fn lower_sub_component(
         element_infos: Default::default(),
         prop_analysis: Default::default(),
         debug_info: compiler_config.debug_info.then(|| super::debug_info::SubComponentDebugInfo {
-            source_location: crate::diagnostics::Spanned::to_source_location(
+            source_location: crate::langtype::DeclNode::from_spanned(
                 &*component.root_element.borrow(),
             ),
             items: Default::default(),
@@ -517,7 +517,7 @@ fn lower_sub_component(
                 if let Some(debug_info) = sub_component.debug_info.as_mut() {
                     let added_index = debug_info
                         .sub_component_use_sites
-                        .push_and_get_key(crate::diagnostics::Spanned::to_source_location(&*elem));
+                        .push_and_get_key(crate::langtype::DeclNode::from_spanned(&*elem));
                     debug_assert_eq!(added_index, sub_component_index);
                 }
                 mapping.element_mapping.insert(
@@ -535,7 +535,7 @@ fn lower_sub_component(
                 });
                 if let Some(debug_info) = sub_component.debug_info.as_mut() {
                     let primary = elem.debug.first();
-                    let source_location = crate::diagnostics::Spanned::to_source_location(&*elem);
+                    let source_location = crate::langtype::DeclNode::from_spanned(&*elem);
                     let added_index =
                         debug_info.items.push_and_get_key(super::debug_info::ItemDebugInfo {
                             source_location,

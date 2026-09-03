@@ -251,9 +251,9 @@ fn path_passes_use_site(
 ) -> bool {
     for &instance_idx in path {
         if let Some(debug) = cu.sub_components[current].debug_info.as_ref()
-            && let Some(loc) = debug.sub_component_use_sites.get(instance_idx)
-            && loc.source_file.as_ref().is_some_and(|f| f.path() == us_path)
-            && loc.span.offset as u32 == us_offset
+            && let Some(Some(loc)) = debug.sub_component_use_sites.get(instance_idx)
+            && loc.source_file().path() == us_path
+            && loc.offset() == us_offset
         {
             return true;
         }
@@ -410,13 +410,13 @@ fn positions_by_source(
             let sc = &cu.sub_components[sc_idx];
             let Some(debug) = sc.debug_info.as_ref() else { continue };
             for (local_idx, item_dbg) in debug.items.iter_enumerated() {
-                let Some(source_file) = item_dbg.source_location.source_file.as_ref() else {
+                let Some(location) = item_dbg.source_location.as_ref() else {
                     continue;
                 };
-                if source_file.path() != target_path {
+                if location.source_file().path() != target_path {
                     continue;
                 }
-                if item_dbg.source_location.span.offset as u32 != target_offset {
+                if location.offset() != target_offset {
                     continue;
                 }
                 for flat_idx in find_flat_indices_for_item(&instance, sc_idx, local_idx, use_site) {

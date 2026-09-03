@@ -323,7 +323,9 @@ fn lower_function_call(
             llr_Expression::BuiltinFunctionCall {
                 function: f.clone(),
                 arguments,
-                source_location: source_location.clone(),
+                source_location: source_location
+                    .as_ref()
+                    .and_then(crate::langtype::DeclNode::from_source_location),
             }
         }
         Callable::Callback(nr) => {

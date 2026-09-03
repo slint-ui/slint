@@ -1038,8 +1038,9 @@ impl Display for Function {
     }
 }
 
-/// A `Send` + `Sync` reference to *where* a user-declared struct or enum was
-/// written: the source file and the text range of its declaration node.
+/// A `Send` + `Sync` reference to *where* something was written: the source file
+/// and the text range of its node. Used for user-declared structs and enums, and
+/// for the source positions the LLR keeps (see [`crate::llr::debug_info`]).
 ///
 /// It deliberately carries no syntax tree, so the langtype graph (and therefore
 /// the LLR) stays compact and `Send` without pinning parsed documents at
@@ -1058,9 +1059,40 @@ impl DeclNode {
         Self { source_file: node.source_file.clone(), range: node.node.text_range() }
     }
 
+    /// Build from an already-resolved location, for callers that no longer hold
+    /// the syntax node. `None` when the location names no file or has no valid
+    /// span, which is the case for compiler-synthesized code.
+    pub fn from_source_location(location: &crate::diagnostics::SourceLocation) -> Option<Self> {
+        let source_file = location.source_file.clone()?;
+        location.span.is_valid().then(|| Self {
+            source_file,
+            range: rowan::TextRange::at(
+                (location.span.offset as u32).into(),
+                (location.span.length as u32).into(),
+            ),
+        })
+    }
+
+    /// Build from anything that knows its own span, such as an
+    /// [`Element`](crate::object_tree::Element). See [`Self::from_source_location`]
+    /// for when this returns `None`.
+    pub fn from_spanned(spanned: &dyn crate::diagnostics::Spanned) -> Option<Self> {
+        let span = spanned.span();
+        let source_file = spanned.source_file()?.clone();
+        span.is_valid().then(|| Self {
+            source_file,
+            range: rowan::TextRange::at((span.offset as u32).into(), (span.length as u32).into()),
+        })
+    }
+
     /// The absolute text range of the declaration node within its document.
     pub fn text_range(&self) -> rowan::TextRange {
         self.range
+    }
+
+    /// Byte offset of the node within its document.
+    pub fn offset(&self) -> u32 {
+        self.range.start().into()
     }
 
     /// The source file the declaration was parsed from.

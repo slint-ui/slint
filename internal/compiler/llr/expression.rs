@@ -129,7 +129,7 @@ pub enum Expression {
         function: BuiltinFunction,
         arguments: Vec<Expression>,
         /// The location of the call in the .slint source, for run-time diagnostics
-        source_location: Option<crate::diagnostics::SourceLocation>,
+        source_location: Option<crate::langtype::DeclNode>,
     },
     CallBackCall {
         callback: MemberReference,

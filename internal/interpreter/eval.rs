@@ -10,8 +10,8 @@
 use crate::Value;
 use crate::globals::{GlobalInstance, GlobalStorage};
 use crate::instance::SubComponentInstance;
-use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
+use i_slint_compiler::langtype::DeclNode;
 use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
 use i_slint_core::graphics::{
@@ -1872,12 +1872,12 @@ fn grid_repeater_cache_access(
 /// The location of a builtin function call in the .slint source, in the form
 /// attached to the log messages it emits.
 fn log_message_location(
-    source_location: &Option<SourceLocation>,
+    source_location: &Option<DeclNode>,
 ) -> Option<i_slint_core::debug_log::LogMessageLocation<'_>> {
     let location = source_location.as_ref()?;
-    let source_file = location.source_file.as_ref()?;
+    let source_file = location.source_file();
     let (line, column) = source_file
-        .line_column(location.span.offset, i_slint_compiler::diagnostics::ByteFormat::Utf8);
+        .line_column(location.offset() as usize, i_slint_compiler::diagnostics::ByteFormat::Utf8);
     Some(i_slint_core::debug_log::LogMessageLocation {
         path: source_file.path().to_str()?,
         line,
@@ -1889,7 +1889,7 @@ fn call_builtin_function(
     ctx: &mut EvalContext,
     f: BuiltinFunction,
     arguments: &[Expression],
-    source_location: &Option<SourceLocation>,
+    source_location: &Option<DeclNode>,
 ) -> Value {
     let to_num = |ctx: &mut EvalContext, e: &Expression| -> f64 {
         eval_expression(ctx, e).try_into().unwrap_or_default()

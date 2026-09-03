@@ -7,10 +7,11 @@
 //! Populated only when [`crate::CompilerConfiguration::debug_info`] is set.
 //! Treat entries as advisory and tolerate missing data.
 //!
-//! These types hold a [`crate::diagnostics::SourceLocation`] which isn't `Send`.
-//! Making LLR `Send` will require replacing it with a path + offset.
+//! Positions are [`DeclNode`]s rather than [`crate::diagnostics::SourceLocation`]s
+//! so that the LLR stays `Send`. They are `None` for compiler-synthesized code,
+//! which has no source to point at.
 
-use crate::diagnostics::SourceLocation;
+use crate::langtype::DeclNode;
 use smol_str::SmolStr;
 use typed_index_collections::TiVec;
 
@@ -20,7 +21,7 @@ use super::item_tree::{ItemInstanceIdx, SubComponentInstanceIdx};
 #[derive(Debug, Clone)]
 pub struct ItemDebugInfo {
     /// Source range of the element in the `.slint` source.
-    pub source_location: SourceLocation,
+    pub source_location: Option<DeclNode>,
     /// Qualified id of the element, e.g. `MyComponent::my-button`.
     pub qualified_id: Option<SmolStr>,
     /// Stable hash identifying the source element across builds.
@@ -35,11 +36,11 @@ pub struct ItemDebugInfo {
 #[derive(Debug, Clone)]
 pub struct SubComponentDebugInfo {
     /// Source location of the sub-component's root element.
-    pub source_location: SourceLocation,
+    pub source_location: Option<DeclNode>,
     /// One entry per [`ItemInstanceIdx`].
     pub items: TiVec<ItemInstanceIdx, ItemDebugInfo>,
     /// Source location of each child sub-component's use-site element,
     /// one entry per [`SubComponent::sub_components`](super::SubComponent::sub_components).
     /// Distinguishes the instantiations of a shared sub-component type.
-    pub sub_component_use_sites: TiVec<SubComponentInstanceIdx, SourceLocation>,
+    pub sub_component_use_sites: TiVec<SubComponentInstanceIdx, Option<DeclNode>>,
 }

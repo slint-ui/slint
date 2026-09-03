@@ -17,9 +17,7 @@ pub mod pretty_print;
 // The LLR is meant to be shared across threads (compiled on a worker thread,
 // interpreted on the UI thread behind an `Arc`), so the whole graph must be
 // Send + Sync. Its interior mutability uses `AtomicRefCell`/`AtomicUsize`
-// rather than `RefCell`/`Cell` for that reason. (proc_macro::Span, only present
-// in the macro build, is not Send — hence the feature gate.)
-#[cfg(not(feature = "proc_macro_span"))]
+// rather than `RefCell`/`Cell` for that reason.
 const _: fn() = || {
     fn assert_send_sync<T: Send + Sync>() {}
     assert_send_sync::<CompilationUnit>();
