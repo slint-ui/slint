@@ -880,6 +880,9 @@ async fn handle_preview_to_lsp_message(
         M::RequestPreview { .. } => {
             tracing::debug!("Ignoring preview request from a preview client");
         }
+        M::Exited => {
+            tracing::debug!("Preview exited");
+        }
         // The connector completes pairing before a session exists, so these
         // never reach the LSP's message loop.
         M::PairingReady

@@ -366,7 +366,8 @@ impl SlintServer {
             | M::PairingTokenChallenge { .. }
             | M::PairingConfirm { .. }
             | M::PairingAccepted
-            | M::PairingRejected { .. } => {
+            | M::PairingRejected { .. }
+            | M::Exited => {
                 tracing::debug!("Ignoring remote-preview control message in WASM LSP");
             }
         }

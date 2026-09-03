@@ -3667,6 +3667,7 @@ dependencies = [
  "i-slint-live-preview",
  "itertools 0.15.0",
  "lsp-types",
+ "scopeguard",
  "serde",
  "serde_json",
  "slint-interpreter",

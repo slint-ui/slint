@@ -179,20 +179,26 @@ fn start_editor_session(
 ) {
     let (to_lsp, from_preview) = crossbeam_channel::unbounded();
     let (to_editor_session, from_editor_preview) = crossbeam_channel::unbounded();
-    editor_ui.global::<preview::ui::Preview>().on_run(move || {
+    let preview_global = editor_ui.global::<preview::ui::Preview>();
+    preview_global.on_run(move || {
         to_editor_session.send(EditorToSessionMessage::RunPreview).ok();
     });
+    let preview_global =
+        <preview::ui::Preview as slint::Global<'_, preview::ui::EditorUi>>::as_weak(
+            &preview_global,
+        );
     let to_lsp = Rc::new(EmbeddedPreviewToLsp { sender: to_lsp })
         as Rc<dyn editor_preview::PreviewToLsp + 'static>;
     preview::ui::initialize_editor(editor_ui, &to_lsp, "");
     preview::initialize(editor_ui, to_lsp, settings);
-    start_lsp_thread(vec![from_preview], from_editor_preview, project);
+    start_lsp_thread(vec![from_preview], from_editor_preview, project, preview_global);
 }
 
 fn start_lsp_thread(
     from_previews: Vec<crossbeam_channel::Receiver<PreviewToLspMessage>>,
     from_editor_preview: crossbeam_channel::Receiver<EditorToSessionMessage>,
     project: Project,
+    preview_global: slint::Weak<preview::ui::Preview<'static>>,
 ) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -201,8 +207,8 @@ fn start_lsp_thread(
             .build()
             .unwrap();
         let local_set = tokio::task::LocalSet::new();
-        if let Err(err) =
-            local_set.block_on(&rt, lsp_main(from_previews, from_editor_preview, project))
+        if let Err(err) = local_set
+            .block_on(&rt, lsp_main(from_previews, from_editor_preview, project, preview_global))
         {
             tracing::error!("{err}");
             std::process::exit(1);
@@ -242,6 +248,7 @@ async fn lsp_main(
     from_previews: Vec<crossbeam_channel::Receiver<PreviewToLspMessage>>,
     from_editor: crossbeam_channel::Receiver<EditorToSessionMessage>,
     project: Project,
+    preview_global: slint::Weak<preview::ui::Preview<'static>>,
 ) -> Result<()> {
     use editor_preview::document_cache::CompilerConfiguration;
 
@@ -360,6 +367,7 @@ async fn lsp_main(
                             &mut session,
                             &project_root,
                             &mut run_preview_state,
+                            &preview_global
                         ).await;
                     }
                     None => {
@@ -444,11 +452,23 @@ async fn handle_preview_message(
     session: &mut editor_preview::EditorSession,
     project_root: &Path,
     run_preview_state: &mut RunPreviewState,
+    preview_global: &slint::Weak<preview::ui::Preview<'static>>,
 ) {
     use PreviewToLspMessage::*;
     if session.preview(preview_index).is_none() {
         return;
     }
+
+    // any message we receive from the preview that is not "Exited" means the preview is alive.
+    if preview_index == RUN_PREVIEW_INDEX {
+        let is_running = !matches!(&message, PreviewToLspMessage::Exited);
+        if let Err(error) = preview_global.upgrade_in_event_loop(move |preview_global| {
+            preview_global.set_is_running(is_running);
+        }) {
+            tracing::error!("Failed to update Run preview state: {error}");
+        }
+    }
+
     match &message {
         RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
@@ -537,7 +557,8 @@ async fn handle_preview_message(
         | PairingTokenChallenge { .. }
         | PairingConfirm { .. }
         | PairingAccepted
-        | PairingRejected { .. } => {
+        | PairingRejected { .. }
+        | Exited => {
             tracing::debug!("Ignoring message from preview: {message:?}");
         }
         SendWorkspaceEdit { label, edit } => {
@@ -713,6 +734,7 @@ mod tests {
             &mut session,
             project.path(),
             &mut run_preview_state,
+            &Default::default(),
         ));
 
         assert!(messages[0].borrow().is_empty());
@@ -731,6 +753,7 @@ mod tests {
             &mut session,
             project.path(),
             &mut run_preview_state,
+            &Default::default(),
         ));
 
         assert!(
@@ -831,6 +854,7 @@ mod tests {
             &mut session,
             project.path(),
             &mut run_preview_state,
+            &Default::default(),
         ));
 
         assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
@@ -846,6 +870,7 @@ mod tests {
             &mut session,
             project.path(),
             &mut run_preview_state,
+            &Default::default(),
         ));
         let run_messages = messages[RUN_PREVIEW_INDEX].borrow();
         let show_position = run_messages
@@ -875,6 +900,7 @@ mod tests {
             &mut session,
             project.path(),
             &mut run_preview_state,
+            &Default::default(),
         ));
 
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
