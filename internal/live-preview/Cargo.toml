@@ -97,6 +97,7 @@ preview-session = [
   "dep:scopeguard",
   "slint-interpreter/accessibility",
   "slint-interpreter/image-default-formats",
+  "slint-interpreter/internal-highlight",
 ]
 remote = [
   "preview-session",
