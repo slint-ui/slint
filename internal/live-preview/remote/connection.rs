@@ -4,36 +4,34 @@
 // cSpell: ignore alnum localdomain notlocalhost
 
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::VecDeque,
     net::{IpAddr, Ipv6Addr, SocketAddr, SocketAddrV6},
+    rc::Rc,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
-use crate::REBUILD_DEBOUNCE;
+use crate::preview_sessions::{PreviewSession, PreviewSessionEvent, PreviewSessionHandle};
 use crate::protocol::pairing::{
     self, CODE_TIMEOUT, MAX_ATTEMPTS, PROMPT_RATE_LIMIT, PairingRejection, Token, TokenId,
 };
 use crate::protocol::session;
 use crate::protocol::{
-    LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewComponent, PreviewConfig,
-    PreviewToLspMessage, SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER,
-    SourceFileVersion,
+    LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewToLsp, PreviewToLspMessage,
+    SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER,
 };
 #[cfg(not(target_vendor = "apple"))]
 use crate::protocol::{TXT_PROTOCOLS_KEY, TXT_SLINT_VERSION_KEY};
-use dashmap::{DashMap, Entry};
 use futures_util::{
     SinkExt as _, StreamExt as _,
     stream::{SplitSink, SplitStream},
 };
-use lsp_types::Url;
 use serde::Serialize;
 #[cfg(not(target_vendor = "apple"))]
 use std::collections::HashMap;
 use tokio::{
     net::TcpStream,
-    sync::{self, mpsc::UnboundedSender, oneshot},
+    sync::{self, mpsc::UnboundedSender},
 };
 use tokio_tungstenite::{
     WebSocketStream,
@@ -296,24 +294,6 @@ fn handshake_callback(
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct VersionedFileContent {
-    #[allow(dead_code)]
-    pub version: SourceFileVersion,
-    pub contents: Arc<[u8]>,
-}
-
-#[derive(Debug)]
-pub enum CacheEntry {
-    Loading(Vec<oneshot::Sender<std::io::Result<VersionedFileContent>>>),
-    Ready(VersionedFileContent),
-}
-
-/// Shared cache of file contents pushed by the LSP, keyed by the `Url` the LSP sent. Using
-/// the URL verbatim avoids platform-dependent path normalization (Windows backslashes,
-/// percent-encoding) — equality is structural.
-pub type FileCache = Arc<DashMap<Url, CacheEntry>>;
-
 #[derive(Debug)]
 pub enum ConnectionMessage {
     Connected {
@@ -321,29 +301,6 @@ pub enum ConnectionMessage {
     },
     Disconnected {
         remote_addr: SocketAddr,
-    },
-    SetConfiguration {
-        config: PreviewConfig,
-    },
-    SetUserSettings {
-        name: String,
-        contents: String,
-    },
-    ShowPreview {
-        preview_component: PreviewComponent,
-    },
-    /// A dependency of the currently shown component changed. The viewer should rebuild.
-    /// The connection has already filtered unrelated edits and debounced bursts of keystrokes.
-    ContentsChanged,
-    #[allow(dead_code)]
-    HighlightFromEditor {
-        url: Option<Url>,
-        offset: u32,
-    },
-    /// The viewer should register this font with the renderer.
-    RegisterFont {
-        url: Url,
-        contents: Arc<[u8]>,
     },
     /// Put `code` on screen: someone is trying to connect and needs to read
     /// it off the device. Any preview currently shown is displaced until the
@@ -366,16 +323,20 @@ pub struct Connection {
     local_addr: SocketAddr,
     thread_handle: Option<(std::thread::JoinHandle<()>, sync::oneshot::Sender<()>)>,
     message_sender: sync::mpsc::UnboundedSender<Outbound>,
-    file_cache: FileCache,
-    /// Files the currently shown component depends on. `SetContents` notifications for URLs
-    /// outside this set are ignored, so unrelated edits in the user's editor don't trigger a
-    /// rebuild. Updated by the viewer after each compile.
-    dependencies: Arc<Mutex<HashSet<Url>>>,
     /// Friendly device name shown to remote clients; also used as the mDNS instance name
     /// on non-Apple platforms. Always non-empty: an IP-derived label is substituted if no
     /// name source resolved. On Apple, the initial value is the system hostname; the
     /// viewer overwrites it with the Bonjour-reported name once the service is registered.
     device_name: Mutex<String>,
+}
+
+struct ConnectionPreviewToLsp(UnboundedSender<Outbound>);
+
+impl PreviewToLsp for ConnectionPreviewToLsp {
+    fn send(&self, message: &PreviewToLspMessage) -> crate::protocol::Result<()> {
+        encode_and_send(&self.0, message)?;
+        Ok(())
+    }
 }
 
 /// Something queued for the write half.
@@ -441,31 +402,22 @@ async fn next_message(receiver: &mut Source, timeout: Duration) -> Option<LspToP
     tokio::time::timeout(timeout, read).await.ok().flatten()
 }
 
-/// Whether the connection can act on this URL. The remote preview protocol only handles
-/// `file://` URLs; the LSP can legitimately produce others (e.g. `vscode-remote://`), but
-/// they're silently ignored on this side.
-fn is_supported(url: &Url) -> bool {
-    if url.scheme() != "file" {
-        tracing::warn!("Ignoring message for unsupported URL scheme: {url}");
-        return false;
-    }
-    true
-}
-
 impl Connection {
     pub async fn listen(
         address: Option<SocketAddr>,
         device_name_override: Option<String>,
         pairing_policy: PairingPolicy,
         message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
-    ) -> anyhow::Result<Self> {
-        let file_cache = Arc::new(DashMap::<Url, CacheEntry>::new());
-        let dependencies = Arc::new(Mutex::new(HashSet::<Url>::new()));
+        preview_event_handler: impl Fn(PreviewSessionEvent) + 'static,
+    ) -> anyhow::Result<(Self, Rc<PreviewSession>)> {
         let (message_sender, mut message_receiver) = sync::mpsc::unbounded_channel();
+        let (preview_session, session_handle) = PreviewSession::start(
+            Rc::new(ConnectionPreviewToLsp(message_sender.clone())),
+            preview_event_handler,
+        );
 
-        let inner_file_cache = file_cache.clone();
-        let inner_dependencies = dependencies.clone();
         let inner_message_sender = message_sender.clone();
+        let inner_session_handle = session_handle.clone();
 
         let (local_addr_sender, local_addr_receiver) =
             sync::oneshot::channel::<std::io::Result<SocketAddr>>();
@@ -546,15 +498,13 @@ impl Connection {
                                 // An aborted task can't run its end-of-loop
                                 // cleanup, so reset the shared state here so
                                 // the new client starts from a clean cache.
-                                inner_file_cache.clear();
-                                inner_dependencies.lock().unwrap().clear();
+                                inner_session_handle.reset().await.ok();
                             }
                             let handle = tokio::spawn(Self::handle_connection(
                                 source,
                                 message_handler.clone(),
-                                inner_file_cache.clone(),
-                                inner_dependencies.clone(),
                                 inner_message_sender.clone(),
+                                inner_session_handle.clone(),
                                 remote_addr,
                                 opening,
                             ));
@@ -595,14 +545,15 @@ impl Connection {
                 device_name_override.filter(|n| !n.is_empty()).unwrap_or_else(default_device_name);
             if raw.is_empty() { ip_derived_device_name(&local_ips_for(local_addr)) } else { raw }
         };
-        Ok(Self {
-            local_addr,
-            thread_handle: Some((thread_handle, quit_sender)),
-            message_sender,
-            file_cache,
-            dependencies,
-            device_name: Mutex::new(device_name),
-        })
+        Ok((
+            Self {
+                local_addr,
+                thread_handle: Some((thread_handle, quit_sender)),
+                message_sender,
+                device_name: Mutex::new(device_name),
+            },
+            preview_session,
+        ))
     }
 
     /// Friendly device name to advertise over mDNS and show in the viewer UI.
@@ -619,18 +570,6 @@ impl Connection {
         if !name.trim().is_empty() {
             *self.device_name.lock().unwrap_or_else(|e| e.into_inner()) = name;
         }
-    }
-
-    /// Replace the set of URLs the connection treats as relevant. A subsequent `SetContents`
-    /// for a URL in `urls` produces a `ContentsChanged` message; anything outside is dropped.
-    pub fn set_dependencies(&self, urls: Vec<Url>) {
-        *self.dependencies.lock().unwrap() = urls.into_iter().collect();
-    }
-
-    /// Shared cache of files pushed by the LSP. The viewer reads this to feed
-    /// `Compiler::build_from_source`.
-    pub fn file_cache(&self) -> FileCache {
-        self.file_cache.clone()
     }
 
     /// Take one incoming socket through the WebSocket handshake and the
@@ -872,253 +811,65 @@ impl Connection {
     async fn handle_connection(
         mut receiver: SplitStream<WebSocketStream<TcpStream>>,
         message_handler: Arc<dyn Fn(ConnectionMessage) + 'static + Send + Sync>,
-        file_cache: FileCache,
-        dependencies: Arc<Mutex<HashSet<Url>>>,
         message_sender: UnboundedSender<Outbound>,
+        session_handle: PreviewSessionHandle,
         remote_addr: SocketAddr,
         mut opening: session::Opening,
     ) {
         message_handler(ConnectionMessage::Connected { remote_addr });
-        // `Some(deadline)` while a `SetContents`-driven rebuild is pending. The sleep_until
-        // arm of the select fires `ContentsChanged` once the burst of keystrokes settles.
-        let mut debounce_deadline: Option<tokio::time::Instant> = None;
-        'outer: loop {
-            let debounce_fut = async {
-                match debounce_deadline {
-                    Some(deadline) => tokio::time::sleep_until(deadline).await,
-                    None => std::future::pending::<()>().await,
+        while let Some(message) = receiver.next().await {
+            match message {
+                Ok(Message::Text(text)) => {
+                    tracing::warn!("Received text message: {text}");
                 }
-            };
-            tokio::select! {
-                biased;
-                _ = debounce_fut => {
-                    debounce_deadline = None;
-                    message_handler(ConnectionMessage::ContentsChanged);
-                }
-                msg = receiver.next() => {
-                    let Some(msg) = msg else { break };
-                    match msg {
-                        Ok(Message::Text(text)) => {
-                            tracing::warn!("Received text message: {text}");
-                        }
-                        Ok(Message::Binary(bin)) => {
-                            let Ok(plain) = opening.open(&bin) else {
-                                // Tampered, reordered, or from a peer that
-                                // derived a different key.
-                                tracing::error!("Dropping a frame that failed to open");
+                Ok(Message::Binary(binary)) => {
+                    let Ok(plain) = opening.open(&binary) else {
+                        tracing::error!("Dropping a frame that failed to open");
+                        break;
+                    };
+                    match postcard::from_bytes::<LspToPreviewMessage>(&plain) {
+                        Ok(message) => {
+                            tracing::debug!("Received message {message:?}");
+                            let should_quit = matches!(message, LspToPreviewMessage::Quit);
+                            if let Err(error) = session_handle.handle_message(message) {
+                                tracing::error!(
+                                    "Failed forwarding message to preview session: {error}"
+                                );
                                 break;
-                            };
-                            match postcard::from_bytes::<LspToPreviewMessage>(&plain) {
-                                Ok(message) => {
-                                    tracing::debug!("Received message {message:?}");
-                                    match message {
-                                        LspToPreviewMessage::InvalidateContents { url } => {
-                                            if !is_supported(&url) {
-                                                continue;
-                                            }
-                                            file_cache.remove(&url);
-                                            if dependencies.lock().unwrap().contains(&url) {
-                                                debounce_deadline = Some(
-                                                    tokio::time::Instant::now() + REBUILD_DEBOUNCE,
-                                                );
-                                            }
-                                        }
-                                        LspToPreviewMessage::ForgetFile { url } => {
-                                            if !is_supported(&url) {
-                                                continue;
-                                            }
-                                            if let Some((_, CacheEntry::Loading(senders))) =
-                                                file_cache.remove(&url)
-                                            {
-                                                for sender in senders {
-                                                    let _ = sender.send(Err(std::io::Error::new(
-                                                        std::io::ErrorKind::NotFound,
-                                                        "File not found",
-                                                    )));
-                                                }
-                                            }
-                                            if dependencies.lock().unwrap().contains(&url) {
-                                                debounce_deadline = Some(
-                                                    tokio::time::Instant::now() + REBUILD_DEBOUNCE,
-                                                );
-                                            }
-                                        }
-                                        LspToPreviewMessage::SetContents { url, contents } => {
-                                            tracing::debug!(
-                                                "Inserting file {} with {} bytes.",
-                                                url.url(),
-                                                contents.len()
-                                            );
-                                            if !is_supported(url.url()) {
-                                                continue;
-                                            }
-                                            // Fonts are registered with the renderer directly
-                                            // and not consulted by the compiler, so they don't
-                                            // go in the file cache.
-                                            if i_slint_compiler::pathutils::is_font_file(
-                                                url.url().path(),
-                                            ) {
-                                                message_handler(ConnectionMessage::RegisterFont {
-                                                    url: url.url().clone(),
-                                                    contents: contents.into(),
-                                                });
-                                                continue;
-                                            }
-                                            let versioned_content = VersionedFileContent {
-                                                version: *url.version(),
-                                                contents: contents.into(),
-                                            };
-                                            let triggers_rebuild = dependencies
-                                                .lock()
-                                                .unwrap()
-                                                .contains(url.url());
-                                            file_cache
-                                                .entry(url.url().clone())
-                                                .and_modify(|entry| {
-                                                    if let CacheEntry::Loading(senders) = entry {
-                                                        for sender in senders.drain(..) {
-                                                            let _ = sender.send(Ok(
-                                                                versioned_content.clone(),
-                                                            ));
-                                                        }
-                                                    }
-                                                })
-                                                .insert(CacheEntry::Ready(versioned_content));
-                                            if triggers_rebuild {
-                                                debounce_deadline = Some(
-                                                    tokio::time::Instant::now() + REBUILD_DEBOUNCE,
-                                                );
-                                            }
-                                        }
-                                        LspToPreviewMessage::SetConfiguration { config } => {
-                                            message_handler(ConnectionMessage::SetConfiguration {
-                                                config,
-                                            });
-                                        }
-                                        LspToPreviewMessage::SetUserSettings { name, contents } => {
-                                            message_handler(ConnectionMessage::SetUserSettings {
-                                                name,
-                                                contents,
-                                            });
-                                        }
-                                        LspToPreviewMessage::ShowPreview(preview_component) => {
-                                            // ShowPreview rebuilds unconditionally; cancel any
-                                            // queued debounce so the viewer only rebuilds once.
-                                            debounce_deadline = None;
-                                            message_handler(ConnectionMessage::ShowPreview {
-                                                preview_component,
-                                            });
-                                        }
-                                        LspToPreviewMessage::HighlightFromEditor { url, offset } => {
-                                            message_handler(ConnectionMessage::HighlightFromEditor {
-                                                url,
-                                                offset,
-                                            });
-                                        }
-                                        LspToPreviewMessage::Quit => {
-                                            break 'outer;
-                                        }
-                                        LspToPreviewMessage::Ping => {
-                                            encode_and_send(
-                                                &message_sender,
-                                                &PreviewToLspMessage::Pong,
-                                            )
-                                            .ok();
-                                        }
-                                        // Internal LSP↔local-preview control message;
-                                        // never legitimately reaches a remote viewer.
-                                        LspToPreviewMessage::RemoteConnectionState { .. } => {
-                                            tracing::warn!(
-                                                "Ignoring unexpected RemoteConnectionState over WebSocket"
-                                            );
-                                        }
-                                        LspToPreviewMessage::OpenProject { .. } => {}
-                                        // Pairing is settled before the session starts, so
-                                        // these can only be a confused or malicious peer.
-                                        LspToPreviewMessage::PairingHello { .. }
-                                        | LspToPreviewMessage::PairingResponse { .. } => {
-                                            tracing::warn!(
-                                                "Ignoring pairing message on an established session"
-                                            );
-                                        }
-                                    }
-                                }
-                                Err(err) => {
-                                    tracing::error!("Failed to deserialize message: {err}");
-                                }
+                            }
+                            if should_quit {
+                                break;
                             }
                         }
-                        Ok(Message::Ping(data)) => {
-                            message_sender.send(Outbound::Control(Message::Pong(data))).ok();
-                        }
-                        Ok(Message::Pong(_)) => {}
-                        Ok(Message::Close(_)) => {
-                            break;
-                        }
-                        Ok(Message::Frame(_)) => unreachable!(),
-                        Err(tokio_tungstenite::tungstenite::Error::Protocol(
-                            tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
-                        )) => {
-                            // The peer vanished without a close handshake (process killed,
-                            // network drop) — a normal way for a session to end.
-                            tracing::info!("Connection lost");
-                            break;
-                        }
-                        Err(err) => {
-                            tracing::error!("WebSocket error: {err}");
-                            break;
+                        Err(error) => {
+                            tracing::error!("Failed to deserialize message: {error}");
                         }
                     }
                 }
+                Ok(Message::Ping(data)) => {
+                    message_sender.send(Outbound::Control(Message::Pong(data))).ok();
+                }
+                Ok(Message::Pong(_)) => {}
+                Ok(Message::Close(_)) => break,
+                Ok(Message::Frame(_)) => unreachable!(),
+                Err(tokio_tungstenite::tungstenite::Error::Protocol(
+                    tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
+                )) => {
+                    tracing::info!("Connection lost");
+                    break;
+                }
+                Err(error) => {
+                    tracing::error!("WebSocket error: {error}");
+                    break;
+                }
             }
         }
-        // Drop cached contents so a reconnecting peer doesn't see stale buffers from the prior
-        // session (the next peer only pushes files currently dirty in its editor and would
-        // otherwise inherit our cache for everything else).
-        file_cache.clear();
+        session_handle.reset().await.ok();
         message_handler(ConnectionMessage::Disconnected { remote_addr });
     }
 
     pub fn send(&self, data: impl Serialize) -> anyhow::Result<()> {
         encode_and_send(&self.message_sender, &data)
-    }
-
-    pub async fn request_file(&self, url: Url) -> std::io::Result<VersionedFileContent> {
-        if let Some(entry) = self.file_cache.get(&url)
-            && let CacheEntry::Ready(entry) = entry.value()
-        {
-            return Ok(entry.clone());
-        }
-        let (sender, receiver) = oneshot::channel();
-        let request_file; // do not hold the lock across await
-        match self.file_cache.entry(url.clone()) {
-            Entry::Occupied(mut occupied) => match occupied.get_mut() {
-                CacheEntry::Ready(entry) => {
-                    return Ok(entry.clone());
-                }
-                CacheEntry::Loading(senders) => {
-                    senders.push(sender);
-                    request_file = false;
-                }
-            },
-            Entry::Vacant(vacant) => {
-                vacant.insert(CacheEntry::Loading(vec![sender]));
-                request_file = true;
-            }
-        }
-        if request_file
-            && let Err(err) = self.send(PreviewToLspMessage::RequestState {
-                files: vec![url.clone()],
-                settings: vec![],
-            })
-        {
-            // The Loading entry we just inserted will never be resolved by the
-            // websocket task — remove it so the senders inside (including ours)
-            // drop and a later request_file for the same key doesn't deadlock.
-            self.file_cache.remove(&url);
-            return Err(std::io::Error::other(err));
-        }
-        receiver.await.map_err(std::io::Error::other)?
     }
 
     pub fn local_ips(&self) -> Vec<IpAddr> {
