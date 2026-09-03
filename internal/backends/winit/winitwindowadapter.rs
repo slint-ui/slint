@@ -276,6 +276,14 @@ impl WinitWindowOrNone {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    fn set_transparent(&self, transparent: bool) {
+        match self {
+            Self::HasWindow { window, .. } => window.set_transparent(transparent),
+            Self::None(attributes) => attributes.borrow_mut().transparent = transparent,
+        }
+    }
+
     fn fullscreen(&self) -> Option<winit::window::Fullscreen> {
         match self {
             Self::HasWindow { window, .. } => window.fullscreen(),
@@ -388,6 +396,10 @@ pub struct WinitWindowAdapter {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
     fullscreen: Cell<bool>,
+    /// Tracks the transparency last requested from winit, so that
+    /// `update_window_properties` only touches the NSWindow when it changes.
+    #[cfg(target_os = "macos")]
+    transparent: Cell<bool>,
 
     pub(crate) renderer: Box<dyn WinitCompatibleRenderer>,
     /// We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
@@ -458,6 +470,11 @@ impl WinitWindowAdapter {
         #[cfg(any(enable_accesskit, muda))] proxy: EventLoopProxy<SlintEvent>,
         #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
     ) -> Rc<Self> {
+        // Seed the cache from the attributes rather than assuming the default, as an
+        // application hook may have overridden the transparency already.
+        #[cfg(target_os = "macos")]
+        let initial_transparent = window_attributes.transparent;
+
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             shared_backend_data: shared_backend_data.clone(),
             window: corelib::api::Window::new(self_weak.clone() as _),
@@ -469,6 +486,8 @@ impl WinitWindowAdapter {
             maximized: Cell::default(),
             minimized: Cell::default(),
             fullscreen: Cell::default(),
+            #[cfg(target_os = "macos")]
+            transparent: Cell::new(initial_transparent),
             winit_window_or_none: RefCell::new(WinitWindowOrNone::None(window_attributes.into())),
             window_existence_wakers: RefCell::new(Vec::default()),
             size: Cell::default(),
@@ -1813,6 +1832,20 @@ impl WindowAdapter for WinitWindowAdapter {
         winit_window_or_none.set_decorations(
             !window_item.no_frame() || winit_window_or_none.fullscreen().is_some(),
         );
+
+        // A transparent NSWindow gets `backgroundColor = clear`, which is also what AppKit
+        // paints the native title bar background with. Requesting transparency unconditionally
+        // therefore leaves the title bar blank. Only ask for it when it actually buys
+        // something: a translucent background needs to blend with what's behind the window, and
+        // a frameless window needs it so rounded corners aren't filled in. An opaque, decorated
+        // window has nothing to show through, so let AppKit draw its background as usual.
+        #[cfg(target_os = "macos")]
+        {
+            let transparent = !properties.background().is_opaque() || window_item.no_frame();
+            if self.transparent.replace(transparent) != transparent {
+                winit_window_or_none.set_transparent(transparent);
+            }
+        }
 
         let new_window_level = if window_item.always_on_top() {
             winit::window::WindowLevel::AlwaysOnTop
