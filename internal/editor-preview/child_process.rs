@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::cell::RefCell;
+use std::{cell::RefCell, ffi::OsString, path::PathBuf};
 
 use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget, PreviewToLspMessage};
 use tokio::{
@@ -17,12 +17,18 @@ struct ChildProcessLspToPreviewInner {
 
 pub struct ChildProcessLspToPreview {
     inner: RefCell<Option<ChildProcessLspToPreviewInner>>,
+    executable: PathBuf,
+    arguments: Vec<OsString>,
     preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>,
 }
 
 impl ChildProcessLspToPreview {
-    pub fn new(preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>) -> Self {
-        Self { inner: RefCell::new(None), preview_to_lsp_channel }
+    pub fn new(
+        executable: PathBuf,
+        arguments: Vec<OsString>,
+        preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>,
+    ) -> Self {
+        Self { inner: RefCell::new(None), executable, arguments, preview_to_lsp_channel }
     }
 
     fn preview_is_running(&self) -> bool {
@@ -34,13 +40,11 @@ impl ChildProcessLspToPreview {
             inner.communication_handle.abort();
         }
 
-        let mut child = tokio::process::Command::new(
-            std::env::current_exe().expect("Could not find executable name of the slint-lsp"),
-        )
-        .args(["live-preview", "--remote-controlled"])
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()?;
+        let mut child = tokio::process::Command::new(&self.executable)
+            .args(&self.arguments)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()?;
 
         tracing::debug!("Preview process spawned (PID {:?})", child.id());
 

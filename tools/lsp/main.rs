@@ -299,7 +299,11 @@ async fn main_loop(
         let sn = server_notifier.clone();
 
         let child_preview: Box<dyn editor_preview::LspToPreview> =
-            Box::new(connector::ChildProcessLspToPreview::new(preview_to_lsp_sender.clone()));
+            Box::new(connector::ChildProcessLspToPreview::new(
+                std::env::current_exe().expect("Could not find executable name of the slint-lsp"),
+                vec!["live-preview".into(), "--remote-controlled".into()],
+                preview_to_lsp_sender.clone(),
+            ));
         let embedded_preview: Box<dyn editor_preview::LspToPreview> =
             Box::new(connector::EmbeddedLspToPreview::new(sn.clone()));
         LspToPreviews::new(
