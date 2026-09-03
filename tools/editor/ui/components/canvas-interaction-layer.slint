@@ -287,7 +287,7 @@ export component CanvasInteractionLayer inherits Rectangle {
         if root.hover-selection-active || selection-area.pressed {
             return;
         }
-        Hover.element = Api.hovered-element-at(position.x, position.y, false);
+        Hover.element = Hover.element-at(position.x, position.y, false);
     }
 
     // Click to select the real previewed element. This sits on top of the live

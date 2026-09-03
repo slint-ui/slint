@@ -128,6 +128,7 @@ export struct HoveredElement {
 
 export global Hover {
     in-out property <HoveredElement> element;
+    pure callback element-at(x: length, y: length, enter-component: bool) -> HoveredElement;
 }
 
 /// A `Selection`
@@ -422,7 +423,6 @@ export global Api {
     // ## Drawing Area
     // Borders around things
     pure callback highlight-positions(source-uri: string, offset: int) -> [SelectionRectangle];
-    pure callback hovered-element-at(x: length, y: length, enter-component: bool) -> HoveredElement;
     in-out property <Selection> selection;
     in-out property <DropMark> drop-mark;
     // The actual preview
