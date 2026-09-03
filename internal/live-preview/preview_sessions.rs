@@ -4,12 +4,16 @@
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
+    path::PathBuf,
     rc::Rc,
     sync::Arc,
 };
 
 use i_slint_core::InternalToken;
+use i_slint_core::textlayout::sharedparley::fontique;
+use i_slint_core::window::WindowInner;
 use lsp_types::Url;
+use slint_interpreter::ComponentHandle as _;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::REBUILD_DEBOUNCE;
@@ -399,4 +403,141 @@ fn is_supported(url: &Url) -> bool {
         return false;
     }
     true
+}
+
+pub async fn run_with_channels(
+    mut from_editor: mpsc::UnboundedReceiver<LspToPreviewMessage>,
+    to_editor: Rc<dyn PreviewToLsp>,
+) -> anyhow::Result<()> {
+    let (event_sender, mut event_receiver) = mpsc::unbounded_channel();
+    let (preview_session, session_handle) =
+        PreviewSession::start(to_editor.clone(), move |event| {
+            event_sender.send(event).ok();
+        });
+    preview_session
+        .send_to_editor(&PreviewToLspMessage::RequestState {
+            files: Vec::new(),
+            settings: Vec::new(),
+        })
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+
+    tokio::task::spawn_local(async move {
+        while let Some(message) = from_editor.recv().await {
+            let should_quit = matches!(message, LspToPreviewMessage::Quit);
+            if session_handle.handle_message(message).is_err() || should_quit {
+                break;
+            }
+        }
+    });
+
+    install_debug_handler(Rc::downgrade(&to_editor))?;
+
+    let mut compiler = preview_session.create_compiler();
+    let mut current_component = None;
+    let mut component_instance = None;
+    let mut registered_fonts = HashSet::new();
+    let mut pending_fonts = Vec::new();
+
+    while let Some(event) = event_receiver.recv().await {
+        match event {
+            PreviewSessionEvent::SetConfiguration { config } => {
+                compiler.set_style(config.style);
+                compiler.compiler_configuration(InternalToken).enable_experimental =
+                    config.enable_experimental;
+            }
+            PreviewSessionEvent::SetUserSettings { .. } => {}
+            PreviewSessionEvent::ShowPreview { component } => {
+                show_component(
+                    &preview_session,
+                    &compiler,
+                    &component,
+                    &mut component_instance,
+                    &mut pending_fonts,
+                )
+                .await?;
+                current_component = Some(component);
+            }
+            PreviewSessionEvent::ContentsChanged => {
+                let Some(component) = current_component.as_ref() else { continue };
+                show_component(
+                    &preview_session,
+                    &compiler,
+                    component,
+                    &mut component_instance,
+                    &mut pending_fonts,
+                )
+                .await?;
+            }
+            PreviewSessionEvent::HighlightFromEditor { .. } => {}
+            PreviewSessionEvent::RegisterFont { url, contents } => {
+                if !registered_fonts.insert(url.clone()) {
+                    tracing::debug!("Font {url} already registered, skipping");
+                    continue;
+                }
+                if let Some(component_instance) = component_instance.as_ref() {
+                    register_font(component_instance.window(), contents);
+                } else {
+                    pending_fonts.push(contents);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn show_component(
+    preview_session: &PreviewSession,
+    compiler: &slint_interpreter::Compiler,
+    component: &PreviewComponent,
+    component_instance: &mut Option<slint_interpreter::ComponentInstance>,
+    pending_fonts: &mut Vec<Arc<[u8]>>,
+) -> anyhow::Result<()> {
+    let PreviewCompilation::Ready(component_definition) =
+        preview_session.compile_component(compiler, component).await
+    else {
+        return Ok(());
+    };
+
+    let new_instance = if let Some(component_instance) = component_instance.as_ref() {
+        component_definition.create_with_existing_window(component_instance.window())?
+    } else {
+        component_definition.create()?
+    };
+    for contents in pending_fonts.drain(..) {
+        register_font(new_instance.window(), contents);
+    }
+    new_instance.show()?;
+    *component_instance = Some(new_instance);
+    Ok(())
+}
+
+fn register_font(window: &i_slint_core::api::Window, contents: Arc<[u8]>) {
+    let blob = fontique::Blob::new(Arc::new(contents));
+    WindowInner::from_pub(window)
+        .context()
+        .font_context()
+        .borrow_mut()
+        .collection
+        .register_fonts(blob, None);
+}
+
+fn install_debug_handler(
+    to_editor: std::rc::Weak<dyn PreviewToLsp>,
+) -> Result<(), slint_interpreter::PlatformError> {
+    i_slint_backend_selector::with_global_context(|context| {
+        context.set_log_message_handler(Some(Box::new(move |message| {
+            let Some(to_editor) = to_editor.upgrade() else { return };
+            let location = message
+                .location()
+                .map(|location| (PathBuf::from(location.path), location.line, location.column));
+            to_editor
+                .send(&PreviewToLspMessage::DebugMessage {
+                    location,
+                    message: message.message_arguments().to_string(),
+                })
+                .ok();
+        })))
+    })?;
+    Ok(())
 }
