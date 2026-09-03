@@ -1144,7 +1144,7 @@ fn for_each_const_properties(
                     }
                     break;
                 }
-                ElementType::Global | ElementType::Interface | ElementType::Error => break,
+                ElementType::Global | ElementType::Interface(_) | ElementType::Error => break,
             }
         }
         for c in all_prop {
@@ -1168,7 +1168,7 @@ fn has_runtime_property(state: &LoweringState, elem: &ElementRc, prop: &str) -> 
             ElementType::Builtin(_) => {
                 return state.native_classes[&ByAddress(e)].lookup_property(prop).is_some();
             }
-            ElementType::Global | ElementType::Interface | ElementType::Error => return false,
+            ElementType::Global | ElementType::Interface(_) | ElementType::Error => return false,
         }
     }
 }

@@ -491,8 +491,9 @@ pub enum ElementType {
     Error,
     /// This should be the base type of the root element of a global component
     Global,
-    /// This should be the base type of the root element of an interface
-    Interface,
+    /// This should be the base type of the root element of an interface.
+    /// The payload is the interface this one inherits, if any.
+    Interface(Option<Rc<Component>>),
 }
 
 impl PartialEq for ElementType {
@@ -500,9 +501,10 @@ impl PartialEq for ElementType {
         match (self, other) {
             (Self::Component(a), Self::Component(b)) => Rc::ptr_eq(a, b),
             (Self::Builtin(a), Self::Builtin(b)) => Rc::ptr_eq(a, b),
-            (Self::Error, Self::Error)
-            | (Self::Global, Self::Global)
-            | (Self::Interface, Self::Interface) => true,
+            (Self::Interface(a), Self::Interface(b)) => {
+                a.as_ref().map(Rc::as_ptr) == b.as_ref().map(Rc::as_ptr)
+            }
+            (Self::Error, Self::Error) | (Self::Global, Self::Global) => true,
             _ => false,
         }
     }
@@ -708,7 +710,7 @@ impl ElementType {
             ElementType::Builtin(b) => Some(&b.name),
             ElementType::Error => None,
             ElementType::Global => None,
-            ElementType::Interface => None,
+            ElementType::Interface(_) => None,
         }
     }
 }
@@ -720,7 +722,7 @@ impl Display for ElementType {
             Self::Builtin(b) => b.name.fmt(f),
             Self::Error => write!(f, "<error>"),
             Self::Global => Ok(()),
-            Self::Interface => Ok(()),
+            Self::Interface(_) => Ok(()),
         }
     }
 }
