@@ -823,7 +823,18 @@ impl Expression {
                         })
                 }
             };
-            ImageReference::from_resolved(absolute_source_path)
+            let reference = ImageReference::from_resolved(absolute_source_path);
+            #[cfg(all(not(target_arch = "wasm32"), not(feature = "slint-sc")))]
+            if let ImageReference::Url(url) = &reference
+                && url.scheme() != "builtin"
+            {
+                ctx.diag.push_warning(
+                    "Loading images from HTTP/HTTPS is only supported for Web targets".into(),
+                    &node,
+                );
+            }
+
+            reference
         };
 
         // Slint SC decodes the image at compile time, so only a file on disk
