@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Conditional grid cells whose condition is a compile time constant false
+// used to panic the compiler; they must compile and not occupy a cell.
+
+export component TestCase inherits Rectangle {
+    width: 300phx;
+    height: 300phx;
+
+    property <bool> never: false;
+    property <string> message;
+
+    GridLayout {
+        padding: 0phx;
+        spacing: 0phx;
+        Row {
+            r1 := Rectangle { min-width: 10phx; min-height: 10phx; }
+            if false : Rectangle { min-width: 10phx; min-height: 10phx; }
+            r2 := Rectangle { min-width: 10phx; min-height: 10phx; }
+        }
+        Row {
+            if never : Rectangle { min-width: 10phx; min-height: 10phx; }
+            r3 := Rectangle { min-width: 10phx; min-height: 10phx; }
+        }
+        if message != "" : Rectangle { min-width: 10phx; min-height: 10phx; }
+    }
+
+    out property <bool> test: r1.width == 150phx && r2.x == 150phx && r3.x == 0phx && r3.y == 150phx;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/
