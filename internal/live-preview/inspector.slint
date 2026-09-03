@@ -10,11 +10,11 @@ export struct InspectorHighlight {
 }
 
 export component InspectorOverlay inherits Window {
-    in property <[InspectorHighlight]> highlights;
+    pure callback highlight-positions() -> [InspectorHighlight];
 
     background: transparent;
 
-    for highlight in root.highlights: Rectangle {
+    for highlight in root.highlight-positions(): Rectangle {
         x: highlight.x;
         y: highlight.y;
         width: highlight.width;
