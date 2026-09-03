@@ -79,6 +79,38 @@ built with, so build the compiler with the same one. That holds for a cross
 build too: its host products sit next to the target ones, under the same
 profile. Pass `SLINT_COMPILER` to use a binary from somewhere else.
 
+## Code Coverage
+
+The scene in `main.slint` is measured at the level of the Slint language: with `SLINT_SC_COVERAGE_DIR` set, the
+build script passes `--coverage` to the compiler, which instruments the generated code to count a coverage point
+for every element, binding, callback handler and call, and for both outcomes of every `?:`, `&&` and `||`.
+The counts live in the `SLINT_SC_COVERAGE` static of the generated code, whose `Display` is a profile naming the
+points' locations. A test writes it into that directory through a guard from the `slint-sc-coverage` library,
+created at the test's start and writing when the test ends, however it ends. The tests of one binary share the
+static, so each writes a snapshot of it; the tool merges them.
+The `slint-sc-coverage` tool joins such profiles into the coverage of the `.slint` file in the lcov format,
+and reports which points were never reached:
+
+```
+cargo build -p slint-compiler --no-default-features --features slint-sc
+cd examples/safe-ui
+mkdir -p coverage
+SLINT_SC_COVERAGE_DIR=$PWD/coverage cargo test -p slint-safeui-app
+cargo run --manifest-path ../../Cargo.toml -p slint-sc-coverage -- \
+    --profile coverage --base-dir "$PWD" -o slint-lcov.info
+```
+
+Any lcov consumer shows the result, `genhtml` or an editor's coverage view alike, and it merges with the Rust
+coverage of the same tests from [`cargo llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov) into one report:
+
+```
+SLINT_SC_COVERAGE_DIR=$PWD/coverage cargo llvm-cov --lcov --output-path lcov.info -p slint-safeui-app
+genhtml lcov.info slint-lcov.info -o coverage/html
+```
+
+The counting needs neither an allocator nor the LLVM profiler runtime, so it runs on the target too: the firmware
+writes the profile over whatever link it has to the host.
+
 ## Build System Integration
 
 Integration of this example into an existing safety domain build system works by means of CMake. In your existing `CMakeLists.txt` for your target

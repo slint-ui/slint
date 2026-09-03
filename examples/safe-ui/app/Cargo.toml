@@ -15,3 +15,6 @@ path = "src/lib.rs"
 
 [dependencies]
 slint-sc = { path = "../../../api/slint-sc" }
+
+[dev-dependencies]
+slint-sc-coverage = { path = "../../../tools/slint-sc-coverage" }

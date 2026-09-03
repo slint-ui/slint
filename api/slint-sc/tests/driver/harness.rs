@@ -31,6 +31,16 @@ const HEIGHT: u32 = 64;
 /// The size every test case creates its component with.
 pub const WINDOW_SIZE: slint_sc::Size = slint_sc::Size::new(WIDTH, HEIGHT);
 
+/// Write the coverage profile to `coverage.slintcov` in the current directory,
+/// for the driver to collect.
+pub fn write_coverage(
+    counters: &impl core::fmt::Display,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let profile = format!("{counters}process {}\n", std::process::id());
+    std::fs::write("coverage.slintcov", profile)?;
+    Ok(())
+}
+
 pub fn save_screenshot(
     render: impl FnOnce(&mut [u8]) -> Result<(), slint_sc::RenderError>,
     state: Option<&str>,

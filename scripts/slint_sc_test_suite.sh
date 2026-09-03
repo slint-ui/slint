@@ -6,6 +6,7 @@
 # Writes into the directory given as the first argument:
 #   test-results/  per-suite logs and CTRF-style JSON reports
 #   coverage.json, lcov.info, html/  the coverage reports
+#   slint-sc-coverage/, slint-lcov.info  the coverage of the .slint test cases themselves
 #
 # The compiler suites run uninstrumented; coverage measures only the runtime
 # crate: its unit tests and the test driver, which compiles and runs the
@@ -40,7 +41,10 @@ cargo llvm-cov clean --workspace
 
 # --remap-path-prefix makes the reports use workspace-relative paths, so the
 # safety manual's per-line links don't depend on the checkout location.
+# The driver compiles each .slint case with --coverage and writes its coverage
+# profile into SLINT_SC_COVERAGE_DIR.
 SLINT_TEST_REPORT="$PWD/$results/driver.json" CARGO_TERM_COLOR=never \
+    SLINT_SC_COVERAGE_DIR="$PWD/$out/slint-sc-coverage" \
     cargo llvm-cov --no-report --remap-path-prefix -p slint-sc 2>&1 \
     | tee "$results/runtime-tests.log"
 
@@ -52,3 +56,6 @@ report="cargo llvm-cov report --remap-path-prefix --ignore-filename-regex tools/
 $report --json --output-path "$out/coverage.json"
 $report --lcov --output-path "$out/lcov.info"
 $report --html --output-dir "$out"
+
+cargo run -p slint-sc-coverage -- \
+    --profile "$out/slint-sc-coverage" --base-dir "$PWD" -o "$out/slint-lcov.info"
