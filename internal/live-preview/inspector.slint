@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct InspectorHighlight {
+    x: length,
+    y: length,
+    width: length,
+    height: length,
+    angle: angle,
+}
+
+export component InspectorOverlay inherits Window {
+    in property <[InspectorHighlight]> highlights;
+
+    background: transparent;
+
+    for highlight in root.highlights: Rectangle {
+        x: highlight.x;
+        y: highlight.y;
+        width: highlight.width;
+        height: highlight.height;
+        transform-rotation: highlight.angle;
+        background: #3584e433;
+        border-color: #3584e4;
+        border-width: 1px;
+    }
+}

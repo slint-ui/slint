@@ -8,6 +8,7 @@ use std::{net::SocketAddr, rc::Rc};
 use i_slint_core::SharedString;
 use i_slint_core::textlayout::sharedparley::fontique;
 use i_slint_core::window::WindowInner;
+use i_slint_live_preview::inspector::InspectorOverlay;
 use i_slint_live_preview::preview_sessions::{
     PreviewCompilation, PreviewSession, PreviewSessionEvent,
 };
@@ -163,6 +164,7 @@ async fn run_async(
     })?;
 
     let mut placeholder = RemoteViewerWindow::new()?;
+    let inspector = InspectorOverlay::new(placeholder.window()).await?;
 
     #[cfg(not(target_vendor = "apple"))]
     let mdns = enable_mdns.then(mdns_sd::ServiceDaemon::new).transpose()?;
@@ -214,6 +216,7 @@ async fn run_async(
     let mut last_connection = None;
     let mut user_instance: Option<slint_interpreter::ComponentInstance> = None;
     let mut current_preview: Option<PreviewComponent> = None;
+    let mut current_highlight: Option<(lsp_types::Url, u32)> = None;
     let mut registered_fonts = HashSet::<lsp_types::Url>::new();
     while let Some(event) = event_receiver.recv().await {
         match event {
@@ -238,6 +241,8 @@ async fn run_async(
                             &current_preview,
                             &mut placeholder,
                             &mut user_instance,
+                            &inspector,
+                            current_highlight.as_ref(),
                             &preview_session,
                             &chrome,
                         )
@@ -250,13 +255,18 @@ async fn run_async(
                             &current_preview,
                             &mut placeholder,
                             &mut user_instance,
+                            &inspector,
+                            current_highlight.as_ref(),
                             &preview_session,
                             &chrome,
                         )
                         .await?;
                     }
                 }
-                PreviewSessionEvent::HighlightFromEditor { .. } => {}
+                PreviewSessionEvent::HighlightFromEditor { url, offset } => {
+                    current_highlight = url.map(|url| (url, offset));
+                    inspector.update(user_instance.as_ref(), current_highlight.as_ref());
+                }
                 PreviewSessionEvent::RegisterFont { url, contents } => {
                     let len = contents.len();
                     if !registered_fonts.insert(url.clone()) {
@@ -285,10 +295,12 @@ async fn run_async(
                 if last_connection == Some(remote_addr) {
                     last_connection = None;
                     current_preview = None;
+                    current_highlight = None;
                     if !prompt_on_screen {
                         swap_to_placeholder(
                             &mut placeholder,
                             &mut user_instance,
+                            &inspector,
                             &chrome,
                             "",
                             RemoteViewerState::WaitingForConnection,
@@ -308,6 +320,7 @@ async fn run_async(
                 swap_to_placeholder(
                     &mut placeholder,
                     &mut user_instance,
+                    &inspector,
                     &chrome,
                     "",
                     RemoteViewerState::Pairing,
@@ -331,6 +344,8 @@ async fn run_async(
                     &current_preview,
                     &mut placeholder,
                     &mut user_instance,
+                    &inspector,
+                    current_highlight.as_ref(),
                     &preview_session,
                     &chrome,
                 )
@@ -341,7 +356,14 @@ async fn run_async(
                     } else {
                         RemoteViewerState::WaitingForConnection
                     };
-                    swap_to_placeholder(&mut placeholder, &mut user_instance, &chrome, "", state)?;
+                    swap_to_placeholder(
+                        &mut placeholder,
+                        &mut user_instance,
+                        &inspector,
+                        &chrome,
+                        "",
+                        state,
+                    )?;
                 }
             }
         }
@@ -367,11 +389,22 @@ async fn show_current(
     current_preview: &Option<PreviewComponent>,
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
+    inspector: &InspectorOverlay,
+    current_highlight: Option<&(lsp_types::Url, u32)>,
     preview_session: &PreviewSession,
     chrome: &Chrome,
 ) -> anyhow::Result<bool> {
     let Some(preview_component) = current_preview.clone() else { return Ok(false) };
-    build_and_show(&preview_component, placeholder, user_instance, preview_session, chrome).await?;
+    build_and_show(
+        &preview_component,
+        placeholder,
+        user_instance,
+        inspector,
+        current_highlight,
+        preview_session,
+        chrome,
+    )
+    .await?;
     Ok(true)
 }
 
@@ -381,6 +414,8 @@ async fn build_and_show(
     preview_component: &PreviewComponent,
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
+    inspector: &InspectorOverlay,
+    current_highlight: Option<&(lsp_types::Url, u32)>,
     preview_session: &PreviewSession,
     chrome: &Chrome,
 ) -> anyhow::Result<()> {
@@ -392,6 +427,7 @@ async fn build_and_show(
             swap_to_placeholder(
                 placeholder,
                 user_instance,
+                inspector,
                 chrome,
                 &message,
                 RemoteViewerState::PreviewError,
@@ -402,6 +438,7 @@ async fn build_and_show(
             swap_to_placeholder(
                 placeholder,
                 user_instance,
+                inspector,
                 chrome,
                 "Component not found",
                 RemoteViewerState::PreviewError,
@@ -417,6 +454,8 @@ async fn build_and_show(
 
     new_instance.show().map_err(|err| anyhow::anyhow!("Cannot show component: {err}"))?;
     *user_instance = Some(new_instance);
+    inspector.attach()?;
+    inspector.update(user_instance.as_ref(), current_highlight);
     // The placeholder is hidden now, but keep its state property truthful.
     placeholder.set_state(RemoteViewerState::Previewing);
     Ok(())
@@ -453,10 +492,12 @@ impl Chrome {
 fn swap_to_placeholder(
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
+    inspector: &InspectorOverlay,
     chrome: &Chrome,
     message: &str,
     state: RemoteViewerState,
 ) -> anyhow::Result<()> {
+    inspector.detach();
     let fresh = RemoteViewerWindow::new_with_existing_window(placeholder.window())
         .map_err(|err| anyhow::anyhow!("Cannot create placeholder: {err}"))?;
     chrome.apply(&fresh);
@@ -487,3 +528,97 @@ fn device_name_override() -> Option<String> {
 #[cfg(target_os = "android")]
 pub(crate) static ANDROID_DEVICE_NAME: std::sync::Mutex<Option<String>> =
     std::sync::Mutex::new(None);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use i_slint_renderer_software::{
+        MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
+    };
+    use slint::platform::{Platform, PlatformError, WindowAdapter};
+
+    const WIDTH: u32 = 100;
+    const HEIGHT: u32 = 80;
+    const TEST_PREVIEW_SOURCE: &str = r#"
+        export component TestPreview inherits Window {
+            background: white;
+
+            Rectangle {
+                x: 20px;
+                y: 20px;
+                width: 30px;
+                height: 20px;
+            }
+        }
+    "#;
+
+    struct SoftwareRendererPlatform(Rc<MinimalSoftwareWindow>);
+
+    impl Platform for SoftwareRendererPlatform {
+        fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+            Ok(self.0.clone())
+        }
+    }
+
+    #[derive(Clone, Copy, Default)]
+    struct RgbPixel {
+        red: u8,
+        green: u8,
+        blue: u8,
+    }
+
+    impl TargetPixel for RgbPixel {
+        fn blend(&mut self, color: PremultipliedRgbaColor) {
+            let inverse_alpha = 255u32 - color.alpha as u32;
+            self.red = (color.red as u32 + self.red as u32 * inverse_alpha / 255).min(255) as u8;
+            self.green =
+                (color.green as u32 + self.green as u32 * inverse_alpha / 255).min(255) as u8;
+            self.blue = (color.blue as u32 + self.blue as u32 * inverse_alpha / 255).min(255) as u8;
+        }
+
+        fn from_rgb(red: u8, green: u8, blue: u8) -> Self {
+            Self { red, green, blue }
+        }
+    }
+
+    #[test]
+    fn inspector_overlay_renders_highlight_over_preview() {
+        let window_adapter = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
+        slint::platform::set_platform(Box::new(SoftwareRendererPlatform(window_adapter.clone())))
+            .unwrap();
+        window_adapter.set_size(slint::PhysicalSize::new(WIDTH, HEIGHT));
+
+        let preview_path =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test-preview.slint");
+        let compilation_result = crate::poll_ready(
+            slint_interpreter::Compiler::default()
+                .build_from_source(TEST_PREVIEW_SOURCE.into(), preview_path.clone()),
+        );
+        assert!(!compilation_result.has_errors());
+        let preview = compilation_result.component("TestPreview").unwrap().create().unwrap();
+        preview.show().unwrap();
+        let preview_item_tree = WindowInner::from_pub(preview.window()).component();
+        let inspector = crate::poll_ready(InspectorOverlay::new(preview.window())).unwrap();
+        assert!(i_slint_core::item_tree::ItemTreeRc::ptr_eq(
+            &preview_item_tree,
+            &WindowInner::from_pub(preview.window()).component(),
+        ));
+        let highlight = (
+            lsp_types::Url::from_file_path(&preview_path).unwrap(),
+            TEST_PREVIEW_SOURCE.find("Rectangle").unwrap() as u32,
+        );
+        inspector.update(Some(&preview), Some(&highlight));
+        inspector.attach().unwrap();
+
+        let mut pixels = vec![RgbPixel::default(); (WIDTH * HEIGHT) as usize];
+        preview.window().request_redraw();
+        window_adapter.draw_if_needed(|renderer| {
+            renderer.render(pixels.as_mut_slice(), WIDTH as usize);
+        });
+
+        let highlighted = pixels[(25 * WIDTH + 25) as usize];
+        let outside = pixels[(5 * WIDTH + 5) as usize];
+        assert!(highlighted.blue > highlighted.red);
+        assert_eq!((outside.red, outside.green, outside.blue), (255, 255, 255));
+    }
+}
