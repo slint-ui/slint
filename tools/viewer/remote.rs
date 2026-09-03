@@ -5,7 +5,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::{net::SocketAddr, rc::Rc};
 
-use i_slint_core::InternalToken;
 use i_slint_core::SharedString;
 use i_slint_core::textlayout::sharedparley::fontique;
 use i_slint_core::window::WindowInner;
@@ -144,8 +143,6 @@ async fn run_async(
     .await?;
     let connection = Rc::new(connection);
 
-    let mut compiler = preview_session.create_compiler();
-
     // Forward all debug output to the LSP, so that the LSP can show it to the user.
     // Slint Viewer itself only displays the previewed app, so it has no UI of its own to show debug messages in.
     let connection_weak = Rc::downgrade(&connection);
@@ -233,17 +230,11 @@ async fn run_async(
                 continue;
             }
             Event::Preview(message) => match message {
-                PreviewSessionEvent::SetConfiguration { config } => {
-                    compiler.set_style(config.style);
-                    compiler.compiler_configuration(InternalToken).enable_experimental =
-                        config.enable_experimental;
-                }
                 PreviewSessionEvent::SetUserSettings { .. } => {}
                 PreviewSessionEvent::ShowPreview { component } => {
                     current_preview = Some(component);
                     if !prompt_on_screen {
                         show_current(
-                            &compiler,
                             &current_preview,
                             &mut placeholder,
                             &mut user_instance,
@@ -256,7 +247,6 @@ async fn run_async(
                 PreviewSessionEvent::ContentsChanged => {
                     if !prompt_on_screen {
                         show_current(
-                            &compiler,
                             &current_preview,
                             &mut placeholder,
                             &mut user_instance,
@@ -338,7 +328,6 @@ async fn run_async(
                 // Nobody got in, so restore whatever the prompt displaced,
                 // including anything the session changed meanwhile.
                 let restored = show_current(
-                    &compiler,
                     &current_preview,
                     &mut placeholder,
                     &mut user_instance,
@@ -375,7 +364,6 @@ async fn run_async(
 /// Returns whether there was one, so callers that have to fall back to a
 /// placeholder can tell.
 async fn show_current(
-    compiler: &slint_interpreter::Compiler,
     current_preview: &Option<PreviewComponent>,
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
@@ -383,22 +371,13 @@ async fn show_current(
     chrome: &Chrome,
 ) -> anyhow::Result<bool> {
     let Some(preview_component) = current_preview.clone() else { return Ok(false) };
-    build_and_show(
-        compiler,
-        &preview_component,
-        placeholder,
-        user_instance,
-        preview_session,
-        chrome,
-    )
-    .await?;
+    build_and_show(&preview_component, placeholder, user_instance, preview_session, chrome).await?;
     Ok(true)
 }
 
 /// Returns `Err` only on unrecoverable platform failure; compile errors and missing
 /// components reinstall the placeholder and return `Ok(())`.
 async fn build_and_show(
-    compiler: &slint_interpreter::Compiler,
     preview_component: &PreviewComponent,
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
@@ -407,7 +386,7 @@ async fn build_and_show(
 ) -> anyhow::Result<()> {
     tracing::debug!("build_and_show");
 
-    let component = match preview_session.compile_component(compiler, preview_component).await {
+    let component = match preview_session.compile_component(preview_component).await {
         PreviewCompilation::Ready(component) => component,
         PreviewCompilation::CompilationError { message } => {
             swap_to_placeholder(

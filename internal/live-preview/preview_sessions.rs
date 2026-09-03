@@ -44,7 +44,6 @@ enum CacheEntry {
 }
 
 pub enum PreviewSessionEvent {
-    SetConfiguration { config: PreviewConfig },
     SetUserSettings { name: String, contents: String },
     ShowPreview { component: PreviewComponent },
     ContentsChanged,
@@ -67,6 +66,8 @@ enum PreviewSessionCommand {
 pub struct PreviewSession {
     file_cache: RefCell<HashMap<Url, CacheEntry>>,
     dependencies: RefCell<HashSet<Url>>,
+    compiler: RefCell<Option<slint_interpreter::Compiler>>,
+    configuration: RefCell<Option<PreviewConfig>>,
     to_editor: Rc<dyn PreviewToLsp>,
 }
 
@@ -83,8 +84,11 @@ impl PreviewSession {
         let session = Rc::new(Self {
             file_cache: Default::default(),
             dependencies: Default::default(),
+            compiler: Default::default(),
+            configuration: Default::default(),
             to_editor,
         });
+        session.compiler.replace(Some(session.create_compiler()));
         let (command_sender, command_receiver) = mpsc::unbounded_channel();
         spawn_local(session.clone().process_messages(command_receiver, event_handler));
         (session, PreviewSessionHandle { command_sender })
@@ -195,7 +199,7 @@ impl PreviewSession {
                 }
             }
             LspToPreviewMessage::SetConfiguration { config } => {
-                event_handler(PreviewSessionEvent::SetConfiguration { config });
+                self.set_configuration(config);
             }
             LspToPreviewMessage::SetUserSettings { name, contents } => {
                 event_handler(PreviewSessionEvent::SetUserSettings { name, contents });
@@ -260,7 +264,7 @@ impl PreviewSession {
         receiver.await.map_err(std::io::Error::other)?
     }
 
-    pub fn create_compiler(self: &Rc<Self>) -> slint_interpreter::Compiler {
+    fn create_compiler(self: &Rc<Self>) -> slint_interpreter::Compiler {
         let mut compiler = slint_interpreter::Compiler::new();
 
         let file_loader_session = Rc::downgrade(self);
@@ -316,11 +320,14 @@ impl PreviewSession {
         compiler
     }
 
-    pub async fn compile_component(
-        &self,
-        compiler: &slint_interpreter::Compiler,
-        component: &PreviewComponent,
-    ) -> PreviewCompilation {
+    fn set_configuration(&self, configuration: PreviewConfig) {
+        if let Some(compiler) = self.compiler.borrow_mut().as_mut() {
+            apply_configuration(compiler, &configuration);
+        }
+        self.configuration.replace(Some(configuration));
+    }
+
+    pub async fn compile_component(&self, component: &PreviewComponent) -> PreviewCompilation {
         let Ok(path) = component.url.to_file_path() else {
             tracing::error!("Not a file URL: {}", component.url);
             return PreviewCompilation::Unavailable;
@@ -332,9 +339,14 @@ impl PreviewSession {
                 return PreviewCompilation::Unavailable;
             }
         };
+        let Some(compiler) = self.compiler.borrow_mut().take() else {
+            tracing::error!("Preview session is already compiling a component");
+            return PreviewCompilation::Unavailable;
+        };
         let compilation_result = compiler
             .build_from_source(String::from_utf8_lossy(&file.contents).into_owned(), path)
             .await;
+        self.restore_compiler(compiler);
         *self.dependencies.borrow_mut() = compilation_result
             .watch_paths(InternalToken)
             .iter()
@@ -366,6 +378,13 @@ impl PreviewSession {
         PreviewCompilation::Ready(component_definition)
     }
 
+    fn restore_compiler(&self, mut compiler: slint_interpreter::Compiler) {
+        if let Some(configuration) = self.configuration.borrow().as_ref() {
+            apply_configuration(&mut compiler, configuration);
+        }
+        self.compiler.replace(Some(compiler));
+    }
+
     pub fn send_to_editor(&self, message: &PreviewToLspMessage) -> crate::protocol::Result<()> {
         self.to_editor.send(message)
     }
@@ -390,6 +409,12 @@ impl PreviewSession {
         };
         self.send_to_editor(&message).ok();
     }
+}
+
+fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration: &PreviewConfig) {
+    compiler.set_style(configuration.style.clone());
+    compiler.compiler_configuration(InternalToken).enable_experimental =
+        configuration.enable_experimental;
 }
 
 impl PreviewSessionHandle {
@@ -441,7 +466,6 @@ pub async fn run_with_channels(
 
     install_debug_handler(Rc::downgrade(&to_editor))?;
 
-    let mut compiler = preview_session.create_compiler();
     let mut current_component = None;
     let mut component_instance = None;
     let mut registered_fonts = HashSet::new();
@@ -449,16 +473,10 @@ pub async fn run_with_channels(
 
     while let Some(event) = event_receiver.recv().await {
         match event {
-            PreviewSessionEvent::SetConfiguration { config } => {
-                compiler.set_style(config.style);
-                compiler.compiler_configuration(InternalToken).enable_experimental =
-                    config.enable_experimental;
-            }
             PreviewSessionEvent::SetUserSettings { .. } => {}
             PreviewSessionEvent::ShowPreview { component } => {
                 show_component(
                     &preview_session,
-                    &compiler,
                     &component,
                     &mut component_instance,
                     &mut pending_fonts,
@@ -470,7 +488,6 @@ pub async fn run_with_channels(
                 let Some(component) = current_component.as_ref() else { continue };
                 show_component(
                     &preview_session,
-                    &compiler,
                     component,
                     &mut component_instance,
                     &mut pending_fonts,
@@ -497,13 +514,12 @@ pub async fn run_with_channels(
 
 async fn show_component(
     preview_session: &PreviewSession,
-    compiler: &slint_interpreter::Compiler,
     component: &PreviewComponent,
     component_instance: &mut Option<slint_interpreter::ComponentInstance>,
     pending_fonts: &mut Vec<Arc<[u8]>>,
 ) -> anyhow::Result<()> {
     let PreviewCompilation::Ready(component_definition) =
-        preview_session.compile_component(compiler, component).await
+        preview_session.compile_component(component).await
     else {
         return Ok(());
     };
