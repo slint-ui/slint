@@ -172,8 +172,8 @@ class WindowAdapter
                 },
                 [](void *wa, const vtable::VRc<cbindgen_private::MenuVTable> *menu,
                    LogicalPosition position) -> bool {
-                    return reinterpret_cast<WindowAdapter *>(wa)->show_native_popup_menu(
-                            *menu, position);
+                    return reinterpret_cast<WindowAdapter *>(wa)->show_native_popup_menu(*menu,
+                                                                                         position);
                 },
                 [](void *wa, cbindgen_private::InputMethodRequestKind kind,
                    const cbindgen_private::InputMethodPropertiesReprC *properties) {
@@ -359,8 +359,9 @@ public:
     ///
     /// The default implementation does nothing, which leaves the platform's input method
     /// uninvolved and limits text entry to whatever arrives as plain key events.
-    virtual void input_method_request(cbindgen_private::InputMethodRequestKind kind,
-                                      const cbindgen_private::InputMethodPropertiesReprC *properties)
+    virtual void
+    input_method_request(cbindgen_private::InputMethodRequestKind kind,
+                         const cbindgen_private::InputMethodPropertiesReprC *properties)
     {
         (void)kind;
         (void)properties;

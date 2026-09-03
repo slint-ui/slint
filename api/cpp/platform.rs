@@ -8,14 +8,14 @@ use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, Window, WindowPosition,
     WindowSize,
 };
-use i_slint_core::items::InputType;
-use i_slint_core::menus::MenuVTable;
 use i_slint_core::graphics::IntSize;
 use i_slint_core::graphics::euclid;
+use i_slint_core::input::{InternalKeyEvent, KeyEventType};
+use i_slint_core::items::InputType;
+use i_slint_core::menus::MenuVTable;
 use i_slint_core::platform::{Clipboard, Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
-use i_slint_core::input::{InternalKeyEvent, KeyEventType};
 use i_slint_core::window::{
     InputMethodRequest, WindowAdapter, WindowAdapterInternal, WindowProperties,
 };
@@ -342,9 +342,8 @@ pub unsafe extern "C" fn slint_windowrc_dispatch_composition_event(
         internal.event_type = event.event_type;
         internal.key_event = key_event;
         internal.preedit_text = event.preedit_text.clone();
-        internal.replacement_range = event
-            .has_replacement_range
-            .then(|| event.replacement_start..event.replacement_end);
+        internal.replacement_range =
+            event.has_replacement_range.then(|| event.replacement_start..event.replacement_end);
         internal.preedit_selection = event
             .has_preedit_selection
             .then(|| event.preedit_selection_start..event.preedit_selection_end);
