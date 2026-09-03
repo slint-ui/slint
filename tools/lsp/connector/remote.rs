@@ -1213,13 +1213,14 @@ mod tests {
         policy: PairingPolicy,
     ) -> (Connection, mpsc::UnboundedReceiver<ConnectionMessage>) {
         let (tx, rx) = mpsc::unbounded_channel();
-        let connection = Connection::listen(
+        let (connection, _preview_session) = Connection::listen(
             Some(std::net::SocketAddr::from(([127, 0, 0, 1], port))),
             None,
             policy,
             move |msg| {
                 let _ = tx.send(msg);
             },
+            |_| {},
         )
         .await
         .unwrap();

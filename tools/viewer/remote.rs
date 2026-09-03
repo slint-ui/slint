@@ -9,8 +9,11 @@ use i_slint_core::InternalToken;
 use i_slint_core::SharedString;
 use i_slint_core::textlayout::sharedparley::fontique;
 use i_slint_core::window::WindowInner;
+use i_slint_live_preview::preview_sessions::{
+    PreviewCompilation, PreviewSession, PreviewSessionEvent,
+};
 use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage, lsp_types};
-use i_slint_live_preview::remote::{Connection, ConnectionMessage, PairingPolicy, init_compiler};
+use i_slint_live_preview::remote::{Connection, ConnectionMessage, PairingPolicy};
 use slint::ComponentHandle as _;
 
 slint::slint! {
@@ -73,6 +76,7 @@ fn build_info() -> SharedString {
 /// iOS, app lifecycle notifications.
 enum Event {
     Connection(ConnectionMessage),
+    Preview(PreviewSessionEvent),
     /// The app returned to the foreground after having been suspended: re-announce
     /// the mDNS service (see [`announce_mdns`] for why the old announcement may be
     /// dead). Only iOS has the lifecycle observers that send this.
@@ -93,10 +97,15 @@ pub fn run(
     pairing_policy: PairingPolicy,
 ) -> anyhow::Result<()> {
     slint_interpreter::spawn_local(async_compat::Compat::new(async move {
-        if let Err(err) = run_async(address, enable_mdns, pairing_policy).await {
-            tracing::error!("Remote viewer error: {err}");
-            slint_interpreter::quit_event_loop().ok();
-        }
+        let local_set = tokio::task::LocalSet::new();
+        local_set
+            .run_until(async move {
+                if let Err(err) = run_async(address, enable_mdns, pairing_policy).await {
+                    tracing::error!("Remote viewer error: {err}");
+                    slint_interpreter::quit_event_loop().ok();
+                }
+            })
+            .await;
     }))?;
     slint_interpreter::run_event_loop()?;
     Ok(())
@@ -120,14 +129,22 @@ async fn run_async(
         );
     }
 
-    let connection = Rc::new(
-        Connection::listen(address, device_name_override(), pairing_policy, move |msg| {
-            let _ = event_sender.send(Event::Connection(msg));
-        })
-        .await?,
-    );
+    let connection_event_sender = event_sender.clone();
+    let (connection, preview_session) = Connection::listen(
+        address,
+        device_name_override(),
+        pairing_policy,
+        move |message| {
+            let _ = connection_event_sender.send(Event::Connection(message));
+        },
+        move |message| {
+            let _ = event_sender.send(Event::Preview(message));
+        },
+    )
+    .await?;
+    let connection = Rc::new(connection);
 
-    let mut compiler = init_compiler(Rc::downgrade(&connection));
+    let mut compiler = preview_session.create_compiler();
 
     // Forward all debug output to the LSP, so that the LSP can show it to the user.
     // Slint Viewer itself only displays the previewed app, so it has no UI of its own to show debug messages in.
@@ -202,8 +219,7 @@ async fn run_async(
     let mut current_preview: Option<PreviewComponent> = None;
     let mut registered_fonts = HashSet::<lsp_types::Url>::new();
     while let Some(event) = event_receiver.recv().await {
-        let msg = match event {
-            Event::Connection(msg) => msg,
+        match event {
             Event::Resumed => {
                 #[cfg(target_vendor = "apple")]
                 if enable_mdns {
@@ -216,59 +232,58 @@ async fn run_async(
                 }
                 continue;
             }
-        };
-        match msg {
-            ConnectionMessage::SetConfiguration { config } => {
-                compiler.set_style(config.style);
-                compiler.compiler_configuration(InternalToken).enable_experimental =
-                    config.enable_experimental;
-            }
-            ConnectionMessage::SetUserSettings { .. } => {}
-            ConnectionMessage::ShowPreview { preview_component } => {
-                current_preview = Some(preview_component);
-                if !prompt_on_screen {
-                    show_current(
-                        &compiler,
-                        &current_preview,
-                        &mut placeholder,
-                        &mut user_instance,
-                        &connection,
-                        &chrome,
-                    )
-                    .await?;
+            Event::Preview(message) => match message {
+                PreviewSessionEvent::SetConfiguration { config } => {
+                    compiler.set_style(config.style);
+                    compiler.compiler_configuration(InternalToken).enable_experimental =
+                        config.enable_experimental;
                 }
-            }
-            ConnectionMessage::ContentsChanged => {
-                if !prompt_on_screen {
-                    show_current(
-                        &compiler,
-                        &current_preview,
-                        &mut placeholder,
-                        &mut user_instance,
-                        &connection,
-                        &chrome,
-                    )
-                    .await?;
+                PreviewSessionEvent::SetUserSettings { .. } => {}
+                PreviewSessionEvent::ShowPreview { component } => {
+                    current_preview = Some(component);
+                    if !prompt_on_screen {
+                        show_current(
+                            &compiler,
+                            &current_preview,
+                            &mut placeholder,
+                            &mut user_instance,
+                            &preview_session,
+                            &chrome,
+                        )
+                        .await?;
+                    }
                 }
-            }
-            ConnectionMessage::HighlightFromEditor { .. } => {}
-            ConnectionMessage::RegisterFont { url, contents } => {
-                let len = contents.len();
-                if !registered_fonts.insert(url.clone()) {
-                    tracing::debug!("Font {url} already registered, skipping");
-                    continue;
+                PreviewSessionEvent::ContentsChanged => {
+                    if !prompt_on_screen {
+                        show_current(
+                            &compiler,
+                            &current_preview,
+                            &mut placeholder,
+                            &mut user_instance,
+                            &preview_session,
+                            &chrome,
+                        )
+                        .await?;
+                    }
                 }
-                // Wrap the already-Arc-backed bytes in a Blob without copying.
-                let blob = fontique::Blob::new(Arc::new(contents));
-                WindowInner::from_pub(placeholder.window())
-                    .context()
-                    .font_context()
-                    .borrow_mut()
-                    .collection
-                    .register_fonts(blob, None);
-                tracing::debug!("Registered font {url} ({len} bytes)");
-            }
-            ConnectionMessage::Connected { remote_addr } => {
+                PreviewSessionEvent::HighlightFromEditor { .. } => {}
+                PreviewSessionEvent::RegisterFont { url, contents } => {
+                    let len = contents.len();
+                    if !registered_fonts.insert(url.clone()) {
+                        tracing::debug!("Font {url} already registered, skipping");
+                        continue;
+                    }
+                    let blob = fontique::Blob::new(Arc::new(contents));
+                    WindowInner::from_pub(placeholder.window())
+                        .context()
+                        .font_context()
+                        .borrow_mut()
+                        .collection
+                        .register_fonts(blob, None);
+                    tracing::debug!("Registered font {url} ({len} bytes)");
+                }
+            },
+            Event::Connection(ConnectionMessage::Connected { remote_addr }) => {
                 last_connection = Some(remote_addr);
                 if !prompt_on_screen {
                     placeholder
@@ -276,11 +291,10 @@ async fn run_async(
                     placeholder.set_state(RemoteViewerState::Connected);
                 }
             }
-            ConnectionMessage::Disconnected { remote_addr } => {
+            Event::Connection(ConnectionMessage::Disconnected { remote_addr }) => {
                 if last_connection == Some(remote_addr) {
                     last_connection = None;
                     current_preview = None;
-                    connection.set_dependencies(Vec::new());
                     if !prompt_on_screen {
                         swap_to_placeholder(
                             &mut placeholder,
@@ -292,7 +306,11 @@ async fn run_async(
                     }
                 }
             }
-            ConnectionMessage::PairingStarted { remote_addr, code, expires_in } => {
+            Event::Connection(ConnectionMessage::PairingStarted {
+                remote_addr,
+                code,
+                expires_in,
+            }) => {
                 prompt_on_screen = true;
                 // Takes the screen even from a running preview. The code is
                 // only worth anything if it can be read off this device, so
@@ -312,10 +330,10 @@ async fn run_async(
             }
             // The admitted session takes it from here: it pushes its
             // configuration and asks for a component to show.
-            ConnectionMessage::PairingFinished { accepted: true, .. } => {
+            Event::Connection(ConnectionMessage::PairingFinished { accepted: true, .. }) => {
                 prompt_on_screen = false;
             }
-            ConnectionMessage::PairingFinished { accepted: false, .. } => {
+            Event::Connection(ConnectionMessage::PairingFinished { accepted: false, .. }) => {
                 prompt_on_screen = false;
                 // Nobody got in, so restore whatever the prompt displaced,
                 // including anything the session changed meanwhile.
@@ -324,7 +342,7 @@ async fn run_async(
                     &current_preview,
                     &mut placeholder,
                     &mut user_instance,
-                    &connection,
+                    &preview_session,
                     &chrome,
                 )
                 .await?;
@@ -361,12 +379,19 @@ async fn show_current(
     current_preview: &Option<PreviewComponent>,
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
-    connection: &Rc<Connection>,
+    preview_session: &PreviewSession,
     chrome: &Chrome,
 ) -> anyhow::Result<bool> {
     let Some(preview_component) = current_preview.clone() else { return Ok(false) };
-    build_and_show(compiler, &preview_component, placeholder, user_instance, connection, chrome)
-        .await?;
+    build_and_show(
+        compiler,
+        &preview_component,
+        placeholder,
+        user_instance,
+        preview_session,
+        chrome,
+    )
+    .await?;
     Ok(true)
 }
 
@@ -377,72 +402,35 @@ async fn build_and_show(
     preview_component: &PreviewComponent,
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
-    connection: &Rc<Connection>,
+    preview_session: &PreviewSession,
     chrome: &Chrome,
 ) -> anyhow::Result<()> {
     tracing::debug!("build_and_show");
 
-    let Ok(path) = preview_component.url.to_file_path() else {
-        tracing::error!("Not a file URL: {}", preview_component.url);
-        return Ok(());
-    };
-    let file = match connection.request_file(preview_component.url.clone()).await {
-        Ok(file) => file,
-        Err(err) => {
-            tracing::error!("Failed fetching {}: {err}", preview_component.url);
+    let component = match preview_session.compile_component(compiler, preview_component).await {
+        PreviewCompilation::Ready(component) => component,
+        PreviewCompilation::CompilationError { message } => {
+            swap_to_placeholder(
+                placeholder,
+                user_instance,
+                chrome,
+                &message,
+                RemoteViewerState::PreviewError,
+            )?;
             return Ok(());
         }
+        PreviewCompilation::ComponentNotFound => {
+            swap_to_placeholder(
+                placeholder,
+                user_instance,
+                chrome,
+                "Component not found",
+                RemoteViewerState::PreviewError,
+            )?;
+            return Ok(());
+        }
+        PreviewCompilation::Unavailable => return Ok(()),
     };
-    let compilation_result = compiler
-        .build_from_source(String::from_utf8_lossy(&file.contents).into_owned(), path)
-        .await;
-    // Set even on errors so edits to imported files still trigger a rebuild.
-    let watch_urls: Vec<lsp_types::Url> = compilation_result
-        .watch_paths(InternalToken)
-        .iter()
-        .filter_map(|p| lsp_types::Url::from_file_path(p).ok())
-        .collect();
-    connection.set_dependencies(watch_urls);
-
-    if compilation_result.has_errors() {
-        send_diagnostics(&compilation_result, &preview_component.url, connection);
-        let message = compilation_result
-            .diagnostics()
-            .inspect(|d| tracing::warn!("Compiler diagnostic: {d}"))
-            .map(|d| d.to_string())
-            .collect::<Vec<_>>()
-            .join("\n");
-        swap_to_placeholder(
-            placeholder,
-            user_instance,
-            chrome,
-            &message,
-            RemoteViewerState::PreviewError,
-        )?;
-        return Ok(());
-    }
-
-    let Some(component) = preview_component
-        .component
-        .as_deref()
-        .or_else(|| compilation_result.component_names().next())
-        .and_then(|name| compilation_result.component(name))
-    else {
-        // No compile errors but no component — skip send_diagnostics so we don't clobber
-        // unrelated LSP diagnostics for this URI.
-        tracing::error!("Component not found");
-        swap_to_placeholder(
-            placeholder,
-            user_instance,
-            chrome,
-            "Component not found",
-            RemoteViewerState::PreviewError,
-        )?;
-        return Ok(());
-    };
-
-    // Send the (possibly empty) list so the editor clears stale errors.
-    send_diagnostics(&compilation_result, &preview_component.url, connection);
 
     let new_instance = component
         .create_with_existing_window(placeholder.window())
@@ -520,24 +508,3 @@ fn device_name_override() -> Option<String> {
 #[cfg(target_os = "android")]
 pub(crate) static ANDROID_DEVICE_NAME: std::sync::Mutex<Option<String>> =
     std::sync::Mutex::new(None);
-
-fn send_diagnostics(
-    compilation_result: &slint_interpreter::CompilationResult,
-    uri: &lsp_types::Url,
-    connection: &Connection,
-) {
-    let message = PreviewToLspMessage::Diagnostics {
-        uri: uri.clone(),
-        version: None,
-        diagnostics: compilation_result
-            .diagnostics()
-            .map(|diagnostic| {
-                i_slint_live_preview::protocol::to_lsp_diagnostic(
-                    &diagnostic,
-                    i_slint_compiler::diagnostics::ByteFormat::Utf8,
-                )
-            })
-            .collect(),
-    };
-    connection.send(message).ok();
-}

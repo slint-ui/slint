@@ -1,0 +1,402 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    rc::Rc,
+    sync::Arc,
+};
+
+use i_slint_core::InternalToken;
+use lsp_types::Url;
+use tokio::sync::{mpsc, oneshot};
+
+use crate::REBUILD_DEBOUNCE;
+use crate::protocol::{
+    LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLsp, PreviewToLspMessage,
+    SourceFileVersion,
+};
+
+#[derive(Clone, Debug)]
+pub struct VersionedFileContent {
+    pub version: SourceFileVersion,
+    pub contents: Arc<[u8]>,
+}
+
+#[derive(Debug)]
+enum CacheEntry {
+    Loading(Vec<oneshot::Sender<std::io::Result<VersionedFileContent>>>),
+    Ready(VersionedFileContent),
+}
+
+pub enum PreviewSessionEvent {
+    SetConfiguration { config: PreviewConfig },
+    SetUserSettings { name: String, contents: String },
+    ShowPreview { component: PreviewComponent },
+    ContentsChanged,
+    HighlightFromEditor { url: Option<Url>, offset: u32 },
+    RegisterFont { url: Url, contents: Arc<[u8]> },
+}
+
+pub enum PreviewCompilation {
+    Ready(slint_interpreter::ComponentDefinition),
+    CompilationError { message: String },
+    ComponentNotFound,
+    Unavailable,
+}
+
+enum PreviewSessionCommand {
+    Message(LspToPreviewMessage),
+    Reset(oneshot::Sender<()>),
+}
+
+pub struct PreviewSession {
+    file_cache: RefCell<HashMap<Url, CacheEntry>>,
+    dependencies: RefCell<HashSet<Url>>,
+    to_editor: Rc<dyn PreviewToLsp>,
+}
+
+#[derive(Clone)]
+pub struct PreviewSessionHandle {
+    command_sender: mpsc::UnboundedSender<PreviewSessionCommand>,
+}
+
+impl PreviewSession {
+    pub fn start(
+        to_editor: Rc<dyn PreviewToLsp>,
+        event_handler: impl Fn(PreviewSessionEvent) + 'static,
+    ) -> (Rc<Self>, PreviewSessionHandle) {
+        let session = Rc::new(Self {
+            file_cache: Default::default(),
+            dependencies: Default::default(),
+            to_editor,
+        });
+        let (command_sender, command_receiver) = mpsc::unbounded_channel();
+        tokio::task::spawn_local(session.clone().process_messages(command_receiver, event_handler));
+        (session, PreviewSessionHandle { command_sender })
+    }
+
+    async fn process_messages(
+        self: Rc<Self>,
+        mut command_receiver: mpsc::UnboundedReceiver<PreviewSessionCommand>,
+        event_handler: impl Fn(PreviewSessionEvent) + 'static,
+    ) {
+        let mut debounce_deadline = None;
+        loop {
+            let debounce = async {
+                match debounce_deadline {
+                    Some(deadline) => tokio::time::sleep_until(deadline).await,
+                    None => std::future::pending::<()>().await,
+                }
+            };
+            tokio::select! {
+                biased;
+                _ = debounce => {
+                    debounce_deadline = None;
+                    event_handler(PreviewSessionEvent::ContentsChanged);
+                }
+                command = command_receiver.recv() => {
+                    let Some(command) = command else { break };
+                    match command {
+                        PreviewSessionCommand::Reset(reset_complete) => {
+                            self.file_cache.borrow_mut().clear();
+                            self.dependencies.borrow_mut().clear();
+                            debounce_deadline = None;
+                            reset_complete.send(()).ok();
+                        }
+                        PreviewSessionCommand::Message(message) => {
+                            if !self.process_message(
+                                message,
+                                &event_handler,
+                                &mut debounce_deadline,
+                            ) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn process_message(
+        &self,
+        message: LspToPreviewMessage,
+        event_handler: &impl Fn(PreviewSessionEvent),
+        debounce_deadline: &mut Option<tokio::time::Instant>,
+    ) -> bool {
+        match message {
+            LspToPreviewMessage::InvalidateContents { url } => {
+                if !is_supported(&url) {
+                    return true;
+                }
+                self.file_cache.borrow_mut().remove(&url);
+                self.schedule_rebuild(&url, debounce_deadline);
+            }
+            LspToPreviewMessage::ForgetFile { url } => {
+                if !is_supported(&url) {
+                    return true;
+                }
+                if let Some(CacheEntry::Loading(senders)) =
+                    self.file_cache.borrow_mut().remove(&url)
+                {
+                    for sender in senders {
+                        let _ = sender.send(Err(std::io::Error::new(
+                            std::io::ErrorKind::NotFound,
+                            "File not found",
+                        )));
+                    }
+                }
+                self.schedule_rebuild(&url, debounce_deadline);
+            }
+            LspToPreviewMessage::SetContents { url, contents } => {
+                if !is_supported(url.url()) {
+                    return true;
+                }
+                if i_slint_compiler::pathutils::is_font_file(url.url().path()) {
+                    event_handler(PreviewSessionEvent::RegisterFont {
+                        url: url.url().clone(),
+                        contents: contents.into(),
+                    });
+                    return true;
+                }
+                let versioned_content =
+                    VersionedFileContent { version: *url.version(), contents: contents.into() };
+                let triggers_rebuild = self.dependencies.borrow().contains(url.url());
+                match self.file_cache.borrow_mut().entry(url.url().clone()) {
+                    std::collections::hash_map::Entry::Occupied(mut occupied) => {
+                        if let CacheEntry::Loading(senders) = occupied.get_mut() {
+                            for sender in senders.drain(..) {
+                                let _ = sender.send(Ok(versioned_content.clone()));
+                            }
+                        }
+                        occupied.insert(CacheEntry::Ready(versioned_content));
+                    }
+                    std::collections::hash_map::Entry::Vacant(vacant) => {
+                        vacant.insert(CacheEntry::Ready(versioned_content));
+                    }
+                }
+                if triggers_rebuild {
+                    *debounce_deadline = Some(tokio::time::Instant::now() + REBUILD_DEBOUNCE);
+                }
+            }
+            LspToPreviewMessage::SetConfiguration { config } => {
+                event_handler(PreviewSessionEvent::SetConfiguration { config });
+            }
+            LspToPreviewMessage::SetUserSettings { name, contents } => {
+                event_handler(PreviewSessionEvent::SetUserSettings { name, contents });
+            }
+            LspToPreviewMessage::ShowPreview(component) => {
+                *debounce_deadline = None;
+                event_handler(PreviewSessionEvent::ShowPreview { component });
+            }
+            LspToPreviewMessage::HighlightFromEditor { url, offset } => {
+                event_handler(PreviewSessionEvent::HighlightFromEditor { url, offset });
+            }
+            LspToPreviewMessage::Quit => return false,
+            LspToPreviewMessage::Ping => {
+                self.send_to_editor(&PreviewToLspMessage::Pong).ok();
+            }
+            LspToPreviewMessage::RemoteConnectionState { .. } => {
+                tracing::warn!("Ignoring unexpected RemoteConnectionState over WebSocket");
+            }
+            LspToPreviewMessage::OpenProject { .. } => {}
+            LspToPreviewMessage::PairingHello { .. }
+            | LspToPreviewMessage::PairingResponse { .. } => {
+                tracing::warn!("Ignoring pairing message on an established session");
+            }
+        }
+        true
+    }
+
+    fn schedule_rebuild(&self, url: &Url, debounce_deadline: &mut Option<tokio::time::Instant>) {
+        if self.dependencies.borrow().contains(url) {
+            *debounce_deadline = Some(tokio::time::Instant::now() + REBUILD_DEBOUNCE);
+        }
+    }
+
+    async fn request_file(&self, url: Url) -> std::io::Result<VersionedFileContent> {
+        if let Some(CacheEntry::Ready(entry)) = self.file_cache.borrow().get(&url) {
+            return Ok(entry.clone());
+        }
+        let (sender, receiver) = oneshot::channel();
+        let request_file;
+        match self.file_cache.borrow_mut().entry(url.clone()) {
+            std::collections::hash_map::Entry::Occupied(mut occupied) => match occupied.get_mut() {
+                CacheEntry::Ready(entry) => return Ok(entry.clone()),
+                CacheEntry::Loading(senders) => {
+                    senders.push(sender);
+                    request_file = false;
+                }
+            },
+            std::collections::hash_map::Entry::Vacant(vacant) => {
+                vacant.insert(CacheEntry::Loading(vec![sender]));
+                request_file = true;
+            }
+        }
+        if request_file
+            && let Err(error) = self.send_to_editor(&PreviewToLspMessage::RequestState {
+                files: vec![url.clone()],
+                settings: Vec::new(),
+            })
+        {
+            self.file_cache.borrow_mut().remove(&url);
+            return Err(std::io::Error::other(error.to_string()));
+        }
+        receiver.await.map_err(std::io::Error::other)?
+    }
+
+    pub fn create_compiler(self: &Rc<Self>) -> slint_interpreter::Compiler {
+        let mut compiler = slint_interpreter::Compiler::new();
+
+        let file_loader_session = Rc::downgrade(self);
+        compiler.set_file_loader(move |path: &std::path::Path| {
+            let url = Url::from_file_path(path);
+            let path_display = path.display().to_string();
+            let session = file_loader_session.clone();
+            Box::pin(async move {
+                let Some(session) = session.upgrade() else {
+                    return Some(Err(std::io::Error::new(
+                        std::io::ErrorKind::BrokenPipe,
+                        "Preview session is no longer available",
+                    )));
+                };
+                let Ok(url) = url else {
+                    return Some(Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        format!("Not an absolute file path: {path_display}"),
+                    )));
+                };
+                Some(session.request_file(url).await.map(|file_content| {
+                    String::from_utf8_lossy(&file_content.contents).to_string()
+                }))
+            })
+        });
+
+        let mapper_session = Rc::downgrade(self);
+        compiler.compiler_configuration(InternalToken).resource_url_mapper =
+            Some(Rc::new(move |url: &Url| {
+                let session = mapper_session.clone();
+                let url = url.clone();
+                Box::pin(async move {
+                    if url.scheme() != "file" {
+                        return None;
+                    }
+                    let session = session.upgrade()?;
+                    let extension = std::path::Path::new(url.path())
+                        .extension()
+                        .and_then(|extension| extension.to_str())
+                        .unwrap_or("png");
+                    let mime_type =
+                        i_slint_core::graphics::image_mime_type_from_extension(extension)
+                            .unwrap_or("application/octet-stream");
+                    let file_content = session.request_file(url).await.ok()?;
+
+                    use base64::Engine as _;
+                    let encoded =
+                        base64::engine::general_purpose::STANDARD.encode(&*file_content.contents);
+                    Url::parse(&format!("data:{mime_type};base64,{encoded}")).ok()
+                })
+            }));
+
+        compiler
+    }
+
+    pub async fn compile_component(
+        &self,
+        compiler: &slint_interpreter::Compiler,
+        component: &PreviewComponent,
+    ) -> PreviewCompilation {
+        let Ok(path) = component.url.to_file_path() else {
+            tracing::error!("Not a file URL: {}", component.url);
+            return PreviewCompilation::Unavailable;
+        };
+        let file = match self.request_file(component.url.clone()).await {
+            Ok(file) => file,
+            Err(error) => {
+                tracing::error!("Failed fetching {}: {error}", component.url);
+                return PreviewCompilation::Unavailable;
+            }
+        };
+        let compilation_result = compiler
+            .build_from_source(String::from_utf8_lossy(&file.contents).into_owned(), path)
+            .await;
+        *self.dependencies.borrow_mut() = compilation_result
+            .watch_paths(InternalToken)
+            .iter()
+            .filter_map(|path| Url::from_file_path(path).ok())
+            .collect();
+
+        if compilation_result.has_errors() {
+            self.send_diagnostics(&compilation_result, &component.url);
+            let message = compilation_result
+                .diagnostics()
+                .inspect(|diagnostic| tracing::warn!("Compiler diagnostic: {diagnostic}"))
+                .map(|diagnostic| diagnostic.to_string())
+                .collect::<Vec<_>>()
+                .join("\n");
+            return PreviewCompilation::CompilationError { message };
+        }
+
+        let Some(component_definition) = component
+            .component
+            .as_deref()
+            .or_else(|| compilation_result.component_names().next())
+            .and_then(|name| compilation_result.component(name))
+        else {
+            tracing::error!("Component not found");
+            return PreviewCompilation::ComponentNotFound;
+        };
+
+        self.send_diagnostics(&compilation_result, &component.url);
+        PreviewCompilation::Ready(component_definition)
+    }
+
+    pub fn send_to_editor(&self, message: &PreviewToLspMessage) -> crate::protocol::Result<()> {
+        self.to_editor.send(message)
+    }
+
+    fn send_diagnostics(
+        &self,
+        compilation_result: &slint_interpreter::CompilationResult,
+        uri: &Url,
+    ) {
+        let message = PreviewToLspMessage::Diagnostics {
+            uri: uri.clone(),
+            version: None,
+            diagnostics: compilation_result
+                .diagnostics()
+                .map(|diagnostic| {
+                    crate::protocol::to_lsp_diagnostic(
+                        &diagnostic,
+                        i_slint_compiler::diagnostics::ByteFormat::Utf8,
+                    )
+                })
+                .collect(),
+        };
+        self.send_to_editor(&message).ok();
+    }
+}
+
+impl PreviewSessionHandle {
+    pub fn handle_message(&self, message: LspToPreviewMessage) -> crate::protocol::Result<()> {
+        self.command_sender.send(PreviewSessionCommand::Message(message))?;
+        Ok(())
+    }
+
+    pub async fn reset(&self) -> crate::protocol::Result<()> {
+        let (reset_complete, reset_completed) = oneshot::channel();
+        self.command_sender.send(PreviewSessionCommand::Reset(reset_complete))?;
+        reset_completed.await?;
+        Ok(())
+    }
+}
+
+fn is_supported(url: &Url) -> bool {
+    if url.scheme() != "file" {
+        tracing::warn!("Ignoring message for unsupported URL scheme: {url}");
+        return false;
+    }
+    true
+}
