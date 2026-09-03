@@ -174,8 +174,17 @@ fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformErr
         ));
     }
 
+    slint::BackendSelector::new().select().ok();
     let to_lsp: Rc<dyn editor_preview::PreviewToLsp> =
-        Rc::new(connector::RemoteControlledPreviewToLsp::new());
+        Rc::new(editor_preview::child_process::RemoteControlledPreviewToLsp::new(
+            |message| {
+                slint::invoke_from_event_loop(move || preview::lsp_to_preview(message))?;
+                Ok(())
+            },
+            || {
+                slint::quit_event_loop().ok();
+            },
+        ));
 
     preview::run(to_lsp, args.fullscreen, false)
 }

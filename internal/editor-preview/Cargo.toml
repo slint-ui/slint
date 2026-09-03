@@ -20,6 +20,12 @@ path = "lib.rs"
 [features]
 preview-engine = []
 preview-builtin = ["preview-engine"]
+preview-process = [
+  "preview-engine",
+  "dep:async-compat",
+  "dep:slint-interpreter",
+  "i-slint-live-preview/preview-session",
+]
 preview-external = []
 ## Support the LSP-owned remote preview transport.
 preview-remote = []
@@ -38,6 +44,8 @@ smol_str = { workspace = true }
 tracing = { workspace = true }
 
 futures-util = "0.3.32"
+async-compat = { version = "0.2.4", optional = true }
+slint-interpreter = { workspace = true, features = ["compat-1-2", "internal"], optional = true }
 
 # for the `testing` feature
 i-slint-backend-testing = { workspace = true, optional = true }
