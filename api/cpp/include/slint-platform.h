@@ -135,7 +135,7 @@ class WindowAdapter
 
     cbindgen_private::WindowAdapterRcOpaque initialize()
     {
-        cbindgen_private::slint_window_adapter_new(
+        cbindgen_private::slint_window_adapter_new2(
                 this, [](void *wa) { delete reinterpret_cast<WindowAdapter *>(wa); },
                 [](void *wa) {
                     return reinterpret_cast<WindowAdapter *>(wa)->renderer().renderer_handle();
@@ -166,6 +166,14 @@ class WindowAdapter
                 [](void *wa, cbindgen_private::Point2D<int32_t> point) {
                     reinterpret_cast<WindowAdapter *>(wa)->set_position(
                             slint::PhysicalPosition({ point.x, point.y }));
+                },
+                [](void *wa) -> bool {
+                    return reinterpret_cast<WindowAdapter *>(wa)->supports_native_menu_bar();
+                },
+                [](void *wa, const vtable::VRc<cbindgen_private::MenuVTable> *menu,
+                   LogicalPosition position) -> bool {
+                    return reinterpret_cast<WindowAdapter *>(wa)->show_native_popup_menu(
+                            *menu, position);
                 },
                 &self);
         was_initialized = true;
@@ -318,6 +326,26 @@ public:
     /// properties that were queried on the last call are changed. If you do not query any
     /// properties, it may not be called again.
     virtual void update_window_properties(const WindowProperties &) { }
+
+    /// Re-implement this function to report that the platform can host a native menu bar.
+    ///
+    /// The default implementation returns false, and Slint renders any menu bar itself.
+    virtual bool supports_native_menu_bar() { return false; }
+
+    /// Re-implement this function to show a context menu using the platform's own menus.
+    ///
+    /// \a menu is the menu tree to display and \a position is where to show it, in
+    /// logical coordinates relative to the window. Walk the menu with
+    /// `cbindgen_private::MenuVTable`'s `sub_menu` and report a selection with `activate`.
+    ///
+    /// Return false — the default — to let Slint draw the menu inside the window instead.
+    virtual bool show_native_popup_menu(const vtable::VRc<cbindgen_private::MenuVTable> &menu,
+                                        LogicalPosition position)
+    {
+        (void)menu;
+        (void)position;
+        return false;
+    }
 
     /// Re-implement this function to provide a reference to the renderer for use with the window
     /// adapter.

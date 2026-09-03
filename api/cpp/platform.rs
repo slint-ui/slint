@@ -5,14 +5,16 @@ use alloc::rc::Rc;
 use alloc::{boxed::Box, string::String};
 use core::ffi::c_void;
 use i_slint_core::api::{
-    LogicalSize, PhysicalPosition, PhysicalSize, Window, WindowPosition, WindowSize,
+    LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, Window, WindowPosition,
+    WindowSize,
 };
+use i_slint_core::menus::MenuVTable;
 use i_slint_core::graphics::IntSize;
 use i_slint_core::graphics::euclid;
 use i_slint_core::platform::{Clipboard, Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
-use i_slint_core::window::{WindowAdapter, WindowProperties};
+use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowProperties};
 use i_slint_core::{Brush, SharedString};
 
 type WindowAdapterUserData = *mut c_void;
@@ -38,6 +40,17 @@ pub struct CppWindowAdapter {
     position:
         unsafe extern "C" fn(WindowAdapterUserData, &mut euclid::default::Point2D<i32>) -> bool,
     set_position: unsafe extern "C" fn(WindowAdapterUserData, euclid::default::Point2D<i32>),
+    /// Optional: reports whether the platform can host a native menu bar.
+    /// `None` when the adapter was created with `slint_window_adapter_new`.
+    supports_native_menu_bar: Option<unsafe extern "C" fn(WindowAdapterUserData) -> bool>,
+    /// Optional: shows a native context menu, returning false to let Slint draw its own.
+    show_native_popup_menu: Option<
+        unsafe extern "C" fn(
+            WindowAdapterUserData,
+            &vtable::VRc<MenuVTable>,
+            LogicalPosition,
+        ) -> bool,
+    >,
 }
 
 impl Drop for CppWindowAdapter {
@@ -95,6 +108,25 @@ impl WindowAdapter for CppWindowAdapter {
     fn update_window_properties(&self, properties: WindowProperties<'_>) {
         unsafe { (self.update_window_properties)(self.user_data, &properties) }
     }
+
+    fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
+        Some(self)
+    }
+}
+
+impl WindowAdapterInternal for CppWindowAdapter {
+    fn supports_native_menu_bar(&self) -> bool {
+        self.supports_native_menu_bar.is_some_and(|f| unsafe { f(self.user_data) })
+    }
+
+    fn show_native_popup_menu(
+        &self,
+        context_menu_item: vtable::VRc<MenuVTable>,
+        position: LogicalPosition,
+    ) -> bool {
+        self.show_native_popup_menu
+            .is_some_and(|f| unsafe { f(self.user_data, &context_menu_item, position) })
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -150,6 +182,10 @@ pub extern "C" fn slint_window_properties_get_layout_constraints(
     }
 }
 
+/// Creates a window adapter backed by a C++ implementation.
+///
+/// Kept for source and ABI compatibility; it is equivalent to
+/// [`slint_window_adapter_new2`] with every optional callback left unset.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_window_adapter_new(
     user_data: WindowAdapterUserData,
@@ -167,6 +203,56 @@ pub unsafe extern "C" fn slint_window_adapter_new(
     set_position: unsafe extern "C" fn(WindowAdapterUserData, euclid::default::Point2D<i32>),
     target: *mut WindowAdapterRcOpaque,
 ) {
+    unsafe {
+        slint_window_adapter_new2(
+            user_data,
+            drop,
+            get_renderer_ref,
+            set_visible,
+            request_redraw,
+            size,
+            set_size,
+            update_window_properties,
+            position,
+            set_position,
+            None,
+            None,
+            target,
+        )
+    }
+}
+
+/// Creates a window adapter backed by a C++ implementation, including the callbacks a
+/// platform only implements when it can serve them natively.
+///
+/// The trailing callbacks may be null, in which case Slint falls back to the behaviour it
+/// uses for any platform that does not support them: no native menu bar, and a context
+/// menu drawn inside the window.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_window_adapter_new2(
+    user_data: WindowAdapterUserData,
+    drop: unsafe extern "C" fn(WindowAdapterUserData),
+    get_renderer_ref: unsafe extern "C" fn(WindowAdapterUserData) -> RendererPtr,
+    set_visible: unsafe extern "C" fn(WindowAdapterUserData, bool),
+    request_redraw: unsafe extern "C" fn(WindowAdapterUserData),
+    size: unsafe extern "C" fn(WindowAdapterUserData) -> IntSize,
+    set_size: unsafe extern "C" fn(WindowAdapterUserData, IntSize),
+    update_window_properties: unsafe extern "C" fn(WindowAdapterUserData, &WindowProperties),
+    position: unsafe extern "C" fn(
+        WindowAdapterUserData,
+        &mut euclid::default::Point2D<i32>,
+    ) -> bool,
+    set_position: unsafe extern "C" fn(WindowAdapterUserData, euclid::default::Point2D<i32>),
+    supports_native_menu_bar: Option<unsafe extern "C" fn(WindowAdapterUserData) -> bool>,
+    show_native_popup_menu: Option<
+        unsafe extern "C" fn(
+            WindowAdapterUserData,
+            &vtable::VRc<MenuVTable>,
+            LogicalPosition,
+        ) -> bool,
+    >,
+    target: *mut WindowAdapterRcOpaque,
+) {
     let window = Rc::<CppWindowAdapter>::new_cyclic(|w| CppWindowAdapter {
         window: Window::new(w.clone()),
         user_data,
@@ -179,6 +265,8 @@ pub unsafe extern "C" fn slint_window_adapter_new(
         update_window_properties,
         position,
         set_position,
+        supports_native_menu_bar,
+        show_native_popup_menu,
     });
 
     unsafe {

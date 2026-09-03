@@ -77,6 +77,7 @@ i-slint-backend-testing = { workspace = true, optional = true, features = ["ffi"
 i-slint-renderer-skia = { workspace = true, features = ["default", "x11", "wayland"], optional = true }
 i-slint-renderer-software = { workspace = true, optional = true }
 i-slint-core = { workspace = true, features = ["ffi"] }
+vtable = { workspace = true }
 slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], optional = true }
 i-slint-live-preview = { workspace = true, optional = true, features = ["ffi"] }
 raw-window-handle = { version = "0.6", optional = true }
