@@ -68,7 +68,7 @@ pub fn take_screenshot(args: &Cli) -> Result<()> {
     reject_non_window_component(&c);
 
     let component = c.create()?;
-    setup_instance(&component, &args.on, args.load_data.as_deref())?;
+    setup_instance(&component, &args.on, args.load_data.as_deref(), args.path())?;
 
     component.show()?;
 

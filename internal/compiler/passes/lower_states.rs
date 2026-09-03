@@ -98,10 +98,14 @@ fn lower_state_in_element(
             if let Some(cell) = element.borrow().binding_cell_including_synthetic(name) {
                 // A synthetic hook is upgraded in place; a real binding's hook survives inside
                 // `property_expr` (the false-branch of `new_expr`), so replacing it is correct.
-                cell.borrow_mut().set_value_expression(new_expr);
+                let mut binding = cell.borrow_mut();
+                binding.set_value_expression(new_expr);
+                // The value now comes from the state, even when the cell it reused held a default.
+                binding.from_source = true;
             } else {
                 let mut r = BindingExpression::from(new_expr);
                 r.priority = 1;
+                r.from_source = true;
                 element.borrow_mut().set_binding(name.clone(), r);
             }
         }

@@ -3506,6 +3506,29 @@ impl Element {
         })
     }
 
+    /// Return true if the source code decides the value of `property_name`, through a binding, an
+    /// assignment or a two-way alias, either on this element or in a base.
+    ///
+    /// Unlike `is_property_set`, the value a property gets from `builtins.slint` doesn't count. A
+    /// tool can use this to check whether setting the property itself would steal it from the
+    /// component: `slint-viewer` asks before it puts the file name in `Window.title`.
+    pub fn is_property_set_in_source(self: &Element, property_name: &str) -> bool {
+        self.any_in_inheritance_chain(|element| {
+            if element.property_analysis.borrow().get(property_name).is_some_and(|analysis| {
+                analysis.is_set || analysis.is_set_externally || analysis.is_linked
+            }) {
+                return true;
+            }
+            element.bindings.0.get(property_name).is_some_and(|binding| {
+                let binding = binding.borrow();
+                // A two-way binding that survived here links the property to one the component
+                // owns, so writing to it would write to that one too.
+                !binding.two_way_bindings.is_empty()
+                    || (binding.has_binding() && binding.from_source)
+            })
+        })
+    }
+
     /// Returns true if the property is set by a binding or an assignment expression
     ///
     /// Synthetic debug hooks (materialized for unbound properties) are not considered set.
