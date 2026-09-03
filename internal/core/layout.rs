@@ -432,13 +432,13 @@ mod grid_internal {
             }
             // A cell collapsed to a fixed zero size can pull the row/col's
             // max below its min (#9724). The minimum is the hard constraint,
-            // so raise max to meet it, and pull pref down with it -- it was
-            // computed against the old, broken max and can now overshoot.
-            // Guarded: this must not touch rows without a min/max conflict,
-            // since to_layout_data's output also drives solve_grid_layout.
+            // so raise max to meet it; min == max now, so that's pref's only
+            // legal value too. Guarded: this must not touch rows without a
+            // min/max conflict, since to_layout_data's output also drives
+            // solve_grid_layout.
             if cdata.max < cdata.min {
                 cdata.max = cdata.min;
-                cdata.pref = cdata.pref.min(cdata.max).max(cdata.min);
+                cdata.pref = cdata.min;
             }
         }
         layout_data
