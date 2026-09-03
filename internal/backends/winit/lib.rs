@@ -25,6 +25,7 @@ use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
+use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -1107,6 +1108,13 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     fn winit_window(
         &self,
     ) -> impl std::future::Future<Output = Result<Arc<winit::window::Window>, PlatformError>>;
+
+    /// Dispatches a Winit WindowEvent directly to this window
+    fn dispatch_winit_window_event(
+        &self,
+        event_loop: &ActiveEventLoop,
+        event: &WindowEvent,
+    ) -> Result<(), PlatformError>;
 }
 
 impl WinitWindowAccessor for i_slint_core::api::Window {
@@ -1160,6 +1168,26 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
             adapter
                 .window_event_filter
                 .set(Some(Box::new(move |window, event| callback(window, event))));
+        }
+    }
+
+    fn dispatch_winit_window_event(
+        &self,
+        event_loop: &ActiveEventLoop,
+        event: &WindowEvent,
+    ) -> Result<(), PlatformError> {
+        let adapter = i_slint_core::window::WindowInner::from_pub(self).window_adapter();
+        let adapter = adapter
+            .internal(i_slint_core::InternalToken)
+            .and_then(|wa| (wa as &dyn core::any::Any).downcast_ref::<WinitWindowAdapter>());
+        if let Some(adapter) = adapter
+            && let Some(winit_window) = adapter.winit_window()
+        {
+            adapter.dispatch_winit_window_event(event_loop, &winit_window, event)
+        } else {
+            Err(PlatformError::OtherError(
+                "Slint window is not backed by a Winit window adapter".to_string().into(),
+            ))
         }
     }
 }

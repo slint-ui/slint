@@ -141,7 +141,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             return;
         }
 
-        if let Err(err) = window.dispatch_winit_window_event(event_loop, &winit_window, event) {
+        if let Err(err) = window.dispatch_winit_window_event(event_loop, &winit_window, &event) {
             self.loop_error = Some(err);
             event_loop.exit();
         }

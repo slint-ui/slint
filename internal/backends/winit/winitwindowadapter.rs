@@ -1209,7 +1209,7 @@ impl WinitWindowAdapter {
         &self,
         event_loop: &ActiveEventLoop,
         winit_window: &winit::window::Window,
-        event: WinitWindowEvent,
+        event: &WinitWindowEvent,
     ) -> Result<(), PlatformError> {
         if let Some(mut window_event_filter) = self.window_event_filter.take() {
             let event_result = window_event_filter(self.window(), &event);
@@ -1239,7 +1239,7 @@ impl WinitWindowAdapter {
         match event {
             WinitWindowEvent::RedrawRequested => self.draw()?,
             WinitWindowEvent::Resized(size) => {
-                let resized = self.resize_event(size);
+                let resized = self.resize_event(*size);
 
                 // Entering fullscreen, maximizing or minimizing the window will
                 // trigger a resize event. We need to update the internal window
@@ -1266,7 +1266,7 @@ impl WinitWindowAdapter {
             WinitWindowEvent::Focused(have_focus) => {
                 // Work around https://github.com/rust-windowing/winit/issues/4371
                 let have_focus =
-                    if cfg!(target_os = "macos") { winit_window.has_focus() } else { have_focus };
+                    if cfg!(target_os = "macos") { winit_window.has_focus() } else { *have_focus };
                 self.activation_changed(have_focus)?;
             }
 
@@ -1346,7 +1346,7 @@ impl WinitWindowAdapter {
                     return Ok(());
                 }
 
-                if is_synthetic {
+                if *is_synthetic {
                     // Synthetic event are sent when the focus is acquired, for all the keys currently pressed.
                     // Don't forward these keys other than modifiers to the app
                     use winit::keyboard::{Key::Named, NamedKey as N};
@@ -1398,7 +1398,7 @@ impl WinitWindowAdapter {
             WinitWindowEvent::CursorMoved { position, .. } => {
                 self.current_resize_direction.set(handle_cursor_move_for_resize(
                     winit_window,
-                    position,
+                    *position,
                     self.current_resize_direction.get(),
                     runtime_window
                         .window_item()
@@ -1425,7 +1425,7 @@ impl WinitWindowAdapter {
                         (d.x, d.y)
                     }
                 };
-                let phase = winit_touch_phase(phase);
+                let phase = winit_touch_phase(*phase);
                 self.dispatch_internal_event(BackendMouseEvent::Wheel {
                     position: self.cursor_pos.get(),
                     delta_x,
@@ -1502,7 +1502,7 @@ impl WinitWindowAdapter {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                     self.window().dispatch_event_with_result(
                         corelib::platform::WindowEvent::ScaleFactorChanged {
-                            scale_factor: scale_factor as f32,
+                            scale_factor: *scale_factor as f32,
                         },
                     )?;
                     // TODO: send a resize event or try to keep the logical size the same.
@@ -1517,7 +1517,7 @@ impl WinitWindowAdapter {
                 self.update_accent_color();
             }
             WinitWindowEvent::Occluded(x) => {
-                self.renderer.occluded(x);
+                self.renderer.occluded(*x);
 
                 // Same hack as in the Resized arm above, so that we handle Minimized changes
                 self.window_state_event();
@@ -1528,8 +1528,8 @@ impl WinitWindowAdapter {
             WinitWindowEvent::PinchGesture { delta, phase, .. } => {
                 self.dispatch_internal_event(BackendMouseEvent::PinchGesture {
                     position: self.cursor_pos.get(),
-                    delta: delta as f32,
-                    phase: winit_touch_phase(phase),
+                    delta: *delta as f32,
+                    phase: winit_touch_phase(*phase),
                 });
             }
             WinitWindowEvent::RotationGesture { delta, phase, .. } => {
@@ -1538,7 +1538,7 @@ impl WinitWindowAdapter {
                 self.dispatch_internal_event(BackendMouseEvent::RotationGesture {
                     position: self.cursor_pos.get(),
                     delta: -delta,
-                    phase: winit_touch_phase(phase),
+                    phase: winit_touch_phase(*phase),
                 });
             }
 
