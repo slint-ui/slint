@@ -745,7 +745,7 @@ impl Parser for DefaultParser<'_> {
         );
         #[cfg(feature = "proc_macro_span")]
         {
-            span.span = current_token.span;
+            span.token_index = Some(self.cursor as u32);
         }
 
         self.diags.push_error_with_span(
@@ -767,7 +767,7 @@ impl Parser for DefaultParser<'_> {
         );
         #[cfg(feature = "proc_macro_span")]
         {
-            span.span = current_token.span;
+            span.token_index = Some(self.cursor as u32);
         }
 
         self.diags.push_warning_with_span(

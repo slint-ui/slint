@@ -12,13 +12,18 @@ use std::collections::BTreeSet;
 ///
 /// Currently, it is just an offset in byte within the file + the corresponding length.
 ///
-/// When the `proc_macro_span` feature is enabled, it may also hold a proc_macro span.
+/// When the `proc_macro_span` feature is enabled, it may also identify the token
+/// it came from, so that [`BuildDiagnostics::report_macro_diagnostic`] can point
+/// rustc at the matching `proc_macro::Span`. The index refers to the token list
+/// the document was parsed from. A `proc_macro::Span` is not `Send`, and this
+/// type reaches the runtime through the LLR, so the span is looked up rather
+/// than stored.
 #[derive(Debug, Clone)]
 pub struct Span {
     pub offset: usize,
     pub length: usize,
     #[cfg(feature = "proc_macro_span")]
-    pub span: Option<proc_macro::Span>,
+    pub token_index: Option<u32>,
 }
 
 impl Span {
@@ -38,7 +43,7 @@ impl Default for Span {
             offset: usize::MAX,
             length: 0,
             #[cfg(feature = "proc_macro_span")]
-            span: Default::default(),
+            token_index: None,
         }
     }
 }
@@ -46,13 +51,6 @@ impl Default for Span {
 impl PartialEq for Span {
     fn eq(&self, other: &Span) -> bool {
         self.offset == other.offset && self.length == other.length
-    }
-}
-
-#[cfg(feature = "proc_macro_span")]
-impl From<proc_macro::Span> for Span {
-    fn from(span: proc_macro::Span) -> Self {
-        Self { span: Some(span), ..Default::default() }
     }
 }
 
@@ -560,10 +558,16 @@ impl BuildDiagnostics {
         let mut needs_error = self.has_errors();
         let output = self.call_diagnostics(
             Some(&mut |diag| {
-                let span = diag.span.span.span.or_else(|| {
-                    //let pos =
-                    //span_map.binary_search_by_key(d.span.offset, |x| x.0).unwrap_or_else(|x| x);
-                    //d.span.span = span_map.get(pos).as_ref().map(|x| x.1);
+                let span = diag
+                    .span
+                    .span
+                    .token_index
+                    .and_then(|index| span_map.get(index as usize))
+                    .and_then(|token| token.span)
+                    .or_else(|| {
+                    // Diagnostics from the passes carry no token index, only a byte
+                    // offset into the text the parser rebuilt from these tokens;
+                    // walk it to find the token that offset lands in.
                     let mut offset = 0;
                     span_map.iter().find_map(|t| {
                         if diag.span.span.offset <= offset {
