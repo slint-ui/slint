@@ -65,7 +65,10 @@ const MANUAL_REFERENCE_PATH = /[\\/]content[\\/]docs[\\/]reference[\\/]/;
 
 // A feature outside the certified subset is wrapped in the `<NotInSC>`
 // component: the safety manual renders nothing for it, but rehype runs before
-// any component does, so the paragraphs are still here to be skipped.
+// any component does, so the paragraphs are still here to be skipped. It opts
+// a part of a certified block back out, so it belongs inside one; a stray one
+// fails the build, since outside a block the content is uncertified already
+// and the tag would suggest the opposite.
 const NOT_IN_SC = "NotInSC";
 // Certified content is wrapped in <SC>. Inside it, <OnlyInSC> marks wording
 // that holds for Slint SC alone (shown only in the safety manual); it is the
@@ -75,7 +78,9 @@ const NOT_IN_SC = "NotInSC";
 const SC_TAGS = new Set(["SC", "OnlyInSC"]);
 
 function walk(node, fn, depth = 0, inNotInSc = false, scDepth = null) {
-    if (node.type === "element") fn(node, depth, inNotInSc, scDepth);
+    if (node.type === "element" || node.type === "mdxJsxFlowElement") {
+        fn(node, depth, inNotInSc, scDepth);
+    }
     let childNotInSc = inNotInSc;
     let childScDepth = scDepth;
     if (node.type === "mdxJsxFlowElement") {
@@ -153,8 +158,19 @@ export default function rehypeSlsIds({
         // intra-file duplicates still fail.
         const claimedHere = new Set();
         const missing = [];
+        const strayNotInSc = [];
 
         walk(tree, (node, depth, inNotInSc, scDepth) => {
+            if (node.type === "mdxJsxFlowElement") {
+                // <NotInSC> opts a part of a certified block back out, so it
+                // belongs inside one. Outside, the content is uncertified
+                // already and the tag reads as if the prose around it were
+                // certified.
+                if (isSC && node.name === NOT_IN_SC && scDepth === null) {
+                    strayNotInSc.push(node.position?.start?.line);
+                }
+                return;
+            }
             if (node.tagName !== "p") return;
             // Such a paragraph documents what Slint SC leaves out, so it
             // states no requirement and carries no identifier.
@@ -219,6 +235,14 @@ export default function rehypeSlsIds({
                 children: [{ type: "text", value: `[${id}]` }],
             });
         });
+
+        if (strayNotInSc.length > 0) {
+            throw new Error(
+                `rehype-sls-ids: <NotInSC> outside an <SC> block in ${sourcePath}\n` +
+                    strayNotInSc.map((line) => `  line ${line}\n`).join("") +
+                    "<NotInSC> shall be nested in the <SC> block whose content it opts out of.",
+            );
+        }
 
         if (missing.length > 0) {
             throw new Error(
