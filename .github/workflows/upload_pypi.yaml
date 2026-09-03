@@ -180,7 +180,7 @@ jobs:
             # backend, which needs a display and the system libxkbcommon-x11
             # (dlopened at runtime, so not bundled into the manylinux wheel).
             - name: Setup headless display
-              uses: pyvista/setup-headless-display-action@v4
+              uses: pyvista/setup-headless-display-action@v5
             # The wheels no longer vendor their dependencies, so provide the
             # extension's direct DT_NEEDED libraries; apt pulls the rest.
             - name: Install runtime system libraries
