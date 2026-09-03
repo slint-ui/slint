@@ -10,6 +10,8 @@
 //! summary, or as the listing the test driver compares with a case's
 //! expectations.
 
+pub mod markers;
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 

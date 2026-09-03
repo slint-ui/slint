@@ -11,6 +11,9 @@ fn main() {
     let slint_file = Path::new("main.slint");
     println!("cargo:rerun-if-changed={}", slint_file.display());
     println!("cargo:rerun-if-env-changed=SLINT_COMPILER");
+    // Instrument the generated code for coverage of main.slint; see the README.
+    println!("cargo:rerun-if-env-changed=SLINT_COVERAGE");
+    let coverage = env::var_os("SLINT_COVERAGE").is_some();
 
     let compiler = find_slint_compiler(&out_dir);
     println!("cargo:rerun-if-changed={}", compiler.display());
@@ -18,6 +21,7 @@ fn main() {
     let generated = out_dir.join("main.rs");
     let status = Command::new(&compiler)
         .arg("--slint-sc")
+        .args(coverage.then_some("--coverage"))
         .arg(slint_file)
         .arg("-o")
         .arg(&generated)

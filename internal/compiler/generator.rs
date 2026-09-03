@@ -108,7 +108,7 @@ pub fn generate(
         }
         #[cfg(feature = "slint-sc")]
         OutputFormat::SlintSc => {
-            let output = slint_sc::generate(doc, compiler_config)?;
+            let output = slint_sc::generate(doc, compiler_config, destination_path)?;
             write!(destination, "{output}")?;
         }
         OutputFormat::Interpreter => {
