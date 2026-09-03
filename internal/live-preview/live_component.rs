@@ -38,36 +38,18 @@ pub struct LiveReloadingComponent {
 }
 
 impl LiveReloadingComponent {
-    /// Compile and instantiate a component from the specified .slint file and component.
-    ///
-    /// Reloads run the compilation synchronously on the current thread.
+    /// Compile and instantiate a component from the specified .slint file and
+    /// component. The file is watched, and a reload compiles on a background
+    /// thread so that only the instantiation happens on the current
+    /// (event-loop) thread. `compiler_factory` builds a configured [`Compiler`];
+    /// it is used both for the initial compilation and, on the worker thread,
+    /// for reloads.
     pub fn new(
-        compiler: Compiler,
-        file_name: PathBuf,
-        component_name: Option<String>,
-    ) -> Result<Rc<RefCell<Self>>, PlatformError> {
-        Self::new_impl(compiler, None, file_name, component_name)
-    }
-
-    /// Like [`Self::new`], but reloads run the compilation on a background
-    /// thread and only the instantiation happens on the current (event-loop)
-    /// thread. `compiler_factory` builds a configured [`Compiler`]; it is used
-    /// both for the initial compilation and, on the worker thread, for reloads.
-    pub fn new_threaded(
         compiler_factory: CompilerFactory,
         file_name: PathBuf,
         component_name: Option<String>,
     ) -> Result<Rc<RefCell<Self>>, PlatformError> {
-        let compiler = compiler_factory();
-        Self::new_impl(compiler, Some(compiler_factory), file_name, component_name)
-    }
-
-    fn new_impl(
-        mut compiler: Compiler,
-        compiler_factory: Option<CompilerFactory>,
-        file_name: PathBuf,
-        component_name: Option<String>,
-    ) -> Result<Rc<RefCell<Self>>, PlatformError> {
+        let mut compiler = compiler_factory();
         compiler.set_embed_resources(i_slint_compiler::EmbedResourcesKind::ListAllResources);
 
         let watcher_file_name = file_name.clone();
@@ -105,16 +87,7 @@ impl LiveReloadingComponent {
         Ok(self_rc)
     }
 
-    /// Reload the component, compiling the .slint file synchronously.
-    /// If there is an error, it won't actually reload.
-    /// Return false in case of errors
-    pub fn reload(&mut self) -> bool {
-        let result = self.build();
-        self.apply_reload(result)
-    }
-
-    /// Swap in a new instance from an already-compiled result (produced either
-    /// by [`Self::build`] or by the background compile worker).
+    /// Swap in a new instance from a result compiled by the background worker.
     /// Return false in case of errors.
     fn apply_reload(&mut self, result: slint_interpreter::CompilationResult) -> bool {
         self.update_watched_paths(&result);
@@ -307,9 +280,8 @@ struct Watcher {
     // (wouldn't need to be an option if new_cyclic() could return errors)
     watcher: Option<FileWatcher>,
     state: WatcherState,
-    /// In threaded mode, a compile request (the generation counter) is sent to
-    /// the worker thread here instead of reloading synchronously.
-    compile_request: Option<std::sync::mpsc::Sender<u64>>,
+    /// Where a compile request (the generation counter) is sent to the worker.
+    compile_request: std::sync::mpsc::Sender<u64>,
     /// The result of the latest background compilation, waiting to be applied
     /// on the event-loop thread.
     pending_result: Option<slint_interpreter::CompilationResult>,
@@ -321,13 +293,14 @@ struct Watcher {
 impl Watcher {
     fn new(
         component_weak: std::rc::Weak<RefCell<LiveReloadingComponent>>,
-        compiler_factory: Option<CompilerFactory>,
+        compiler_factory: CompilerFactory,
         file_name: PathBuf,
     ) -> Arc<Mutex<Self>> {
+        let (compile_request, compile_rx) = std::sync::mpsc::channel::<u64>();
         let arc = Arc::new(Mutex::new(Self {
             state: WatcherState::Starting,
             watcher: None,
-            compile_request: None,
+            compile_request,
             pending_result: None,
             generation: 0,
         }));
@@ -344,22 +317,17 @@ impl Watcher {
                 &mut watcher.lock().unwrap().state,
                 WatcherState::Waiting(cx.waker().clone()),
             );
-            if matches!(state, WatcherState::Changed) {
-                // In threaded mode the worker has left the freshly compiled
-                // result here; otherwise compile synchronously now.
-                let pending = watcher.lock().unwrap().pending_result.take();
-                let success = match pending {
-                    Some(result) => instance.borrow_mut().apply_reload(result),
-                    None => instance.borrow_mut().reload(),
-                };
-                if success {
-                    let borrowed = instance.borrow();
-                    borrowed.reload_properties_and_callbacks();
-                    if let Some(hook) = &borrowed.post_reload_hook {
-                        hook(borrowed.instance());
-                    }
-                };
-            };
+            let pending = watcher.lock().unwrap().pending_result.take();
+            if matches!(state, WatcherState::Changed)
+                && let Some(result) = pending
+                && instance.borrow_mut().apply_reload(result)
+            {
+                let borrowed = instance.borrow();
+                borrowed.reload_properties_and_callbacks();
+                if let Some(hook) = &borrowed.post_reload_hook {
+                    hook(borrowed.instance());
+                }
+            }
             std::task::Poll::Pending
         }));
 
@@ -368,10 +336,7 @@ impl Watcher {
             return arc;
         }
 
-        // In threaded mode, spawn the compile worker and route change events to it.
-        if let Some(compiler_factory) = compiler_factory {
-            Self::spawn_compile_worker(&arc, compiler_factory, file_name);
-        }
+        Self::spawn_compile_worker(&arc, compile_rx, compiler_factory, file_name);
 
         let watcher_weak = Arc::downgrade(&arc);
         arc.lock().unwrap().watcher = FileWatcher::start(
@@ -379,17 +344,8 @@ impl Watcher {
                 let Some(watcher) = watcher_weak.upgrade() else { return };
                 let mut locked = watcher.lock().unwrap();
                 locked.generation += 1;
-                if let Some(request) = &locked.compile_request {
-                    // Threaded: hand the compilation to the worker; it wakes the
-                    // event loop once the result is ready.
-                    let generation = locked.generation;
-                    let _ = request.send(generation);
-                } else if let WatcherState::Waiting(waker) =
-                    std::mem::replace(&mut locked.state, WatcherState::Changed)
-                {
-                    drop(locked);
-                    waker.wake();
-                }
+                // The worker wakes the event loop once the result is ready.
+                let _ = locked.compile_request.send(locked.generation);
             },
             move |err| eprintln!("Warning: file watcher error: {err}"),
         )
@@ -402,11 +358,10 @@ impl Watcher {
     /// instantiate.
     fn spawn_compile_worker(
         arc: &Arc<Mutex<Self>>,
+        rx: std::sync::mpsc::Receiver<u64>,
         compiler_factory: CompilerFactory,
         file_name: PathBuf,
     ) {
-        let (tx, rx) = std::sync::mpsc::channel::<u64>();
-        arc.lock().unwrap().compile_request = Some(tx);
         let watcher_weak = Arc::downgrade(arc);
         std::thread::Builder::new()
             .name("slint-live-preview-compiler".into())
@@ -504,7 +459,7 @@ mod ffi {
             compiler
         });
         Rc::into_raw(
-            LiveReloadingComponent::new_threaded(
+            LiveReloadingComponent::new(
                 compiler_factory,
                 std::path::PathBuf::from(std::str::from_utf8(&file_name).unwrap()),
                 Some(std::str::from_utf8(&component_name).unwrap().into()),

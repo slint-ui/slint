@@ -196,7 +196,7 @@ fn generate_public_component(
                     #no_default_translation_context
                     compiler
                 });
-                let instance = sp::live_preview::LiveReloadingComponent::new_threaded(compiler_factory, #main_file.into(), Some(#component_name.into()))?;
+                let instance = sp::live_preview::LiveReloadingComponent::new(compiler_factory, #main_file.into(), Some(#component_name.into()))?;
                 let window_adapter = sp::WindowInner::from_pub(slint::ComponentHandle::window(instance.borrow().instance())).window_adapter();
                 sp::Ok(Self(instance, window_adapter))
             }

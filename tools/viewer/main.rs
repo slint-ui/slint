@@ -265,7 +265,7 @@ fn main() -> Result<()> {
             let args = args.clone();
             std::sync::Arc::new(move || init_compiler(&args))
         };
-        let live = i_slint_live_preview::live_component::LiveReloadingComponent::new_threaded(
+        let live = i_slint_live_preview::live_component::LiveReloadingComponent::new(
             compiler_factory,
             args.path().to_path_buf(),
             args.component.clone(),
