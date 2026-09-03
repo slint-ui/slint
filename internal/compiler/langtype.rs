@@ -488,15 +488,17 @@ impl PartialEq for ElementType {
 impl ElementType {
     /// Resolve a name written in `.slint` source.
     /// Resolve `name` in the given [`PropertyLookupMode`]. See
-    /// [`crate::object_tree::Element::lookup_property`]. Only a component can have shadowed members,
-    /// so the other bases ignore the mode.
+    /// [`crate::object_tree::Element::lookup_property`]. Only a component or an interface can have
+    /// shadowed members, so the other bases ignore the mode.
     pub fn lookup_property<'a>(
         &self,
         name: &'a str,
         mode: PropertyLookupMode,
     ) -> PropertyLookupResult<'a> {
         match self {
-            Self::Component(c) => c.root_element.borrow().lookup_property(name, mode),
+            Self::Component(c) | Self::Interface(Some(c)) => {
+                c.root_element.borrow().lookup_property(name, mode)
+            }
             Self::Builtin(b) => {
                 let resolved_name =
                     if let Some(alias_name) = b.native_class.lookup_alias(name.as_ref()) {
@@ -558,7 +560,9 @@ impl ElementType {
     /// Return the node declaring `name` in this type or one of its bases, if there is one.
     pub fn property_declaration_node(&self, name: &str) -> Option<SyntaxNode> {
         match self {
-            Self::Component(c) => c.root_element.borrow().property_declaration_node(name),
+            Self::Component(c) | Self::Interface(Some(c)) => {
+                c.root_element.borrow().property_declaration_node(name)
+            }
             _ => None,
         }
     }
@@ -566,7 +570,7 @@ impl ElementType {
     /// List of sub properties valid for the auto completion
     pub fn property_list(&self) -> Vec<(SmolStr, Type)> {
         match self {
-            Self::Component(c) => {
+            Self::Component(c) | Self::Interface(Some(c)) => {
                 let root = c.root_element.borrow();
                 let mut r = root.base_type.property_list();
                 // A visible shadowing declaration replaces the inherited entry of the same name.

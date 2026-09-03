@@ -84,7 +84,9 @@ impl TokenInfo {
             TokenInfo::LocalFunction(x) => Some(x.clone().into()),
             TokenInfo::IncompleteNamedReference(element_type, prop_name) => {
                 let mut element_type = element_type.clone();
-                while let ElementType::Component(com) = element_type {
+                while let ElementType::Component(com) | ElementType::Interface(Some(com)) =
+                    element_type
+                {
                     if let Some((_, p)) = com.root_element.borrow().declaration(prop_name) {
                         return p.node.clone();
                     }
