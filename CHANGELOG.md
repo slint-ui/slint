@@ -196,7 +196,7 @@ All notable changes to this project are documented in this file.
  - The `renderer-skia-vulkan` feature now also works on macOS, running on top of MoltenVK.
  - Added the `backend-linuxkms-libseat` and `backend-linuxkms-libinput` Cargo features, so the LinuxKMS
    backend can be built without libseat and libinput. (#10086)
- - `Window::take_snapshot()` is no longer available in `no_std` builds, where it could only return an error.
+ - `Window::take_snapshot()` is no longer available in `no_std` builds.
  - Fixed generated code failing to borrow-check when a property read multiple times in one expression
    is passed to a function. (#12880)
  - Fixed a panic in generated code when a `for` inside a `GridLayout` has its model emptied while
