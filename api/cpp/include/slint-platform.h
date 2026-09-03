@@ -336,6 +336,17 @@ public:
     /// The default implementation returns false, and Slint renders any menu bar itself.
     virtual bool supports_native_menu_bar() { return false; }
 
+    /// Dispatch an input method event to the scene, updating or committing composed text.
+    ///
+    /// Call this while driving a platform input method in response to
+    /// input_method_request(): a key press cannot express a pre-edit. Send
+    /// `UpdateComposition` while the text is still being composed, and `CommitComposition`
+    /// once the input method settles on text.
+    void dispatch_composition_event(const cbindgen_private::CompositionEvent &event)
+    {
+        cbindgen_private::slint_windowrc_dispatch_composition_event(&self, &event);
+    }
+
     /// Re-implement this function to drive the platform's input method.
     ///
     /// Slint calls this when a text input gains focus (\a kind Enable), changes while

@@ -15,6 +15,7 @@ use i_slint_core::graphics::euclid;
 use i_slint_core::platform::{Clipboard, Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
+use i_slint_core::input::{InternalKeyEvent, KeyEventType};
 use i_slint_core::window::{
     InputMethodRequest, WindowAdapter, WindowAdapterInternal, WindowProperties,
 };
@@ -282,6 +283,80 @@ pub extern "C" fn slint_window_properties_get_layout_constraints(
 ///
 /// Kept for source and ABI compatibility; it is equivalent to
 /// [`slint_window_adapter_new2`] with every optional callback left unset.
+/// The parts of an input method event that a plain key event cannot carry.
+///
+/// `slint_windowrc_dispatch_key_event` builds its event with defaults for everything but
+/// the text, which is enough for a key press and not enough for composition. This is the
+/// composition-shaped counterpart, laid out so it can cross the C++ boundary: each
+/// `Option<Range>` becomes a pair of bounds plus a flag.
+#[repr(C)]
+pub struct CompositionEvent {
+    /// Either `UpdateComposition` while composing or `CommitComposition` when the input
+    /// method settles on text.
+    pub event_type: KeyEventType,
+    /// The committed text. Only meaningful for `CommitComposition`.
+    pub text: SharedString,
+    /// The text being composed: shown, but not committed.
+    pub preedit_text: SharedString,
+    /// Selection within `preedit_text`, when `has_preedit_selection`.
+    pub preedit_selection_start: i32,
+    /// End of that selection.
+    pub preedit_selection_end: i32,
+    /// Whether the pre-edit selection fields mean anything.
+    pub has_preedit_selection: bool,
+    /// The range of existing text this event replaces, when `has_replacement_range`.
+    pub replacement_start: i32,
+    /// End of that range.
+    pub replacement_end: i32,
+    /// Whether the replacement range fields mean anything.
+    pub has_replacement_range: bool,
+    /// Where to leave the cursor, when `has_cursor_position`; otherwise it goes after the
+    /// text that was just inserted.
+    pub cursor_position: i32,
+    /// Whether `cursor_position` means anything.
+    pub has_cursor_position: bool,
+    /// Where to leave the selection anchor, when `has_anchor_position`.
+    pub anchor_position: i32,
+    /// Whether `anchor_position` means anything.
+    pub has_anchor_position: bool,
+}
+
+/// Dispatch an input method event, updating or committing composed text.
+///
+/// This is what a platform driving an input method sends in response to
+/// `WindowAdapter::input_method_request`; a plain key event cannot express a pre-edit.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_windowrc_dispatch_composition_event(
+    handle: *const WindowAdapterRcOpaque,
+    event: &CompositionEvent,
+) {
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+
+        //  Both types are #[non_exhaustive], so they are filled in field by field rather
+        //  than with a struct expression.
+        let mut key_event = i_slint_core::items::KeyEvent::default();
+        key_event.text = event.text.clone();
+
+        let mut internal = InternalKeyEvent::default();
+        internal.event_type = event.event_type;
+        internal.key_event = key_event;
+        internal.preedit_text = event.preedit_text.clone();
+        internal.replacement_range = event
+            .has_replacement_range
+            .then(|| event.replacement_start..event.replacement_end);
+        internal.preedit_selection = event
+            .has_preedit_selection
+            .then(|| event.preedit_selection_start..event.preedit_selection_end);
+        internal.cursor_position = event.has_cursor_position.then_some(event.cursor_position);
+        internal.anchor_position = event.has_anchor_position.then_some(event.anchor_position);
+
+        window_adapter
+            .window()
+            .dispatch_event(i_slint_core::platform::WindowEvent::internal(internal));
+    }
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_window_adapter_new(
     user_data: WindowAdapterUserData,
