@@ -33,6 +33,7 @@ i-slint-live-preview = { version = "=1.18.0", path = "../live-preview", features
 itertools = { workspace = true }
 lsp-types = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 smol_str = { workspace = true }
 tracing = { workspace = true }
 
@@ -44,7 +45,7 @@ spin_on = { workspace = true, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 directories = "6.0"
-tokio = { version = "1.50.0", features = ["rt"] }
+tokio = { version = "1.50.0", features = ["io-util", "process", "rt", "sync"] }
 tempfile = "3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

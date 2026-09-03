@@ -4,6 +4,8 @@
 #![doc = include_str!("README.md")]
 #![deny(clippy::print_stderr, clippy::print_stdout, clippy::disallowed_methods)]
 
+#[cfg(not(target_arch = "wasm32"))]
+pub mod child_process;
 pub mod component_catalog;
 pub mod document_cache;
 pub mod editing;
