@@ -245,7 +245,7 @@ impl GraphicsBackend for OpenGLBackend {
         canvas: Option<CanvasRc<Self::Renderer>>,
         _width: u32,
         _height: u32,
-        _render: &dyn Fn() -> Result<(), PlatformError>,
+        render: &dyn Fn() -> Result<(), PlatformError>,
     ) -> Option<
         Result<
             i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
@@ -258,6 +258,10 @@ impl GraphicsBackend for OpenGLBackend {
                 .borrow()
                 .ensure_current()
                 .map_err(|e| PlatformError::Other(e.to_string()))?;
+            // Render the scene before reading the buffer back, like the wgpu backends do.
+            // Without this the snapshot is the last presented frame,
+            // which predates any change made since.
+            render()?;
             let screenshot = canvas
                 .borrow_mut()
                 .screenshot()
