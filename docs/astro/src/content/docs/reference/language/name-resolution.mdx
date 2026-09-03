@@ -1,6 +1,6 @@
 ---
 title: Name Resolution
-description: Element names, pre-defined names, and lookup rules.
+description: Pre-defined names and the lookup rules for identifiers.
 SC: true
 ---
 
@@ -9,25 +9,7 @@ import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
 
 Name resolution decides which declaration an identifier in an expression refers to.
 Properties, callbacks, and functions share the same rules.
-
-## Element Names
-
-The `:=` syntax gives an element a name, also called its *id*:
-
-```slint
-export component MyApp inherits Window {
-    hello := Text {
-        text: "hello";
-    }
-}
-```
-
-An element name must be a valid [identifier](../lexical-structure/#sls.lex.identifier.classes).
-As with all identifiers, `-` and `_` are interchangeable.
-
-Element names must be unique within a component.
-Two elements in the same component with the same id are a compile error, including elements inside `for` and `if` subtrees.
-The names `self`, `parent`, and `root` are reserved and can't be used as an element name.
+An identifier may also name an element, through the [id](../file-structure/#sls.file.element.id) that `:=` gives it.
 
 ## Pre-Defined Names
 

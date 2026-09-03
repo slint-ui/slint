@@ -14,6 +14,7 @@ export component Foo_Bar inherits Window {}
 export component Foo-Bar inherits Window {
 //               >     <warning{Component 'Foo-Bar' is replacing a previously defined component with the same name}
 //               >     <^error{Duplicated export 'Foo-Bar'}
+    //#sls.file.element.id.identifier
     a_b := Rectangle {}
 //         >        <error{duplicated element id 'a-b'}
     a-b := Rectangle {}
