@@ -3668,6 +3668,7 @@ dependencies = [
  "itertools 0.15.0",
  "lsp-types",
  "serde",
+ "serde_json",
  "smol_str 0.3.2",
  "spin_on",
  "tempfile",
