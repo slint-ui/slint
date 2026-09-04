@@ -2685,6 +2685,8 @@ impl Element {
             }
         }
 
+        validate_transition_directions(&r.borrow().transitions, diag);
+
         if r.borrow().base_type.to_smolstr() == "ListView" {
             let mut seen_for = false;
             for se in node.children() {
@@ -3956,6 +3958,25 @@ fn non_constant_expression_reason(expr: &Expression) -> Option<String> {
     reason
 }
 
+fn build_animation_element(
+    anim: &syntax_nodes::PropertyAnimation,
+    anim_type: ElementType,
+    diag: &mut BuildDiagnostics,
+) -> ElementRc {
+    let mut anim_element = Element { id: "".into(), base_type: anim_type, ..Default::default() };
+    anim_element.parse_bindings(
+        anim.Binding().filter_map(|b| {
+            Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
+        }),
+        false,
+        diag,
+    );
+
+    apply_default_type_properties(&mut anim_element);
+
+    Rc::new(RefCell::new(anim_element))
+}
+
 fn animation_element_from_node(
     anim: &syntax_nodes::PropertyAnimation,
     prop_name: &syntax_nodes::QualifiedName,
@@ -3974,20 +3995,19 @@ fn animation_element_from_node(
         );
         None
     } else {
-        let mut anim_element =
-            Element { id: "".into(), base_type: anim_type, ..Default::default() };
-        anim_element.parse_bindings(
-            anim.Binding().filter_map(|b| {
-                Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
-            }),
-            false,
-            diag,
-        );
-
-        apply_default_type_properties(&mut anim_element);
-
-        Some(Rc::new(RefCell::new(anim_element)))
+        Some(build_animation_element(anim, anim_type, diag))
     }
+}
+
+fn catch_all_animation_element_from_node(
+    anim: &syntax_nodes::PropertyAnimation,
+    diag: &mut BuildDiagnostics,
+    tr: &TypeRegister,
+) -> Option<ElementRc> {
+    // The element's fields don't depend on the property it is applied to so Int32 is used
+    let anim_type = tr.property_animation_type_for_property(Type::Int32);
+    matches!(anim_type, ElementType::Builtin(..))
+        .then(|| build_animation_element(anim, anim_type, diag))
 }
 
 #[derive(Default, Debug, Clone)]
@@ -4304,6 +4324,9 @@ pub fn visit_element_expressions_excluding_repeater_model(
         for (_, _, a) in &mut t.property_animations {
             visit_element_expressions_simple(a, &mut vis);
         }
+        if let Some((_, a)) = t.catch_all_property_animation.as_mut() {
+            visit_element_expressions_simple(a, &mut vis);
+        };
     }
     elem.borrow_mut().transitions = transitions;
 
@@ -4536,6 +4559,7 @@ pub struct Transition {
     pub direction: TransitionDirection,
     pub state_id: SmolStr,
     pub property_animations: Vec<(NamedReference, SourceLocation, ElementRc)>,
+    pub catch_all_property_animation: Option<(SourceLocation, ElementRc)>,
     pub node: syntax_nodes::Transition,
 }
 
@@ -4546,13 +4570,35 @@ impl Transition {
         tr: &TypeRegister,
         diag: &mut BuildDiagnostics,
     ) -> Transition {
-        if let Some(star) = trs.child_token(SyntaxKind::Star) {
-            diag.push_error("catch-all not yet implemented".into(), &star);
-        };
         let direction_text = trs
             .first_child_or_token()
             .and_then(|t| t.as_token().map(|tok| tok.text().to_string()))
             .unwrap_or_default();
+
+        let mut property_animations = Vec::new();
+        let mut catch_all_property_animation = None;
+        for pa in trs.PropertyAnimation() {
+            if let Some(star) = pa.child_token(SyntaxKind::Star) {
+                if let Some(anim_element) = catch_all_animation_element_from_node(&pa, diag, tr) {
+                    if catch_all_property_animation.is_none() {
+                        catch_all_property_animation =
+                            Some((pa.to_source_location(), anim_element));
+                    } else {
+                        diag.push_error("Multiple * animations are not allowed".into(), &star);
+                    }
+                }
+                continue;
+            };
+            for qn in pa.QualifiedName() {
+                if let Some((ne, prop_type)) =
+                    lookup_property_from_qualified_name_for_state(qn.clone(), r, diag)
+                    && let Some(anim_element) =
+                        animation_element_from_node(&pa, &qn, prop_type, diag, tr)
+                {
+                    property_animations.push((ne, qn.to_source_location(), anim_element));
+                }
+            }
+        }
 
         Transition {
             direction: match direction_text.as_str() {
@@ -4568,19 +4614,32 @@ impl Transition {
                 .DeclaredIdentifier()
                 .and_then(|x| parser::identifier_text(&x))
                 .unwrap_or_default(),
-            property_animations: trs
-                .PropertyAnimation()
-                .flat_map(|pa| pa.QualifiedName().map(move |qn| (pa.clone(), qn)))
-                .filter_map(|(pa, qn)| {
-                    lookup_property_from_qualified_name_for_state(qn.clone(), r, diag).and_then(
-                        |(ne, prop_type)| {
-                            animation_element_from_node(&pa, &qn, prop_type, diag, tr)
-                                .map(|anim_element| (ne, qn.to_source_location(), anim_element))
-                        },
-                    )
-                })
-                .collect(),
+            property_animations,
+            catch_all_property_animation,
             node: trs.clone(),
+        }
+    }
+}
+
+fn validate_transition_directions(transitions: &[Transition], diag: &mut BuildDiagnostics) {
+    let mut seen_catch_all = HashMap::<SmolStr, (bool, bool, bool)>::new();
+    for t in transitions {
+        let Some((span, _)) = &t.catch_all_property_animation else { continue };
+        let (has_in, has_out, has_in_out) = seen_catch_all.entry(t.state_id.clone()).or_default();
+        let conflict = match t.direction {
+            TransitionDirection::In => *has_in || *has_in_out,
+            TransitionDirection::Out => *has_out || *has_in_out,
+            TransitionDirection::InOut => *has_in || *has_out || *has_in_out,
+        };
+        // A state can only have at most one `*` catch-all per direction
+        if conflict {
+            diag.push_error("Multiple * animations are not allowed".into(), span);
+            continue;
+        }
+        match t.direction {
+            TransitionDirection::In => *has_in = true,
+            TransitionDirection::Out => *has_out = true,
+            TransitionDirection::InOut => *has_in_out = true,
         }
     }
 }

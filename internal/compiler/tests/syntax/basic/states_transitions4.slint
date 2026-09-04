@@ -1,0 +1,127 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Multiple `in`/`out` blocks per state are fine as long as at most one of them (per
+// effective direction) contains a `*` catch-all animation.
+
+export component DuplicateInCatchAll inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    states [
+        checked when checked: {
+            border: 42;
+            in {
+                animate * { duration: 100ms; }
+            }
+            in {
+                animate * { duration: 200ms; }
+//              >                            <error{Multiple * animations are not allowed}
+            }
+        }
+    ]
+}
+
+export component DuplicateOutCatchAll inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    states [
+        checked when checked: {
+            border: 42;
+            out {
+                animate * { duration: 100ms; }
+            }
+            out {
+                animate * { duration: 200ms; }
+//              >                            <error{Multiple * animations are not allowed}
+            }
+        }
+    ]
+}
+
+export component InPlusInOutCatchAll inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    states [
+        checked when checked: {
+            border: 42;
+            in {
+                animate * { duration: 100ms; }
+            }
+            in-out {
+                animate * { duration: 200ms; }
+//              >                            <error{Multiple * animations are not allowed}
+            }
+        }
+    ]
+}
+
+export component OutPlusInOutCatchAll inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    states [
+        checked when checked: {
+            border: 42;
+            out {
+                animate * { duration: 100ms; }
+            }
+            in-out {
+                animate * { duration: 200ms; }
+//              >                            <error{Multiple * animations are not allowed}
+            }
+        }
+    ]
+}
+
+export component DuplicateInOutCatchAll inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    states [
+        checked when checked: {
+            border: 42;
+            in-out {
+                animate * { duration: 100ms; }
+            }
+            in-out {
+                animate * { duration: 200ms; }
+//              >                            <error{Multiple * animations are not allowed}
+            }
+        }
+    ]
+}
+
+// `in` and `out` catch-alls don't conflict with each other: different directions.
+export component InPlusOutCatchAllFine inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    states [
+        checked when checked: {
+            border: 42;
+            in {
+                animate * { duration: 100ms; }
+            }
+            out {
+                animate * { duration: 200ms; }
+            }
+        }
+    ]
+}
+
+// Multiple `in` blocks with only named property animations (no `*`) are unaffected: this
+// isn't the catch-all conflict this check is guarding against.
+export component MultipleNamedOnlyBlocksFine inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    in-out property <int> other;
+    states [
+        checked when checked: {
+            border: 42;
+            other: 1;
+            in {
+                animate border { duration: 100ms; }
+            }
+            in {
+                animate other { duration: 200ms; }
+            }
+        }
+    ]
+}

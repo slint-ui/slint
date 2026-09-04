@@ -7,31 +7,41 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::SourceLocation;
 use crate::diagnostics::Spanned;
 use crate::expression_tree::*;
-use crate::langtype::{PropertyLookupMode, Type};
+use crate::langtype::{ElementType, PropertyLookupMode, Type};
 use crate::object_tree::forward_inherited_expression::{
     ForwardedReferenceCache, InheritedExpression, forward_inherited_expression,
 };
 use crate::object_tree::*;
 use crate::symbol_counters::SymbolCounters;
+use crate::typeregister::TypeRegister;
 use smol_str::SmolStr;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 pub fn lower_states(
     component: &Rc<Component>,
+    tr: &TypeRegister,
     symbol_counters: &SymbolCounters,
     forwarded_references: &mut ForwardedReferenceCache,
     diag: &mut BuildDiagnostics,
 ) {
     let state_info_type = crate::typeregister::BUILTIN.state_info_type.clone().into();
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        lower_state_in_element(elem, &state_info_type, symbol_counters, forwarded_references, diag)
+        lower_state_in_element(
+            elem,
+            &state_info_type,
+            tr,
+            symbol_counters,
+            forwarded_references,
+            diag,
+        )
     });
 }
 
 fn lower_state_in_element(
     root_element: &ElementRc,
     state_info_type: &Type,
+    tr: &TypeRegister,
     symbol_counters: &SymbolCounters,
     forwarded_references: &mut ForwardedReferenceCache,
     diag: &mut BuildDiagnostics,
@@ -56,6 +66,8 @@ fn lower_state_in_element(
     let mut affected_properties = HashSet::new();
     // Maps State name string -> integer id
     let mut states_id = HashMap::new();
+    // Maps state id -> the set of properties changed by that specific state
+    let mut state_properties = HashMap::<i32, HashSet<NamedReference>>::new();
     let mut state_value = Expression::NumberLiteral(0., Unit::None);
     let states = std::mem::take(&mut root_element.borrow_mut().states);
     for (idx, state) in states.into_iter().enumerate().rev() {
@@ -67,7 +79,6 @@ fn lower_state_in_element(
             };
         }
         for (property_reference, expr, node) in state.property_changes {
-            affected_properties.insert(property_reference.clone());
             let element = property_reference.element();
             let property_expr = match expression_for_property(
                 &element,
@@ -84,6 +95,8 @@ fn lower_state_in_element(
                 }
                 ExpressionForProperty::Expression(e) => e,
             };
+            affected_properties.insert(property_reference.clone());
+            state_properties.entry(idx as i32 + 1).or_default().insert(property_reference.clone());
             let new_expr = Expression::Condition {
                 condition: Box::new(Expression::BinaryExpression {
                     lhs: Box::new(state_property_ref.clone()),
@@ -122,6 +135,8 @@ fn lower_state_in_element(
         state_property,
         states_id,
         affected_properties,
+        state_properties,
+        tr,
         diag,
     );
 }
@@ -131,13 +146,15 @@ fn lower_transitions_in_element(
     state_property: Expression,
     states_id: HashMap<SmolStr, i32>,
     affected_properties: HashSet<NamedReference>,
+    state_properties: HashMap<i32, HashSet<NamedReference>>,
+    tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
     let transitions = std::mem::take(&mut elem.borrow_mut().transitions);
     let mut props =
         HashMap::<NamedReference, (SourceLocation, Vec<TransitionPropertyAnimation>)>::new();
     for transition in transitions {
-        let state = states_id.get(&transition.state_id).unwrap_or_else(|| {
+        let state = *states_id.get(&transition.state_id).unwrap_or_else(|| {
             diag.push_error(
                 format!("State '{}' does not exist", transition.state_id),
                 transition
@@ -150,6 +167,9 @@ fn lower_transitions_in_element(
             &0
         });
 
+        let named_properties: HashSet<NamedReference> =
+            transition.property_animations.iter().map(|(p, _, _)| p.clone()).collect();
+
         for (p, span, animation) in transition.property_animations {
             if !affected_properties.contains(&p) {
                 diag.push_error(
@@ -160,12 +180,36 @@ fn lower_transitions_in_element(
             }
 
             let t = TransitionPropertyAnimation {
-                state_id: *state,
+                state_id: state,
                 direction: transition.direction,
                 animation,
             };
             props.entry(p).or_insert_with(|| (span.clone(), Vec::new())).1.push(t);
         }
+
+        if let Some((span, animation)) = transition.catch_all_property_animation
+            && let Some(changed_properties) = state_properties.get(&state)
+        {
+            for p in changed_properties {
+                // Don't include if it already has a more specific animation, isn't animatable,
+                // or already has its own standalone animation (which takes precedence over the catch-all)
+                if named_properties.contains(p)
+                    || !matches!(
+                        tr.property_animation_type_for_property(p.ty()),
+                        ElementType::Builtin(..)
+                    )
+                    || p.element().borrow().binding(p.name()).is_some_and(|b| b.animation.is_some())
+                {
+                    continue;
+                }
+                let entry = props.entry(p.clone()).or_insert_with(|| (span.clone(), Vec::new()));
+                entry.1.push(TransitionPropertyAnimation {
+                    state_id: state,
+                    direction: transition.direction,
+                    animation: animation.clone(),
+                });
+            }
+        };
     }
     for (ne, (span, animations)) in props {
         let e = ne.element();
