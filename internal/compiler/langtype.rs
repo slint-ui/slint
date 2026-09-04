@@ -1290,9 +1290,7 @@ impl Display for Struct {
 pub(crate) fn visit_declared_types(ty: &Type, visitor: &mut impl FnMut(&SmolStr, &Type)) {
     match ty {
         Type::Struct(s) => {
-            if s.node().is_some()
-                && let StructName::User { name, .. } = &s.name
-            {
+            if let StructName::User { name, .. } = &s.name {
                 visitor(name, ty);
             }
             for sub_ty in s.fields.values() {
