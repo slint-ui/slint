@@ -2230,6 +2230,10 @@ fn format_import_specifier(
         }
     }
 
+    if node.child_token(SyntaxKind::Semicolon).is_some() {
+        state.new_line();
+    }
+
     Ok(())
 }
 
@@ -3708,7 +3712,8 @@ export component MainWindow2 inherits Rectangle {
             r#"import { SuperFooooooooooooooooooooooooooooooooooooooooooooooooo } from "./here.slint";"#,
             r#"import {
     SuperFooooooooooooooooooooooooooooooooooooooooooooooooo,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
     }
 
@@ -3725,48 +3730,76 @@ export component MainWindow2 inherits Rectangle {
     fn single_import_space() {
         assert_formatting(
             r#"import {Foo} from "./here.slint";"#,
-            r#"import { Foo } from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import { Foo} from "./here.slint";"#,
-            r#"import { Foo } from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo } from "./here.slint";"#,
-            r#"import { Foo } from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {     Foo     } from "./here.slint";"#,
-            r#"import { Foo } from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo as FooBar } from "./here.slint";"#,
-            r#"import { Foo as FooBar } from "./here.slint";"#,
+            r#"import { Foo as FooBar } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo as FooBar} from "./here.slint";"#,
-            r#"import { Foo as FooBar } from "./here.slint";"#,
+            r#"import { Foo as FooBar } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foooooooooooooooooooooooooooooooo as FooooooooooooooooooooooooooooooooBar} from "./here.slint";"#,
             r#"import {
     Foooooooooooooooooooooooooooooooo as FooooooooooooooooooooooooooooooooBar,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
     }
 
     // cspell:enable
 
     #[test]
+    fn import_statement_per_line() {
+        assert_formatting(
+            "import { Foo } from \"a.slint\"; import { Bar } from \"b.slint\";\n",
+            "import { Foo } from \"a.slint\";\nimport { Bar } from \"b.slint\";\n",
+        );
+        assert_formatting(
+            "import \"a.ttf\"; import \"b.ttf\";\n",
+            "import \"a.ttf\";\nimport \"b.ttf\";\n",
+        );
+        assert_formatting(
+            "import { Foo } from \"a.slint\"; component Baz {}\n",
+            "import { Foo } from \"a.slint\";\ncomponent Baz { }\n",
+        );
+        // A trailing comment belongs to the line it was written on
+        assert_formatting(
+            "import { Foo } from \"a.slint\"; // trailing\n",
+            "import { Foo } from \"a.slint\"; // trailing\n",
+        );
+    }
+
+    #[test]
     fn import_font() {
-        assert_formatting(r#"import "some/font.ttf";"#, r#"import "some/font.ttf";"#);
-        assert_formatting(r#"import   "some/font.ttf"  ;"#, r#"import "some/font.ttf";"#);
+        assert_formatting(r#"import "some/font.ttf";"#, "import \"some/font.ttf\";\n");
+        assert_formatting(r#"import   "some/font.ttf"  ;"#, "import \"some/font.ttf\";\n");
         assert_formatting(
             "import   \"some/font.ttf\"  ;\nimport {Foo}from \"./here.slint\";\n",
             "import \"some/font.ttf\";\nimport { Foo } from \"./here.slint\";\n",
@@ -3777,23 +3810,27 @@ export component MainWindow2 inherits Rectangle {
     fn import_from() {
         assert_formatting(
             r#"import {Foo,Bar}from "./here.slint";"#,
-            r#"import { Foo, Bar } from "./here.slint";"#,
+            r#"import { Foo, Bar } from "./here.slint";
+"#,
         );
         assert_formatting(
             r#"import {Foo  as   Bar}from "./here.slint";"#,
-            r#"import { Foo as Bar } from "./here.slint";"#,
+            r#"import { Foo as Bar } from "./here.slint";
+"#,
         );
         assert_formatting(
             "import { Foo }\nfrom \"./here.slint\";",
-            r#"import { Foo } from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";
+"#,
         );
         assert_formatting(
             r#"import {Foo}from   "./here.slint"  ;"#,
-            r#"import { Foo } from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";
+"#,
         );
         assert_formatting(
             r#"import { Foo, }from "./here.slint";"#,
-            "import {\n    Foo,\n} from \"./here.slint\";",
+            "import {\n    Foo,\n} from \"./here.slint\";\n",
         );
     }
 
@@ -3805,28 +3842,32 @@ export component MainWindow2 inherits Rectangle {
             r#"import {Foo,} from "./here.slint";"#,
             r#"import {
     Foo,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {  Foo,} from "./here.slint";"#,
             r#"import {
     Foo,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo,  } from "./here.slint";"#,
             r#"import {
     Foo,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo as Fur,  } from "./here.slint";"#,
             r#"import {
     Foo as Fur,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
     }
 
@@ -3835,7 +3876,8 @@ export component MainWindow2 inherits Rectangle {
     fn multiple_imports_behavior() {
         assert_formatting(
             r#"import {Foo, Bar} from "./here.slint";"#,
-            r#"import { Foo, Bar } from "./here.slint";"#,
+            r#"import { Foo, Bar } from "./here.slint";
+"#,
         );
 
         assert_formatting(
@@ -3843,22 +3885,26 @@ export component MainWindow2 inherits Rectangle {
             r#"import {
     Foo,
     Bar,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo,Bar  } from "./here.slint";"#,
-            r#"import { Foo, Bar } from "./here.slint";"#,
+            r#"import { Foo, Bar } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo,Bar as BarBer } from "./here.slint";"#,
-            r#"import { Foo, Bar as BarBer } from "./here.slint";"#,
+            r#"import { Foo, Bar as BarBer } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import { Foo, Bar} from "./here.slint";"#,
-            r#"import { Foo, Bar } from "./here.slint";"#,
+            r#"import { Foo, Bar } from "./here.slint";
+"#,
         );
 
         assert_formatting(
@@ -3866,7 +3912,8 @@ export component MainWindow2 inherits Rectangle {
     Foo,
     Bar
 } from "./here.slint";"#,
-            r#"import { Foo, Bar } from "./here.slint";"#,
+            r#"import { Foo, Bar } from "./here.slint";
+"#,
         );
 
         assert_formatting(
@@ -3874,7 +3921,8 @@ export component MainWindow2 inherits Rectangle {
     Foo as Fur,
     Bar
 } from "./here.slint";"#,
-            r#"import { Foo as Fur, Bar } from "./here.slint";"#,
+            r#"import { Foo as Fur, Bar } from "./here.slint";
+"#,
         );
     }
 
@@ -3888,7 +3936,8 @@ export component MainWindow2 inherits Rectangle {
             r#"import {
     Foo, // comment foo
     Bar,   // comment bar
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
@@ -3899,7 +3948,8 @@ export component MainWindow2 inherits Rectangle {
             r#"import {
     Foo, // comment foo
     Bar,   // comment bar
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
@@ -3910,7 +3960,8 @@ export component MainWindow2 inherits Rectangle {
             r#"import {
     Foo, // comment foo
     Bar as BarBer,   // comment bar
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
     }
 
@@ -3932,7 +3983,8 @@ export component MainWindow2 inherits Rectangle {
     Snaf,
     Tar, // comment
     Jar,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
@@ -3946,7 +3998,8 @@ export component MainWindow2 inherits Rectangle {
     Tatta,
     Tar,
     Jar,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
     }
 
