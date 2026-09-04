@@ -4445,9 +4445,10 @@ fn compile_radial_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenS
     } else {
         brush_expr
     };
-    let brush_expr = if let Some(r) = radius {
-        let r = compile_expression(r, ctx);
-        quote!(#brush_expr.with_radius(#r as f32))
+    let brush_expr = if let Some((rx, ry)) = radius {
+        let rx = compile_expression(rx, ctx);
+        let ry = compile_expression(ry, ctx);
+        quote!(#brush_expr.with_radius_x(#rx as f32).with_radius_y(#ry as f32))
     } else {
         brush_expr
     };
