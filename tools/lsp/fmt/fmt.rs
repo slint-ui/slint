@@ -2204,12 +2204,25 @@ fn format_import_specifier(
 ) -> Result<(), std::io::Error> {
     let is_too_long = node.text().len() > 80.into();
 
+    let mut after_identifier_list = false;
     for n in node.children_with_tokens() {
         match n.kind() {
             SyntaxKind::ImportIdentifierList => {
                 if let NodeOrToken::Node(n) = n {
                     format_import_identifier(&n, writer, state, is_too_long)?
                 };
+                after_identifier_list = true;
+                state.insert_whitespace(" ");
+            }
+            // `from`
+            SyntaxKind::Identifier if after_identifier_list => {
+                fold(n, writer, state)?;
+                state.insert_whitespace(" ");
+            }
+            // the module path
+            SyntaxKind::StringLiteral if after_identifier_list => {
+                fold(n, writer, state)?;
+                state.skip_all_whitespace = true;
             }
             _ => {
                 fold(n, writer, state)?;
@@ -3749,6 +3762,30 @@ export component MainWindow2 inherits Rectangle {
     }
 
     // cspell:enable
+
+    #[test]
+    fn import_from() {
+        assert_formatting(
+            r#"import {Foo,Bar}from "./here.slint";"#,
+            r#"import { Foo, Bar } from "./here.slint";"#,
+        );
+        assert_formatting(
+            r#"import {Foo  as   Bar}from "./here.slint";"#,
+            r#"import { Foo as Bar } from "./here.slint";"#,
+        );
+        assert_formatting(
+            "import { Foo }\nfrom \"./here.slint\";",
+            r#"import { Foo } from "./here.slint";"#,
+        );
+        assert_formatting(
+            r#"import {Foo}from   "./here.slint"  ;"#,
+            r#"import { Foo } from "./here.slint";"#,
+        );
+        assert_formatting(
+            r#"import { Foo, }from "./here.slint";"#,
+            "import {\n    Foo,\n} from \"./here.slint\";",
+        );
+    }
 
     #[test]
     /// format_import_identifier
