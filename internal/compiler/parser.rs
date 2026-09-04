@@ -684,10 +684,9 @@ impl<'a> DefaultParser<'a> {
     /// Where a diagnostic reported at the current token points to
     fn current_token_location(&self) -> crate::diagnostics::SourceLocation {
         let token = self.current_token();
-        let length = if token.kind == SyntaxKind::DoubleLess { 1 } else { token.text.len() };
         crate::diagnostics::SourceLocation {
             source_file: Some(self.source_file.clone()),
-            span: crate::diagnostics::Span::new(token.offset, length),
+            span: crate::diagnostics::Span::new(token.offset, token.text.len()),
         }
     }
 
