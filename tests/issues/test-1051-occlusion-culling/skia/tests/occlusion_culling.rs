@@ -143,3 +143,59 @@ fn opaque_cover_shrink_is_sound_at_fractional_scale_factor() {
         1.3,
     ));
 }
+
+#[test]
+fn partially_covered_probe_is_drawn() {
+    scenarios::assert_partially_covered_probe_is_drawn(rendered_item_count(
+        scenarios::partially_covered_probe_source(),
+        1.0,
+    ));
+}
+
+#[test]
+fn non_covering_occluders_cull_nothing() {
+    for (occluder_style, declarations) in scenarios::NON_COVERING_OCCLUDERS {
+        let count = render_on_new_thread(|| {
+            rendered_item_count(scenarios::occluder_style_source(declarations), 1.0)
+        });
+        scenarios::assert_occluder_style_culls_nothing(occluder_style, count);
+    }
+}
+
+#[test]
+fn covering_occluder_culls_everything_behind_it() {
+    scenarios::assert_covering_occluder_style_culls_everything(rendered_item_count(
+        scenarios::occluder_style_source(scenarios::COVERING_OCCLUDER),
+        1.0,
+    ));
+}
+
+#[test]
+fn occluder_raised_by_z_culls_the_probe_below_it() {
+    scenarios::assert_z_order_raised_occluder_culls(rendered_item_count(
+        scenarios::z_order_raised_occluder_source(),
+        1.0,
+    ));
+}
+
+#[test]
+fn probe_raised_by_z_above_the_occluder_is_not_culled() {
+    scenarios::assert_z_order_raised_probe_is_drawn(rendered_item_count(
+        scenarios::z_order_raised_probe_source(),
+        1.0,
+    ));
+}
+
+/// Skia-only: the software renderer reports no transformation support, so it paints the
+/// occluder unrotated and culling behind it is correct there (see
+/// `scenarios::rotated_occluder_source`).
+#[test]
+fn rotated_occluder_culls_nothing() {
+    let opaque = render_on_new_thread(|| {
+        rendered_item_count(scenarios::rotated_occluder_source_opaque(), 1.0)
+    });
+    let transparent = render_on_new_thread(|| {
+        rendered_item_count(scenarios::rotated_occluder_source_transparent(), 1.0)
+    });
+    scenarios::assert_rotated_occluder_culls_nothing(opaque, transparent);
+}
