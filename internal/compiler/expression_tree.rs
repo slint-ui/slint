@@ -1148,6 +1148,10 @@ impl Expression {
 
     /// Call the visitor for each sub-expression.  (note: this function does not recurse)
     pub fn visit(&self, mut visitor: impl FnMut(&Self)) {
+        self.visit_dyn(&mut visitor)
+    }
+
+    fn visit_dyn(&self, visitor: &mut dyn FnMut(&Self)) {
         match self {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
@@ -1290,6 +1294,10 @@ impl Expression {
     }
 
     pub fn visit_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
+        self.visit_mut_dyn(&mut visitor)
+    }
+
+    fn visit_mut_dyn(&mut self, visitor: &mut dyn FnMut(&mut Self)) {
         match self {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
