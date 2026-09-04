@@ -12,6 +12,8 @@ interface Derived inherits Base {
     out property <int> count;
 }
 
+interface MostDerived inherits Derived { }
+
 // A component that provides only the derived members is missing the inherited one.
 export component MissingInheritedMember {
     implement Derived <=> self;
@@ -52,5 +54,50 @@ component ChildBase {
 export component MissingInheritedMemberChild {
     implement Derived <=> child;
 //                        >   <error{Cannot implement 'Derived' based on 'child'.↵- missing 'in-out property <string> text;'}
+    child := ChildBase { }
+}
+
+// Implementing Base is redundant once Derived, which inherits it, is implemented too.
+export component RedundantAfterInherited {
+    implement Derived <=> self;
+//  >                         <note{'Derived' inherits 'Base'}
+    implement Base <=> self;
+//  >                      <error{'Base' is already implemented through 'Derived'}
+
+    out property <int> count;
+    in-out property <string> text;
+}
+
+// The same redundancy, reported the same way regardless of which statement comes first.
+export component RedundantBeforeInherited {
+    implement Base <=> self;
+//  >                      <error{'Base' is already implemented through 'Derived'}
+    implement Derived <=> self;
+//  >                         <note{'Derived' inherits 'Base'}
+
+    out property <int> count;
+    in-out property <string> text;
+}
+
+// The inheritance chain walk goes past the immediate parent.
+export component RedundantAcrossTwoLevels {
+    implement Base <=> self;
+//  >                      <error{'Base' is already implemented through 'MostDerived'}
+    implement MostDerived <=> self;
+//  >                             <note{'MostDerived' inherits 'Base'}
+
+    out property <int> count;
+    in-out property <string> text;
+}
+
+// Redundancy doesn't depend on both statements binding to the same target.
+export component RedundantAcrossBindings {
+    implement Base <=> child;
+//  >                       <error{'Base' is already implemented through 'Derived'}
+    implement Derived <=> self;
+//  >                         <note{'Derived' inherits 'Base'}
+
+    out property <int> count;
+    in-out property <string> text;
     child := ChildBase { }
 }
