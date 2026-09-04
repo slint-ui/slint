@@ -168,6 +168,11 @@ impl From<NamedReference> for PropertyPath {
 
 struct AnalysisContext<'a> {
     visited: HashSet<PropertyPath>,
+    /// Bindings already reported in a loop that is an error. A loop through the
+    /// window layout property is only a warning, and the walk may find one that
+    /// encloses a genuine loop; without this the warning's `is_in_binding_loop`
+    /// would silence the error that follows.
+    reported_as_error: HashSet<PropertyPath>,
     /// The stack of properties that depends on each other
     currently_analyzing: indexmap::IndexSet<PropertyPath>,
     /// When set, one of the property in the `currently_analyzing` stack is the window layout property
@@ -187,6 +192,7 @@ fn perform_binding_analysis(
     let mut context = AnalysisContext {
         error_on_binding_loop_with_window_layout,
         visited: HashSet::new(),
+        reported_as_error: HashSet::new(),
         currently_analyzing: Default::default(),
         window_layout_property: None,
         global_analysis,
@@ -369,12 +375,31 @@ fn analyze_binding(
             }
         }
 
+        // A loop through the window layout property is only deprecated, unless
+        // the same properties still close a loop without it.
+        let is_error = context.error_on_binding_loop_with_window_layout
+            || !has_window_layout
+            || context.window_layout_property.as_ref().is_some_and(|window_layout| {
+                let from =
+                    context.currently_analyzing.get_index_of(current).expect("checked just above");
+                let cycle: Vec<PropertyPath> =
+                    context.currently_analyzing.iter().skip(from).cloned().collect();
+                closes_without(&cycle, window_layout, reverse_aliases)
+            });
         for it in context.currently_analyzing.iter().rev() {
             let p = &it.prop;
             let elem = p.element();
             let elem = elem.borrow();
             let binding = elem.binding_cell_including_synthetic(p.name()).unwrap().borrow();
-            if binding.analysis.as_ref().unwrap().is_in_binding_loop.replace(true) {
+            let already_reported = if is_error {
+                // An error is still worth reporting over an earlier warning, but
+                // not over an earlier error.
+                binding.analysis.as_ref().unwrap().is_in_binding_loop.set(true);
+                !context.reported_as_error.insert(it.clone())
+            } else {
+                binding.analysis.as_ref().unwrap().is_in_binding_loop.replace(true)
+            };
+            if already_reported {
                 break;
             }
 
@@ -382,7 +407,7 @@ fn analyze_binding(
             // Skip the properties of synthetic elements (eg. the Flickable's content element):
             // they have no location in the source. The rest of the loop is still reported.
             if span.source_file.is_some() {
-                if !context.error_on_binding_loop_with_window_layout && has_window_layout {
+                if !is_error {
                     diag.push_warning(format!("The binding for the property '{}' is part of a binding loop ({loop_description}).\nThis was allowed in previous version of Slint, but is deprecated and may cause panic at runtime", p.declared_name()), &span);
                 } else {
                     diag.push_error(format!("The binding for the property '{}' is part of a binding loop ({loop_description})", p.declared_name()), &span);
@@ -634,7 +659,19 @@ fn recurse_expression(
             {
                 vis(&nr.clone().into(), P);
             }
-            visit_layout_items_dependencies(l.elems.iter(), *o, vis);
+            // The same condition `get_layout_info` uses to lower this into
+            // `BoxLayoutInfoOrthoWithMeasure`, which hands every cell a
+            // constraint on both axes.
+            let ortho_with_measure =
+                matches!(expr, Expression::ComputeBoxLayoutInfo { cross_axis_size: Some(_), .. })
+                    && *o != l.orientation
+                    && crate::layout::box_layout_measures_its_cells(l, *o);
+            visit_layout_items_dependencies(l.elems.iter(), *o, ortho_with_measure, vis);
+            if ortho_with_measure {
+                // That body solves the main axis to measure its cells, so it
+                // evaluates their main-axis constraints too.
+                visit_layout_items_dependencies(l.elems.iter(), l.orientation, true, vis);
+            }
 
             // The orthogonal solve depends on `cross-axis-alignment` and on the
             // cells' `cross-axis-self-alignment`.
@@ -713,56 +750,83 @@ fn recurse_expression(
                         );
                     }
                 }
-            } else if let Expression::ComputeFlexboxLayoutInfo { orientation, .. } = expr {
+            } else if let Expression::ComputeFlexboxLayoutInfo {
+                orientation,
+                cross_axis_size,
+                ..
+            } = expr
+            {
                 let orientation = *orientation;
+                // In `layoutinfo-<o>-with-constraint` the perpendicular size is a
+                // parameter, so the body doesn't read `self.{width,height}` and no
+                // edge is declared for it. The plain binding does read it.
+                let reads_perpendicular_size = cross_axis_size.is_none();
                 use crate::layout::FlexboxAxisRelation;
                 match layout.axis_relation(orientation) {
                     FlexboxAxisRelation::MainAxis => {
                         // Main axis: only visit same-axis item dependencies
-                        visit_layout_items_dependencies(layout.elems.iter(), orientation, vis);
+                        visit_layout_items_dependencies(
+                            layout.elems.iter(),
+                            orientation,
+                            true,
+                            vis,
+                        );
                     }
                     FlexboxAxisRelation::CrossAxis => {
-                        // Cross axis: depends on the perpendicular (main-axis)
-                        // dimension for accurate wrapping. Skip that edge
-                        // when the element has a parametrized layout-info
-                        // function — callers that would otherwise cycle go
-                        // through it instead, so the bare binding's read of
-                        // `self.{w,h}` is a fallback only.
-                        if orientation == Orientation::Vertical
-                            && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
-                            && nr.element().borrow().layout_info_v_with_constraint.is_none()
-                        {
-                            vis(&nr.clone().into(), P);
-                        }
-                        if orientation == Orientation::Horizontal
-                            && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
-                            && nr.element().borrow().layout_info_h_with_constraint.is_none()
-                        {
-                            vis(&nr.clone().into(), P);
+                        // Cross axis: the wrapping depends on the perpendicular
+                        // (main-axis) dimension.
+                        if reads_perpendicular_size {
+                            if orientation == Orientation::Vertical
+                                && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
+                            {
+                                vis(&nr.clone().into(), P);
+                            }
+                            if orientation == Orientation::Horizontal
+                                && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
+                            {
+                                vis(&nr.clone().into(), P);
+                            }
                         }
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Horizontal,
+                            true,
                             vis,
                         );
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Vertical,
+                            true,
                             vis,
                         );
                     }
                     FlexboxAxisRelation::Unknown => {
-                        // Unknown direction: visit both orientations' item
-                        // dependencies but NOT perpendicular dimensions (adding
-                        // those leads to binding loops for runtime direction).
+                        // Either direction is possible, but only the cross-axis
+                        // one reads a size: as the main axis, `orientation` is
+                        // what is being computed. So the union over both
+                        // directions is the same edge as `CrossAxis`.
+                        if reads_perpendicular_size {
+                            if orientation == Orientation::Vertical
+                                && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
+                            {
+                                vis(&nr.clone().into(), P);
+                            }
+                            if orientation == Orientation::Horizontal
+                                && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
+                            {
+                                vis(&nr.clone().into(), P);
+                            }
+                        }
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Horizontal,
+                            true,
                             vis,
                         );
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Vertical,
+                            true,
                             vis,
                         );
                     }
@@ -774,9 +838,15 @@ fn recurse_expression(
         }
         Expression::OrganizeGridLayout(layout) => {
             let mut layout = layout.clone();
+            // Collected first: the visit holds each cell borrowed, and `vis` may
+            // walk an expression that reaches the same cell.
+            let mut cell_refs = Vec::new();
             layout.visit_rowcol_named_references(&mut |nr: &mut NamedReference| {
-                vis(&nr.clone().into(), P)
+                cell_refs.push(nr.clone())
             });
+            for nr in cell_refs {
+                vis(&nr.into(), P);
+            }
         }
         Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation }
         | Expression::ComputeGridLayoutInfo {
@@ -795,6 +865,7 @@ fn recurse_expression(
             visit_layout_items_dependencies(
                 layout.elems.iter().map(|it| &it.item),
                 *orientation,
+                false,
                 vis,
             );
             let mut g = layout.geometry.clone();
@@ -807,9 +878,21 @@ fn recurse_expression(
         } => vis(&nr.clone().into(), P),
         Expression::FunctionCall { function: Callable::Builtin(b), arguments, .. } => match b {
             BuiltinFunction::ImplicitLayoutInfo(orientation) => {
-                if let [Expression::ElementReference(item), ..] = arguments.as_slice() {
+                if let [Expression::ElementReference(item), rest @ ..] = arguments.as_slice() {
+                    // A constraint argument means the caller hands the item its
+                    // perpendicular size. `implicit_layout_info_call` passes
+                    // `-1` when it has none.
+                    let measured = matches!(
+                        rest.first(),
+                        Some(c) if !matches!(
+                            c,
+                            Expression::NumberLiteral(v, crate::expression_tree::Unit::None)
+                                if *v == -1.
+                        )
+                    );
                     visit_implicit_layout_info_dependencies(
                         *orientation,
+                        measured,
                         &item.upgrade().unwrap(),
                         vis,
                     );
@@ -872,9 +955,13 @@ fn recurse_expression(
     }
 }
 
+/// `measured` says the caller is a layout-info computation that hands each cell
+/// an explicit constraint (`ImplicitLayoutInfo(<o>)(cell, <constraint>)` in the
+/// lowered code) instead of letting it read its own perpendicular size.
 fn visit_layout_items_dependencies<'a>(
     items: impl Iterator<Item = &'a LayoutItem>,
     orientation: Orientation,
+    measured: bool,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
     for it in items {
@@ -889,7 +976,36 @@ fn visit_layout_items_dependencies<'a>(
             element = it.element.borrow().base_type.as_component().root_element.clone();
         }
 
-        if let Some(nr) = element.borrow().layout_info_prop(orientation) {
+        // Lowering reads one or the other, never both, so record the one it
+        // picks: making the plain info look read from everywhere would let its
+        // read of the perpendicular size close loops that never run.
+        //
+        // The stamp says the cell *can* be measured that way; the call site
+        // decides. `get_layout_info` only calls the parametrized function when
+        // it was handed a constraint, and `cell_layout_info` builds a vertical
+        // one only for a measuring caller. Horizontally it always builds one.
+        let parametrized = match orientation {
+            Orientation::Horizontal => it
+                .measure_capability
+                .width_for_height
+                .then(|| element.borrow().inherited_layout_info_h_with_constraint())
+                .flatten(),
+            Orientation::Vertical => (measured && it.measure_capability.height_for_width)
+                .then(|| element.borrow().inherited_layout_info_v_with_constraint())
+                .flatten(),
+        };
+        if let Some(nr) = parametrized {
+            // The function may be inherited from a base component, in which case
+            // the path has to descend into it, like the `layout_info_prop` case below.
+            if Rc::ptr_eq(&nr.element(), &element) {
+                vis(&nr.into(), ReadType::PropertyRead);
+            } else {
+                vis(
+                    &PropertyPath { elements: vec![ByAddress(element.clone())], prop: nr },
+                    ReadType::PropertyRead,
+                );
+            }
+        } else if let Some(nr) = element.borrow().layout_info_prop(orientation) {
             vis(&nr.clone().into(), ReadType::PropertyRead);
         } else {
             if let ElementType::Component(base) = &element.borrow().base_type
@@ -900,7 +1016,7 @@ fn visit_layout_items_dependencies<'a>(
                     ReadType::PropertyRead,
                 );
             }
-            visit_implicit_layout_info_dependencies(orientation, &element, vis);
+            visit_implicit_layout_info_dependencies(orientation, measured, &element, vis);
         }
 
         for (nr, _) in it.constraints.for_each_restrictions(orientation) {
@@ -1007,6 +1123,7 @@ fn visit_cell_cross_axis_implicit_dependency(
 /// The builtin function can call native code, and we need to visit the properties that are accessed by it
 fn visit_implicit_layout_info_dependencies(
     orientation: crate::layout::Orientation,
+    measured: bool,
     item: &ElementRc,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
@@ -1017,7 +1134,9 @@ fn visit_implicit_layout_info_dependencies(
             vis(&NamedReference::new(item, SmolStr::new_static("source")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("source-clip-width")).into(), N);
             if orientation == Orientation::Vertical {
-                vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
+                if !measured {
+                    vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
+                }
                 vis(
                     &NamedReference::new(item, SmolStr::new_static("source-clip-height")).into(),
                     N,
@@ -1046,7 +1165,7 @@ fn visit_implicit_layout_info_dependencies(
                     .borrow()
                     .get("wrap")
                     .is_some_and(|a| a.is_set || a.is_set_externally);
-            if wrap_set && orientation == Orientation::Vertical {
+            if wrap_set && !measured && orientation == Orientation::Vertical {
                 vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
             }
             if base_type.as_str() == "TextInput" {
@@ -1065,7 +1184,7 @@ fn visit_implicit_layout_info_dependencies(
             // A line dropped by the limit is also excluded from the content widths, so
             // `max-lines` is a dependency of both orientations, not just the height.
             vis(&NamedReference::new(item, SmolStr::new_static("max-lines")).into(), N);
-            if orientation == Orientation::Vertical {
+            if !measured && orientation == Orientation::Vertical {
                 // StyledText always word-wraps, so its height depends on the width.
                 vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
             }
@@ -1283,4 +1402,113 @@ fn mark_used_base_properties(doc: &Document) {
             },
         );
     });
+}
+
+/// The properties `node`'s binding reads, the way `analyze_binding` resolves
+/// them, minus what it reaches by climbing to a base component, through an
+/// alias's own binding, or through an animation. Each omission drops an edge,
+/// which can only hide a loop, and so leave the warning in place.
+fn visit_direct_reads(
+    node: &PropertyPath,
+    reverse_aliases: &ReverseAliases,
+    vis: &mut impl FnMut(PropertyPath),
+) {
+    let element = node.prop.element();
+    let element_borrow = element.borrow();
+    let Some(binding) = element_borrow.binding_cell_including_synthetic(node.prop.name()) else {
+        return;
+    };
+    // Borrowed already means this binding is the one being analyzed further up
+    // the stack; its reads are the ones that led here.
+    let Ok(binding) = binding.try_borrow() else { return };
+    for twb in &binding.two_way_bindings {
+        // A reference back to the property itself is "cannot refer to itself",
+        // reported elsewhere. Kept out so it can't look like a loop of its own.
+        if let Some(p) = twb.property()
+            && p != &node.prop
+        {
+            vis(node.relative(&p.clone().into()));
+        }
+    }
+    recurse_expression(&element, &binding.expression, &mut |p, _| {
+        vis(node.relative(p));
+        for x in find_alias_targets(p, reverse_aliases) {
+            vis(node.relative(&x));
+        }
+    });
+}
+
+/// Whether the properties of `cycle` still close a loop with `barrier` left out.
+///
+/// The runtime solves the window's two axes one after the other, so a loop that
+/// needs the window layout property is not a recursion. The walk reports the
+/// first loop it closes, which for the same source can be a wider one that
+/// detours through the window, so the loop it found is checked for a shortcut
+/// that does without it. Missing one only leaves the deprecation warning.
+fn closes_without(
+    cycle: &[PropertyPath],
+    barrier: &PropertyPath,
+    reverse_aliases: &ReverseAliases,
+) -> bool {
+    // Both axes of a window live on the same root element, and only one of them
+    // is the property the walk came in through. Leaving just that one out would
+    // still let a loop close through the other.
+    let window_root = barrier.prop.element();
+    let is_window_layout = |n: &PropertyPath| {
+        n.elements.is_empty()
+            && Rc::ptr_eq(&n.prop.element(), &window_root)
+            && [Orientation::Horizontal, Orientation::Vertical].iter().any(|o| {
+                window_root.borrow().layout_info_prop(*o).is_some_and(|p| p.name() == n.prop.name())
+            })
+    };
+    let nodes: Vec<&PropertyPath> = cycle.iter().filter(|n| !is_window_layout(n)).collect();
+    let edges: Vec<Vec<usize>> = nodes
+        .iter()
+        .map(|from| {
+            let mut targets = Vec::new();
+            visit_direct_reads(from, reverse_aliases, &mut |to| {
+                if let Some(i) = nodes.iter().position(|n| **n == to) {
+                    targets.push(i);
+                }
+            });
+            targets
+        })
+        .collect();
+
+    /// The loop reachable from `node`, as indices, or `None` if there is none.
+    fn reaches_a_cycle(
+        node: usize,
+        edges: &[Vec<usize>],
+        on_stack: &mut Vec<usize>,
+        done: &mut [bool],
+    ) -> Option<Vec<usize>> {
+        if let Some(at) = on_stack.iter().position(|&n| n == node) {
+            return Some(on_stack[at..].to_vec());
+        }
+        if std::mem::replace(&mut done[node], true) {
+            return None;
+        }
+        on_stack.push(node);
+        let found = edges[node].iter().find_map(|&t| reaches_a_cycle(t, edges, on_stack, done));
+        on_stack.pop();
+        found
+    }
+
+    // A fresh `done` per start: a start that reaches a loop it is not part of
+    // stops at the first node of it, and sharing `done` would then hide that
+    // loop from the start that is part of it.
+    (0..nodes.len()).any(|n| {
+        reaches_a_cycle(n, &edges, &mut Vec::new(), &mut vec![false; nodes.len()])
+            .is_some_and(|loop_| loop_.iter().any(|&i| is_measurement(nodes[i])))
+    })
+}
+
+/// Whether `node` is a `layoutinfo-<o>-with-constraint` function.
+fn is_measurement(node: &PropertyPath) -> bool {
+    let element = node.prop.element();
+    let element = element.borrow();
+    [&element.layout_info_h_with_constraint, &element.layout_info_v_with_constraint]
+        .into_iter()
+        .flatten()
+        .any(|nr| nr.name() == node.prop.name())
 }
