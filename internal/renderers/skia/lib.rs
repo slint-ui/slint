@@ -1106,6 +1106,11 @@ pub trait Surface {
         &()
     }
 
+    // returns true if this surface will be rendered with transparency respected by the OS
+    fn presentation_may_use_transparency(&self) -> bool {
+        false
+    }
+
     fn set_transparent(&self, _: bool) -> Result<(), PlatformError> {
         Ok(())
     }
