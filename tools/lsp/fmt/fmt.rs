@@ -3830,7 +3830,10 @@ export component MainWindow2 inherits Rectangle {
         );
         assert_formatting(
             r#"import { Foo, }from "./here.slint";"#,
-            "import {\n    Foo,\n} from \"./here.slint\";\n",
+            r#"import {
+    Foo,
+} from "./here.slint";
+"#,
         );
     }
 
