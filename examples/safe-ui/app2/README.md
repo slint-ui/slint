@@ -1,5 +1,6 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
 <!-- SPDX-License-Identifier: MIT -->
+<!-- cspell:ignore Paweł -->
 
 # Public Transit Airlock Review Demo
 
@@ -46,7 +47,7 @@ Fault injection and reset gestures belong only to the demo.
 - `assets/`: shared PNG artwork; digit and progress assets have separate subdirectories.
 
 The host-facing screen exposes `view`, `seconds-remaining`, and `progress-percent` inputs.
-Its parameterless callbacks are `enter-requested`, `exit-outer-requested`, and `exit-inner-requested`.
+Its callbacks `enter-requested`, `exit-outer-requested`, and `exit-inner-requested` take no arguments.
 Slint bindings update the existing elements when these inputs change.
 The screen does not make door-control or safety decisions.
 
