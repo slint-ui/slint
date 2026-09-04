@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { RasterDigit } from "components.slint";
+
+// A two-digit countdown, clamped to 00-99. A negative value draws nothing.
+// The subset has no division, so the tens digit comes from a threshold chain.
+export component ProgressText {
+    in property <int> value: -1;
+
+    private property <int> clamped: root.value > 99 ? 99 : root.value;
+    private property <int> tens: root.clamped < 10 ? 0
+        : root.clamped < 20 ? 1
+        : root.clamped < 30 ? 2
+        : root.clamped < 40 ? 3
+        : root.clamped < 50 ? 4
+        : root.clamped < 60 ? 5
+        : root.clamped < 70 ? 6
+        : root.clamped < 80 ? 7
+        : root.clamped < 90 ? 8
+        : 9;
+
+    width: 20px;
+    height: 24px;
+
+    RasterDigit {
+        x: 0px;
+        y: 0px;
+        value: root.clamped < 0 ? -1 : root.tens;
+    }
+
+    RasterDigit {
+        x: 10px;
+        y: 0px;
+        value: root.clamped < 0 ? -1 : root.clamped - root.tens * 10;
+    }
+}
