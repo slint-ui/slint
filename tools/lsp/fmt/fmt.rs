@@ -2204,23 +2204,23 @@ fn format_import_specifier(
 ) -> Result<(), std::io::Error> {
     let is_too_long = node.text().len() > 80.into();
 
-    let mut after_identifier_list = false;
+    let mut in_module_clause = node.child_node(SyntaxKind::ImportIdentifierList).is_none();
     for n in node.children_with_tokens() {
         match n.kind() {
             SyntaxKind::ImportIdentifierList => {
                 if let NodeOrToken::Node(n) = n {
                     format_import_identifier(&n, writer, state, is_too_long)?
                 };
-                after_identifier_list = true;
+                in_module_clause = true;
                 state.insert_whitespace(" ");
             }
-            // `from`
-            SyntaxKind::Identifier if after_identifier_list => {
+            // `from`, or `import` for a font
+            SyntaxKind::Identifier if in_module_clause => {
                 fold(n, writer, state)?;
                 state.insert_whitespace(" ");
             }
             // the module path
-            SyntaxKind::StringLiteral if after_identifier_list => {
+            SyntaxKind::StringLiteral if in_module_clause => {
                 fold(n, writer, state)?;
                 state.skip_all_whitespace = true;
             }
@@ -3762,6 +3762,16 @@ export component MainWindow2 inherits Rectangle {
     }
 
     // cspell:enable
+
+    #[test]
+    fn import_font() {
+        assert_formatting(r#"import "some/font.ttf";"#, r#"import "some/font.ttf";"#);
+        assert_formatting(r#"import   "some/font.ttf"  ;"#, r#"import "some/font.ttf";"#);
+        assert_formatting(
+            "import   \"some/font.ttf\"  ;\nimport {Foo}from \"./here.slint\";\n",
+            "import \"some/font.ttf\";\nimport { Foo } from \"./here.slint\";\n",
+        );
+    }
 
     #[test]
     fn import_from() {
