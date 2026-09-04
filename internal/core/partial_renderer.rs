@@ -643,6 +643,14 @@ fn compute_occlusion_recursive(
             let mut cache = cache.borrow_mut();
             if let Some(entry) = rendering_data.get_entry(&mut cache) {
                 entry.occluded = occluded;
+                if occluded {
+                    // An occluded item isn't drawn, so a tracker left dirty here stays dirty and
+                    // marks the item's rectangle dirty on every later frame. Dropping it is safe:
+                    // anything that reveals the item again has to change the occluder, which
+                    // dirties that region itself, and the item then gets a fresh tracker when
+                    // it's drawn (see `do_rendering`).
+                    entry.tracker = None;
+                }
             }
         }
 
