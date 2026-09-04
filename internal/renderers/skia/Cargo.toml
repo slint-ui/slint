@@ -27,6 +27,7 @@ opengl = []
 # It feeds an apple-target-gated dependency of wgpu-core, so it's inert elsewhere.
 vulkan = [
   "skia-safe/vulkan",
+  "i-slint-core/vulkan",
   "wgpu-30",
   "wgpu-30/vulkan",
   "wgpu-30/vulkan-portability",

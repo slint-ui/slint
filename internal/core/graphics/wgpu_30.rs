@@ -155,6 +155,11 @@ pub fn default_backends_to_avoid() -> wgpu::Backends {
     avoid.insert(wgpu::Backends::METAL);
     #[cfg(not(target_family = "windows"))]
     avoid.insert(wgpu::Backends::DX12);
+    // require that vulkan be enabled explicitly on macos and windows. This is necessary because on
+    // windows, wgpu will generally prefer vulkan over directx, but we have better support for
+    // directx, namely transparent windows work there
+    #[cfg(all(any(target_vendor = "apple", target_family = "windows"), not(feature = "vulkan")))]
+    avoid.insert(wgpu::Backends::VULKAN);
     avoid
 }
 

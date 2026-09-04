@@ -39,6 +39,12 @@ renderer-femtovg-wgpu = [
   "i-slint-backend-winit?/renderer-femtovg-wgpu",
   "i-slint-backend-linuxkms?/renderer-femtovg-wgpu",
 ]
+renderer-femtovg-wgpu-vulkan = [
+  "renderer-femtovg-wgpu",
+  "i-slint-renderer-femtovg/vulkan",
+  "wgpu-30?/vulkan-portability",
+  "wgpu-29?/vulkan-portability",
+]
 renderer-skia = [
   "dep:i-slint-renderer-skia",
   "i-slint-backend-winit?/renderer-skia",
