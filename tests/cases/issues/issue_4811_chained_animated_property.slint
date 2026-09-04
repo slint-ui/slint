@@ -1,0 +1,56 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    in-out property <bool> val;
+    out property <int> p1: val ? 10 : 20;
+    animate p1 { duration: 1s; }
+
+    out property <int> derived: p1 * 10;
+    animate derived { duration: 100ms; }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_derived(), 200);
+
+instance.set_val(true);
+
+// `i32` interpolation used by the animation system: linear, rounding
+// half-away-from-zero, clamped to the [from, to] range.
+fn interpolate_i32(from: i32, to: i32, t: f32) -> i32 {
+    from + (t.clamp(0.0, 1.0) * (to - from) as f32).round() as i32
+}
+
+// `p1` linearly animates from 20 to 10 over 1000ms.
+let (p1_from, p1_to, p1_duration) = (20, 10, 1000.0f32);
+let mut prev_p1 = p1_from;
+
+// `derived` re-targets to `p1 * 10` every time `p1`'s value changes, and
+// itself animates to the new target over 100ms. Track its current segment
+// so every tick is checked against the underlying math
+let (mut seg_from, mut seg_to, mut seg_start) = (200, 200, 0i64);
+let mut prev_derived = 200;
+
+// Poll every 10ms, like a renderer redrawing every frame.
+for i in 1..=120i64 {
+    slint_testing::mock_elapsed_time(10);
+    let t = i * 10;
+
+    let p1_expected = interpolate_i32(p1_from, p1_to, t as f32 / p1_duration);
+    if p1_expected != prev_p1 {
+        seg_from = prev_derived;
+        seg_to = p1_expected * 10;
+        seg_start = t;
+        prev_p1 = p1_expected;
+    }
+    let derived_expected = interpolate_i32(seg_from, seg_to, (t - seg_start) as f32 / 100.0);
+
+    let p1 = instance.get_p1();
+    let derived = instance.get_derived();
+    assert_eq!((p1, derived), (p1_expected, derived_expected), "at t={t}ms");
+    prev_derived = derived_expected;
+}
+```
+*/
