@@ -24,8 +24,11 @@ use crate::protocol::{
     SourceFileVersion,
 };
 
+/// Small wrapper around tokio::spawn_local to silence the clippy warning that
+/// you should just use `spawn_local`.
+/// spawn_local is shadowed by `slint::spawn_local`, so make this explicit here.
 #[allow(clippy::disallowed_methods)]
-fn spawn_local<Future>(future: Future) -> tokio::task::JoinHandle<Future::Output>
+fn tokio_spawn_local<Future>(future: Future) -> tokio::task::JoinHandle<Future::Output>
 where
     Future: std::future::Future + 'static,
     Future::Output: 'static,
@@ -92,7 +95,7 @@ impl PreviewSession {
         });
         session.compiler.replace(Some(session.create_compiler()));
         let (command_sender, command_receiver) = mpsc::unbounded_channel();
-        spawn_local(session.clone().process_messages(command_receiver, event_handler));
+        tokio_spawn_local(session.clone().process_messages(command_receiver, event_handler));
         (session, PreviewSessionHandle { command_sender })
     }
 
@@ -457,7 +460,7 @@ pub async fn run_with_channels(
         })
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
 
-    spawn_local(async move {
+    tokio_spawn_local(async move {
         while let Some(message) = from_editor.recv().await {
             let should_quit = matches!(message, LspToPreviewMessage::Quit);
             if session_handle.handle_message(message).is_err() || should_quit {
