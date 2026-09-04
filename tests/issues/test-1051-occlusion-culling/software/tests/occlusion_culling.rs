@@ -23,7 +23,7 @@ mod scenarios;
 use i_slint_core::platform::{Platform, PlatformError};
 use i_slint_core::window::WindowAdapter;
 use i_slint_renderer_software::{LineBufferProvider, MinimalSoftwareWindow, RepaintBufferType};
-use slint_interpreter::{Compiler, ComponentHandle};
+use slint_interpreter::{Compiler, ComponentHandle, Value};
 use std::rc::Rc;
 
 struct TestPlatform {
@@ -60,7 +60,13 @@ impl LineBufferProvider for NullLineBuffer {
     }
 }
 
-fn rendered_item_count(source: String, scale_factor: f32) -> usize {
+/// Renders the scene once per entry in `frames`, applying that frame's property values before
+/// drawing it, and returns how many items each frame dispatched a draw call for.
+fn rendered_item_counts(
+    source: String,
+    scale_factor: f32,
+    frames: &[scenarios::Frame],
+) -> Vec<usize> {
     // NewBuffer always redraws through the plain (non-partial) renderer, bypassing
     // `PartialRenderer` -- and occlusion culling is implemented inside `PartialRenderer`. Use
     // ReusedBuffer so the render actually goes through `PartialRenderer::filter_item`.
@@ -80,13 +86,28 @@ fn rendered_item_count(source: String, scale_factor: f32) -> usize {
     // Logical, not physical: keeps the scene's declared 200x200 logical window size regardless
     // of `scale_factor`, letting the physical framebuffer size scale with it.
     window.set_size(i_slint_core::api::LogicalSize::new(200., 200.));
-    window.request_redraw();
 
-    i_slint_core::item_rendering::reset_rendered_item_count();
-    window.draw_if_needed(|renderer| {
-        renderer.render_by_line(NullLineBuffer::default());
-    });
-    i_slint_core::item_rendering::rendered_item_count()
+    frames
+        .iter()
+        .map(|scenarios::Frame(properties)| {
+            for (name, value) in *properties {
+                instance.set_property(name, Value::Number(*value as f64)).unwrap();
+            }
+            // Redraw even when nothing reported itself dirty: a frame that finds an empty dirty
+            // region has to draw nothing, and that's exactly what a multi-frame scenario checks.
+            window.request_redraw();
+            i_slint_core::item_rendering::reset_rendered_item_count();
+            window.draw_if_needed(|renderer| {
+                renderer.render_by_line(NullLineBuffer::default());
+            });
+            i_slint_core::item_rendering::rendered_item_count()
+        })
+        .collect()
+}
+
+/// Renders one frame of the scene, without setting any properties first.
+fn rendered_item_count(source: String, scale_factor: f32) -> usize {
+    rendered_item_counts(source, scale_factor, &[scenarios::Frame(&[])])[0]
 }
 
 /// Runs `f` on a fresh OS thread: `set_platform` may only be called once per thread (the
@@ -136,5 +157,16 @@ fn opaque_cover_shrink_is_sound_at_fractional_scale_factor() {
     scenarios::assert_fractional_scale_factor_shrink_is_sound(rendered_item_count(
         scenarios::fractional_scale_factor_source(),
         1.3,
+    ));
+}
+
+/// Software-only: the Skia harness renders through `take_snapshot`, which redraws the whole
+/// window every time, so a frame that has nothing to redraw can't be observed there.
+#[test]
+fn moving_occluder_culls_only_while_it_covers() {
+    scenarios::assert_moving_occluder_counts(&rendered_item_counts(
+        scenarios::moving_occluder_source(),
+        1.0,
+        scenarios::MOVING_OCCLUDER_FRAMES,
     ));
 }

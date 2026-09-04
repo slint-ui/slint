@@ -11,6 +11,9 @@
 //! inequality. Counts are the number of items `render_item_children`'s tree walk dispatches a
 //! draw call for, via `i_slint_core::item_rendering::rendered_item_count()`.
 
+// A few scenes only apply to one of the two harnesses, so the other one includes them unused.
+#![allow(dead_code)]
+
 pub const HIDDEN_RECT_COUNT: usize = 50;
 
 pub fn hidden_siblings_source() -> String {
@@ -300,5 +303,70 @@ pub fn assert_fractional_scale_factor_shrink_is_sound(count: usize) {
         "expected the occluder, the window's own background, and the sliver probe sitting in \
          the sub-pixel-wide gap the device-pixel shrink must leave unclaimed to all be drawn (3 \
          draw commands), with only the deep probe culled, but the tree walk dispatched {count}",
+    );
+}
+
+/// The `in` property values to set on a scene before drawing one frame of a multi-frame
+/// scenario, as name/value pairs; the value is a plain number (a length in logical pixels for a
+/// `length` property).
+pub struct Frame(pub &'static [(&'static str, f32)]);
+
+/// Occlusion is recomputed every frame, so an occluder that moves off a probe must let it be
+/// drawn again, and one that moves onto a probe must cull it from then on.
+///
+/// Also a regression test for an occluded item keeping a dirty rendering tracker: `tint` changes
+/// the probe's color in the same frame the occluder covers it, so the probe goes into hiding
+/// dirty. Its tracker has to be dropped, or it stays dirty forever and marks its rectangle dirty
+/// on every later frame -- which is what frame 3, drawing nothing at all, pins down.
+pub fn moving_occluder_source() -> String {
+    r#"
+    export component AppWindow inherits Window {
+        width: 200px;
+        height: 200px;
+        in property <length> cover-x;
+        in property <int> tint;
+        Rectangle {
+            x: 10px;
+            y: 10px;
+            width: 4px;
+            height: 4px;
+            background: rgb(root.tint, 0, 0);
+        }
+        Rectangle {
+            // Declared (thus painted) last, on top of the probe above.
+            x: root.cover-x;
+            y: 0px;
+            width: 200px;
+            height: 200px;
+            background: blue;
+        }
+    }
+    "#
+    .into()
+}
+
+/// The frames to draw for `moving_occluder_source`, in order. `cover-x` 210px puts the occluder
+/// entirely outside the 200px-wide window.
+pub const MOVING_OCCLUDER_FRAMES: &[Frame] = &[
+    Frame(&[("cover-x", 210.), ("tint", 0.)]),
+    Frame(&[("cover-x", 0.), ("tint", 200.)]),
+    Frame(&[]),
+    Frame(&[("cover-x", 210.)]),
+];
+
+pub fn assert_moving_occluder_counts(counts: &[usize]) {
+    // Frame 1: the occluder is off-window, so the window's own background and the probe are
+    //          drawn, and the occluder itself is clipped away.
+    // Frame 2: the occluder has moved over everything and culls both.
+    // Frame 3: nothing changed and nothing is dirty, so nothing is drawn -- provided frame 2
+    //          dropped the rendering tracker of the probe it hid while it was dirty.
+    // Frame 4: the occluder is off-window again, so the probe is drawn once more, with the
+    //          color it was given back in frame 2, along with the window's own background.
+    assert_eq!(
+        counts,
+        [2, 1, 0, 2],
+        "expected the moving occluder to cull the probe only while it covers it, and the frame \
+         after it starts covering it to draw nothing at all, but the tree walk dispatched \
+         {counts:?} draw commands per frame",
     );
 }
