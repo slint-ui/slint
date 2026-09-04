@@ -208,6 +208,10 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
         self.renderer.clear_graphics_context()
     }
 
+    fn presentation_may_use_transparency(&self) -> bool {
+        self.renderer.presentation_may_use_transparency()
+    }
+
     fn resume(
         &self,
         active_event_loop: &ActiveEventLoop,
@@ -243,9 +247,17 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
         // `new_instance_with_webgpu_detection` can fall through to WebGL when no
         // WebGPU adapter is reachable (e.g. headless Chromium on CI).
         #[cfg(not(target_arch = "wasm32"))]
-        let backends_to_avoid = i_slint_core::graphics::wgpu_30::wgpu::Backends::GL;
+        #[allow(unused_mut)]
+        let mut backends_to_avoid = i_slint_core::graphics::wgpu_30::wgpu::Backends::GL;
         #[cfg(target_arch = "wasm32")]
         let backends_to_avoid = i_slint_core::graphics::wgpu_30::wgpu::Backends::empty();
+
+        // wgpu prefers vulkan, but vulkan on windows is not guaranteed to support window
+        // transparency, so we prefer DX12 if transparency is enabled
+        #[cfg(target_os = "windows")]
+        if self.presentation_may_use_transparency() && requested_graphics_api.is_none() {
+            backends_to_avoid |= i_slint_core::graphics::wgpu_30::wgpu::Backends::VULKAN;
+        }
 
         i_slint_core::graphics::wgpu_30::init_instance_adapter_device_queue_surface_then(
             &context,
