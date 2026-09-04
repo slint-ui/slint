@@ -1977,6 +1977,9 @@ fn format_exports_list(
             _ => break,
         }
     }
+    if node.child_node(SyntaxKind::ExportModule).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::ExportModule, writer, state, " ")?;
+    }
     state.skip_all_whitespace = true;
     finish_node(sub, writer, state)?;
     state.new_line();
@@ -3230,6 +3233,30 @@ export struct LineEditData {
             "export {\n    SuperLongTypeName,\n    AnotherVeryLongTypeName,\n    YetAnotherExtremelyLongTypeName,\n}\n",
         );
         assert_formatting("export { Foo, }\n", "export {\n    Foo,\n}\n");
+    }
+
+    #[test]
+    fn export_from() {
+        assert_formatting(
+            "export {Foo,Bar}from \"some/path.slint\";",
+            "export { Foo, Bar } from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export {Foo  as   Bar}from \"some/path.slint\";\n",
+            "export { Foo as Bar } from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export { SuperLongTypeName, AnotherVeryLongTypeName, YetAnotherExtremelyLongTypeName }from \"some/path.slint\";\n",
+            "export {\n    SuperLongTypeName,\n    AnotherVeryLongTypeName,\n    YetAnotherExtremelyLongTypeName,\n} from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export { Foo, }from \"some/path.slint\";\n",
+            "export {\n    Foo,\n} from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export { Foo, }from \"some/path.slint\";\n",
+            "export {\n    Foo,\n} from \"some/path.slint\";\n",
+        );
     }
 
     #[test]
