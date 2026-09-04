@@ -14,8 +14,9 @@ Some convention used in the generated code:
 
 use super::accessor_names::{self, AccessorKind};
 use crate::CompilerConfiguration;
+use crate::diagnostics::SourceLocation;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
-use crate::langtype::{DeclNode, Enumeration, EnumerationValue, Struct, StructName, Type};
+use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::lower_layout_expression::{
@@ -758,12 +759,12 @@ fn rust_attributes_tokens(
     attributes: &[SmolStr],
     kind: &str,
     name: &SmolStr,
-    node: Option<&DeclNode>,
+    node: Option<&SourceLocation>,
 ) -> TokenStream {
     let attrs = attributes.iter().map(|attr| match TokenStream::from_str(attr) {
         Ok(t) => quote!(#[#t]),
         Err(_) => {
-            let source_location = node.map(|n| n.to_source_location()).unwrap_or_default();
+            let source_location = node.cloned().unwrap_or_default();
             let error = format!(
                 "Error parsing @rust-attr for {kind} '{name}' declared at {source_location}"
             );

@@ -11,6 +11,7 @@ use itertools::Itertools;
 
 use smol_str::SmolStr;
 
+use crate::diagnostics::SourceLocation;
 use crate::expression_tree::{BuiltinFunction, Expression, Unit};
 use crate::object_tree::{Component, DEFAULT_SLOT_NAME, PropertyVisibility};
 use crate::parser::SyntaxNode;
@@ -1057,45 +1058,6 @@ impl Display for Function {
     }
 }
 
-/// A `Send` + `Sync` reference to *where* a user-declared struct or enum was
-/// written: the source file and the text range of its declaration node.
-///
-/// It deliberately carries no syntax tree, so the langtype graph (and therefore
-/// the LLR) stays compact and `Send` without pinning parsed documents at
-/// runtime. Everything the code generators need from the declaration is captured
-/// into the type at build time (e.g. `@rust-attr` in `rust_attributes`); the
-/// language server, which keeps every open document, resolves the actual syntax
-/// node from its own `DocumentCache` using [`Self::text_range`].
-#[derive(Debug, Clone)]
-pub struct DeclNode {
-    source_file: crate::diagnostics::SourceFile,
-    range: rowan::TextRange,
-}
-
-impl DeclNode {
-    pub fn new(node: &crate::parser::SyntaxNode) -> Self {
-        Self { source_file: node.source_file.clone(), range: node.node.text_range() }
-    }
-
-    /// The absolute text range of the declaration node within its document.
-    pub fn text_range(&self) -> rowan::TextRange {
-        self.range
-    }
-
-    /// The source file the declaration was parsed from.
-    pub fn source_file(&self) -> &crate::diagnostics::SourceFile {
-        &self.source_file
-    }
-
-    /// The source location (file + span) of the declaration.
-    pub fn to_source_location(&self) -> crate::diagnostics::SourceLocation {
-        crate::diagnostics::SourceLocation {
-            source_file: Some(self.source_file.clone()),
-            span: crate::diagnostics::Span::new(self.range.start().into(), self.range.len().into()),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum StructName {
     /// Anonymous structs
@@ -1104,7 +1066,7 @@ pub enum StructName {
     User {
         name: SmolStr,
         /// Where the declaration was written (for the language server).
-        node: DeclNode,
+        node: SourceLocation,
         /// The raw text of each `@rust-attr(...)` on the declaration, captured
         /// at build time so the Rust generator does not need the syntax tree.
         rust_attributes: Vec<SmolStr>,
@@ -1176,7 +1138,7 @@ impl Struct {
     }
 
     /// Where a user-declared struct was written (for the language server).
-    pub fn node(&self) -> Option<&DeclNode> {
+    pub fn node(&self) -> Option<&SourceLocation> {
         match &self.name {
             StructName::User { node, .. } => Some(node),
             _ => None,
@@ -1355,7 +1317,7 @@ pub struct Enumeration {
     pub values: Vec<SmolStr>,
     pub default_value: usize, // index in values
     // For non-builtins enums, this is where the declaration was written.
-    pub node: Option<DeclNode>,
+    pub node: Option<SourceLocation>,
     /// The raw text of each `@rust-attr(...)` on the declaration, captured at
     /// build time so the Rust generator does not need the syntax tree.
     pub rust_attributes: Vec<SmolStr>,

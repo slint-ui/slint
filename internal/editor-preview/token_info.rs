@@ -1,13 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::diagnostics::{SourceLocation, Spanned};
 use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::langtype::{ElementType, EnumerationValue, Type};
 use i_slint_compiler::lookup::{LookupObject, LookupResult, LookupResultCallable};
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, TextRange, syntax_nodes};
 use i_slint_compiler::pathutils::clean_path;
 use smol_str::{SmolStr, ToSmolStr};
 use std::path::Path;
@@ -34,11 +34,16 @@ pub enum TokenInfo {
 /// not need to carry a syntax tree.
 pub fn node_for_decl(
     document_cache: &crate::DocumentCache,
-    decl: &i_slint_compiler::langtype::DeclNode,
+    decl: &SourceLocation,
 ) -> Option<SyntaxNode> {
-    let doc = document_cache.get_document_for_source_file(decl.source_file())?;
-    let node = doc.node.as_ref()?.covering_element(decl.text_range()).into_node()?;
-    Some(SyntaxNode { node, source_file: decl.source_file().clone() })
+    let source_file = decl.source_file.as_ref()?;
+    let doc = document_cache.get_document_for_source_file(source_file)?;
+    let node = doc.node.as_ref()?.covering_element(decl_range(decl)).into_node()?;
+    Some(SyntaxNode { node, source_file: source_file.clone() })
+}
+
+fn decl_range(decl: &SourceLocation) -> TextRange {
+    TextRange::at((decl.span.offset as u32).into(), (decl.span.length as u32).into())
 }
 
 impl TokenInfo {
@@ -307,8 +312,7 @@ pub fn token_info(document_cache: &crate::DocumentCache, token: SyntaxToken) -> 
                 match &ty {
                     Type::Struct(s)
                         if s.node()
-                            .map(|n| n.text_range().contains_range(token.text_range()))
-                            .unwrap_or_default() =>
+                            .is_some_and(|n| decl_range(n).contains_range(token.text_range())) =>
                     {
                         return Some(TokenInfo::Type(ty));
                     }
@@ -324,8 +328,7 @@ pub fn token_info(document_cache: &crate::DocumentCache, token: SyntaxToken) -> 
                     Type::Enumeration(e)
                         if e.node
                             .as_ref()
-                            .map(|n| n.text_range().contains_range(token.text_range()))
-                            .unwrap_or_default() =>
+                            .is_some_and(|n| decl_range(n).contains_range(token.text_range())) =>
                     {
                         return Some(TokenInfo::Type(ty));
                     }
