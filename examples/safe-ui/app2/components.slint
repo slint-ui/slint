@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// Figma export section: 2086 / Public Transit / Slint-SC PNG exports.
+// Font Awesome Free icons: CC BY 4.0, https://fontawesome.com/license/free
+// Tabler icons: MIT, https://tabler.io/icons
+// Ionicons man: MIT, https://ionic.io/ionicons
+// Font appearance is baked into PNGs; no runtime fonts are required.
+
+// Presentation states only: the host/view chooses which state to display.
+export enum DoorState { sealed, locking, locked, ready, released }
+
+export component DoorImage inherits Image {
+    in property <DoorState> state: DoorState.sealed;
+
+    // Preserve each PNG's native size, including the taller sealed artwork.
+    source: root.state == DoorState.sealed ? @image-url("assets/door-sealed.png")
+        : root.state == DoorState.locking ? @image-url("assets/door-locking.png")
+        : root.state == DoorState.locked ? @image-url("assets/door-locked.png")
+        : root.state == DoorState.ready ? @image-url("assets/door-ready.png")
+        : @image-url("assets/door-released.png");
+}
+
+export component OccupantImage inherits Image {
+    source: @image-url("assets/chamber-occupied.png");
+}
+
+export component PressureImage inherits Image {
+    source: @image-url("assets/pressure-gauge.png");
+}
+
+export component ActionImage inherits Image {
+    source: @image-url("assets/action-enter.png");
+}
+
+// One native 10x24 white digit, selected without runtime text rendering.
+export component RasterDigit inherits Image {
+    private property <int> digit: value < 0 ? 0 : value > 9 ? 9 : value;
+
+    in property <int> value: 0;
+
+    source: root.digit == 0 ? @image-url("assets/digits/digit-white-0.png")
+        : root.digit == 1 ? @image-url("assets/digits/digit-white-1.png")
+        : root.digit == 2 ? @image-url("assets/digits/digit-white-2.png")
+        : root.digit == 3 ? @image-url("assets/digits/digit-white-3.png")
+        : root.digit == 4 ? @image-url("assets/digits/digit-white-4.png")
+        : root.digit == 5 ? @image-url("assets/digits/digit-white-5.png")
+        : root.digit == 6 ? @image-url("assets/digits/digit-white-6.png")
+        : root.digit == 7 ? @image-url("assets/digits/digit-white-7.png")
+        : root.digit == 8 ? @image-url("assets/digits/digit-white-8.png")
+        : @image-url("assets/digits/digit-white-9.png");
+}
