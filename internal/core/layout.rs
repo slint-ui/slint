@@ -3436,7 +3436,7 @@ mod tests {
     }
 
     /// Runs `grid_internal::to_layout_data` for a single row made of one
-    /// unspanned cell per constraint, and returns that row's combined
+    /// non-spanning cell per constraint, and returns that row's combined
     /// LayoutData (min/max/pref), for testing the row/col aggregation in
     /// isolation from the rest of GridLayout.
     fn row_layout_data(constraints: &[LayoutInfo]) -> grid_internal::LayoutData {
