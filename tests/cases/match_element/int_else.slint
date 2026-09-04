@@ -100,4 +100,26 @@ assert_eq!(instance.get_var1(), 20);
 assert_eq!(instance.get_var2(), 50);
 assert_eq!(instance.get_var3(), 140);
 ```
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.var1, 20);
+assert.equal(instance.var2, 50);
+assert.equal(instance.var3, 70);
+
+slintlib.private_api.send_mouse_click(instance, 0., 100.);
+assert.equal(instance.var1, 20);
+assert.equal(instance.var2, 50);
+assert.equal(instance.var3, 70);
+
+slintlib.private_api.send_mouse_click(instance, 150., 100.);
+assert.equal(instance.var1, 20);
+assert.equal(instance.var2, 50);
+assert.equal(instance.var3, 70);
+
+slintlib.private_api.send_mouse_click(instance, 300., 100.);
+assert.equal(instance.var1, 20);
+assert.equal(instance.var2, 50);
+assert.equal(instance.var3, 140);
+```
 */

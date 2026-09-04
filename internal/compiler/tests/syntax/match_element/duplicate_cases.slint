@@ -19,7 +19,8 @@ export component DuplicateCaseWithCast {
     match xx {
         2: Rectangle { }
         2.0: Rectangle { }
-//      > <error{Duplicate case value}
+//      > <error{Cannot perform type conversion}
+//      > <^error{Duplicate case value}
         *: Rectangle { }
     }
 }

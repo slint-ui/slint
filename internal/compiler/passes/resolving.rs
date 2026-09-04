@@ -24,7 +24,7 @@ use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
@@ -147,6 +147,9 @@ fn resolve_match_elements(
             diag,
         );
         let case_type = match_element.subject.ty();
+        if matches!(case_type, Type::Float32) && !match_element.cases.is_empty() {
+            diag.push_error("Values of type float cannot be matched".into(), &match_element.node);
+        }
         for case in &mut match_element.cases {
             resolve_expression(
                 elem,
@@ -177,18 +180,14 @@ fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagn
                 | Expression::BoolLiteral(..)
                 | Expression::EnumerationValue(..)
         );
-    let is_valid_cast = matches!(
-        value,
-        Expression::Cast { from, to, .. }
-            if as_number_literal(from).is_some()
-                && matches!(to, Type::Color | Type::Int32)
-    );
-
-    if let Some((number, Unit::None)) = as_number_literal(value)
-        && number.fract() != 0.0
-    {
-        diag.push_warning("Floating point comparison is not recommended".into(), node);
-    }
+    let is_valid_cast = match value {
+        Expression::Cast { from, to: Type::Color, .. } => as_number_literal(from).is_some(),
+        Expression::Cast { from, to: Type::Int32, .. } => {
+            // 1.0 and 1 parse to the same number literal so the text check is needed
+            as_number_literal(from).is_some() && !node.text().to_string().contains('.')
+        }
+        _ => false,
+    };
 
     if is_literal || is_valid_cast {
         // pass
@@ -232,21 +231,42 @@ impl CaseValue {
     }
 }
 
+// `f64` has no total order/equality (NaN), but case values are always parsed
+// literals, never NaN, so treating `CaseValue` as `Eq`/`Hash` is sound here.
+impl Eq for CaseValue {}
+
+impl std::hash::Hash for CaseValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            // Normalize -0.0 to 0.0 so the hash agrees with `==`, which treats them as equal.
+            CaseValue::Number(number, unit) => {
+                debug_assert_ne!(*number, f64::NAN);
+                (if *number == 0.0 { 0.0 } else { *number }).to_bits().hash(state);
+                unit.hash(state);
+            }
+            CaseValue::String(string) => string.hash(state),
+            CaseValue::Bool(boolean) => boolean.hash(state),
+            CaseValue::Enumeration(value) => value.hash(state),
+        }
+    }
+}
+
 /// Reports every case whose value is already covered by an earlier case
 fn check_duplicate_cases(
     cases: &[MatchCaseInfo],
     values: &[Option<CaseValue>],
     diag: &mut BuildDiagnostics,
 ) {
-    let mut seen: Vec<&CaseValue> = Vec::with_capacity(values.len());
+    // `CaseValue` has interior mutability
+    #[allow(clippy::mutable_key_type)]
+    let mut seen = HashSet::with_capacity(values.len());
     for (case, value) in cases.iter().zip(values) {
         let Some(value) = value else {
             continue; // not a valid literal
         };
-        if seen.contains(&value) {
+        if !seen.insert(value) {
             diag.push_error("Duplicate case value".into(), &case.node);
-        } else {
-            seen.push(value);
         }
     }
 }
@@ -271,13 +291,14 @@ fn check_exhaustiveness(
     if !matches!(match_element.wildcard, WildcardMatchCaseInfo::None) {
         return;
     }
-    // Prevents duplicated errors if both not a literal and not exhaustive
-    let mut covered: Vec<&CaseValue> = Vec::with_capacity(values.len());
+    // `CaseValue` has interior mutability
+    #[allow(clippy::mutable_key_type)]
+    let mut covered: HashSet<&CaseValue> = HashSet::with_capacity(values.len());
     for value in values {
         let Some(value) = value else {
             return;
         };
-        covered.push(value);
+        covered.insert(value);
     }
     let subject_node = match_element.node.Expression();
     let subject_type = match_element.subject.ty();
@@ -304,7 +325,7 @@ fn check_exhaustiveness(
 
     let mut missing = Vec::new();
     for value in &expected {
-        if !covered.contains(&value) {
+        if !covered.contains(value) {
             missing.push(format!("'{value}'"));
         }
     }

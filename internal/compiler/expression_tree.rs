@@ -697,7 +697,7 @@ declare_units! {
 /// its type, so the stored value is already scaled and needs no further
 /// conversion. The units a user can type (`cm`, `pt`, `grad`, ...) are
 /// [`WrittenUnit`] and are normalized to one of these on the way in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum Unit {
     /// Dimension-less (`float`, `int`)
     #[default]
