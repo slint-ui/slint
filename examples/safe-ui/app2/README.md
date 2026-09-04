@@ -67,6 +67,8 @@ The demo title uses `logo/slint-logo-simple-light.svg` from this repository, ras
 The title is a native-size PNG used only by `demo.slint`.
 The fault background combines the original background, pressure warning at (118,115), and emergency panel at (7,181).
 Those three Figma exports are composited at native size with the Slint software renderer.
+The eleven `progress/progress-*.png` states combine the Figma base and segment overlays at their native pixel offsets.
+One image selects the ring state in completed 10% steps; separate raster digits display the exact percentage.
 The assets include icons from these free sources:
 
 - [Font Awesome Free 6.7.2](https://fontawesome.com/license/free), Copyright 2024 Fonticons, Inc., CC BY 4.0: lock, unlock-keyhole, check, triangle-exclamation, hand, person-walking, and right-from-bracket icons in the backgrounds, doors, pressure-lock/check indicators, and enter/exit panels.
