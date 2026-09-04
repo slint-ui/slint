@@ -541,7 +541,7 @@ mod tests {
     fn primary_preview_accessors_return_the_first_connection() {
         let (mut session, _) = session_with_recording_previews();
         let component = PreviewComponent {
-            url: Url::parse("file:///primary.slint").unwrap(),
+            url: Url::from_file_path(crate::test::test_file_name("primary.slint")).unwrap(),
             component: Some("Primary".into()),
         };
 
@@ -554,8 +554,10 @@ mod tests {
     #[test]
     fn invalid_preview_indexes_are_ignored() {
         let (mut session, messages) = session_with_recording_previews();
-        let component =
-            PreviewComponent { url: Url::parse("file:///missing.slint").unwrap(), component: None };
+        let component = PreviewComponent {
+            url: Url::from_file_path(crate::test::test_file_name("missing.slint")).unwrap(),
+            component: None,
+        };
 
         assert!(session.preview(2).is_none());
         assert!(session.preview_mut(2).is_none());
@@ -571,8 +573,10 @@ mod tests {
     #[test]
     fn shared_messages_are_broadcast_to_every_preview() {
         let (mut session, messages) = session_with_recording_previews();
-        let invalidated_url = Url::parse("file:///invalidated.slint").unwrap();
-        let deleted_url = Url::parse("file:///deleted.slint").unwrap();
+        let invalidated_url =
+            Url::from_file_path(crate::test::test_file_name("invalidated.slint")).unwrap();
+        let deleted_url =
+            Url::from_file_path(crate::test::test_file_name("deleted.slint")).unwrap();
 
         spin_on::spin_on(session.load_document_impl(
             "export component Shared {}".into(),
