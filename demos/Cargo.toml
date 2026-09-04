@@ -9,6 +9,7 @@
 # as the root workspace so common library artifacts are reused.
 [workspace]
 members = [
+  'analogclock/rust',
   'energy-monitor',
   'home-automation/rust',
   'launcher',
