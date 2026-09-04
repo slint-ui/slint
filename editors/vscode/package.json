@@ -133,6 +133,16 @@
           },
           "description": "The command line arguments passed to the Slint LSP server"
         },
+        "slint.lsp.logLevel": {
+          "type": "string",
+          "enum": [
+            "info",
+            "debug",
+            "trace"
+          ],
+          "default": "info",
+          "description": "Set the Slint language server log level. Run 'Slint: Restart server' to apply changes."
+        },
         "slint.preview.hide_ui": {
           "type": "boolean",
           "default": false,
