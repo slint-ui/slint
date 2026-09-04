@@ -42,22 +42,18 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
 
     /// The delta this renderer's own origin-snap applies (or would apply) to the current item's
     /// screen position, in physical pixels -- `round(origin) - origin`, or zero if this renderer
-    /// doesn't snap the item's own screen position to the device-pixel grid before drawing its
-    /// glyphs at all (e.g. the software renderer, which quantizes into sub-pixel bins instead of
-    /// rounding), if the transform it would snap under isn't a pure translation (see e.g.
-    /// femtovg's `align_canvas_during` or skia's `pixel_align_origin_auto_restore`, both of which
-    /// skip snapping under rotation/scale), or if the origin is already exactly on a device pixel.
+    /// doesn't snap the origin at all, the transform it would snap under isn't a pure translation,
+    /// or the origin is already exactly on a device pixel.
     ///
     /// Queried once per `draw_text`/`draw_text_input` call, so implementations that mutate their
     /// own canvas's transform to perform the origin-snap (skia) must stash the delta from that
     /// computation rather than trying to recompute it afterwards from the now-already-snapped
     /// transform.
     ///
-    /// The box's own width/height are never snapped -- only its own screen position is -- so this
-    /// same delta also shows up, unchanged, on every edge of the box; a caller that needs an
-    /// alignment offset (`box_size - content_size`) to hold a specific edge in place regardless of
-    /// this snap uses this to correct for it. See issue #6739's review for why that correction has
-    /// to come from the actual origin-snap delta, not from rounding the box size itself.
+    /// The box's own width/height are never snapped, so this same delta also shows up, unchanged,
+    /// on every edge of the box; a caller that needs an alignment offset (`box_size -
+    /// content_size`) to hold a specific edge in place regardless of this snap uses this to
+    /// correct for it. See `#6739`.
     fn text_origin_snap_delta(&self) -> PhysicalPoint {
         PhysicalPoint::zero()
     }

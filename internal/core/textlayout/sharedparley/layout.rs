@@ -42,10 +42,9 @@ pub(super) struct LayoutOptions {
     ///
     /// This is the *actual* delta the renderer's origin-snap applies, not the (unrounded) box
     /// size's own rounding: origin and box size are independent quantities, so a caller cannot
-    /// infer one's rounding delta from the other in general -- see `pixel_snap_correction` and
-    /// issue #6739's review for why. Draw callers get this from their `GlyphRenderer` (which
-    /// already computes it to align its own canvas transform); query callers reconstruct it via
-    /// `ItemRc::window_origin_if_translate_only`.
+    /// infer one's rounding delta from the other in general -- see `pixel_snap_correction`. Draw
+    /// callers get this from their `GlyphRenderer` (which already computes it to align its own
+    /// canvas transform); query callers reconstruct it via `ItemRc::window_origin_if_translate_only`.
     pub(super) origin_snap_delta: PhysicalPoint,
 }
 
@@ -150,19 +149,13 @@ fn alignment_fraction_v(vertical_align: TextVerticalAlignment) -> f32 {
 /// The correction an aligned edge needs to cancel out (part of) the renderer's own origin-snap:
 /// `origin_snap_delta` is how far that snap moves this item's screen position (see
 /// [`LayoutOptions::origin_snap_delta`]), and since the box's own size is never rounded, that
-/// whole delta also shows up, unchanged, on every edge of the box -- including whichever edge an
-/// alignment is meant to hold in place. `fraction` (see [`alignment_fraction_h`]/
-/// [`alignment_fraction_v`]) is how much of that motion this particular edge must cancel: none
-/// for `Start`/`Left`/`Top` (that edge *is* the origin -- letting it move is the entire point of
-/// snapping it), all of it for `End`/`Right`/`Bottom` (the far edge must not move at all), half
-/// for `Center`.
+/// whole delta also shows up, unchanged, on every edge of the box. `fraction` (see
+/// [`alignment_fraction_h`]/[`alignment_fraction_v`]) is how much of that motion this particular
+/// edge must cancel: none for `Start`/`Left`/`Top`, all of it for `End`/`Right`/`Bottom`, half for
+/// `Center`.
 ///
-/// Deliberately never fed into line breaking, elision, or the box's own height-cut logic -- see
-/// [`GlyphRenderer::text_origin_snap_delta`](super::draw::GlyphRenderer::text_origin_snap_delta)
-/// and issue #6739 for why an offset needs correcting in the first place, and issue #6739's
-/// review for why nothing else may: wrapping a word that fits the real width, or eliding/clipping
-/// text that fits it, just because an *edge* needed correcting, would trade one pixel-alignment
-/// bug for a content-fit one.
+/// Deliberately never fed into line breaking, elision, or the box's own height-cut logic, which
+/// must stay exact regardless of this correction. See `#6739`.
 fn pixel_snap_correction(origin_snap_delta: PhysicalLength, fraction: f32) -> PhysicalLength {
     PhysicalLength::new(-origin_snap_delta.get() * fraction)
 }
@@ -176,22 +169,14 @@ pub(super) fn layout(
     line_breaking: Option<RetainedLineBreaking>,
 ) -> Layout {
     // Always the real, unrounded box size: line breaking, elision, and the height-cut all have to
-    // stay exact, or a word that fits the real width could wrap (or overflowing content could
-    // slip past the exact item clip) just because the box's *alignment offset* needed rounding.
-    // See `pixel_snap_correction` for where the rounding that issue #6739 needs instead happens.
+    // stay exact. See `pixel_snap_correction` for where the rounding for `#6739` happens instead.
     let max_physical_width = options.max_width.map(|w| w * scale_factor);
     let max_physical_height = options.max_height.map(|h| h * scale_factor);
 
-    // `options.origin_snap_delta` is the actual delta the renderer's own origin-snap applies to
-    // this item's screen position (see that field's doc for the full rationale and why it can't
-    // be inferred from the box size): renderers that round the item's own screen position to the
-    // device-pixel grid before drawing text (femtovg's `align_canvas_during`, skia's
-    // `pixel_align_origin_auto_restore`) apply that same delta, unrounded, to every edge of the
-    // box -- including whichever edge an alignment other than `Start`/`Left`/`Top` is meant to
-    // hold in place. Only apply a correction when there's an actual box to align within: without
-    // a `max_width`/`max_height`, alignment has nothing to measure against and parley leaves the
+    // Only apply a correction when there's an actual box to align within: without a
+    // `max_width`/`max_height`, alignment has nothing to measure against and parley leaves the
     // line at its natural (Left/Top-equivalent) position regardless of the requested alignment,
-    // so canceling any delta here would be over-correcting. See issue #6739.
+    // so canceling any delta here would be over-correcting.
     let x_offset = max_physical_width.map_or(PhysicalLength::zero(), |_| {
         pixel_snap_correction(
             options.origin_snap_delta.x_length(),

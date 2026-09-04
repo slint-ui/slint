@@ -50,24 +50,17 @@ impl<T: RendererSealed> Renderer for T {}
 /// trait is not exported in the public API, it is not possible for the
 /// users to re-implement these functions.
 pub trait RendererSealed {
-    /// Whether this renderer, when actually drawing text, ever snaps a text item's own screen
-    /// position to the device-pixel grid before drawing its glyphs (typically to avoid blurry
-    /// nearest-neighbor sampling of a rasterized glyph atlas). Query paths that don't draw --
-    /// hit-testing, the cursor rectangle, accessibility geometry -- read this to decide whether
-    /// it's worth reconstructing the item's screen position from the item tree at all, to compute
-    /// the same alignment correction drawing would use (see
-    /// `crate::textlayout::sharedparley::origin_snap_delta_for_query`), so a click, a caret, or a
-    /// screen reader's idea of where the text sits doesn't disagree with what's actually on
-    /// screen for a center/right/bottom-aligned item whose box has a fractional device-pixel
-    /// size.
+    /// Whether this renderer ever snaps a text item's own screen position to the device-pixel
+    /// grid before drawing its glyphs.
     ///
-    /// This is necessarily a coarser, static answer than the one drawing itself uses (see
-    /// `GlyphRenderer::text_origin_snap_delta` in the renderer crates that draw text, which
-    /// reports the actual delta for a specific item -- zero for an already-aligned origin or
-    /// under a rotation/scale, not just "this renderer type never snaps anything"): outside of a
-    /// render pass there is no current transform or specific item to consult, so this only
-    /// reports whether the renderer type snaps at all under an ordinary (translate-only)
-    /// transform. See issue #6739's review.
+    /// Query paths that don't draw -- hit-testing, the cursor rectangle, accessibility geometry
+    /// -- read this to decide whether to reconstruct the item's screen position from the item
+    /// tree and compute the same alignment correction drawing would use, via
+    /// [`crate::textlayout::sharedparley::origin_snap_delta_for_query`]. Coarser than
+    /// `GlyphRenderer::text_origin_snap_delta` in the renderer crates, which reports the actual,
+    /// possibly-zero delta for a specific item: outside of a render pass there is no current
+    /// transform or item to consult, so this only says whether the renderer type snaps at all
+    /// under an ordinary (translate-only) transform. See `#6739`.
     #[cfg(feature = "shared-parley")]
     fn snaps_text_origin_to_pixel_grid(&self) -> bool {
         false

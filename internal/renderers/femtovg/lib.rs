@@ -336,12 +336,8 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
 #[doc(hidden)]
 impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
     fn snaps_text_origin_to_pixel_grid(&self) -> bool {
-        // Coarser than `GLItemRenderer::text_origin_snap_delta` in itemrenderer.rs (whose doc has
-        // the full rationale): this only says femtovg origin-snaps text *at all*, not by how much
-        // for any particular item, since it's queried outside of a draw pass with no current
-        // transform to check. A query path (see `sharedparley::origin_snap_delta_for_query`) uses
-        // this to decide whether it's worth reconstructing that transform from the item tree at
-        // all before asking how much it would move the origin.
+        // See `GLItemRenderer::text_origin_snap_delta` in itemrenderer.rs for the actual, per-item
+        // delta this only coarsely predicts.
         true
     }
 

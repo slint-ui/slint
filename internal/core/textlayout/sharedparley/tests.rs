@@ -300,8 +300,8 @@ fn test_max_lines_caps_height() {
 /// device-pixel grid before drawing text (see `GlyphRenderer::text_origin_snap_delta`) apply that
 /// same, unrounded delta to every edge of the box, including the pinned one; `x_offset` cancels it
 /// there, using the *actual* delta the origin-snap applied -- not a guess inferred from the box's
-/// own width, which issue #6739's review found to be wrong whenever the origin wasn't itself
-/// derived from that width (see `test_pixel_snap_alignment_zero_delta_leaves_content_exact` below).
+/// own width, which is wrong whenever the origin isn't itself derived from that width (see
+/// `test_pixel_snap_alignment_zero_delta_leaves_content_exact` below). See `#6739`.
 ///
 /// Returns `(x_offset, unaligned_line_offset)`: the correction consumers add on top of what
 /// parley computed (see `Layout::x_offset`), and parley's own per-line offset from `align()` --
@@ -337,12 +337,11 @@ fn test_pixel_snap_alignment_cancels_the_origin_snap_delta() {
     assert_eq!(right_align_offsets(30.49, 0.0).1, right_align_offsets(30.49, -0.2).1);
 }
 
-/// Issue #6739's review: a zero delta -- no draw call snapped this item's origin at all, or one
-/// did but the origin was already exactly on a device pixel -- must leave content exactly where
-/// its real, unrounded width puts it, no matter how fractional that width is. This is the
-/// counter-example that broke the original (width-rounding) formula: `x: 0` (an origin that is
-/// always integral, independent of width) with a fractional physical width like `30.25` must not
-/// spuriously shift content just because `30.25` itself isn't a whole number.
+/// A zero delta -- no draw call snapped this item's origin at all, or one did but the origin was
+/// already exactly on a device pixel -- must leave content exactly where its real, unrounded width
+/// puts it, no matter how fractional that width is: `x: 0` (an origin that is always integral,
+/// independent of width) with a fractional physical width like `30.25` must not spuriously shift
+/// content just because `30.25` itself isn't a whole number. See `#6739`.
 #[test]
 fn test_pixel_snap_alignment_zero_delta_leaves_content_exact() {
     assert_eq!(right_align_offsets(30.25, 0.0).0, 0.0);
@@ -376,10 +375,9 @@ fn test_pixel_snap_alignment_fraction_by_horizontal_alignment() {
     assert_eq!(x_offset_for(TextHorizontalAlignment::Center), -delta * 0.5);
 }
 
-/// Issue #6739's review: the pixel-snap correction must never reach line breaking. A word whose
-/// advance sits strictly between a fractional `max_width` and its rounded neighbor has to keep
-/// fitting (or not) exactly as it would without any snapping -- wrapping it (or eliding it) just
-/// because an edge needed correcting would trade the pixel-alignment bug for a content-fit one.
+/// The pixel-snap correction must never reach line breaking: a word whose advance sits strictly
+/// between a fractional `max_width` and its rounded neighbor has to keep fitting (or not) exactly
+/// as it would without any snapping. See `#6739`.
 ///
 /// Rather than aim for one specific width where a word's advance happens to straddle a rounding
 /// boundary (which would depend on this test's font's exact metrics), this sweeps every width in
