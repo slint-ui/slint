@@ -1,0 +1,56 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `implement` must be satisfied against an interface's full member set: its own declarations
+// plus the ones it inherits.
+
+interface Base {
+    in-out property <string> text;
+}
+
+interface Derived inherits Base {
+    out property <int> count;
+}
+
+// A component that provides only the derived members is missing the inherited one.
+export component MissingInheritedMember {
+    implement Derived <=> self;
+//            >      <error{Cannot implement 'Derived'.↵- missing 'in-out property <string> text;'}
+
+    out property <int> count;
+}
+
+// An inherited member with the wrong type still names the interface that declared it.
+export component MismatchedInheritedMember {
+    implement Derived <=> self;
+//            >      <error{Cannot implement 'Derived'.↵- 'text' must be a 'string' property (found a 'int' property)}
+
+    out property <int> count;
+    in-out property <int> text;
+//                   > <note{'MismatchedInheritedMember' declares 'text' here, 'Derived' expects 'in-out property <string> text;'}
+}
+
+interface Other {
+    in-out property <string> text;
+}
+
+// Two unrelated interfaces still conflict when one's own member matches a name the other inherits.
+export component OverlapViaInheritance {
+    implement Derived <=> self;
+    implement Other <=> self;
+//            >    <error{'text' occurs in 'Other' and 'Derived'}
+
+    out property <int> count;
+    in-out property <string> text;
+}
+
+component ChildBase {
+    out property <int> count;
+}
+
+// A delegated child must carry the inherited members too, not just the derived ones.
+export component MissingInheritedMemberChild {
+    implement Derived <=> child;
+//                        >   <error{Cannot implement 'Derived' based on 'child'.↵- missing 'in-out property <string> text;'}
+    child := ChildBase { }
+}

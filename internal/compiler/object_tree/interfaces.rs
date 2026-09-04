@@ -144,6 +144,26 @@ fn resolve_implement_statement(
     }
 }
 
+/// The members an interface declares under their source names, including inherited ones.
+/// A derived declaration hides the inherited member of the same name.
+/// A shadowing declaration counts as derived, too.
+fn declared_members(interface: &ElementRc) -> BTreeMap<SmolStr, PropertyDeclaration> {
+    let mut members = BTreeMap::new();
+    let mut next = Some(interface.clone());
+    while let Some(element) = next.take() {
+        let element = element.borrow();
+        for (internal_name, declaration) in &element.property_declarations {
+            members.entry(declaration.declared_name(internal_name).clone()).or_insert_with(|| {
+                PropertyDeclaration { shadowed_name: None, ..declaration.clone() }
+            });
+        }
+        if let ElementType::Interface(Some(base)) = &element.base_type {
+            next = Some(base.root_element.clone());
+        }
+    }
+    members
+}
+
 fn filter_conflicting_implement_statements(
     diagnostics: &mut BuildDiagnostics,
     statements: Vec<ImplementedInterface>,
@@ -165,8 +185,8 @@ fn filter_conflicting_implement_statements(
             seen_interfaces.push(stmt.interface.clone());
 
             let mut valid = true;
-            for prop_name in stmt.interface.borrow().property_declarations.keys() {
-                if let Some(existing_interface) = seen_interface_api.get(prop_name) {
+            for prop_name in declared_members(&stmt.interface).into_keys() {
+                if let Some(existing_interface) = seen_interface_api.get(&prop_name) {
                     diagnostics.push_error(
                         format!(
                             "'{}' occurs in '{}' and '{}'",
@@ -176,7 +196,7 @@ fn filter_conflicting_implement_statements(
                     );
                     valid = false;
                 } else {
-                    seen_interface_api.insert(prop_name.clone(), stmt.interface_name.clone());
+                    seen_interface_api.insert(prop_name, stmt.interface_name.clone());
                 }
             }
             valid
@@ -332,11 +352,11 @@ fn validate_interface_implementation(
 ) -> bool {
     let mut errors = Vec::new();
     let mut notes = Vec::new();
-    for (member_name, member_declaration) in interface.borrow().property_declarations.iter() {
+    for (member_name, member_declaration) in declared_members(interface) {
         if let Some(mut conflict) = validate_interface_member_implementation(
             element,
-            member_name,
-            member_declaration,
+            &member_name,
+            &member_declaration,
             interface_name,
             binding,
         ) {
@@ -442,21 +462,21 @@ pub(super) fn apply_child_implement_statements(
 
         let mut conflicts = Vec::new();
         let mut notes = Vec::new();
-        for (name, prop_decl) in interface.borrow().property_declarations.iter() {
+        for (name, mut prop_decl) in declared_members(&interface) {
             let lookup_result = element
                 .borrow()
                 .base_type
-                .lookup_property(name, PropertyLookupMode::ComponentLocal);
+                .lookup_property(&name, PropertyLookupMode::ComponentLocal);
             if let Err(message) =
                 check_property_declaration_conflicts(&lookup_result, &element.borrow().base_type)
             {
                 conflicts.push(message);
-                if let Some(source) = element.borrow().property_declaration_node(name) {
+                if let Some(source) = element.borrow().property_declaration_node(&name) {
                     notes.push(NoteWithSource {
                         note: declared_here_note(
-                            name,
+                            &name,
                             &interface_name,
-                            &syntax_for_declaration(prop_decl, name),
+                            &syntax_for_declaration(&prop_decl, &name),
                             &source,
                         ),
                         source: DeclarationAnchor::Name.source_location(&source),
@@ -467,12 +487,13 @@ pub(super) fn apply_child_implement_statements(
 
             // Replace the node with the interface name for better diagnostics later, since the declaration won't have a
             // node in this element.
-            let mut prop_decl = prop_decl.clone();
             prop_decl.node = Some(node.QualifiedName().into());
 
             // A shadowing declaration also occupies the name, though stored under a different one
-            let shadowing =
-                element.borrow().declaration(name).map(|(_, declaration)| declaration.node.clone());
+            let shadowing = element
+                .borrow()
+                .declaration(&name)
+                .map(|(_, declaration)| declaration.node.clone());
             let existing_node = shadowing.or_else(|| {
                 element
                     .borrow_mut()
@@ -497,8 +518,8 @@ pub(super) fn apply_child_implement_statements(
                 diagnostics.push_note(
                     declares_as_note(
                         &interface_name,
-                        name,
-                        &syntax_for_declaration(&prop_decl, name),
+                        &name,
+                        &syntax_for_declaration(&prop_decl, &name),
                     ),
                     &node.QualifiedName(),
                 );
@@ -507,11 +528,11 @@ pub(super) fn apply_child_implement_statements(
 
             let existing_binding = match &prop_decl.property_type {
                 Type::Function(func) => {
-                    apply_uses_statement_function_binding(element, &child, name, func)
+                    apply_uses_statement_function_binding(element, &child, &name, func)
                 }
                 _ => element.borrow_mut().set_binding(
                     name.clone(),
-                    BindingExpression::new_two_way(member_reference(&child, name).into()),
+                    BindingExpression::new_two_way(member_reference(&child, &name).into()),
                 ),
             };
             debug_assert!(
