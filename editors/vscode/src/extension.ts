@@ -183,13 +183,15 @@ function startClient(
         return;
     }
 
+    const configuration = vscode.workspace.getConfiguration("slint");
+    const logLevel = configuration.get<string>("lsp.logLevel", "info");
     const options = Object.assign({}, lsp_platform.options);
     options.env = Object.assign({}, process.env, lsp_platform.options?.env);
+    options.env["RUST_LOG"] = `slint_lsp=${logLevel}`;
 
     const devBuild = serverModule.includes("/target/debug/");
     if (devBuild) {
         options.env["RUST_BACKTRACE"] = "1";
-        options.env["RUST_LOG"] = "debug";
     }
 
     options.env["SLINT_LSP_PANIC_LOG_DIR"] = lsp_panic_log_dir(context).fsPath;
@@ -198,9 +200,7 @@ function startClient(
         options.env["SLINT_ENABLE_EXPERIMENTAL_FEATURES"] = "1";
     }
 
-    const args = vscode.workspace
-        .getConfiguration("slint")
-        .get<[string]>("lsp-args");
+    const args = configuration.get<[string]>("lsp-args");
 
     const serverOptions: ServerOptions = {
         run: { command: serverModule, options: options, args: args },
