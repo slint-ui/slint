@@ -1,0 +1,12 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Calling a private function of the base from a binding is one error, not also a purity error.
+component Base inherits Rectangle {
+    function f() -> int { 1 }
+}
+
+export component Derived inherits Base {
+    in property <int> p: root.f();
+//                            ^error{The function 'f' is private. Annotate it with 'public' to make it accessible from other components}
+}

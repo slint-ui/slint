@@ -164,6 +164,7 @@ pub(crate) fn load_builtins(
                     })));
                     info.set_docs(docs::doc_comment(&s));
                     info.shadowable = s.ShadowableAttribute().is_some();
+                    info.pure = is_declared_pure(&s);
                     (identifier_text(&s.DeclaredIdentifier()).unwrap(), info)
                 }))
         );
@@ -225,6 +226,7 @@ pub(crate) fn load_builtins(
                 args.push(object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register));
                 arg_names.push(identifier_text(&a.DeclaredIdentifier()).unwrap_or_default());
             }
+            let declared_pure = is_declared_pure(&f);
             let mut info = match builtin_function_body(&f, &id, &name) {
                 Some(function) => {
                     // The BuiltinFunction type prepends implicit ElementReference arguments.
@@ -243,13 +245,23 @@ pub(crate) fn load_builtins(
                     merged.arg_names = std::iter::repeat_n(SmolStr::default(), implicit)
                         .chain(arg_names)
                         .collect();
+                    debug_assert_eq!(
+                        declared_pure,
+                        function.is_pure(),
+                        "the 'pure' qualifier of {id}::{name} doesn't match {function:?}"
+                    );
+                    // `pure` comes from the BuiltinFunction, see BuiltinPropertyInfo::pure.
                     let mut info = BuiltinPropertyInfo::from(function);
                     info.ty = Type::Function(Arc::new(merged));
                     info
                 }
-                None => BuiltinPropertyInfo::new(Type::Function(
-                    Function { return_type, args, arg_names }.into(),
-                )),
+                None => {
+                    let mut info = BuiltinPropertyInfo::new(Type::Function(
+                        Function { return_type, args, arg_names }.into(),
+                    ));
+                    info.pure = declared_pure;
+                    info
+                }
             };
             info.set_docs(docs::doc_comment(&f));
             info.shadowable = f.ShadowableAttribute().is_some();
@@ -381,6 +393,13 @@ fn member_annotation(node: &SyntaxNode, key: &str) -> bool {
         cursor = cur.prev_sibling_or_token();
     }
     false
+}
+
+/// Whether the declaration is qualified `pure`.
+fn is_declared_pure(node: &SyntaxNode) -> bool {
+    node.children_with_tokens()
+        .filter_map(|c| c.into_token())
+        .any(|t| t.kind() == SyntaxKind::Identifier && t.text() == "pure")
 }
 
 /// Return the [`BuiltinFunction`] named by a member function's body, like
