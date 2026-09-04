@@ -1944,8 +1944,7 @@ pub mod tests {
         )
         .unwrap();
         let (notifier, client) = test_lsp_client();
-        let mut context = test::mock_context();
-        context.session.document_cache = document_cache;
+        let mut context = test::mock_context_with_document_cache(document_cache);
         context.server_notifier = notifier;
         context.host_language_rename_dont_ask_again.set(true);
 

@@ -237,23 +237,7 @@ fn test_goto_definition_multi_files() {
     "#,
         url1 = url1.to_file_path().unwrap().display()
     );
-    let mut ctx = crate::language::Context {
-        session: editor_preview::EditorSession {
-            document_cache: dc,
-            preview_config: Default::default(),
-            open_urls: Default::default(),
-            previews: vec![editor_preview::PreviewConnection {
-                to_preview: crate::editor_preview::LspToPreviews::with_one(
-                    editor_preview::DummyLspToPreview::default(),
-                ),
-                to_show: None,
-            }],
-            pending_recompile: Default::default(),
-        },
-        server_notifier: crate::ServerNotifier::dummy(),
-        init_param: Default::default(),
-        host_language_rename_dont_ask_again: Default::default(),
-    };
+    let mut ctx = crate::language::test::mock_context_with_document_cache(dc);
     let (extra_files, diag) =
         spin_on::spin_on(ctx.session.load_document_impl(source2.clone(), url2.clone(), Some(43)));
     let diag = editor_preview::editor_session::convert_diagnostics(
