@@ -542,7 +542,10 @@ impl SkiaRenderer {
     /// Returns true if the current surface will be presented with transparency enabled
     /// See [`Surface::presentation_may_use_transparency`].
     pub fn presentation_may_use_transparency(&self) -> bool {
-        self.surface.borrow().as_ref().is_some_and(|surface| surface.presentation_may_use_transparency())
+        self.surface
+            .borrow()
+            .as_ref()
+            .is_some_and(|surface| surface.presentation_may_use_transparency())
     }
 
     /// Reset the surface to a new surface. (destroy the previously set surface if any)
