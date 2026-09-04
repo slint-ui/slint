@@ -753,7 +753,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         &mut self,
         box_shadow: Pin<&i_slint_core::items::BoxShadow>,
         self_rc: &i_slint_core::items::ItemRc,
-        _size: LogicalSize,
+        size: LogicalSize,
     ) {
         let offset = LogicalPoint::from_lengths(box_shadow.offset_x(), box_shadow.offset_y())
             * self.scale_factor;
@@ -799,6 +799,20 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         } else {
             let blur = box_shadow.blur() * self.scale_factor;
             let pad = blur.get() + spread.get().max(0.);
+
+            // CSS box-shadow (which drop-shadow-* follows) never paints underneath the
+            // casting element's own, un-offset shape: exclude that area with a clip so a
+            // transparent fill doesn't get shadow-colored through the middle. Using a clip
+            // (rather than e.g. clearing the destination) leaves whatever is already
+            // painted there - such as the window background - untouched.
+            // See https://github.com/slint-ui/slint/issues/6581.
+            let _restore = skia_safe::AutoCanvasRestore::guard(self.canvas, true);
+            let own_rrect = to_skia_rrect(
+                &PhysicalRect::from(size * self.scale_factor),
+                &(box_shadow.logical_border_radius() * self.scale_factor),
+            );
+            self.canvas.clip_rrect(own_rrect, skia_safe::ClipOp::Difference, true);
+
             self.canvas.draw_image(
                 cached_shadow_image,
                 to_skia_point(offset - PhysicalPoint::new(pad, pad).to_vector()),
