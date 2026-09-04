@@ -144,24 +144,67 @@ fn resolve_implement_statement(
     }
 }
 
+fn interface_chain(interface: &ElementRc) -> impl Iterator<Item = ElementRc> {
+    std::iter::successors(Some(interface.clone()), |element| match &element.borrow().base_type {
+        ElementType::Interface(Some(base)) => Some(base.root_element.clone()),
+        _ => None,
+    })
+}
+
 /// The members an interface declares under their source names, including inherited ones.
 /// A derived declaration hides the inherited member of the same name.
 /// A shadowing declaration counts as derived, too.
 fn declared_members(interface: &ElementRc) -> BTreeMap<SmolStr, PropertyDeclaration> {
     let mut members = BTreeMap::new();
-    let mut next = Some(interface.clone());
-    while let Some(element) = next.take() {
-        let element = element.borrow();
-        for (internal_name, declaration) in &element.property_declarations {
+    for element in interface_chain(interface) {
+        for (internal_name, declaration) in &element.borrow().property_declarations {
             members.entry(declaration.declared_name(internal_name).clone()).or_insert_with(|| {
                 PropertyDeclaration { shadowed_name: None, ..declaration.clone() }
             });
         }
-        if let ElementType::Interface(Some(base)) = &element.base_type {
-            next = Some(base.root_element.clone());
-        }
     }
     members
+}
+
+fn inherits_from(derived: &ElementRc, base: &ElementRc) -> bool {
+    interface_chain(derived).skip(1).any(|element| Rc::ptr_eq(&element, base))
+}
+
+fn filter_inherited_implement_statements(
+    diagnostics: &mut BuildDiagnostics,
+    statements: Vec<ImplementedInterface>,
+) -> Vec<ImplementedInterface> {
+    let covering: Vec<Option<(SmolStr, syntax_nodes::ImplementStatement)>> = statements
+        .iter()
+        .map(|stmt| {
+            statements
+                .iter()
+                .find(|other| inherits_from(&other.interface, &stmt.interface))
+                .map(|other| (other.interface_name.clone(), other.node.clone()))
+        })
+        .collect();
+
+    statements
+        .into_iter()
+        .zip(covering)
+        .filter_map(|(stmt, covering)| match covering {
+            Some((derived_name, derived_node)) => {
+                diagnostics.push_error(
+                    format!(
+                        "'{}' is already implemented through '{}'",
+                        stmt.interface_name, derived_name
+                    ),
+                    &stmt.node,
+                );
+                diagnostics.push_note(
+                    format!("'{}' inherits '{}'", derived_name, stmt.interface_name),
+                    &derived_node,
+                );
+                None
+            }
+            None => Some(stmt),
+        })
+        .collect()
 }
 
 fn filter_conflicting_implement_statements(
@@ -215,6 +258,7 @@ pub(super) fn get_implemented_interfaces(
         .filter_map(|stmt| resolve_implement_statement(element, stmt, type_register, diagnostics))
         .collect();
 
+    let resolved = filter_inherited_implement_statements(diagnostics, resolved);
     let filtered = filter_conflicting_implement_statements(diagnostics, resolved);
 
     let mut self_interfaces = Vec::new();
