@@ -167,6 +167,10 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
         self.renderer.suspend()
     }
 
+    fn presentation_may_use_transparency(&self) -> bool {
+        self.renderer.presentation_may_use_transparency()
+    }
+
     fn resume(
         &self,
         active_event_loop: &winit::event_loop::ActiveEventLoop,

@@ -467,6 +467,14 @@ impl crate::Surface for WGPUSurface {
     fn as_any(&self) -> &dyn core::any::Any {
         self
     }
+
+    fn presentation_may_use_transparency(&self) -> bool {
+        use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+        self.surface_config
+            .borrow()
+            .as_ref()
+            .is_some_and(|config| matches!(config.alpha_mode, PreMultiplied | PostMultiplied))
+    }
 }
 
 struct WindowAndDisplayHandle(
