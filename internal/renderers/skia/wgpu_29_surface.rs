@@ -474,6 +474,14 @@ impl crate::Surface for WGPUSurface {
 
         self.backend.import_texture(canvas, texture)
     }
+
+    fn presentation_may_use_transparency(&self) -> bool {
+        use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+        self.surface_config
+            .borrow()
+            .as_ref()
+            .is_some_and(|config| matches!(config.alpha_mode, PreMultiplied | PostMultiplied))
+    }
 }
 
 struct WindowAndDisplayHandle(
