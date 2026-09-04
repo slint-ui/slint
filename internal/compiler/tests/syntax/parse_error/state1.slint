@@ -9,9 +9,9 @@ export TestCase := Rectangle {
         checked when checked: {
             text.color: red;
             <<<<<    // FIXME: we should only report one error
-//          ^error{Syntax error: expected Identifier}
-//          ^^error{Syntax error: expected ']'}
-//          ^^^error{Parse error}
+//          ><error{Syntax error: expected Identifier}
+//          ><^error{Syntax error: expected ']'}
+//          ><^^error{Parse error}
             border: 42;
         }
     ]

@@ -503,8 +503,8 @@ impl From<SyntaxKind> for rowan::SyntaxKind {
 pub struct Token {
     pub kind: SyntaxKind,
     pub text: SmolStr,
+    /// Byte offset of `text` in the document, which is the concatenation of every token's text
     pub offset: usize,
-    pub length: usize,
     #[cfg(feature = "proc_macro_span")]
     pub span: Option<proc_macro::Span>,
 }
@@ -515,7 +515,6 @@ impl Default for Token {
             kind: SyntaxKind::Eof,
             text: Default::default(),
             offset: 0,
-            length: 0,
             #[cfg(feature = "proc_macro_span")]
             span: None,
         }
@@ -682,6 +681,15 @@ impl<'a> DefaultParser<'a> {
         self.tokens.get(self.cursor).cloned().unwrap_or_default()
     }
 
+    /// Where a diagnostic reported at the current token points to
+    fn current_token_location(&self) -> crate::diagnostics::SourceLocation {
+        let token = self.current_token();
+        crate::diagnostics::SourceLocation {
+            source_file: Some(self.source_file.clone()),
+            span: crate::diagnostics::Span::new(token.offset, token.text.len()),
+        }
+    }
+
     /// Consume all the whitespace
     pub fn consume_ws(&mut self) {
         while matches!(self.current_token().kind, SyntaxKind::Whitespace | SyntaxKind::Comment) {
@@ -737,46 +745,14 @@ impl Parser for DefaultParser<'_> {
 
     /// Reports an error at the current token location
     fn error(&mut self, e: impl Into<String>) {
-        let current_token = self.current_token();
-        #[allow(unused_mut)]
-        let mut span = crate::diagnostics::Span::new(
-            current_token.offset,
-            if current_token.kind == SyntaxKind::DoubleLess { 1 } else { current_token.length },
-        );
-        #[cfg(feature = "proc_macro_span")]
-        {
-            span.span = current_token.span;
-        }
-
-        self.diags.push_error_with_span(
-            e.into(),
-            crate::diagnostics::SourceLocation {
-                source_file: Some(self.source_file.clone()),
-                span,
-            },
-        );
+        let location = self.current_token_location();
+        self.diags.push_error_with_span(e.into(), location);
     }
 
-    /// Reports an error at the current token location
+    /// Reports a warning at the current token location
     fn warning(&mut self, e: impl Into<String>) {
-        let current_token = self.current_token();
-        #[allow(unused_mut)]
-        let mut span = crate::diagnostics::Span::new(
-            current_token.offset,
-            if current_token.kind == SyntaxKind::DoubleLess { 1 } else { current_token.length },
-        );
-        #[cfg(feature = "proc_macro_span")]
-        {
-            span.span = current_token.span;
-        }
-
-        self.diags.push_warning_with_span(
-            e.into(),
-            crate::diagnostics::SourceLocation {
-                source_file: Some(self.source_file.clone()),
-                span,
-            },
-        );
+        let location = self.current_token_location();
+        self.diags.push_warning_with_span(e.into(), location);
     }
 
     type Checkpoint = rowan::Checkpoint;
