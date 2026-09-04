@@ -3172,9 +3172,6 @@ impl Element {
             is_in_direct_base: false,
             is_shadowable: p.shadowable,
             builtin_function: None,
-            // A declared property is always part of the subset; the ordinary
-            // visibility check (see `parse_bindings`) restricts a binding to
-            // its `in` and `in-out` ones.
             #[cfg(feature = "slint-sc")]
             is_slint_sc: true,
             deprecated: p.deprecated.clone(),
