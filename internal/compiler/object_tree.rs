@@ -3173,7 +3173,7 @@ impl Element {
             is_shadowable: p.shadowable,
             builtin_function: None,
             #[cfg(feature = "slint-sc")]
-            is_slint_sc: false,
+            is_slint_sc: true,
             deprecated: p.deprecated.clone(),
             internal_name: None,
         }
@@ -3190,7 +3190,9 @@ impl Element {
             let lookup_result =
                 self.lookup_property(&unresolved_name, PropertyLookupMode::ComponentLocal);
             #[cfg(feature = "slint-sc")]
-            if lookup_result.is_valid() && !lookup_result.is_slint_sc {
+            if b.kind() == SyntaxKind::TwoWayBinding {
+                diag.slint_sc_error("Two-way bindings are", &b);
+            } else if lookup_result.is_valid() && !lookup_result.is_slint_sc {
                 diag.slint_sc_error(&format!("The property '{unresolved_name}' is"), &name_token);
             }
             if !lookup_result.property_type.is_property_type() {
