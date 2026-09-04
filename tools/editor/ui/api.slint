@@ -384,6 +384,11 @@ export struct ElementInformation {
     offset: int,
 }
 
+export struct EditorComment {
+    id: string,
+    text: string,
+}
+
 export struct PaletteEntry {
     name: string,
     value: PropertyValue,
@@ -516,6 +521,9 @@ export global Api {
 
     // ## Property Editor
     in-out property <ElementInformation> current-element;
+    in property <[EditorComment]> element-comments;
+    callback add-element-comment(string);
+    callback remove-element-comment(string);
     in-out property <[PropertyGroup]> properties;
     callback properties-search(string);
     pure callback current-property-value-data(property-name: string) -> PropertyValue;

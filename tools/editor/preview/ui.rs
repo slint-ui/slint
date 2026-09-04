@@ -229,6 +229,8 @@ pub fn initialize_editor(
     api.on_persist_selected_element_geometry(super::persist_selected_element_geometry);
     api.on_selected_element_rotate(super::rotate_selected_element);
     api.on_selected_element_delete(super::delete_selected_element);
+    api.on_add_element_comment(super::add_element_comment);
+    api.on_remove_element_comment(super::remove_element_comment);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
     api.on_override_element_text(super::override_element_text);
@@ -1644,13 +1646,17 @@ pub fn ui_set_properties(
 #[cfg(test)]
 mod tests {
     use crate::preview::preview_data;
+    use std::rc::Rc;
 
     use slint::{
         ComponentHandle, LogicalPosition, Model, SharedString, ToSharedString, VecModel,
         platform::{PointerEventButton, WindowEvent},
     };
 
-    use super::{PropertyInformation, PropertyValue, PropertyValueKind};
+    use super::{
+        EditorComment, ElementInformation, PropertyInformation, PropertyValue, PropertyValueKind,
+        Selection,
+    };
 
     #[test]
     fn resize_cursor_rotates_and_reuses_half_turns() {
@@ -2479,6 +2485,28 @@ mod tests {
             });
             assert_ne!(cursor(), expected, "leaving {label} after release");
         }
+    }
+
+    #[test]
+    fn editor_comment_model_creates_remove_action() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        let comments = Rc::new(VecModel::default());
+        api.set_selection(Selection { highlight_index: 0, ..Default::default() });
+        api.set_current_element(ElementInformation {
+            source_uri: "file:///project/main.slint".into(),
+            ..Default::default()
+        });
+        api.set_element_comments(comments.clone().into());
+        editor.show().unwrap();
+        comments.set_vec(vec![EditorComment { id: "1".into(), text: "Visible".into() }]);
+
+        assert_eq!(
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Remove")
+                .count(),
+            1
+        );
     }
 
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {

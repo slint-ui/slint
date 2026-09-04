@@ -44,6 +44,7 @@ members = [
   'tools/compiler',
   'docs/slint-doc-generator',
   'tools/editor',
+  'tools/editor-mcp',
   'tools/figma_import',
   'tools/lsp',
   'tools/viewer',

@@ -7740,6 +7740,7 @@ dependencies = [
  "serde_json",
  "slint",
  "slint-build",
+ "slint-editor-mcp",
  "slint-interpreter",
  "smol_str 0.3.2",
  "spin_on",
@@ -7754,6 +7755,15 @@ dependencies = [
  "windows-core",
  "windows-future",
  "zbus",
+]
+
+[[package]]
+name = "slint-editor-mcp"
+version = "1.19.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

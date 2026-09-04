@@ -31,12 +31,15 @@ use i_slint_live_preview::protocol::{
 };
 use lsp_types::Url;
 use slint::{LogicalPosition, LogicalSize, PlatformError, SharedString, ToSharedString};
+use slint_editor_mcp::{
+    EditorComment as SnapshotComment, SnapshotPublisher, SourcePosition, SourceRange,
+};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use smol_str::SmolStr;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -73,6 +76,7 @@ pub fn initialize(
         preview_state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
         preview_state.editor_ui = Some(editor_ui.clone_strong());
         preview_state.settings = settings;
+        api.set_element_comments(preview_state.element_comments_model.clone().into());
     });
 
     #[cfg(feature = "system-testing")]
@@ -250,6 +254,85 @@ fn install_debug_hook_callback(instance: &ComponentInstance, overrides: DebugHoo
 }
 
 #[derive(Default)]
+struct EditorComments {
+    publisher: Option<SnapshotPublisher>,
+    project_root: PathBuf,
+    comments: Vec<StoredEditorComment>,
+    next_id: u64,
+}
+
+struct StoredEditorComment {
+    selection: SourceElement,
+    snapshot: SnapshotComment,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SourceElement {
+    path: PathBuf,
+    offset: TextSize,
+}
+
+impl SourceElement {
+    fn from_selection(selection: &ElementSelection) -> Option<Self> {
+        Some(Self {
+            path: std::path::absolute(selection.path.as_native_path()?).ok()?,
+            offset: selection.offset,
+        })
+    }
+}
+
+impl EditorComments {
+    fn new(project_root: &Path) -> Self {
+        let publisher = SnapshotPublisher::new()
+            .map_err(|error| tracing::warn!("Failed to create comment snapshot: {error}"))
+            .ok();
+        let result = Self {
+            publisher,
+            project_root: project_root.to_path_buf(),
+            comments: Vec::new(),
+            next_id: 1,
+        };
+        result.publish();
+        result
+    }
+
+    fn add(&mut self, selection: SourceElement, mut comment: SnapshotComment) {
+        comment.id = self.next_id.to_string();
+        self.next_id += 1;
+        self.comments.push(StoredEditorComment { selection, snapshot: comment });
+        self.publish();
+    }
+
+    fn remove(&mut self, id: &str) {
+        let old_length = self.comments.len();
+        self.comments.retain(|comment| comment.snapshot.id != id);
+        if self.comments.len() != old_length {
+            self.publish();
+        }
+    }
+
+    fn visible(&self, selection: &SourceElement) -> Vec<ui::EditorComment> {
+        self.comments
+            .iter()
+            .filter(|comment| comment.selection == *selection)
+            .map(|comment| ui::EditorComment {
+                id: comment.snapshot.id.as_str().into(),
+                text: comment.snapshot.text.as_str().into(),
+            })
+            .collect()
+    }
+
+    fn publish(&self) {
+        let Some(publisher) = &self.publisher else { return };
+        let comments =
+            self.comments.iter().map(|comment| comment.snapshot.clone()).collect::<Vec<_>>();
+        if let Err(error) = publisher.publish(&self.project_root, &comments) {
+            tracing::warn!("Failed to publish comment snapshot: {error}");
+        }
+    }
+}
+
+#[derive(Default)]
 pub struct PreviewState {
     pub editor_ui: Option<ui::EditorUi>,
     pub api: slint::Weak<ui::Api<'static>>,
@@ -283,6 +366,8 @@ pub struct PreviewState {
     file_tree_controller: Option<ui::file_tree::SharedFileTreeController>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
+    comments: EditorComments,
+    element_comments_model: Rc<slint::VecModel<ui::EditorComment>>,
 
     pub to_lsp: RefCell<Option<Rc<dyn i_slint_editor_preview::PreviewToLsp>>>,
 
@@ -413,6 +498,11 @@ fn reset_project_state(root: Url) {
         state.current_load_behavior = None;
         state.loading_state = PreviewFutureState::Pending;
         state.current_previewed_component = None;
+        state.comments = root
+            .to_file_path()
+            .map(|project_root| EditorComments::new(&project_root))
+            .unwrap_or_default();
+        state.element_comments_model.set_vec(Vec::new());
         state.current_project_root = Some(root);
         state.project_generation = state.project_generation.wrapping_add(1);
         (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
@@ -2735,6 +2825,7 @@ fn set_selected_element(
         preview_state.selected = selection;
         preview_state.notify_editor_about_selection_after_update =
             notify_editor_about_selection_after_update;
+        set_visible_element_comments(preview_state, preview_state.selected.as_ref());
 
         (preview_state.to_lsp.borrow().clone().unwrap(), preview_state.format(), selection_cleared)
     });
@@ -2755,6 +2846,110 @@ fn set_selected_element(
             lsp.ask_editor_to_show_document(url, lsp_types::Range::new(pos, pos), false).ok();
         }
     }
+}
+
+fn add_element_comment(text: SharedString) {
+    if text.is_empty() {
+        return;
+    }
+    let Some(selection) = selected_element() else {
+        return;
+    };
+    let Some(source_element) = SourceElement::from_selection(&selection) else { return };
+    let Some(element_node) = selection.as_element_node() else { return };
+    let Some(comment) = snapshot_comment(&element_node, text.to_string()) else { return };
+
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        preview_state.comments.add(source_element, comment);
+        set_visible_element_comments(preview_state, Some(&selection));
+    });
+}
+
+fn remove_element_comment(id: SharedString) {
+    let selection = selected_element();
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        preview_state.comments.remove(id.as_str());
+        set_visible_element_comments(preview_state, selection.as_ref());
+    });
+}
+
+fn snapshot_comment(
+    element_node: &i_slint_editor_preview::ElementRcNode,
+    text: String,
+) -> Option<SnapshotComment> {
+    let (file, range) = comment_location(element_node)?;
+    let (component, element_type, element_id) = element_node.with_element_node(|node| {
+        let mut ancestor = node.parent();
+        let mut component = None;
+        while let Some(current) = ancestor {
+            if let Some(component_node) = syntax_nodes::Component::new(current.clone()) {
+                component =
+                    i_slint_compiler::parser::identifier_text(&component_node.DeclaredIdentifier())
+                        .map(|identifier| identifier.to_string());
+                break;
+            }
+            ancestor = current.parent();
+        }
+        let element_type = node
+            .QualifiedName()
+            .map(|qualified_name| qualified_name.text().to_string().trim().to_string())
+            .unwrap_or_default();
+        let element_id = node
+            .parent()
+            .and_then(syntax_nodes::SubElement::new)
+            .and_then(|sub_element| {
+                sub_element.child_text(i_slint_compiler::parser::SyntaxKind::Identifier)
+            })
+            .map(|identifier| identifier.to_string());
+        (component, element_type, element_id)
+    });
+
+    Some(SnapshotComment {
+        id: String::new(),
+        text,
+        file,
+        range,
+        component,
+        element_type,
+        element_id,
+    })
+}
+
+fn comment_location(
+    element_node: &i_slint_editor_preview::ElementRcNode,
+) -> Option<(PathBuf, SourceRange)> {
+    element_node.with_element_node(|node| {
+        let file = std::path::absolute(node.source_file.path().as_native_path()?).ok()?;
+        let source_range = node.text_range();
+        let start = util::text_size_to_lsp_position(
+            &node.source_file,
+            source_range.start(),
+            i_slint_editor_preview::ByteFormat::Utf16,
+        );
+        let end = util::text_size_to_lsp_position(
+            &node.source_file,
+            source_range.end(),
+            i_slint_editor_preview::ByteFormat::Utf16,
+        );
+        Some((
+            file,
+            SourceRange {
+                start: SourcePosition { line: start.line, character: start.character },
+                end: SourcePosition { line: end.line, character: end.character },
+            },
+        ))
+    })
+}
+
+fn set_visible_element_comments(
+    preview_state: &PreviewState,
+    selection: Option<&ElementSelection>,
+) {
+    let comments = selection
+        .and_then(SourceElement::from_selection)
+        .map(|selection| preview_state.comments.visible(&selection))
+        .unwrap_or_default();
+    preview_state.element_comments_model.set_vec(comments);
 }
 
 fn selected_element() -> Option<ElementSelection> {
@@ -2963,7 +3158,9 @@ pub mod test {
 mod tests {
     use super::*;
     use i_slint_editor_preview::PreviewToLsp;
+    use i_slint_editor_preview::test::main_test_file_name;
     use i_slint_live_preview::protocol::PreviewToLspMessage;
+    use slint::Model;
     use std::fs;
     use std::path::PathBuf;
     use std::{cell::RefCell, rc::Rc};
@@ -3190,6 +3387,48 @@ mod tests {
             PREVIEW_STATE.with_borrow(|state| state.loading_state),
             PreviewFutureState::Pending
         );
+    }
+
+    #[test]
+    fn opening_project_clears_comments_and_reassigns_the_snapshot() {
+        reset_preview_state(Default::default());
+        let old_project = tempfile::tempdir().unwrap();
+        let new_project = tempfile::tempdir().unwrap();
+        let range = SourceRange {
+            start: SourcePosition { line: 1, character: 2 },
+            end: SourcePosition { line: 3, character: 4 },
+        };
+        let old_file = old_project.path().join("main.slint");
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.comments = EditorComments::new(old_project.path());
+            state.comments.add(
+                SourceElement { path: old_file.clone(), offset: TextSize::from(12) },
+                stored_comment(&old_file, range, "Old"),
+            );
+            state
+                .element_comments_model
+                .push(ui::EditorComment { id: "1".into(), text: "Old".into() });
+        });
+
+        reset_project_state(Url::from_directory_path(new_project.path()).unwrap());
+
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            assert!(state.comments.comments.is_empty());
+            assert_eq!(state.comments.project_root, new_project.path());
+            assert_eq!(state.element_comments_model.row_count(), 0);
+            let new_file = new_project.path().join("main.slint");
+            state.comments.add(
+                SourceElement { path: new_file.clone(), offset: TextSize::from(12) },
+                stored_comment(&new_file, range, "New"),
+            );
+        });
+        let projects = slint_editor_mcp::scan_projects().unwrap();
+        assert!(!projects.iter().any(|project| project.project_root == old_project.path()));
+        let published =
+            projects.iter().find(|project| project.project_root == new_project.path()).unwrap();
+        assert_eq!(published.comments.len(), 1);
+        assert_eq!(published.comments[0].text, "New");
+        reset_preview_state(Default::default());
     }
 
     #[test]
@@ -3539,6 +3778,121 @@ export component Main {
         let path = root.join("main.slint");
         fs::write(&path, "").unwrap();
         (root, path)
+    }
+
+    fn stored_comment(file: &Path, range: SourceRange, text: &str) -> SnapshotComment {
+        SnapshotComment {
+            id: String::new(),
+            text: text.into(),
+            file: file.into(),
+            range,
+            component: Some("MainWindow".into()),
+            element_type: "Rectangle".into(),
+            element_id: Some("content".into()),
+        }
+    }
+
+    #[test]
+    fn editor_comments_assign_ids_filter_by_source_element_and_remove() {
+        let first_range = SourceRange {
+            start: SourcePosition { line: 1, character: 2 },
+            end: SourcePosition { line: 3, character: 4 },
+        };
+        let second_range = SourceRange {
+            start: SourcePosition { line: 5, character: 6 },
+            end: SourcePosition { line: 7, character: 8 },
+        };
+        let file = Path::new("/project/main.slint");
+        let first_element = SourceElement { path: file.into(), offset: TextSize::from(12) };
+        let second_element = SourceElement { path: file.into(), offset: TextSize::from(24) };
+        let mut comments = EditorComments { next_id: 1, ..Default::default() };
+
+        comments.add(first_element.clone(), stored_comment(file, first_range, "First"));
+        comments.add(second_element.clone(), stored_comment(file, second_range, "Second"));
+
+        let visible = comments.visible(&first_element);
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].id, "1");
+        assert_eq!(visible[0].text, "First");
+
+        comments.remove("1");
+        assert!(comments.visible(&first_element).is_empty());
+        assert_eq!(comments.visible(&second_element)[0].id, "2");
+    }
+
+    #[test]
+    fn selected_element_comments_are_published_to_the_ui_model() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = ui::EditorUi::new().unwrap();
+        let api = editor.global::<ui::Api>();
+        let file = Path::new("/project/main.slint");
+        let selection = ElementSelection {
+            path: SourcePath::new(file),
+            offset: TextSize::from(12),
+            instance_index: 0,
+        };
+        let range = SourceRange {
+            start: SourcePosition { line: 1, character: 2 },
+            end: SourcePosition { line: 3, character: 4 },
+        };
+        let mut preview_state = PreviewState {
+            api: <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api),
+            comments: EditorComments { next_id: 1, ..Default::default() },
+            ..Default::default()
+        };
+        api.set_element_comments(preview_state.element_comments_model.clone().into());
+        preview_state.comments.add(
+            SourceElement::from_selection(&selection).unwrap(),
+            stored_comment(file, range, "Visible"),
+        );
+
+        set_visible_element_comments(&preview_state, Some(&selection));
+
+        let model = api.get_element_comments();
+        assert_eq!(model.row_count(), 1);
+        assert_eq!(model.row_data(0).unwrap().text, "Visible");
+    }
+
+    #[test]
+    fn add_comment_publishes_source_declared_element_ids() {
+        let source = r#"export component Main { named-element := Text { text: "😀"; } Text {} }"#;
+        let component_instance = test::interpret_test("fluent", source);
+        let path = main_test_file_name();
+        let named_offset = TextSize::from(u32::try_from(source.find("Text").unwrap()).unwrap());
+        let anonymous_offset =
+            TextSize::from(u32::try_from(source.rfind("Text").unwrap()).unwrap());
+        let named_end = source.find("} Text").unwrap() + 1;
+        let expected_utf16_end = u32::try_from(source[..named_end].encode_utf16().count()).unwrap();
+        let project = tempfile::tempdir().unwrap();
+        PREVIEW_STATE.with_borrow_mut(|preview_state| {
+            *preview_state = PreviewState::default();
+            preview_state.handle.replace(Some(component_instance));
+            preview_state.selected = Some(ElementSelection {
+                path: path.clone(),
+                offset: named_offset,
+                instance_index: 0,
+            });
+            preview_state.comments = EditorComments::new(project.path());
+        });
+
+        add_element_comment("Named".into());
+        PREVIEW_STATE.with_borrow_mut(|preview_state| {
+            preview_state.selected =
+                Some(ElementSelection { path, offset: anonymous_offset, instance_index: 0 });
+        });
+        add_element_comment("Anonymous".into());
+
+        let project_comments = slint_editor_mcp::scan_projects()
+            .unwrap()
+            .into_iter()
+            .find(|comments| comments.project_root == project.path())
+            .unwrap();
+        assert_eq!(project_comments.comments.len(), 2);
+        assert_eq!(project_comments.comments[0].element_id.as_deref(), Some("named-element"));
+        assert_eq!(project_comments.comments[0].range.end.character, expected_utf16_end);
+        assert_eq!(project_comments.comments[1].element_id, None);
+
+        PREVIEW_STATE.with_borrow_mut(|preview_state| *preview_state = PreviewState::default());
     }
 
     #[test]
