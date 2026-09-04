@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component ProgressIndicatorBase inherits Rectangle {
+    in property <float> progress;
+    in property <bool> indeterminate;
+    out property <float> normalized-progress: min(1, max(0, root.progress));
+
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+
+    accessible-role: progress-indicator;
+    accessible-value: !root.indeterminate ? root.normalized-progress : "";
+    accessible-value-minimum: 0.0;
+    accessible-value-maximum: 1.0;
+
+    @children
+}

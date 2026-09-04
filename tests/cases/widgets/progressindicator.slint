@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
+import { ProgressIndicator } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    in-out property <float> progress <=> indicator.progress;
+    in-out property <bool> indeterminate <=> indicator.indeterminate;
+
+    indicator := ProgressIndicator {
+        progress: 0.5;
+    }
+}
+
+/*
+```rust
+use slint::SharedString;
+
+let instance = TestCase::new().unwrap();
+let indicator = slint_testing::ElementHandle::find_by_element_id(
+    &instance,
+    "TestCase::indicator",
+).next().unwrap();
+
+assert_eq!(indicator.accessible_value(), Some(SharedString::from("0.5")));
+assert_eq!(indicator.accessible_value_minimum(), Some(0.0));
+assert_eq!(indicator.accessible_value_maximum(), Some(1.0));
+
+instance.set_progress(2.0);
+assert_eq!(indicator.accessible_value(), Some(SharedString::from("1")));
+
+instance.set_progress(-1.0);
+assert_eq!(indicator.accessible_value(), Some(SharedString::from("0")));
+
+instance.set_indeterminate(true);
+assert_eq!(indicator.accessible_value(), Some(SharedString::from("")));
+```
+*/
