@@ -592,7 +592,6 @@ impl SkiaRenderer {
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
-        transparent: bool,
     ) -> Result<(), PlatformError> {
         // just in case
         self.suspend()?;
@@ -603,7 +602,6 @@ impl SkiaRenderer {
             size,
             requested_graphics_api,
         )?;
-        surface.set_transparent(transparent)?;
         self.set_surface(surface);
         Ok(())
     }
@@ -1093,10 +1091,6 @@ pub trait Surface {
     /// Implementations should return self to allow upcasting.
     fn as_any(&self) -> &dyn core::any::Any {
         &()
-    }
-
-    fn set_transparent(&self, _: bool) -> Result<(), PlatformError> {
-        Ok(())
     }
 }
 

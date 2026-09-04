@@ -48,7 +48,6 @@ pub struct WGPUSurface {
     surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
     pub(crate) backend: Backend,
-    alpha_modes: Vec<wgpu::CompositeAlphaMode>,
 }
 
 fn backends_to_avoid() -> wgpu::Backends {
@@ -105,6 +104,15 @@ impl WGPUSurface {
             .unwrap_or_else(|| swapchain_capabilities.formats[0]);
         surface_config.format = swapchain_format;
 
+        // Always render with alpha. Fall back to PostMultiplied because metal does not provide premultiplied
+        use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+        if let Some(alpha_mode) = [PreMultiplied, PostMultiplied]
+            .into_iter()
+            .find(|mode| swapchain_capabilities.alpha_modes.contains(mode))
+        {
+            surface_config.alpha_mode = alpha_mode;
+        }
+
         // Prefer FIFO modes over the Mailbox that `get_default_config` picks on some backends
         // (it takes the first advertised mode, and DX12 lists Mailbox first), for frame pacing
         // and better energy efficiency. `AutoVsync` falls back to FifoRelaxed and then Fifo, so
@@ -130,7 +138,6 @@ impl WGPUSurface {
             surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
-            alpha_modes: swapchain_capabilities.alpha_modes,
         })
     }
 
@@ -149,7 +156,6 @@ impl WGPUSurface {
             surface: None,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
-            alpha_modes: vec![],
         }
     }
 
@@ -467,27 +473,6 @@ impl crate::Surface for WGPUSurface {
         self.textures_to_transition_for_sampling.borrow_mut().push(texture.clone());
 
         self.backend.import_texture(canvas, texture)
-    }
-
-    fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
-        if transparent {
-            // The default `Opaque` discards the scene's alpha; pick a translucent mode if offered.
-            // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
-            use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
-            if let Some(mode) =
-                [PreMultiplied, PostMultiplied].into_iter().find(|m| self.alpha_modes.contains(m))
-            {
-                let mut surface_config_opt = self.surface_config.borrow_mut();
-                let (Some(surface_config), Some(surface)) =
-                    (surface_config_opt.as_mut(), &self.surface)
-                else {
-                    return Ok(());
-                };
-                surface_config.alpha_mode = mode;
-                surface.configure(&self.wgpu.device, surface_config);
-            }
-        }
-        Ok(())
     }
 }
 
