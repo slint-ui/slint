@@ -17,6 +17,8 @@
 //! that `i-slint-renderer-skia` doesn't need `slint-interpreter` (and everything it pulls in: the
 //! compiler, the interpreter, the winit backend) as a dev-dependency just to run this.
 
+// cspell:ignore occluders unrotated
+
 #[path = "../../scenarios.rs"]
 mod scenarios;
 

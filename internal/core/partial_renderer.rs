@@ -10,10 +10,9 @@
 //!    region is marked dirty.
 //!    That pass also register dependencies on every geometry, and on the non-dirty property trackers.
 //! 2. With the `occlusion-culling` feature, [`PartialRenderingState::apply_dirty_region`] then calls
-//!    [`PartialRenderer::compute_occlusion`] once the dirty region reaches its final value for the frame (after
-//!    `force_screen_refresh` is taken and `dirty_region_of_existing_buffer` is unioned in), marking each item
-//!    fully hidden behind opaque content painted after it. Runs untracked (`evaluate_no_tracking`): it only
-//!    decides what to skip drawing, so its own property reads must not register redraw-tracker dependencies.
+//!    [`PartialRenderer::compute_occlusion`] once the dirty region reaches its final value for the frame,
+//!    marking each item fully hidden behind opaque content painted after it.
+//!    Runs untracked (`evaluate_no_tracking`), since it only decides what to skip drawing.
 //! 3. The Renderer calls [`PartialRenderer::filter_item`] For most items.
 //!    This assume that the cached geometry was requested in the previous step. So it will not register new dependencies.
 //! 4. Then the renderer calls the rendering function for each item that needs to be rendered.
@@ -148,11 +147,22 @@ impl CachedItemBoundingBoxAndTransform {
         }
     }
 
-    fn sibling_index(&mut self) -> &mut u16 {
+    /// The item's rank among its z-ordered siblings when it was last visited; see the type's documentation.
+    fn sibling_index(&self) -> u16 {
         match self {
             CachedItemBoundingBoxAndTransform::RegularItem { sibling_index, .. }
             | CachedItemBoundingBoxAndTransform::ItemWithTransform { sibling_index, .. }
-            | CachedItemBoundingBoxAndTransform::ClipItem { sibling_index, .. } => sibling_index,
+            | CachedItemBoundingBoxAndTransform::ClipItem { sibling_index, .. } => *sibling_index,
+        }
+    }
+
+    fn set_sibling_index(&mut self, index: u16) {
+        match self {
+            CachedItemBoundingBoxAndTransform::RegularItem { sibling_index, .. }
+            | CachedItemBoundingBoxAndTransform::ItemWithTransform { sibling_index, .. }
+            | CachedItemBoundingBoxAndTransform::ClipItem { sibling_index, .. } => {
+                *sibling_index = index
+            }
         }
     }
 
@@ -217,10 +227,9 @@ struct PartialRenderingCachedData {
     /// Recomputed every frame that pass runs.
     #[cfg(feature = "occlusion-culling")]
     pub occluded: bool,
-    /// Screen-space bounding rect of this item's own rendering plus everything painted by its
-    /// descendants this frame; `None` if nothing in the subtree is visible.
+    /// What this item's subtree painted this frame, as of the last `compute_dirty_regions` pass.
     #[cfg(feature = "occlusion-culling")]
-    pub subtree_screen_bounds: Option<LogicalRect>,
+    pub subtree_screen_bounds: SubtreeScreenBounds,
 }
 impl PartialRenderingCachedData {
     fn new(data: CachedItemBoundingBoxAndTransform) -> Self {
@@ -230,7 +239,7 @@ impl PartialRenderingCachedData {
             #[cfg(feature = "occlusion-culling")]
             occluded: false,
             #[cfg(feature = "occlusion-culling")]
-            subtree_screen_bounds: None,
+            subtree_screen_bounds: SubtreeScreenBounds::default(),
         }
     }
 }
@@ -335,7 +344,7 @@ impl<const N: usize> RectSet<N> {
     }
 }
 
-/// The maximum number of rectangles that can be stored in a [`DirtyRegion`].
+/// The number of rectangles a [`DirtyRegion`] holds; see [`DirtyRegion::MAX_COUNT`].
 const DIRTY_REGION_MAX_COUNT: usize = 3;
 
 /// A region composed of a few rectangles that need to be redrawn.
@@ -472,7 +481,7 @@ impl OccludedRegion {
     }
 
     /// Whether `rect` is fully contained in a single recorded rectangle.
-    /// Doesn't detect coverage split across multiple rectangles which is a missed optimization, not a soundness issue.
+    /// Doesn't detect coverage split across multiple rectangles: that's a missed optimization, not a soundness issue.
     fn contains_rect(&self, rect: LogicalRect) -> bool {
         self.0.contains(&rect.to_box2d())
     }
@@ -519,14 +528,13 @@ struct ComputeOcclusionState {
     /// ancestor `Clip`'s rounded shape. Occluded content must stay within this tighter bound,
     /// or rounded-off corners get wrongly culled.
     occluder_clip: LogicalRect,
-    /// False once an ancestor makes opaque-coverage claims from descendants unsound
+    /// False once an ancestor invalidates any opaque-coverage claim a descendant might make.
     may_contribute: bool,
-    /// Used to shrink recorded occluder rects to their device-pixel interior (see below).
-    scale_factor: ScaleFactor,
 }
 
-/// Whether `item` is guaranteed to opaquely and fully cover its own geometry rect: an axis-aligned `Rectangle`/`BorderRectangle`
-/// with a fully opaque background, no rounded corners, and either no border or an opaque one.
+/// Whether `item` is guaranteed to opaquely and fully cover its own geometry rect.
+/// True for an axis-aligned `Rectangle` or `BorderRectangle` with a fully opaque background, no
+/// rounded corners, and either no border or an opaque one.
 #[cfg(feature = "occlusion-culling")]
 fn is_opaque_covering_rectangle(item: Pin<ItemRef>) -> bool {
     fn border_is_opaque_or_absent(border_width: LogicalLength, border_color: Brush) -> bool {
@@ -551,39 +559,75 @@ fn is_opaque_covering_rectangle(item: Pin<ItemRef>) -> bool {
     }
 }
 
-/// Depth-first, postorder: recurse into `index`'s children before considering whether `index` itself is occluded or contributes to `accumulator`.
+/// What one [`PartialRenderer::compute_occlusion`] pass carries across the recursion.
 #[cfg(feature = "occlusion-culling")]
-fn compute_occlusion_recursive(
-    component: &ItemTreeRc,
-    index: isize,
-    cache: &RefCell<PartialRendererCache>,
-    dirty_region: &DirtyRegion,
-    accumulator: &mut OccludedRegion,
-    state: ComputeOcclusionState,
-) {
-    let mut child_visitor = |child_component: &ItemTreeRc,
-                             child_index: u32,
-                             item: Pin<ItemRef>|
-     -> VisitChildrenResult {
-        let rendering_data = item.cached_rendering_data_offset();
+struct OcclusionWalk<'a> {
+    cache: &'a RefCell<PartialRendererCache>,
+    /// Nothing outside the region being repainted is drawn this frame, so there is nothing to
+    /// cull there either.
+    dirty_region: &'a DirtyRegion,
+    /// The screen region the walk has found opaquely covered so far, which is exactly the
+    /// content painted after the item currently being visited.
+    accumulator: OccludedRegion,
+    /// Used to shrink recorded occluder rects to their device-pixel interior; see [`Self::record_occluder`].
+    scale_factor: ScaleFactor,
+}
 
-        let (cached_geom, subtree_bounds) = {
-            let mut cache = cache.borrow_mut();
-            match rendering_data.get_entry(&mut cache) {
-                Some(entry) => (entry.data.clone(), entry.subtree_screen_bounds),
-                // Not in the cache yet (e.g. just created this frame) -- nothing sound to say.
-                None => return VisitChildrenResult::CONTINUE,
+#[cfg(feature = "occlusion-culling")]
+impl OcclusionWalk<'_> {
+    /// Visit `index`'s children depth-first and postorder: an item's descendants paint in front
+    /// of it, so they contribute to `accumulator` before the item itself is tested against it.
+    fn visit_children(
+        &mut self,
+        component: &ItemTreeRc,
+        index: isize,
+        state: ComputeOcclusionState,
+    ) {
+        let mut child_visitor = |child_component: &ItemTreeRc,
+                                 child_index: u32,
+                                 item: Pin<ItemRef>|
+         -> VisitChildrenResult {
+            let rendering_data = item.cached_rendering_data_offset();
+
+            let (cached_geom, subtree_bounds) = {
+                let mut cache = self.cache.borrow_mut();
+                match rendering_data.get_entry(&mut cache) {
+                    Some(entry) => (entry.data.clone(), entry.subtree_screen_bounds),
+                    // Not in the cache yet (e.g. just created this frame) -- nothing sound to say.
+                    None => return VisitChildrenResult::CONTINUE,
+                }
+            };
+
+            // `subtree_bounds` was computed fresh this frame by compute_dirty_regions's postorder
+            // pass.
+            match subtree_bounds.rect {
+                Some(bounds) if self.dirty_region.draw_intersects(bounds) => {}
+                // If it doesn't overlap the dirty region, nothing will be drawn anyway
+                _ => return VisitChildrenResult::CONTINUE,
             }
+
+            let child_state = self.child_state(item, &cached_geom, state);
+            self.visit_children(child_component, child_index as isize, child_state);
+            self.mark_occlusion(rendering_data, item, &cached_geom, state);
+
+            VisitChildrenResult::CONTINUE
         };
+        vtable::new_vref!(let mut child_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut child_visitor);
+        VRc::borrow_pin(component).as_ref().visit_children_item(
+            index,
+            crate::item_tree::TraversalOrder::FrontToBack,
+            child_visitor,
+        );
+    }
 
-        // `subtree_bounds` was computed fresh this frame by compute_dirty_regions's postorder
-        // pass.
-        match subtree_bounds {
-            Some(bounds) if dirty_region.draw_intersects(bounds) => {}
-            // If it doesn't overlap the dirty region, nothing will be drawn anyway
-            _ => return VisitChildrenResult::CONTINUE,
-        }
-
+    /// The state to visit `item`'s children with: their transform to the screen, the clips they
+    /// are subject to, and whether they may still claim to cover anything opaquely.
+    fn child_state(
+        &self,
+        item: Pin<ItemRef>,
+        cached_geom: &CachedItemBoundingBoxAndTransform,
+        state: ComputeOcclusionState,
+    ) -> ComputeOcclusionState {
         let mut child_state = state;
         // Recompose from `cached_geom.transform()` and the parent's `transform_to_screen`,
         // rather than caching a second copy per item.
@@ -593,6 +637,7 @@ fn compute_occlusion_recursive(
         if let Some(opacity) = ItemRef::downcast_pin::<Opacity>(item) {
             child_state.may_contribute &= opacity.opacity() >= 1.0;
         }
+
         if let CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } = &cached_geom {
             let screen_clip_rect =
                 state.transform_to_screen.outer_transformed_rect(&geometry.cast()).cast();
@@ -617,17 +662,18 @@ fn compute_occlusion_recursive(
                 child_state.occluder_clip.intersection(&occluder_bound).unwrap_or_default();
         }
 
-        // Postorder: descendants paint in front of `item_rc` -- let them contribute to
-        // `accumulator` before testing/recording `item_rc` itself.
-        compute_occlusion_recursive(
-            child_component,
-            child_index as isize,
-            cache,
-            dirty_region,
-            accumulator,
-            child_state,
-        );
+        child_state
+    }
 
+    /// Record in `item`'s cache entry whether it is fully hidden behind the content painted
+    /// after it, and if it isn't, whether it covers anything painted before it.
+    fn mark_occlusion(
+        &mut self,
+        rendering_data: &CachedRenderingData,
+        item: Pin<ItemRef>,
+        cached_geom: &CachedItemBoundingBoxAndTransform,
+        state: ComputeOcclusionState,
+    ) {
         let visible_rect = transformed_and_clipped(
             cached_geom.bounding_rect(),
             state.transform_to_screen,
@@ -637,63 +683,52 @@ fn compute_occlusion_recursive(
         // Computed whether or not `visible_rect` is `Some`, and always written back below: a
         // fully-clipped item (`visible_rect` is `None`) must not keep last frame's flag.
         let occluded =
-            visible_rect.is_some_and(|visible_rect| accumulator.contains_rect(visible_rect));
+            visible_rect.is_some_and(|visible_rect| self.accumulator.contains_rect(visible_rect));
 
         {
-            let mut cache = cache.borrow_mut();
+            let mut cache = self.cache.borrow_mut();
             if let Some(entry) = rendering_data.get_entry(&mut cache) {
                 entry.occluded = occluded;
                 if occluded {
-                    // An occluded item isn't drawn, so a tracker left dirty here stays dirty and
-                    // marks the item's rectangle dirty on every later frame. Dropping it is safe:
-                    // anything that reveals the item again has to change the occluder, which
-                    // dirties that region itself, and the item then gets a fresh tracker when
-                    // it's drawn (see `do_rendering`).
+                    // An occluded item isn't drawn, so a tracker left dirty here would stay dirty
+                    // forever, marking its rectangle dirty every frame. Dropping it is safe:
+                    // revealing the item again requires changing the occluder, which dirties that
+                    // region itself, and the item gets a fresh tracker once it's drawn again (see
+                    // `do_rendering`).
                     entry.tracker = None;
                 }
             }
         }
 
-        if let Some(visible_rect) = visible_rect {
-            // Bounded by `occluder_clip`, not `clipped`: what gets *recorded* as occluded must
-            // never over claim past a rounded `Clip` ancestor's actual painted shape.
-            if !occluded
-                && state.may_contribute
-                && is_opaque_covering_rectangle(item)
-                && let Some(occluder_rect) = visible_rect.intersection(&state.occluder_clip)
-            {
-                // Anti-aliased rasterization only partially covers a boundary pixel when the
-                // occluder's edge lands off-grid, so shrink to the device-pixel interior before
-                // recording -- otherwise a partially-covered pixel could be treated as opaque.
-                let device_pixel_interior_logical =
-                    (occluder_rect.to_box2d().cast::<f32>() * state.scale_factor).round_in()
-                        / state.scale_factor;
-                #[cfg(not(slint_int_coord))]
-                let device_pixel_interior = device_pixel_interior_logical.cast::<Coord>();
-                #[cfg(slint_int_coord)]
-                let device_pixel_interior = {
-                    // `Coord` is `i32` here: a plain f32->i32 cast truncates toward zero, which
-                    // would move the min corner *outward* and undo the shrink above. Round each
-                    // corner away from the interior instead, so narrowing to `Coord` can only
-                    // keep the box the same size or shrink it further.
-                    euclid::Box2D::new(
-                        device_pixel_interior_logical.min.ceil(),
-                        device_pixel_interior_logical.max.floor(),
-                    )
-                    .cast::<Coord>()
-                };
-                accumulator.add_box(device_pixel_interior);
-            }
+        // Bounded by `occluder_clip`, not `clipped`: what gets *recorded* as occluded must
+        // never over claim past a rounded `Clip` ancestor's actual painted shape.
+        if !occluded
+            && state.may_contribute
+            && let Some(visible_rect) = visible_rect
+            && let Some(occluder_rect) = visible_rect.intersection(&state.occluder_clip)
+            && is_opaque_covering_rectangle(item)
+        {
+            self.record_occluder(occluder_rect);
         }
+    }
 
-        VisitChildrenResult::CONTINUE
-    };
-    vtable::new_vref!(let mut child_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut child_visitor);
-    VRc::borrow_pin(component).as_ref().visit_children_item(
-        index,
-        crate::item_tree::TraversalOrder::FrontToBack,
-        child_visitor,
-    );
+    /// Record `occluder_rect` as opaquely covered, shrunk to its device-pixel interior:
+    /// anti-aliased rasterization only partially covers a boundary pixel when the occluder's
+    /// edge lands off-grid, and a partially covered pixel must not be treated as opaque.
+    fn record_occluder(&mut self, occluder_rect: LogicalRect) {
+        let interior = (occluder_rect.to_box2d().cast::<f32>() * self.scale_factor).round_in()
+            / self.scale_factor;
+        #[cfg(not(slint_int_coord))]
+        let interior = interior.cast::<Coord>();
+        // `Coord` is `i32` here: a plain f32->i32 cast truncates toward zero, which would move
+        // the min corner *outward* and undo the shrink above. Round each corner away from the
+        // interior instead, so narrowing to `Coord` can only keep the box the same size or
+        // shrink it further.
+        #[cfg(slint_int_coord)]
+        let interior =
+            euclid::Box2D::new(interior.min.ceil(), interior.max.floor()).cast::<Coord>();
+        self.accumulator.add_box(interior);
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -702,7 +737,7 @@ struct ComputeDirtyRegionState {
     old_transform_to_screen: ItemTransform,
     clipped: LogicalRect,
     must_refresh_children: bool,
-    /// Depth of the item in the tree, used to index `sibling_counters`.
+    /// Depth of the item in the tree, used to index the walk's `SiblingRanks`.
     depth: usize,
 }
 
@@ -716,6 +751,44 @@ impl ComputeDirtyRegionState {
     ) {
         self.transform_to_screen = children_transform.then(&self.transform_to_screen);
         self.old_transform_to_screen = old_children_transform.then(&self.old_transform_to_screen);
+    }
+}
+
+/// The rank of an item among its z-ordered siblings, counted per tree depth.
+#[derive(Default, Clone, Copy)]
+struct SiblingRankCounters {
+    /// Rank among all the siblings visited at this depth, which is the rank stored in the
+    /// item's cache entry.
+    visited: u16,
+    /// Rank among only the siblings that already had a cache entry, which is what a stored
+    /// rank is compared against.
+    /// Leaving new items out of this count keeps an appearing sibling from shifting the ranks
+    /// of existing ones; their overlap with it is already covered by its own dirty rect.
+    /// Two existing items can never trade places without at least one of these ranks changing.
+    cached: u16,
+}
+
+/// The [`SiblingRankCounters`] of one walk, indexed by tree depth.
+#[derive(Default)]
+struct SiblingRanks(alloc::vec::Vec<SiblingRankCounters>);
+
+impl SiblingRanks {
+    /// The rank of the next item at `depth`, which also restarts the ranks of that item's children.
+    fn next_visited(&mut self, depth: usize) -> u16 {
+        if self.0.len() <= depth + 1 {
+            self.0.resize(depth + 2, SiblingRankCounters::default());
+        }
+        self.0[depth + 1] = SiblingRankCounters::default();
+        let rank = self.0[depth].visited;
+        self.0[depth].visited = rank.saturating_add(1);
+        rank
+    }
+
+    /// The rank of the next item at `depth` that already had a cache entry.
+    fn next_cached(&mut self, depth: usize) -> u16 {
+        let rank = self.0[depth].cached;
+        self.0[depth].cached = rank.saturating_add(1);
+        rank
     }
 }
 
@@ -737,332 +810,282 @@ fn transformed_and_clipped(
     transform.outer_transformed_rect(&rect.cast()).cast().intersection(clip_rect)
 }
 
-/// Mark `rect` (in the coordinate system `transform` maps to the screen, clipped by `clip_rect`) as needing to be repainted this frame.
-fn mark_dirty_rect(
-    dirty_region: &mut DirtyRegion,
-    rect: &LogicalRect,
+/// Narrow `clipped` to the screen region a clipping item's `geometry` lets through, at both its
+/// current and its previous position, so an item that moved keeps painting at either.
+fn clipped_by(
+    clipped: LogicalRect,
+    geometry: &LogicalRect,
     transform: ItemTransform,
-    clip_rect: &LogicalRect,
-) {
-    if let Some(rect) = transformed_and_clipped(rect, transform, clip_rect) {
-        dirty_region.add_rect(rect);
+    old_transform: ItemTransform,
+) -> LogicalRect {
+    let screen_rect = transform
+        .outer_transformed_rect(&geometry.cast())
+        .cast()
+        .union(&old_transform.outer_transformed_rect(&geometry.cast()).cast());
+    clipped.intersection(&screen_rect).unwrap_or_default()
+}
+
+/// Screen-space bounding rect of an item's own rendering plus everything painted by its
+/// descendants, which [`PartialRenderer::compute_occlusion`] uses to skip subtrees that aren't
+/// drawn at all this frame.
+///
+/// Zero-sized without the `occlusion-culling` feature, so accumulating it costs nothing in that
+/// build.
+#[derive(Default, Clone, Copy)]
+struct SubtreeScreenBounds {
+    /// `None` while nothing in the subtree is known to be visible: an empty rect at the origin
+    /// would pull the union towards (0, 0).
+    #[cfg(feature = "occlusion-culling")]
+    rect: Option<LogicalRect>,
+}
+
+#[cfg_attr(not(feature = "occlusion-culling"), allow(unused_variables))]
+impl SubtreeScreenBounds {
+    /// Fold in `rect`, transformed and clipped to screen space like `DirtyRegionWalk::mark_dirty`.
+    fn add(&mut self, rect: &LogicalRect, transform: ItemTransform, clip_rect: &LogicalRect) {
+        #[cfg(feature = "occlusion-culling")]
+        self.union(transformed_and_clipped(rect, transform, clip_rect));
     }
-}
 
-/// Screen-space bounding rect of an item's own rendering plus everything painted by its descendants,
-/// used only to feed `PartialRenderer::compute_occlusion`; a zero-sized no-op when that feature is off,
-/// so the bookkeeping below costs nothing to compile in.
-#[cfg(feature = "occlusion-culling")]
-type SubtreeScreenBounds = Option<LogicalRect>;
-#[cfg(not(feature = "occlusion-culling"))]
-type SubtreeScreenBounds = ();
-
-/// Transform+clip `rect` to screen space like `mark_dirty_rect`, for folding into a subtree's aggregate screen bound.
-/// `None` if `rect` is empty, non-finite, or entirely clipped away.
-#[cfg(feature = "occlusion-culling")]
-fn screen_rect_for(
-    rect: &LogicalRect,
-    transform: ItemTransform,
-    clip_rect: &LogicalRect,
-) -> SubtreeScreenBounds {
-    transformed_and_clipped(rect, transform, clip_rect)
-}
-
-#[cfg(not(feature = "occlusion-culling"))]
-fn screen_rect_for(
-    _rect: &LogicalRect,
-    _transform: ItemTransform,
-    _clip_rect: &LogicalRect,
-) -> SubtreeScreenBounds {
-}
-
-/// Union two optional screen rects, treating `None` as "contributes nothing" rather than an empty rect at the origin (which would pull the union toward (0, 0)).
-#[cfg(feature = "occlusion-culling")]
-fn union_opt_rect(a: SubtreeScreenBounds, b: SubtreeScreenBounds) -> SubtreeScreenBounds {
-    match (a, b) {
-        (None, x) | (x, None) => x,
-        (Some(a), Some(b)) => Some(a.union(&b)),
+    /// Fold in the bounds accumulated for one subtree.
+    fn merge(&mut self, other: &Self) {
+        #[cfg(feature = "occlusion-culling")]
+        self.union(other.rect);
     }
-}
 
-#[cfg(not(feature = "occlusion-culling"))]
-fn union_opt_rect(_a: SubtreeScreenBounds, _b: SubtreeScreenBounds) -> SubtreeScreenBounds {}
-
-/// Depth-first walk that computes dirty regions for `index`'s children
-/// Returns the union of `index`'s children's subtree bounds, or `None` if nothing under `index` is visible this frame.
-// `SubtreeScreenBounds` collapses to `()` without the `occlusion-culling` feature, so this
-// bookkeeping is free in that build; that's also why it trips `let_unit_value` there.
-#[cfg_attr(not(feature = "occlusion-culling"), allow(clippy::let_unit_value))]
-fn compute_dirty_regions_recursive<T: ItemRendererFeatures>(
-    component: &ItemTreeRc,
-    index: isize,
-    cache: &RefCell<PartialRendererCache>,
-    window_adapter: &Rc<dyn WindowAdapter>,
-    dirty_region: &mut DirtyRegion,
-    // Two counters per tree depth to give each item its rank among its z-ordered siblings.
-    // `.0` counts every visited item and is what gets stored in the cache entry; `.1`
-    // counts only the items that already have a cache entry and is what the stored rank
-    // is compared against. New items are skipped in the comparison rank so that an
-    // appearing sibling does not shift the ranks of the existing items (their overlap
-    // with the new sibling is covered by the new item's own dirty rect), while two
-    // existing items can never trade places without at least one comparison rank
-    // changing.
-    sibling_counters: &RefCell<alloc::vec::Vec<(u16, u16)>>,
-    state: ComputeDirtyRegionState,
-) -> SubtreeScreenBounds {
-    let mut aggregate: SubtreeScreenBounds = Default::default();
-
-    let mut child_visitor = |child_component: &ItemTreeRc,
-                             child_index: u32,
-                             item: Pin<ItemRef>|
-     -> VisitChildrenResult {
-        let mut new_state = state;
-        let item_rc = ItemRc::new(child_component.clone(), child_index);
-
-        let my_sibling_index = {
-            let depth = state.depth;
-            let mut counters = sibling_counters.borrow_mut();
-            if counters.len() <= depth + 1 {
-                counters.resize(depth + 2, (0, 0));
-            }
-            counters[depth + 1] = (0, 0); // this item's children restart at zero
-            let idx = counters[depth].0;
-            counters[depth].0 = idx.saturating_add(1);
-            idx
+    #[cfg(feature = "occlusion-culling")]
+    fn union(&mut self, rect: Option<LogicalRect>) {
+        self.rect = match (self.rect, rect) {
+            (None, other) | (other, None) => other,
+            (Some(a), Some(b)) => Some(a.union(&b)),
         };
+    }
+}
+
+/// What one [`PartialRenderer::compute_dirty_regions`] pass carries across the recursion.
+struct DirtyRegionWalk<'a> {
+    cache: &'a RefCell<PartialRendererCache>,
+    window_adapter: &'a Rc<dyn WindowAdapter>,
+    dirty_region: &'a mut DirtyRegion,
+    sibling_ranks: SiblingRanks,
+}
+
+impl DirtyRegionWalk<'_> {
+    /// Visit `index`'s children depth-first, marking everything that changed since the last
+    /// frame as dirty, and fold what the subtree paints into `bounds`.
+    fn visit_children<T: ItemRendererFeatures>(
+        &mut self,
+        component: &ItemTreeRc,
+        index: isize,
+        state: ComputeDirtyRegionState,
+        bounds: &mut SubtreeScreenBounds,
+    ) {
+        let mut child_visitor = |child_component: &ItemTreeRc,
+                                 child_index: u32,
+                                 item: Pin<ItemRef>|
+         -> VisitChildrenResult {
+            let item_rc = ItemRc::new(child_component.clone(), child_index);
+            let mut subtree_bounds = SubtreeScreenBounds::default();
+
+            if let Some(child_state) =
+                self.update_item::<T>(item, &item_rc, state, &mut subtree_bounds)
+            {
+                self.visit_children::<T>(
+                    child_component,
+                    child_index as isize,
+                    child_state,
+                    &mut subtree_bounds,
+                );
+            }
+
+            #[cfg(feature = "occlusion-culling")]
+            {
+                let mut cache = self.cache.borrow_mut();
+                if let Some(entry) = item.cached_rendering_data_offset().get_entry(&mut cache) {
+                    entry.subtree_screen_bounds = subtree_bounds;
+                }
+            }
+
+            bounds.merge(&subtree_bounds);
+
+            VisitChildrenResult::CONTINUE
+        };
+        vtable::new_vref!(let mut child_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut child_visitor);
+        VRc::borrow_pin(component).as_ref().visit_children_item(
+            index,
+            crate::item_tree::TraversalOrder::BackToFront,
+            child_visitor,
+        );
+    }
+
+    /// Mark `rect` (in the coordinate system `transform` maps to the screen, clipped by
+    /// `clip_rect`) as needing to be repainted this frame.
+    fn mark_dirty(
+        &mut self,
+        rect: &LogicalRect,
+        transform: ItemTransform,
+        clip_rect: &LogicalRect,
+    ) {
+        if let Some(rect) = transformed_and_clipped(rect, transform, clip_rect) {
+            self.dirty_region.add_rect(rect);
+        }
+    }
+
+    /// Refresh `item`'s cache entry, mark what changed about it as dirty, and fold its own
+    /// screen rect into `bounds`.
+    /// Returns the state to visit its children with, or `None` if they are all clipped away.
+    fn update_item<T: ItemRendererFeatures>(
+        &mut self,
+        item: Pin<ItemRef>,
+        item_rc: &ItemRc,
+        state: ComputeDirtyRegionState,
+        bounds: &mut SubtreeScreenBounds,
+    ) -> Option<ComputeDirtyRegionState> {
+        let sibling_index = self.sibling_ranks.next_visited(state.depth);
+        let new_geom = CachedItemBoundingBoxAndTransform::new::<T>(
+            item_rc,
+            self.window_adapter,
+            sibling_index,
+        );
+
+        let mut new_state = state;
         new_state.depth = state.depth + 1;
 
-        let new_geom =
-            CachedItemBoundingBoxAndTransform::new::<T>(&item_rc, window_adapter, my_sibling_index);
-
         let rendering_data = item.cached_rendering_data_offset();
-        let own_screen_rect: SubtreeScreenBounds;
-        let recurse: Option<ComputeDirtyRegionState>;
+        let mut cache_ref = self.cache.borrow_mut();
+        match rendering_data.get_entry(&mut cache_ref) {
+            Some(entry) => self.update_cached_item(item, entry, new_geom, state, new_state, bounds),
+            None => {
+                let cache_entry = PartialRenderingCachedData::new(new_geom.clone());
+                rendering_data.cache_index.set(cache_ref.insert(cache_entry));
+                rendering_data.cache_generation.set(cache_ref.generation());
 
+                new_state.adjust_transforms_for_child(&new_geom.transform(), &new_geom.transform());
+
+                if let CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } = &new_geom {
+                    new_state.clipped = clipped_by(
+                        new_state.clipped,
+                        geometry,
+                        state.transform_to_screen,
+                        state.transform_to_screen,
+                    );
+                }
+
+                self.mark_dirty(
+                    new_geom.bounding_rect(),
+                    state.transform_to_screen,
+                    &state.clipped,
+                );
+                bounds.add(new_geom.bounding_rect(), state.transform_to_screen, &state.clipped);
+
+                (!new_state.clipped.is_empty()).then_some(new_state)
+            }
+        }
+    }
+
+    /// Refresh the cache entry of an item that the previous frame already visited.
+    /// See [`Self::update_item`].
+    fn update_cached_item(
+        &mut self,
+        item: Pin<ItemRef>,
+        entry: &mut PartialRenderingCachedData,
+        new_geom: CachedItemBoundingBoxAndTransform,
+        state: ComputeDirtyRegionState,
+        mut new_state: ComputeDirtyRegionState,
+        bounds: &mut SubtreeScreenBounds,
+    ) -> Option<ComputeDirtyRegionState> {
+        let PartialRenderingCachedData { data: cached_geom, tracker, .. } = entry;
+        let rendering_dirty = tracker.as_ref().is_some_and(|tr| tr.is_dirty());
+
+        // Repaint when the rank among the previously known siblings changed, in either
+        // direction (see `SiblingRankCounters::cached`): only a decrease is not enough, since
+        // in a permutation of three or more items a pair can flip while one member keeps its
+        // rank and the other only rises. A saturated rank (more than `u16::MAX` siblings)
+        // always repaints.
+        let comparison_sibling_index = self.sibling_ranks.next_cached(state.depth);
+        let sibling_index = new_geom.sibling_index();
+        let sibling_index_changed =
+            sibling_index == u16::MAX || comparison_sibling_index != cached_geom.sibling_index();
+        cached_geom.set_sibling_index(sibling_index);
+        new_state.must_refresh_children |= sibling_index_changed;
+
+        let geometry_changed = !cached_geom.same_geometry(&new_geom);
+        if ItemRef::downcast_pin::<Clip>(item).is_some()
+            || ItemRef::downcast_pin::<Opacity>(item).is_some()
         {
-            let mut cache_ref = cache.borrow_mut();
-            match rendering_data.get_entry(&mut cache_ref) {
-                Some(PartialRenderingCachedData { data: cached_geom, tracker, .. }) => {
-                    let rendering_dirty = tracker.as_ref().is_some_and(|tr| tr.is_dirty());
+            // When the opacity or the clip change, this will impact all the children, including
+            // the ones outside the element, regardless if they are themselves dirty or not.
+            new_state.must_refresh_children |= rendering_dirty || geometry_changed;
 
-                    // Repaint when the rank among the previously known siblings changed,
-                    // in either direction: two items cannot trade places in the stacking
-                    // order with both comparison ranks unchanged, and since an overlap is
-                    // within both items' rects, repainting the changed one(s) covers it.
-                    // Only a decrease is not enough: in a permutation of three or more
-                    // items a pair can flip while one member keeps its rank and the other
-                    // only rises. A saturated rank (>65535 siblings) always repaints.
-                    let comparison_sibling_index = {
-                        let mut counters = sibling_counters.borrow_mut();
-                        let idx = counters[state.depth].1;
-                        counters[state.depth].1 = idx.saturating_add(1);
-                        idx
-                    };
-                    let old_sibling_index =
-                        core::mem::replace(cached_geom.sibling_index(), my_sibling_index);
-                    let sibling_index_changed = my_sibling_index == u16::MAX
-                        || comparison_sibling_index != old_sibling_index;
-                    new_state.must_refresh_children |= sibling_index_changed;
-
-                    let geometry_changed = !cached_geom.same_geometry(&new_geom);
-                    if ItemRef::downcast_pin::<Clip>(item).is_some()
-                        || ItemRef::downcast_pin::<Opacity>(item).is_some()
-                    {
-                        // When the opacity or the clip change, this will impact all the children, including
-                        // the ones outside the element, regardless if they are themselves dirty or not.
-                        new_state.must_refresh_children |= rendering_dirty || geometry_changed;
-
-                        if rendering_dirty {
-                            // Destroy the tracker as we we might not re-render this clipped item but it would stay dirty
-                            *tracker = None;
-                        }
-                    }
-
-                    if geometry_changed {
-                        let old_transform = cached_geom.transform();
-                        mark_dirty_rect(
-                            dirty_region,
-                            cached_geom.bounding_rect(),
-                            state.old_transform_to_screen,
-                            &state.clipped,
-                        );
-                        mark_dirty_rect(
-                            dirty_region,
-                            new_geom.bounding_rect(),
-                            state.transform_to_screen,
-                            &state.clipped,
-                        );
-
-                        new_state
-                            .adjust_transforms_for_child(&new_geom.transform(), &old_transform);
-
-                        own_screen_rect = screen_rect_for(
-                            new_geom.bounding_rect(),
-                            state.transform_to_screen,
-                            &state.clipped,
-                        );
-
-                        *cached_geom = new_geom;
-                        recurse = Some(new_state);
-                    } else {
-                        new_state.adjust_transforms_for_child(
-                            &cached_geom.transform(),
-                            &cached_geom.transform(),
-                        );
-
-                        let moved = state.must_refresh_children
-                            || sibling_index_changed
-                            || new_state.transform_to_screen != new_state.old_transform_to_screen;
-
-                        if rendering_dirty {
-                            mark_dirty_rect(
-                                dirty_region,
-                                cached_geom.bounding_rect(),
-                                state.transform_to_screen,
-                                &state.clipped,
-                            );
-                            if moved {
-                                mark_dirty_rect(
-                                    dirty_region,
-                                    cached_geom.bounding_rect(),
-                                    state.old_transform_to_screen,
-                                    &state.clipped,
-                                );
-                            }
-
-                            own_screen_rect = screen_rect_for(
-                                cached_geom.bounding_rect(),
-                                state.transform_to_screen,
-                                &state.clipped,
-                            );
-                            recurse = Some(new_state);
-                        } else {
-                            if moved {
-                                mark_dirty_rect(
-                                    dirty_region,
-                                    cached_geom.bounding_rect(),
-                                    state.old_transform_to_screen,
-                                    &state.clipped,
-                                );
-                                mark_dirty_rect(
-                                    dirty_region,
-                                    cached_geom.bounding_rect(),
-                                    state.transform_to_screen,
-                                    &state.clipped,
-                                );
-                            } else if let Some(tr) = &tracker {
-                                tr.as_ref().register_as_dependency_to_current_binding();
-                            }
-
-                            own_screen_rect = screen_rect_for(
-                                cached_geom.bounding_rect(),
-                                state.transform_to_screen,
-                                &state.clipped,
-                            );
-
-                            if let CachedItemBoundingBoxAndTransform::ClipItem {
-                                geometry, ..
-                            } = &cached_geom
-                            {
-                                new_state.clipped = new_state
-                                    .clipped
-                                    .intersection(
-                                        &state
-                                            .transform_to_screen
-                                            .outer_transformed_rect(&geometry.cast())
-                                            .cast()
-                                            .union(
-                                                &state
-                                                    .old_transform_to_screen
-                                                    .outer_transformed_rect(&geometry.cast())
-                                                    .cast(),
-                                            ),
-                                    )
-                                    .unwrap_or_default();
-                                recurse = if new_state.clipped.is_empty() {
-                                    None
-                                } else {
-                                    Some(new_state)
-                                };
-                            } else {
-                                recurse = Some(new_state);
-                            }
-                        }
-                    }
-                }
-                None => {
-                    let cache_entry = PartialRenderingCachedData::new(new_geom.clone());
-                    rendering_data.cache_index.set(cache_ref.insert(cache_entry));
-                    rendering_data.cache_generation.set(cache_ref.generation());
-
-                    new_state
-                        .adjust_transforms_for_child(&new_geom.transform(), &new_geom.transform());
-
-                    if let CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } = &new_geom
-                    {
-                        new_state.clipped = new_state
-                            .clipped
-                            .intersection(
-                                &state
-                                    .transform_to_screen
-                                    .outer_transformed_rect(&geometry.cast())
-                                    .cast(),
-                            )
-                            .unwrap_or_default();
-                    }
-
-                    mark_dirty_rect(
-                        dirty_region,
-                        new_geom.bounding_rect(),
-                        state.transform_to_screen,
-                        &state.clipped,
-                    );
-                    own_screen_rect = screen_rect_for(
-                        new_geom.bounding_rect(),
-                        state.transform_to_screen,
-                        &state.clipped,
-                    );
-
-                    recurse = if new_state.clipped.is_empty() { None } else { Some(new_state) };
-                }
+            if rendering_dirty {
+                // Destroy the tracker as we we might not re-render this clipped item but it would stay dirty
+                *tracker = None;
             }
         }
 
-        let descendants_bounds = match recurse {
-            Some(child_state) => compute_dirty_regions_recursive::<T>(
-                child_component,
-                child_index as isize,
-                cache,
-                window_adapter,
-                dirty_region,
-                sibling_counters,
-                child_state,
-            ),
-            None => Default::default(),
-        };
+        if geometry_changed {
+            let old_transform = cached_geom.transform();
+            self.mark_dirty(
+                cached_geom.bounding_rect(),
+                state.old_transform_to_screen,
+                &state.clipped,
+            );
+            self.mark_dirty(new_geom.bounding_rect(), state.transform_to_screen, &state.clipped);
+            bounds.add(new_geom.bounding_rect(), state.transform_to_screen, &state.clipped);
 
-        let subtree_bounds = union_opt_rect(own_screen_rect, descendants_bounds);
-
-        #[cfg(feature = "occlusion-culling")]
-        {
-            let mut cache_ref = cache.borrow_mut();
-            if let Some(entry) = rendering_data.get_entry(&mut cache_ref) {
-                entry.subtree_screen_bounds = subtree_bounds;
-            }
+            new_state.adjust_transforms_for_child(&new_geom.transform(), &old_transform);
+            *cached_geom = new_geom;
+            return Some(new_state);
         }
 
-        aggregate = union_opt_rect(aggregate, subtree_bounds);
+        new_state.adjust_transforms_for_child(&cached_geom.transform(), &cached_geom.transform());
+        bounds.add(cached_geom.bounding_rect(), state.transform_to_screen, &state.clipped);
 
-        VisitChildrenResult::CONTINUE
-    };
-    vtable::new_vref!(let mut child_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut child_visitor);
-    VRc::borrow_pin(component).as_ref().visit_children_item(
-        index,
-        crate::item_tree::TraversalOrder::BackToFront,
-        child_visitor,
-    );
+        let moved = state.must_refresh_children
+            || sibling_index_changed
+            || new_state.transform_to_screen != new_state.old_transform_to_screen;
 
-    aggregate
+        if rendering_dirty {
+            self.mark_dirty(cached_geom.bounding_rect(), state.transform_to_screen, &state.clipped);
+            if moved {
+                self.mark_dirty(
+                    cached_geom.bounding_rect(),
+                    state.old_transform_to_screen,
+                    &state.clipped,
+                );
+            }
+            return Some(new_state);
+        }
+
+        if moved {
+            self.mark_dirty(
+                cached_geom.bounding_rect(),
+                state.old_transform_to_screen,
+                &state.clipped,
+            );
+            self.mark_dirty(cached_geom.bounding_rect(), state.transform_to_screen, &state.clipped);
+            return Some(new_state);
+        }
+
+        // Nothing about the item changed, so it isn't repainted.
+        // Keep its rendering tracker registered, so a later change to the properties it covers
+        // triggers a redraw.
+        if let Some(tr) = tracker {
+            tr.as_ref().register_as_dependency_to_current_binding();
+        }
+
+        if let CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } = &cached_geom {
+            new_state.clipped = clipped_by(
+                new_state.clipped,
+                geometry,
+                state.transform_to_screen,
+                state.old_transform_to_screen,
+            );
+            return (!new_state.clipped.is_empty()).then_some(new_state);
+        }
+
+        Some(new_state)
+    }
 }
 
 impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
@@ -1084,14 +1107,15 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         size: LogicalSize,
     ) {
         let initial_transform = euclid::Transform2D::translation(origin.x as f32, origin.y as f32);
-        let sibling_counters = RefCell::new(alloc::vec::Vec::<(u16, u16)>::new());
-        compute_dirty_regions_recursive::<T>(
+        DirtyRegionWalk {
+            cache: self.cache,
+            window_adapter: &self.window_adapter,
+            dirty_region: &mut self.dirty_region,
+            sibling_ranks: SiblingRanks::default(),
+        }
+        .visit_children::<T>(
             component,
             -1,
-            self.cache,
-            &self.window_adapter,
-            &mut self.dirty_region,
-            &sibling_counters,
             ComputeDirtyRegionState {
                 transform_to_screen: initial_transform,
                 old_transform_to_screen: initial_transform,
@@ -1099,13 +1123,18 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                 must_refresh_children: false,
                 depth: 0,
             },
+            // The root's own aggregate is of no interest; the walk stores the bounds of every
+            // item it visits in that item's cache entry.
+            &mut SubtreeScreenBounds::default(),
         );
     }
 
-    /// Visit the tree and mark, for each item, whether it's fully hidden behind opaque content painted after it.
-    /// Must run after `Self::compute_dirty_regions` for the same `component` in the same frame.
-    /// Only accounts for occlusion *within* `component`; an opaque item in one `component` can't hide content in a different, earlier `component`
-    /// from the same `PartialRenderingState::apply_dirty_region` call.
+    /// Visit the tree and mark, for each item, whether it's fully hidden behind opaque content
+    /// painted after it.
+    /// Must run after `Self::compute_dirty_regions` for the same `component`, in the same frame.
+    /// Only accounts for occlusion within `component`: an opaque item in one `component` can't
+    /// hide content in a different, earlier `component` from the same
+    /// `PartialRenderingState::apply_dirty_region` call.
     #[cfg(feature = "occlusion-culling")]
     pub fn compute_occlusion(
         &mut self,
@@ -1114,24 +1143,25 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         size: LogicalSize,
     ) {
         let initial_transform = euclid::Transform2D::translation(origin.x as f32, origin.y as f32);
-        let mut accumulator = OccludedRegion::default();
+        let mut walk = OcclusionWalk {
+            cache: self.cache,
+            dirty_region: &self.dirty_region,
+            accumulator: OccludedRegion::default(),
+            scale_factor: self.actual_renderer.scale_factor(),
+        };
         // Untracked: this pass only decides which already-dirty items to skip drawing, it
         // doesn't itself determine what's dirty, so its property reads (background, border,
         // clip radius, opacity, ...) mustn't create redraw-tracker dependencies -- same
         // rationale as `CachedItemBoundingBoxAndTransform::new` and `filter_item`.
         crate::properties::evaluate_no_tracking(|| {
-            compute_occlusion_recursive(
+            walk.visit_children(
                 component,
                 -1,
-                self.cache,
-                &self.dirty_region,
-                &mut accumulator,
                 ComputeOcclusionState {
                     transform_to_screen: initial_transform,
                     clipped: LogicalRect::from_size(size),
                     occluder_clip: LogicalRect::from_size(size),
                     may_contribute: true,
-                    scale_factor: self.actual_renderer.scale_factor(),
                 },
             );
         });
@@ -1373,10 +1403,10 @@ impl PartialRenderingState {
         }
         .intersection(screen_region);
 
-        // Must run after `dirty_region` reaches its final value above: `compute_occlusion` prunes
-        // subtrees outside it, and `filter_item` tests `occluded` against that same region, so a
-        // narrower not-yet-final region would leave stale `occluded` flags on content the wider
-        // region ends up drawing over.
+        // Must run after `dirty_region` reaches its final value above: both `compute_occlusion`
+        // (which prunes subtrees outside it) and `filter_item` (which tests `occluded` against it)
+        // rely on that value. Running earlier would leave stale `occluded` flags on content a
+        // still-growing region ends up drawing over.
         #[cfg(feature = "occlusion-culling")]
         for (component, origin) in components {
             if let Some(component) = crate::item_tree::ItemTreeWeak::upgrade(component) {
