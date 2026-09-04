@@ -57,6 +57,8 @@ fn backends_to_avoid() -> wgpu::Backends {
     avoid.insert(wgpu::Backends::METAL);
     #[cfg(not(target_family = "windows"))]
     avoid.insert(wgpu::Backends::DX12);
+    #[cfg(not(skia_wgpu_vulkan))]
+    avoid.insert(wgpu::Backends::VULKAN);
     avoid
 }
 
