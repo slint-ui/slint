@@ -167,6 +167,7 @@ fn default_wgpu_surface_factory(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError> {
     core::cfg_select! {
         feature = "wgpu-30" => {
@@ -176,6 +177,7 @@ fn default_wgpu_surface_factory(
                 display_handle,
                 size,
                 requested_graphics_api,
+                transparent,
             )
         }
         _ => {
@@ -185,6 +187,7 @@ fn default_wgpu_surface_factory(
                 display_handle,
                 size,
                 requested_graphics_api,
+                transparent,
             )
         }
     }
@@ -197,6 +200,7 @@ fn metal_wgpu_surface_factory(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError> {
     default_wgpu_surface_factory(
         context,
@@ -204,6 +208,7 @@ fn metal_wgpu_surface_factory(
         display_handle,
         size,
         Some(requested_graphics_api.unwrap_or(RequestedGraphicsAPI::Metal)),
+        transparent,
     )
 }
 
@@ -214,6 +219,7 @@ fn vulkan_wgpu_surface_factory(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError> {
     default_wgpu_surface_factory(
         context,
@@ -221,6 +227,7 @@ fn vulkan_wgpu_surface_factory(
         display_handle,
         size,
         Some(requested_graphics_api.unwrap_or(RequestedGraphicsAPI::Vulkan)),
+        transparent,
     )
 }
 
@@ -231,6 +238,7 @@ fn direct3d_wgpu_surface_factory(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError> {
     default_wgpu_surface_factory(
         context,
@@ -238,6 +246,7 @@ fn direct3d_wgpu_surface_factory(
         display_handle,
         size,
         Some(requested_graphics_api.unwrap_or(RequestedGraphicsAPI::Direct3D)),
+        transparent,
     )
 }
 
@@ -248,6 +257,7 @@ fn create_default_surface(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError> {
     #[cfg(feature = "unstable-wgpu-29")]
     if matches!(requested_graphics_api, Some(RequestedGraphicsAPI::WGPU29(..))) {
@@ -258,6 +268,7 @@ fn create_default_surface(
             display_handle,
             size,
             requested_graphics_api,
+            transparent,
         );
     }
     #[cfg(feature = "unstable-wgpu-30")]
@@ -269,6 +280,7 @@ fn create_default_surface(
             display_handle,
             size,
             requested_graphics_api,
+            transparent,
         );
     }
 
@@ -295,6 +307,7 @@ fn create_default_surface(
             display_handle.clone(),
             size,
             requested_graphics_api.clone(),
+            transparent,
         ) {
             Ok(surface) => return Ok(surface),
             Err(err) => {
@@ -393,6 +406,7 @@ type SurfaceFactoryFn = fn(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError>;
 
 /// Creates a boxed surface of the concrete type `S`, in the shape of [`SurfaceFactoryFn`].
@@ -402,8 +416,9 @@ fn surface_factory<S: Surface + 'static>(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError> {
-    S::new(context, window_handle, display_handle, size, requested_graphics_api)
+    S::new(context, window_handle, display_handle, size, requested_graphics_api, transparent)
         .map(|r| Box::new(r) as Box<dyn Surface>)
 }
 
@@ -522,7 +537,7 @@ impl SkiaRenderer {
     ) -> Result<Self, PlatformError> {
         Ok(Self::new_with_surface(
             context,
-            create_default_surface(context, window_handle, display_handle, size, None)?,
+            create_default_surface(context, window_handle, display_handle, size, None, false)?,
         ))
     }
 
@@ -533,7 +548,7 @@ impl SkiaRenderer {
     ) -> Self {
         let renderer = Self::new_with_surface_factory(
             context,
-            |_, _, _, _, _| {
+            |_, _, _, _, _, _| {
                 Err("Skia renderer constructed with surface does not support dynamic surface re-creation".into())
             },
             create_partial_renderer_state(Some(surface.as_ref())),
@@ -611,8 +626,8 @@ impl SkiaRenderer {
             display_handle,
             size,
             requested_graphics_api,
+            transparent,
         )?;
-        surface.set_transparent(transparent)?;
         self.set_surface(surface);
         Ok(())
     }
@@ -1044,12 +1059,14 @@ impl Drop for SkiaRenderer {
 /// with a metal layer, a wayland window with an OpenGL context, etc.
 pub trait Surface {
     /// Creates a new surface with the given window, display, and size.
+    /// `transparent` selects whether the window shows what's behind it where the scene has alpha.
     fn new(
         shared_context: &SkiaSharedContext,
         window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Sync + Send>,
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
+        transparent: bool,
     ) -> Result<Self, PlatformError>
     where
         Self: Sized;
@@ -1112,6 +1129,11 @@ pub trait Surface {
     /// Implementations should return self to allow upcasting.
     fn as_any(&self) -> &dyn core::any::Any {
         &()
+    }
+
+    // returns true if this surface will be rendered with transparency respected by the OS
+    fn presentation_may_use_transparency(&self) -> bool {
+        false
     }
 
     fn set_transparent(&self, _: bool) -> Result<(), PlatformError> {
