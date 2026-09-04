@@ -16,14 +16,33 @@ fn main() {
     println!("cargo:rerun-if-changed={}", compiler.display());
 
     let generated = out_dir.join("main.rs");
+    let depfile = out_dir.join("main.d");
     let status = Command::new(&compiler)
         .arg("--slint-sc")
         .arg(slint_file)
+        .arg("--depfile")
+        .arg(&depfile)
         .arg("-o")
         .arg(&generated)
         .status()
         .unwrap_or_else(|e| panic!("failed to run {}: {e}", compiler.display()));
     assert!(status.success(), "slint-compiler failed on {}", slint_file.display());
+
+    // The scene decodes its images into the generated code, so editing one has
+    // to regenerate it. The depfile names every file that went in.
+    for dependency in dependencies(&depfile) {
+        println!("cargo:rerun-if-changed={dependency}");
+    }
+}
+
+/// The files the generated code was made from, as the `make` rule in `depfile`
+/// lists them: the .slint files, and the images they embed.
+fn dependencies(depfile: &Path) -> Vec<String> {
+    let rule = std::fs::read_to_string(depfile)
+        .unwrap_or_else(|e| panic!("failed to read {}: {e}", depfile.display()));
+    let (_target, prerequisites) =
+        rule.split_once(": ").expect("the depfile holds one rule with prerequisites");
+    prerequisites.split_whitespace().map(str::to_owned).collect()
 }
 
 /// Locate the prebuilt `slint-compiler` binary: the `SLINT_COMPILER` override,

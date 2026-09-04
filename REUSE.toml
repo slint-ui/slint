@@ -7,47 +7,41 @@ SPDX-PackageSupplier = "Slint Developers <info@slint.dev>"
 SPDX-PackageDownloadLocation = "https://slint.dev/"
 
 [[annotations]]
-path = ["examples/safe-ui/app2/assets/**.png"]
+path = ["examples/safe-ui/app/assets/**.png"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = [
-  "examples/safe-ui/app2/assets/background-normal.png",
-  "examples/safe-ui/app2/assets/background-fault.png",
-  "examples/safe-ui/app2/assets/door-sealed.png",
-  "examples/safe-ui/app2/assets/door-locking.png",
-  "examples/safe-ui/app2/assets/door-locked.png",
-  "examples/safe-ui/app2/assets/door-ready.png",
-  "examples/safe-ui/app2/assets/door-released.png",
-  "examples/safe-ui/app2/assets/pressure-locked.png",
-  "examples/safe-ui/app2/assets/pressure-equal.png",
-  "examples/safe-ui/app2/assets/action-enter.png",
-  "examples/safe-ui/app2/assets/action-exit-inner.png",
-  "examples/safe-ui/app2/assets/action-exit-outer.png",
+  "examples/safe-ui/app/assets/background-normal.png",
+  "examples/safe-ui/app/assets/background-fault.png",
+  "examples/safe-ui/app/assets/door-sealed.png",
+  "examples/safe-ui/app/assets/door-locking.png",
+  "examples/safe-ui/app/assets/door-locked.png",
+  "examples/safe-ui/app/assets/door-ready.png",
+  "examples/safe-ui/app/assets/door-released.png",
+  "examples/safe-ui/app/assets/pressure-locked.png",
+  "examples/safe-ui/app/assets/pressure-equal.png",
+  "examples/safe-ui/app/assets/action-enter.png",
+  "examples/safe-ui/app/assets/action-exit-inner.png",
+  "examples/safe-ui/app/assets/action-exit-outer.png",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright 2024 Fonticons, Inc."
 SPDX-License-Identifier = "CC-BY-4.0"
 
 [[annotations]]
-path = ["examples/safe-ui/app2/assets/action-wait-blue.png", "examples/safe-ui/app2/assets/action-wait-orange.png"]
+path = ["examples/safe-ui/app/assets/action-wait-blue.png", "examples/safe-ui/app/assets/action-wait-orange.png"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright (c) 2020-2026 Paweł Kuna"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = ["examples/safe-ui/app2/assets/chamber-empty.png", "examples/safe-ui/app2/assets/chamber-occupied.png"]
+path = ["examples/safe-ui/app/assets/chamber-empty.png", "examples/safe-ui/app/assets/chamber-occupied.png"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright (c) 2015-present Ionic (http://ionic.io/)"
 SPDX-License-Identifier = "MIT"
-
-[[annotations]]
-path = ["examples/safe-ui/app2/assets/demo-title-banner.png"]
-precedence = "aggregate"
-SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
-SPDX-License-Identifier = "CC-BY-ND-4.0"
 
 [[annotations]]
 path = [

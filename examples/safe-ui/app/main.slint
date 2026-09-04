@@ -1,37 +1,152 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// The safety-domain scene in the Slint SC subset: Window and Rectangle only,
-// no Timer, no model. Rust sets the three color properties; see src/lib.rs.
+// The safety-domain scene in the Slint SC subset: an airlock screen made of
+// PNGs placed at their native size on a 320x240 display, and one TouchArea per
+// action. Rust owns the airlock state machine and the countdown; see src/lib.rs.
+//
+// The subset shapes how the scene is written: it has no 'visible', so an
+// element hides by selecting an empty source, and no 'enabled', so a TouchArea
+// leaves the screen when its action is unavailable.
+
+import { DoorState, DoorImage } from "components.slint";
+import { ProgressText } from "progress-text.slint";
+import { SegmentedProgress } from "progress.slint";
+
+export enum TransitView { ready, securing, equalizing, ready-to-open, complete, fault }
 
 export component MainWindow inherits Window {
-    in property <color> first-color;
-    in property <color> second-color;
-    in property <color> third-color;
+    // The state the screen shows. The host decides it; the screen makes no
+    // door-control or safety decision of its own.
+    in property <TransitView> view: TransitView.ready;
+    // The countdown of the running phase, in seconds, shown while waiting.
+    in property <int> seconds-remaining: 0;
+    // How far pressure equalization has come, in percent.
+    in property <int> progress-percent: 0;
+
+    callback enter-requested;
+    callback exit-outer-requested;
+    callback exit-inner-requested;
+    // Demo gestures, so the fault screen can be reached without a real fault.
+    callback fault-requested;
+    callback reset-requested;
+
+    private property <bool> waiting: root.view == TransitView.securing || root.view == TransitView.equalizing;
+    private property <bool> equalizing: root.view == TransitView.equalizing;
 
     background: #000000;
 
-    first := Rectangle {
-        x: 20px;
-        y: 20px;
-        width: 60px;
-        height: 60px;
-        background: root.first-color;
+    Image {
+        x: 0px;
+        y: 0px;
+        source: root.view == TransitView.fault
+            ? @image-url("assets/background-fault.png") : @image-url("assets/background-normal.png");
     }
 
-    second := Rectangle {
-        x: 100px;
-        y: 20px;
-        width: 60px;
-        height: 60px;
-        background: root.second-color;
+    // The inner door, to the platform the occupant came from.
+    DoorImage {
+        x: 9px;
+        y: 34px;
+        state: root.view == TransitView.ready ? DoorState.sealed
+            : root.view == TransitView.securing ? DoorState.locking
+            : root.view == TransitView.complete ? DoorState.released
+            : DoorState.locked;
     }
 
-    third := Rectangle {
-        x: 180px;
-        y: 20px;
-        width: 60px;
-        height: 60px;
-        background: root.third-color;
+    // The outer door, to the vehicle.
+    DoorImage {
+        x: 225px;
+        y: 34px;
+        state: root.view == TransitView.ready ? DoorState.sealed
+            : root.view == TransitView.securing ? DoorState.locking
+            : root.view == TransitView.ready-to-open ? DoorState.ready
+            : DoorState.locked;
+    }
+
+    chamber := Image {
+        x: 110px;
+        y: 11px;
+        source: root.view == TransitView.complete
+            ? @image-url("assets/chamber-empty.png") : @image-url("assets/chamber-occupied.png");
+    }
+
+    // The pressure indicator, which the equalization ring replaces while it runs.
+    Image {
+        x: 135px;
+        y: 115px;
+        source: root.view == TransitView.ready ? @image-url("assets/pressure-gauge.png")
+            : root.view == TransitView.securing ? @image-url("assets/pressure-locked.png")
+            : root.equalizing || root.view == TransitView.fault ? @image-url("")
+            : @image-url("assets/pressure-equal.png");
+    }
+
+    SegmentedProgress {
+        x: 105px;
+        y: 115px;
+        percent: root.progress-percent;
+        active: root.equalizing;
+    }
+
+    // The action panel: what the occupant can do, or what to wait for.
+    action := Image {
+        x: 158px;
+        y: 199px;
+        source: root.view == TransitView.ready ? @image-url("assets/action-enter.png")
+            : root.view == TransitView.securing ? @image-url("assets/action-wait-orange.png")
+            : root.view == TransitView.equalizing ? @image-url("assets/action-wait-blue.png")
+            : root.view == TransitView.ready-to-open ? @image-url("assets/action-exit-outer.png")
+            : root.view == TransitView.complete ? @image-url("assets/action-exit-inner.png")
+            : @image-url("");
+    }
+
+    // The countdown of the running phase, over the action panel.
+    ProgressText {
+        x: 267px;
+        y: 202px;
+        value: root.waiting ? root.seconds-remaining : -1;
+    }
+
+    // One TouchArea per action, over the action panel. The subset has no
+    // 'enabled', so the two that don't apply to the current view sit off-screen.
+    TouchArea {
+        x: root.view == TransitView.ready ? action.x : -action.width;
+        y: action.y;
+        width: action.width;
+        height: action.height;
+        clicked => { root.enter-requested(); }
+    }
+
+    TouchArea {
+        x: root.view == TransitView.ready-to-open ? action.x : -action.width;
+        y: action.y;
+        width: action.width;
+        height: action.height;
+        clicked => { root.exit-outer-requested(); }
+    }
+
+    TouchArea {
+        x: root.view == TransitView.complete ? action.x : -action.width;
+        y: action.y;
+        width: action.width;
+        height: action.height;
+        clicked => { root.exit-inner-requested(); }
+    }
+
+    // Demo gestures: the occupant chamber injects a fault, and the emergency
+    // banner of the fault screen clears it.
+    TouchArea {
+        x: root.view == TransitView.fault ? -chamber.width : chamber.x;
+        y: chamber.y;
+        width: chamber.width;
+        height: chamber.height;
+        clicked => { root.fault-requested(); }
+    }
+
+    TouchArea {
+        x: root.view == TransitView.fault ? 7px : -308px;
+        y: 181px;
+        width: 308px;
+        height: 56px;
+        clicked => { root.reset-requested(); }
     }
 }
