@@ -39,7 +39,6 @@ export global DemoController {
         self.view = TransitView.ready;
         self.seconds-remaining = 6;
         self.progress-percent = 0;
-        self.phase-start = 0ms;
     }
     // Elapsed time, not tick count: delayed frames cannot slow the countdown.
     public function advance(now: duration) {
@@ -66,7 +65,7 @@ export component PublicTransitDemo inherits PublicTransitAirlock {
 
     width: 320px;
     height: 240px;
-    title: "Public Transit Airlock — Demo (F: fault, R: reset)";
+    title: "Public Transit Airlock — Demo";
     view: DemoController.view;
     seconds-remaining: DemoController.seconds-remaining;
     progress-percent: DemoController.progress-percent;
@@ -77,14 +76,19 @@ export component PublicTransitDemo inherits PublicTransitAirlock {
     exit-inner-requested => { DemoController.exit-inner(); }
 
     Rectangle {
-        x: 0px; y: 0px; width: 320px; height: 240px;
+        x: 0px;
+        y: 0px;
+        width: 320px;
+        height: 240px;
         background: #ffffff99;
         visible: root.title-visible;
     }
-    // Figma AwH2AA7IrUYRfIdmGSN1YT: 2086:2860, exported at 320x48.
-    // Logo source: logo/slint-logo-simple-light.svg in this repository.
+
     Image {
-        x: 0px; y: 0px; width: 320px; height: 48px;
+        x: 0px;
+        y: 0px;
+        width: 320px;
+        height: 48px;
         source: @image-url("assets/demo-title-banner.png");
         visible: root.title-visible;
     }
@@ -94,19 +98,25 @@ export component PublicTransitDemo inherits PublicTransitAirlock {
         running: DemoController.view == TransitView.securing || DemoController.view == TransitView.equalizing;
         triggered => { DemoController.advance(animation-tick()); }
     }
+
     TouchArea {
-        x: 110px; y: 11px; width: 102px; height: 98px;
+        x: 110px;
+        y: 11px;
+        width: 102px;
+        height: 98px;
         double-clicked => { DemoController.fault(); }
     }
+
     TouchArea {
-        x: 7px; y: 181px; width: 308px; height: 56px;
+        x: 7px;
+        y: 181px;
+        width: 308px;
+        height: 56px;
         enabled: DemoController.view == TransitView.fault;
         clicked => { DemoController.reset(); }
     }
+
     shortcuts := FocusScope {
-        // Keyboard-only: do not cover the image UI's pointer targets.
-        width: 0px;
-        height: 0px;
         key-pressed(event) => {
             if root.title-visible { return accept; }
             if event.text == "f" || event.text == "F" {
@@ -122,7 +132,10 @@ export component PublicTransitDemo inherits PublicTransitAirlock {
     }
     // Capture the first tap without forwarding it to a demo control underneath.
     TouchArea {
-        x: 0px; y: 0px; width: 320px; height: 240px;
+        x: 0px;
+        y: 0px;
+        width: 320px;
+        height: 240px;
         enabled: root.title-visible;
         clicked => { root.title-visible = false; }
     }

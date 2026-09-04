@@ -3,11 +3,10 @@
 
 import { ProgressText } from "progress-text.slint";
 import { SegmentedProgress } from "progress.slint";
-import { DoorState, DoorImage, OccupantImage, PressureImage, ActionImage } from "components.slint";
+import { DoorState, DoorImage } from "components.slint";
 export enum TransitView { ready, securing, equalizing, ready-to-open, complete, fault }
 
 export component PublicTransitAirlock inherits Window {
-    private property <image> empty-image;
     private property <bool> waiting: view == TransitView.securing || view == TransitView.equalizing;
     private property <bool> equalizing: view == TransitView.equalizing;
 
@@ -19,36 +18,80 @@ export component PublicTransitAirlock inherits Window {
     callback exit-outer-requested;
     callback exit-inner-requested;
 
-    // The host supplies a 320x240 surface; demo.slint sets the desktop window size.
-    Image { x: 0px; y: 0px; source: root.view == TransitView.fault
-        ? @image-url("assets/background-fault.png") : @image-url("assets/background-normal.png"); }
-    DoorImage { x: 9px; y: 34px; state: root.view == TransitView.ready ? DoorState.sealed
-        : root.view == TransitView.securing ? DoorState.locking
-        : root.view == TransitView.complete ? DoorState.released : DoorState.locked; }
-    DoorImage { x: 225px; y: 34px; state: root.view == TransitView.ready ? DoorState.sealed
-        : root.view == TransitView.securing ? DoorState.locking
-        : root.view == TransitView.ready-to-open ? DoorState.ready : DoorState.locked; }
-    OccupantImage { x: 110px; y: 11px; source: root.view == TransitView.complete
-        ? @image-url("assets/chamber-empty.png") : @image-url("assets/chamber-occupied.png"); }
-    PressureImage { x: root.view == TransitView.fault ? 118px : 135px; y: 115px;
-        source: root.equalizing ? root.empty-image
-            : root.view == TransitView.ready ? @image-url("assets/pressure-gauge.png")
+    Image {
+        x: 0px;
+        y: 0px;
+        source: root.view == TransitView.fault
+            ? @image-url("assets/background-fault.png") : @image-url("assets/background-normal.png");
+    }
+
+    DoorImage {
+        x: 9px;
+        y: 34px;
+        state: root.view == TransitView.ready ? DoorState.sealed
+            : root.view == TransitView.securing ? DoorState.locking
+            : root.view == TransitView.complete ? DoorState.released : DoorState.locked;
+    }
+
+    DoorImage {
+        x: 225px;
+        y: 34px;
+        state: root.view == TransitView.ready ? DoorState.sealed
+            : root.view == TransitView.securing ? DoorState.locking
+            : root.view == TransitView.ready-to-open ? DoorState.ready : DoorState.locked;
+    }
+
+    Image {
+        x: 110px;
+        y: 11px;
+        source: root.view == TransitView.complete
+            ? @image-url("assets/chamber-empty.png") : @image-url("assets/chamber-occupied.png");
+    }
+
+    Image {
+        x: 135px;
+        y: 115px;
+        visible: !root.equalizing && root.view != TransitView.fault;
+        source: root.view == TransitView.ready ? @image-url("assets/pressure-gauge.png")
             : root.view == TransitView.securing ? @image-url("assets/pressure-locked.png")
-            : root.view == TransitView.fault ? @image-url("assets/pressure-fault.png")
-            : @image-url("assets/pressure-equal.png"); }
-    SegmentedProgress { x: 105px; y: 115px; percent: root.progress-percent; active: root.equalizing; }
-    ActionImage { x: root.view == TransitView.fault ? 7px : 158px; y: root.view == TransitView.fault ? 181px : 199px;
+            : @image-url("assets/pressure-equal.png");
+    }
+
+    SegmentedProgress {
+        x: 105px;
+        y: 115px;
+        percent: root.progress-percent;
+        active: root.equalizing;
+    }
+
+    Image {
+        x: 158px;
+        y: 199px;
+        visible: root.view != TransitView.fault;
         source: root.view == TransitView.ready ? @image-url("assets/action-enter.png")
             : root.view == TransitView.securing ? @image-url("assets/action-wait-orange.png")
             : root.view == TransitView.equalizing ? @image-url("assets/action-wait-blue.png")
             : root.view == TransitView.ready-to-open ? @image-url("assets/action-exit-outer.png")
-            : root.view == TransitView.complete ? @image-url("assets/action-exit-inner.png") : @image-url("assets/action-fault.png"); }
-    ProgressText { x: 267px; y: 202px; value: root.seconds-remaining; visible: root.waiting; }
-    // Zero width removes hit targets outside the matching state.
-    TouchArea { x: 158px; y: 199px; width: root.view == TransitView.ready ? 156px : 0px; height: 36px;
-        clicked => { root.enter-requested(); } }
-    TouchArea { x: 158px; y: 199px; width: root.view == TransitView.ready-to-open ? 156px : 0px; height: 36px;
-        clicked => { root.exit-outer-requested(); } }
-    TouchArea { x: 158px; y: 199px; width: root.view == TransitView.complete ? 156px : 0px; height: 36px;
-        clicked => { root.exit-inner-requested(); } }
+            : @image-url("assets/action-exit-inner.png");
+    }
+
+    ProgressText {
+        x: 267px;
+        y: 202px;
+        value: root.seconds-remaining;
+        visible: root.waiting;
+    }
+
+    TouchArea {
+        x: 158px;
+        y: 199px;
+        width: 156px;
+        height: 36px;
+        enabled: root.view == TransitView.ready || root.view == TransitView.ready-to-open || root.view == TransitView.complete;
+        clicked => {
+            if root.view == TransitView.ready { root.enter-requested(); }
+            else if root.view == TransitView.ready-to-open { root.exit-outer-requested(); }
+            else if root.view == TransitView.complete { root.exit-inner-requested(); }
+        }
+    }
 }
