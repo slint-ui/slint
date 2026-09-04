@@ -202,3 +202,17 @@ If that looks okay and targets the right branch for your PR, push with force:
 ```
 $ git push -f
 ```
+
+## Changelog
+
+Don't edit `CHANGELOG.md` in a pull request.
+It's written later from the git log, in one commit per release cycle that covers a range of commits.
+
+If a change is noteworthy, add a `ChangeLog:` trailer to the commit message:
+
+```
+ChangeLog: Fixed a GridLayout row collapsing to its min-height when a sibling cell had a fixed zero size
+```
+
+The trailer sets the wording of the entry.
+It doesn't decide whether there is one: the whole log is read, so a commit without a trailer can still get an entry.
