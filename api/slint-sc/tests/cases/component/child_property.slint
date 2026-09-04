@@ -33,4 +33,11 @@ let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
 x.set_tint(slint_sc::Color::default());
 //~ ERROR no method named `set_tint`
 ```
+
+A builtin property has no accessor either, even set directly on the root:
+```rust compile_fail
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+x.set_background(slint_sc::Color::default());
+//~ ERROR no method named `set_background`
+```
 */
