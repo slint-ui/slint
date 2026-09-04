@@ -1745,10 +1745,33 @@ pub fn process_mouse_input(
             || Option::zip(result.item_stack.last(), mouse_input_state.item_stack.last())
                 .is_none_or(|(a, b)| a.0 != b.0))
     {
+        // This dispatch is discarded: the delayed press is still pending and either nothing
+        // claimed this event, or something other than the delaying item's own subtree did.
+        // The speculative dispatch above may still have run `input_event_filter_before_children`
+        // on items along `result`'s path (e.g. updating a TouchArea's has-hover) before we knew
+        // it would be thrown away. Queue a compensating Exit for any such item that isn't part
+        // of the retained stack, so it isn't left stuck with stale state once the delayed
+        // dispatch eventually resolves.
+        for (weak, _) in &result.item_stack {
+            if mouse_input_state.item_stack.iter().any(|(w, _)| w == weak)
+                || mouse_input_state.delayed_exit_items.contains(weak)
+            {
+                continue;
+            }
+            mouse_input_state.delayed_exit_items.push(weak.clone());
+        }
         // Keep the delayed event but transfer the just-attempted dispatch's cursor.
         mouse_input_state.cursor = result.cursor;
         return MouseInputResult { state: mouse_input_state, accepted };
     }
+    // Carry forward any Exit events queued by a previous, discarded dispatch (or by the loop
+    // below, on an earlier call) so they finally get delivered now that the ambiguity that
+    // deferred them has been resolved one way or another. An item that ended up back in
+    // `result.item_stack` from this very dispatch (e.g. a delayed press whose resolution just
+    // re-added it for real) was reclaimed, not abandoned, so it needs no compensating Exit.
+    let mut delayed_exit_items = core::mem::take(&mut mouse_input_state.delayed_exit_items);
+    delayed_exit_items.retain(|weak| !result.item_stack.iter().any(|(w, _)| w == weak));
+    result.delayed_exit_items = delayed_exit_items;
     send_exit_events(&mouse_input_state, &mut result, mouse_event.position(), window_adapter);
 
     if let MouseEvent::Wheel { position, .. } = mouse_event
