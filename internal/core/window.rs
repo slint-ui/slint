@@ -1512,7 +1512,7 @@ impl WindowInner {
         );
 
         // Track position
-        if let Some(_) = item.downcast::<crate::items::TextInput>() {
+        if item.downcast::<crate::items::TextInput>().is_some() {
             self.focus_item_position_tracker.init(
                 (item.downgrade(), self.window_adapter_weak.clone()),
                 |(item, _)| {
