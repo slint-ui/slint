@@ -681,6 +681,16 @@ impl<'a> DefaultParser<'a> {
         self.tokens.get(self.cursor).cloned().unwrap_or_default()
     }
 
+    /// Where a diagnostic reported at the current token points to
+    fn current_token_location(&self) -> crate::diagnostics::SourceLocation {
+        let token = self.current_token();
+        let length = if token.kind == SyntaxKind::DoubleLess { 1 } else { token.text.len() };
+        crate::diagnostics::SourceLocation {
+            source_file: Some(self.source_file.clone()),
+            span: crate::diagnostics::Span::new(token.offset, length),
+        }
+    }
+
     /// Consume all the whitespace
     pub fn consume_ws(&mut self) {
         while matches!(self.current_token().kind, SyntaxKind::Whitespace | SyntaxKind::Comment) {
@@ -736,36 +746,14 @@ impl Parser for DefaultParser<'_> {
 
     /// Reports an error at the current token location
     fn error(&mut self, e: impl Into<String>) {
-        let current_token = self.current_token();
-        let span = crate::diagnostics::Span::new(
-            current_token.offset,
-            if current_token.kind == SyntaxKind::DoubleLess { 1 } else { current_token.text.len() },
-        );
-
-        self.diags.push_error_with_span(
-            e.into(),
-            crate::diagnostics::SourceLocation {
-                source_file: Some(self.source_file.clone()),
-                span,
-            },
-        );
+        let location = self.current_token_location();
+        self.diags.push_error_with_span(e.into(), location);
     }
 
-    /// Reports an error at the current token location
+    /// Reports a warning at the current token location
     fn warning(&mut self, e: impl Into<String>) {
-        let current_token = self.current_token();
-        let span = crate::diagnostics::Span::new(
-            current_token.offset,
-            if current_token.kind == SyntaxKind::DoubleLess { 1 } else { current_token.text.len() },
-        );
-
-        self.diags.push_warning_with_span(
-            e.into(),
-            crate::diagnostics::SourceLocation {
-                source_file: Some(self.source_file.clone()),
-                span,
-            },
-        );
+        let location = self.current_token_location();
+        self.diags.push_warning_with_span(e.into(), location);
     }
 
     type Checkpoint = rowan::Checkpoint;
