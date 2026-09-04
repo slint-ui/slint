@@ -48,7 +48,6 @@ pub struct WGPUSurface {
     surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
     pub(crate) backend: Backend,
-    alpha_modes: Vec<wgpu::CompositeAlphaMode>,
 }
 
 impl WGPUSurface {
@@ -97,6 +96,21 @@ impl WGPUSurface {
             .unwrap_or_else(|| swapchain_capabilities.formats[0]);
         surface_config.format = swapchain_format;
 
+        // Try to render with alpha by default. Under directx, we can't change the swapchain alpha
+        // mode without recreating the swapchain. To get around this we just try to use transparency
+        // always. There are some cases, like on macos, where we want to opt out of transparency, in
+        // those cases we use `set_transparent(false)` later, which reconfigures the swapchain.
+        //
+        // If the driver does not support pre or post multiplied, then wgpu will use Auto (probably
+        // ending up opaque).
+        use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+        if let Some(alpha_mode) = [PreMultiplied, PostMultiplied]
+            .into_iter()
+            .find(|mode| swapchain_capabilities.alpha_modes.contains(mode))
+        {
+            surface_config.alpha_mode = alpha_mode;
+        }
+
         // Prefer FIFO modes over the Mailbox that `get_default_config` picks on some backends
         // (it takes the first advertised mode, and DX12 lists Mailbox first), for frame pacing
         // and better energy efficiency. `AutoVsync` falls back to FifoRelaxed and then Fifo, so
@@ -122,7 +136,6 @@ impl WGPUSurface {
             surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
-            alpha_modes: swapchain_capabilities.alpha_modes,
         })
     }
 
@@ -141,7 +154,6 @@ impl WGPUSurface {
             surface: None,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
-            alpha_modes: vec![],
         }
     }
 
@@ -461,19 +473,38 @@ impl crate::Surface for WGPUSurface {
         self.backend.import_texture(canvas, texture)
     }
 
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
+
+    fn presentation_may_use_transparency(&self) -> bool {
+        use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+        self.surface_config
+            .borrow()
+            .as_ref()
+            .is_some_and(|config| matches!(config.alpha_mode, PreMultiplied | PostMultiplied))
+    }
+
     fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
+        // wgpu uses ResizeBuffers to reconfigure the swapchain, and that does
+        // not work to change alpha mode
+        if self.wgpu.adapter.get_info().backend == wgpu::Backend::Dx12 {
+            return Ok(());
+        }
+
         // `Opaque` discards the scene's alpha; pick a translucent mode if offered.
         // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
         use wgpu::CompositeAlphaMode::{Opaque, PostMultiplied, PreMultiplied};
         let wanted: &[wgpu::CompositeAlphaMode] =
             if transparent { &[PreMultiplied, PostMultiplied] } else { &[Opaque] };
-        let Some(mode) = wanted.iter().copied().find(|m| self.alpha_modes.contains(m)) else {
-            return Ok(());
-        };
 
         let mut surface_config_opt = self.surface_config.borrow_mut();
         let (Some(surface_config), Some(surface)) = (surface_config_opt.as_mut(), &self.surface)
         else {
+            return Ok(());
+        };
+        let alpha_modes = surface.get_capabilities(&self.wgpu.adapter).alpha_modes;
+        let Some(mode) = wanted.iter().copied().find(|m| alpha_modes.contains(m)) else {
             return Ok(());
         };
         if surface_config.alpha_mode != mode {
@@ -481,10 +512,6 @@ impl crate::Surface for WGPUSurface {
             surface.configure(&self.wgpu.device, surface_config);
         }
         Ok(())
-    }
-
-    fn as_any(&self) -> &dyn core::any::Any {
-        self
     }
 }
 
