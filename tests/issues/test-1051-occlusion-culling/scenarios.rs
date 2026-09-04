@@ -306,6 +306,232 @@ pub fn assert_fractional_scale_factor_shrink_is_sound(count: usize) {
     );
 }
 
+/// A window-filling occluder painted over a single probe rectangle, with `occluder_declarations`
+/// spliced into the occluder. Used to check which occluder styles may claim their rectangle as
+/// opaquely covered (see `NON_COVERING_OCCLUDERS`).
+pub fn occluder_style_source(occluder_declarations: &str) -> String {
+    format!(
+        r#"
+        export component AppWindow inherits Window {{
+            width: 200px;
+            height: 200px;
+            Rectangle {{
+                x: 10px;
+                y: 10px;
+                width: 4px;
+                height: 4px;
+                background: red;
+            }}
+            Rectangle {{
+                // Declared (thus painted) last, on top of the probe above.
+                x: 0px;
+                y: 0px;
+                width: 200px;
+                height: 200px;
+                {occluder_declarations}
+            }}
+        }}
+        "#
+    )
+}
+
+/// Occluder styles that don't opaquely cover every pixel of their own rectangle, so nothing
+/// behind them may be culled. Each entry is a name for the assertion message and the
+/// declarations to splice into `occluder_style_source`.
+pub const NON_COVERING_OCCLUDERS: &[(&str, &str)] = &[
+    ("a semi-transparent background", "background: #0000ff80;"),
+    (
+        "a gradient with a transparent stop",
+        "background: @linear-gradient(0deg, #0000ff80 0%, blue 100%);",
+    ),
+    ("rounded corners", "background: blue; border-radius: 20px;"),
+];
+
+/// The opaque, unrounded occluder that `NON_COVERING_OCCLUDERS` is compared against.
+pub const COVERING_OCCLUDER: &str = "background: blue;";
+
+pub fn assert_occluder_style_culls_nothing(occluder_style: &str, count: usize) {
+    // The window's own background, the probe, and the occluder itself.
+    assert_eq!(
+        count, 3,
+        "expected an occluder with {occluder_style} to cull nothing, leaving the window's own \
+         background, the probe rectangle behind it and the occluder itself to be drawn (3 draw \
+         commands), but the tree walk dispatched {count}",
+    );
+}
+
+pub fn assert_covering_occluder_style_culls_everything(count: usize) {
+    // Establishes that `occluder_style_source`'s scene does cull once the occluder is opaque and
+    // unrounded, so `assert_occluder_style_culls_nothing` isn't passing vacuously.
+    assert_eq!(
+        count, 1,
+        "expected the opaque, unrounded occluder to cull both the probe rectangle behind it and \
+         the window's own background, leaving only the occluder itself drawn, but the tree walk \
+         dispatched {count} draw commands",
+    );
+}
+
+/// An occluder covering only part of the probe behind it, which is the ordinary case: neither
+/// item may be culled.
+pub fn partially_covered_probe_source() -> String {
+    r#"
+    export component AppWindow inherits Window {
+        width: 200px;
+        height: 200px;
+        Rectangle {
+            x: 0px;
+            y: 0px;
+            width: 40px;
+            height: 40px;
+            background: red;
+        }
+        Rectangle {
+            // Declared (thus painted) last, covering the probe's right half and everything to
+            // the right of it, but leaving [0px, 20px) of the window uncovered.
+            x: 20px;
+            y: 0px;
+            width: 180px;
+            height: 200px;
+            background: blue;
+        }
+    }
+    "#
+    .into()
+}
+
+pub fn assert_partially_covered_probe_is_drawn(count: usize) {
+    // The window's own background, the partly covered probe, and the occluder.
+    assert_eq!(
+        count, 3,
+        "expected a probe that the occluder only partly covers to still be drawn, along with the \
+         window's own background (also only partly covered) and the occluder itself, for 3 draw \
+         commands, but the tree walk dispatched {count}",
+    );
+}
+
+/// Paint order follows the `z` property, not declaration order, so occlusion has to as well.
+/// `raised` is the element whose `z` is set to 1, lifting it above its sibling regardless of
+/// which of the two is declared first.
+fn z_order_source(raised: &str) -> String {
+    let (probe_z, occluder_z) = match raised {
+        "probe" => ("z: 1;", ""),
+        "occluder" => ("", "z: 1;"),
+        other => unreachable!("unknown raised element: {other}"),
+    };
+    format!(
+        r#"
+        export component AppWindow inherits Window {{
+            width: 200px;
+            height: 200px;
+            Rectangle {{
+                x: 10px;
+                y: 10px;
+                width: 4px;
+                height: 4px;
+                background: red;
+                {probe_z}
+            }}
+            Rectangle {{
+                x: 0px;
+                y: 0px;
+                width: 200px;
+                height: 200px;
+                background: blue;
+                {occluder_z}
+            }}
+        }}
+        "#
+    )
+}
+
+/// The occluder is declared first, so only its `z: 1` puts it in front of the probe.
+pub fn z_order_raised_occluder_source() -> String {
+    z_order_source("occluder")
+}
+
+/// The occluder is declared last, but the probe's `z: 1` keeps it in front of the occluder.
+pub fn z_order_raised_probe_source() -> String {
+    z_order_source("probe")
+}
+
+pub fn assert_z_order_raised_occluder_culls(count: usize) {
+    assert_eq!(
+        count, 1,
+        "expected the occluder raised above the probe with 'z: 1' to cull both the probe and the \
+         window's own background, leaving only the occluder itself drawn, but the tree walk \
+         dispatched {count} draw commands",
+    );
+}
+
+pub fn assert_z_order_raised_probe_is_drawn(count: usize) {
+    // The probe and the occluder; the window's own background is culled by the occluder, which
+    // covers it opaquely whichever of the two siblings ends up in front.
+    assert_eq!(
+        count, 2,
+        "expected the probe raised above the occluder with 'z: 1' to be drawn along with the \
+         occluder itself, for 2 draw commands, but the tree walk dispatched {count}",
+    );
+}
+
+/// A rotated occluder covers a diamond, not its bounding rectangle, so it may claim nothing:
+/// the probe sits in a corner the rotation leaves uncovered.
+///
+/// Only meaningful on a renderer that supports transformations. The software renderer doesn't
+/// (`ItemRendererFeatures::SUPPORTS_TRANSFORMATIONS` is false there), so it paints the occluder
+/// unrotated -- and then culling the probe behind it is correct.
+///
+/// `occluder_background` is `blue` for the real scenario and `transparent` for the control, whose
+/// draw-item count establishes the baseline without hardcoding how many items the rotation
+/// lowers to (see `assert_rotated_occluder_culls_nothing`).
+fn rotated_occluder_source(occluder_background: &str) -> String {
+    format!(
+        r#"
+        export component AppWindow inherits Window {{
+            width: 200px;
+            height: 200px;
+            Rectangle {{
+                // Top-left corner, outside the rotated occluder's diamond.
+                x: 2px;
+                y: 2px;
+                width: 4px;
+                height: 4px;
+                background: red;
+            }}
+            Rectangle {{
+                // Declared (thus painted) last, on top of the probe above. Rotated by 45
+                // degrees about its center, so its corners no longer cover the window's.
+                x: 0px;
+                y: 0px;
+                width: 200px;
+                height: 200px;
+                background: {occluder_background};
+                transform-rotation: 45deg;
+            }}
+        }}
+        "#
+    )
+}
+
+pub fn rotated_occluder_source_opaque() -> String {
+    rotated_occluder_source("blue")
+}
+
+pub fn rotated_occluder_source_transparent() -> String {
+    rotated_occluder_source("transparent")
+}
+
+pub fn assert_rotated_occluder_culls_nothing(opaque_count: usize, transparent_count: usize) {
+    // Same scene either way, so the draw-item count should be identical whether the rotated
+    // occluder is opaque or transparent: neither the probe in the uncovered corner nor the
+    // window's own background may be culled.
+    assert_eq!(
+        opaque_count, transparent_count,
+        "expected the rotated occluder to cull nothing (it covers a diamond, not the rectangle \
+         the probe's corner sits in): the opaque variant dispatched {opaque_count} draw \
+         commands, but the transparent control dispatched {transparent_count}",
+    );
+}
+
 /// The `in` property values to set on a scene before drawing one frame of a multi-frame
 /// scenario, as name/value pairs; the value is a plain number (a length in logical pixels for a
 /// `length` property).
