@@ -1480,7 +1480,7 @@ component ContextMenu inherits Empty {
     callback show(position: Point);
     function close() {
     }
-    function is-open() -> bool {
+    pure function is-open() -> bool {
     }
     in property <bool> enabled: true;
 }
@@ -2562,14 +2562,14 @@ export component Path {
     /// If a `t` outside the bounds of 0 and 1 is passed, it will be converted to its decimal fraction.
     /// Ex: 1.5 -> 0.5 and 2.0 -> 1.0. This allows for N iterations of a loop
     /// by animating t from 0 to N. If `t` is animated from N to 0, it will loop N times backwards.
-    function point-at(t: float) -> Point {
+    pure function point-at(t: float) -> Point {
         BuiltinFunction.PathPointAt
     }
     /// Returns the angle (in degrees) between the x-axis and the path's tangent vector at the given `t`.
     /// The tangent points in the direction the path was defined, so this reflects the path's shape and not
     /// the object's current direction of travel. Returns 0 if the path is empty.
     /// If a `t` outside the bounds of 0 and 1 is passed, the decimal fraction will be passed.
-    function angle-at(t: float) -> angle {
+    pure function angle-at(t: float) -> angle {
         BuiltinFunction.PathAngleAt
     }
     //!

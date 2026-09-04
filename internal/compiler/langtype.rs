@@ -403,6 +403,11 @@ pub struct BuiltinPropertyInfo {
     /// unless a compiler pass accesses the member by name, in which case shadowing
     /// would generate wrong code and the member must not be marked.
     pub shadowable: bool,
+    /// For a function or callback: whether it is pure.
+    /// A member implemented natively has no body the compiler could inspect, so this comes from
+    /// the `pure` qualifier in builtins.slint, or from [`BuiltinFunction::is_pure`] when the
+    /// declaration names one.
+    pub pure: bool,
 }
 
 impl BuiltinPropertyInfo {
@@ -413,6 +418,7 @@ impl BuiltinPropertyInfo {
             property_visibility: PropertyVisibility::InOut,
             docs: None,
             shadowable: false,
+            pure: false,
             #[cfg(feature = "slint-sc")]
             slint_sc: false,
         }
@@ -431,16 +437,22 @@ impl BuiltinPropertyInfo {
     pub fn is_native_output(&self) -> bool {
         matches!(self.property_visibility, PropertyVisibility::InOut | PropertyVisibility::Output)
     }
+
+    /// The `pure` declaration of a function or callback, `None` for a property.
+    pub fn declared_pure(&self) -> Option<bool> {
+        matches!(self.ty, Type::Function(_) | Type::Callback(_)).then_some(self.pure)
+    }
 }
 
 impl From<BuiltinFunction> for BuiltinPropertyInfo {
     fn from(function: BuiltinFunction) -> Self {
         Self {
             ty: Type::Function(function.ty()),
-            default_value: BuiltinPropertyDefault::BuiltinFunction(function),
             property_visibility: PropertyVisibility::Public,
             docs: None,
             shadowable: false,
+            pure: function.is_pure(),
+            default_value: BuiltinPropertyDefault::BuiltinFunction(function),
             #[cfg(feature = "slint-sc")]
             slint_sc: false,
         }
@@ -510,7 +522,7 @@ impl ElementType {
                         resolved_name,
                         property_type: p.ty.clone(),
                         property_visibility: p.property_visibility,
-                        declared_pure: None,
+                        declared_pure: p.declared_pure(),
                         is_local_to_component: false,
                         is_in_direct_base: false,
                         is_shadowable: p.shadowable,
@@ -531,13 +543,12 @@ impl ElementType {
                 } else {
                     Cow::Borrowed(name)
                 };
-                let property_type =
-                    n.lookup_property(resolved_name.as_ref()).cloned().unwrap_or_default();
+                let info = n.lookup_property_info(resolved_name.as_ref());
                 PropertyLookupResult {
                     resolved_name,
-                    property_type,
+                    property_type: info.map(|p| p.ty.clone()).unwrap_or_default(),
                     property_visibility: PropertyVisibility::InOut,
-                    declared_pure: None,
+                    declared_pure: info.and_then(|p| p.declared_pure()),
                     is_local_to_component: false,
                     is_in_direct_base: false,
                     is_shadowable: false,
@@ -866,13 +877,14 @@ impl NativeClass {
     }
 
     pub fn lookup_property(&self, name: &str) -> Option<&Type> {
-        if let Some(bty) = self.properties.get(name) {
-            Some(&bty.ty)
-        } else if let Some(parent_class) = &self.parent {
-            parent_class.lookup_property(name)
-        } else {
-            None
-        }
+        self.lookup_property_info(name).map(|info| &info.ty)
+    }
+
+    /// The declaration of `name` on this class or the closest parent that has it.
+    pub fn lookup_property_info(&self, name: &str) -> Option<&BuiltinPropertyInfo> {
+        self.properties
+            .get(name)
+            .or_else(|| self.parent.as_ref().and_then(|parent| parent.lookup_property_info(name)))
     }
 
     pub fn lookup_alias(&self, name: &str) -> Option<&str> {
