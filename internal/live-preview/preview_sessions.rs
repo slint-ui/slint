@@ -17,6 +17,8 @@ use slint_interpreter::ComponentHandle as _;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::REBUILD_DEBOUNCE;
+#[cfg(target_arch = "wasm32")]
+use crate::protocol::wasm_prelude::*;
 use crate::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLsp, PreviewToLspMessage,
     SourceFileVersion,
