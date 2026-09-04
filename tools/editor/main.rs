@@ -697,8 +697,11 @@ mod tests {
         }
     }
 
-    fn component(url: &str, name: &str) -> PreviewComponent {
-        PreviewComponent { url: Url::parse(url).unwrap(), component: Some(name.into()) }
+    fn component(file_name: &str, name: &str) -> PreviewComponent {
+        PreviewComponent {
+            url: Url::from_file_path(editor_preview::test::test_file_name(file_name)).unwrap(),
+            component: Some(name.into()),
+        }
     }
 
     #[test]
@@ -723,6 +726,7 @@ mod tests {
         let project = tempfile::tempdir().unwrap();
         let path = project.path().join("secondary.slint");
         std::fs::write(&path, "export component Secondary {}").unwrap();
+        let path = std::fs::canonicalize(path).unwrap();
         let component = PreviewComponent {
             url: Url::from_file_path(&path).unwrap(),
             component: Some("Secondary".into()),
@@ -772,7 +776,7 @@ mod tests {
     #[test]
     fn run_preview_uses_the_primary_preview_target() {
         let (mut session, messages) = session_with_recording_previews();
-        let primary_component = component("file:///primary.slint", "Primary");
+        let primary_component = component("primary.slint", "Primary");
         session.show_preview(PRIMARY_PREVIEW_INDEX, primary_component.clone());
         clear_messages(&messages);
 
@@ -793,8 +797,8 @@ mod tests {
     #[test]
     fn run_preview_target_changes_only_when_run_is_requested() {
         let (mut session, messages) = session_with_recording_previews();
-        let first_component = component("file:///first.slint", "First");
-        let second_component = component("file:///second.slint", "Second");
+        let first_component = component("first.slint", "First");
+        let second_component = component("second.slint", "Second");
         session.show_preview(PRIMARY_PREVIEW_INDEX, first_component.clone());
         let mut run_preview_state = RunPreviewState::default();
         handle_editor_message(
@@ -892,7 +896,8 @@ mod tests {
 
         spin_on::spin_on(handle_preview_message(
             PreviewToLspMessage::ShowDocument {
-                file: Url::parse("file:///run.slint").unwrap(),
+                file: Url::from_file_path(editor_preview::test::test_file_name("run.slint"))
+                    .unwrap(),
                 selection: Default::default(),
                 take_focus: false,
             },
