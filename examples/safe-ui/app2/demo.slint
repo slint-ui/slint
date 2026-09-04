@@ -4,7 +4,7 @@
 // Standalone simulation for ordinary Slint, not Slint SC.
 // Launch: slint-viewer demo.slint
 // The host-driven UI is main.slint; it does not import this simulation.
-// All artwork is reused unchanged from main.slint and its PNG assets.
+// The startup veil and title are demo-only overlays, dismissed by the first tap.
 // ENTER -> securing (6s) -> equalizing (9s) -> EXIT OUTER -> EXIT INNER.
 // Double-click/tap the occupant chamber (or press F) to simulate a fault.
 // Click/tap the emergency banner (or press R) to reset the simulation.
@@ -62,6 +62,8 @@ export global DemoController {
 }
 
 export component PublicTransitDemo inherits PublicTransitAirlock {
+    private property <bool> title-visible: true;
+
     width: 320px;
     height: 240px;
     title: "Public Transit Airlock — Demo (F: fault, R: reset)";
@@ -73,6 +75,19 @@ export component PublicTransitDemo inherits PublicTransitAirlock {
     enter-requested => { DemoController.enter(); }
     exit-outer-requested => { DemoController.exit-outer(); }
     exit-inner-requested => { DemoController.exit-inner(); }
+
+    Rectangle {
+        x: 0px; y: 0px; width: 320px; height: 240px;
+        background: #ffffff99;
+        visible: root.title-visible;
+    }
+    // Figma AwH2AA7IrUYRfIdmGSN1YT: 2086:2860, exported at 320x48.
+    // Logo source: logo/slint-logo-simple-light.svg in this repository.
+    Image {
+        x: 0px; y: 0px; width: 320px; height: 48px;
+        source: @image-url("assets/demo-title-banner.png");
+        visible: root.title-visible;
+    }
 
     Timer {
         interval: 100ms;
@@ -93,6 +108,7 @@ export component PublicTransitDemo inherits PublicTransitAirlock {
         width: 0px;
         height: 0px;
         key-pressed(event) => {
+            if root.title-visible { return accept; }
             if event.text == "f" || event.text == "F" {
                 DemoController.fault();
                 return accept;
@@ -103,5 +119,11 @@ export component PublicTransitDemo inherits PublicTransitAirlock {
             }
             return reject;
         }
+    }
+    // Capture the first tap without forwarding it to a demo control underneath.
+    TouchArea {
+        x: 0px; y: 0px; width: 320px; height: 240px;
+        enabled: root.title-visible;
+        clicked => { root.title-visible = false; }
     }
 }
