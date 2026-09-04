@@ -167,6 +167,10 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
         self.renderer.suspend()
     }
 
+    fn presentation_may_use_transparency(&self) -> bool {
+        self.renderer.presentation_may_use_transparency()
+    }
+
     #[cfg(target_os = "macos")]
     fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
         self.renderer.set_transparent(transparent)
