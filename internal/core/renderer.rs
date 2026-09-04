@@ -56,7 +56,7 @@ pub trait RendererSealed {
     /// Query paths that don't draw -- hit-testing, the cursor rectangle, accessibility geometry
     /// -- read this to decide whether to reconstruct the item's screen position from the item
     /// tree and compute the same alignment correction drawing would use, via
-    /// [`crate::textlayout::sharedparley::origin_snap_delta_for_query`]. Coarser than
+    /// `crate::textlayout::sharedparley::origin_snap_delta_for_query`. Coarser than
     /// `GlyphRenderer::text_origin_snap_delta` in the renderer crates, which reports the actual,
     /// possibly-zero delta for a specific item: outside of a render pass there is no current
     /// transform or item to consult, so this only says whether the renderer type snaps at all

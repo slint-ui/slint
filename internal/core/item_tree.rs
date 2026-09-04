@@ -677,9 +677,8 @@ impl ItemRc {
     /// Lets a query outside of any draw call (hit-testing, cursor placement, accessibility)
     /// reconstruct the same origin a renderer's own per-draw pixel-snap would see, so the two
     /// agree on whether, and where, that origin lands. Only walks this item tree's own ancestor
-    /// chain -- see
-    /// [`origin_snap_delta_for_query`](crate::textlayout::sharedparley::origin_snap_delta_for_query)'s
-    /// doc for the transforms that leaves out. See `#6739`.
+    /// chain -- see `crate::textlayout::sharedparley::origin_snap_delta_for_query`'s doc for the
+    /// transforms that leaves out. See `#6739`.
     pub fn window_origin_if_translate_only(&self) -> Option<LogicalPoint> {
         use crate::graphics::euclid::approxeq::ApproxEq;
 
