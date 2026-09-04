@@ -356,6 +356,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 paint
             });
 
+        let offset = offset * self.scale_factor;
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(offset.x, offset.y);
             if let Some(fill_paint) = &fill_paint {
