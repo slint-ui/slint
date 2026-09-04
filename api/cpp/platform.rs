@@ -5,14 +5,20 @@ use alloc::rc::Rc;
 use alloc::{boxed::Box, string::String};
 use core::ffi::c_void;
 use i_slint_core::api::{
-    LogicalSize, PhysicalPosition, PhysicalSize, Window, WindowPosition, WindowSize,
+    LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, Window, WindowPosition,
+    WindowSize,
 };
 use i_slint_core::graphics::IntSize;
 use i_slint_core::graphics::euclid;
+use i_slint_core::input::{InternalKeyEvent, KeyEventType};
+use i_slint_core::items::InputType;
+use i_slint_core::menus::MenuVTable;
 use i_slint_core::platform::{Clipboard, Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
-use i_slint_core::window::{WindowAdapter, WindowProperties};
+use i_slint_core::window::{
+    InputMethodRequest, WindowAdapter, WindowAdapterInternal, WindowProperties,
+};
 use i_slint_core::{Brush, SharedString};
 
 type WindowAdapterUserData = *mut c_void;
@@ -38,6 +44,25 @@ pub struct CppWindowAdapter {
     position:
         unsafe extern "C" fn(WindowAdapterUserData, &mut euclid::default::Point2D<i32>) -> bool,
     set_position: unsafe extern "C" fn(WindowAdapterUserData, euclid::default::Point2D<i32>),
+    /// Optional: reports whether the platform can host a native menu bar.
+    /// `None` when the adapter was created with `slint_window_adapter_new`.
+    supports_native_menu_bar: Option<unsafe extern "C" fn(WindowAdapterUserData) -> bool>,
+    /// Optional: shows a native context menu, returning false to let Slint draw its own.
+    show_native_popup_menu: Option<
+        unsafe extern "C" fn(
+            WindowAdapterUserData,
+            &vtable::VRc<MenuVTable>,
+            LogicalPosition,
+        ) -> bool,
+    >,
+    /// Optional: tells the platform to start, update or stop an input method session.
+    input_method_request: Option<
+        unsafe extern "C" fn(
+            WindowAdapterUserData,
+            InputMethodRequestKind,
+            Option<&InputMethodPropertiesReprC>,
+        ),
+    >,
 }
 
 impl Drop for CppWindowAdapter {
@@ -95,6 +120,110 @@ impl WindowAdapter for CppWindowAdapter {
     fn update_window_properties(&self, properties: WindowProperties<'_>) {
         unsafe { (self.update_window_properties)(self.user_data, &properties) }
     }
+
+    fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
+        Some(self)
+    }
+}
+
+impl WindowAdapterInternal for CppWindowAdapter {
+    fn supports_native_menu_bar(&self) -> bool {
+        self.supports_native_menu_bar.is_some_and(|f| unsafe { f(self.user_data) })
+    }
+
+    fn show_native_popup_menu(
+        &self,
+        context_menu_item: vtable::VRc<MenuVTable>,
+        position: LogicalPosition,
+    ) -> bool {
+        self.show_native_popup_menu
+            .is_some_and(|f| unsafe { f(self.user_data, &context_menu_item, position) })
+    }
+
+    fn input_method_request(&self, request: InputMethodRequest) {
+        let Some(f) = self.input_method_request else { return };
+
+        match request {
+            InputMethodRequest::Enable(p) => unsafe {
+                f(
+                    self.user_data,
+                    InputMethodRequestKind::Enable,
+                    Some(&InputMethodPropertiesReprC::new(&p)),
+                )
+            },
+            InputMethodRequest::Update(p) => unsafe {
+                f(
+                    self.user_data,
+                    InputMethodRequestKind::Update,
+                    Some(&InputMethodPropertiesReprC::new(&p)),
+                )
+            },
+            InputMethodRequest::Disable => unsafe {
+                f(self.user_data, InputMethodRequestKind::Disable, None)
+            },
+            _ => {}
+        }
+    }
+}
+
+/// Which input method transition a text input is asking the platform for.
+///
+/// Mirrors the discriminant of [`i_slint_core::window::InputMethodRequest`], whose payload
+/// is not `repr(C)`.
+#[repr(C)]
+pub enum InputMethodRequestKind {
+    /// Begin composing; the properties describe the field being entered.
+    Enable = 0,
+    /// The field changed while composing; the properties are the new state.
+    Update = 1,
+    /// Stop composing. No properties accompany this.
+    Disable = 2,
+}
+
+/// A `repr(C)` view of [`i_slint_core::window::InputMethodProperties`].
+///
+/// The Rust type is `#[non_exhaustive]` and holds `Option`s, so it cannot cross the FFI
+/// boundary as it stands. Offsets are in bytes into `text`, matching the Rust type; a
+/// platform whose input method counts in UTF-16 has to convert.
+#[repr(C)]
+pub struct InputMethodPropertiesReprC {
+    /// The text around the cursor, excluding any pre-edit.
+    pub text: SharedString,
+    /// Byte offset of the cursor within `text`.
+    pub cursor_position: usize,
+    /// Byte offset of the other end of the selection; only meaningful with `has_anchor`.
+    pub anchor_position: usize,
+    /// Whether there is a selection, i.e. whether `anchor_position` means anything.
+    pub has_anchor: bool,
+    /// The text being composed but not yet committed. Empty when not composing.
+    pub preedit_text: SharedString,
+    /// Byte offset of the pre-edit within `text`.
+    pub preedit_offset: usize,
+    /// Top-left of the cursor rectangle, in window coordinates.
+    pub cursor_rect_origin: LogicalPosition,
+    /// Size of the cursor rectangle.
+    pub cursor_rect_size: LogicalSize,
+    /// Bottom of the anchor; only meaningful with `has_anchor`.
+    pub anchor_point: LogicalPosition,
+    /// What kind of text the field accepts.
+    pub input_type: InputType,
+}
+
+impl InputMethodPropertiesReprC {
+    fn new(p: &i_slint_core::window::InputMethodProperties) -> Self {
+        Self {
+            text: p.text.clone(),
+            cursor_position: p.cursor_position,
+            anchor_position: p.anchor_position.unwrap_or_default(),
+            has_anchor: p.anchor_position.is_some(),
+            preedit_text: p.preedit_text.clone(),
+            preedit_offset: p.preedit_offset,
+            cursor_rect_origin: p.cursor_rect_origin,
+            cursor_rect_size: p.cursor_rect_size,
+            anchor_point: p.anchor_point,
+            input_type: p.input_type,
+        }
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -150,6 +279,83 @@ pub extern "C" fn slint_window_properties_get_layout_constraints(
     }
 }
 
+/// Creates a window adapter backed by a C++ implementation.
+///
+/// Kept for source and ABI compatibility; it is equivalent to
+/// [`slint_window_adapter_new2`] with every optional callback left unset.
+/// The parts of an input method event that a plain key event cannot carry.
+///
+/// `slint_windowrc_dispatch_key_event` builds its event with defaults for everything but
+/// the text, which is enough for a key press and not enough for composition. This is the
+/// composition-shaped counterpart, laid out so it can cross the C++ boundary: each
+/// `Option<Range>` becomes a pair of bounds plus a flag.
+#[repr(C)]
+pub struct CompositionEvent {
+    /// Either `UpdateComposition` while composing or `CommitComposition` when the input
+    /// method settles on text.
+    pub event_type: KeyEventType,
+    /// The committed text. Only meaningful for `CommitComposition`.
+    pub text: SharedString,
+    /// The text being composed: shown, but not committed.
+    pub preedit_text: SharedString,
+    /// Selection within `preedit_text`, when `has_preedit_selection`.
+    pub preedit_selection_start: i32,
+    /// End of that selection.
+    pub preedit_selection_end: i32,
+    /// Whether the pre-edit selection fields mean anything.
+    pub has_preedit_selection: bool,
+    /// The range of existing text this event replaces, when `has_replacement_range`.
+    pub replacement_start: i32,
+    /// End of that range.
+    pub replacement_end: i32,
+    /// Whether the replacement range fields mean anything.
+    pub has_replacement_range: bool,
+    /// Where to leave the cursor, when `has_cursor_position`; otherwise it goes after the
+    /// text that was just inserted.
+    pub cursor_position: i32,
+    /// Whether `cursor_position` means anything.
+    pub has_cursor_position: bool,
+    /// Where to leave the selection anchor, when `has_anchor_position`.
+    pub anchor_position: i32,
+    /// Whether `anchor_position` means anything.
+    pub has_anchor_position: bool,
+}
+
+/// Dispatch an input method event, updating or committing composed text.
+///
+/// This is what a platform driving an input method sends in response to
+/// `WindowAdapter::input_method_request`; a plain key event cannot express a pre-edit.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_windowrc_dispatch_composition_event(
+    handle: *const WindowAdapterRcOpaque,
+    event: &CompositionEvent,
+) {
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+
+        //  Both types are #[non_exhaustive], so they are filled in field by field rather
+        //  than with a struct expression.
+        let mut key_event = i_slint_core::items::KeyEvent::default();
+        key_event.text = event.text.clone();
+
+        let mut internal = InternalKeyEvent::default();
+        internal.event_type = event.event_type;
+        internal.key_event = key_event;
+        internal.preedit_text = event.preedit_text.clone();
+        internal.replacement_range =
+            event.has_replacement_range.then(|| event.replacement_start..event.replacement_end);
+        internal.preedit_selection = event
+            .has_preedit_selection
+            .then(|| event.preedit_selection_start..event.preedit_selection_end);
+        internal.cursor_position = event.has_cursor_position.then_some(event.cursor_position);
+        internal.anchor_position = event.has_anchor_position.then_some(event.anchor_position);
+
+        window_adapter
+            .window()
+            .dispatch_event(i_slint_core::platform::WindowEvent::internal(internal));
+    }
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_window_adapter_new(
     user_data: WindowAdapterUserData,
@@ -167,6 +373,64 @@ pub unsafe extern "C" fn slint_window_adapter_new(
     set_position: unsafe extern "C" fn(WindowAdapterUserData, euclid::default::Point2D<i32>),
     target: *mut WindowAdapterRcOpaque,
 ) {
+    unsafe {
+        slint_window_adapter_new2(
+            user_data,
+            drop,
+            get_renderer_ref,
+            set_visible,
+            request_redraw,
+            size,
+            set_size,
+            update_window_properties,
+            position,
+            set_position,
+            None,
+            None,
+            None,
+            target,
+        )
+    }
+}
+
+/// Creates a window adapter backed by a C++ implementation, including the callbacks a
+/// platform only implements when it can serve them natively.
+///
+/// The trailing callbacks may be null, in which case Slint falls back to the behaviour it
+/// uses for any platform that does not support them: no native menu bar, and a context
+/// menu drawn inside the window.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_window_adapter_new2(
+    user_data: WindowAdapterUserData,
+    drop: unsafe extern "C" fn(WindowAdapterUserData),
+    get_renderer_ref: unsafe extern "C" fn(WindowAdapterUserData) -> RendererPtr,
+    set_visible: unsafe extern "C" fn(WindowAdapterUserData, bool),
+    request_redraw: unsafe extern "C" fn(WindowAdapterUserData),
+    size: unsafe extern "C" fn(WindowAdapterUserData) -> IntSize,
+    set_size: unsafe extern "C" fn(WindowAdapterUserData, IntSize),
+    update_window_properties: unsafe extern "C" fn(WindowAdapterUserData, &WindowProperties),
+    position: unsafe extern "C" fn(
+        WindowAdapterUserData,
+        &mut euclid::default::Point2D<i32>,
+    ) -> bool,
+    set_position: unsafe extern "C" fn(WindowAdapterUserData, euclid::default::Point2D<i32>),
+    supports_native_menu_bar: Option<unsafe extern "C" fn(WindowAdapterUserData) -> bool>,
+    show_native_popup_menu: Option<
+        unsafe extern "C" fn(
+            WindowAdapterUserData,
+            &vtable::VRc<MenuVTable>,
+            LogicalPosition,
+        ) -> bool,
+    >,
+    input_method_request: Option<
+        unsafe extern "C" fn(
+            WindowAdapterUserData,
+            InputMethodRequestKind,
+            Option<&InputMethodPropertiesReprC>,
+        ),
+    >,
+    target: *mut WindowAdapterRcOpaque,
+) {
     let window = Rc::<CppWindowAdapter>::new_cyclic(|w| CppWindowAdapter {
         window: Window::new(w.clone()),
         user_data,
@@ -179,6 +443,9 @@ pub unsafe extern "C" fn slint_window_adapter_new(
         update_window_properties,
         position,
         set_position,
+        supports_native_menu_bar,
+        show_native_popup_menu,
+        input_method_request,
     });
 
     unsafe {
