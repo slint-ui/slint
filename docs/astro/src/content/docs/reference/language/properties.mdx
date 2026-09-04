@@ -34,7 +34,12 @@ export component Example inherits Window {
 The modifier declares the property's *visibility*:
 which side may read and set the property's value. \{#sls.prop.decl.visibility}
 
-An `in` property is an input of the component: the application sets its value. \{#sls.prop.decl.in}
+An `in` property is an input of the component. \{#sls.prop.decl.in}
+
+On the root element of a component the application instantiates directly, the application sets
+its value through the generated API. \{#sls.prop.decl.in.root}
+
+On any other element, the enclosing component sets its value with a binding. \{#sls.prop.decl.in.child}
 
 An `out` property is an output of the component:
 the component determines its value, and the application reads it. \{#sls.prop.decl.out}

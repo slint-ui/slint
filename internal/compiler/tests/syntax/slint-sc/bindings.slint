@@ -4,10 +4,20 @@
 // Bindings are only allowed on properties in the Slint SC subset, and the
 // expression can only be a color literal.
 
+// A binding may target an `in` property of a child element, literal or
+// expression alike, but not an `out` or `private` one, an unknown name, or
+// through a two-way binding.
+component Box inherits Rectangle {
+    in property <color> tint;
+    out property <color> shade: #000000;
+    private property <color> secret: #000000;
+}
+
 export component Test inherits Window {
     //#sls.file.component.body
     background: #123456;
     in property <length> declared;
+    in property <color> c;
     Rectangle {
         width: 100px;
         opacity: 1.0;
@@ -19,4 +29,15 @@ export component Test inherits Window {
         foo: #123456;
 //      > <error{Unknown property foo in Rectangle}
     }
+    //#sls.prop.decl.in.child
+    Box { tint: root.c; }
+    Box { tint: #123456; }
+    Box { shade: #123456; }
+//        >   <error{Cannot assign to 'out' property 'shade'}
+    Box { secret: #123456; }
+//        >    <error{Cannot assign to 'private' property 'secret'}
+    Box { missing: #123456; }
+//        >     <error{Unknown property missing in Box}
+    Box { tint <=> c; }
+//        >         <error{Two-way bindings are not supported in Slint SC}
 }

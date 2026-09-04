@@ -3172,8 +3172,11 @@ impl Element {
             is_in_direct_base: false,
             is_shadowable: p.shadowable,
             builtin_function: None,
+            // A declared property is always part of the subset; the ordinary
+            // visibility check (see `parse_bindings`) restricts a binding to
+            // its `in` and `in-out` ones.
             #[cfg(feature = "slint-sc")]
-            is_slint_sc: false,
+            is_slint_sc: true,
             deprecated: p.deprecated.clone(),
             internal_name: None,
         }
@@ -3189,8 +3192,13 @@ impl Element {
             let unresolved_name = crate::parser::normalize_identifier(name_token.text());
             let lookup_result =
                 self.lookup_property(&unresolved_name, PropertyLookupMode::ComponentLocal);
+            // A two-way binding on a `property <=> other;` declaration is rejected in
+            // `Element::from_node`; this covers the standalone `name <=> other;` form, which
+            // reaches here instead.
             #[cfg(feature = "slint-sc")]
-            if lookup_result.is_valid() && !lookup_result.is_slint_sc {
+            if b.kind() == SyntaxKind::TwoWayBinding {
+                diag.slint_sc_error("Two-way bindings are", &b);
+            } else if lookup_result.is_valid() && !lookup_result.is_slint_sc {
                 diag.slint_sc_error(&format!("The property '{unresolved_name}' is"), &name_token);
             }
             if !lookup_result.property_type.is_property_type() {
