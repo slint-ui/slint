@@ -143,6 +143,7 @@
     "distros",
     "embedders",
     "emsdk", // the Emscripten SDK, one of Skia's DEPS entries
+    "ERASEBKGND",
     "espflash",
     "Femto",
     "femtovg",
@@ -340,6 +341,7 @@
     "mintcream",
     "mistyrose",
     "navajowhite",
+    "NCDESTROY",
     "oldlace",
     "olivedrab",
     "orangered",
@@ -362,6 +364,7 @@
     "slategrey",
     "springgreen",
     "steelblue",
+    "subclassing",
     "whitesmoke",
     "yellowgreen",
     "hotspot",

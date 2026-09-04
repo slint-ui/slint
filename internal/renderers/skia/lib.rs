@@ -543,6 +543,15 @@ impl SkiaRenderer {
         renderer
     }
 
+    /// Returns true if the current surface will be presented with transparency enabled
+    /// See [`Surface::presentation_may_use_transparency`].
+    pub fn presentation_may_use_transparency(&self) -> bool {
+        self.surface
+            .borrow()
+            .as_ref()
+            .is_some_and(|surface| surface.presentation_may_use_transparency())
+    }
+
     /// Releases every cache that holds a GPU-backed resource.
     fn clear_graphics_caches(&self) {
         self.image_cache.clear_all();
