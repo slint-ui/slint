@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Member functions of native elements have no body to inspect, so they count as impure.
+export component Foo inherits Window {
+    ti := TextInput { }
+
+    pure function f1() {
+        ti.select-all();
+//         >        <error{Call of impure function 'select-all'}
+    }
+
+    property <int> p1: { ti.cut(); 1 }
+//                          > <error{Call of impure function 'cut'}
+}

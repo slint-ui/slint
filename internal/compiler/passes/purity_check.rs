@@ -37,6 +37,11 @@ pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnost
     }
 }
 
+/// Whether evaluating `expr` has no side effect: it assigns no property and calls only pure functions.
+pub(super) fn is_pure(expr: &Expression) -> bool {
+    ensure_pure(expr, None, crate::diagnostics::DiagnosticLevel::Error, &mut Default::default())
+}
+
 fn ensure_pure(
     expr: &Expression,
     mut diag: Option<&mut BuildDiagnostics>,
@@ -82,15 +87,28 @@ fn ensure_pure(
                 }
                 None => {
                     if recursion_test.insert(nr.clone()) {
-                        match nr.element().borrow().binding(nr.name()) {
+                        let element = nr.element();
+                        let element = element.borrow();
+                        let body = element.binding_cell_including_synthetic(nr.name());
+                        match body.map(|body| body.try_borrow()) {
+                            // A native member function such as 'TextInput.cut()' has no body to inspect,
+                            // so it can't be shown pure.
                             None => {
-                                debug_assert!(
-                                    diag.as_ref().is_none_or(|d| d.has_errors()),
-                                    "private functions must be local and defined"
-                                );
+                                if let Some(diag) = diag.as_deref_mut() {
+                                    diag.push_diagnostic(
+                                        format!("Call of impure function '{}'", nr.declared_name()),
+                                        source_location,
+                                        level,
+                                    );
+                                }
+                                r = false;
                             }
-                            Some(binding) => {
-                                if !ensure_pure(&binding.expression, None, level, recursion_test) {
+                            // The expression visitor holds a mutable borrow on the body it is visiting.
+                            // Failing to borrow means the call recursed into the function under analysis,
+                            // a binding loop that is reported elsewhere.
+                            Some(Err(_)) => (),
+                            Some(Ok(body)) => {
+                                if !ensure_pure(&body.expression, None, level, recursion_test) {
                                     if let Some(diag) = diag.as_deref_mut() {
                                         diag.push_diagnostic(
                                             format!(
