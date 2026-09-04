@@ -170,6 +170,7 @@ path = [
   "ui-libraries/material/docs/src/content/docs/components/icons/**.svg",
   "ui-libraries/material/docs/src/assets/**.webp",
   "ui-libraries/material/.gitignore",
+  "ui-libraries/material/release/released-versions.txt",
   "ui-libraries/material/docs/src/assets/images/Components.png",
   "ui-libraries/material/docs/src/assets/images/phone-dark.webp",
   "ui-libraries/material/docs/src/assets/images/material-tablet.webp",

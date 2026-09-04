@@ -7,6 +7,7 @@ import Hero from "~/components/widgets/Hero.astro";
 import Features from "~/components/widgets/Features.astro";
 import Features2 from "~/components/widgets/Features2.astro";
 import CallToAction from "~/components/widgets/CallToAction.astro";
+import { getPermalink } from "~/utils/permalinks";
 
 const metadata = {
     title: "Slint + Material Design",
@@ -19,7 +20,7 @@ const metadata = {
 
   <Hero
   actions={[
-    { text: 'Get Started', href: '/getting-started/' },
+    { text: 'Get Started', href: getPermalink('getting-started') },
   ]}
     image={{ src: '~/assets/images/material-tablet.webp', alt: 'Material Components Hero Image' }}
   >
