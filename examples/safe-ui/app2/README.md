@@ -26,6 +26,10 @@ With `slint-viewer` installed:
 slint-viewer examples/safe-ui/app2/demo.slint
 ```
 
+Tap anywhere to dismiss the startup title overlay; this first tap does not operate the demo.
+The startup overlay combines a plain 60% white rectangle and a 48-pixel title PNG without moving any content.
+The rectangle is demo-only; the host-facing screen remains image-only.
+It stays hidden for the rest of the session, including after a reset.
 Select ENTER to start six seconds of securing, followed by nine seconds of equalizing.
 Select EXIT OUTER to reach Complete, then EXIT INNER to return to Ready.
 Double-click or double-tap the occupant chamber, or press F, to simulate Fault.
@@ -59,6 +63,8 @@ Replacing `app`, wiring a firmware host, and making the UI SC-compatible are sep
 The PNGs were exported at native size from the Public Transit concept in Figma.
 The source file is `AwH2AA7IrUYRfIdmGSN1YT`, export section `2086`.
 Text is baked into the artwork; no runtime fonts or vector assets are required.
+The demo title uses `logo/slint-logo-simple-light.svg` from this repository, rasterized in Figma.
+The title is a native-size PNG used only by `demo.slint`.
 The assets include icons from these free sources:
 
 - [Font Awesome Free](https://fontawesome.com/license/free): icons under CC BY 4.0.
