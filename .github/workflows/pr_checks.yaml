@@ -24,7 +24,7 @@ jobs:
   # request. The pull request keeps the ticked box as the record, and later
   # pull requests find it there through the search API. Accounts that accepted
   # before this check existed are listed in the CONTRIBUTION_AGREEMENTS
-  # repository variable, one per line.
+  # repository variable, one per line; lines starting with '#' are comments.
   contribution_agreement:
     # Team members are covered by their contract, bots by their operator's terms.
     if: >-
@@ -57,7 +57,7 @@ jobs:
           ticked() { printf '%s\n' "$BODY" | box_followed_by_sentence '[xX]'; }
           present() { printf '%s\n' "$BODY" | box_followed_by_sentence '[ xX]'; }
           listed_as_legacy() {
-            printf '%s\n' "$LEGACY_AGREED" | tr -s '[:space:]' '\n' | grep -qixF -- "$AUTHOR"
+            printf '%s\n' "$LEGACY_AGREED" | grep -v '^#' | tr -s '[:space:]' '\n' | grep -qixF -- "$AUTHOR"
           }
           ticked_in_an_earlier_pull_request() {
             gh api -X GET search/issues -f per_page=100 \
