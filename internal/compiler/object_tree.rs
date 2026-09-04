@@ -175,7 +175,7 @@ impl Document {
                 name: name.clone(),
                 values,
                 default_value: 0,
-                node: Some(crate::langtype::DeclNode::new(&n)),
+                node: Some(n.to_source_location()),
                 rust_attributes: n
                     .AtRustAttr()
                     .map(|a| SmolStr::from(a.text().to_string()))
@@ -3875,7 +3875,7 @@ pub fn type_struct_from_node(
                 .and_then(|p| syntax_nodes::StructDeclaration::new(p.clone()))
                 .map(|d| d.AtRustAttr().map(|a| SmolStr::from(a.text().to_string())).collect())
                 .unwrap_or_default();
-            let node = crate::langtype::DeclNode::new(struct_decl.as_ref().unwrap_or(&object_node));
+            let node = struct_decl.as_ref().unwrap_or(&object_node).to_source_location();
             StructName::User { name, node, rust_attributes, field_order }
         }),
     }))
