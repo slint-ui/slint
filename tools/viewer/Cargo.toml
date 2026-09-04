@@ -30,6 +30,7 @@ backend-linuxkms-libinput = ["slint-interpreter/backend-linuxkms-libinput"]
 
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
 renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
+renderer-femtovg-wgpu-vulkan = ["slint-interpreter/renderer-femtovg-wgpu-vulkan"]
 renderer-skia = ["slint-interpreter/renderer-skia", "dep:i-slint-renderer-skia"]
 renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl", "dep:i-slint-renderer-skia"]
 renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan", "dep:i-slint-renderer-skia"]

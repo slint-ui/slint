@@ -67,6 +67,9 @@ raw-window-handle-06 = ["dep:raw-window-handle-06"]
 # The unstable-wgpu-{29,30} feature additionally enables those public API types.
 wgpu-29 = ["dep:wgpu-29"]
 wgpu-30 = ["dep:wgpu-30"]
+# causes vulkan to be enabled and preferred by wgpu on apple and windows platforms.
+# does nothing if not on such a platform, or if wgpu is not enabled
+vulkan = []
 
 unstable-wgpu-29 = ["wgpu-29"]
 unstable-wgpu-30 = ["wgpu-30"]
