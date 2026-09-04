@@ -22,9 +22,13 @@ pub use i_slint_editor_preview::test::{
 use super::Context;
 
 pub fn mock_context() -> Context {
+    mock_context_with_document_cache(empty_document_cache())
+}
+
+pub fn mock_context_with_document_cache(document_cache: editor_preview::DocumentCache) -> Context {
     crate::language::Context {
         session: editor_preview::EditorSession {
-            document_cache: empty_document_cache(),
+            document_cache,
             preview_config: Default::default(),
             open_urls: HashSet::new(),
             previews: vec![editor_preview::PreviewConnection {
