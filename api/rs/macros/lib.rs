@@ -387,6 +387,14 @@ pub fn slint(stream: TokenStream) -> TokenStream {
 
     let mut tokens = Vec::new();
     fill_token_vec(token_iter, &mut tokens);
+    // Position each token in the document the parser will see: the concatenation of the token
+    // texts. A token can still grow while the vector is built, as later tokens are merged into
+    // it, so this can only be done now.
+    let mut offset = 0;
+    for t in &mut tokens {
+        t.offset = offset;
+        offset += t.text.len();
+    }
 
     fn local_file(tokens: &[parser::Token]) -> Option<PathBuf> {
         tokens.first()?.span?.local_file()
