@@ -3,10 +3,6 @@
 
 import { RasterDigit } from "components.slint";
 
-// Two-digit countdown, 00–99, with a single integer input.
-// Values outside the range are clamped; leading zeroes are always shown.
-// Native 20x24 pixels. Uses exactly two RasterDigit children and shared PNGs.
-// The parent controls placement and visibility; no timer or state transitions.
 export component ProgressText inherits Image {
     private property <int> clamped-value: value < 0 ? 0 : value > 99 ? 99 : value;
     private property <int> tens: floor(clamped-value / 10);
@@ -15,6 +11,15 @@ export component ProgressText inherits Image {
 
     width: 20px;
     height: 24px;
-    RasterDigit { x: 0px; y: 0px; value: root.tens; }
-    RasterDigit { x: 10px; y: 0px; value: root.clamped-value - root.tens * 10; }
+    RasterDigit {
+        x: 0px;
+        y: 0px;
+        value: root.tens;
+    }
+
+    RasterDigit {
+        x: 10px;
+        y: 0px;
+        value: root.clamped-value - root.tens * 10;
+    }
 }

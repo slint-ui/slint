@@ -7,10 +7,23 @@
 // 65% = six active segments. No timers, fonts, drawing, scaling or interaction.
 // Custom child input bindings require ordinary Slint in the current local compiler.
 
+component NavyDigit inherits Image {
+    in property <int> value;
+    source: root.value == 0 ? @image-url("assets/digits/digit-navy-0.png")
+        : root.value == 1 ? @image-url("assets/digits/digit-navy-1.png")
+        : root.value == 2 ? @image-url("assets/digits/digit-navy-2.png")
+        : root.value == 3 ? @image-url("assets/digits/digit-navy-3.png")
+        : root.value == 4 ? @image-url("assets/digits/digit-navy-4.png")
+        : root.value == 5 ? @image-url("assets/digits/digit-navy-5.png")
+        : root.value == 6 ? @image-url("assets/digits/digit-navy-6.png")
+        : root.value == 7 ? @image-url("assets/digits/digit-navy-7.png")
+        : root.value == 8 ? @image-url("assets/digits/digit-navy-8.png")
+        : @image-url("assets/digits/digit-navy-9.png");
+}
+
 export component SegmentedProgress inherits Image {
-    private property <image> empty-image;
     private property <int> progress: percent < 0 ? 0 : percent > 100 ? 100 : percent;
-    private property <int> progress-tens: progress == 100 ? 0 : progress < 10 ? 0 : progress < 20 ? 1 : progress < 30 ? 2 : progress < 40 ? 3 : progress < 50 ? 4 : progress < 60 ? 5 : progress < 70 ? 6 : progress < 80 ? 7 : progress < 90 ? 8 : 9;
+    private property <int> progress-tens: progress == 100 ? 0 : floor(progress / 10);
     private property <int> progress-units: progress == 100 ? 0 : progress - progress-tens * 10;
 
     in property <int> percent: 0;
@@ -18,19 +31,101 @@ export component SegmentedProgress inherits Image {
 
     width: 112px;
     height: 61px;
-    Image { x: 0px; y: 0px; source: root.active ? @image-url("assets/progress/progress-base.png") : root.empty-image; }
-    Image { x: 56px; y: 0px; source: root.active && root.progress >= 10 ? @image-url("assets/progress/progress-segment-01.png") : root.empty-image; }
-    Image { x: 65px; y: 4px; source: root.active && root.progress >= 20 ? @image-url("assets/progress/progress-segment-02.png") : root.empty-image; }
-    Image { x: 70px; y: 14px; source: root.active && root.progress >= 30 ? @image-url("assets/progress/progress-segment-03.png") : root.empty-image; }
-    Image { x: 65px; y: 25px; source: root.active && root.progress >= 40 ? @image-url("assets/progress/progress-segment-04.png") : root.empty-image; }
-    Image { x: 56px; y: 32px; source: root.active && root.progress >= 50 ? @image-url("assets/progress/progress-segment-05.png") : root.empty-image; }
-    Image { x: 45px; y: 32px; source: root.active && root.progress >= 60 ? @image-url("assets/progress/progress-segment-06.png") : root.empty-image; }
-    Image { x: 37px; y: 25px; source: root.active && root.progress >= 70 ? @image-url("assets/progress/progress-segment-07.png") : root.empty-image; }
-    Image { x: 36px; y: 14px; source: root.active && root.progress >= 80 ? @image-url("assets/progress/progress-segment-08.png") : root.empty-image; }
-    Image { x: 37px; y: 4px; source: root.active && root.progress >= 90 ? @image-url("assets/progress/progress-segment-09.png") : root.empty-image; }
-    Image { x: 45px; y: 0px; source: root.active && root.progress >= 100 ? @image-url("assets/progress/progress-segment-10.png") : root.empty-image; }
-    Image { x: 43px; y: 13px; source: root.active && root.progress == 100 ? @image-url("assets/digits/digit-navy-1.png") : root.empty-image; }
-    Image { x: root.progress == 100 ? 49px : 46px; y: 13px; source: root.active && root.progress >= 10 ? (root.progress-tens == 0 ? @image-url("assets/digits/digit-navy-0.png") : root.progress-tens == 1 ? @image-url("assets/digits/digit-navy-1.png") : root.progress-tens == 2 ? @image-url("assets/digits/digit-navy-2.png") : root.progress-tens == 3 ? @image-url("assets/digits/digit-navy-3.png") : root.progress-tens == 4 ? @image-url("assets/digits/digit-navy-4.png") : root.progress-tens == 5 ? @image-url("assets/digits/digit-navy-5.png") : root.progress-tens == 6 ? @image-url("assets/digits/digit-navy-6.png") : root.progress-tens == 7 ? @image-url("assets/digits/digit-navy-7.png") : root.progress-tens == 8 ? @image-url("assets/digits/digit-navy-8.png") : @image-url("assets/digits/digit-navy-9.png")) : root.empty-image; }
-    Image { x: root.progress == 100 ? 55px : root.progress >= 10 ? 52px : 49px; y: 13px; source: root.active ? (root.progress-units == 0 ? @image-url("assets/digits/digit-navy-0.png") : root.progress-units == 1 ? @image-url("assets/digits/digit-navy-1.png") : root.progress-units == 2 ? @image-url("assets/digits/digit-navy-2.png") : root.progress-units == 3 ? @image-url("assets/digits/digit-navy-3.png") : root.progress-units == 4 ? @image-url("assets/digits/digit-navy-4.png") : root.progress-units == 5 ? @image-url("assets/digits/digit-navy-5.png") : root.progress-units == 6 ? @image-url("assets/digits/digit-navy-6.png") : root.progress-units == 7 ? @image-url("assets/digits/digit-navy-7.png") : root.progress-units == 8 ? @image-url("assets/digits/digit-navy-8.png") : @image-url("assets/digits/digit-navy-9.png")) : root.empty-image; }
-    Image { x: root.progress == 100 ? 61px : root.progress >= 10 ? 58px : 55px; y: 13px; source: root.active ? @image-url("assets/progress/percent-navy.png") : root.empty-image; }
+    visible: root.active;
+    source: @image-url("assets/progress/progress-base.png");
+    Image {
+        x: 56px;
+        y: 0px;
+        visible: root.progress >= 10;
+        source: @image-url("assets/progress/progress-segment-01.png");
+    }
+
+    Image {
+        x: 65px;
+        y: 4px;
+        visible: root.progress >= 20;
+        source: @image-url("assets/progress/progress-segment-02.png");
+    }
+
+    Image {
+        x: 70px;
+        y: 14px;
+        visible: root.progress >= 30;
+        source: @image-url("assets/progress/progress-segment-03.png");
+    }
+
+    Image {
+        x: 65px;
+        y: 25px;
+        visible: root.progress >= 40;
+        source: @image-url("assets/progress/progress-segment-04.png");
+    }
+
+    Image {
+        x: 56px;
+        y: 32px;
+        visible: root.progress >= 50;
+        source: @image-url("assets/progress/progress-segment-05.png");
+    }
+
+    Image {
+        x: 45px;
+        y: 32px;
+        visible: root.progress >= 60;
+        source: @image-url("assets/progress/progress-segment-06.png");
+    }
+
+    Image {
+        x: 37px;
+        y: 25px;
+        visible: root.progress >= 70;
+        source: @image-url("assets/progress/progress-segment-07.png");
+    }
+
+    Image {
+        x: 36px;
+        y: 14px;
+        visible: root.progress >= 80;
+        source: @image-url("assets/progress/progress-segment-08.png");
+    }
+
+    Image {
+        x: 37px;
+        y: 4px;
+        visible: root.progress >= 90;
+        source: @image-url("assets/progress/progress-segment-09.png");
+    }
+
+    Image {
+        x: 45px;
+        y: 0px;
+        visible: root.progress >= 100;
+        source: @image-url("assets/progress/progress-segment-10.png");
+    }
+
+    NavyDigit {
+        x: 43px;
+        y: 13px;
+        value: 1;
+        visible: root.progress == 100;
+    }
+
+    NavyDigit {
+        x: root.progress == 100 ? 49px : 46px;
+        y: 13px;
+        value: root.progress-tens;
+        visible: root.progress >= 10;
+    }
+
+    NavyDigit {
+        x: root.progress == 100 ? 55px : root.progress >= 10 ? 52px : 49px;
+        y: 13px;
+        value: root.progress-units;
+    }
+
+    Image {
+        x: root.progress == 100 ? 61px : root.progress >= 10 ? 58px : 55px;
+        y: 13px;
+        source: @image-url("assets/progress/percent-navy.png");
+    }
 }

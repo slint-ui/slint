@@ -65,11 +65,20 @@ The source file is `AwH2AA7IrUYRfIdmGSN1YT`, export section `2086`.
 Text is baked into the artwork; no runtime fonts or vector assets are required.
 The demo title uses `logo/slint-logo-simple-light.svg` from this repository, rasterized in Figma.
 The title is a native-size PNG used only by `demo.slint`.
+The fault background combines the original background, pressure warning at (118,115), and emergency panel at (7,181).
+Those three Figma exports are composited at native size with the Slint software renderer.
 The assets include icons from these free sources:
 
-- [Font Awesome Free](https://fontawesome.com/license/free): icons under CC BY 4.0.
-- [Tabler Icons](https://github.com/tabler/tabler-icons/blob/main/LICENSE): MIT.
-- [Ionicons](https://github.com/ionic-team/ionicons/blob/main/LICENSE): MIT.
+- [Font Awesome Free 6.7.2](https://fontawesome.com/license/free), Copyright 2024 Fonticons, Inc., CC BY 4.0: lock, unlock-keyhole, check, triangle-exclamation, hand, person-walking, and right-from-bracket icons in the backgrounds, doors, pressure-lock/check indicators, and enter/exit panels.
+- [Tabler Icons](https://github.com/tabler/tabler-icons/blob/main/LICENSE), Copyright (c) 2020-2026 Paweł Kuna, MIT: hourglass-half in both wait panels.
+- [Ionicons](https://github.com/ionic-team/ionicons/blob/main/LICENSE), Copyright (c) 2015-present Ionic (http://ionic.io/), MIT: man in both occupant chambers.
+- [Slint logo](../../../../logo/README.md), Copyright © SixtyFPS GmbH <info@slint.dev>, CC BY ND 4.0: the logo in the demo title banner.
+
+Icons were resized, recolored, and rasterized into the compositions.
+The Ionicons man artwork was cropped to its bounds and its paths combined; the empty chamber uses a pale version.
+The Slint logo was uniformly scaled and rasterized alongside the title text.
+Original composition and other artwork are Copyright © SixtyFPS GmbH <info@slint.dev>, MIT.
+The repository's `REUSE.toml` records these credits and licenses for each affected PNG, with license texts in `LICENSES/`.
 
 Retain these attributions when redistributing the raster artwork.
 The MIT source headers do not replace third-party artwork licenses.
