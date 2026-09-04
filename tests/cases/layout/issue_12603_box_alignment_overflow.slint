@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore unpadded
+
+// https://github.com/slint-ui/slint/issues/12603
+//
+// A `HorizontalLayout`/`VerticalLayout` cell that cannot shrink below its preferred
+// size (a fixed `width`, or a non-wrapping `Text`) and doesn't fit the container used
+// to fall back to start-alignment regardless of the container's `alignment`, silently
+// dropping `center`/`end`. That made a `Button` with an explicit size too small for its
+// text (and padding) render its label anchored to the left padding edge and overflowing
+// to the right, instead of staying centered and overflowing both edges symmetrically --
+// which is what an emoji glyph too large for a small fixed-size `Button` made visible as
+// a rightward shift.
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    // A single 150px-wide rigid cell doesn't fit a 100px-wide, unpadded container: the
+    // free space (100px - 150px = -50px) is negative.
+    centered_row := HorizontalLayout {
+        padding: 0px;
+        alignment: center;
+        c1 := Rectangle { width: 150px; }
+    }
+    end_row := HorizontalLayout {
+        padding: 0px;
+        alignment: end;
+        e1 := Rectangle { width: 150px; }
+    }
+    start_row := HorizontalLayout {
+        padding: 0px;
+        alignment: start;
+        s1 := Rectangle { width: 150px; }
+    }
+
+    // `center`/`end` still apply their offset to the oversized content -- like CSS's
+    // default ("unsafe") box alignment, the content overflows past both edges (or past
+    // the start edge, for `end`) rather than snapping to start-alignment.
+    out property <bool> center_overflows_symmetrically: c1.x == -25px;
+    out property <bool> end_overflows_past_start: e1.x == -50px;
+    // `start` already meant start-alignment; overflow doesn't change that.
+    out property <bool> start_unaffected: s1.x == 0px;
+
+    // Padding shifts the whole (still symmetric) overflow, like the non-overflowing case.
+    padded_center := HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        alignment: center;
+        pc1 := Rectangle { width: 150px; }
+    }
+    out property <bool> padded_center_overflows_symmetrically: pc1.x == -25px;
+
+    // Two rigid cells: the offset is computed from their *summed* size (plus spacing),
+    // not just the first cell's. Sized so the halved leftover (-5px) stays exact
+    // under integer `Coord` builds too (`cfg(slint_int_coord)`), not just float ones.
+    two_cells := HorizontalLayout {
+        padding: 0px;
+        spacing: 10px;
+        alignment: center;
+        t1 := Rectangle { width: 50px; }
+        t2 := Rectangle { width: 50px; }
+    }
+    out property <bool> two_cells_offset: t1.x == -5px;
+    out property <bool> two_cells_spacing_kept: t2.x == t1.x + t1.width + 10px;
+
+    // Unlike `center`/`end`, `space-around` (and `space-evenly`) fall back to
+    // start-alignment on overflow -- for a single cell they're otherwise identical to
+    // `center` (see the non-overflowing case below), so this is the case that tells
+    // them apart.
+    space_around_row := HorizontalLayout {
+        padding: 0px;
+        alignment: space-around;
+        sa1 := Rectangle { width: 150px; }
+    }
+    out property <bool> space_around_falls_back_to_start_on_overflow: sa1.x == 0px;
+
+    // Control: with room to spare, single-cell `space-around` centers exactly like
+    // `center` does (both place all the leftover space as one gap split in half).
+    space_around_fits := HorizontalLayout {
+        width: 100px;
+        padding: 0px;
+        alignment: space-around;
+        saf1 := Rectangle { width: 40px; }
+    }
+    out property <bool> space_around_centers_when_it_fits: saf1.x == 30px;
+
+    out property <bool> test: center_overflows_symmetrically && end_overflows_past_start
+        && start_unaffected && padded_center_overflows_symmetrically && two_cells_offset
+        && two_cells_spacing_kept && space_around_falls_back_to_start_on_overflow
+        && space_around_centers_when_it_fits;
+}
