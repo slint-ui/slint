@@ -508,7 +508,7 @@ fn write_slint_property(
     let raw_doc = info.docs.as_deref().unwrap_or("");
     let (description, doc_default) = extract_default(raw_doc);
     let mut default_value = match &info.default_value {
-        BuiltinPropertyDefault::Expr(expr) => format_default_expr(expr),
+        BuiltinPropertyDefault::Expr(expr) => format_default_expr(&expr.to_expression()),
         _ => String::new(),
     };
     if default_value.is_empty()

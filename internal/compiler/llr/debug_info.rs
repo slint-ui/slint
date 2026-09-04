@@ -6,9 +6,6 @@
 //!
 //! Populated only when [`crate::CompilerConfiguration::debug_info`] is set.
 //! Treat entries as advisory and tolerate missing data.
-//!
-//! These types hold a [`crate::diagnostics::SourceLocation`] which isn't `Send`.
-//! Making LLR `Send` will require replacing it with a path + offset.
 
 use crate::diagnostics::SourceLocation;
 use smol_str::SmolStr;
