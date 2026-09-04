@@ -3189,9 +3189,6 @@ impl Element {
             let unresolved_name = crate::parser::normalize_identifier(name_token.text());
             let lookup_result =
                 self.lookup_property(&unresolved_name, PropertyLookupMode::ComponentLocal);
-            // A two-way binding on a `property <=> other;` declaration is rejected in
-            // `Element::from_node`; this covers the standalone `name <=> other;` form, which
-            // reaches here instead.
             #[cfg(feature = "slint-sc")]
             if b.kind() == SyntaxKind::TwoWayBinding {
                 diag.slint_sc_error("Two-way bindings are", &b);
