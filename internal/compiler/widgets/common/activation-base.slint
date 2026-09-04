@@ -1,0 +1,83 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component ActivationBase {
+    in property <bool> enabled: true;
+    in property <bool> focus-on-pointer-click;
+
+    out property <bool> has-focus: focus-scope.has-focus;
+    out property <bool> has-visible-focus;
+    out property <bool> has-hover: root.enabled && touch-area.has-hover;
+    out property <bool> pressed:
+        root.enabled && (touch-area.pressed || root.keyboard-pressed);
+    out property <length> pressed-x: touch-area.pressed-x;
+    out property <length> pressed-y: touch-area.pressed-y;
+
+    callback activated;
+
+    private property <bool> keyboard-pressed;
+
+    forward-focus: focus-scope;
+
+    changed enabled => {
+        if (!root.enabled) {
+            root.keyboard-pressed = false;
+        }
+    }
+
+    changed has-focus => {
+        if (!root.has-focus) {
+            root.keyboard-pressed = false;
+        }
+    }
+
+    touch-area := TouchArea {
+        enabled: root.enabled;
+
+        pointer-event(event) => {
+            if (root.focus-on-pointer-click
+                && event.touch-finger-id == 0
+                && event.button == PointerEventButton.left
+                && event.kind == PointerEventKind.down) {
+                focus-scope.focus();
+            }
+        }
+
+        clicked => { root.activated(); }
+    }
+
+    focus-scope := FocusScope {
+        x: 0;
+        width: 0;
+        enabled: root.enabled;
+
+        focus-gained(reason) => {
+            root.has-visible-focus = reason == FocusReason.tab-navigation;
+        }
+
+        focus-lost => {
+            root.has-visible-focus = false;
+        }
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                if (!event.repeat) {
+                    root.keyboard-pressed = true;
+                    root.activated();
+                }
+                return accept;
+            }
+            return reject;
+        }
+
+        key-released(event) => {
+            if (event.text == " " || event.text == "\n") {
+                root.keyboard-pressed = false;
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    @children
+}

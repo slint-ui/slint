@@ -3,45 +3,27 @@
 
 import { CupertinoPalette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
+import { CheckBoxBase } from "../common/checkbox-base.slint";
 
-export component CheckBox {
-    in property <string> text;
-    in property <bool> enabled <=> i-touch-area.enabled;
+export component CheckBox inherits CheckBoxBase {
     in property <length> font-size;
     in property <int> font-weight;
-    out property <bool> has-focus: i-focus-scope.has-focus;
-    in-out property <bool> checked;
 
-    callback toggled;
-
-    private property <brush> background: checked && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.control-background;
+    private property <brush> control-background: root.checked && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.control-background;
     private property <brush> icon-color: CupertinoPalette.accent-foreground;
 
     min-height: max(14px, i-layout.min-height);
-    accessible-enabled: root.enabled;
-    accessible-checkable: true;
-    accessible-label: root.text;
-    accessible-checked <=> root.checked;
-    accessible-role: checkbox;
-    accessible-action-default => {
-        if (root.enabled) {
-           root.checked = !root.checked;
-           root.toggled();
-	}
-    }
-    forward-focus: i-focus-scope;
-
     states [
         disabled when !root.enabled : {
             opacity: 0.5;
             icon-color: CupertinoPalette.foreground;
         }
-        pressed when i-touch-area.pressed : {
-            root.background: root.checked ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
+        pressed when root.pressed : {
+            root.control-background: root.checked ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
         }
     ]
 
-    animate background { duration: 150ms; }
+    animate control-background { duration: 150ms; }
 
     FocusBorder {
         x: (parent.width - self.width) / 2;
@@ -49,7 +31,7 @@ export component CheckBox {
         width: parent.width + 6px;
         height: parent.height + 6px;
         border-radius: 8px;
-        has-focus: root.has-focus;
+        has-focus: root.has-visible-focus;
     }
 
     i-layout := HorizontalLayout {
@@ -60,7 +42,7 @@ export component CheckBox {
             width: 14px;
             height: self.width;
             border-radius: 4px;
-            background: root.background;
+            background: root.control-background;
             clip: true;
 
             Rectangle {
@@ -84,14 +66,14 @@ export component CheckBox {
             width: 14px;
             height: self.width;
             border-radius: 4px;
-            background: root.background;
+            background: root.control-background;
 
             Rectangle {
                 drop-shadow-blur: 2px;
                 drop-shadow-color: #00000026;
                 drop-shadow-offset-y: 1px;
                 border-radius: parent.border-radius;
-                background: root.background;
+                background: root.control-background;
             }
 
             Rectangle {
@@ -99,7 +81,7 @@ export component CheckBox {
                 drop-shadow-color: #00000026;
                 drop-shadow-offset-y: 0.5px;
                 border-radius: parent.border-radius;
-                background: root.background;
+                background: root.control-background;
             }
 
             Rectangle {
@@ -131,26 +113,4 @@ export component CheckBox {
         }
     }
 
-    i-touch-area := TouchArea {
-        clicked => {
-            if (root.enabled) {
-                root.checked = !root.checked;
-                root.toggled();
-            }
-        }
-    }
-
-    i-focus-scope := FocusScope {
-        x: 0;
-        width: 0; // Do not react on clicks
-        enabled <=> root.enabled;
-
-        key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
-                i-touch-area.clicked();
-                return accept;
-            }
-            return reject;
-        }
-    }
 }

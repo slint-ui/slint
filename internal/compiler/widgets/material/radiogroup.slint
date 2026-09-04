@@ -5,6 +5,8 @@ import { MaterialFontSettings, MaterialPalette } from "styling.slint";
 import { RadioButtonImplBase, RadioGroupImplBase } from "../common/radiogroup-base.slint";
 
 export component RadioButtonImpl inherits RadioButtonImplBase {
+    focus-on-pointer-click: true;
+
     private property <color> text-color: MaterialPalette.foreground;
 
     min-height: max(32px, layout.min-height);

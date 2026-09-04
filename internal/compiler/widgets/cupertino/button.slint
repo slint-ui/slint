@@ -3,52 +3,37 @@
 
 import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
+import { ButtonBase } from "../common/button-base.slint";
 
-export component Button {
-    in property <string> text;
+export component Button inherits ButtonBase {
     in property <image> icon;
     in property <length> icon-size: 13px;
     in property <bool> primary;
-    in property <bool> enabled <=> i-touch-area.enabled;
-    in property <bool> checkable;
     in property <bool> colorize-icon;
-    out property <bool> has-focus: i-focus-scope.has-focus;
-    out property <bool> pressed: self.enabled && i-touch-area.pressed;
-    in-out property <bool> checked;
 
-    callback clicked;
-
-    private property <brush> background: primary && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.control-background;
+    private property <brush> control-background: primary && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.control-background;
     private property <brush> text-color: primary && root.enabled ? CupertinoPalette.accent-foreground : CupertinoPalette.control-foreground;
 
     min-width: max(20px, i-layout.min-width);
     min-height: max(20px, i-layout.min-height);
     horizontal-stretch: 0;
     vertical-stretch: 0;
-    forward-focus: i-focus-scope;
-
-    accessible-role: button;
-    accessible-enabled: root.enabled;
-    accessible-checkable: root.checkable;
-    accessible-checked: root.checked;
-    accessible-label: root.text;
-    accessible-action-default => { i-touch-area.clicked(); }
 
 
     states [
-        disabled when !i-touch-area.enabled : {
+        disabled when !root.enabled : {
             root.text-color: CupertinoPalette.foreground-secondary;
-            root.background: CupertinoPalette.quaternary-control-background;
+            root.control-background: CupertinoPalette.quaternary-control-background;
         }
         pressed when root.pressed : {
-            root.background: root.primary ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
+            root.control-background: root.primary ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
         }
         checked when root.checked : {
             root.text-color: CupertinoPalette.secondary-accent-background;
         }
     ]
 
-    animate background { duration: 150ms; }
+    animate control-background { duration: 150ms; }
 
     FocusBorder {
         x: (parent.width - self.width) / 2;
@@ -56,7 +41,7 @@ export component Button {
         width: parent.width + 6px;
         height: parent.height + 6px;
         border-radius: 8px;
-        has-focus: root.has-focus;
+        has-focus: root.has-visible-focus;
     }
 
     if (root.primary && root.enabled) : Rectangle {
@@ -64,14 +49,14 @@ export component Button {
         drop-shadow-color: #00000066;
         drop-shadow-offset-y: 0.5px;
         border-radius: 5px;
-        background: root.background;
+        background: root.control-background;
 
         Rectangle {
             drop-shadow-blur: 2px;
             drop-shadow-color: #00000026;
             drop-shadow-offset-y: 1px;
             border-radius: parent.border-radius;
-            background: root.background;
+            background: root.control-background;
         }
 
         Rectangle {
@@ -79,7 +64,7 @@ export component Button {
             drop-shadow-color: #00000026;
             drop-shadow-offset-y: 0.5px;
             border-radius: parent.border-radius;
-            background: root.background;
+            background: root.control-background;
         }
 
         Rectangle {
@@ -94,14 +79,14 @@ export component Button {
         drop-shadow-color: #00000066;
         drop-shadow-offset-y: 0.25px;
         border-radius: 5px;
-        background: root.background;
+        background: root.control-background;
 
         Rectangle {
             drop-shadow-blur: 1px;
             drop-shadow-color: #00000026;
             drop-shadow-offset-y: 1px;
             border-radius: parent.border-radius;
-            background: root.background;
+            background: root.control-background;
             border-width: 1px;
             border-color: CupertinoPalette.decent-border;
             opacity: root.enabled ? 1 : 0.5;
@@ -137,27 +122,4 @@ export component Button {
         }
     }
 
-    i-touch-area := TouchArea {
-        clicked => {
-            if (root.checkable) {
-                root.checked = !root.checked;
-            }
-            root.clicked();
-        }
-    }
-
-    i-focus-scope := FocusScope {
-        x: 0;
-        width: 0; // Do not react on clicks
-        enabled <=> root.enabled;
-
-        key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
-                i-touch-area.clicked();
-                 return accept;
-            }
-
-            return reject;
-        }
-    }
 }

@@ -3,33 +3,17 @@
 
 import { FluentPalette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
+import { CheckBoxBase } from "../common/checkbox-base.slint";
 
-export component CheckBox {
-    in property <string> text;
-    in property <bool> enabled <=> touch-area.enabled;
+export component CheckBox inherits CheckBoxBase {
+    focus-on-pointer-click: true;
+
     in property <length> font-size;
     in property <int> font-weight;
-    out property <bool> has-focus: focus-scope.has-focus;
-    in-out property <bool> checked;
-
-    callback toggled;
 
     private property <color> text-color: FluentPalette.foreground;
 
     min-height: max(18px, layout.min-height);
-    accessible-checkable: true;
-    accessible-enabled: root.enabled;
-    accessible-label: root.text;
-    accessible-checked <=> root.checked;
-    accessible-role: checkbox;
-    accessible-action-default => {
-        if (root.enabled) {
-           root.checked = !root.checked;
-           root.toggled();
-        }
-    }
-    forward-focus: focus-scope;
-
     states [
         disabled when !root.enabled : {
             border.border-color: FluentPalette.control-strong-stroke-disabled;
@@ -37,12 +21,12 @@ export component CheckBox {
             icon.colorize: FluentPalette.text-accent-foreground-disabled;
             root.text-color: FluentPalette.text-disabled;
         }
-        pressed when touch-area.pressed : {
+        pressed when root.pressed : {
             border.border-color: FluentPalette.control-strong-stroke-disabled;
             background.background: root.checked ? FluentPalette.tertiary-accent-background : FluentPalette.control-alt-quaternary;
             icon.colorize: FluentPalette.text-accent-foreground-secondary;
         }
-        hover when touch-area.has-hover : {
+        hover when root.has-hover : {
             background.background: root.checked ?  FluentPalette.secondary-accent-background : FluentPalette.control-alt-tertiary;
         }
         checked when root.checked && root.enabled : {
@@ -93,31 +77,8 @@ export component CheckBox {
         }
     }
 
-    touch-area := TouchArea {
-        clicked => {
-            if (root.enabled) {
-                root.checked = !root.checked;
-                root.toggled();
-            }
-        }
-    }
-
-    focus-scope := FocusScope {
-        x: 0;
-        width: 0; // Do not react on clicks
-        enabled <=> root.enabled;
-
-        key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
-                touch-area.clicked();
-                return accept;
-            }
-            return reject;
-        }
-    }
-
     // focus border
-    if root.has-focus && root.enabled : FocusBorder {
+    if root.has-visible-focus && root.enabled : FocusBorder {
         border-radius: 4px;
     }
 }

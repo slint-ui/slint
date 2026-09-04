@@ -6,6 +6,8 @@ import { RadioButtonImplBase, RadioGroupImplBase } from "../common/radiogroup-ba
 import { FocusBorder } from "components.slint";
 
 export component RadioButtonImpl inherits RadioButtonImplBase {
+    focus-on-pointer-click: true;
+
     private property <color> text-color: FluentPalette.foreground;
 
     min-height: max(32px, layout.min-height);
@@ -67,7 +69,7 @@ export component RadioButtonImpl inherits RadioButtonImplBase {
         }
     }
 
-    if root.has-focus && root.enabled && root.group-enabled: FocusBorder {
+    if root.has-visible-focus && root.enabled && root.group-enabled: FocusBorder {
         border-radius: 7px;
     }
 }

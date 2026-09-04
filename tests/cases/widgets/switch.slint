@@ -10,6 +10,11 @@ export component TestCase inherits Window {
     in-out property <string> toggled;
     in-out property <bool> checked <=> a.checked;
     in-out property <bool> enabled <=> a.enabled;
+    out property <bool> has-focus: a.has-focus;
+
+    public function focus-switch() {
+        a.focus();
+    }
 
     HorizontalLayout {
         alignment: start;
@@ -24,7 +29,7 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-use slint::{SharedString};
+use slint::{platform::Key, SharedString};
 
 let instance = TestCase::new().unwrap();
 
@@ -45,13 +50,20 @@ assert_eq!(instance.get_checked(), true, "Switch a was not checked");
 assert_eq!(aaa.accessible_checked(), Some(true));
 assert_eq!(instance.get_toggled(), SharedString::from("a"));
 
+// Keyboard activation follows the same path.
+instance.invoke_focus_switch();
+assert!(instance.get_has_focus());
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
+assert_eq!(instance.get_checked(), false);
+assert_eq!(instance.get_toggled(), SharedString::from("aa"));
+
 assert_eq!(aaa.accessible_enabled(), Some(true));
 instance.set_enabled(false);
 assert_eq!(aaa.accessible_enabled(), Some(false));
-assert_eq!(instance.get_toggled(), SharedString::from("a"));
+assert_eq!(instance.get_toggled(), SharedString::from("aa"));
 
 aaa.invoke_accessible_default_action();
-assert_eq!(instance.get_toggled(), SharedString::from("a"));
+assert_eq!(instance.get_toggled(), SharedString::from("aa"));
 
 ```
 

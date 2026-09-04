@@ -2,29 +2,18 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { CosmicPalette, Icons } from "styling.slint";
-import { StateLayer } from "components.slint";
+import { StateLayerBase } from "components.slint";
+import { CheckBoxBase } from "../common/checkbox-base.slint";
 
-export component CheckBox {
-    in property <string> text;
-    in property <bool> enabled <=> state-layer.enabled;
+export component CheckBox inherits CheckBoxBase {
+    focus-on-pointer-click: true;
+
     in property <length> font-size;
     in property <int> font-weight;
-    out property <bool> has-focus: state-layer.has-focus;
-    in-out property <bool> checked;
-
-    callback toggled;
 
     private property <color> text-color: CosmicPalette.foreground;
 
     min-height: max(16px, layout.min-height);
-    accessible-enabled: root.enabled;
-    accessible-checkable: true;
-    accessible-label: root.text;
-    accessible-checked <=> root.checked;
-    accessible-role: checkbox;
-    accessible-action-default => { if (root.enabled) {state-layer.clicked();} }
-    forward-focus: state-layer;
-
     states [
         disabled when !root.enabled : {
            opacity: 0.5;
@@ -35,14 +24,6 @@ export component CheckBox {
     ]
 
     animate text-color { duration: 200ms; }
-
-    touch-area := TouchArea {
-        enabled: root.enabled;
-
-        clicked => {
-            state-layer.clicked();
-        }
-    }
 
     layout := HorizontalLayout {
         spacing: 8px;
@@ -73,15 +54,13 @@ export component CheckBox {
                 animate colorize { duration: 150ms; }
             }
 
-            state-layer := StateLayer {
+            StateLayerBase {
                 border-radius: background.border-radius;
-
-                clicked => {
-                    if (root.enabled) {
-                        root.checked = !root.checked;
-                        root.toggled();
-                    }
-                }
+                has-focus: root.has-visible-focus;
+                has-hover: root.has-hover;
+                pressed: root.pressed;
+                checked: root.checked;
+                enabled: root.enabled;
             }
         }
 

@@ -52,7 +52,7 @@ export component RadioButtonImpl inherits RadioButtonImplBase {
         }
     }
 
-    if root.has-focus && root.enabled && root.group-enabled: FocusBorder {
+    if root.has-visible-focus && root.enabled && root.group-enabled: FocusBorder {
         border-radius: 7px;
     }
 }

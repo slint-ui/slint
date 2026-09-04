@@ -1,39 +1,61 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { StateLayer } from "components.slint";
+import { Ripple } from "components.slint";
 import { MaterialFontSettings, MaterialPalette, Elevation } from "styling.slint";
+import { ButtonBase } from "../common/button-base.slint";
 
-component MaterialButtonBase {
+component MaterialButtonPresentation {
     in property <string> text;
     in property <image> icon;
     in property <length> icon-size: 24px;
-    in property <length> border-radius <=> state-layer.border-radius;
-    in property <bool> checkable;
+    in property <length> border-radius;
     in property <brush> text-color;
     in property <float> text-opacity;
     in property <bool> colorize-icon;
-    in property <bool> enabled <=> state-layer.enabled;
     in property <length> layout-padding-left;
     in property <length> layout-padding-right;
-    out property <bool> has-focus <=> state-layer.has-focus;
-    out property <bool> pressed <=> state-layer.pressed;
-    in-out property <bool> checked;
-
-    callback clicked <=> state-layer.clicked;
+    in property <bool> has-visible-focus;
+    in property <bool> has-hover;
+    in property <bool> pressed;
+    in property <bool> checked;
+    in property <length> pressed-x;
+    in property <length> pressed-y;
 
     min-width: layout.min-width;
     min-height: layout.min-height;
-    forward-focus: state-layer;
 
-    state-layer := StateLayer {
+    states [
+        pressed when root.pressed: {
+            ripple.opacity: 0.12;
+        }
+        checked when root.checked: {
+            ripple.opacity: 1.0;
+            ripple.background: MaterialPalette.accent-background;
+        }
+        hover when root.has-hover: {
+            ripple.opacity: 0.08;
+        }
+        focused when root.has-visible-focus: {
+            ripple.opacity: 0.12;
+        }
+    ]
+
+    ripple := Ripple {
         width: 100%;
         height: 100%;
-        has-ripple: true;
+        opacity: 0;
+        active: root.pressed;
+        ripple-x: root.pressed-x;
+        ripple-y: root.pressed-y;
+        clip: true;
         background: MaterialPalette.foreground-alt;
         ripple-color: MaterialPalette.secondary-ripple;
-        checked-background: MaterialPalette.accent-background;
-        focusable: true;
+        has-effect: true;
+        border-radius: root.border-radius;
+
+        animate opacity { duration: 250ms; easing: ease; }
+        animate background { duration: 250ms; }
     }
 
     layout := HorizontalLayout {
@@ -70,42 +92,25 @@ component MaterialButtonBase {
 }
 
 // Default button widget with Material Design Filled Button look and feel.
-export component Button {
-    in property <string> text <=> base.text;
-    in property <bool> enabled <=> base.enabled;
-    in property <bool> checkable;
-    in property <image> icon <=> base.icon;
-    in property <length> icon-size <=> base.icon-size;
-    in property <bool> primary;
-    in property <bool> colorize-icon <=> base.colorize-icon;
-    out property <bool> has-focus: base.has-focus;
-    out property <bool> pressed: self.enabled && base.pressed;
-    in-out property <bool> checked;
+export component Button inherits ButtonBase {
+    focus-on-pointer-click: true;
 
-    callback clicked;
+    in property <image> icon <=> presentation.icon;
+    in property <length> icon-size <=> presentation.icon-size;
+    in property <bool> primary;
+    in property <bool> colorize-icon <=> presentation.colorize-icon;
 
     min-height: max(40px, layout.min-height);
     min-width: max(40px, layout.min-width);
-    forward-focus: base;
-
-    accessible-role: button;
-    accessible-enabled: root.enabled;
-    accessible-checkable: root.checkable;
-    accessible-checked: root.checked;
-    accessible-label: root.text;
-    accessible-action-default => {
-        base.clicked();
-    }
-
     states [
         disabled when !root.enabled: {
             background.background: MaterialPalette.foreground-alt;
             background.opacity: 0.12;
-            base.text-opacity: 0.38;
-            base.text-color: MaterialPalette.control-foreground;
+            presentation.text-opacity: 0.38;
+            presentation.text-color: MaterialPalette.control-foreground;
         }
         checked when root.checked: {
-            base.text-color: MaterialPalette.accent-foreground;
+            presentation.text-color: MaterialPalette.accent-foreground;
         }
     ]
 
@@ -120,73 +125,58 @@ export component Button {
     }
 
     layout := HorizontalLayout {
-        base := MaterialButtonBase {
+        presentation := MaterialButtonPresentation {
+            text: root.text;
             layout-padding-left: 24px;
             layout-padding-right: 24px;
             border-radius: background.border-radius;
             text-color: root.primary ? MaterialPalette.accent-foreground : MaterialPalette.control-foreground;
             text-opacity: 1.0;
-
-            clicked => {
-                if root.checkable {
-                    root.checked = !root.checked;
-                }
-                root.clicked();
-            }
+            has-visible-focus: root.has-visible-focus;
+            has-hover: root.has-hover;
+            pressed: root.pressed;
+            checked: root.checked;
+            pressed-x: root.pressed-x;
+            pressed-y: root.pressed-y;
         }
     }
 }
 
-export component TextButton {
-    in property <string> text <=> base.text;
-    in property <bool> enabled <=> base.enabled;
-    in property <image> icon <=> base.icon;
-    in property <bool> colorize-icon <=> base.colorize-icon;
-    out property <bool> has-focus: base.has-focus;
-    out property <bool> pressed: self.enabled && base.pressed;
+export component TextButton inherits ButtonBase {
+    focus-on-pointer-click: true;
 
-    callback clicked <=> base.clicked;
+    in property <image> icon <=> presentation.icon;
+    in property <bool> colorize-icon <=> presentation.colorize-icon;
 
-    min-height: max(40px, base.min-height);
-    min-width: max(40px, base.min-width);
-    forward-focus: base;
+    min-height: max(40px, presentation.min-height);
+    min-width: max(40px, presentation.min-width);
 
-    accessible-role: button;
-    accessible-label: root.text;
-    accessible-action-default => {
-        clicked();
-    }
-
-    base := MaterialButtonBase {
+    presentation := MaterialButtonPresentation {
+        text: root.text;
         layout-padding-left: 12px;
         layout-padding-right: 12px;
         height: 100%;
         border-radius: 20px;
         text-color: MaterialPalette.accent-background;
         text-opacity: 1.0;
+        has-visible-focus: root.has-visible-focus;
+        has-hover: root.has-hover;
+        pressed: root.pressed;
+        checked: root.checked;
+        pressed-x: root.pressed-x;
+        pressed-y: root.pressed-y;
     }
 }
 
-export component IconButton {
-    in property <bool> enabled <=> base.enabled;
+export component IconButton inherits ButtonBase {
+    focus-on-pointer-click: true;
 
-    in property <image> icon <=> base.icon;
+    in property <image> icon <=> presentation.icon;
 
-    out property <bool> has-focus: base.has-focus;
-    out property <bool> pressed: self.enabled && base.pressed;
+    min-height: max(40px, presentation.min-height);
+    min-width: max(40px, presentation.min-width);
 
-    callback clicked <=> base.clicked;
-
-    min-height: max(40px, base.min-height);
-    min-width: max(40px, base.min-width);
-    forward-focus: base;
-
-    accessible-role: button;
-    accessible-action-default => {
-        clicked();
-    }
-
-    base := MaterialButtonBase {
+    presentation := MaterialButtonPresentation {
         layout-padding-left: 8px;
         layout-padding-right: 8px;
         width: 100%;
@@ -195,5 +185,11 @@ export component IconButton {
         text-color: MaterialPalette.control-foreground-variant;
         colorize-icon: true;
         text-opacity: 1.0;
+        has-visible-focus: root.has-visible-focus;
+        has-hover: root.has-hover;
+        pressed: root.pressed;
+        checked: root.checked;
+        pressed-x: root.pressed-x;
+        pressed-y: root.pressed-y;
     }
 }

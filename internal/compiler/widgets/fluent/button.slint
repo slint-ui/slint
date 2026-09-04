@@ -3,35 +3,22 @@
 
 import { FluentFontSettings, FluentPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
+import { ButtonBase } from "../common/button-base.slint";
 
-export component Button {
-    in property <string> text;
+export component Button inherits ButtonBase {
+    focus-on-pointer-click: true;
+
     in property <image> icon;
     in property <length> icon-size: 20px;
     in property <bool> primary;
-    in property <bool> enabled <=> i-touch-area.enabled;
-    in property <bool> checkable;
     in property <bool> colorize-icon;
-    out property <bool> has-focus: i-focus-scope.has-focus;
-    out property <bool> pressed: self.enabled && i-touch-area.pressed;
-    in-out property <bool> checked;
 
-    callback clicked;
-
-    private property <brush> text-color: primary || checked ? FluentPalette.accent-foreground : FluentPalette.control-foreground;
+    private property <brush> text-color: primary || root.checked ? FluentPalette.accent-foreground : FluentPalette.control-foreground;
 
     min-width: max(32px, i-layout.min-width);
     min-height: max(32px, i-layout.min-height);
     horizontal-stretch: 0;
     vertical-stretch: 0;
-    forward-focus: i-focus-scope;
-
-    accessible-role: button;
-    accessible-enabled: root.enabled;
-    accessible-checkable: root.checkable;
-    accessible-checked: root.checked;
-    accessible-label: root.text;
-    accessible-action-default => { i-touch-area.clicked(); }
 
     states [
         disabled when !root.enabled : {
@@ -44,7 +31,7 @@ export component Button {
             i-border.border-color: FluentPalette.border;
             root.text-color: root.primary || root.checked ? FluentPalette.text-accent-foreground-secondary : FluentPalette.text-secondary;
         }
-        hover when i-touch-area.has-hover : {
+        hover when root.has-hover : {
             i-background.background: root.primary || root.checked ? FluentPalette.secondary-accent-background : FluentPalette.control-secondary;
         }
         checked when root.checked : {
@@ -94,32 +81,9 @@ export component Button {
         }
     }
 
-    i-touch-area := TouchArea {
-        clicked => {
-            if (root.checkable) {
-                root.checked = !root.checked;
-            }
-            root.clicked();
-        }
-    }
-
-    i-focus-scope := FocusScope {
-        x: 0;
-        width: 0; // Do not react on clicks
-        enabled <=> root.enabled;
-
-        key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
-                i-touch-area.clicked();
-                 return accept;
-            }
-
-            return reject;
-        }
-    }
-
     // focus border
-    if (root.has-focus && root.enabled) : FocusBorder {
+    if (root.has-visible-focus && root.enabled) : FocusBorder {
         border-radius: i-background.border-radius;
     }
+
 }

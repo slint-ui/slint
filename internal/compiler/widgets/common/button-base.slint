@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ActivationBase } from "activation-base.slint";
+
+export component ButtonBase inherits ActivationBase {
+    in property <string> text;
+    in property <bool> checkable;
+    in-out property <bool> checked;
+
+    callback clicked;
+
+    function activate() {
+        if (!root.enabled) {
+            return;
+        }
+
+        if (root.checkable) {
+            root.checked = !root.checked;
+        }
+        root.clicked();
+    }
+
+    activated => { root.activate(); }
+
+    accessible-role: button;
+    accessible-enabled: root.enabled;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-label: root.text;
+    accessible-action-default => { root.activate(); }
+
+}

@@ -2,40 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { MaterialPalette, MaterialFontSettings } from "styling.slint";
+import { SwitchBase } from "../common/switch-base.slint";
 
-export component Switch {
-    in property <string> text <=> i-label.text;
-    in property <bool> enabled: true;
-    out property <bool> has-focus: i-focus-scope.has-focus;
-    in-out property <bool> checked;
-
-    callback toggled;
-
-    function toggle-checked() {
-        if(!root.enabled) {
-            return;
-        }
-
-        root.checked = !root.checked;
-        root.toggled();
-    }
+export component Switch inherits SwitchBase {
+    focus-on-pointer-click: true;
 
     min-height: max(32px, i-layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 0;
-    forward-focus: i-focus-scope;
-    accessible-enabled: root.enabled;
-    accessible-label <=> i-label.text;
-    accessible-checkable: true;
-    accessible-checked <=> root.checked;
-    accessible-role: switch;
-    accessible-action-default => {
-        if(root.enabled) {
-            root.checked = !root.checked;
-            root.toggled();
-        }
-    }
-
     states [
         disabled-selected when !root.enabled && root.checked  : {
             i-label.opacity: 0.38;
@@ -51,13 +25,13 @@ export component Switch {
             track.opacity: 0.12;
             i-handle.opacity: 0.38;
         }
-        pressed when i-touch-area.pressed && !root.checked : {
+        pressed when root.pressed && !root.checked : {
             state-layer.opacity: 0.12;
             i-handle.background: MaterialPalette.control-foreground-variant;
             i-handle.width: 28px;
             i-handle.x: track.border-width;
         }
-        pressed-selected when i-touch-area.pressed && root.checked : {
+        pressed-selected when root.pressed && root.checked : {
             state-layer.opacity: 0.12;
             state-layer.background: MaterialPalette.control-foreground;
             track.background: MaterialPalette.accent-background;
@@ -66,7 +40,7 @@ export component Switch {
             i-handle.width: 28px;
             i-handle.x: track.width - 28px - 4px;
         }
-        hover-selected when i-touch-area.has-hover && root.checked : {
+        hover-selected when root.has-hover && root.checked : {
             state-layer.opacity: 0.08;
             track.background: MaterialPalette.accent-background;
             track.border-color: MaterialPalette.accent-background;
@@ -74,19 +48,19 @@ export component Switch {
             i-handle.width: 24px;
             i-handle.x: track.width - 24px - 4px;
         }
-        hover when i-touch-area.has-hover && !root.checked : {
+        hover when root.has-hover && !root.checked : {
             state-layer.background: MaterialPalette.control-foreground;
             state-layer.opacity: 0.08;
             i-handle.background: MaterialPalette.control-foreground-variant;
         }
-        selected when !i-touch-area.has-hover && root.checked : {
+        selected when !root.has-hover && root.checked : {
             track.background: MaterialPalette.accent-background;
             track.border-color: MaterialPalette.accent-background;
             i-handle.background: MaterialPalette.accent-container;
             i-handle.width: 24px;
             i-handle.x: track.width - 24px - 4px;
         }
-        focused-selected when i-focus-scope.has-focus && root.checked : {
+        focused-selected when root.has-visible-focus && root.checked : {
             state-layer.opacity: 0.12;
             track.background: MaterialPalette.accent-background;
             track.border-color: MaterialPalette.accent-background;
@@ -94,7 +68,7 @@ export component Switch {
             i-handle.width: 24px;
             i-handle.x: track.width - 24px - 4px;
         }
-        focused when i-focus-scope.has-focus && !root.checked : {
+        focused when root.has-visible-focus && !root.checked : {
             state-layer.background: MaterialPalette.control-foreground;
             state-layer.opacity: 0.12;
         }
@@ -144,6 +118,7 @@ export component Switch {
             }
 
             i-label := Text {
+                text: root.text;
                 color: MaterialPalette.control-foreground;
                 horizontal-alignment: left;
                 vertical-alignment: center;
@@ -155,25 +130,4 @@ export component Switch {
         }
     }
 
-    i-touch-area := TouchArea {
-        enabled <=> root.enabled;
-
-        clicked => {
-            root.toggle-checked();
-        }
-    }
-
-    i-focus-scope := FocusScope {
-        x: 0;
-        width: 0px; // Do not react on clicks
-        enabled <=> root.enabled;
-
-        key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
-                 root.toggle-checked();
-                 return accept;
-            }
-            return reject;
-        }
-    }
 }

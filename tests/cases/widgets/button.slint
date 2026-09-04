@@ -96,9 +96,6 @@ slint_testing::send_mouse_click(&instance, origin.x + size.width/2., origin.y + 
 assert_eq!(instance.get_clicked(), SharedString::from("aab"));
 assert_eq!(bbb.accessible_checked(), Some(false));
 
-// a is still focused
-assert_eq!(instance.get_a_focused(), true);
-
 instance.set_clicked("".into());
 slint_testing::block_on(async {
     bbb.single_click(slint::platform::PointerEventButton::Left).await;
@@ -158,9 +155,6 @@ auto size = bbb.size();
 slint_testing::send_mouse_click(&instance, origin.x + size.width / 2, origin.y + size.height / 2);
 assert_eq(instance.get_clicked(), "aab");
 assert_eq(bbb.accessible_checked().value(), false);
-assert_eq(instance.get_a_focused(), true);
-
-
 ```
 
 */

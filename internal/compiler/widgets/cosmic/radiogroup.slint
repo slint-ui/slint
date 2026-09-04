@@ -5,6 +5,8 @@ import { CosmicFontSettings, CosmicPalette } from "styling.slint";
 import { RadioButtonImplBase, RadioGroupImplBase } from "../common/radiogroup-base.slint";
 
 export component RadioButtonImpl inherits RadioButtonImplBase {
+    focus-on-pointer-click: true;
+
     private property <brush> dot-color: root.checked ? CosmicPalette.accent-background : transparent;
     private property <color> text-color: CosmicPalette.control-foreground;
 

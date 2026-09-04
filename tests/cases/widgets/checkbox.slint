@@ -10,6 +10,11 @@ export component TestCase inherits Window {
     in-out property <string> toggled;
     in-out property <bool> checked <=> checkbox.checked;
     in-out property <bool> enabled <=> checkbox.enabled;
+    out property <bool> has-focus: checkbox.has-focus;
+
+    public function focus-checkbox() {
+        checkbox.focus();
+    }
 
     HorizontalLayout {
         alignment: start;
@@ -29,7 +34,7 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-use slint::{SharedString, platform::PointerEventButton};
+use slint::{SharedString, platform::{Key, PointerEventButton}};
 
 // i_slint_backend_testing::init_integration_test_with_system_time();
 
@@ -61,12 +66,19 @@ assert_eq!(instance.get_checked(), false, "CheckBox a was checked");
 assert_eq!(checkbox.accessible_checked(), Some(false));
 assert_eq!(instance.get_toggled(), SharedString::from("aa"));
 
+// Keyboard activation follows the same path.
+instance.invoke_focus_checkbox();
+assert!(instance.get_has_focus());
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
+assert_eq!(instance.get_checked(), true);
+assert_eq!(instance.get_toggled(), SharedString::from("aaa"));
+
 // Cannot toggle when disabled
 instance.set_enabled(false);
 assert_eq!(checkbox.accessible_enabled(), Some(false));
 checkbox.mock_single_click(PointerEventButton::Left);
 checkbox.invoke_accessible_default_action();
-assert_eq!(instance.get_toggled(), SharedString::from("aa"));
+assert_eq!(instance.get_toggled(), SharedString::from("aaa"));
 ```
 
 ```cpp

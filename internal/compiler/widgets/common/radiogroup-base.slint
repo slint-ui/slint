@@ -25,6 +25,7 @@ export component RadioGroupBase {
 export component RadioButtonImplBase {
     in property <string> text;
     in property <bool> enabled: true;
+    in property <bool> focus-on-pointer-click;
     in property <bool> group-enabled: true;
     in property <int> item-index;
     // Mirror of the parent `RadioGroup`'s `current-index`, set by the
@@ -45,6 +46,7 @@ export component RadioButtonImplBase {
     callback focus-change(bool);
 
     out property <bool> has-focus <=> base.has-focus;
+    out property <bool> has-visible-focus <=> base.has-visible-focus;
     out property <bool> pressed <=> base.pressed;
     out property <bool> has-hover <=> base.has-hover;
 
@@ -95,6 +97,7 @@ export component RadioButtonImplBase {
         label <=> root.text;
         checked <=> root.checked;
         enabled: root.enabled && root.group-enabled;
+        focus-on-pointer-click: root.focus-on-pointer-click;
         item-index <=> root.item-index;
         selected => {
             root.group-select();

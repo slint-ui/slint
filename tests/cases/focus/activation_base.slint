@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//ignore: cpp
+//ignore: cpp-live-preview
+//ignore: nodejs
+//ignore: python
+
+import { ActivationBase } from "../../../internal/compiler/widgets/common/activation-base.slint";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 100px;
+
+    out property <bool> first-focused: first.has-focus;
+    out property <bool> first-focus-visible: first.has-visible-focus;
+    out property <bool> second-focused: second.has-focus;
+    out property <bool> second-focus-visible: second.has-visible-focus;
+    out property <int> activation-count;
+
+    public function focus-first() { first.focus(); }
+    public function clear-activation-focus() { first.clear-focus(); second.clear-focus(); }
+
+    first := ActivationBase {
+        width: 100px;
+        height: 100px;
+        focus-on-pointer-click: true;
+        activated => { root.activation-count += 1; }
+    }
+
+    second := ActivationBase {
+        x: 100px;
+        width: 100px;
+        height: 100px;
+        focus-on-pointer-click: true;
+        activated => { root.activation-count += 1; }
+    }
+}
+
+/*
+```rust
+use slint::{platform::Key, SharedString};
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
+
+let instance = TestCase::new().unwrap();
+
+instance.invoke_focus_first();
+assert!(instance.get_first_focused());
+assert!(!instance.get_first_focus_visible());
+
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert!(!instance.get_first_focused());
+assert!(instance.get_second_focused());
+assert!(!instance.get_second_focus_visible());
+assert_eq!(instance.get_activation_count(), 1);
+
+instance.invoke_clear_activation_focus();
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Tab));
+assert!(instance.get_first_focused());
+assert!(instance.get_first_focus_visible());
+
+instance.window().dispatch_event(slint::platform::WindowEvent::internal(
+    InternalEvent::Touch { id: 1, position: LogicalPoint::new(150., 50.), phase: TouchPhase::Started }
+));
+instance.window().dispatch_event(slint::platform::WindowEvent::internal(
+    InternalEvent::Touch { id: 1, position: LogicalPoint::new(150., 50.), phase: TouchPhase::Ended }
+));
+assert!(instance.get_first_focused());
+assert!(!instance.get_second_focused());
+assert_eq!(instance.get_activation_count(), 2);
+```
+*/

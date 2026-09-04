@@ -3,50 +3,23 @@
 
 import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
+import { SwitchBase } from "../common/switch-base.slint";
 
-export component Switch {
-    in property <bool> enabled: true;
-    in property <string> text;
-    out property <bool> has-focus: i-focus-scope.has-focus;
-    in-out property <bool> checked;
+export component Switch inherits SwitchBase {
 
-    callback toggled;
-
-    private property <brush> background: checked && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.alternate-control-background;
+    private property <brush> control-background: root.checked && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.alternate-control-background;
     private property <color> text-color: CupertinoPalette.foreground;
-
-    function toggle-checked() {
-        if(!root.enabled) {
-            return;
-        }
-
-        root.checked = !root.checked;
-        root.toggled();
-    }
 
     min-width: max(26px, i-layout.min-width);
     min-height: max(15px, i-layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 0;
-    accessible-enabled: root.enabled;
-    accessible-label: root.text;
-    accessible-checkable: true;
-    accessible-checked <=> root.checked;
-    accessible-role: switch;
-    accessible-action-default => {
-        if (root.enabled) {
-           root.checked = !root.checked;
-           root.toggled();
-        }
-    }
-    forward-focus: i-focus-scope;
-
     states [
         disabled when !root.enabled : {
             root.opacity: 0.5;
         }
-        pressed when i-touch-area.pressed : {
-            root.background: root.checked ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
+        pressed when root.pressed : {
+            root.control-background: root.checked ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
         }
         selected when root.checked : {
             i-rail.background: CupertinoPalette.accent-background;
@@ -66,7 +39,7 @@ export component Switch {
 
                 i-rail := Rectangle {
                     border-radius: parent.border-radius;
-                    background: root.background;
+                    background: root.control-background;
                     border-width: 0.5px;
                     border-color: CupertinoPalette.border;
                     clip: true;
@@ -95,7 +68,7 @@ export component Switch {
                 }
 
                 // focus border
-                if (root.has-focus && root.enabled) : FocusBorder {
+                if (root.has-visible-focus && root.enabled) : FocusBorder {
                     border-radius: i-rail.border-radius;
                 }
             }
@@ -110,25 +83,4 @@ export component Switch {
         }
     }
 
-    i-touch-area := TouchArea {
-        enabled <=> root.enabled;
-
-        clicked => {
-            root.toggle-checked();
-        }
-    }
-
-    i-focus-scope := FocusScope {
-        x:0;
-        width: 0px; // Do not react on clicks
-        enabled <=> root.enabled;
-
-        key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
-                 root.toggle-checked();
-                 return accept;
-            }
-            return reject;
-        }
-    }
 }

@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//ignore: cpp
+//ignore: cpp-live-preview
+//ignore: nodejs
+//ignore: python
+//ignore: style-fluent
+//ignore: style-material
+//ignore: style-cosmic
+//ignore: style-qt
+
+import { Button, CheckBox, RadioGroup, Switch, VerticalBox } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    out property <bool> button-focused: button.has-focus;
+    out property <bool> checkbox-focused: checkbox.has-focus;
+    out property <bool> switch-focused: switch.has-focus;
+    out property <bool> radio-group-focused: radio-group.has-focus;
+
+    public function focus-button() { button.focus(); }
+
+    VerticalBox {
+        button := Button { text: "Button"; }
+        checkbox := CheckBox { text: "CheckBox"; }
+        switch := Switch { text: "Switch"; }
+        radio-group := RadioGroup {
+            RadioButton { text: "RadioButton"; }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::PointerEventButton;
+
+let instance = TestCase::new().unwrap();
+instance.invoke_focus_button();
+assert!(instance.get_button_focused());
+
+for label in ["CheckBox", "Switch", "RadioButton"] {
+    let element = slint_testing::ElementHandle::find_by_accessible_label(&instance, label)
+        .next()
+        .unwrap();
+    element.mock_single_click(PointerEventButton::Left);
+    assert!(instance.get_button_focused(), "{label} unexpectedly took pointer focus");
+    assert!(!instance.get_checkbox_focused());
+    assert!(!instance.get_switch_focused());
+    assert!(!instance.get_radio_group_focused());
+}
+```
+*/
