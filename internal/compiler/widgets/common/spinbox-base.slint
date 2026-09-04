@@ -55,12 +55,9 @@ export component SpinBoxBase {
         text-input.text = root.value;
     }
 
-    private property <int> end-of-text;
-
     function update-text-and-cursor() {
         root.set-text-to-value();
-        root.end-of-text = text-input.text.character-count;
-        text-input.set-selection-offsets(root.end-of-text, root.end-of-text);
+        text-input.set-selection-offsets(text-input.text.character-count, text-input.text.character-count);
     }
 
     TouchArea {
