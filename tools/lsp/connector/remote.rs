@@ -1209,6 +1209,10 @@ mod tests {
     use i_slint_live_preview::remote::{Connection, ConnectionMessage, PairingPolicy};
     use lsp_types::Url;
 
+    fn test_url(file_name: &str) -> Url {
+        Url::from_file_path(crate::editor_preview::test::test_file_name(file_name)).unwrap()
+    }
+
     async fn listen(
         port: u16,
         policy: PairingPolicy,
@@ -1462,7 +1466,7 @@ mod tests {
                 )
                 .await;
 
-                let url = Url::parse("file:///sealed.slint").unwrap();
+                let url = test_url("sealed.slint");
                 connector.send(&LspToPreviewMessage::ShowPreview(PreviewComponent {
                     url: url.clone(),
                     component: None,
@@ -1550,7 +1554,7 @@ mod tests {
                 // ... and both ends agree on the fresh keys: a frame crosses
                 // the new session in each direction.
                 connector.send(&LspToPreviewMessage::ShowPreview(PreviewComponent {
-                    url: Url::parse("file:///fresh.slint").unwrap(),
+                    url: test_url("fresh.slint"),
                     component: None,
                 }));
                 expect_message(
@@ -1561,7 +1565,7 @@ mod tests {
                 .await;
                 viewer
                     .send(PreviewToLspMessage::Diagnostics {
-                        uri: Url::parse("file:///fresh.slint").unwrap(),
+                        uri: test_url("fresh.slint"),
                         version: None,
                         diagnostics: Vec::new(),
                     })
@@ -1956,14 +1960,14 @@ mod tests {
                 viewer
                     .send(PreviewToLspMessage::RequestPreview {
                         component: PreviewComponent {
-                            url: lsp_types::Url::parse("file:///test.slint").unwrap(),
+                            url: test_url("test.slint"),
                             component: None,
                         },
                     })
                     .unwrap();
                 viewer
                     .send(PreviewToLspMessage::Diagnostics {
-                        uri: lsp_types::Url::parse("file:///test.slint").unwrap(),
+                        uri: test_url("test.slint"),
                         version: None,
                         diagnostics: Vec::new(),
                     })
