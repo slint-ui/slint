@@ -6,6 +6,11 @@
 // once reported the minimum, and every minimum reported the preferred size.
 
 export component TestCase inherits Window {
+    // What this checks is the intrinsic sizes below, so the window gets a size
+    // of its own rather than deriving one from these siblings.
+    width: 400px;
+    height: 300px;
+
     // Column: cross axis is the width.
     col-flex := FlexboxLayout {
         flex-direction: column;

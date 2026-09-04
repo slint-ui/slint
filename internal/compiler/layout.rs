@@ -127,7 +127,10 @@ impl RowChildTemplate {
     }
 }
 
-/// Which parametrized layout-info query lowering uses for a cell.
+/// Which parametrized layout-info query a cell can answer.
+///
+/// A capability, not a decision: the call site still has to hand the cell a
+/// constraint for `get_layout_info` to call the function at all.
 ///
 /// Recorded once by `mark_cell_measurement` and read by lowering, so that the
 /// generated code and any analysis of it cannot disagree about which of the two
