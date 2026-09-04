@@ -11,6 +11,7 @@ pub mod editor_session;
 pub mod element;
 pub mod file_url;
 mod lsp_to_previews;
+pub mod project_file_discovery;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod settings_store;
 #[cfg(any(test, feature = "testing"))]
@@ -19,7 +20,7 @@ pub mod token_info;
 pub mod util;
 
 pub use document_cache::DocumentCache;
-pub use editor_session::{EditorSession, VersionedDiagnostics};
+pub use editor_session::{EditorSession, SessionConfigOverrides, VersionedDiagnostics};
 pub use element::{ElementRcNode, NODE_IGNORE_COMMENT, extract_element, is_element_node_ignored};
 pub use file_url::{file_to_uri, uri_to_file};
 pub use i_slint_compiler::diagnostics::ByteFormat;

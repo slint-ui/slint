@@ -255,14 +255,10 @@ async fn lsp_main(
         ..Default::default()
     };
 
-    let mut session = editor_preview::EditorSession {
-        document_cache: editor_preview::DocumentCache::new(compiler_config),
-        preview_config: Default::default(),
-        to_show: Default::default(),
-        open_urls: Default::default(),
+    let mut session = editor_preview::EditorSession::new(
+        editor_preview::DocumentCache::new(compiler_config),
         to_preview,
-        pending_recompile: Default::default(),
-    };
+    );
 
     let mut watch_paths_revision = None;
     let project_root = project.root;
@@ -346,15 +342,17 @@ fn sync_file_watcher_if_needed(
     }
 
     watcher.update_watched_paths(
-        std::iter::once(root_path.to_path_buf()).chain(
-            session
-                .document_cache
-                .all_urls_to_watch()
-                .into_iter()
-                // filter out builtins
-                .filter(|url| url.scheme() == "file")
-                .filter_map(|url| editor_preview::uri_to_file(&url)),
-        ),
+        std::iter::once(root_path.to_path_buf())
+            .chain(
+                session
+                    .document_cache
+                    .all_urls_to_watch()
+                    .into_iter()
+                    // filter out builtins
+                    .filter(|url| url.scheme() == "file")
+                    .filter_map(|url| editor_preview::uri_to_file(&url)),
+            )
+            .chain(session.active_project_file_path().map(Path::to_path_buf)),
     )?;
     *watch_paths_revision = Some(current_revision);
     Ok(())
