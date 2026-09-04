@@ -3289,6 +3289,18 @@ export struct LineEditData {
             "export { Foo, }from \"some/path.slint\";\n",
             "export {\n    Foo,\n} from \"some/path.slint\";\n",
         );
+        assert_formatting(
+            "export { Foo }\nfrom \"some/path.slint\";\n",
+            "export { Foo } from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export { Foo, /* keep me */    Bar }    from \"some/path.slint\";\n",
+            "export { Foo, /* keep me */    Bar } from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export {Foo}from   \"some/path.slint\"  ;\n",
+            "export { Foo } from \"some/path.slint\";\n",
+        );
     }
 
     #[test]
