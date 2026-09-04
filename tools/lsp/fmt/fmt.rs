@@ -197,6 +197,9 @@ fn format_node(
         SyntaxKind::ExportSpecifier => {
             return format_export_specifier(node, writer, state);
         }
+        SyntaxKind::ExportModule => {
+            return format_export_module(node, writer, state);
+        }
         SyntaxKind::ObjectType => {
             return format_object_type(node, writer, state);
         }
@@ -1853,6 +1856,16 @@ fn format_exports_list(
     // Only handle the brace-list case specially; otherwise fall through.
     let has_lbrace = node.children_with_tokens().any(|n| n.kind() == SyntaxKind::LBrace);
     if !has_lbrace {
+        if node.child_node(SyntaxKind::ExportModule).is_some() {
+            // `export * from "..."`
+            let mut sub = node.children_with_tokens();
+            whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+            whitespace_to(&mut sub, SyntaxKind::ExportModule, writer, state, " ")?;
+            state.skip_all_whitespace = true;
+            finish_node(sub, writer, state)?;
+            state.new_line();
+            return Ok(());
+        }
         // `export component ...` or `export struct ...` — delegate to default
         for n in node.children_with_tokens() {
             fold(n, writer, state)?;
@@ -1983,6 +1996,25 @@ fn format_exports_list(
     state.skip_all_whitespace = true;
     finish_node(sub, writer, state)?;
     state.new_line();
+    Ok(())
+}
+
+fn format_export_module(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    if node.child_token(SyntaxKind::Star).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::Star, writer, state, "")?;
+        whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
+    } else {
+        whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    }
+    whitespace_to(&mut sub, SyntaxKind::StringLiteral, writer, state, " ")?;
+    whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    state.skip_all_whitespace = true;
+    finish_node(sub, writer, state)?;
     Ok(())
 }
 
@@ -3256,6 +3288,22 @@ export struct LineEditData {
         assert_formatting(
             "export { Foo, }from \"some/path.slint\";\n",
             "export {\n    Foo,\n} from \"some/path.slint\";\n",
+        );
+    }
+
+    #[test]
+    fn export_star_from() {
+        assert_formatting(
+            "export * from \"some/path.slint\";\n",
+            "export * from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export *    from   \"some/path.slint\";\n",
+            "export * from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export  *  from   \"some/path.slint\"  ;\n",
+            "export * from \"some/path.slint\";\n",
         );
     }
 
