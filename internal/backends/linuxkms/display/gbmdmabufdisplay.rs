@@ -30,10 +30,16 @@ const BUFFER_COUNT: usize = 3;
 /// to support, and its byte order matches wgpu's `Bgra8Unorm`.
 const FORMAT: gbm::Format = gbm::Format::Xrgb8888;
 const WGPU_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8Unorm;
+/// The same format again, for the modifier query, which goes through Vulkan
+/// directly. Keep the three in step.
+const VK_FORMAT: ash::vk::Format = ash::vk::Format::B8G8R8A8_UNORM;
 
 struct Buffer {
     /// Kept alive for as long as the framebuffer and the texture refer to it.
     _bo: gbm::BufferObject<()>,
+    modifier: gbm::Modifier,
+    /// Whether [`Self::modifier`] was assumed rather than reported by gbm.
+    modifier_assumed: bool,
     framebuffer: drm::control::framebuffer::Handle,
     texture: wgpu::Texture,
 }
@@ -69,9 +75,26 @@ impl GbmDmabufDisplay {
 
         let (width, height) = drm_output.size();
 
+        let importable_modifiers = importable_modifiers(device)?;
+
         let buffers = (0..BUFFER_COUNT)
-            .map(|_| Self::allocate_buffer(&gbm_device, &drm_output, device, width, height))
+            .map(|_| {
+                Self::allocate_buffer(
+                    &gbm_device,
+                    &drm_output,
+                    device,
+                    &importable_modifiers,
+                    width,
+                    height,
+                )
+            })
             .collect::<Result<Vec<_>, _>>()?;
+
+        eprintln!(
+            "Scanning out {BUFFER_COUNT} gbm buffers with DRM format modifier {:?}{}",
+            buffers[0].modifier,
+            if buffers[0].modifier_assumed { " (assumed: gbm reports none)" } else { "" }
+        );
 
         Ok(Self { drm_output, buffers, next: Cell::new(0) })
     }
@@ -80,42 +103,79 @@ impl GbmDmabufDisplay {
         gbm_device: &gbm::Device<SharedFd>,
         drm_output: &DrmOutput,
         device: &wgpu::Device,
+        importable_modifiers: &[gbm::Modifier],
         width: u32,
         height: u32,
     ) -> Result<Buffer, PlatformError> {
+        // Allocating from the modifiers Vulkan can import lets gbm pick one that
+        // is also scanout-capable, which is what `SCANOUT` asks of it. Allocating
+        // without a list instead leaves the modifier up to the driver, and one
+        // that answers `Invalid` describes no layout Vulkan could import.
         let bo = gbm_device
-            .create_buffer_object::<()>(
+            .create_buffer_object_with_modifiers2::<()>(
                 width,
                 height,
                 FORMAT,
+                importable_modifiers.iter().copied(),
                 gbm::BufferObjectFlags::SCANOUT | gbm::BufferObjectFlags::RENDERING,
             )
-            .map_err(|e| format!("Error allocating gbm buffer object for scanout: {e}"))?;
+            .map_err(|e| {
+                format!(
+                    "Error allocating a gbm buffer object for scanout among the {} modifier(s) \
+                     Vulkan can import: {e}",
+                    importable_modifiers.len()
+                )
+            })?;
 
-        // Vulkan needs an explicit modifier to describe the image layout, so a
-        // driver that won't name the one it picked can't be imported. Proper
-        // negotiation would intersect the plane's IN_FORMATS with the modifiers
-        // Vulkan reports for the format; neither drm-rs nor wgpu exposes those
-        // lists yet.
-        let modifier = bo.modifier();
-        if modifier == gbm::Modifier::Invalid {
-            return Err(PlatformError::Other(
-                "The gbm driver reports no DRM format modifier for the scanout buffer, which \
-                 Vulkan needs in order to import it"
-                    .into(),
-            ));
-        }
+        // A gbm backend with no modifier support ignores the list it was handed
+        // and answers `Invalid`, meaning the layout is whatever the driver
+        // implicitly uses. For a backend in that position — the dumb buffer paths,
+        // software rendering — that layout is linear, so say so rather than give
+        // up: Vulkan has no way to import a layout that isn't named.
+        let reported = bo.modifier();
+        let modifier = match reported {
+            gbm::Modifier::Invalid
+                if bo.plane_count() == 1
+                    && importable_modifiers.contains(&gbm::Modifier::Linear) =>
+            {
+                gbm::Modifier::Linear
+            }
+            gbm::Modifier::Invalid => {
+                return Err(PlatformError::Other(format!(
+                    "The gbm driver reports no DRM format modifier for the scanout buffer, and \
+                     none can be assumed: it has {} plane(s) and Vulkan can import \
+                     {importable_modifiers:?}",
+                    bo.plane_count()
+                )));
+            }
+            modifier => modifier,
+        };
+
+        // Only claim a modifier to KMS when gbm named one. A buffer whose layout
+        // is implicit has none to pass, even where `modifier` assumed linear for
+        // the Vulkan import above. Same rule as `GbmDisplay::present`.
+        let flags = if reported == gbm::Modifier::Invalid {
+            drm::control::FbCmd2Flags::empty()
+        } else {
+            drm::control::FbCmd2Flags::MODIFIERS
+        };
 
         let framebuffer = drm_output
             .drm_device
-            .add_planar_framebuffer(&bo, drm::control::FbCmd2Flags::MODIFIERS)
+            .add_planar_framebuffer(&bo, flags)
             .map_err(|e| format!("Error adding gbm buffer as framebuffer: {e}"))?;
 
         let texture = import_dmabuf_texture(device, &bo, modifier).inspect_err(|_| {
             drm_output.drm_device.destroy_framebuffer(framebuffer).ok();
         })?;
 
-        Ok(Buffer { _bo: bo, framebuffer, texture })
+        Ok(Buffer {
+            _bo: bo,
+            modifier,
+            modifier_assumed: reported == gbm::Modifier::Invalid,
+            framebuffer,
+            texture,
+        })
     }
 
     /// The texture to render the next frame into.
@@ -132,6 +192,65 @@ impl GbmDmabufDisplay {
         self.next.set((index + 1) % self.buffers.len());
         Ok(())
     }
+}
+
+/// The DRM format modifiers this Vulkan device can import [`FORMAT`] with, as a
+/// color target.
+///
+/// Handing these to gbm is what makes the two sides agree: gbm knows which
+/// modifiers the display can scan out, Vulkan knows which it can import, and only
+/// gbm can see both once it is given the list.
+fn importable_modifiers(device: &wgpu::Device) -> Result<Vec<gbm::Modifier>, PlatformError> {
+    // Safety: only the physical device and instance handles are read, and the
+    // query has no side effects.
+    let modifiers = unsafe {
+        let hal_device = device
+            .as_hal::<wgpu::hal::api::Vulkan>()
+            .ok_or_else(|| PlatformError::from("The wgpu device is not a Vulkan device"))?;
+        let instance = hal_device.shared_instance().raw_instance();
+        let physical_device = hal_device.raw_physical_device();
+
+        // The first call reports how many entries there are, the second fills them in.
+        let mut list = ash::vk::DrmFormatModifierPropertiesListEXT::default();
+        let mut properties = ash::vk::FormatProperties2::default().push_next(&mut list);
+        instance.get_physical_device_format_properties2(
+            physical_device,
+            VK_FORMAT,
+            &mut properties,
+        );
+
+        let mut entries = vec![
+            ash::vk::DrmFormatModifierPropertiesEXT::default();
+            list.drm_format_modifier_count as usize
+        ];
+        list.p_drm_format_modifier_properties = entries.as_mut_ptr();
+        let mut properties = ash::vk::FormatProperties2::default().push_next(&mut list);
+        instance.get_physical_device_format_properties2(
+            physical_device,
+            VK_FORMAT,
+            &mut properties,
+        );
+
+        entries
+            .into_iter()
+            .filter(|entry| {
+                entry
+                    .drm_format_modifier_tiling_features
+                    .contains(ash::vk::FormatFeatureFlags::COLOR_ATTACHMENT)
+            })
+            .map(|entry| gbm::Modifier::from(entry.drm_format_modifier))
+            .collect::<Vec<_>>()
+    };
+
+    if modifiers.is_empty() {
+        return Err(PlatformError::Other(
+            "The Vulkan driver can import no DRM format modifier for the scanout format as a \
+             color target"
+                .into(),
+        ));
+    }
+
+    Ok(modifiers)
 }
 
 /// Imports `bo`'s dma-buf as a wgpu texture that renders directly into the
