@@ -1,6 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+#[cfg(test)]
+use std::cell::Cell;
+#[cfg(test)]
+use std::rc::Rc;
+
 use crate::editor_preview::{
     self,
     token_info::{TokenInfo, token_info},
@@ -251,6 +256,7 @@ fn test_goto_definition_multi_files() {
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
+        enable_rust_formatting: Rc::new(Cell::new(true)),
     };
     let (extra_files, diag) =
         spin_on::spin_on(ctx.session.load_document_impl(source2.clone(), url2.clone(), Some(43)));
