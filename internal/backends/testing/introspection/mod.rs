@@ -102,6 +102,58 @@ fn ensure_event_tracking() -> Result<(), i_slint_core::api::EventLoopError> {
     })
 }
 
+/// Holds modifier keys down for as long as it lives.
+///
+/// Slint takes the modifiers of a pointer event from the window's key state, not
+/// from the event itself, so a modified gesture is a key press, the gesture, and a
+/// key release. Releasing on drop keeps the window's state clean when the gesture
+/// in between fails.
+#[cfg(feature = "mcp")]
+pub(crate) struct HeldModifiers {
+    window_adapter: Rc<dyn WindowAdapter>,
+    keys: Vec<i_slint_core::input::key_codes::Key>,
+}
+
+#[cfg(feature = "mcp")]
+impl HeldModifiers {
+    pub(crate) fn hold(
+        window_adapter: Rc<dyn WindowAdapter>,
+        modifiers: Option<&proto::PointerModifiers>,
+    ) -> Self {
+        use i_slint_core::input::key_codes::Key;
+        let mut keys = Vec::new();
+        if let Some(modifiers) = modifiers {
+            for (pressed, key) in [
+                (modifiers.shift, Key::Shift),
+                (modifiers.control, Key::Control),
+                (modifiers.alt, Key::Alt),
+                (modifiers.meta, Key::Meta),
+            ] {
+                if pressed {
+                    keys.push(key);
+                }
+            }
+        }
+        for key in &keys {
+            window_adapter.window().dispatch_event(
+                i_slint_core::platform::WindowEvent::KeyPressed { text: (*key).into() },
+            );
+        }
+        Self { window_adapter, keys }
+    }
+}
+
+#[cfg(feature = "mcp")]
+impl Drop for HeldModifiers {
+    fn drop(&mut self) {
+        for key in self.keys.iter().rev() {
+            self.window_adapter.window().dispatch_event(
+                i_slint_core::platform::WindowEvent::KeyReleased { text: (*key).into() },
+            );
+        }
+    }
+}
+
 pub(crate) struct RootWrapper<'a>(pub &'a ItemTreeRc);
 
 impl ElementRoot for RootWrapper<'_> {
@@ -931,8 +983,16 @@ pub(crate) mod dispatch {
         element: ArenaIndex,
         action: proto::ClickAction,
         button: proto::PointerEventButton,
+        modifiers: Option<proto::PointerModifiers>,
     ) -> Result<(), String> {
         let element = state.element("click", element)?;
+        #[cfg(feature = "mcp")]
+        let _modifiers = super::HeldModifiers::hold(
+            element.window_adapter().ok_or_else(|| "element has no window".to_string())?,
+            modifiers.as_ref(),
+        );
+        #[cfg(not(feature = "mcp"))]
+        let _ = modifiers;
         let button = convert_pointer_event_button(button);
         match action {
             proto::ClickAction::SingleClick => element.single_click(button).await,
@@ -949,14 +1009,33 @@ pub(crate) mod dispatch {
     pub(crate) fn move_pointer_to_element(
         state: &IntrospectionState,
         element: ArenaIndex,
+        modifiers: Option<&proto::PointerModifiers>,
     ) -> Result<(), String> {
         let element = state.element("move_pointer", element)?;
         let position = element.absolute_center();
         let window_adapter =
             element.window_adapter().ok_or_else(|| "element has no window".to_string())?;
+        let _modifiers = super::HeldModifiers::hold(window_adapter.clone(), modifiers);
         window_adapter
             .window()
             .dispatch_event(i_slint_core::platform::WindowEvent::PointerMoved { position });
+        Ok(())
+    }
+
+    /// Send a wheel event over an element's center.
+    #[cfg(feature = "mcp")]
+    pub(crate) fn scroll_element(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+        delta_x: f32,
+        delta_y: f32,
+        modifiers: Option<&proto::PointerModifiers>,
+    ) -> Result<(), String> {
+        let element = state.element("scroll_element", element)?;
+        let window_adapter =
+            element.window_adapter().ok_or_else(|| "element has no window".to_string())?;
+        let _modifiers = super::HeldModifiers::hold(window_adapter.clone(), modifiers);
+        element.scroll(delta_x, delta_y);
         Ok(())
     }
 
@@ -965,8 +1044,16 @@ pub(crate) mod dispatch {
         element: ArenaIndex,
         target: proto::LogicalPosition,
         button: proto::PointerEventButton,
+        modifiers: Option<proto::PointerModifiers>,
     ) -> Result<(), String> {
         let element = state.element("drag", element)?;
+        #[cfg(feature = "mcp")]
+        let _modifiers = super::HeldModifiers::hold(
+            element.window_adapter().ok_or_else(|| "element has no window".to_string())?,
+            modifiers.as_ref(),
+        );
+        #[cfg(not(feature = "mcp"))]
+        let _ = modifiers;
         let button = convert_pointer_event_button(button);
         let target = i_slint_core::api::LogicalPosition::new(target.x, target.y);
         element.drag(target, button).await;
@@ -1001,6 +1088,7 @@ fn test_dispatch_click_double_click_stale_handle() {
             ArenaIndex::default(),
             proto::ClickAction::DoubleClick,
             proto::PointerEventButton::Left,
+            None,
         )
         .await
         .unwrap_err();
@@ -1012,7 +1100,7 @@ fn test_dispatch_click_double_click_stale_handle() {
 #[cfg(feature = "mcp")]
 fn test_dispatch_move_pointer_stale_handle() {
     let state = IntrospectionState::new();
-    let err = dispatch::move_pointer_to_element(&state, ArenaIndex::default()).unwrap_err();
+    let err = dispatch::move_pointer_to_element(&state, ArenaIndex::default(), None).unwrap_err();
     assert!(err.contains("Invalid element handle"), "got: {err}");
 }
 

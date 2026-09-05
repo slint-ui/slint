@@ -88,25 +88,37 @@ const TOOLS: &[ToolDef] = &[
         name: "click_element",
         description: "Simulate a mouse click at the center of an element. Omit action/button for a left single-click (the most common case).",
         request_type: "RequestElementClick",
-        optional_fields: &["action", "button"],
+        optional_fields: &["action", "button", "modifiers"],
     },
     ToolDef {
         name: "drag_element",
         description: "Simulate a drag gesture from the element's center to a target position (logical coordinates). The pointer is pressed at the element center, moved in interpolated steps to the target, then released. Use for sliders, scrollable areas, drag handles, or any element that responds to pointer movement while pressed.",
         request_type: "RequestElementDrag",
-        optional_fields: &["button"],
+        optional_fields: &["button", "modifiers"],
     },
     ToolDef {
         name: "hover_element",
         description: "Move the mouse pointer to the center of an element without pressing any button. Use this for hover states, tooltips and menu highlighting: click_element and drag_element both press, so they cannot produce a hover on their own. The pointer stays where it is left; move it away with move_pointer to check that a hover is cleared.",
         request_type: "RequestHoverElement",
-        optional_fields: &[],
+        optional_fields: &["modifiers"],
     },
     ToolDef {
         name: "move_pointer",
         description: "Move the mouse pointer to a position in the window, in logical coordinates, without pressing any button. Use hover_element to hover an element by handle; use this to move to an arbitrary point, such as away from an element to check that its hover state is cleared.",
         request_type: "RequestMovePointer",
         optional_fields: &[],
+    },
+    ToolDef {
+        name: "scroll_element",
+        description: "Send a mouse wheel event over the center of an element. deltaX and deltaY are logical pixels: a deltaY of -50 moves a Flickable's viewport up by 50, revealing content further down, which is what a wheel-down does. Use this to scroll a Flickable or ScrollView, and for wheel-driven gestures such as zooming a canvas.",
+        request_type: "RequestScrollElement",
+        optional_fields: &["deltaX", "deltaY", "modifiers"],
+    },
+    ToolDef {
+        name: "dispatch_pointer_scroll",
+        description: "Send a mouse wheel event at a position in the window, in logical coordinates. Use scroll_element to scroll an element by handle; use this for an arbitrary point.",
+        request_type: "RequestPointerScroll",
+        optional_fields: &["deltaX", "deltaY", "modifiers"],
     },
     ToolDef {
         name: "invoke_accessibility_action",
@@ -359,7 +371,7 @@ async fn handle_tool_call(
                 .map_err(|_| format!("invalid button value: {}", p.button))?;
             let action = proto::ClickAction::try_from(p.action)
                 .map_err(|_| format!("invalid action value: {}", p.action))?;
-            dispatch::click(state, element_index, action, button).await?;
+            dispatch::click(state, element_index, action, button, p.modifiers).await?;
             let response = proto::ElementClickResponse {};
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
@@ -370,7 +382,7 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            dispatch::move_pointer_to_element(state, element_index)?;
+            dispatch::move_pointer_to_element(state, element_index, p.modifiers.as_ref())?;
             Ok(ToolResult::Json(serde_json::json!({})))
         }
         "move_pointer" => {
@@ -387,6 +399,40 @@ async fn handle_tool_call(
             )?;
             Ok(ToolResult::Json(serde_json::json!({})))
         }
+        "scroll_element" => {
+            let p: proto::RequestScrollElement = deserialize_params(args)?;
+            let element_index = handle_to_index(
+                p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
+            )?;
+            dispatch::scroll_element(
+                state,
+                element_index,
+                p.delta_x,
+                p.delta_y,
+                p.modifiers.as_ref(),
+            )?;
+            Ok(ToolResult::Json(serde_json::json!({})))
+        }
+        "dispatch_pointer_scroll" => {
+            let p: proto::RequestPointerScroll = deserialize_params(args)?;
+            let window_index = handle_to_index(
+                p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?,
+            )?;
+            let position = p.position.ok_or_else(|| "missing position".to_string())?;
+            let _modifiers = introspection::HeldModifiers::hold(
+                state.window_adapter(window_index)?,
+                p.modifiers.as_ref(),
+            );
+            state.dispatch_window_event(
+                window_index,
+                i_slint_core::platform::WindowEvent::PointerScrolled {
+                    position: i_slint_core::api::LogicalPosition::new(position.x, position.y),
+                    delta_x: p.delta_x,
+                    delta_y: p.delta_y,
+                },
+            )?;
+            Ok(ToolResult::Json(serde_json::json!({})))
+        }
         "drag_element" => {
             let p: proto::RequestElementDrag = deserialize_params(args)?;
             let element_index = handle_to_index(
@@ -395,7 +441,7 @@ async fn handle_tool_call(
             let target = p.target.ok_or_else(|| "missing target position".to_string())?;
             let button = proto::PointerEventButton::try_from(p.button)
                 .map_err(|_| format!("invalid button value: {}", p.button))?;
-            dispatch::drag(state, element_index, target, button).await?;
+            dispatch::drag(state, element_index, target, button, p.modifiers).await?;
             let response = proto::ElementDragResponse {};
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
@@ -530,11 +576,16 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "5. get_element_properties → full details on a specific element\n",
                     "6. take_screenshot → visual snapshot (returned as inline image)\n",
                     "7. Interact: click_element, drag_element, set_element_value, invoke_accessibility_action, dispatch_key_event\n",
+                    "   Wheel: scroll_element (an element's center) or dispatch_pointer_scroll (a position).\n",
                     "   Hover without pressing: hover_element (an element's center) or move_pointer (a position). ",
                     "click_element and drag_element both press, so neither can produce a hover on its own. ",
                     "The pointer stays where it is left, so clear a hover with move_pointer to a point away from the element.\n",
                     "8. start_event_recording → then interact → stop_event_recording to verify the runtime received and processed expected input/window events\n",
                     "9. take_screenshot again to verify the visual effect\n\n",
+
+                    "# Modifiers\n\n",
+                    "click_element, drag_element, hover_element, scroll_element and dispatch_pointer_scroll accept a `modifiers` object with `shift`, `control`, `alt` and `meta`. ",
+                    "The keys are held for the gesture and released after it, which is how a shift-click or a ctrl+wheel zoom is expressed as one call.\n\n",
 
                     "# Handle format\n\n",
                     "All handles are JSON objects with string-valued fields: {\"index\": \"0\", \"generation\": \"0\"}. ",
@@ -1103,6 +1154,128 @@ mod tests {
         .expect("get_element_properties failed");
         let ToolResult::Json(value) = result else { panic!("expected a json result") };
         assert_eq!(value["size"]["height"], 50.0);
+    }
+
+    #[test]
+    fn test_scroll_element_scrolls_a_flickable() {
+        use slint::ComponentHandle;
+
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 100px;
+                height: 100px;
+                out property <length> scrolled: flick.content-y;
+                flick := Flickable {
+                    width: 100%;
+                    height: 100%;
+                    content-width: 100px;
+                    content-height: 400px;
+                    Rectangle { background: #abc; }
+                }
+            }
+        }
+
+        let app = App::new().unwrap();
+        let adapter = i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter();
+        let state = make_state();
+        state.add_window(&adapter);
+        let window_handle = index_to_handle(state.window_handles()[0]);
+        let root = index_to_handle(
+            state.root_element_handle(handle_to_index(window_handle).unwrap()).unwrap(),
+        );
+
+        assert_eq!(app.get_scrolled(), 0.);
+
+        block_on(handle_tool_call(
+            &state,
+            "scroll_element",
+            &serde_json::json!({
+                "elementHandle": serde_json::to_value(root).unwrap(),
+                "deltaY": -50.0
+            }),
+        ))
+        .expect("scroll_element failed");
+        let by_element = app.get_scrolled();
+        assert_eq!(by_element, -50., "the wheel event didn't reach the Flickable");
+
+        block_on(handle_tool_call(
+            &state,
+            "dispatch_pointer_scroll",
+            &serde_json::json!({
+                "windowHandle": serde_json::to_value(window_handle).unwrap(),
+                "position": { "x": 50.0, "y": 50.0 },
+                "deltaY": -50.0
+            }),
+        ))
+        .expect("dispatch_pointer_scroll failed");
+        assert_eq!(app.get_scrolled(), -100., "the second wheel event had no effect");
+    }
+
+    #[test]
+    fn test_pointer_tools_hold_modifiers() {
+        use slint::ComponentHandle;
+
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 100px;
+                height: 100px;
+                out property <bool> shift-on-move;
+                out property <bool> control-on-scroll;
+                TouchArea {
+                    width: 100%;
+                    height: 100%;
+                    pointer-event(event) => {
+                        if (event.kind == PointerEventKind.move) {
+                            root.shift-on-move = event.modifiers.shift;
+                        }
+                    }
+                    scroll-event(event) => {
+                        root.control-on-scroll = event.modifiers.control;
+                        accept
+                    }
+                }
+            }
+        }
+
+        let app = App::new().unwrap();
+        let adapter = i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter();
+        let state = make_state();
+        state.add_window(&adapter);
+        let root = serde_json::to_value(index_to_handle(
+            state.root_element_handle(state.window_handles()[0]).unwrap(),
+        ))
+        .unwrap();
+
+        block_on(handle_tool_call(
+            &state,
+            "hover_element",
+            &serde_json::json!({ "elementHandle": root, "modifiers": { "shift": true } }),
+        ))
+        .expect("hover_element failed");
+        assert!(app.get_shift_on_move(), "the pointer event didn't carry Shift");
+
+        block_on(handle_tool_call(
+            &state,
+            "scroll_element",
+            &serde_json::json!({
+                "elementHandle": root,
+                "deltaY": -10.0,
+                "modifiers": { "control": true }
+            }),
+        ))
+        .expect("scroll_element failed");
+        assert!(app.get_control_on_scroll(), "the wheel event didn't carry Control");
+
+        // The keys are released with the gesture, so the next one is unmodified.
+        block_on(handle_tool_call(
+            &state,
+            "hover_element",
+            &serde_json::json!({ "elementHandle": root }),
+        ))
+        .expect("hover_element failed");
+        assert!(!app.get_shift_on_move(), "Shift stayed down after the gesture");
     }
 
     #[test]
