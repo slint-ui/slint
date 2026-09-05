@@ -486,45 +486,70 @@ pub fn text_content_widths(
     renderer: &(impl RendererSealed + ?Sized),
     text_item: Pin<&dyn crate::item_rendering::RenderString>,
     item_rc: &crate::item_tree::ItemRc,
+    cache: Option<&TextLayoutCache>,
 ) -> Option<crate::renderer::ContentWidths> {
-    text_content_widths_impl(renderer.scale_factor(), renderer.slint_context(), text_item, item_rc)
+    text_content_widths_impl(
+        renderer.scale_factor(),
+        renderer.window_adapter(),
+        renderer.slint_context(),
+        text_item,
+        item_rc,
+        cache,
+    )
 }
 
 fn text_content_widths_impl(
     scale_factor: Option<ScaleFactor>,
+    window_adapter: Option<Rc<dyn WindowAdapter>>,
     ctx: Option<crate::SlintContext>,
     text_item: Pin<&dyn crate::item_rendering::RenderString>,
     item_rc: &crate::item_tree::ItemRc,
+    cache: Option<&TextLayoutCache>,
 ) -> Option<crate::renderer::ContentWidths> {
     let scale_factor = scale_factor?;
 
-    // See text_size(): evaluate properties before borrowing font_context.
-    let font_request = text_item.font_request(item_rc);
-    let text = text_item.text();
+    // See text_size(): evaluate properties before borrowing font_context. Afterwards they are
+    // clean, so `compute` can read them again -- now without re-entering -- inside the cache
+    // entry's dependency tracker.
+    let _ = text_item.font_request(item_rc);
+    let _ = text_item.text();
 
     let ctx = ctx?;
     let mut font_ctx = ctx.font_context().borrow_mut();
 
-    let layout_builder = shaping::content_widths_builder(font_request, scale_factor);
+    // Reads the text, the font request and the line limit, so the cache entry depends on all
+    // three. Nothing else feeds the widths: the wrap mode, the width and the color don't.
+    let compute = |font_ctx: &mut parley::FontContext| {
+        let layout_builder =
+            shaping::content_widths_builder(text_item.font_request(item_rc), scale_factor);
 
-    let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, &mut font_ctx, text, Color::default());
+        let paragraphs_without_linebreaks =
+            create_text_paragraphs(&layout_builder, font_ctx, text_item.text(), Color::default());
 
-    // No line breaking needed: parley derives the content widths from the break
-    // opportunities. Paragraphs stack vertically, so both widths are the widest.
-    // Without wrapping each paragraph is one line, so a line limit drops the paragraphs
-    // that are not drawn, from both widths.
-    let (min, max) = paragraphs_without_linebreaks
-        .iter()
-        .take(text_item.line_limit().unwrap_or(usize::MAX))
-        .fold((0., 0.), |(min, max), p| {
-            let w = p.layout.calculate_content_widths();
-            (f32::max(min, w.min), f32::max(max, w.max))
-        });
-    Some(crate::renderer::ContentWidths {
-        min: PhysicalLength::new(min) / scale_factor,
-        max: PhysicalLength::new(max) / scale_factor,
-    })
+        // No line breaking needed: parley derives the content widths from the break
+        // opportunities. Paragraphs stack vertically, so both widths are the widest.
+        // Without wrapping each paragraph is one line, so a line limit drops the paragraphs
+        // that are not drawn, from both widths.
+        let (min, max) = paragraphs_without_linebreaks
+            .iter()
+            .take(text_item.line_limit().unwrap_or(usize::MAX))
+            .fold((0., 0.), |(min, max), p| {
+                let w = p.layout.calculate_content_widths();
+                (f32::max(min, w.min), f32::max(max, w.max))
+            });
+        crate::renderer::ContentWidths {
+            min: PhysicalLength::new(min) / scale_factor,
+            max: PhysicalLength::new(max) / scale_factor,
+        }
+    };
+
+    // Without a window there is no way to notice a scale factor change, and the shaped
+    // advances are in physical pixels, so an entry kept across one would be wrong.
+    let Some((cache, window_adapter)) = cache.zip(window_adapter) else {
+        return Some(compute(&mut font_ctx));
+    };
+    cache.clear_if_scale_factor_changed(window_adapter.window());
+    Some(cache.content_widths(item_rc, || compute(&mut font_ctx)))
 }
 
 pub fn char_size(

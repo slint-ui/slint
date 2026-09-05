@@ -107,7 +107,12 @@ pub trait RendererSealed {
     ) -> Option<ContentWidths> {
         #[cfg(feature = "shared-parley")]
         {
-            crate::textlayout::sharedparley::text_content_widths(self, text_item, item_rc)
+            crate::textlayout::sharedparley::text_content_widths(
+                self,
+                text_item,
+                item_rc,
+                self.text_layout_cache(),
+            )
         }
         #[cfg(not(feature = "shared-parley"))]
         {
