@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for #6739: a right-aligned `Text` whose right edge is pinned via a *computed*
+// `x: 64px - width` (as opposed to a literal `x`) must render its glyphs in the same device-pixel
+// column for every `width`, including fractional ones -- the pinned edge never visually moves, so
+// the rendering must not either.
+//
+// The bug itself was skia/femtovg-only (see `GlyphRenderer::snaps_text_origin_to_pixel_grid` in
+// sharedparley/draw.rs): those renderers round a text item's own screen position to the
+// device-pixel grid before drawing glyphs, to avoid blurry nearest-neighbor sampling of the
+// rasterized glyph atlas, and used to leave the box width feeding the horizontal-alignment offset
+// (`box_width - text_width`) unrounded. Since `x + width` is an exact device-pixel constant here,
+// rounding only one of the two addends broke that invariant: `round(x) + width != round(x +
+// width)` in general.
+//
+// This case runs skia (ignored below) and the interpreter's `anyrender`/`software` backends,
+// neither of which rounds the origin, so it does not exercise the rounding fix itself -- what it
+// pins here is that those renderers keep computing an exact, sub-pixel-precise position (the
+// rounding itself is exercised directly by the `pixel_snap_alignment` unit test in
+// sharedparley/tests.rs). femtovg has no coverage in this screenshot suite at all. The rounding
+// fix itself was verified manually against the real skia software rasterizer at the exact widths
+// from the issue report; see the commit message.
+//
+// Skia font rendering is not consistent across platforms
+//ignore:skia
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 50px;
+
+    // Five rows, each holding one right-aligned `Text`. Only `width` varies (whole, quarter, and
+    // half pixel steps); `x` is derived so the right edge stays pinned at logical 64px in every
+    // row. All five must render the "000" glyphs in the same column.
+    for w[i] in [30px, 30.25px, 30.5px, 30.75px, 31px] : Text {
+        y: i * 10px;
+        height: 10px;
+        width: w;
+        x: 64px - w;
+        text: "000";
+        horizontal-alignment: right;
+    }
+}

@@ -293,3 +293,172 @@ fn test_max_lines_caps_height() {
     );
     assert_eq!(limited.height, first_line_bottom);
 }
+
+/// Issue #6739: a right-aligned box whose right edge is pinned via something like
+/// `x: parent.width - self.width` has `origin + max_width` exactly constant regardless of
+/// `max_width`'s fractional part. Renderers that round their own screen position to the
+/// device-pixel grid before drawing text (see `GlyphRenderer::text_origin_snap_delta`) apply that
+/// same, unrounded delta to every edge of the box, including the pinned one; `x_offset` cancels it
+/// there, using the *actual* delta the origin-snap applied -- not a guess inferred from the box's
+/// own width, which is wrong whenever the origin isn't itself derived from that width (see
+/// `test_pixel_snap_alignment_zero_delta_leaves_content_exact` below). See `#6739`.
+///
+/// Returns `(x_offset, unaligned_line_offset)`: the correction consumers add on top of what
+/// parley computed (see `Layout::x_offset`), and parley's own per-line offset from `align()` --
+/// which must always come from the real, unrounded width (see `pixel_snap_correction`'s doc), so
+/// neither a fractional `max_width` nor `origin_snap_delta` ever changes what line breaking or
+/// elision see.
+fn right_align_offsets(width: f32, origin_snap_delta_x: f32) -> (f32, f32) {
+    let layout = layout_text_with_options(
+        "000",
+        LayoutOptions {
+            max_width: Some(LogicalLength::new(width)),
+            horizontal_align: TextHorizontalAlignment::Right,
+            origin_snap_delta: PhysicalPoint::new(origin_snap_delta_x, 0.0),
+            ..LayoutOptions::default()
+        },
+    );
+    (layout.x_offset.get(), layout.paragraphs[0].layout.lines().next().unwrap().metrics().offset)
+}
+
+#[test]
+fn test_pixel_snap_alignment_cancels_the_origin_snap_delta() {
+    // `Right` alignment (fraction 1.0) must cancel the delta exactly, regardless of the box's own
+    // (fractional or not) width: `x_offset` always comes out to `-origin_snap_delta`.
+    for delta in [-0.4, -0.1, 0.0, 0.1, 0.3, 0.49] {
+        assert_eq!(right_align_offsets(30.25, delta).0, -delta, "delta {delta}");
+        assert_eq!(right_align_offsets(30.0, delta).0, -delta, "delta {delta}");
+    }
+
+    // Whatever the correction does, parley's own per-line offset -- what line breaking and
+    // elision also see -- must never itself depend on the delta: it comes from the real,
+    // unrounded width either way.
+    assert_eq!(right_align_offsets(30.25, 0.0).1, right_align_offsets(30.25, 0.3).1);
+    assert_eq!(right_align_offsets(30.49, 0.0).1, right_align_offsets(30.49, -0.2).1);
+}
+
+/// A zero delta -- no draw call snapped this item's origin at all, or one did but the origin was
+/// already exactly on a device pixel -- must leave content exactly where its real, unrounded width
+/// puts it, no matter how fractional that width is: `x: 0` (an origin that is always integral,
+/// independent of width) with a fractional physical width like `30.25` must not spuriously shift
+/// content just because `30.25` itself isn't a whole number. See `#6739`.
+#[test]
+fn test_pixel_snap_alignment_zero_delta_leaves_content_exact() {
+    assert_eq!(right_align_offsets(30.25, 0.0).0, 0.0);
+    assert_eq!(right_align_offsets(30.49, 0.0).0, 0.0);
+    assert_eq!(right_align_offsets(30.0, 0.0).0, 0.0);
+}
+
+#[test]
+fn test_pixel_snap_alignment_fraction_by_horizontal_alignment() {
+    // `Left`/`Start`: that edge *is* the origin, so letting the origin-snap move it is the whole
+    // point -- no correction. `Right`/`End`: the far edge must not move at all -- the full delta,
+    // negated, cancels it. `Center`: half of that, splitting the difference between the two edges.
+    let delta = 0.3f32;
+    let x_offset_for = |horizontal_align: TextHorizontalAlignment| {
+        layout_text_with_options(
+            "000",
+            LayoutOptions {
+                max_width: Some(LogicalLength::new(30.25)),
+                horizontal_align,
+                origin_snap_delta: PhysicalPoint::new(delta, 0.0),
+                ..LayoutOptions::default()
+            },
+        )
+        .x_offset
+        .get()
+    };
+    assert_eq!(x_offset_for(TextHorizontalAlignment::Left), 0.0);
+    assert_eq!(x_offset_for(TextHorizontalAlignment::Start), 0.0);
+    assert_eq!(x_offset_for(TextHorizontalAlignment::Right), -delta);
+    assert_eq!(x_offset_for(TextHorizontalAlignment::End), -delta);
+    assert_eq!(x_offset_for(TextHorizontalAlignment::Center), -delta * 0.5);
+}
+
+/// The pixel-snap correction must never reach line breaking: a word whose advance sits strictly
+/// between a fractional `max_width` and its rounded neighbor has to keep fitting (or not) exactly
+/// as it would without any snapping. See `#6739`.
+///
+/// Rather than aim for one specific width where a word's advance happens to straddle a rounding
+/// boundary (which would depend on this test's font's exact metrics), this sweeps every width in
+/// a wide range at a fine enough step that some of them are guaranteed to land there, and checks
+/// that line breaking never once differs between a zero and a nonzero (and, incidentally,
+/// width-independent) origin-snap delta.
+#[test]
+fn test_pixel_snap_alignment_never_moves_the_wrap_boundary() {
+    let text = "The quick brown fox jumps over the lazy dog and then goes home again";
+    let line_count = |layout: &Layout| layout.paragraphs[0].layout.lines().len();
+    let line_range = |layout: &Layout, index: usize| {
+        layout.paragraphs[0].layout.lines().nth(index).unwrap().text_range()
+    };
+    let layout_at = |width: f32, origin_snap_delta_x: f32| {
+        layout_text_with_builder(
+            text,
+            super::shaping::wrap_builder_for_tests(),
+            LayoutOptions {
+                max_width: Some(LogicalLength::new(width)),
+                horizontal_align: TextHorizontalAlignment::Right,
+                origin_snap_delta: PhysicalPoint::new(origin_snap_delta_x, 0.0),
+                ..LayoutOptions::default()
+            },
+        )
+    };
+
+    let mut saw_a_snap_correction = false;
+    let mut width = 20.0f32;
+    while width < 220.0 {
+        let unsnapped = layout_at(width, 0.0);
+        let snapped = layout_at(width, 0.35);
+        saw_a_snap_correction |= snapped.x_offset.get() != 0.0;
+
+        assert_eq!(
+            line_count(&unsnapped),
+            line_count(&snapped),
+            "line count differs at width {width}"
+        );
+        for i in 0..line_count(&unsnapped) {
+            assert_eq!(
+                line_range(&unsnapped, i),
+                line_range(&snapped, i),
+                "line {i} differs at width {width}"
+            );
+        }
+
+        width += 0.1;
+    }
+    // The correction was real throughout the sweep (otherwise this test exercised nothing):
+    // confirm the snap actually did something, just never to where lines break.
+    assert!(saw_a_snap_correction);
+}
+
+/// `x_offset` is added on the way out of the layout (glyphs, cursor rects, selection spans, ...)
+/// and subtracted on the way back in (`byte_offset_from_point`, hit-testing). Pin the round trip:
+/// with snapping on and a fractional width -- so the correction is actually nonzero -- placing a
+/// point at a cursor's own reported x has to hit that same offset back, or the two additions above
+/// have their signs flipped relative to each other and query paths would disagree with drawing in
+/// a way none of the other tests here would catch (they don't exercise both directions at once).
+#[test]
+fn test_pixel_snap_alignment_x_offset_round_trips_through_hit_testing() {
+    let width = 30.25;
+    let layout = layout_text_with_options(
+        "hello",
+        LayoutOptions {
+            max_width: Some(LogicalLength::new(width)),
+            horizontal_align: TextHorizontalAlignment::Right,
+            origin_snap_delta: PhysicalPoint::new(0.3, 0.0),
+            ..LayoutOptions::default()
+        },
+    );
+    // Sanity: this width actually produces a nonzero correction, or the round trip below would
+    // pass vacuously even with a flipped sign.
+    assert_ne!(layout.x_offset.get(), 0.0);
+
+    let cursor_width = PhysicalLength::new(1.0);
+    for byte_offset in [0, 2, 5] {
+        let affinity = crate::items::TextCursorAffinity::NextCharacter;
+        let rect = layout.cursor_rect_for_byte_offset(byte_offset, affinity, cursor_width);
+        let (hit_offset, _) =
+            layout.byte_offset_from_point(PhysicalPoint::new(rect.origin.x, rect.origin.y));
+        assert_eq!(hit_offset, byte_offset, "round trip failed for byte offset {byte_offset}");
+    }
+}

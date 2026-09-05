@@ -913,6 +913,12 @@ impl SkiaRenderer {
 }
 
 impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
+    fn snaps_text_origin_to_pixel_grid(&self) -> bool {
+        // See `SkiaItemRenderer::text_origin_snap_delta` in itemrenderer.rs for the actual,
+        // per-item delta this only coarsely predicts.
+        true
+    }
+
     fn text_layout_cache(&self) -> Option<&sharedparley::TextLayoutCache> {
         Some(&self.text_layout_cache)
     }

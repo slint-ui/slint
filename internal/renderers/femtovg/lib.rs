@@ -335,6 +335,12 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
 
 #[doc(hidden)]
 impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
+    fn snaps_text_origin_to_pixel_grid(&self) -> bool {
+        // See `GLItemRenderer::text_origin_snap_delta` in itemrenderer.rs for the actual, per-item
+        // delta this only coarsely predicts.
+        true
+    }
+
     fn text_layout_cache(&self) -> Option<&sharedparley::TextLayoutCache> {
         Some(&self.text_layout_cache)
     }

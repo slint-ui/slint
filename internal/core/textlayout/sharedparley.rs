@@ -59,7 +59,7 @@ impl FontContext {
 pub type PhysicalLength = euclid::Length<f32, PhysicalPx>;
 pub type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
-type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
+pub type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
 
 pub use super::DEFAULT_FONT_SIZE;
 
@@ -190,6 +190,7 @@ pub fn draw_text(
             max_width: Some(max_width),
             max_lines: text.line_limit(),
             text_overflow,
+            origin_snap_delta: item_renderer.text_origin_snap_delta(),
         },
         window_adapter.window(),
         |layout| {
@@ -231,6 +232,43 @@ pub fn draw_text(
     );
 }
 
+/// The delta a renderer's own origin-snap would apply to `item_rc`'s screen position, computed
+/// independently of any actual draw call by reconstructing it via
+/// [`crate::item_tree::ItemRc::window_origin_if_translate_only`], for query paths (hit-testing,
+/// cursor placement, accessibility) that have no `GlyphRenderer` to ask the way
+/// [`draw_text`]/[`draw_text_input`] do via [`GlyphRenderer::text_origin_snap_delta`].
+///
+/// Zero when `renderer_snaps_origin` is `false`, when the accumulated transform up to `item_rc`
+/// isn't a pure translation, or when the origin already sits exactly on a device pixel.
+///
+/// [`ItemRc::window_origin_if_translate_only`] only walks the *item tree*'s own ancestor chain, so
+/// it can't see a transform a renderer composes on top of that at the canvas level: a nonzero
+/// device/output rotation (`rotation_angle_degrees`), applied directly on the renderer's root
+/// canvas transform, or the translation an embedded popup's canvas gets in
+/// [`crate::item_rendering::render_component_items`] (a popup's root has no `parent_item`
+/// connecting it back to the host tree). In both cases the draw path's
+/// [`GlyphRenderer::text_origin_snap_delta`] sees the real transform and this function doesn't.
+/// See `#6739`.
+fn origin_snap_delta_for_query(
+    item_rc: &crate::item_tree::ItemRc,
+    scale_factor: ScaleFactor,
+    renderer_snaps_origin: bool,
+) -> PhysicalPoint {
+    if !renderer_snaps_origin {
+        return PhysicalPoint::zero();
+    }
+    // See this function's doc for the two cases (device rotation, embedded popups) where the
+    // reconstruction below can disagree with what the renderer's live canvas transform would say.
+    let Some(origin_logical) = item_rc.window_origin_if_translate_only() else {
+        return PhysicalPoint::zero();
+    };
+    let origin_physical: PhysicalPoint = origin_logical * scale_factor;
+    PhysicalPoint::new(
+        origin_physical.x.round() - origin_physical.x,
+        origin_physical.y.round() - origin_physical.y,
+    )
+}
+
 #[cfg(feature = "std")]
 pub fn link_under_cursor(
     scale_factor: ScaleFactor,
@@ -245,6 +283,16 @@ pub fn link_under_cursor(
 
     let (horizontal_align, vertical_align) = text.alignment();
 
+    // Hit-testing, not drawing, so there's no `GlyphRenderer` at hand -- but this still has to
+    // agree with whatever the window's actual renderer draws, which
+    // `RendererSealed::snaps_text_origin_to_pixel_grid` reports independent of an active draw.
+    let renderer_snaps_origin = crate::window::WindowInner::from_pub(window)
+        .window_adapter()
+        .renderer()
+        .snaps_text_origin_to_pixel_grid();
+    let origin_snap_delta =
+        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
+
     with_text_layout(
         cache,
         Some(item_rc),
@@ -257,6 +305,7 @@ pub fn link_under_cursor(
             max_width: Some(size.width_length()),
             max_lines: text.line_limit(),
             text_overflow: text.overflow(),
+            origin_snap_delta,
         },
         window,
         |layout| link_in_layout(layout, cursor),
@@ -267,6 +316,9 @@ pub fn link_under_cursor(
 fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string::String> {
     layout.paragraph_by_y(cursor.y_length()).and_then(|paragraph| {
         let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
+        // `cursor` is in the same (post-snap) coordinates glyphs are drawn in; undo the snap to
+        // compare against `paragraph.layout`'s own, unshifted coordinates (see `Layout::x_offset`).
+        let cursor_x: f64 = (cursor.x_length() - layout.x_offset).cast::<f64>().get();
 
         paragraph
             .links
@@ -288,9 +340,9 @@ fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string:
                     bounding_box.y0 += paragraph_y;
                     bounding_box.y1 += paragraph_y;
                     clicked = bounding_box.union(parley::BoundingBox::new(
-                        cursor.x.into(),
+                        cursor_x,
                         cursor.y.into(),
-                        cursor.x.into(),
+                        cursor_x,
                         cursor.y.into(),
                     )) == bounding_box;
                 });
@@ -347,7 +399,10 @@ pub fn draw_text_input(
         Some(item_rc),
         text_input,
         &layout_builder,
-        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+        LayoutOptions {
+            origin_snap_delta: item_renderer.text_origin_snap_delta(),
+            ..LayoutOptions::new_from_textinput(text_input, Some(width), Some(height))
+        },
         window_adapter.window(),
         |layout| {
             item_renderer.save_state();
@@ -370,7 +425,7 @@ pub fn draw_text_input(
                 };
                 // Inside the clip, like the glyphs it sits under: a line box taller than the item
                 // would otherwise paint the highlight over whatever follows the input.
-                for background in selection_spans.backgrounds() {
+                for background in selection_spans.backgrounds(layout.x_offset) {
                     item_renderer.fill_rectangle_with_color(
                         background,
                         text_input.selection_background_color(),
@@ -475,6 +530,11 @@ fn text_size_impl(
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
             text_overflow: TextOverflow::Clip,
+            // Always Left/Top above, so `alignment_fraction_h`/`_v` are always 0.0 and this value's
+            // effect would be zero either way (it only ever scales an alignment offset, never the
+            // real width/height fed into line breaking). There's also no renderer to match here
+            // (this sizes the item before any renderer draws it).
+            origin_snap_delta: PhysicalPoint::zero(),
         },
         window_adapter.window(),
         |layout| PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor,
@@ -612,6 +672,7 @@ pub fn text_input_byte_offset_for_position(
     text_input_byte_offset_for_position_impl(
         renderer.scale_factor(),
         renderer.window_adapter(),
+        renderer.snaps_text_origin_to_pixel_grid(),
         text_input,
         item_rc,
         pos,
@@ -622,6 +683,7 @@ pub fn text_input_byte_offset_for_position(
 fn text_input_byte_offset_for_position_impl(
     scale_factor: Option<ScaleFactor>,
     window_adapter: Option<Rc<dyn WindowAdapter>>,
+    renderer_snaps_origin: bool,
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     pos: LogicalPoint,
@@ -632,6 +694,8 @@ fn text_input_byte_offset_for_position_impl(
         return no_hit;
     };
     let pos: PhysicalPoint = pos * scale_factor;
+    let origin_snap_delta =
+        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
 
     let width = text_input.width();
     let height = text_input.height();
@@ -652,7 +716,10 @@ fn text_input_byte_offset_for_position_impl(
         Some(item_rc),
         text_input,
         &layout_builder,
-        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+        LayoutOptions {
+            origin_snap_delta,
+            ..LayoutOptions::new_from_textinput(text_input, Some(width), Some(height))
+        },
         window_adapter.window(),
         |layout| layout.byte_offset_from_point(pos),
     )
@@ -671,6 +738,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
     text_input_cursor_rect_for_byte_offset_impl(
         renderer.scale_factor(),
         renderer.window_adapter(),
+        renderer.snaps_text_origin_to_pixel_grid(),
         text_input,
         item_rc,
         byte_offset,
@@ -682,6 +750,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
 fn text_input_cursor_rect_for_byte_offset_impl(
     scale_factor: Option<ScaleFactor>,
     window_adapter: Option<Rc<dyn WindowAdapter>>,
+    renderer_snaps_origin: bool,
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     byte_offset: usize,
@@ -691,6 +760,8 @@ fn text_input_cursor_rect_for_byte_offset_impl(
     let Some(scale_factor) = scale_factor else {
         return LogicalRect::default();
     };
+    let origin_snap_delta =
+        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
 
     let layout_builder =
         shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);
@@ -718,7 +789,10 @@ fn text_input_cursor_rect_for_byte_offset_impl(
         Some(item_rc),
         text_input,
         &layout_builder,
-        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+        LayoutOptions {
+            origin_snap_delta,
+            ..LayoutOptions::new_from_textinput(text_input, Some(width), Some(height))
+        },
         window_adapter.window(),
         |layout| {
             layout.cursor_rect_for_byte_offset(byte_offset, affinity, cursor_width) / scale_factor
@@ -740,12 +814,13 @@ impl<'a> TextInputLayout<'a> {
     /// The paragraphs, top to bottom. A hard line break separates two of them and belongs to
     /// neither, since Slint splits the text at `\n` before shaping.
     pub(crate) fn paragraphs(&self) -> impl Iterator<Item = TextInputParagraph<'a>> {
-        let (text, y_offset) = (self.text, self.layout.y_offset);
+        let (text, y_offset, x_offset) = (self.text, self.layout.y_offset, self.layout.x_offset);
         self.layout.paragraphs.iter().map(move |para| TextInputParagraph {
             range: para.range.clone(),
             text: &text[para.range.clone()],
             layout: &para.layout,
             y: y_offset + para.y,
+            x: x_offset,
         })
     }
 }
@@ -761,6 +836,10 @@ pub(crate) struct TextInputParagraph<'a> {
     layout: &'a parley::Layout<Brush>,
     /// Physical y of its top edge, relative to the item's.
     y: PhysicalLength,
+    /// The pixel-snap correction (see `Layout::x_offset`) every horizontal position read out of
+    /// `layout` above needs added, e.g. before handing `layout` to something that reports glyph
+    /// geometry such as `parley::LayoutAccessibility::build_nodes`.
+    x: PhysicalLength,
 }
 
 /// Lays `text_input` out the way `renderer` draws it and lends the result to `f`.
@@ -783,6 +862,7 @@ pub fn with_text_input_layout<R>(
     with_text_input_layout_impl(
         renderer.scale_factor(),
         renderer.window_adapter(),
+        renderer.snaps_text_origin_to_pixel_grid(),
         renderer.text_layout_cache(),
         text_input,
         item_rc,
@@ -794,6 +874,7 @@ pub fn with_text_input_layout<R>(
 fn with_text_input_layout_impl<R>(
     scale_factor: Option<ScaleFactor>,
     window_adapter: Option<Rc<dyn WindowAdapter>>,
+    renderer_snaps_origin: bool,
     cache: Option<&TextLayoutCache>,
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
@@ -802,6 +883,8 @@ fn with_text_input_layout_impl<R>(
 ) -> Option<R> {
     let scale_factor = scale_factor?;
     let window_adapter = window_adapter?;
+    let origin_snap_delta =
+        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
 
     let width = size.width_length();
     let height = size.height_length();
@@ -823,7 +906,10 @@ fn with_text_input_layout_impl<R>(
         Some(item_rc),
         text_input,
         &layout_builder,
-        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+        LayoutOptions {
+            origin_snap_delta,
+            ..LayoutOptions::new_from_textinput(text_input, Some(width), Some(height))
+        },
         window_adapter.window(),
         |layout| f(TextInputLayout { layout, text: &text }),
     )

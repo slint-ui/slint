@@ -50,8 +50,23 @@ impl SelectionSpans {
         self.0.is_empty()
     }
 
-    pub(super) fn backgrounds(&self) -> impl Iterator<Item = PhysicalRect> + '_ {
-        self.0.iter().map(|span| span.background)
+    /// The highlight rectangles, ready to fill. `background` is stored in the same unshifted
+    /// coordinates `run_coverage`'s slicing compares against (see [`Self::for_line`] and the
+    /// segment walk in `draw_glyph_run_with_selection`), so `x_offset` (see `Layout::x_offset`)
+    /// is applied here, once, rather than when the span is resolved.
+    pub(super) fn backgrounds(
+        &self,
+        x_offset: PhysicalLength,
+    ) -> impl Iterator<Item = PhysicalRect> + '_ {
+        self.0.iter().map(move |span| {
+            PhysicalRect::new(
+                PhysicalPoint::from_lengths(
+                    span.background.origin.x_length() + x_offset,
+                    span.background.origin.y_length(),
+                ),
+                span.background.size,
+            )
+        })
     }
 
     /// The spans covering one line. Both the stored spans and the draw loop walk paragraphs and

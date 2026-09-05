@@ -35,6 +35,17 @@ pub(super) struct LayoutOptions {
     pub(super) horizontal_align: TextHorizontalAlignment,
     pub(super) vertical_align: TextVerticalAlignment,
     pub(super) text_overflow: TextOverflow,
+    /// How much the renderer's own origin-snap will move this item's screen position -- `round(origin)
+    /// - origin`, in physical pixels -- or zero if this renderer doesn't snap the origin at all, or its
+    /// snap wouldn't move it (already-integral origin), or the transform it would snap under isn't a
+    /// pure translation. Zero when not drawing, e.g. for `text_size` queries, which have no origin.
+    ///
+    /// This is the *actual* delta the renderer's origin-snap applies, not the (unrounded) box
+    /// size's own rounding: origin and box size are independent quantities, so a caller cannot
+    /// infer one's rounding delta from the other in general -- see `pixel_snap_correction`. Draw
+    /// callers get this from their `GlyphRenderer` (which already computes it to align its own
+    /// canvas transform); query callers reconstruct it via `ItemRc::window_origin_if_translate_only`.
+    pub(super) origin_snap_delta: PhysicalPoint,
 }
 
 impl LayoutOptions {
@@ -50,6 +61,9 @@ impl LayoutOptions {
             horizontal_align: text_input.horizontal_alignment(),
             vertical_align: text_input.vertical_alignment(),
             text_overflow: TextOverflow::Clip,
+            // Callers set this explicitly from the actual origin-snap delta (see
+            // `draw_text_input` and the query entry points in `sharedparley.rs`).
+            origin_snap_delta: PhysicalPoint::zero(),
         }
     }
 }
@@ -113,6 +127,39 @@ fn vertical_offset(
     }
 }
 
+/// How much of a box dimension's rounding delta an alignment's offset moves by: `box_size -
+/// content_size` for `End`/`Right`/`Bottom` (the offset tracks the box size 1:1), half that for
+/// `Center` (it's divided by two), and none for `Start`/`Left`/`Top` (the offset is always zero).
+fn alignment_fraction_h(horizontal_align: TextHorizontalAlignment) -> f32 {
+    match horizontal_align {
+        TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => 0.0,
+        TextHorizontalAlignment::Center => 0.5,
+        TextHorizontalAlignment::End | TextHorizontalAlignment::Right => 1.0,
+    }
+}
+
+fn alignment_fraction_v(vertical_align: TextVerticalAlignment) -> f32 {
+    match vertical_align {
+        TextVerticalAlignment::Top => 0.0,
+        TextVerticalAlignment::Center => 0.5,
+        TextVerticalAlignment::Bottom => 1.0,
+    }
+}
+
+/// The correction an aligned edge needs to cancel out (part of) the renderer's own origin-snap:
+/// `origin_snap_delta` is how far that snap moves this item's screen position (see
+/// [`LayoutOptions::origin_snap_delta`]), and since the box's own size is never rounded, that
+/// whole delta also shows up, unchanged, on every edge of the box. `fraction` (see
+/// [`alignment_fraction_h`]/[`alignment_fraction_v`]) is how much of that motion this particular
+/// edge must cancel: none for `Start`/`Left`/`Top`, all of it for `End`/`Right`/`Bottom`, half for
+/// `Center`.
+///
+/// Deliberately never fed into line breaking, elision, or the box's own height-cut logic, which
+/// must stay exact regardless of this correction. See `#6739`.
+fn pixel_snap_correction(origin_snap_delta: PhysicalLength, fraction: f32) -> PhysicalLength {
+    PhysicalLength::new(-origin_snap_delta.get() * fraction)
+}
+
 pub(super) fn layout(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
     font_context: &mut parley::FontContext,
@@ -121,8 +168,27 @@ pub(super) fn layout(
     options: LayoutOptions,
     line_breaking: Option<RetainedLineBreaking>,
 ) -> Layout {
-    let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
-    let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
+    // Always the real, unrounded box size: line breaking, elision, and the height-cut all have to
+    // stay exact. See `pixel_snap_correction` for where the rounding for `#6739` happens instead.
+    let max_physical_width = options.max_width.map(|w| w * scale_factor);
+    let max_physical_height = options.max_height.map(|h| h * scale_factor);
+
+    // Only apply a correction when there's an actual box to align within: without a
+    // `max_width`/`max_height`, alignment has nothing to measure against and parley leaves the
+    // line at its natural (Left/Top-equivalent) position regardless of the requested alignment,
+    // so canceling any delta here would be over-correcting.
+    let x_offset = max_physical_width.map_or(PhysicalLength::zero(), |_| {
+        pixel_snap_correction(
+            options.origin_snap_delta.x_length(),
+            alignment_fraction_h(options.horizontal_align),
+        )
+    });
+    let y_offset_correction = max_physical_height.map_or(PhysicalLength::zero(), |_| {
+        pixel_snap_correction(
+            options.origin_snap_delta.y_length(),
+            alignment_fraction_v(options.vertical_align),
+        )
+    });
 
     let inputs = LineBreakingInputs::new(&options, max_physical_width);
     if let Some(line_breaking) =
@@ -133,7 +199,8 @@ pub(super) fn layout(
                 max_physical_height,
                 options.vertical_align,
                 line_breaking.height,
-            ),
+            ) + y_offset_correction,
+            x_offset,
             paragraphs,
             max_width: line_breaking.max_width,
             height: line_breaking.height,
@@ -226,11 +293,13 @@ pub(super) fn layout(
             .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height())),
     };
 
-    let y_offset = vertical_offset(max_physical_height, options.vertical_align, height);
+    let y_offset =
+        vertical_offset(max_physical_height, options.vertical_align, height) + y_offset_correction;
 
     Layout {
         paragraphs,
         y_offset,
+        x_offset,
         elision_info,
         max_width,
         height,
@@ -290,6 +359,13 @@ pub(super) struct ElisionCut {
 pub(super) struct Layout {
     pub(super) paragraphs: Vec<TextParagraph>,
     pub(super) y_offset: PhysicalLength,
+    /// The pixel-snap correction from [`pixel_snap_correction`], added to every horizontal
+    /// position a consumer reads out of this layout (glyphs, decoration/selection/inline-code
+    /// rects, cursor and hit-test positions) -- but never fed into line breaking, elision, or the
+    /// alignment offset's own `box_size - content_size` computation, which all stay exact. Zero
+    /// whenever `LayoutOptions::origin_snap_delta` is zero (no draw call snapped this item's
+    /// origin, or it did but the snap didn't move it) or the horizontal alignment is `Start`/`Left`.
+    pub(super) x_offset: PhysicalLength,
     pub(super) max_width: PhysicalLength,
     pub(super) height: PhysicalLength,
     max_physical_height: Option<PhysicalLength>,
@@ -486,9 +562,12 @@ impl Layout {
         let Some(paragraph) = self.paragraph_by_y(pos.y_length()) else {
             return (0, crate::items::TextCursorAffinity::NextCharacter);
         };
+        // `pos` is in the same (post-snap) coordinate space glyphs are drawn in, but
+        // `paragraph.layout`'s own coordinates never got the snap applied (see `x_offset`'s
+        // doc), so undo it before asking parley to place the point.
         let cursor = parley::editing::Cursor::from_point(
             &paragraph.layout,
-            pos.x,
+            pos.x - self.x_offset.get(),
             (pos.y_length() - self.y_offset - paragraph.y).get(),
         );
         (paragraph.range.start + cursor.index(), cursor.affinity().into())
@@ -514,7 +593,7 @@ impl Layout {
 
         PhysicalRect::new(
             PhysicalPoint::from_lengths(
-                PhysicalLength::new(rect.x0 as _),
+                PhysicalLength::new(rect.x0 as _) + self.x_offset,
                 PhysicalLength::new(rect.y0 as _) + self.y_offset + paragraph.y,
             ),
             PhysicalSize::new(rect.width() as _, rect.height() as _),

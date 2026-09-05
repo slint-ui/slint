@@ -590,6 +590,10 @@ impl FemtoVGWGPURenderer {
 impl RendererSealed for FemtoVGWGPURenderer {
     // The text and font registration functions use their default implementations, which
     // reach the inner renderer's state through this accessor and window_adapter().
+    fn snaps_text_origin_to_pixel_grid(&self) -> bool {
+        RendererSealed::snaps_text_origin_to_pixel_grid(&self.0)
+    }
+
     fn text_layout_cache(
         &self,
     ) -> Option<&i_slint_core::textlayout::sharedparley::TextLayoutCache> {
