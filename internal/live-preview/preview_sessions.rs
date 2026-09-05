@@ -17,6 +17,7 @@ use slint_interpreter::ComponentHandle as _;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::REBUILD_DEBOUNCE;
+use crate::inspector::InspectorOverlay;
 #[cfg(target_arch = "wasm32")]
 use crate::protocol::wasm_prelude::*;
 use crate::protocol::{
@@ -472,7 +473,9 @@ pub async fn run_with_channels(
     install_debug_handler(Rc::downgrade(&to_editor))?;
 
     let mut current_component = None;
+    let mut current_highlight = None;
     let mut component_instance = None;
+    let mut inspector = None;
     let mut registered_fonts = HashSet::new();
     let mut pending_fonts = Vec::new();
 
@@ -484,6 +487,8 @@ pub async fn run_with_channels(
                     &preview_session,
                     &component,
                     &mut component_instance,
+                    &mut inspector,
+                    current_highlight.as_ref(),
                     &mut pending_fonts,
                 )
                 .await?;
@@ -495,11 +500,18 @@ pub async fn run_with_channels(
                     &preview_session,
                     component,
                     &mut component_instance,
+                    &mut inspector,
+                    current_highlight.as_ref(),
                     &mut pending_fonts,
                 )
                 .await?;
             }
-            PreviewSessionEvent::HighlightFromEditor { .. } => {}
+            PreviewSessionEvent::HighlightFromEditor { url, offset } => {
+                current_highlight = url.map(|url| (url, offset));
+                if let Some(inspector) = inspector.as_ref() {
+                    inspector.update(component_instance.as_ref(), current_highlight.as_ref());
+                }
+            }
             PreviewSessionEvent::RegisterFont { url, contents } => {
                 if !registered_fonts.insert(url.clone()) {
                     tracing::debug!("Font {url} already registered, skipping");
@@ -521,6 +533,8 @@ async fn show_component(
     preview_session: &PreviewSession,
     component: &PreviewComponent,
     component_instance: &mut Option<slint_interpreter::ComponentInstance>,
+    inspector: &mut Option<InspectorOverlay>,
+    current_highlight: Option<&(Url, u32)>,
     pending_fonts: &mut Vec<Arc<[u8]>>,
 ) -> anyhow::Result<()> {
     let PreviewCompilation::Ready(component_definition) =
@@ -537,8 +551,14 @@ async fn show_component(
     for contents in pending_fonts.drain(..) {
         register_font(new_instance.window(), contents);
     }
+    if inspector.is_none() {
+        *inspector = Some(InspectorOverlay::new(new_instance.window()).await?);
+    }
     new_instance.show()?;
     *component_instance = Some(new_instance);
+    let inspector = inspector.as_ref().unwrap();
+    inspector.attach()?;
+    inspector.update(component_instance.as_ref(), current_highlight);
     Ok(())
 }
 
