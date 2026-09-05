@@ -1,0 +1,54 @@
+---
+title: Deprecation
+description: Marking a property, callback, or function as deprecated with @deprecated.
+---
+
+The `@deprecated` annotation marks a property, callback, or function as deprecated.
+The compiler warns wherever the member is used from outside the component that declares it,
+and the warning carries the message the annotation gives it:
+
+```slint
+component Inner {
+    in-out property <int> new-prop;
+    @deprecated("Please use 'new-prop' instead") in-out property <int> old-prop <=> new-prop;
+}
+
+export component Example {
+    inner := Inner { }
+    // Warning: The property 'old-prop' has been deprecated: Please use 'new-prop' instead
+    out property <int> value: inner.old-prop;
+}
+```
+
+The annotation affects diagnostics only.
+A deprecated member keeps the type, visibility and behavior its declaration gives it,
+and the compiled result is the same as without the annotation.
+
+## Form
+
+`@deprecated` precedes the declaration, ahead of any visibility or purity modifier,
+and takes the message in parentheses:
+
+```slint no-test
+@deprecated("Compute it from 'new-prop' instead") in-out property <int> older-prop: 42;
+@deprecated("Use 'new-callback' instead") callback old-callback();
+@deprecated("Use 'new-function' instead") public pure function old-function() -> int { 1 }
+```
+
+- The message is mandatory.
+  `@deprecated` without parentheses is a compile error.
+- The message must be a plain string literal.
+  A `\{}` template expression in it is a compile error.
+- A declaration may carry `@deprecated` only once.
+
+An empty message, `@deprecated("")`, deprecates the member without advising on a replacement.
+The warning then names the member and stops, as in `The property 'old-prop' has been deprecated`.
+
+## Warnings
+
+Using a deprecated member is a warning, never an error, so code written against it keeps compiling.
+Reading it, assigning to it, binding it on an element, aliasing it with `<=>`, animating it,
+calling it, and setting a handler for it each warn.
+
+Uses within the component that declares the member don't warn,
+since that component still has to implement it.

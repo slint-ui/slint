@@ -2483,8 +2483,8 @@ Main := Window {
             r#"
 component W {
     in-out property <int> new-prop;
-    @deprecated  in-out    property   <int>   old-prop   <=>   new-prop;
-    @deprecated
+    @deprecated( "" )  in-out    property   <int>   old-prop   <=>   new-prop;
+    @deprecated("")
 
         in-out property <int> spaced-prop <=> new-prop;
     @deprecated (   "Use 'new-prop' instead"   )   in-out property <int> older-prop <=> new-prop;
@@ -2494,8 +2494,8 @@ component W {
             r#"
 component W {
     in-out property <int> new-prop;
-    @deprecated in-out property <int> old-prop <=> new-prop;
-    @deprecated in-out property <int> spaced-prop <=> new-prop;
+    @deprecated("") in-out property <int> old-prop <=> new-prop;
+    @deprecated("") in-out property <int> spaced-prop <=> new-prop;
     @deprecated("Use 'new-prop' instead") in-out property <int> older-prop <=> new-prop;
     @deprecated("msg") in-out property <int> compact <=> new-prop;
 }

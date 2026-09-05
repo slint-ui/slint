@@ -2580,7 +2580,7 @@ fn lookup_qualified_name_node(
     };
 
     if let Some(depr) = result.deprecated() {
-        ctx.diag.push_property_deprecation_warning_with_message(&first_str, depr, &first);
+        ctx.diag.push_member_deprecation_warning("property", &first_str, depr, &first);
     }
 
     match result {
@@ -2743,15 +2743,11 @@ fn continue_lookup_within_element(
             lookup_result.deprecated.as_ref().filter(|_| !local_to_component)
         {
             // `@deprecated` properties only warn when accessed from outside the declaring component
-            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
+            ctx.diag.push_member_deprecation_warning("property", &prop_name, message, &second);
         } else if let Some(deprecated) =
             crate::lookup::check_extra_deprecated(elem, ctx, &prop_name)
         {
-            ctx.diag.push_property_deprecation_warning_with_message(
-                &prop_name,
-                &deprecated,
-                &second,
-            );
+            ctx.diag.push_member_deprecation_warning("property", &prop_name, &deprecated, &second);
         }
         let prop = Expression::PropertyReference(NamedReference::new(
             elem,
@@ -2760,7 +2756,7 @@ fn continue_lookup_within_element(
         maybe_lookup_object(prop.into(), it, ctx)
     } else if matches!(lookup_result.property_type, Type::Callback { .. }) {
         if let Some(message) = lookup_result.deprecated.as_ref().filter(|_| !local_to_component) {
-            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
+            ctx.diag.push_member_deprecation_warning("callback", &prop_name, message, &second);
         }
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of callback".into(), &x)
@@ -2787,7 +2783,7 @@ fn continue_lookup_within_element(
             ctx.diag.push_error(format!("The function '{}' is protected", second.text()), &second);
         }
         if let Some(message) = lookup_result.deprecated.as_ref().filter(|_| !local_to_component) {
-            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
+            ctx.diag.push_member_deprecation_warning("function", &prop_name, message, &second);
         }
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of a function".into(), &x)
@@ -3025,23 +3021,6 @@ fn resolve_two_way_bindings_for_element(
                     continue;
                 }
                 rhs_lookup.is_local_to_component &= lookup_ctx.is_local_element(&nr.element());
-
-                // The derived replacement only helps callers if the target is a public property
-                // of the same element, reached through the same object. Otherwise the hint is
-                // unreachable, so require an explicit message instead.
-                if elem
-                    .borrow()
-                    .property_declarations
-                    .get(prop_name)
-                    .is_some_and(|d| d.has_derived_deprecation())
-                    && !(Rc::ptr_eq(&nr.element(), elem)
-                        && rhs_lookup.property_visibility != PropertyVisibility::Private)
-                {
-                    lookup_ctx.diag.push_error(
-                        "@deprecated without a message derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated(\"...\") message instead".into(),
-                        &node,
-                    );
-                }
 
                 if !rhs_lookup.is_valid_for_assignment() {
                     match (lhs_lookup.property_visibility, rhs_lookup.property_visibility) {

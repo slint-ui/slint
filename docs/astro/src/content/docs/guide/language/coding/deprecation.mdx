@@ -1,0 +1,62 @@
+---
+title: Deprecating Members
+description: Mark a property, callback, or function as deprecated and point users at the replacement.
+---
+
+import Link from '@slint/common-files/src/components/Link.astro';
+
+The `@deprecated` annotation marks a property, callback, or function as deprecated.
+Whenever the member is accessed from outside the component that declares it, the compiler emits a warning that points to the replacement.
+This lets a component evolve its public API while giving users a migration path instead of a hard break.
+
+## Syntax
+
+Prefix the declaration with `@deprecated`, followed by the message in parentheses:
+
+```slint no-test
+@deprecated("Please use 'new-prop' instead") in-out property <int> old-prop <=> new-prop;
+```
+
+Accessing `old-prop` then warns with `The property 'old-prop' has been deprecated: Please use 'new-prop' instead`.
+
+Write the message you want the user to read.
+There is no inference from the declaration, so say what replaces the member, even when it aliases its replacement with `<=>`.
+
+When nothing replaces the member, leave the message empty:
+
+```slint no-test
+@deprecated("") in-out property <int> going-away;
+```
+
+The warning then just reads `The property 'going-away' has been deprecated`.
+
+## Example
+
+```slint
+component Inner {
+    in-out property <int> new-prop;
+    @deprecated("Please use 'new-prop' instead") in-out property <int> old-prop <=> new-prop;
+
+    // No warning: accesses within the declaring component are fine.
+    in-out property <int> internal: old-prop;
+}
+
+export component Example {
+    inner := Inner {
+        new-prop: 42;
+    }
+
+    // Warning: The property 'old-prop' has been deprecated: Please use 'new-prop' instead
+    property <int> value: inner.old-prop;
+}
+```
+
+## Rules
+
+- The message is mandatory.
+  Write `@deprecated("")` to deprecate without advising on a replacement.
+- The message must be a plain string literal, without any `\{}` expressions.
+- Accessing a deprecated member is only a warning, never an error, so existing code keeps compiling.
+- Accesses from within the declaring component don't warn, since that component still needs to implement the member.
+
+For the normative rules, see <Link type="DeprecationSpec" label="Deprecation" /> in the language specification.

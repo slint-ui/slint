@@ -788,9 +788,10 @@ pub struct PropertyDeclaration {
     /// making. What the component itself declares, in the source or through the
     /// component it inherits from, keeps this false.
     pub moved_to_root: bool,
-    /// Some if the property was declared with `@deprecated`. The string is the hint shown after
-    /// "The property 'xxx' has been deprecated." in the warning: either derived from the two-way
-    /// binding target, or the custom message given as argument to `@deprecated("...")`.
+    /// Some if the member was declared with `@deprecated`. The string is the message given as
+    /// argument, shown after "The property 'xxx' has been deprecated:" in the warning. It is
+    /// empty when the declaration gives no advice on a replacement, and the warning then stops
+    /// after naming the member.
     pub deprecated: Option<SmolStr>,
 }
 
@@ -815,18 +816,6 @@ impl PropertyDeclaration {
     pub fn is_private_shadow(&self) -> bool {
         self.shadowed_name.is_some() && self.visibility == PropertyVisibility::Private
     }
-
-    /// True when declared `@deprecated` without a custom message, so the hint in
-    /// [`Self::deprecated`] is derived from the two-way binding target.
-    pub fn has_derived_deprecation(&self) -> bool {
-        self.deprecated.is_some()
-            && self
-                .node
-                .as_ref()
-                .and_then(|n| syntax_nodes::PropertyDeclaration::new(n.clone()))
-                .and_then(|p| p.PropertyDeprecation())
-                .is_some_and(|d| d.child_token(SyntaxKind::StringLiteral).is_none())
-    }
 }
 
 /// Whether the declaration is marked `@shadowable` (an experimental feature).
@@ -838,54 +827,16 @@ fn shadowable_attribute(
     node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@shadowable", &node))
 }
 
-/// How a `@deprecated` member without an explicit message derives its replacement hint.
-enum DeprecationHint {
-    /// A property or callback: derive it from the two-way binding target, if any.
-    TwoWayBinding(Option<syntax_nodes::QualifiedName>),
-    /// A function has no two-way binding, so an explicit message is required.
-    MessageRequired,
-}
-
-/// The hint from a `@deprecated` attribute on a member: the explicit message, or one derived from
-/// the two-way binding target when none is given. `None` when the member isn't deprecated.
+/// The message from a `@deprecated` attribute on a member, empty when the declaration gives no
+/// advice on a replacement. `None` when the member isn't deprecated.
 fn member_deprecation(
     deprecation: Option<syntax_nodes::PropertyDeprecation>,
-    hint: DeprecationHint,
-    tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) -> Option<SmolStr> {
     let deprecation = deprecation?;
-    if reject_experimental_feature(diag, tr, "@deprecated", &deprecation) {
-        return None;
-    }
-    if let Some(message) = deprecation.child_token(SyntaxKind::StringLiteral) {
-        return crate::literals::unescape_string(message.text());
-    }
-    let message = match hint {
-        DeprecationHint::TwoWayBinding(target) => {
-            // Derive the hint from the two-way binding target: keep the full path (e.g.
-            // `a-struct.field`), dropping a leading `self`/`root`. The resolving pass checks the
-            // target is actually reachable.
-            if let Some(qn) = target {
-                let mut segments = qn
-                    .children_with_tokens()
-                    .filter(|t| t.kind() == SyntaxKind::Identifier)
-                    .map(|t| parser::normalize_identifier(t.as_token().unwrap().text()))
-                    .peekable();
-                if segments.peek().is_some_and(|s| matches!(s.as_str(), "self" | "root")) {
-                    segments.next();
-                }
-                let path = segments.collect::<Vec<_>>().join(".");
-                if !path.is_empty() {
-                    return Some(format_smolstr!("Please use '{path}' instead"));
-                }
-            }
-            "@deprecated without a message requires a two-way binding to derive the replacement from"
-        }
-        DeprecationHint::MessageRequired => "@deprecated on a function requires a message",
-    };
-    diag.push_error(message.into(), &deprecation);
-    None
+    // A missing message is reported by the parser, so don't pile on here.
+    let literal = deprecation.child_token(SyntaxKind::StringLiteral)?;
+    crate::literals::unescape_string_reporting(Some(&literal), diag, &deprecation)
 }
 
 /// Shift the locality flags of a result that came from the element's base rather than itself.
@@ -1800,14 +1751,7 @@ impl Element {
                 }
             }
 
-            let deprecated = member_deprecation(
-                prop_decl.PropertyDeprecation(),
-                DeprecationHint::TwoWayBinding(
-                    prop_decl.TwoWayBinding().and_then(|twb| twb.Expression().QualifiedName()),
-                ),
-                tr,
-                diag,
-            );
+            let deprecated = member_deprecation(prop_decl.PropertyDeprecation(), diag);
 
             r.property_declarations.insert(
                 prop_name.clone(),
@@ -1940,14 +1884,7 @@ impl Element {
                 continue;
             }
             let shadowable = shadowable_attribute(sig_decl.ShadowableAttribute(), tr, diag);
-            let deprecated = member_deprecation(
-                sig_decl.PropertyDeprecation(),
-                DeprecationHint::TwoWayBinding(
-                    sig_decl.TwoWayBinding().and_then(|twb| twb.Expression().QualifiedName()),
-                ),
-                tr,
-                diag,
-            );
+            let deprecated = member_deprecation(sig_decl.PropertyDeprecation(), diag);
             let source_name = name;
             let name =
                 declaration.register(&mut r, &source_name, &sig_decl.DeclaredIdentifier(), diag);
@@ -2087,12 +2024,7 @@ impl Element {
                 pure,
                 shadowed_name,
                 shadowable: shadowable_attribute(func.ShadowableAttribute(), tr, diag),
-                deprecated: member_deprecation(
-                    func.PropertyDeprecation(),
-                    DeprecationHint::MessageRequired,
-                    tr,
-                    diag,
-                ),
+                deprecated: member_deprecation(func.PropertyDeprecation(), diag),
                 ..Default::default()
             };
 
@@ -2189,7 +2121,8 @@ impl Element {
                 continue;
             }
             if let Some(message) = &deprecation {
-                diag.push_property_deprecation_warning_with_message(
+                diag.push_member_deprecation_warning(
+                    "callback",
                     &unresolved_name,
                     message,
                     &con_node.child_token(SyntaxKind::Identifier).unwrap(),
@@ -2279,7 +2212,8 @@ impl Element {
                                 .as_ref()
                                 .filter(|_| !lookup_result.is_local_to_component)
                             {
-                                diag.push_property_deprecation_warning_with_message(
+                                diag.push_member_deprecation_warning(
+                                    "property",
                                     unresolved_prop_name,
                                     message,
                                     &prop_name_token,
@@ -3122,11 +3056,7 @@ impl Element {
         MemberDeclaration::Shadow {
             internal_name: self.unique_member_name(name),
             warning: (!private).then(|| {
-                let kind = match existing.property_type {
-                    Type::Callback { .. } => "callback",
-                    Type::Function { .. } => "function",
-                    _ => "property",
-                };
+                let kind = existing.property_type.member_kind();
                 format!("'{name}' shadows the {origin} {kind} of the same name")
             }),
         }
@@ -3253,7 +3183,8 @@ impl Element {
             } else if let Some(message) =
                 lookup_result.deprecated.as_ref().filter(|_| !lookup_result.is_local_to_component)
             {
-                diag.push_property_deprecation_warning_with_message(
+                diag.push_member_deprecation_warning(
+                    lookup_result.property_type.member_kind(),
                     &unresolved_name,
                     message,
                     &name_token,

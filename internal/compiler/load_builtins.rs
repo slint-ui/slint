@@ -174,9 +174,10 @@ pub(crate) fn load_builtins(
                 if let Some(twb) = p.TwoWayBinding() {
                     let alias_name = identifier_text(&p.DeclaredIdentifier()).unwrap();
                     debug_assert!(
-                        p.PropertyDeprecation()
-                            .is_some_and(|d| d.child_token(SyntaxKind::StringLiteral).is_none()),
-                        "the alias {id}::{alias_name} must be marked `@deprecated` without a message"
+                        p.PropertyDeprecation().is_some_and(|d| d
+                            .child_token(SyntaxKind::StringLiteral)
+                            .is_some_and(|literal| literal.text() == "\"\"")),
+                        "the alias {id}::{alias_name} must be marked `@deprecated(\"\")`"
                     );
                     let alias_target = identifier_text(&twb.Expression().QualifiedName().expect(
                         "internal error: built-in aliases can only be declared within the type",

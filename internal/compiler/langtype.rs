@@ -307,6 +307,17 @@ impl Type {
         }
     }
 
+    /// The noun for a member of this type in diagnostics.
+    pub fn member_kind(&self) -> &'static str {
+        use crate::generator::accessor_names::DeclarationKind;
+        match self {
+            Type::Callback { .. } | Type::InferredCallback => DeclarationKind::Callback,
+            Type::Function { .. } => DeclarationKind::Function,
+            _ => DeclarationKind::Property,
+        }
+        .label()
+    }
+
     /// If this is a number type which should be used with an unit, this returns the default unit
     /// otherwise, returns None
     pub fn default_unit(&self) -> Option<Unit> {
@@ -987,7 +998,7 @@ pub struct PropertyLookupResult<'a> {
     pub is_slint_sc: bool,
 
     /// Some if the property was declared with `@deprecated`: the hint message shown after
-    /// "The property 'xxx' has been deprecated." in the warning.
+    /// "The property 'xxx' has been deprecated:" in the warning.
     /// (Only set for properties declared in a component; builtin aliases use `resolved_name` instead.)
     pub deprecated: Option<SmolStr>,
 }

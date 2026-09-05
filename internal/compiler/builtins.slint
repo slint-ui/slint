@@ -12,7 +12,8 @@
 
    comments starting by `//-` have some meanings
 
-   Properties with two way bindings (aliases) are deprecated and must be marked `@deprecated`
+   Properties with two way bindings (aliases) are deprecated and must be marked `@deprecated("")`.
+   Their warning names the alias target, so the annotation carries no message of its own.
 
    Properties can have default binding which must be an expression without any reference to
    another properties. These binding will be then set by the compiler.
@@ -62,7 +63,7 @@ component Rectangle inherits Empty {
     /// \sc
     /// \default transparent
     in property <brush> background;
-    @deprecated in property <brush> color <=> background;
+    @deprecated("") in property <brush> color <=> background;
 }
 
 component BasicBorderRectangle inherits Rectangle {
@@ -354,7 +355,7 @@ component ImageItem inherits Empty {
     /// \default smooth
     in property <ImageRendering> image-rendering;
 
-    @deprecated in property <angle> rotation-angle <=> transform-rotation;
+    @deprecated("") in property <angle> rotation-angle <=> transform-rotation;
 }
 
 /// ```slint imageAlt="image example" width="300" height="200"
@@ -559,7 +560,7 @@ component SimpleText inherits Empty {
     in property <TextVerticalAlignment> vertical-alignment;
     //-default_size_binding:implicit_size
 
-    @deprecated in property <angle> rotation-angle <=> transform-rotation;
+    @deprecated("") in property <angle> rotation-angle <=> transform-rotation;
 }
 
 /// ```slint playground
@@ -1080,10 +1081,10 @@ export component Flickable inherits Empty {
     @shadowable in-out property <length> content-x;
     /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
     @shadowable in-out property <length> content-y;
-    @deprecated in property <length> viewport-width <=> content-width;
-    @deprecated in property <length> viewport-height <=> content-height;
-    @deprecated in-out property <length> viewport-x <=> content-x;
-    @deprecated in-out property <length> viewport-y <=> content-y;
+    @deprecated("") in property <length> viewport-width <=> content-width;
+    @deprecated("") in property <length> viewport-height <=> content-height;
+    @deprecated("") in-out property <length> viewport-x <=> content-x;
+    @deprecated("") in-out property <length> viewport-y <=> content-y;
     /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
     callback flicked();
     //-default_size_binding:expands_to_parent_geometry
@@ -1599,7 +1600,7 @@ component WindowItem {
     /// \sc
     /// \default depends on the style
     in property <brush> background; // StyleMetrics.background  set in apply_default_properties_from_style
-    @deprecated in property <brush> color <=> background;
+    @deprecated("") in property <brush> color <=> background;
     /// The font family to use as default in text elements inside this window, that don't have their `font-family` property set.
     in property <string> default-font-family;
     /// The font size to use as default in text elements inside this window, that don't have their `font-size` property set. The value of this property also forms the basis for relative font sizes.

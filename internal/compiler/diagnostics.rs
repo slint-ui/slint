@@ -427,23 +427,28 @@ impl BuildDiagnostics {
         new_property: &str,
         source: &dyn Spanned,
     ) {
-        self.push_property_deprecation_warning_with_message(
+        self.push_member_deprecation_warning(
+            "property",
             old_property,
             &format!("Please use '{new_property}' instead"),
             source,
         )
     }
 
-    /// Same as [`Self::push_property_deprecation_warning`], but with a free-form message shown
-    /// after "The property 'xxx' has been deprecated."
-    pub fn push_property_deprecation_warning_with_message(
+    /// Same as [`Self::push_property_deprecation_warning`], but for a member of any `kind`
+    /// ("property", "callback" or "function") and with a free-form message shown after
+    /// "The `kind` 'xxx' has been deprecated:". An empty message leaves the colon out too.
+    pub fn push_member_deprecation_warning(
         &mut self,
-        old_property: &str,
+        kind: &str,
+        name: &str,
         message: &str,
         source: &dyn Spanned,
     ) {
+        let deprecated = format!("The {kind} '{name}' has been deprecated");
+        let text = if message.is_empty() { deprecated } else { format!("{deprecated}: {message}") };
         self.push_diagnostic_with_span(
-            format!("The property '{old_property}' has been deprecated. {message}"),
+            text,
             source.to_source_location(),
             crate::diagnostics::DiagnosticLevel::Warning,
         )
