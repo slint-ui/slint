@@ -174,8 +174,17 @@ fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformErr
         ));
     }
 
+    slint::BackendSelector::new().select().ok();
     let to_lsp: Rc<dyn editor_preview::PreviewToLsp> =
-        Rc::new(connector::RemoteControlledPreviewToLsp::new());
+        Rc::new(editor_preview::child_process::RemoteControlledPreviewToLsp::new(
+            |message| {
+                slint::invoke_from_event_loop(move || preview::lsp_to_preview(message))?;
+                Ok(())
+            },
+            || {
+                slint::quit_event_loop().ok();
+            },
+        ));
 
     preview::run(to_lsp, args.fullscreen, false)
 }
@@ -299,7 +308,11 @@ async fn main_loop(
         let sn = server_notifier.clone();
 
         let child_preview: Box<dyn editor_preview::LspToPreview> =
-            Box::new(connector::ChildProcessLspToPreview::new(preview_to_lsp_sender.clone()));
+            Box::new(connector::ChildProcessLspToPreview::new(
+                std::env::current_exe().expect("Could not find executable name of the slint-lsp"),
+                vec!["live-preview".into(), "--remote-controlled".into()],
+                preview_to_lsp_sender.clone(),
+            ));
         let embedded_preview: Box<dyn editor_preview::LspToPreview> =
             Box::new(connector::EmbeddedLspToPreview::new(sn.clone()));
         LspToPreviews::new(
@@ -476,10 +489,12 @@ async fn run_main_loop(
         session: crate::editor_preview::EditorSession {
             document_cache: crate::editor_preview::DocumentCache::new(compiler_config),
             preview_config: Default::default(),
-            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-            to_show: Default::default(),
             open_urls: Default::default(),
-            to_preview,
+            previews: vec![crate::editor_preview::PreviewConnection {
+                to_preview,
+                #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+                to_show: Default::default(),
+            }],
             pending_recompile: Default::default(),
         },
         server_notifier,
@@ -796,7 +811,7 @@ async fn handle_preview_to_lsp_message(
         }
         M::PreviewTypeChanged { target } => {
             tracing::debug!("Preview type changed: {target:?}");
-            ctx.session.to_preview.set_local_target(target)?;
+            ctx.session.primary_preview().to_preview.set_local_target(target)?;
         }
         M::RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
@@ -824,7 +839,7 @@ async fn handle_preview_to_lsp_message(
         M::ConnectRemote { addresses, port } => {
             tracing::debug!("Preview asked to connect remote at {addresses:?}:{port}");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
                 // `connect()` owns the dialog state and has the preview
                 // state pushed once connected.
                 crate::editor_preview::spawn_local(remote.connect(addresses, port));
@@ -833,28 +848,28 @@ async fn handle_preview_to_lsp_message(
         M::DisconnectRemote => {
             tracing::debug!("Preview asked to disconnect remote");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
                 crate::editor_preview::spawn_local(remote.disconnect());
             }
         }
         M::SubmitPairingCode { code } => {
             tracing::debug!("Preview submitted a pairing code");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
                 remote.submit_pairing_code(code);
             }
         }
         M::CancelPairing => {
             tracing::debug!("Preview cancelled pairing");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
                 remote.cancel_pairing();
             }
         }
         M::AcceptUnpairedConnection => {
             tracing::debug!("Preview accepted an unpaired connection");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
                 remote.accept_unpaired_connection();
             }
         }
@@ -864,6 +879,9 @@ async fn handle_preview_to_lsp_message(
         }
         M::RequestPreview { .. } => {
             tracing::debug!("Ignoring preview request from a preview client");
+        }
+        M::Exited => {
+            tracing::debug!("Preview exited");
         }
         // The connector completes pairing before a session exists, so these
         // never reach the LSP's message loop.

@@ -42,9 +42,9 @@ pub mod wasm_prelude {
     }
 }
 
-#[cfg(feature = "file-watcher")]
+#[cfg(any(feature = "file-watcher", feature = "preview-session"))]
 mod diagnostics_adapter;
-#[cfg(feature = "file-watcher")]
+#[cfg(any(feature = "file-watcher", feature = "preview-session"))]
 pub use diagnostics_adapter::to_lsp_diagnostic;
 
 pub type SourceFileVersion = Option<i32>;

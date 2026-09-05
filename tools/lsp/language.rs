@@ -105,7 +105,7 @@ pub fn send_requested_state_to_preview(
     settings: &[String],
 ) {
     if files.is_empty() {
-        ctx.session.send_state_to_preview();
+        ctx.session.send_state_to_preview(0);
     } else {
         send_files_to_preview(ctx, files);
     }
@@ -117,6 +117,7 @@ pub fn send_requested_state_to_preview(
     for name in settings {
         if let Some(contents) = i_slint_editor_preview::settings_store::load("lsp", name) {
             ctx.session
+                .primary_preview()
                 .to_preview
                 .send(&LspToPreviewMessage::SetUserSettings { name: name.clone(), contents });
         }
@@ -147,7 +148,7 @@ pub fn store_user_settings(name: &str, contents: &str) {
 ))]
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
     let file_access = std::cell::OnceCell::new();
-    ctx.session.send_files_to_preview(files, |path| {
+    ctx.session.send_files_to_preview(0, files, |path| {
         file_access
             .get_or_init(|| {
                 preview_files::PreviewFileAccess::new(
@@ -168,13 +169,16 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
         {
             let version =
                 ctx.session.document_cache.document_version_by_path(node.source_file.path());
-            ctx.session.to_preview.send(&LspToPreviewMessage::SetContents {
+            ctx.session.primary_preview().to_preview.send(&LspToPreviewMessage::SetContents {
                 url: VersionedUrl::new(url.clone(), version),
                 contents: node.text().to_string().into(),
             });
         } else {
             tracing::warn!("WASM LSP cannot re-send uncached file to preview: {url}");
-            ctx.session.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+            ctx.session
+                .primary_preview()
+                .to_preview
+                .send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
         }
     }
 }
@@ -432,7 +436,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         if hover.is_some() {
             let (_document, preview) =
                 get_highlights_for_position(ctx, &params.text_document_position_params);
-            ctx.session.to_preview.send(&preview);
+            ctx.session.primary_preview().to_preview.send(&preview);
         }
 
         Ok(hover)
@@ -536,7 +540,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
 
         // Update the highlight in the live preview.
         // We do this even if there are no highlights to clear any previous highlights.
-        ctx.session.to_preview.send(&preview);
+        ctx.session.primary_preview().to_preview.send(&preview);
 
         let not_empty = !document_highlights.is_empty();
         Ok(not_empty.then_some(document_highlights))
@@ -661,7 +665,7 @@ pub fn show_preview_command(
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
     let c = PreviewComponent { url, component };
-    ctx.session.show_preview(c);
+    ctx.session.show_preview(0, c);
 
     Ok(())
 }
@@ -1801,7 +1805,7 @@ pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()>
     };
     {
         ctx.session.preview_config = config.clone();
-        ctx.session.to_preview.send(&LspToPreviewMessage::SetConfiguration { config });
+        ctx.session.send_to_previews(&LspToPreviewMessage::SetConfiguration { config });
     }
 
     tracing::debug!("Loaded configuration from client");
@@ -1940,8 +1944,7 @@ pub mod tests {
         )
         .unwrap();
         let (notifier, client) = test_lsp_client();
-        let mut context = test::mock_context();
-        context.session.document_cache = document_cache;
+        let mut context = test::mock_context_with_document_cache(document_cache);
         context.server_notifier = notifier;
         context.host_language_rename_dont_ask_again.set(true);
 
@@ -2057,7 +2060,7 @@ pub mod tests {
     fn mock_context_with_preview_capture() -> (Context, Rc<RefCell<Vec<LspToPreviewMessage>>>) {
         let (capture, messages) = preview_capture();
         let mut ctx = test::mock_context();
-        ctx.session.to_preview = capture;
+        ctx.session.primary_preview_mut().to_preview = capture;
         (ctx, messages)
     }
 

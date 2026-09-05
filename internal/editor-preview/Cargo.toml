@@ -20,6 +20,12 @@ path = "lib.rs"
 [features]
 preview-engine = []
 preview-builtin = ["preview-engine"]
+preview-process = [
+  "preview-builtin",
+  "dep:async-compat",
+  "dep:slint-interpreter",
+  "i-slint-live-preview/preview-session",
+]
 preview-external = []
 ## Support the LSP-owned remote preview transport.
 preview-remote = []
@@ -33,10 +39,13 @@ i-slint-live-preview = { version = "=1.18.0", path = "../live-preview", features
 itertools = { workspace = true }
 lsp-types = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 smol_str = { workspace = true }
 tracing = { workspace = true }
 
 futures-util = "0.3.32"
+async-compat = { version = "0.2.4", optional = true }
+slint-interpreter = { workspace = true, features = ["compat-1-2", "internal"], optional = true }
 
 # for the `testing` feature
 i-slint-backend-testing = { workspace = true, optional = true }
@@ -44,7 +53,8 @@ spin_on = { workspace = true, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 directories = "6.0"
-tokio = { version = "1.50.0", features = ["rt"] }
+scopeguard = { version = "1.1.0", default-features = false }
+tokio = { version = "1.50.0", features = ["io-util", "process", "rt", "sync"] }
 tempfile = "3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
