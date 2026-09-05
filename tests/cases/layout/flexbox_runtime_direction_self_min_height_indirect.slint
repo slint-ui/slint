@@ -1,0 +1,63 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Same cycle as flexbox_runtime_direction_self_min_height, with the flexbox's
+// self-reference routed through a property instead of naming the implicit size
+// directly: the restriction reaches its own layout info one alias hop further
+// away. `out` matters — through an `in`/`in-out` property the binding can be
+// replaced from the API, so the restriction keeps its plain read and the cycle
+// remains. slint-ui/slint#13059.
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    in property <bool> horizontal: true;
+    out property <length> exposed-h: fl.preferred-height;
+
+    HorizontalLayout {
+        Rectangle { width: 40px; }
+        VerticalLayout {
+            alignment: start;
+            // Required: without a repeated/conditional sibling the VerticalLayout
+            // takes a different measurement path and the bug does not reproduce.
+            if false: Rectangle { }
+            fl := FlexboxLayout {
+                min-height: root.exposed-h;
+                flex-direction: horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+                flex-wrap: wrap;
+
+                r1 := Rectangle { min-width: 60px; preferred-width: 60px; min-height: 20px; preferred-height: 20px; }
+                r2 := Rectangle { min-width: 60px; preferred-width: 60px; min-height: 20px; preferred-height: 20px; }
+                r3 := Rectangle { min-width: 60px; preferred-width: 60px; min-height: 20px; preferred-height: 20px; }
+            }
+        }
+    }
+
+    // The 40px sidebar leaves 160px, so two 60px items fit per line and the
+    // three items wrap onto two lines of 20px.
+    out property <bool> test_width: fl.width == 160px;
+    out property <bool> test_preferred: exposed-h == 40px;
+    out property <bool> test_height: fl.height == 40px;
+    out property <bool> test_line1: r1.x == 0px && r1.y == 0px && r2.x == 60px && r2.y == 0px;
+    out property <bool> test_line2: r3.x == 0px && r3.y == 20px;
+
+    out property <bool> test: test_width && test_preferred && test_height && test_line1 && test_line2;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

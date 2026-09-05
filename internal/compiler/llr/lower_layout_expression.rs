@@ -2094,6 +2094,104 @@ pub fn get_flex_cell_layout_info(
     get_layout_info(elem, ctx, &effective, orientation, constraint)
 }
 
+/// Whether an assignment can replace this property's binding, which makes it
+/// unsafe to answer a read of it with the binding's value. Same test as
+/// `inline_expressions`, on the same merged analysis: a public `in`/`in-out`
+/// property counts, since the application can set it through the API.
+fn is_assigned(nr: &NamedReference) -> bool {
+    let a = super::lower_to_item_tree::get_property_analysis(&nr.element(), nr.name());
+    a.is_set || a.is_set_externally
+}
+
+/// How many alias bindings [`layout_info_field_read`] follows. A bound on the
+/// walk, not a semantic limit: binding loops are rejected earlier, and the
+/// shapes that matter are one or two hops.
+const MAX_ALIAS_HOPS: usize = 4;
+
+/// The field of `layout_info_nr` — the element's own unconstrained layout info
+/// — that `expr` reads, directly or through alias bindings: `min-height:
+/// self.preferred-height` reaches it via the implicit `preferred-height`.
+fn layout_info_field_read(
+    expr: &crate::expression_tree::Expression,
+    layout_info_nr: &NamedReference,
+    depth: usize,
+) -> Option<SmolStr> {
+    use crate::expression_tree::Expression as E;
+    match expr.ignore_debug_hooks() {
+        E::StructFieldAccess { base, name } => match base.ignore_debug_hooks() {
+            E::PropertyReference(nr) if nr == layout_info_nr => Some(name.clone()),
+            _ => None,
+        },
+        E::PropertyReference(nr) if depth > 0 && !is_assigned(nr) => {
+            let alias = nr.element();
+            let alias = alias.borrow();
+            let binding = alias.binding(nr.name())?;
+            if binding.animation.is_some() || !binding.two_way_bindings.is_empty() {
+                return None;
+            }
+            layout_info_field_read(&binding.expression, layout_info_nr, depth - 1)
+        }
+        _ => None,
+    }
+}
+
+/// An explicit restriction that reads the element's own implicit size
+/// (`min-height: self.preferred-height`) reaches the unconstrained
+/// `layoutinfo-{h,v}`, which reads back the perpendicular dimension the caller
+/// is still solving. Once the layout info above went through the parametrized
+/// function, those reads have an answer already: the `layout_info` local. Only
+/// for an element declaring the function itself — a cell that inherits it from
+/// its base component keeps the plain read, as does a restriction with no such
+/// read, which also keeps its caching.
+fn restriction_from_constrained_info(
+    elem: &ElementRc,
+    nr: &NamedReference,
+    orientation: Orientation,
+    constrained: bool,
+    ctx: &mut ExpressionLoweringCtx,
+) -> Option<llr_Expression> {
+    // Only the constrained path stores a `layout_info` local worth reading.
+    if !constrained {
+        return None;
+    }
+    // This answers the read with the binding's value, so an assignment that
+    // replaces the binding at runtime must not be possible.
+    if is_assigned(nr) {
+        return None;
+    }
+    let layout_info_nr = elem.borrow().layout_info_prop(orientation)?.clone();
+
+    let mut expr = {
+        let binding_elem = nr.element();
+        let binding_elem = binding_elem.borrow();
+        let binding = binding_elem.binding(nr.name())?;
+        // Inlining the binding here drops its animation and any two-way alias.
+        if binding.animation.is_some() || !binding.two_way_bindings.is_empty() {
+            return None;
+        }
+        binding.expression.ignore_debug_hooks().clone()
+    };
+
+    let ty = crate::typeregister::layout_info_type();
+    let mut rewritten = false;
+    expr.visit_recursive_mut(&mut |sub| {
+        let Some(field) = layout_info_field_read(sub, &layout_info_nr, MAX_ALIAS_HOPS) else {
+            return;
+        };
+        *sub = crate::expression_tree::Expression::StructFieldAccess {
+            base: crate::expression_tree::Expression::ReadLocalVariable {
+                name: "layout_info".into(),
+                ty: ty.clone().into(),
+            }
+            .into(),
+            name: field,
+        };
+        rewritten = true;
+    });
+
+    rewritten.then(|| super::lower_expression::lower_expression(&expr, ctx))
+}
+
 pub fn get_layout_info(
     elem: &ElementRc,
     ctx: &mut ExpressionLoweringCtx,
@@ -2101,6 +2199,9 @@ pub fn get_layout_info(
     orientation: Orientation,
     constraint: Option<crate::expression_tree::Expression>,
 ) -> llr_Expression {
+    // Whether the layout info below went through the parametrized function,
+    // so `layout_info` holds the element's constrained info.
+    let mut constrained = false;
     // With a constraint and a parameterized layout-info function on the
     // child, call that function instead of reading the plain
     // `layoutinfo-{h,v}` property — breaks the recursion via the child's
@@ -2110,6 +2211,7 @@ pub fn get_layout_info(
             Orientation::Vertical => elem.borrow().layout_info_v_with_constraint.clone(),
             Orientation::Horizontal => elem.borrow().layout_info_h_with_constraint.clone(),
         }) {
+        constrained = true;
         let call = crate::expression_tree::Expression::FunctionCall {
             function: crate::expression_tree::Callable::Function(parameterized_nr),
             arguments: vec![c.clone()],
@@ -2156,10 +2258,11 @@ pub fn get_layout_info(
             .collect::<BTreeMap<_, _>>();
 
         for (nr, s) in constraints.for_each_restrictions(orientation) {
-            values.insert(
-                s.into(),
-                llr_Expression::PropertyReference(ctx.map_property_reference(nr)),
-            );
+            let value = restriction_from_constrained_info(elem, nr, orientation, constrained, ctx)
+                .unwrap_or_else(|| {
+                    llr_Expression::PropertyReference(ctx.map_property_reference(nr))
+                });
+            values.insert(s.into(), value);
         }
         llr_Expression::CodeBlock([store, llr_Expression::Struct { ty, values }].into())
     } else {
