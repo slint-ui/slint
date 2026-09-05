@@ -32,6 +32,7 @@ unsafe fn wrap_vulkan_texture(
     vk_image_raw: u64,
     vk_format: skia_safe::gpu::vk::Format,
     color_type: skia_safe::ColorType,
+    tiling: skia_safe::gpu::vk::ImageTiling,
     layout: skia_safe::gpu::vk::ImageLayout,
     color_space: skia_safe::ColorSpace,
 ) -> Option<skia_safe::Surface> {
@@ -39,7 +40,7 @@ unsafe fn wrap_vulkan_texture(
         let texture_info = &skia_safe::gpu::vk::ImageInfo::new(
             vk_image_raw as _,
             skia_safe::gpu::vk::Alloc::default(),
-            skia_safe::gpu::vk::ImageTiling::OPTIMAL,
+            tiling,
             layout,
             vk_format,
             1,
@@ -73,6 +74,28 @@ pub unsafe fn make_vulkan_surface(
     texture: &wgpu::Texture,
     layout: skia_safe::gpu::vk::ImageLayout,
 ) -> Option<skia_safe::Surface> {
+    unsafe {
+        make_vulkan_surface_with_tiling(
+            gr_context,
+            texture,
+            skia_safe::gpu::vk::ImageTiling::OPTIMAL,
+            layout,
+        )
+    }
+}
+
+/// Like [`make_vulkan_surface`], but for an image whose tiling a DRM format
+/// modifier decides, as an imported dma-buf's does.
+///
+/// # Safety
+/// As [`make_vulkan_surface`]. `tiling` must be the tiling `texture`'s image was
+/// created with.
+pub unsafe fn make_vulkan_surface_with_tiling(
+    gr_context: &mut skia_safe::gpu::DirectContext,
+    texture: &wgpu::Texture,
+    tiling: skia_safe::gpu::vk::ImageTiling,
+    layout: skia_safe::gpu::vk::ImageLayout,
+) -> Option<skia_safe::Surface> {
     // SAFETY: texture is borrowed for the duration of this call; the Vulkan handle is copied
     // into Skia's internal BackendRenderTarget via wrap_vulkan_texture.
     unsafe {
@@ -87,6 +110,7 @@ pub unsafe fn make_vulkan_surface(
             vk_image_raw,
             vk_format,
             color_type,
+            tiling,
             layout,
             super::attachment_color_space(texture),
         )
@@ -111,6 +135,28 @@ pub fn release_vulkan_swapchain_surface(
         skia_surface,
         &skia_safe::gpu::FlushInfo::default(),
         Some(&present_state),
+    );
+}
+
+/// Hands a surface made by [`make_vulkan_surface`] with
+/// [`skia_safe::gpu::vk::ImageLayout::GENERAL`] over to a consumer outside Vulkan,
+/// such as a display controller scanning out an imported dma-buf.
+///
+/// `GENERAL` is the one layout every such consumer can read, and
+/// `VK_QUEUE_FAMILY_EXTERNAL` releases ownership of the image. Both are core
+/// since Vulkan 1.1, so neither needs an extension the wgpu device might lack.
+pub fn release_vulkan_scanout_surface(
+    gr_context: &mut skia_safe::gpu::DirectContext,
+    skia_surface: &mut skia_safe::Surface,
+) {
+    let scanout_state = skia_safe::gpu::vk::mutable_texture_states::new_vulkan(
+        skia_safe::gpu::vk::ImageLayout::GENERAL,
+        ash::vk::QUEUE_FAMILY_EXTERNAL,
+    );
+    gr_context.flush_surface_with_texture_state(
+        skia_surface,
+        &skia_safe::gpu::FlushInfo::default(),
+        Some(&scanout_state),
     );
 }
 

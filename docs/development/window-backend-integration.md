@@ -220,6 +220,24 @@ Direct framebuffer rendering:
 - DRM/KMS for display
 - libinput for input
 
+#### Presentation Paths
+
+Each renderer reaches the screen one of four ways, in `display/`:
+
+- `swdisplay/` — a DRM dumb buffer or `/dev/fb0`, for the software renderer.
+- `gbmdisplay.rs` — a GBM surface behind an EGL context, for the OpenGL renderers.
+- The wgpu DRM surface target in `drmoutput.rs`, where Vulkan owns the display itself.
+  This needs `VK_EXT_acquire_drm_display`, which few drivers offer.
+- `gbmdmabufdisplay.rs` — the fallback for the drivers that don't.
+  GBM allocates a ring of scanout buffers, each exported as a dma-buf and imported into wgpu
+  as a texture, so Vulkan renders into the memory the display scans out and the backend posts
+  it with the same page flip the other paths use.
+
+`renderer/skia.rs` picks between the last two: it asks whether the Vulkan instance enabled
+`VK_EXT_acquire_drm_display`, and falls back to the dma-buf path when it didn't, or when
+creating the surface fails anyway.
+`SLINT_KMS_WGPU_DMABUF` forces the fallback on hardware that supports both.
+
 ### Testing Backend (`internal/backends/testing/`)
 
 Headless testing:

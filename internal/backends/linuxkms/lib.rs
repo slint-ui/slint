@@ -34,6 +34,8 @@ mod renderer {
     pub mod femtovg;
     #[cfg(feature = "renderer-femtovg-wgpu")]
     pub mod femtovg_wgpu;
+    #[cfg(gbm_dmabuf)]
+    pub mod skia_dmabuf;
 
     #[cfg(feature = "renderer-software")]
     pub mod sw;

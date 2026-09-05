@@ -11,6 +11,7 @@ fn main() {
     //   enable_skia_wgpu = skia uses a wgpu surface
     //   skia_wgpu_30     = wgpu-30 path active inside new_wgpu (preferred when available)
     //   skia_wgpu_29     = wgpu-29 path active inside new_wgpu (used when -30 unavailable)
+    //   gbm_dmabuf       = the GBM dma-buf fallback display is compiled in
     cfg_aliases! {
         enable_skia: { any(
             feature = "renderer-skia-opengl",
@@ -28,6 +29,10 @@ fn main() {
             feature = "unstable-wgpu-29",
             not(any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-30"))
         ) },
+        // Rendering into GBM-allocated dma-bufs, for drivers without
+        // VK_EXT_acquire_drm_display. Same feature set as skia_wgpu_30: the
+        // dma-buf import is a wgpu-30 API and skia is its only user so far.
+        gbm_dmabuf: { any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-30") },
         // The DRM wgpu-29 surface target is not skia specific: the vello
         // renderer uses it too.
         wgpu_29_surface_target: { any(feature = "unstable-wgpu-29", feature = "renderer-vello") },

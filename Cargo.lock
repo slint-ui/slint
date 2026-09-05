@@ -3402,6 +3402,7 @@ dependencies = [
  "memmap2",
  "nix",
  "raw-window-handle",
+ "spin_on",
  "wgpu 30.0.1",
  "xkbcommon",
 ]

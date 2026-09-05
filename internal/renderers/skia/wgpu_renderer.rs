@@ -5,6 +5,7 @@
 use std::pin::Pin;
 use std::rc::Rc;
 
+use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::window::WindowAdapter;
@@ -179,29 +180,74 @@ impl SkiaWGPU30Renderer {
     /// format. Supported formats depend on the GPU backend: `Rgba8Unorm` and `Rgba8UnormSrgb`
     /// are supported on all backends; `Bgra8Unorm` is additionally supported on Metal and Vulkan.
     pub fn render_to_texture(&self, texture: &wgpu_30::Texture) -> Result<(), PlatformError> {
+        self.render_to_texture_impl(texture, 0., (0., 0.), None, false)
+    }
+
+    /// Render the scene to a texture a display controller scans out directly, such as an
+    /// imported dma-buf on Linux KMS.
+    ///
+    /// Unlike [`Self::render_to_texture`], the frame is left in the image layout and queue
+    /// ownership the display controller expects, so the texture must be one it can scan out —
+    /// on Vulkan, an image whose tiling a DRM format modifier decides.
+    ///
+    /// The scene is rotated by `rotation_angle_degrees` around the origin and then moved by
+    /// `translation`, for a screen mounted in a different orientation than the window's;
+    /// the translation brings the rotated scene back into the texture. `post_render_cb` draws
+    /// on top of the finished scene, for a cursor the platform renders itself.
+    pub fn render_to_scanout_texture(
+        &self,
+        texture: &wgpu_30::Texture,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+    ) -> Result<(), PlatformError> {
+        self.render_to_texture_impl(
+            texture,
+            rotation_angle_degrees,
+            translation,
+            post_render_cb,
+            true,
+        )
+    }
+
+    fn render_to_texture_impl(
+        &self,
+        texture: &wgpu_30::Texture,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+        scanout: bool,
+    ) -> Result<(), PlatformError> {
         let surface = self.surface();
         self.renderer.invoke_rendering_notifier_setup(&*surface)?;
 
         let gr_context = &mut surface.gr_context.borrow_mut();
 
-        let mut skia_surface =
-            surface.backend.make_surface(gr_context, texture).ok_or_else(|| {
-                PlatformError::from("Failed to wrap WGPU texture as Skia render target")
-            })?;
+        let backend = &surface.backend;
+        let mut skia_surface = if scanout {
+            backend.make_scanout_surface(gr_context, texture)
+        } else {
+            backend.make_surface(gr_context, texture)
+        }
+        .ok_or_else(|| PlatformError::from("Failed to wrap WGPU texture as Skia render target"))?;
 
         let window_adapter = self.renderer.window_adapter()?;
         let window = window_adapter.window();
 
         self.renderer.render_to_canvas(
             skia_surface.canvas(),
-            0.,
-            (0., 0.),
+            rotation_angle_degrees,
+            translation,
             Some(gr_context),
             0,
             Some(&*surface),
             window,
-            None,
+            post_render_cb,
         );
+
+        if scanout {
+            backend.release_scanout_surface(gr_context, &mut skia_surface);
+        }
 
         surface.flush_and_submit(gr_context);
 

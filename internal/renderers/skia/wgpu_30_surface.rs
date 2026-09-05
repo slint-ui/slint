@@ -626,6 +626,62 @@ impl Backend {
         }
     }
 
+    /// Like [`Self::make_surface`], but for an image a display controller scans
+    /// out directly, such as an imported dma-buf on Linux KMS.
+    ///
+    /// Such an image is tiled by a DRM format modifier rather than optimally, and
+    /// [`Self::release_scanout_surface`] leaves it in the `GENERAL` layout the
+    /// display controller reads — which is therefore also where the next frame
+    /// finds it. Pair every call with [`Self::release_scanout_surface`].
+    ///
+    /// A freshly imported image is still in `UNDEFINED`, so on its first frame the
+    /// barrier Skia emits names `GENERAL` as a source layout the image isn't in
+    /// yet. The validation layers report that; the frame is unaffected, because a
+    /// scanout target is drawn in full — the renderer has no partial rendering
+    /// state — and the layout the barrier leaves behind is correct either way.
+    pub(crate) fn make_scanout_surface(
+        &self,
+        _gr_context: &mut skia_safe::gpu::DirectContext,
+        _texture: &wgpu::Texture,
+    ) -> Option<skia_safe::Surface> {
+        match self {
+            // Scanning out a texture is a Linux/Vulkan path; nothing reaches here
+            // on the platforms these arms are compiled for.
+            #[cfg(target_vendor = "apple")]
+            Self::Metal => None,
+            #[cfg(target_family = "windows")]
+            Self::Dx12 => None,
+            #[cfg(skia_wgpu_vulkan)]
+            Self::Vulkan { .. } => unsafe {
+                vulkan::make_vulkan_surface_with_tiling(
+                    _gr_context,
+                    _texture,
+                    skia_safe::gpu::vk::ImageTiling::DRM_FORMAT_MODIFIER_EXT,
+                    skia_safe::gpu::vk::ImageLayout::GENERAL,
+                )
+            },
+        }
+    }
+
+    /// Hands a surface made by [`Self::make_scanout_surface`] over to the display
+    /// controller.
+    pub(crate) fn release_scanout_surface(
+        &self,
+        _gr_context: &mut skia_safe::gpu::DirectContext,
+        _skia_surface: &mut skia_safe::Surface,
+    ) {
+        match self {
+            #[cfg(target_vendor = "apple")]
+            Self::Metal => {}
+            #[cfg(target_family = "windows")]
+            Self::Dx12 => {}
+            #[cfg(skia_wgpu_vulkan)]
+            Self::Vulkan { .. } => {
+                vulkan::release_vulkan_scanout_surface(_gr_context, _skia_surface)
+            }
+        }
+    }
+
     /// Like [`Self::make_surface`], but for the swapchain image handed out by
     /// [`wgpu::Surface::get_current_texture`].
     ///
