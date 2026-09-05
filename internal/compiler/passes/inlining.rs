@@ -12,6 +12,7 @@ use crate::object_tree::*;
 use by_address::ByAddress;
 use smol_str::SmolStr;
 use std::cell::RefCell;
+use std::collections::btree_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
@@ -97,25 +98,22 @@ fn inline_element(
     let mut elem_mut = elem.borrow_mut();
     let priority_delta = 1 + elem_mut.inline_depth;
     elem_mut.base_type = inlined_component.root_element.borrow().base_type.clone();
-    // Merging is by name, so the two sides must not share one
-    debug_assert!(
-        inlined_component
-            .root_element
-            .borrow()
-            .property_declarations
-            .keys()
-            .all(|name| !elem_mut.property_declarations.contains_key(name)),
-        "inlining {} into {} would merge two declarations of the same name",
-        inlined_component.id,
-        elem_mut.id
-    );
-    elem_mut.property_declarations.extend(
-        inlined_component.root_element.borrow().property_declarations.iter().map(|(name, decl)| {
-            let mut decl = decl.clone();
-            decl.expose_in_public_api = false;
-            (name.clone(), decl)
-        }),
-    );
+    let Element { id: elem_id, property_declarations, .. } = &mut *elem_mut;
+    for (name, decl) in inlined_component.root_element.borrow().property_declarations.iter() {
+        match property_declarations.entry(name.clone()) {
+            // Only the functions lowered from `forward-focus` can be declared on both sides,
+            // as user code can't declare these reserved names. The derived one overrides.
+            Entry::Occupied(_) => debug_assert!(
+                crate::typeregister::reserved_member_function(name).is_some(),
+                "inlining {} into {} would merge two declarations of the same name",
+                inlined_component.id,
+                elem_id
+            ),
+            Entry::Vacant(e) => {
+                e.insert(PropertyDeclaration { expose_in_public_api: false, ..decl.clone() });
+            }
+        }
+    }
     // Merge the shadow index, keeping the element's own shadows.
     for (source_name, internal_name) in &inlined_component.root_element.borrow().shadowing_members {
         elem_mut
