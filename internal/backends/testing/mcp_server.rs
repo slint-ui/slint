@@ -109,6 +109,18 @@ const TOOLS: &[ToolDef] = &[
         optional_fields: &[],
     },
     ToolDef {
+        name: "scroll_element",
+        description: "Send a mouse wheel event over the center of an element. deltaX and deltaY are logical pixels: a deltaY of -50 moves a Flickable's viewport up by 50, revealing content further down, which is what a wheel-down does. Use this to scroll a Flickable or ScrollView, and for wheel-driven gestures such as zooming a canvas.",
+        request_type: "RequestScrollElement",
+        optional_fields: &["deltaX", "deltaY"],
+    },
+    ToolDef {
+        name: "dispatch_pointer_scroll",
+        description: "Send a mouse wheel event at a position in the window, in logical coordinates. Use scroll_element to scroll an element by handle; use this for an arbitrary point.",
+        request_type: "RequestPointerScroll",
+        optional_fields: &["deltaX", "deltaY"],
+    },
+    ToolDef {
         name: "invoke_accessibility_action",
         description: "Invoke an accessibility action: 'Default_' (activate buttons, toggle checkboxes), 'Increment'/'Decrement' (sliders, spinboxes), 'Expand' (combo boxes). Preferred over click_element when the element's role suggests a semantic action.",
         request_type: "RequestInvokeElementAccessibilityAction",
@@ -387,6 +399,30 @@ async fn handle_tool_call(
             )?;
             Ok(ToolResult::Json(serde_json::json!({})))
         }
+        "scroll_element" => {
+            let p: proto::RequestScrollElement = deserialize_params(args)?;
+            let element_index = handle_to_index(
+                p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
+            )?;
+            dispatch::scroll_element(state, element_index, p.delta_x, p.delta_y)?;
+            Ok(ToolResult::Json(serde_json::json!({})))
+        }
+        "dispatch_pointer_scroll" => {
+            let p: proto::RequestPointerScroll = deserialize_params(args)?;
+            let window_index = handle_to_index(
+                p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?,
+            )?;
+            let position = p.position.ok_or_else(|| "missing position".to_string())?;
+            state.dispatch_window_event(
+                window_index,
+                i_slint_core::platform::WindowEvent::PointerScrolled {
+                    position: i_slint_core::api::LogicalPosition::new(position.x, position.y),
+                    delta_x: p.delta_x,
+                    delta_y: p.delta_y,
+                },
+            )?;
+            Ok(ToolResult::Json(serde_json::json!({})))
+        }
         "drag_element" => {
             let p: proto::RequestElementDrag = deserialize_params(args)?;
             let element_index = handle_to_index(
@@ -530,6 +566,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "5. get_element_properties → full details on a specific element\n",
                     "6. take_screenshot → visual snapshot (returned as inline image)\n",
                     "7. Interact: click_element, drag_element, set_element_value, invoke_accessibility_action, dispatch_key_event\n",
+                    "   Wheel: scroll_element (an element's center) or dispatch_pointer_scroll (a position).\n",
                     "   Hover without pressing: hover_element (an element's center) or move_pointer (a position). ",
                     "click_element and drag_element both press, so neither can produce a hover on its own. ",
                     "The pointer stays where it is left, so clear a hover with move_pointer to a point away from the element.\n",
@@ -1103,6 +1140,62 @@ mod tests {
         .expect("get_element_properties failed");
         let ToolResult::Json(value) = result else { panic!("expected a json result") };
         assert_eq!(value["size"]["height"], 50.0);
+    }
+
+    #[test]
+    fn test_scroll_element_scrolls_a_flickable() {
+        use slint::ComponentHandle;
+
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 100px;
+                height: 100px;
+                out property <length> scrolled: flick.content-y;
+                flick := Flickable {
+                    width: 100%;
+                    height: 100%;
+                    content-width: 100px;
+                    content-height: 400px;
+                    Rectangle { background: #abc; }
+                }
+            }
+        }
+
+        let app = App::new().unwrap();
+        let adapter = i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter();
+        let state = make_state();
+        state.add_window(&adapter);
+        let window_handle = index_to_handle(state.window_handles()[0]);
+        let root = index_to_handle(
+            state.root_element_handle(handle_to_index(window_handle).unwrap()).unwrap(),
+        );
+
+        assert_eq!(app.get_scrolled(), 0.);
+
+        block_on(handle_tool_call(
+            &state,
+            "scroll_element",
+            &serde_json::json!({
+                "elementHandle": serde_json::to_value(root).unwrap(),
+                "deltaY": -50.0
+            }),
+        ))
+        .expect("scroll_element failed");
+        let by_element = app.get_scrolled();
+        assert_eq!(by_element, -50., "the wheel event didn't reach the Flickable");
+
+        block_on(handle_tool_call(
+            &state,
+            "dispatch_pointer_scroll",
+            &serde_json::json!({
+                "windowHandle": serde_json::to_value(window_handle).unwrap(),
+                "position": { "x": 50.0, "y": 50.0 },
+                "deltaY": -50.0
+            }),
+        ))
+        .expect("dispatch_pointer_scroll failed");
+        assert_eq!(app.get_scrolled(), -100., "the second wheel event had no effect");
     }
 
     #[test]

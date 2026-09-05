@@ -960,6 +960,18 @@ pub(crate) mod dispatch {
         Ok(())
     }
 
+    /// Send a wheel event over an element's center.
+    #[cfg(feature = "mcp")]
+    pub(crate) fn scroll_element(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+        delta_x: f32,
+        delta_y: f32,
+    ) -> Result<(), String> {
+        state.element("scroll_element", element)?.scroll(delta_x, delta_y);
+        Ok(())
+    }
+
     pub(crate) async fn drag(
         state: &IntrospectionState,
         element: ArenaIndex,
