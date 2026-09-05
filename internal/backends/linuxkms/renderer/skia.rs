@@ -69,25 +69,40 @@ impl SkiaRendererAdapter {
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
 
-        #[cfg(skia_wgpu_30)]
-        let (surface_target, size) = drm_output.wgpu_30_surface_target()?;
-        #[cfg(skia_wgpu_29)]
-        let (surface_target, size) = drm_output.wgpu_29_surface_target()?;
+        // Letting Vulkan drive the display needs VK_EXT_acquire_drm_display, which
+        // few drivers offer. Without it, render into a dma-buf and page-flip that.
+        #[cfg(gbm_dmabuf)]
+        if std::env::var_os("SLINT_KMS_WGPU_DMABUF").is_some()
+            || !super::skia_dmabuf::acquire_drm_display_available()
+        {
+            return super::skia_dmabuf::SkiaDmabufRendererAdapter::new(
+                drm_output,
+                requested_graphics_api,
+            );
+        }
 
-        #[cfg(skia_wgpu_30)]
-        let skia_wgpu_surface =
-            Box::new(i_slint_renderer_skia::wgpu_30_surface::WGPUSurface::new_with_surface(
-                surface_target,
-                size,
-                requested_graphics_api.cloned(),
-            )?);
-        #[cfg(skia_wgpu_29)]
-        let skia_wgpu_surface =
-            Box::new(i_slint_renderer_skia::wgpu_29_surface::WGPUSurface::new_with_surface(
-                surface_target,
-                size,
-                requested_graphics_api.cloned(),
-            )?);
+        let size = {
+            let (width, height) = drm_output.size();
+            i_slint_core::api::PhysicalSize::new(width, height)
+        };
+
+        let surface = Self::new_wgpu_surface(&drm_output, size, requested_graphics_api);
+
+        let skia_wgpu_surface = match surface {
+            Ok(surface) => surface,
+            // The extension is there but unusable for this device: no Vulkan
+            // physical device matching the DRM fd, or no matching display mode.
+            #[cfg(gbm_dmabuf)]
+            Err(err) => {
+                eprintln!("Falling back to dma-buf presentation: {err}");
+                return super::skia_dmabuf::SkiaDmabufRendererAdapter::new(
+                    drm_output,
+                    requested_graphics_api,
+                );
+            }
+            #[cfg(not(gbm_dmabuf))]
+            Err(err) => return Err(err),
+        };
 
         let renderer = Box::new(Self {
             renderer: SkiaRenderer::new_with_surface(
@@ -103,6 +118,35 @@ impl SkiaRendererAdapter {
         eprintln!("Using Skia renderer with wgpu");
 
         Ok(renderer)
+    }
+
+    /// Creates the skia surface that renders straight onto a DRM plane, which
+    /// requires `VK_EXT_acquire_drm_display`.
+    #[cfg(enable_skia_wgpu)]
+    fn new_wgpu_surface(
+        drm_output: &DrmOutput,
+        size: PhysicalWindowSize,
+        requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
+    ) -> Result<Box<dyn i_slint_renderer_skia::Surface>, PlatformError> {
+        #[cfg(skia_wgpu_30)]
+        let (surface_target, _) = drm_output.wgpu_30_surface_target()?;
+        #[cfg(skia_wgpu_29)]
+        let (surface_target, _) = drm_output.wgpu_29_surface_target()?;
+
+        #[cfg(skia_wgpu_30)]
+        let surface = i_slint_renderer_skia::wgpu_30_surface::WGPUSurface::new_with_surface(
+            surface_target,
+            size,
+            requested_graphics_api.cloned(),
+        )?;
+        #[cfg(skia_wgpu_29)]
+        let surface = i_slint_renderer_skia::wgpu_29_surface::WGPUSurface::new_with_surface(
+            surface_target,
+            size,
+            requested_graphics_api.cloned(),
+        )?;
+
+        Ok(Box::new(surface))
     }
 
     #[cfg(feature = "renderer-skia-opengl")]

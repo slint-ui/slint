@@ -31,7 +31,9 @@ enum PageFlipState {
     NoFrameBufferPosted,
     InitialBufferPosted,
     WaitingForPageFlip {
-        _buffer_to_keep_alive_until_flip: Box<dyn Buffer>,
+        /// `None` when the caller owns the buffers for the lifetime of the
+        /// output, as [`DrmOutput::present_framebuffer`]'s callers do.
+        _buffer_to_keep_alive_until_flip: Option<Box<dyn Buffer>>,
     },
     ReadyForNextBuffer,
 }
@@ -208,18 +210,48 @@ impl DrmOutput {
         })
     }
 
+    /// Posts `framebuffer_handle` and keeps `front_buffer` alive until the flip
+    /// completes. Use this when the buffer is allocated per frame; see
+    /// [`Self::present_framebuffer`] when the caller owns a persistent buffer ring.
     pub fn present(
         &self,
         front_buffer: impl Buffer + 'static,
         framebuffer_handle: drm::control::framebuffer::Handle,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        if let Some(last_buffer) = self.last_buffer.replace(Some(Box::new(front_buffer))) {
+        // The buffer this one replaces is the one still on screen until the flip
+        // completes, so that is the one to keep alive.
+        let last_buffer = self.last_buffer.replace(Some(Box::new(front_buffer)));
+        self.post(framebuffer_handle, last_buffer.is_some(), last_buffer)
+    }
+
+    /// Posts `framebuffer_handle` without taking ownership of its buffer. The
+    /// caller must keep the buffer alive at least until the flip completes.
+    #[cfg(gbm_dmabuf)]
+    pub fn present_framebuffer(
+        &self,
+        framebuffer_handle: drm::control::framebuffer::Handle,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // The first present has to modeset rather than flip, so track that a
+        // framebuffer was posted even though no buffer is handed over.
+        let previously_posted =
+            !matches!(*self.page_flip_state.borrow(), PageFlipState::NoFrameBufferPosted);
+        self.post(framebuffer_handle, previously_posted, None)
+    }
+
+    fn post(
+        &self,
+        framebuffer_handle: drm::control::framebuffer::Handle,
+        previously_posted: bool,
+        buffer_to_keep_alive: Option<Box<dyn Buffer>>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        if previously_posted {
             self.drm_device
                 .page_flip(self.crtc, framebuffer_handle, drm::control::PageFlipFlags::EVENT, None)
                 .map_err(|e| format!("Error presenting framebuffer on screen: {e}"))?;
 
-            *self.page_flip_state.borrow_mut() =
-                PageFlipState::WaitingForPageFlip { _buffer_to_keep_alive_until_flip: last_buffer };
+            *self.page_flip_state.borrow_mut() = PageFlipState::WaitingForPageFlip {
+                _buffer_to_keep_alive_until_flip: buffer_to_keep_alive,
+            };
         } else {
             self.drm_device
                 .set_crtc(
