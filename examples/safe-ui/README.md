@@ -1,3 +1,5 @@
+<!-- cspell:ignore Paweł -->
+
 # Slint Safety Critical UI Demo
 
 We aim to make Slint suitable in environments that require reliable display of safety-critical UI, such as vehicles of any kind, medical devices, or industrial tools and machines.
@@ -30,13 +32,14 @@ The overlay is rendered on the Cortex-M7 running FreeRTOS and NXP's SafeAssure f
 ## Project Layout
 
 The safety scene uses [Slint SC](../../api/slint-sc/),
-the safety-critical subset of Slint: `Window` and `Rectangle` only, and no `Timer` or model.
+the safety-critical subset of Slint:
+`Window`, `Image` and `TouchArea`, with no `Timer` and no model.
 The UI and its logic are independent of the platform they run on:
 
 - [`app/`](./app) — the scene ([`main.slint`](./app/main.slint)) and the event loop `app_main`.
   A backend implements the `Platform` trait (a clock, the display size, touch events, and an RGB8 framebuffer),
   and drives the UI by calling `app_main`.
-  The once-per-second color cycle of the three telltales, which full Slint would express with a `Timer`,
+  The airlock sequence, which full Slint would express with a `Timer` and a global in `.slint`,
   is written in Rust here.
 - [`desktop/`](./desktop) — a desktop backend that shows the rendered frames in a Slint window and forwards its input,
   for running the example on a development machine.
@@ -46,6 +49,28 @@ The UI and its logic are independent of the platform they run on:
   and drives `ffi`'s `slint_app_main()`, so the C path can be exercised on a development machine.
 - [`esp32-s3-box/`](./esp32-s3-box) — a bare-metal backend for the ESP32-S3-BOX-3,
   on esp-hal and embassy, driving the board's panel and touch controller directly.
+
+## The Airlock Screen
+
+The scene is a public transit airlock at 320x240: two doors, the chamber between them, a pressure indicator, and one action panel.
+It shows the state the host gives it and makes no door-control or safety decision of its own.
+
+Tap ENTER to secure both doors, which takes six seconds, and then equalize the chamber pressure, which takes nine more.
+The panel counts the seconds down while a phase runs, and a ten-segment ring reports how far equalization has come.
+Tap EXIT OUTER once the outer door reads READY, then EXIT INNER to release the inner door and return to the start.
+
+Two gestures exist only so the demo can reach the fault screen without a real fault:
+a tap on the occupant chamber raises one, and a tap on the red emergency banner clears it.
+
+The screen has to say all of that without a font: Slint SC decodes images at compile time and draws no text.
+The artwork carries every label, and a countdown or a percentage is assembled from single-digit images.
+The scene splits along those pieces:
+[`main.slint`](./app/main.slint) places them,
+[`components.slint`](./app/components.slint) holds the door and digit images,
+and [`progress.slint`](./app/progress.slint) and [`progress-text.slint`](./app/progress-text.slint)
+assemble the ring and the countdown.
+The subset shapes the rest, since it has no `visible`, no `enabled`, and no division.
+The files say how each of those is worked around.
 
 ## Supported Pixel Formats
 
@@ -152,6 +177,28 @@ toolchain it needs; with the board attached over USB-C:
 ```
 cd examples/safe-ui/esp32-s3-box && cargo run --release
 ```
+
+## Artwork
+
+The PNGs in [`app/assets/`](./app/assets) were exported at native size from the Public Transit concept in Figma.
+The source file is `AwH2AA7IrUYRfIdmGSN1YT`, export section `2086`.
+Text is baked into the artwork; no runtime fonts or vector assets are required.
+The fault background combines the original background, pressure warning at (118,115), and emergency panel at (7,181).
+The eleven `progress/progress-*.png` states combine the Figma base and segment overlays at their native pixel offsets.
+One image selects the ring state in completed 10% steps; separate raster digits display the exact percentage.
+The assets include icons from these free sources:
+
+- [Font Awesome Free 6.7.2](https://fontawesome.com/license/free), Copyright 2024 Fonticons, Inc., CC BY 4.0: lock, unlock-keyhole, check, triangle-exclamation, hand, person-walking, and right-from-bracket icons in the backgrounds, doors, pressure-lock/check indicators, and enter/exit panels.
+- [Tabler Icons](https://github.com/tabler/tabler-icons/blob/main/LICENSE), Copyright (c) 2020-2026 Paweł Kuna, MIT: hourglass-half in both wait panels.
+- [Ionicons](https://github.com/ionic-team/ionicons/blob/main/LICENSE), Copyright (c) 2015-present Ionic (http://ionic.io/), MIT: man in both occupant chambers.
+
+Icons were resized, recolored, and rasterized into the compositions.
+The Ionicons man artwork was cropped to its bounds and its paths combined; the empty chamber uses a pale version.
+Original composition and other artwork are Copyright © SixtyFPS GmbH <info@slint.dev>, MIT.
+The repository's `REUSE.toml` records these credits and licenses for each affected PNG, with license texts in `LICENSES/`.
+
+Retain these attributions when redistributing the raster artwork.
+The MIT source headers do not replace third-party artwork licenses.
 
 ## Known Limitations
 
