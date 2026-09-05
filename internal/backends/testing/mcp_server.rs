@@ -233,6 +233,9 @@ async fn handle_tool_call(
     name: &str,
     args: &Value,
 ) -> Result<ToolResult, String> {
+    // Report on the current tree: see `IntrospectionState::ensure_windows_instantiated`.
+    state.ensure_windows_instantiated();
+
     match name {
         "list_windows" => {
             let response = dispatch::list_windows(state);
@@ -1057,6 +1060,49 @@ mod tests {
         assert_eq!(find_header_end(b"GET / HTTP/1.1\r\n\r\n"), Some(14));
         assert_eq!(find_header_end(b"no double crlf here"), None);
         assert_eq!(find_header_end(b"\r\n\r\n"), Some(0));
+    }
+
+    #[test]
+    fn test_tool_call_instantiates_pending_repeaters() {
+        use slint::ComponentHandle;
+
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                in property <int> count: 3;
+                probe := VerticalLayout {
+                    for _ in root.count: Rectangle { height: 10px; }
+                }
+                measured := Rectangle {
+                    height: probe.preferred-height;
+                }
+            }
+        }
+
+        let app = App::new().unwrap();
+        let adapter = i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter();
+        let state = make_state();
+        state.add_window(&adapter);
+
+        let measured = crate::ElementHandle::find_by_element_id(&app, "App::measured")
+            .next()
+            .expect("measured element");
+        let element_handle = index_to_handle(state.element_to_handle(measured));
+
+        // The model changes between events,
+        // so the repeater instances stay stale until the next instantiation pass.
+        app.set_count(5);
+
+        let result = block_on(handle_tool_call(
+            &state,
+            "get_element_properties",
+            &serde_json::json!({
+                "elementHandle": serde_json::to_value(element_handle).unwrap()
+            }),
+        ))
+        .expect("get_element_properties failed");
+        let ToolResult::Json(value) = result else { panic!("expected a json result") };
+        assert_eq!(value["size"]["height"], 50.0);
     }
 
     #[test]

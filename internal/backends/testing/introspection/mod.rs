@@ -185,6 +185,21 @@ impl IntrospectionState {
             .ok_or_else(|| "Attempting to access deleted window".to_string())
     }
 
+    /// Runs the instantiation pass on every tracked window.
+    ///
+    /// The pass materializes repeaters, conditionals and component containers.
+    /// Introspection reads the item tree between events, where nothing else runs the pass.
+    /// A model changed since the last event would otherwise report its old instances (#13223).
+    /// Call this from a transport entry point, never from within a property evaluation.
+    pub fn ensure_windows_instantiated(&self) {
+        // Collect first: the pass runs change handlers, which may re-enter `add_window`.
+        let adapters: Vec<_> =
+            self.windows.borrow().values().filter_map(|w| w.window_adapter.upgrade()).collect();
+        for adapter in adapters {
+            WindowInner::from_pub(adapter.window()).ensure_tree_instantiated();
+        }
+    }
+
     pub fn root_element_handle(&self, window_index: ArenaIndex) -> Result<ArenaIndex, String> {
         Ok(self
             .windows
