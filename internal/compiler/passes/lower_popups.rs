@@ -187,13 +187,12 @@ fn lower_popup_window(
             }
         });
         if referenced {
-            let name = format_smolstr!("popup-{}-is-open", popup_window_element.borrow().id);
-            parent_component
-                .root_element
-                .borrow_mut()
-                .property_declarations
-                .insert(name.clone(), Type::Bool.into());
-            let is_open_ref = NamedReference::new(&parent_component.root_element, name);
+            // A base component may already have a popup with the same id
+            let is_open_ref = crate::layout::create_new_prop(
+                &parent_component.root_element,
+                format_smolstr!("popup-{}-is-open", popup_window_element.borrow().id),
+                Type::Bool,
+            );
             // The runtime writes this property through a generated setter that the (LLR) optimizer
             // cannot see, so mark it as set to keep it from being constant-folded to its default.
             is_open_ref.mark_as_set();
