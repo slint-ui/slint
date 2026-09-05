@@ -412,6 +412,10 @@ jobs:
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev
                       toolchain: nightly # uses #![feature]
+                      extra_commands: |
+                          cargo update
+                          # rc1 switched to num-bigint 0.5, which grammers-crypto doesn't accept
+                          cargo update -p glass_pumpkin --precise 2.0.0-rc0
                     - git_url: "https://github.com/qhua948/anubis"
                       sub_path: "."
                       toolchain: nightly # uses #![feature]
@@ -457,7 +461,7 @@ jobs:
                     #      cargo new --lib ../rsiot-devices
                     #      cargo update
                     - git_url: https://github.com/maplibre/maplibre-native-slint
-                      sub_path: rust
+                      sub_path: experiments/rust
                       extra_packages: glslang-dev glslang-tools libcurl4-openssl-dev libglfw3-dev libicu-dev libjpeg-turbo8-dev libpng-dev libssl-dev libuv1-dev libwebp-dev spirv-tools protobuf-compiler
                     - git_url: https://github.com/AgustinSRG/PersonalMediaVault
                       sub_path: launcher-gui
@@ -479,6 +483,8 @@ jobs:
                     - git_url: "https://github.com/heng30/wayshot"
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev libx264-dev libavfilter-dev libavdevice-dev libswscale-dev libswresample-dev libpostproc-dev
                       extra_commands: |
+                          # =1.17.1 pins slint below the patched version, and the vendored i-slint crates are its own fork of 1.17.1
+                          sed -i 's/"=1.17.1"/"*"/g; /^i-slint-.* = { path = "vendor\//d' Cargo.toml
                           cargo update
                           # rc.13 is a semver compatible update that changes the API
                           cargo update ort --precise 2.0.0-rc.12
@@ -496,6 +502,8 @@ jobs:
                       git_rev: 4be6e53798fd13614b0e1ae4916f313fcfbf249b
                       # zip = "*" in its Cargo.toml, but the bundled epub lib needs the old zip API
                       extra_commands: "cargo update && cargo update zip --precise 0.5.13"
+                      # apps/remote calls SlintClient::new with one argument too few
+                      extra_args: "--workspace --exclude remote"
                     - git_url: "https://github.com/ChenhuiZhang/envsensor-demo"
                       sub_path: "."
                       # strum 0.27 only re-exports AsRefStr with the derive feature
@@ -511,6 +519,10 @@ jobs:
                       sub_path: "examples/slint"
                     - git_url: "https://github.com/ancwrd1/snx-rs"
                       sub_path: "apps/snx-rs-gui"
+                      extra_commands: |
+                          cargo update
+                          # the unpinned isakmp git dep changed the Ikev1Service::new signature
+                          cargo update -p isakmp --precise 1b7640c736b681a017f9baf3f2891e659b828c2d
                     - git_url: "https://github.com/snolab/CapsLockX"
                       sub_path: "rs/tools/clx-prefs-slint"
                     # depends on core2 0.4, which can't be resolved
@@ -592,19 +604,9 @@ jobs:
                     - git_url: "https://github.com/BiliRumble/Cloubit"
                       sub_path: "."
                       extra_packages: libasound2-dev
-                    - git_url: "https://github.com/nanowave-player/nanowave-ui"
-                      sub_path: "."
-                      # drop the local patch that points media_source at a missing sibling; use the published crate
-                      extra_commands: |
-                          sed -i '/media_source = { path/d' Cargo.toml
-                          cargo update
                     - git_url: "https://github.com/JeninSutradhar/ffmpeg-VideoPlayer-Rust_Slint"
                       sub_path: "."
                       extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
-                      # derive_more 1.0 needs a feature to enable its derives; the last 0.99 doesn't
-                      extra_commands: |
-                          cargo update
-                          cargo update -p derive_more --precise 0.99.20
                     - git_url: "https://github.com/NateAGeek/SenToAni"
                       sub_path: "."
                       extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
@@ -625,15 +627,6 @@ jobs:
                       extra_commands: |
                           sed -i 's/version = "=1.16.1"/version = "1.16.1"/' Cargo.toml
                           cargo update
-                    - git_url: "https://github.com/reco-project/video-stitcher"
-                      sub_path: "crates/reco-gui"
-                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
-                      extra_commands: |
-                          # ~1.15 pins slint below the patched version, and unstable-wgpu-28 no longer exists
-                          sed -i 's/version = "~1.15"/version = "*"/; s/unstable-wgpu-28/unstable-wgpu-29/' Cargo.toml
-                          cargo update
-                          # rc.13 is a semver compatible update that changes the API
-                          cargo update ort --precise 2.0.0-rc.12
                     - git_url: "https://github.com/ruapotato/Flick"
                       sub_path: "shell"
                       extra_packages: libdisplay-info-dev
@@ -641,6 +634,8 @@ jobs:
                           # unpin both slint and slint-build so the patched version applies to both
                           sed -i 's/"=1.7.2"/"*"/g' Cargo.toml
                           cargo update
+                          # smithay is written against beta.2; beta.3 removed WindowEvent::DragMoved
+                          cargo update -p winit@0.31.0-beta.3 --precise 0.31.0-beta.2
                     - git_url: "https://github.com/reciperium/temporis"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev
@@ -677,7 +672,8 @@ jobs:
                     # Slint is optional here, so a feature enabling it is required
                     - git_url: "https://github.com/ShashlikMap/shashlik-map"
                       sub_path: "winit-run"
-                      extra_args: "--features=linux-cpu"
+                      # linux-cpu pulls in its renderer-cpu crate, which is out of sync with renderer-common
+                      extra_args: "--features=linux-gpu"
                       extra_commands: |
                           export MAPTILER_API_KEY=ci_dummy_key
                           cargo update
@@ -772,7 +768,6 @@ jobs:
             matrix:
                 git_url:
                     - "https://github.com/0hgawa/Clipo"
-                    - "https://github.com/0hgawa/vayou-slint"
                     - "https://github.com/MelDxKviel/zapret-ui"
                     - "https://github.com/kirinonakar/ocr_trans"
                     - "https://github.com/WardLordRuby/elden_mod_loader_gui"
@@ -790,6 +785,11 @@ jobs:
                     #  toolchain: nightly
                     - git_url: "https://github.com/chengbuilds/PetPhrase"
                       sub_path: "app-slint"
+                    - git_url: "https://github.com/0hgawa/vayou-slint"
+                      extra_commands: |
+                          # ~1.16 pins slint below the patched version
+                          sed -i 's/version = "~1.16"/version = "*"/g' Cargo.toml
+                          cargo update
                     # servicemanager-win32 has no Linux implementation
                     - git_url: "https://github.com/chstc/NGSM"
                       sub_path: "crates/servicemanager-gui"
@@ -885,6 +885,12 @@ jobs:
                     # Rust dep tray-item fails to build (TrayItemImpl missing)
                     - git_url: "https://github.com/Maeeen/emoji-picker"
                       files: "ui/emoji-picker.slint"
+                    # Rust dep media_source isn't on crates.io and every lofty 0.23 is yanked
+                    - git_url: "https://github.com/nanowave-player/nanowave-ui"
+                      files: "ui/main.slint"
+                    # Rust code is written against the removed unstable-wgpu-28 API
+                    - git_url: "https://github.com/reco-project/video-stitcher"
+                      files: "crates/reco-gui/ui/main.slint"
                     # genuine circular layout dependency in its own .slint (album art size depends on the container height)
                     #- git_url: "https://github.com/karmakarmeghdip/taan"
                     #  files: "ui/main.slint"
@@ -918,8 +924,6 @@ jobs:
                       files: "vivi/ui/magic/magic_window.slint"
                     - git_url: "https://github.com/Aquaticat/Monochromatic"
                       files: "package/desktop-app/terminal/ui/app.slint"
-                    - git_url: "https://github.com/CoreBedtime/playground"
-                      files: "configurator/tweak_editor.slint"
                     - git_url: "https://github.com/Dominic485649/AWJimage"
                       files: "ui/awj_studio.slint"
                     - git_url: "https://github.com/FernTech-EU/qleany"
