@@ -1,0 +1,77 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A base and a derived component each read `is-open` of their own popup, both called `popup`.
+// The two must stay separate properties.
+
+component Base inherits Rectangle {
+    out property <bool> base-open: popup.is-open;
+    public function show-base() { popup.show(); }
+
+    popup := PopupWindow {
+        close-policy: no-auto-close;
+        width: 40px;
+        height: 40px;
+        Rectangle { background: blue; }
+    }
+}
+
+export component TestCase inherits Base {
+    width: 300px;
+    height: 300px;
+
+    out property <bool> derived-open: popup.is-open;
+    out property <bool> base-open-alias: self.base-open;
+    public function show-derived() { popup.show(); }
+    public function show-base-popup() { self.show-base(); }
+
+    popup := PopupWindow {
+        close-policy: no-auto-close;
+        x: 100px;
+        width: 40px;
+        height: 40px;
+        Rectangle { background: red; }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_derived_open());
+assert!(!instance.get_base_open_alias());
+
+instance.invoke_show_derived();
+assert!(instance.get_derived_open());
+assert!(!instance.get_base_open_alias());
+
+instance.invoke_show_base_popup();
+assert!(instance.get_base_open_alias());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_derived_open());
+assert(!instance.get_base_open_alias());
+
+instance.invoke_show_derived();
+assert(instance.get_derived_open());
+assert(!instance.get_base_open_alias());
+
+instance.invoke_show_base_popup();
+assert(instance.get_base_open_alias());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(!instance.derived_open);
+assert(!instance.base_open_alias);
+
+instance.show_derived();
+assert(instance.derived_open);
+assert(!instance.base_open_alias);
+
+instance.show_base_popup();
+assert(instance.base_open_alias);
+```
+*/
