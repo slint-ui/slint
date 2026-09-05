@@ -49,6 +49,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::RepeatedElement => Some((self::KEYWORD, 0)),
                 SyntaxKind::RepeatedIndex => Some((self::VARIABLE, 1 << self::DEFINITION)),
                 SyntaxKind::ConditionalElement => Some((self::KEYWORD, 0)),
+                SyntaxKind::MatchElement => Some((self::KEYWORD, 0)),
                 SyntaxKind::CallbackDeclaration => Some((self::KEYWORD, 0)),
                 SyntaxKind::CallbackConnection => Some((self::FUNCTION, 0)),
                 SyntaxKind::PropertyDeclaration => Some((self::KEYWORD, 0)),
