@@ -6,18 +6,7 @@ use drm::control::Device;
 use gbm::AsRaw;
 use i_slint_core::platform::PlatformError;
 
-use crate::drmoutput::{DrmOutput, SharedFd};
-
-struct OwnedFramebufferHandle {
-    handle: drm::control::framebuffer::Handle,
-    device: SharedFd,
-}
-
-impl Drop for OwnedFramebufferHandle {
-    fn drop(&mut self) {
-        self.device.destroy_framebuffer(self.handle).ok();
-    }
-}
+use crate::drmoutput::{DrmOutput, OwnedFramebufferHandle, SharedFd};
 
 pub struct GbmDisplay {
     pub drm_output: DrmOutput,

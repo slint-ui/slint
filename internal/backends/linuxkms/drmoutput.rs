@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore CRTC crtcs htotal vrefresh vtotal
+// cSpell: ignore CRTC crtcs htotal modeset vrefresh vtotal
 use std::cell::{Cell, RefCell};
 use std::os::fd::{AsFd, BorrowedFd, OwnedFd};
 use std::rc::Rc;
@@ -23,6 +23,19 @@ impl AsFd for SharedFd {
 
 impl DrmDevice for SharedFd {}
 
+#[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg", gbm_dmabuf))]
+pub struct OwnedFramebufferHandle {
+    pub handle: drm::control::framebuffer::Handle,
+    pub device: SharedFd,
+}
+
+#[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg", gbm_dmabuf))]
+impl Drop for OwnedFramebufferHandle {
+    fn drop(&mut self) {
+        self.device.destroy_framebuffer(self.handle).ok();
+    }
+}
+
 impl drm::control::Device for SharedFd {}
 
 #[derive(Default)]
@@ -31,7 +44,9 @@ enum PageFlipState {
     NoFrameBufferPosted,
     InitialBufferPosted,
     WaitingForPageFlip {
-        _buffer_to_keep_alive_until_flip: Box<dyn Buffer>,
+        /// `None` when the caller owns the buffers for the lifetime of the
+        /// output, as [`DrmOutput::present_framebuffer`]'s callers do.
+        _buffer_to_keep_alive_until_flip: Option<Box<dyn Buffer>>,
     },
     ReadyForNextBuffer,
 }
@@ -203,18 +218,43 @@ impl DrmOutput {
         })
     }
 
+    /// Posts `framebuffer_handle` and keeps `front_buffer` alive until the flip completes.
+    /// Use this when the buffer is allocated per frame;
+    /// see [`Self::present_framebuffer`] when the caller owns a persistent buffer ring.
     pub fn present(
         &self,
         front_buffer: impl Buffer + 'static,
         framebuffer_handle: drm::control::framebuffer::Handle,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        if let Some(last_buffer) = self.last_buffer.replace(Some(Box::new(front_buffer))) {
+        // The buffer this one replaces is the one still on screen until the flip
+        // completes, so that is the one to keep alive.
+        let last_buffer = self.last_buffer.replace(Some(Box::new(front_buffer)));
+        self.post(framebuffer_handle, last_buffer)
+    }
+
+    /// Posts `framebuffer_handle` without taking ownership of its buffer.
+    /// The caller must keep the buffer alive at least until the flip completes.
+    #[cfg(gbm_dmabuf)]
+    pub fn present_framebuffer(
+        &self,
+        framebuffer_handle: drm::control::framebuffer::Handle,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.post(framebuffer_handle, None)
+    }
+
+    fn post(
+        &self,
+        framebuffer_handle: drm::control::framebuffer::Handle,
+        buffer_to_keep_alive: Option<Box<dyn Buffer>>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        if !matches!(*self.page_flip_state.borrow(), PageFlipState::NoFrameBufferPosted) {
             self.drm_device
                 .page_flip(self.crtc, framebuffer_handle, drm::control::PageFlipFlags::EVENT, None)
                 .map_err(|e| format!("Error presenting framebuffer on screen: {e}"))?;
 
-            *self.page_flip_state.borrow_mut() =
-                PageFlipState::WaitingForPageFlip { _buffer_to_keep_alive_until_flip: last_buffer };
+            *self.page_flip_state.borrow_mut() = PageFlipState::WaitingForPageFlip {
+                _buffer_to_keep_alive_until_flip: buffer_to_keep_alive,
+            };
         } else {
             self.drm_device
                 .set_crtc(
