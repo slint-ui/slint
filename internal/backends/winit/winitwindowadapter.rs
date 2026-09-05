@@ -150,6 +150,80 @@ fn test_round_up_logical() {
     assert_eq!(round_up_logical(21., 0.1), 25.);
 }
 
+/// Windows will have software and OpenGL applications present to an off screen "redirection bitmap",
+/// which is filled with opaque white pixels before showing or resizing. When using a
+/// DirectComposition swapchain, this buffer is unused but still composited underneath the window,
+/// preventing window transparency from working.
+///
+/// One way to fix this would be to disable the redirection buffer when using DX12, but that would
+/// require knowing the rendering backend (software/gl/vulkan/dx12) when creating the window, which
+/// is a circular dependency because we want to have the window to guarantee a compatible surface
+/// when selecting backends.
+///
+/// This solution is to just always use this redirection buffer and fill it with rgba(0,0,0,0)
+/// instead of trying to bypass it conditionally. This allows having transparency with
+/// software/gl/vulkan/dx12 in a uniform manner.
+#[cfg(target_os = "windows")]
+fn clear_redirection_bitmap(winit_window: &winit::window::Window) {
+    use raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::Graphics::Gdi::{
+        BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BitBlt, CreateCompatibleDC, CreateDIBSection,
+        DIB_RGB_COLORS, DeleteDC, DeleteObject, GetDC, ReleaseDC, SRCCOPY, SelectObject,
+    };
+
+    let Ok(handle) = winit_window.window_handle() else { return };
+    let RawWindowHandle::Win32(handle) = handle.as_raw() else { return };
+    let hwnd = HWND(handle.hwnd.get() as *mut _);
+    let size = winit_window.surface_size();
+    let (Ok(width), Ok(height)) = (i32::try_from(size.width), i32::try_from(size.height)) else {
+        return;
+    };
+    if width <= 0 || height <= 0 {
+        return;
+    }
+
+    // SAFETY: this window must exist as we own it and we just extracted the hwnd
+    let window_dc = unsafe { GetDC(Some(hwnd)) };
+    if window_dc.is_invalid() {
+        return;
+    }
+    let info = BITMAPINFO {
+        bmiHeader: BITMAPINFOHEADER {
+            biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+            biWidth: width,
+            biHeight: -height,
+            biPlanes: 1,
+            biBitCount: 32,
+            biCompression: BI_RGB.0,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let mut bits: *mut core::ffi::c_void = std::ptr::null_mut();
+
+    // SAFETY: this window must exist as we just extracted the hwnd, and we don't store
+    // anything outside of this function so it will not get dereferenced later.
+    unsafe {
+        if let Ok(bitmap) =
+            CreateDIBSection(Some(window_dc), &info, DIB_RGB_COLORS, &mut bits, None, 0)
+        {
+            if !bits.is_null() {
+                std::ptr::write_bytes(bits as *mut u8, 0, width as usize * height as usize * 4);
+                let memory_dc = CreateCompatibleDC(Some(window_dc));
+                if !memory_dc.is_invalid() {
+                    let previous = SelectObject(memory_dc, bitmap.into());
+                    let _ = BitBlt(window_dc, 0, 0, width, height, Some(memory_dc), 0, 0, SRCCOPY);
+                    SelectObject(memory_dc, previous);
+                    let _ = DeleteDC(memory_dc);
+                }
+            }
+            let _ = DeleteObject(bitmap.into());
+        }
+        ReleaseDC(Some(hwnd), window_dc);
+    }
+}
+
 /// Whether the platform assigns the window its size, so requesting one is pointless.
 ///
 /// On iOS and friends the window covers whatever the system hands it, and winit's UIKit
@@ -971,6 +1045,9 @@ impl WinitWindowAdapter {
             WindowInner::from_pub(self.window())
                 .set_window_item_safe_area(self.safe_area_inset().to_logical(scale_factor));
 
+            #[cfg(target_os = "windows")]
+            self.clear_redirection_bitmap_if_needed();
+
             // Workaround fox winit not sync'ing CSS size of the canvas (the size shown on the browser)
             // with the width/height attribute (the size of the viewport/GL surface)
             // If they're not in sync, the UI would be shown as scaled
@@ -986,6 +1063,18 @@ impl WinitWindowAdapter {
             }
         }
         Ok(())
+    }
+
+    /// Clear background of opaque pixels if transparency is enabled
+    /// See: [`clear_redirection_bitmap`]
+    #[cfg(target_os = "windows")]
+    fn clear_redirection_bitmap_if_needed(&self) {
+        if !self.renderer().presentation_may_use_transparency() {
+            return;
+        }
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+            clear_redirection_bitmap(&winit_window);
+        }
     }
 
     pub fn set_accent_color(&self, color: Color) {

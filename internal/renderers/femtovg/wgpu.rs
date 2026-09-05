@@ -323,6 +323,17 @@ impl GraphicsBackend for WGPUBackend {
 }
 
 impl FemtoVGRenderer<WGPUBackend> {
+    /// Returns true if the surface is presented with its alpha channel honored, i.e. the
+    /// transparent parts of the scene show whatever is behind the window.
+    pub fn presentation_may_use_transparency(&self) -> bool {
+        use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+        self.graphics_backend
+            .surface_config
+            .borrow()
+            .as_ref()
+            .is_some_and(|config| matches!(config.alpha_mode, PreMultiplied | PostMultiplied))
+    }
+
     /// Synchronously initialize the WGPU surface. This uses the blocking init path
     /// and works on all platforms except WASM.
     pub fn set_surface(

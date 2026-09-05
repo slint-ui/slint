@@ -12,6 +12,20 @@ use alloc::boxed::Box;
 
 pub use wgpu_30 as wgpu;
 
+/// Get the default backend options given WGPU environment variables. Includes an override
+/// to default to a swapchain type that supports transparency under dx12.
+pub fn default_backend_options() -> wgpu::BackendOptions {
+    #[allow(unused_mut)]
+    let mut options = wgpu::BackendOptions::from_env_or_default();
+
+    // on windows with DX12, a composition swapchain is the only kind that supports transparency
+    #[cfg(target_family = "windows")]
+    if wgpu::Dx12SwapchainKind::from_env().is_none() {
+        options.dx12.presentation_system = wgpu::Dx12SwapchainKind::DxgiFromVisual;
+    }
+    options
+}
+
 #[cfg(feature = "unstable-wgpu-30")]
 pub mod api {
     /*!
@@ -55,7 +69,7 @@ pub mod api {
 
             Self {
                 backends,
-                backend_options: wgpu_30::BackendOptions::from_env_or_default(),
+                backend_options: super::default_backend_options(),
                 instance_flags: wgpu_30::InstanceFlags::from_build_config().with_env(),
                 instance_memory_budget_thresholds: wgpu_30::MemoryBudgetThresholds::default(),
 
@@ -187,7 +201,7 @@ pub fn any_wgpu30_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
                 wgpu::Instance::new(wgpu::InstanceDescriptor {
                     backends,
                     flags: wgpu::InstanceFlags::from_build_config().with_env(),
-                    backend_options: wgpu::BackendOptions::from_env_or_default(),
+                    backend_options: default_backend_options(),
                     memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
                     display: None,
                 }),
@@ -357,7 +371,7 @@ pub async fn async_init_instance_adapter_device_queue_surface(
                 wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor {
                     backends,
                     flags: wgpu::InstanceFlags::from_build_config().with_env(),
-                    backend_options: wgpu::BackendOptions::from_env_or_default(),
+                    backend_options: default_backend_options(),
                     memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
                     display: None,
                 })
