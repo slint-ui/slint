@@ -491,12 +491,24 @@ impl SharedBufferCommand {
                     extra: self.extra,
                 }
             }
+            #[cfg(feature = "image-pixel-format-rgb565")]
+            SharedBufferData::SharedImage(SharedImageBuffer::RGB565(b)) => SceneTexture {
+                data: &b.as_bytes()[start * 2..end * 2],
+                pixel_stride: stride as u16,
+                format: TexturePixelFormat::Rgb565,
+                extra: self.extra,
+            },
             SharedBufferData::AlphaMap { data, width } => SceneTexture {
                 data: &data[start..end],
                 pixel_stride: *width,
                 format: TexturePixelFormat::AlphaMap,
                 extra: self.extra,
             },
+            #[cfg(not(feature = "image-pixel-format-rgb565"))]
+            #[allow(unreachable_patterns)]
+            _ => unimplemented!(
+                "RGB565 images need the image-pixel-format-rgb565 feature of the renderer"
+            ),
         }
     }
 }
