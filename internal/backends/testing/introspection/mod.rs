@@ -191,6 +191,7 @@ impl IntrospectionState {
     /// Introspection reads the item tree between events, where nothing else runs the pass.
     /// A model changed since the last event would otherwise report its old instances (#13223).
     /// Call this from a transport entry point, never from within a property evaluation.
+    #[cfg(feature = "mcp")]
     pub fn ensure_windows_instantiated(&self) {
         // Collect first: the pass runs change handlers, which may re-enter `add_window`.
         let adapters: Vec<_> =
@@ -258,8 +259,13 @@ impl IntrospectionState {
         let adapter = self.window_adapter(window_index)?;
         let window = adapter.window();
         let item_tree = WindowInner::from_pub(window).component();
-        Ok(ElementHandle::find_by_element_id(&RootWrapper(&item_tree), elements_id)
-            .collect::<Vec<_>>())
+        let root = RootWrapper(&item_tree);
+        // Without debug info there are no ids to match, so report that rather than
+        // an empty result that reads like "no such element" (#13225).
+        if !root.root_element().has_debug_info() {
+            return Err(crate::search_api::MISSING_DEBUG_INFO_MESSAGE.into());
+        }
+        Ok(ElementHandle::find_by_element_id(&root, elements_id).collect::<Vec<_>>())
     }
 
     pub fn take_snapshot(

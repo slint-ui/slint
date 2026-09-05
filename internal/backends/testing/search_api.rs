@@ -58,10 +58,11 @@ pub(crate) fn mock_drag_window(
     window.dispatch_event(WindowEvent::PointerReleased { position: end, button });
 }
 
+/// Shown when the application was built without element debug info.
+pub(crate) const MISSING_DEBUG_INFO_MESSAGE: &str = "The use of the ElementHandle API requires the presence of debug info in Slint compiler generated code. Set the `SLINT_EMIT_DEBUG_INFO=1` environment variable at application build time or use `compile_with_config` and `with_debug_info` with `slint_build`'s `CompilerConfiguration`";
+
 fn warn_missing_debug_info() {
-    i_slint_core::debug_log!(
-        "The use of the ElementHandle API requires the presence of debug info in Slint compiler generated code. Set the `SLINT_EMIT_DEBUG_INFO=1` environment variable at application build time or use `compile_with_config` and `with_debug_info` with `slint_build`'s `CompilerConfiguration`"
-    )
+    i_slint_core::debug_log!("{}", MISSING_DEBUG_INFO_MESSAGE)
 }
 
 mod internal {
@@ -388,6 +389,13 @@ impl ElementHandle {
             }
             ControlFlow::Continue(())
         })
+    }
+
+    /// Returns whether the compiler emitted the debug info that type names, ids and
+    /// descendant traversal need. See `MISSING_DEBUG_INFO_MESSAGE`.
+    #[cfg(any(feature = "system-testing", feature = "mcp"))]
+    pub(crate) fn has_debug_info(&self) -> bool {
+        self.item.upgrade().is_some_and(|item| item.element_count().is_some())
     }
 
     /// Creates a new [`ElementQuery`] to match any descendants of this element.
