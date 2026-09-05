@@ -30,7 +30,10 @@ pub(crate) const SUBPIXEL_BIN_COUNT: i32 = 4;
 
 /// Cache key includes blob id, font index, pixel size, glyph id, a hash of normalized
 /// variation coordinates (so different variable font instances produce distinct cache
-/// entries) and the horizontal sub-pixel bin.
+/// entries), the horizontal sub-pixel bin, and the faux-italic synthesis applied at render
+/// time. Without `skew_bits`, an upright and a synthetically-italicized glyph from the same
+/// font, size, and id would collide on the same cache entry and one of the two runs would
+/// silently render with the other's bitmap.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct GlyphCacheKey {
     /// Font blob id.
@@ -45,6 +48,9 @@ struct GlyphCacheKey {
     coords_hash: u64,
     /// Horizontal sub-pixel bin.
     subpixel_bin: u8,
+    /// Faux-italic skew angle in degrees, bit-cast for `Eq`/`Hash`; `None` when the font has
+    /// (or doesn't need) a real italic/oblique face.
+    skew_bits: Option<u32>,
 }
 
 struct RenderableGlyphWeightScale;
@@ -86,6 +92,10 @@ pub struct VectorFont {
     normalized_coords: Vec<i16>,
     /// Hash of normalized_coords for use in the glyph cache key.
     coords_hash: u64,
+    /// Faux-italic/faux-bold hints from fontique, applied at render time via
+    /// [`with_synthesis`](Self::with_synthesis). Left at the default (no-op) for instances used
+    /// only for shaping and metrics, where synthesis is irrelevant.
+    synthesis: fontique::Synthesis,
 }
 
 fn hash_coords(coords: &[i16]) -> u64 {
@@ -169,7 +179,17 @@ impl VectorFont {
             cap_height: (cap_height.cast() * scale).cast(),
             normalized_coords: normalized_coords.to_vec(),
             coords_hash,
+            synthesis: fontique::Synthesis::default(),
         }
+    }
+
+    /// Attaches fontique's synthesis suggestions (currently only faux-italic skew is applied,
+    /// see [`render_vector_glyph`](Self::render_vector_glyph)) to use when rasterizing glyphs.
+    /// Only meaningful for a font instance used to render (as opposed to shape) text, since
+    /// synthesis changes the glyph outline, not its advance width.
+    pub fn with_synthesis(mut self, synthesis: fontique::Synthesis) -> Self {
+        self.synthesis = synthesis;
+        self
     }
 
     pub fn render_vector_glyph(
@@ -181,6 +201,8 @@ impl VectorFont {
         GLYPH_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
 
+            let skew_degrees = self.synthesis.skew();
+
             let cache_key = GlyphCacheKey {
                 font_blob_id: self.font_blob.id(),
                 font_index: self.font_index,
@@ -188,6 +210,7 @@ impl VectorFont {
                 glyph_id,
                 coords_hash: self.coords_hash,
                 subpixel_bin,
+                skew_bits: skew_degrees.map(f32::to_bits),
             };
 
             if let Some(entry) = cache.get(&cache_key) {
@@ -204,9 +227,23 @@ impl VectorFont {
                     .size(self.pixel_size.get() as f32)
                     .normalized_coords(&self.normalized_coords)
                     .build();
+                // Faux italic, for fonts fontique picked as the closest match to an `italic`
+                // request but that carry neither a true italic face nor an `ital`/`slnt`
+                // variation axis (common for CJK fonts, see issue #10178). This transform runs
+                // in the outline's own font-design space (Y-up: ascenders have larger Y), not
+                // device pixels, so the sign that leans glyphs forward here is the opposite of
+                // the device-space renderers -- verified by rendering both ways and comparing
+                // which one actually leans right, not derived from a convention doc alone.
+                let transform = skew_degrees.map(|degrees| {
+                    swash::zeno::Transform::skew(
+                        swash::zeno::Angle::from_degrees(degrees),
+                        swash::zeno::Angle::ZERO,
+                    )
+                });
                 let image = swash::scale::Render::new(&[swash::scale::Source::Outline])
                     .format(swash::zeno::Format::Alpha)
                     .offset(swash::zeno::Vector::new(subpixel_offset_x, 0.0))
+                    .transform(transform)
                     .render(&mut scaler, glyph_id.get())?;
 
                 let placement = image.placement;

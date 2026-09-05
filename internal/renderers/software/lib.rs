@@ -3319,7 +3319,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         font: &sharedparley::parley::FontData,
         font_size: sharedparley::PhysicalLength,
         normalized_coords: &[i16],
-        _synthesis: &fontique::Synthesis,
+        synthesis: &fontique::Synthesis,
         color: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
@@ -3334,7 +3334,8 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             swash_offset,
             font_size.cast(),
             normalized_coords,
-        );
+        )
+        .with_synthesis(*synthesis);
 
         let global_offset: euclid::Vector2D<f32, PhysicalPx> =
             self.current_state.offset.to_vector().cast() * self.scale_factor;
