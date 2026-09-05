@@ -882,7 +882,12 @@ impl RendererSealed for SoftwareRenderer {
 
         #[cfg(feature = "systemfonts")]
         if uses_parley(&font) {
-            return sharedparley::text_content_widths(self, text_item, item_rc);
+            return sharedparley::text_content_widths(
+                self,
+                text_item,
+                item_rc,
+                Some(&self.text_layout_cache),
+            );
         }
 
         let max_lines = text_item.line_limit();
