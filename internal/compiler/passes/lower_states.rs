@@ -40,11 +40,12 @@ fn lower_state_in_element(
         return;
     }
     let has_transitions = !root_element.borrow().transitions.is_empty();
-    let state_property_name = compute_state_property_name(root_element);
-    let state_property = Expression::PropertyReference(NamedReference::new(
+    let state_property_nr = crate::layout::create_new_prop(
         root_element,
-        state_property_name.clone(),
-    ));
+        SmolStr::new_static("state"),
+        if has_transitions { state_info_type.clone() } else { Type::Int32 },
+    );
+    let state_property = Expression::PropertyReference(state_property_nr.clone());
     let state_property_ref = if has_transitions {
         Expression::StructFieldAccess {
             base: Box::new(state_property.clone()),
@@ -108,14 +109,7 @@ fn lower_state_in_element(
         states_id.insert(state.id, idx as i32 + 1);
     }
 
-    root_element.borrow_mut().property_declarations.insert(
-        state_property_name.clone(),
-        PropertyDeclaration {
-            property_type: if has_transitions { state_info_type.clone() } else { Type::Int32 },
-            ..PropertyDeclaration::default()
-        },
-    );
-    root_element.borrow_mut().set_binding(state_property_name, state_value.into());
+    root_element.borrow_mut().set_binding(state_property_nr.name().clone(), state_value.into());
 
     lower_transitions_in_element(
         root_element,
@@ -183,20 +177,6 @@ fn lower_transitions_in_element(
             );
         }
     }
-}
-
-/// Returns a suitable unique name for the "state" property
-fn compute_state_property_name(root_element: &ElementRc) -> SmolStr {
-    let mut property_name = "state".to_owned();
-    while root_element
-        .borrow()
-        .lookup_property(property_name.as_ref(), PropertyLookupMode::InternalName)
-        .property_type
-        != Type::Invalid
-    {
-        property_name += "-";
-    }
-    property_name.into()
 }
 
 enum ExpressionForProperty {
