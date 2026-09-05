@@ -191,6 +191,7 @@ impl IntrospectionState {
     /// Introspection reads the item tree between events, where nothing else runs the pass.
     /// A model changed since the last event would otherwise report its old instances (#13223).
     /// Call this from a transport entry point, never from within a property evaluation.
+    #[cfg(feature = "mcp")]
     pub fn ensure_windows_instantiated(&self) {
         // Collect first: the pass runs change handlers, which may re-enter `add_window`.
         let adapters: Vec<_> =
