@@ -3776,7 +3776,7 @@ pub(crate) fn apply_default_type_properties(element: &mut Element) {
         for (prop, info) in &builtin_base.properties {
             if let BuiltinPropertyDefault::Expr(expr) = &info.default_value {
                 element.bindings.0.entry(prop.clone()).or_insert_with(|| {
-                    let mut binding = BindingExpression::from(expr.clone());
+                    let mut binding = BindingExpression::from(expr.to_expression());
                     binding.priority = i32::MAX;
                     RefCell::new(binding)
                 });

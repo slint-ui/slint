@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, DefaultSizeBinding,
-    ElementType, Function, NativeClass, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, ConstantExpression,
+    DefaultSizeBinding, ElementType, Function, NativeClass, Type,
 };
 use crate::object_tree::{self, *};
 use crate::parser::{SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
@@ -268,8 +268,6 @@ pub(crate) fn load_builtins(
             (name, info)
         }));
 
-        // NativeClass is not Send yet; the Arc is for the shared langtype graph.
-        #[allow(clippy::arc_with_non_send_sync)]
         let mut builtin = BuiltinElement::new(Arc::new(n));
         builtin.is_global = matches!(base, Base::Global);
         let properties = &mut builtin.properties;
@@ -354,13 +352,13 @@ pub(crate) fn load_builtins(
     }
 }
 
-/// Compile an expression, knowing that the expression is basic (does not have lookup to other things)
+/// Compile a default value, knowing that the expression is a constant (does not have lookup to other things)
 fn compiled(
     node: syntax_nodes::BindingExpression,
     type_register: &TypeRegister,
     ty: Type,
     symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
-) -> Expression {
+) -> ConstantExpression {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
     let mut ctx =
         crate::lookup::LookupCtx::empty_context(type_register, &mut diag, symbol_counters.clone());
@@ -374,7 +372,9 @@ fn compiled(
         diag.print();
         panic!("Error parsing the builtin elements: {vec:?}");
     }
-    e
+    ConstantExpression::from_expression(&e).unwrap_or_else(|| {
+        panic!("the default value of a builtin property must be a constant expression: {e:?}")
+    })
 }
 
 /// Return true when the member declaration is preceded by a `//-key` comment.
