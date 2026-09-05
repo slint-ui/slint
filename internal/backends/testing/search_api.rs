@@ -390,6 +390,20 @@ impl ElementHandle {
         })
     }
 
+    /// Returns whether both handles refer to the same element of the same item.
+    #[cfg(any(feature = "system-testing", feature = "mcp"))]
+    pub(crate) fn is_same_element(&self, other: &ElementHandle) -> bool {
+        self.item == other.item && self.element_index == other.element_index
+    }
+
+    /// Returns a hashable value that equal elements share, for use as a lookup key.
+    /// Elements of different item trees can collide, so compare candidates with
+    /// [`Self::is_same_element`]. Returns None once the element is gone.
+    #[cfg(any(feature = "system-testing", feature = "mcp"))]
+    pub(crate) fn identity_hint(&self) -> Option<(u32, usize)> {
+        self.item.upgrade().map(|item| (item.index(), self.element_index))
+    }
+
     /// Creates a new [`ElementQuery`] to match any descendants of this element.
     pub fn query_descendants(&self) -> ElementQuery {
         ElementQuery {
