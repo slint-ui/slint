@@ -68,7 +68,8 @@ unsafe fn wrap_vulkan_texture(
 ///
 /// `layout` is the layout wgpu leaves the image in, which Skia transitions away from before
 /// its first draw. Getting it wrong doesn't just trip the validation layers, it makes the
-/// barrier Skia emits name the wrong source layout.
+/// barrier Skia emits name the wrong source layout. `UNDEFINED` is always accepted, at the
+/// price of discarding the image's contents, so pass it for a target drawn in full.
 pub unsafe fn make_vulkan_surface(
     gr_context: &mut skia_safe::gpu::DirectContext,
     texture: &wgpu::Texture,

@@ -637,18 +637,18 @@ impl Backend {
     }
 
     /// Like [`Self::make_surface`], but for an image a display controller scans
-    /// out directly, such as an imported dma-buf on Linux KMS.
+    /// out directly, such as an imported dma-buf on Linux KMS. Such an image is
+    /// tiled by a DRM format modifier rather than optimally. Pair every call with
+    /// [`Self::release_scanout_surface`].
     ///
-    /// Such an image is tiled by a DRM format modifier rather than optimally, and
-    /// [`Self::release_scanout_surface`] leaves it in the `GENERAL` layout the
-    /// display controller reads — which is therefore also where the next frame
-    /// finds it. Pair every call with [`Self::release_scanout_surface`].
-    ///
-    /// A freshly imported image is still in `UNDEFINED`, so on its first frame the
-    /// barrier Skia emits names `GENERAL` as a source layout the image isn't in
-    /// yet. The validation layers report that; the frame is unaffected, because a
-    /// scanout target is drawn in full — the renderer has no partial rendering
-    /// state — and the layout the barrier leaves behind is correct either way.
+    /// The image comes in as `UNDEFINED`, which discards whatever it held: the
+    /// frame it was last shown with, or nothing at all if it was only just
+    /// imported. That costs nothing, because a scanout target is drawn in full —
+    /// the renderer has no partial rendering state — and it is what makes the
+    /// round trip through the display controller sound. Vulkan allows `UNDEFINED`
+    /// as the old layout of any barrier whatever the image is really in, and an
+    /// image whose contents are discarded needs no acquire to match the ownership
+    /// release [`Self::release_scanout_surface`] performed.
     pub(crate) fn make_scanout_surface(
         &self,
         _gr_context: &mut skia_safe::gpu::DirectContext,
@@ -667,7 +667,7 @@ impl Backend {
                     _gr_context,
                     _texture,
                     skia_safe::gpu::vk::ImageTiling::DRM_FORMAT_MODIFIER_EXT,
-                    skia_safe::gpu::vk::ImageLayout::GENERAL,
+                    skia_safe::gpu::vk::ImageLayout::UNDEFINED,
                 )
             },
         }
