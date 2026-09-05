@@ -10,12 +10,15 @@ export component WidthDependentMaxLines inherits Window {
 //  >               <^warning{The binding for the property 'layout-cache' is part of a binding loop (root.layoutinfo-h -> width -> layout-cache -> width -> max-lines -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
 //  >               <^^warning{The binding for the property 'width' is part of a binding loop (root.layoutinfo-h -> width -> layout-cache -> width -> max-lines -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
 //  >               <^^^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> width -> layout-cache -> width -> max-lines -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
-//  >               <^^^^error{The binding for the property 'width' is part of a binding loop (layout-cache -> width -> max-lines -> layout-cache)}
+//  >               <^^^^error{The binding for the property 'layout-cache' is part of a binding loop (max-lines -> layout-cache -> width -> max-lines)}
+//  >               <^^^^^error{The binding for the property 'width' is part of a binding loop (max-lines -> layout-cache -> width -> max-lines)}
+//  >               <^^^^^^error{The binding for the property 'width' is part of a binding loop (layout-cache -> width -> max-lines -> layout-cache)}
         Text {
             text: "One\nTwo";
             wrap: word-wrap;
             max-lines: self.width / 100px;
 //                     >                 <warning{The binding for the property 'max-lines' is part of a binding loop (root.layoutinfo-h -> width -> layout-cache -> width -> max-lines -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//                     >                 <^error{The binding for the property 'max-lines' is part of a binding loop (max-lines -> layout-cache -> width -> max-lines)}
         }
         StyledText {
             text: @markdown("One");

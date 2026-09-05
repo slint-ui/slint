@@ -751,9 +751,7 @@ fn lower_sub_component(
         .borrow()
         .layout_info_v_with_constraint
         .is_some()
-        .then(|| {
-            super::lower_layout_expression::default_cross_axis_constraint(&component.root_element)
-        })
+        .then(|| crate::layout::default_cross_axis_constraint(&component.root_element))
         .flatten();
     sub_component.layout_info_v = super::lower_layout_expression::get_layout_info(
         &component.root_element,

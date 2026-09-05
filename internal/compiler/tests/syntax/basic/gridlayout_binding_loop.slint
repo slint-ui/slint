@@ -11,11 +11,15 @@ export component TestCase inherits Window {
 //          >         <^^warning{The binding for the property 'x' is part of a binding loop (root.layoutinfo-h -> lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
 //          >         <^^^warning{The binding for the property 'layout-organized-data' is part of a binding loop (root.layoutinfo-h -> lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
 //          >         <^^^^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//          >         <^^^^^error{The binding for the property 'layout-cache-h' is part of a binding loop (lay1.layout-organized-data -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data)}
+//          >         <^^^^^^error{The binding for the property 'x' is part of a binding loop (lay1.layout-organized-data -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data)}
+//          >         <^^^^^^^error{The binding for the property 'layout-organized-data' is part of a binding loop (lay1.layout-organized-data -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data)}
 
         Text {
             row: 1;
             col: self.x > 10px ? 3 : 4;
 //               >                    <warning{The binding for the property 'col' is part of a binding loop (root.layoutinfo-h -> lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//               >                    <^error{The binding for the property 'col' is part of a binding loop (lay1.layout-organized-data -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data)}
         }
     }
 }
