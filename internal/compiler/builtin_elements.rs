@@ -180,14 +180,14 @@ macro_rules! members {
         }
         members!($l $e $($rest)*);
     };
-    // property computed per element by a BuiltinFunction that takes the element
+    // property computed by a BuiltinFunction, per element or per process
     ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident)*
         $vis:ident property < $($ty:tt)-+ > $($name:tt)-+ { BuiltinFunction . $bf:ident } $($rest:tt)*) => {
         $e.section(docs!($($s)*));
         {
             let mut info = BuiltinPropertyInfo::new($l.ty(stringify!($($ty)-+)));
             info.property_visibility = visibility!($vis);
-            info.default_value = BuiltinPropertyDefault::ElementFunction(BuiltinFunction::$bf);
+            info.default_value = computed_default(BuiltinFunction::$bf);
             $e.add(stringify!($($name)-+), info, &[$(stringify!($mod)),*], docs!($($d)*));
         }
         members!($l $e $($rest)*);
@@ -216,6 +216,17 @@ macro_rules! members {
         $l.children(&mut $e, &[$(stringify!($child)),+]);
         members!($l $e $($rest)*);
     };
+}
+
+/// The default of a property a `BuiltinFunction` computes.
+/// A function that takes the element computes a value per element, one that takes nothing
+/// answers for the whole process.
+fn computed_default(function: BuiltinFunction) -> BuiltinPropertyDefault {
+    if function.ty().args.is_empty() {
+        BuiltinPropertyDefault::RuntimeValue(function)
+    } else {
+        BuiltinPropertyDefault::ElementFunction(function)
+    }
 }
 
 /// A native item or builtin element being built.
@@ -2127,7 +2138,8 @@ fn build(l: &mut Loader) {
         /// \default 0
         in property <length> resize-border-width;
         /// The window title that is shown in the title bar.
-        in property <string> title: "Slint Window";
+        /// \default the name of the running program
+        in property <string> title { BuiltinFunction.DefaultWindowTitle }
         /// Some devices, such as mobile phones, allow programs to overlap the system UI. A few examples for this are the notch on iPhones, the window buttons on macOS on windows that extend their content over the titlebar and the system bar on Android. This property exposes the amount of space at the edges of the window that can be drawn to but where no interactive elements should be placed. On most devices, this is 0 for all sides.
         out property <Edges> safe-area-insets;
         /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the position of the top left boundary of the rectangle covered by it in window coordinates.

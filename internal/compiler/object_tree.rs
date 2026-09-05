@@ -10,8 +10,7 @@
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{self, BindingExpression, Callable, Expression, Unit};
 use crate::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, Enumeration, EnumerationValue, Function, NativeClass,
-    Struct, StructName, Type,
+    BuiltinElement, Enumeration, EnumerationValue, Function, NativeClass, Struct, StructName, Type,
 };
 use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
@@ -3774,9 +3773,15 @@ pub(crate) fn apply_default_type_properties(element: &mut Element) {
     // Apply default property values on top:
     if let ElementType::Builtin(builtin_base) = &element.base_type {
         for (prop, info) in &builtin_base.properties {
-            if let BuiltinPropertyDefault::Expr(expr) = &info.default_value {
+            // A property the element declares under the same name is a different property.
+            // `ensure_window` gets here with an element that declared its members before it
+            // became a window.
+            if element.property_declarations.contains_key(prop) {
+                continue;
+            }
+            if let Some(expr) = info.default_value.expr_without_element() {
                 element.bindings.0.entry(prop.clone()).or_insert_with(|| {
-                    let mut binding = BindingExpression::from(expr.to_expression());
+                    let mut binding = BindingExpression::from(expr);
                     binding.priority = i32::MAX;
                     RefCell::new(binding)
                 });

@@ -792,7 +792,8 @@ impl WinitWindowAdapter {
     pub(crate) fn window_attributes() -> Result<WindowAttributes, PlatformError> {
         let mut attrs = WindowAttributes::default().with_transparent(true).with_visible(false);
 
-        attrs = attrs.with_title("Slint Window".to_string());
+        // Only until the component's own title reaches the window
+        attrs = attrs.with_title(i_slint_core::window::application_name().to_string());
 
         #[cfg(target_arch = "wasm32")]
         {

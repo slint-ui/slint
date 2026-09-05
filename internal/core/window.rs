@@ -585,6 +585,61 @@ pub(crate) struct MouseDispatchResult {
     pub accepted: bool,
 }
 
+/// The program a path names, without its directory or the Windows `.exe` suffix.
+/// `None` for a path that names no file, or an empty name.
+#[cfg(feature = "std")]
+fn program_name(path: &std::path::Path) -> Option<SharedString> {
+    // A Windows program is called "foo", not "foo.exe"
+    let is_exe = path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("exe"));
+    let name = if is_exe { path.file_stem()? } else { path.file_name()? };
+    let name = name.to_string_lossy();
+    (!name.is_empty()).then(|| name.as_ref().into())
+}
+
+/// The name of the running program, used as the window title when the application doesn't set one.
+///
+/// It comes from argument zero, which is also what winit derives the X11 `WM_CLASS` from, so the
+/// two agree even when the program is started through a symlink.
+/// Empty where the platform names the program neither way, such as on the web.
+pub fn application_name() -> SharedString {
+    #[cfg(feature = "std")]
+    {
+        static NAME: std::sync::LazyLock<SharedString> = std::sync::LazyLock::new(|| {
+            std::env::args_os()
+                .next()
+                .and_then(|arg| program_name(std::path::Path::new(&arg)))
+                .or_else(|| std::env::current_exe().ok().as_deref().and_then(program_name))
+                .unwrap_or_default()
+        });
+        NAME.clone()
+    }
+    #[cfg(not(feature = "std"))]
+    SharedString::default()
+}
+
+crate::thread_local! {
+    static DEFAULT_WINDOW_TITLE: core::cell::RefCell<Option<SharedString>> = Default::default();
+}
+
+/// Override what [`default_window_title`] returns, for this thread.
+///
+/// A tool that hosts someone else's component, like the Slint viewer, says here what its windows
+/// are called.
+/// A window reads the title when it first applies its properties, so this only reaches windows
+/// that have yet to be shown.
+pub fn set_default_window_title(title: SharedString) {
+    DEFAULT_WINDOW_TITLE.with(|slot| slot.replace(Some(title)));
+}
+
+/// The title a window shows when the application doesn't set one: [`set_default_window_title`]
+/// if a host called it on this thread, otherwise the application name.
+///
+/// This is what the compiler binds `Window.title` to, through
+/// `BuiltinFunction::DefaultWindowTitle`.
+pub fn default_window_title() -> SharedString {
+    DEFAULT_WINDOW_TITLE.with(|slot| slot.borrow().clone()).unwrap_or_else(application_name)
+}
+
 /// Inner datastructure for the [`crate::api::Window`]
 pub struct WindowInner {
     window_adapter_weak: Weak<dyn WindowAdapter>,
@@ -2540,6 +2595,12 @@ pub mod ffi {
     #[repr(C)]
     pub struct WindowAdapterRcOpaque(*const c_void, *const c_void);
 
+    /// The title a window shows when the application doesn't set one
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_default_window_title(out: &mut SharedString) {
+        *out = super::default_window_title();
+    }
+
     /// Releases the reference to the windowrc held by handle.
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_drop(handle: *mut WindowAdapterRcOpaque) {
@@ -3241,5 +3302,40 @@ pub mod ffi_window {
         } else {
             null_mut()
         }
+    }
+}
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::*;
+
+    fn name_of(path: &str) -> Option<SharedString> {
+        program_name(std::path::Path::new(path))
+    }
+
+    #[test]
+    fn a_program_name_is_the_bare_file_name() {
+        assert_eq!(name_of("/usr/bin/gallery").as_deref(), Some("gallery"));
+        assert_eq!(name_of("gallery").as_deref(), Some("gallery"));
+        assert_eq!(name_of("./gallery").as_deref(), Some("gallery"));
+        assert_eq!(name_of("/opt/my-tool.v2").as_deref(), Some("my-tool.v2"));
+        // Windows spells the suffix either way, and its file names don't care
+        assert_eq!(name_of("gallery.exe").as_deref(), Some("gallery"));
+        assert_eq!(name_of("GALLERY.EXE").as_deref(), Some("GALLERY"));
+        // A leading dot makes it the whole name, not a suffix
+        assert_eq!(name_of(".exe").as_deref(), Some(".exe"));
+        assert_eq!(name_of(""), None);
+        assert_eq!(name_of("/"), None);
+        assert_eq!(name_of("some/dir/").as_deref(), Some("dir"));
+    }
+
+    #[test]
+    fn a_host_overrides_the_default_title() {
+        // The test binary is the running program, so the name is never empty here
+        assert!(!default_window_title().is_empty());
+        set_default_window_title("Some Viewer".into());
+        assert_eq!(default_window_title(), "Some Viewer");
+        DEFAULT_WINDOW_TITLE.with(|slot| slot.replace(None));
+        assert_eq!(default_window_title(), application_name());
     }
 }

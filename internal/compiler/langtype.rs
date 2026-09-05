@@ -366,23 +366,40 @@ pub enum BuiltinPropertyDefault {
     Expr(ConstantExpression),
     /// The property is computed per element by this function, which takes the element.
     ElementFunction(BuiltinFunction),
+    /// A value only the runtime knows, which this function returns. It takes no argument, so
+    /// unlike [`Self::ElementFunction`] the property still belongs to the native item.
+    RuntimeValue(BuiltinFunction),
     /// The property is actually not a property but a builtin function
     BuiltinFunction(BuiltinFunction),
 }
 
 impl BuiltinPropertyDefault {
-    pub fn expr(&self, elem: &crate::object_tree::ElementRc) -> Option<Expression> {
+    /// The default of a property that doesn't need an element to express, for the callers that
+    /// have no `ElementRc` at hand.
+    pub fn expr_without_element(&self) -> Option<Expression> {
         match self {
             BuiltinPropertyDefault::None => None,
             BuiltinPropertyDefault::Expr(constant) => Some(constant.to_expression()),
+            BuiltinPropertyDefault::RuntimeValue(function) => Some(Expression::FunctionCall {
+                function: function.clone().into(),
+                arguments: Vec::new(),
+                source_location: None,
+            }),
+            // Neither is a default this caller can express: ElementFunction needs the element,
+            // and a function is not a property in the first place
+            BuiltinPropertyDefault::ElementFunction(..)
+            | BuiltinPropertyDefault::BuiltinFunction(..) => None,
+        }
+    }
+
+    pub fn expr(&self, elem: &crate::object_tree::ElementRc) -> Option<Expression> {
+        match self {
             BuiltinPropertyDefault::ElementFunction(function) => Some(Expression::FunctionCall {
                 function: function.clone().into(),
                 arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
                 source_location: None,
             }),
-            BuiltinPropertyDefault::BuiltinFunction(..) => {
-                unreachable!("can't get an expression for functions")
-            }
+            other => other.expr_without_element(),
         }
     }
 }

@@ -5034,6 +5034,7 @@ fn compile_builtin_function_call(
             quote!(sp::animation_tick())
         }
         BuiltinFunction::Debug => quote!(slint::private_unstable_api::debug(#(#a)*)),
+        BuiltinFunction::DefaultWindowTitle => quote!(sp::default_window_title()),
         BuiltinFunction::DecimalSeparator => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::SharedString::from(

@@ -146,6 +146,9 @@ pub enum BuiltinFunction {
     /// because `parse_interpolated` takes `StyledText` arguments.
     ColorToStyledText,
     DecimalSeparator,
+    /// The window title when the application doesn't set one, see
+    /// `i_slint_core::window::default_window_title`
+    DefaultWindowTitle,
     PathPointAt,
     PathAngleAt,
 }
@@ -231,6 +234,7 @@ declare_builtin_function_types!(
     ATan: (Type::Float32) -> Type::Angle,
     ATan2: (Type::Float32, Type::Float32) -> Type::Angle,
     DecimalSeparator: () -> Type::String,
+    DefaultWindowTitle: () -> Type::String,
     Log: (Type::Float32, Type::Float32) -> Type::Float32,
     Ln: (Type::Float32) -> Type::Float32,
     Pow: (Type::Float32, Type::Float32) -> Type::Float32,
@@ -374,6 +378,7 @@ impl BuiltinFunction {
             BuiltinFunction::ValidDate => false,
             BuiltinFunction::ParseDate => false,
             BuiltinFunction::DecimalSeparator => false,
+            BuiltinFunction::DefaultWindowTitle => false,
             // Even if it is not pure, we optimize it away anyway
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod
@@ -480,6 +485,7 @@ impl BuiltinFunction {
             BuiltinFunction::ValidDate => true,
             BuiltinFunction::ParseDate => true,
             BuiltinFunction::DecimalSeparator => true,
+            BuiltinFunction::DefaultWindowTitle => true,
             // Even if it has technically side effect, we still consider it as pure for our purpose
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod
