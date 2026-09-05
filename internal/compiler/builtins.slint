@@ -1048,10 +1048,13 @@ component KeyBinding {
 ///    a `TouchArea`, then `Flickable` will flick immediately on pointer move events when the euclidean distance
 ///    to the coordinates of the press event exceeds 8 logical pixels.
 ///
-/// If no element underneath claims a press, the `Flickable` itself only intercepts it when it can actually pan in some direction,
-/// i.e. when its `content-width`/`content-height` exceed its own size, or its content is currently scrolled away from the origin.
-/// Otherwise the event is forwarded to elements underneath it,
-/// the same way wheel/scroll events already are (see below).
+/// If no element underneath claims a press, the `Flickable` itself only ever holds onto it provisionally, in case it turns into a drag.
+/// If release comes with no pointer movement in between and before the 100ms hold resolves,
+/// the press is forwarded to elements underneath it too, the same way wheel/scroll events already are (see below) --
+/// whether or not the `Flickable` could actually pan.
+/// Only an actual drag, recognized per the algorithm above, causes the `Flickable` to intercept the interaction.
+/// A press that either moves at all before release (even without crossing the drag threshold) or is
+/// still held past the 100ms mark is not yet forwarded on release (tracked in issue #13120).
 ///
 /// ## Wheel/Scroll Event Interaction
 ///

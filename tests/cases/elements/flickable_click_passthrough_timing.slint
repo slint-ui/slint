@@ -1,0 +1,157 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Timer, hover, and multi-touch edge cases of Flickable/SwipeGestureHandler's shared
+// `DelayForwarding` mechanism for forwarding a plain click. See issue #13118.
+
+// A plain click through a pannable Flickable must still reach the sibling TouchArea behind it,
+// even when the pointer hovered over that same spot first.
+// The hover leaves the TouchArea tracked for a deferred Exit,
+// and resolving the click must not fire that stale Exit against the TouchArea the click itself just landed on
+// (it would press/grab it and immediately cancel it).
+export component TestCaseAfterHover inherits Window {
+    width: 100px;
+    height: 100px;
+
+    TouchArea {
+        clicked => { root.counter += 1; }
+    }
+    Flickable {
+        width: 100px;
+        height: 100px;
+        content-width: 100px;
+        content-height: 200px;
+
+        Rectangle {
+            width: 100px;
+            height: 200px;
+            background: gray;
+        }
+    }
+
+    out property <int> counter: 0;
+}
+
+// A press held past Flickable's 100ms forward-delay, but still within the 500ms drag-recognition window,
+// must still let a *later* move start a real drag.
+// The 100ms timer only gives a descendant a chance to show press feedback,
+// it must not itself hand the press to a sibling TouchArea.
+// That would leave the Flickable unable to intercept the later drag-starting move,
+// since a grabbed sibling routes future events to itself, not back through the Flickable.
+export component TestCaseDelayedStartDrag inherits Window {
+    width: 100px;
+    height: 100px;
+
+    TouchArea {
+        clicked => { root.counter += 1; }
+    }
+    flick := Flickable {
+        width: 100px;
+        height: 100px;
+        content-width: 100px;
+        content-height: 200px;
+
+        Rectangle {
+            width: 100px;
+            height: 200px;
+            background: gray;
+        }
+    }
+
+    out property <int> counter: 0;
+    out property <length> content-y: flick.content-y;
+}
+
+// When a second finger touches down while a first finger's press on a pannable `Flickable` is still
+// held back by `DelayForwarding`, touch gesture recognition synthesizes a `Released` for the first
+// finger purely to clear its grab/delay state -- this must not be mistaken for that finger's own
+// interaction ending, or the stored press would spuriously bubble to whatever is behind the Flickable.
+// (This is a regression the release-triggered replay could otherwise introduce.)
+export component TestCaseSecondFinger inherits Window {
+    width: 200px;
+    height: 200px;
+
+    TouchArea {
+        clicked => { root.counter += 1; }
+    }
+    Flickable {
+        width: 200px;
+        height: 200px;
+        content-width: 300px;
+        content-height: 300px;
+    }
+
+    out property <int> counter: 0;
+}
+
+// SwipeGestureHandler shares Flickable's DelayForwarding mechanism.
+// A plain click (press + release, no swipe) with no interactive content of its own must be forwarded
+// to the sibling TouchArea behind it, the same way an unclaimed Flickable press now is.
+export component TestCaseSwipeGestureHandler inherits Window {
+    width: 100px;
+    height: 100px;
+
+    TouchArea {
+        clicked => { root.counter += 1; }
+    }
+    SwipeGestureHandler {
+        width: 100px;
+        height: 100px;
+        handle-swipe-down: true;
+    }
+
+    out property <int> counter: 0;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCaseAfterHover::new().unwrap();
+
+// Hover first, over the same spot the click will land on.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 50.0) });
+// A plain click at that same spot must still reach the TouchArea underneath.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 1);
+```
+
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCaseDelayedStartDrag::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+// Past the 100ms forward-delay timer, still well within the 500ms drag-recognition window.
+slint_testing::mock_elapsed_time(150);
+// Now move past the 8px distance threshold: this must still start a real drag.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 30.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 10.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 10.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_content_y(), -40.);
+assert_eq!(instance.get_counter(), 0);
+```
+
+```rust
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
+use slint::platform::WindowEvent;
+let instance = TestCaseSecondFinger::new().unwrap();
+
+// First finger presses over the pannable Flickable; the press is held back by `DelayForwarding`.
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 1, position: LogicalPoint::new(100.0, 100.0), phase: TouchPhase::Started }));
+slint_testing::mock_elapsed_time(10);
+
+// A second finger touches down elsewhere before the delay resolves. This synthesizes a `Released`
+// for the first finger to clear its grab/delay state, but must not trigger the full-dispatch replay.
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 2, position: LogicalPoint::new(10.0, 10.0), phase: TouchPhase::Started }));
+assert_eq!(instance.get_counter(), 0);
+```
+
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCaseSwipeGestureHandler::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 1);
+```
+*/

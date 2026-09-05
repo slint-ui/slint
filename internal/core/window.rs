@@ -889,8 +889,11 @@ impl WindowInner {
 
         let last_top_item = mouse_input_state.top_item_including_delayed();
         if released_event {
-            mouse_input_state =
-                crate::input::process_delayed_event(&window_adapter, mouse_input_state);
+            mouse_input_state = crate::input::resolve_delayed_event_on_release(
+                &window_adapter,
+                mouse_input_state,
+                &event,
+            );
         }
 
         let parent_adapter = window_adapter
