@@ -212,16 +212,28 @@ message RequestTakeSnapshot {
     string image_mime_type = 2;
 }
 
+// Keyboard modifiers to hold during a pointer gesture. Slint reads modifiers from
+// the window's key state rather than from the pointer event, so these are pressed
+// before the gesture and released after it.
+message PointerModifiers {
+    bool shift = 1;
+    bool control = 2;
+    bool alt = 3;
+    bool meta = 4;
+}
+
 message RequestElementClick {
     Handle element_handle = 1;
     ClickAction action = 2;
     PointerEventButton button = 3;
+    PointerModifiers modifiers = 4;
 }
 
 message RequestElementDrag {
     Handle element_handle = 1;
     LogicalPosition target = 2;
     PointerEventButton button = 3;
+    PointerModifiers modifiers = 4;
 }
 
 message RequestDispatchWindowEvent {
@@ -240,12 +252,14 @@ message RequestMovePointer {
 
 message RequestHoverElement {
     Handle element_handle = 1;
+    PointerModifiers modifiers = 2;
 }
 
 message RequestScrollElement {
     Handle element_handle = 1;
     float delta_x = 2;
     float delta_y = 3;
+    PointerModifiers modifiers = 4;
 }
 
 message RequestPointerScroll {
@@ -253,6 +267,7 @@ message RequestPointerScroll {
     LogicalPosition position = 2;
     float delta_x = 3;
     float delta_y = 4;
+    PointerModifiers modifiers = 5;
 }
 
 message RequestDispatchKeyEvent {
