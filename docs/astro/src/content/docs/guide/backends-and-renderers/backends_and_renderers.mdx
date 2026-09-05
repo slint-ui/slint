@@ -62,6 +62,22 @@ With Python, all renderers are built into the packages.
 </TabItem>
 </Tabs>
 
+### Occlusion Culling
+
+The Skia and Software renderers support an opt-in `occlusion-culling` feature that skips drawing
+items fully hidden behind opaque content.
+It costs an extra tree walk and per-item bookkeeping every frame.
+The FemtoVG and Qt renderers don't support it.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+Enable the <LangRefLink lang="rust-slint" relpath="docs/cargo_features/">`occlusion-culling`</LangRefLink> Cargo feature on the `slint` crate.
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+When building Slint from source, enable the <LangRefLink lang="cpp" relpath="cmake/#features">`SLINT_FEATURE_OCCLUSION_CULLING`</LangRefLink> cmake option.
+</TabItem>
+</Tabs>
+
 
 ### Qt Renderer
 

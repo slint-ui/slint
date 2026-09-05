@@ -56,6 +56,10 @@ svg = ["dep:resvg", "i-slint-common/svg-text"]
 
 box-shadow-cache = []
 
+# Skip drawing items fully hidden behind opaque content. Off by default: adds a second tree
+# walk plus per-item bookkeeping each frame.
+occlusion-culling = []
+
 testing = []
 
 shared-fontique = ["i-slint-common/shared-fontique"]

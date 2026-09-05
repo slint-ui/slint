@@ -220,6 +220,8 @@ All notable changes to this project are documented in this file.
    the platform.
  - Fixed a crash when the item tree is walked while a repeated element is being removed, e.g. when
    deleting a model row from its own click handler.
+ - Added the opt-in `SLINT_FEATURE_OCCLUSION_CULLING` CMake option: skips rendering content
+   fully hidden behind opaque items.
 
 ### JavaScript
 
@@ -260,6 +262,11 @@ All notable changes to this project are documented in this file.
  - slint-viewer: Added an `mcp` Cargo feature so the viewer can serve the MCP server for the previewed file. (#13111)
  - slint-viewer: Fixed `--auto-reload` not reloading when the file was given as a relative path. (#12572)
  - SlintPad: Fixed a panic when loading demos with imports. (#12486)
+
+### Rust
+
+ - Added the opt-in `occlusion-culling` Cargo feature on the `slint` crate: skips rendering content
+   fully hidden behind opaque items.
 
 ## [1.17.1] - 2026-07-07
 
