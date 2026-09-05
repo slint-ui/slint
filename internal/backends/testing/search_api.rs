@@ -1078,13 +1078,10 @@ impl ElementHandle {
         let Some(item) = self.item.upgrade() else {
             return Default::default();
         };
-        let geometry = item.geometry();
-        let position = i_slint_core::lengths::logical_position_to_api(
-            item.map_to_native_window(geometry.origin),
-        );
-        LogicalPosition::new(
-            position.x + geometry.width() / 2.,
-            position.y + geometry.height() / 2.,
+        // Map the center rather than mapping the origin and adding a local half-extent,
+        // which ignores any scale or rotation an ancestor applies (#13242).
+        i_slint_core::lengths::logical_position_to_api(
+            item.map_to_native_window(item.geometry().center()),
         )
     }
 
