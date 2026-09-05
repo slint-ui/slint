@@ -4,26 +4,218 @@
 //! Code generator for the Slint SC (safety-critical) runtime.
 
 use crate::CompilerConfiguration;
+use crate::diagnostics::{ByteFormat, Spanned};
 use crate::embedded_resources::{EmbeddedResources, EmbeddedResourcesIdx, EmbeddedResourcesKind};
-use crate::expression_tree::{BuiltinFunction, Callable, Expression, ImageReference, Unit};
+use crate::expression_tree::{
+    BindingExpression, BuiltinFunction, Callable, Expression, ImageReference, Unit,
+};
 use crate::generator::accessor_names::{AccessorKind, rust_accessor_ident};
-use crate::langtype::{EnumerationValue, StructName, Type};
+use crate::langtype::{EnumerationValue, PropertyLookupMode, StructName, Type};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Document, ElementRc, PropertyDeclaration, PropertyVisibility};
+use crate::object_tree::{
+    Document, ElementRc, GeometryProps, PropertyDeclaration, PropertyVisibility,
+};
 use itertools::Either;
-use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote};
-use std::cell::RefCell;
+use proc_macro2::{Delimiter, Group, Ident, Spacing, Span, TokenStream, TokenTree};
+use quote::{format_ident, quote, quote_spanned};
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
+use std::path::Path;
 use std::rc::Rc;
 use typed_index_collections::TiSlice;
 
 /// State threaded through expression compilation: the component whose code is
 /// generated, and the document-wide image table.
+#[derive(Clone, Copy)]
 struct Ctx<'a> {
     /// The root element of the component.
     root: &'a ElementRc,
     images: &'a ImageTable<'a>,
+    coverage: &'a Coverage,
+    /// The source binding being compiled and the ordinal of its next decision,
+    /// which locate a decision: sub-expressions have no span of their own.
+    decision: Option<(&'a BindingExpression, &'a Cell<usize>)>,
+}
+
+/// The coverage points of the generated code: elements, bindings, handlers,
+/// callback calls, and the outcomes of decisions.
+///
+/// The generator stamps the tokens it emits for a point with a span naming
+/// the point, and the printer that writes the code out records where they
+/// land, in a map next to the code. The map declares every point, so one the
+/// generated code never reaches is a point without a range. LLVM's coverage
+/// of the generated code, and the map, then give the coverage of the source;
+/// the code itself carries nothing.
+#[derive(Default)]
+struct Coverage {
+    /// The record of each point, `<kind>[ <decision> <outcome>] <span>
+    /// <path>` (the path last as it may hold spaces), by the id its span
+    /// names.
+    records: RefCell<Vec<String>>,
+}
+
+impl Coverage {
+    /// The points of every element and source binding of the exported
+    /// components, declared before the code is generated: a binding the code
+    /// never evaluates is then a point that is never reached.
+    fn new(doc: &Document) -> Self {
+        let coverage = Self::default();
+        for component in doc.exported_roots() {
+            crate::object_tree::recurse_elem(&component.root_element, &(), &mut |elem, _| {
+                let elem = elem.borrow();
+                coverage.point("element", &*elem, "");
+                for (name, binding) in elem.real_bindings() {
+                    let ty = elem.lookup_property(name, PropertyLookupMode::InternalName);
+                    let kind = match ty.property_type {
+                        Type::Callback(_) => "handler",
+                        _ => "binding",
+                    };
+                    coverage.source_binding(&binding.borrow(), kind);
+                }
+            });
+        }
+        coverage
+    }
+
+    /// The span of a binding written in the source: a compiler pass's binding
+    /// has no span, or a priority of zero.
+    fn source_binding(&self, binding: &BindingExpression, kind: &str) -> Option<Span> {
+        (binding.priority >= 1).then(|| self.point(kind, binding, "")).flatten()
+    }
+
+    /// The span naming the point of the given kind at `location`, or `None`
+    /// when the location is unknown (an element or binding a compiler pass
+    /// synthesized). The same location makes the same point again.
+    fn point(&self, kind: &str, location: &dyn Spanned, extra: &str) -> Option<Span> {
+        let source_file = location.source_file()?;
+        let span = location.span();
+        if !span.is_valid() {
+            return None;
+        }
+        let (start_line, start_column) = source_file.line_column(span.offset, ByteFormat::Utf8);
+        let (end_line, end_column) =
+            source_file.line_column(span.offset + span.length, ByteFormat::Utf8);
+        let path = std::path::absolute(source_file.path()).unwrap_or_default();
+        let record = format!(
+            "{kind}{extra} {start_line}:{start_column}-{end_line}:{end_column} {}",
+            path.display()
+        );
+        let mut records = self.records.borrow_mut();
+        let id = match records.iter().position(|r| *r == record) {
+            Some(id) => id,
+            None => {
+                records.push(record);
+                records.len() - 1
+            }
+        };
+        Some(point_span(id))
+    }
+
+    /// Print the code as one line, and the map of its points:
+    /// `slint-sc-source-map 1`, then a `point <id> <record>` line per point
+    /// and a `range <start>-<end> <id>` line per stamped group, positions as
+    /// `line:column`, the column in characters like LLVM's, the end
+    /// exclusive.
+    fn print(&self, tokens: TokenStream) -> (String, String) {
+        let mut printer =
+            Printer { code: String::new(), column: 1, spaced: false, ranges: Vec::new() };
+        printer.tokens(tokens);
+        let mut map = String::from("slint-sc-source-map 1\n");
+        for (id, record) in self.records.borrow().iter().enumerate() {
+            map.push_str(&format!("point {id} {record}\n"));
+        }
+        for (start, end, id) in printer.ranges {
+            map.push_str(&format!("range 1:{start}-1:{end} {id}\n"));
+        }
+        (printer.code, map)
+    }
+}
+
+/// A span naming point `id`: the span of a token parsed from the text
+/// `p<id>`, which `source_text` gives back. Fallback spans can be made in no
+/// other way, and the printer is the only reader.
+fn point_span(id: usize) -> Span {
+    let tokens: TokenStream = format!("p{id}").parse().expect("an identifier");
+    tokens.into_iter().next().expect("one token").span()
+}
+
+/// The point a span names, if any.
+fn point_id(span: Span) -> Option<usize> {
+    span.source_text()?.strip_prefix('p')?.parse().ok()
+}
+
+/// The tokens as a point's range: a group without delimiters, which prints
+/// as the tokens alone, stamped with the point's span.
+fn stamped(span: Span, tokens: TokenStream) -> TokenStream {
+    let mut group = Group::new(Delimiter::None, tokens);
+    group.set_span(span);
+    TokenTree::Group(group).into()
+}
+
+/// Writes a token stream out as one line, a space between tokens except
+/// after a punctuation that joins the next one, and records the range of
+/// every group whose span names a point.
+struct Printer {
+    code: String,
+    /// 1-based column of the next character, before any space.
+    column: usize,
+    /// Whether a space goes before the next token.
+    spaced: bool,
+    /// The start, exclusive end, and point of each range.
+    ranges: Vec<(usize, usize, usize)>,
+}
+
+impl Printer {
+    fn tokens(&mut self, tokens: TokenStream) {
+        for tree in tokens {
+            match tree {
+                TokenTree::Group(group) => {
+                    let (delimiter, span) = (group.delimiter(), group.span());
+                    let (open, close) = match delimiter {
+                        Delimiter::Parenthesis => ("(", ")"),
+                        Delimiter::Brace => ("{", "}"),
+                        Delimiter::Bracket => ("[", "]"),
+                        Delimiter::None => ("", ""),
+                    };
+                    let stream = group.stream();
+                    drop(group);
+                    let start = if open.is_empty() { self.next_start() } else { self.push(open) };
+                    self.tokens(stream);
+                    if !close.is_empty() {
+                        self.push(close);
+                    }
+                    if let Some(id) = point_id(span) {
+                        self.ranges.push((start, self.column, id));
+                    }
+                }
+                TokenTree::Punct(punct) => {
+                    self.push(&punct.to_string());
+                    self.spaced = punct.spacing() != Spacing::Joint;
+                }
+                other => {
+                    self.push(&other.to_string());
+                }
+            }
+        }
+    }
+
+    /// The column the next token starts at.
+    fn next_start(&self) -> usize {
+        self.column + usize::from(self.spaced)
+    }
+
+    /// Append a token and return the column it starts at.
+    fn push(&mut self, text: &str) -> usize {
+        if self.spaced {
+            self.code.push(' ');
+            self.column += 1;
+        }
+        let start = self.column;
+        self.code.push_str(text);
+        self.column += text.chars().count();
+        self.spaced = true;
+        start
+    }
 }
 
 /// The document's image resources. An image referenced by a compiled
@@ -79,10 +271,17 @@ impl ImageTable<'_> {
 }
 
 /// Public entry point called from `generator::generate`.
+/// Public entry point called from `generator::generate`: the generated code,
+/// and its coverage map next to `destination_path`, with the extension
+/// `.slintcov`.
 pub fn generate(
     doc: &Document,
     _compiler_config: &CompilerConfiguration,
-) -> std::io::Result<TokenStream> {
+    destination_path: Option<&Path>,
+) -> std::io::Result<String> {
+    // The marks expand to nothing, so the code ships with them: the coverage
+    // is measured on the code that ships, not on an instrumented build.
+    let coverage = Coverage::new(doc);
     let mut output = TokenStream::new();
 
     // Fail to compile against a slint-sc runtime of a different version.
@@ -112,7 +311,7 @@ pub fn generate(
             continue;
         }
         let root = &component.root_element;
-        let ctx = Ctx { root, images: &images };
+        let ctx = Ctx { root, images: &images, coverage: &coverage, decision: None };
         let render_tree = emit_render(&ctx);
         let properties = declared_properties(&ctx);
         let name = format_ident!("{}", export_name.name.as_str());
@@ -161,7 +360,9 @@ pub fn generate(
                     // set; a non-settable one always evaluates it.
                     PropertyKind::Binding(default) if p.setter.is_some() => {
                         let read = read(p.field.as_ref().unwrap());
-                        quote!(#read.unwrap_or_else(|| #default))
+                        // A block body: LLVM records no coverage for a closure
+                        // whose body is a bare literal.
+                        quote!(#read.unwrap_or_else(|| { #default }))
                     }
                     PropertyKind::Binding(default) => quote!(#default),
                 };
@@ -243,8 +444,12 @@ pub fn generate(
     }
 
     output.extend(images.statics());
+    let (code, map) = coverage.print(output);
+    if let Some(path) = destination_path {
+        crate::fileaccess::write_file_if_changed(&path.with_extension("slintcov"), map.as_bytes())?;
+    }
 
-    Ok(output)
+    Ok(code)
 }
 
 struct DeclaredProperty {
@@ -291,7 +496,7 @@ fn declared_properties(ctx: &Ctx) -> Vec<DeclaredProperty> {
         .iter()
         .filter(|(_, decl)| is_own_declaration(decl))
         .filter(|(_, decl)| !matches!(decl.property_type, Type::Callback(..)))
-        .map(|(name, decl)| {
+        .filter_map(|(name, decl)| {
             let ty = rust_type(&decl.property_type);
             let settable = is_settable(&decl.visibility);
             let has_getter = matches!(
@@ -299,19 +504,22 @@ fn declared_properties(ctx: &Ctx) -> Vec<DeclaredProperty> {
                 PropertyVisibility::Input | PropertyVisibility::Output | PropertyVisibility::InOut
             );
             let kind = match root_borrowed.binding_cell_including_synthetic(name) {
-                Some(b) => PropertyKind::Binding(compile_expression(&b.borrow().expression, ctx)),
+                // A private bound property has no accessor and no field: its
+                // readers inline the binding.
+                Some(_) if !has_getter => return None,
+                Some(b) => PropertyKind::Binding(compile_binding(&b.borrow(), "binding", ctx)),
                 None => PropertyKind::Stored(default_value(&decl.property_type)),
             };
             // A non-settable binding is never stored, so it needs no field.
             let has_field = settable || matches!(kind, PropertyKind::Stored(_));
-            DeclaredProperty {
+            Some(DeclaredProperty {
                 field: has_field.then(|| property_field(name)),
                 getter: has_getter.then(|| rust_accessor_ident(name, AccessorKind::Getter)),
                 setter: settable.then(|| rust_accessor_ident(name, AccessorKind::Setter)),
                 copy: is_copy(&decl.property_type),
                 ty,
                 kind,
-            }
+            })
         })
         .collect()
 }
@@ -521,9 +729,11 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
                 '-' => quote!((#lhs).saturating_sub(#rhs)),
                 '*' => quote!((#lhs).saturating_mul(#rhs)),
                 '/' => quote!((#lhs).saturating_div(#rhs)),
-                // `&&` is `'&'` and `||` is `'|'`.
-                '&' => quote!((#lhs) && (#rhs)),
-                '|' => quote!((#lhs) || (#rhs)),
+                // `&&` is `'&'` and `||` is `'|'`: decisions, whose right
+                // operand runs or not depending on the left one, spelled out
+                // as an `if` so that each outcome is a block of its own.
+                '&' => compile_decision(lhs, rhs, quote!(false), outcomes(ctx)),
+                '|' => compile_decision(lhs, quote!(true), rhs, outcomes(ctx)),
                 // Comparison produces a `bool`. `==` is `'='` and `!=` is `'!'`;
                 // `<=` is `'≤'` and `>=` is `'≥'`.
                 '=' => quote!((#lhs) == (#rhs)),
@@ -547,9 +757,11 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
         }
         Expression::Condition { condition, true_expr, false_expr } => {
             let condition = compile_expression(condition, ctx);
+            // The decision's outcomes come before the ones in its arms.
+            let outcomes = outcomes(ctx);
             let true_expr = compile_expression(true_expr, ctx);
             let false_expr = compile_expression(false_expr, ctx);
-            quote!(if #condition { #true_expr } else { #false_expr })
+            compile_decision(condition, true_expr, false_expr, outcomes)
         }
         // A property read that appears more than once is hoisted into a local
         // variable, so a code block evaluates it once and reads it back.
@@ -567,12 +779,57 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
             quote!(#name)
         }
         // The only call of the subset is a callback invocation from a handler.
-        Expression::FunctionCall { function: Callable::Callback(nr), .. } => {
-            compile_callback_call(nr, ctx)
+        Expression::FunctionCall { function: Callable::Callback(nr), source_location, .. } => {
+            let call = compile_callback_call(nr, ctx);
+            match ctx.coverage.point("call", source_location, "") {
+                Some(span) => stamped(span, call),
+                None => call,
+            }
         }
         // Everything else was rejected by the compiler
         _ => unreachable!(),
     }
+}
+
+/// Compile a binding's expression as its coverage point's block, when the
+/// binding was written in the source.
+fn compile_binding(binding: &BindingExpression, kind: &str, ctx: &Ctx) -> TokenStream {
+    if let Some(span) = ctx.coverage.source_binding(binding, kind) {
+        // A binding inlined into another has decisions of its own.
+        let ordinal = Cell::new(0);
+        let inner = Ctx { decision: Some((binding, &ordinal)), ..*ctx };
+        let expression = compile_expression(&binding.expression, &inner);
+        return stamped(span, expression);
+    }
+    compile_expression(&binding.expression, ctx)
+}
+
+/// The spans naming the two outcomes of the next decision of the source
+/// binding being compiled; spans naming nothing in an expression a compiler
+/// pass synthesized.
+fn outcomes(ctx: &Ctx) -> (Span, Span) {
+    let Some((binding, ordinal)) = ctx.decision else {
+        return (Span::call_site(), Span::call_site());
+    };
+    let point = |arm| {
+        let extra = format!(" {} {arm}", ordinal.get());
+        ctx.coverage.point("branch", binding, &extra).unwrap_or_else(Span::call_site)
+    };
+    let spans = (point("true"), point("false"));
+    ordinal.set(ordinal.get() + 1);
+    spans
+}
+
+/// Compile a decision as an `if`, its arms the blocks of the two outcomes.
+fn compile_decision(
+    condition: TokenStream,
+    when_true: TokenStream,
+    when_false: TokenStream,
+    (when_true_span, when_false_span): (Span, Span),
+) -> TokenStream {
+    let t = quote_spanned!(when_true_span => { #when_true });
+    let f = quote_spanned!(when_false_span => { #when_false });
+    quote!(if #condition #t else #f)
 }
 
 /// Compile the invocation of a callback: a call of the trait method when the
@@ -590,56 +847,57 @@ fn compile_callback_call(nr: &NamedReference, ctx: &Ctx) -> TokenStream {
     }
     match element.borrow().binding_cell_including_synthetic(nr.name()) {
         Some(handler) => {
-            let handler = compile_expression(&handler.borrow().expression, ctx);
+            let handler = compile_binding(&handler.borrow(), "handler", ctx);
             quote!(#handler;)
         }
         None => TokenStream::new(),
     }
 }
 
-/// The compiled geometry of an element: its offset from its parent, and its size.
-struct Geometry {
-    x: TokenStream,
-    y: TokenStream,
-    width: TokenStream,
-    height: TokenStream,
+/// The compiled value of one of the element's geometry properties.
+fn geometry_prop(
+    elem: &ElementRc,
+    ctx: &Ctx,
+    prop: fn(&GeometryProps) -> &NamedReference,
+) -> Option<TokenStream> {
+    let props = elem.borrow().geometry_props.clone();
+    compile_property_reference(prop(props.as_ref()?), ctx)
 }
 
-fn element_geometry(elem: &ElementRc, ctx: &Ctx) -> Geometry {
-    let props = elem.borrow().geometry_props.clone();
-    let resolve =
-        |nr: Option<&NamedReference>| nr.and_then(|nr| compile_property_reference(nr, ctx));
-    Geometry {
-        // The default_geometry pass leaves a size binding on every element, and
-        // the root's size resolves to the window size
-        width: resolve(props.as_ref().map(|g| &g.width)).expect("element without a width"),
-        height: resolve(props.as_ref().map(|g| &g.height)).expect("element without a height"),
-        x: resolve(props.as_ref().map(|g| &g.x)).unwrap_or_else(|| quote!(0i32)),
-        y: resolve(props.as_ref().map(|g| &g.y)).unwrap_or_else(|| quote!(0i32)),
-    }
+/// The compiled offset of an element from its parent.
+fn element_position(elem: &ElementRc, ctx: &Ctx) -> (TokenStream, TokenStream) {
+    let resolve = |prop| geometry_prop(elem, ctx, prop).unwrap_or_else(|| quote!(0i32));
+    (resolve(|g: &GeometryProps| &g.x), resolve(|g: &GeometryProps| &g.y))
+}
+
+/// The compiled size of an element. The default_geometry pass leaves a size
+/// binding on every element, and the root's size resolves to the window size.
+fn element_size(elem: &ElementRc, ctx: &Ctx) -> (TokenStream, TokenStream) {
+    let resolve = |prop| geometry_prop(elem, ctx, prop).expect("element without a size");
+    (resolve(|g: &GeometryProps| &g.width), resolve(|g: &GeometryProps| &g.height))
 }
 
 /// Walk `elem` and its descendants, emitting for each a block that adds the
 /// element's position to the running `offset_x`/`offset_y`, whatever `body`
 /// makes of the element, and then the children's blocks — so that later and
 /// deeper elements come after earlier and shallower ones. A subtree `body`
-/// makes nothing of emits nothing.
+/// makes nothing of emits nothing, and compiles nothing either, so that its
+/// bindings make no coverage points.
 ///
 /// Rendering and hit testing are the same walk, which is what makes a
 /// `TouchArea` sit exactly where it paints.
 fn emit_tree(
     elem: &ElementRc,
     ctx: &Ctx,
-    body: &mut dyn FnMut(&ElementRc, &Geometry) -> Option<TokenStream>,
+    body: &mut dyn FnMut(&ElementRc) -> Option<TokenStream>,
 ) -> TokenStream {
-    let geometry = element_geometry(elem, ctx);
-    let statements = body(elem, &geometry);
+    let statements = body(elem);
     let children: Vec<TokenStream> =
         elem.borrow().children.iter().map(|child| emit_tree(child, ctx, body)).collect();
     if statements.is_none() && children.iter().all(|c| c.is_empty()) {
         return TokenStream::new();
     }
-    let (x, y) = (&geometry.x, &geometry.y);
+    let (x, y) = element_position(elem, ctx);
     quote! {
         {
             let offset_x = offset_x + #x;
@@ -670,12 +928,12 @@ fn is_image_item(elem: &ElementRc) -> bool {
 /// image pixel per frame-buffer pixel: the element is always the size of the
 /// image, so there is nothing to scale or clip to.
 fn emit_render(ctx: &Ctx) -> TokenStream {
-    emit_tree(ctx.root, ctx, &mut |elem, geometry| {
-        let background = elem
+    emit_tree(ctx.root, ctx, &mut |elem| {
+        let reached = ctx.coverage.point("element", &*elem.borrow(), "");
+        let mut color = elem
             .borrow()
             .binding_cell_including_synthetic("background")
-            .map(|b| b.borrow().expression.clone());
-        let mut color = background.map(|expr| compile_expression(&expr, ctx));
+            .map(|b| compile_binding(&b.borrow(), "binding", ctx));
         if Rc::ptr_eq(elem, ctx.root) {
             // The window background defaults to black, so that the whole frame
             // buffer is always painted
@@ -683,8 +941,8 @@ fn emit_render(ctx: &Ctx) -> TokenStream {
                 color.unwrap_or_else(|| quote!(slint_sc::Color::from_argb_encoded(0xff000000u32))),
             );
         }
-        let (w, h) = (&geometry.width, &geometry.height);
         let fill = color.map(|color| {
+            let (w, h) = element_size(elem, ctx);
             quote!(
                 slint_sc::private_unstable_api::renderer::fill_rect(frame_buffer, window_size,
                     [offset_x, offset_y], [#w, #h], #color);
@@ -694,20 +952,20 @@ fn emit_render(ctx: &Ctx) -> TokenStream {
             .then(|| {
                 elem.borrow()
                     .binding_cell_including_synthetic("source")
-                    .map(|b| b.borrow().expression.clone())
+                    .map(|b| compile_binding(&b.borrow(), "binding", ctx))
             })
             .flatten();
         let draw_image = source.map(|source| {
-            let source = compile_expression(&source, ctx);
             quote!(
                 slint_sc::private_unstable_api::renderer::draw_image(frame_buffer, window_size,
                     [offset_x, offset_y], #source);
             )
         });
-        match (fill, draw_image) {
-            (None, None) => None,
-            (fill, draw_image) => Some(quote!(#fill #draw_image)),
-        }
+        let body = match reached {
+            Some(span) => quote_spanned!(span => { #fill #draw_image }),
+            None => quote!(#fill #draw_image),
+        };
+        (!body.is_empty()).then_some(body)
     })
 }
 
@@ -716,16 +974,16 @@ fn emit_render(ctx: &Ctx) -> TokenStream {
 /// what an earlier one stored in `hit`, so the area that paints on top is the
 /// one that ends up hit.
 fn emit_hit_test(ctx: &Ctx, areas: &mut Vec<TokenStream>) -> TokenStream {
-    emit_tree(ctx.root, ctx, &mut |elem, geometry| {
+    emit_tree(ctx.root, ctx, &mut |elem| {
         is_touch_area(elem).then(|| {
             let index = areas.len();
             areas.push(
                 elem.borrow()
                     .binding_cell_including_synthetic("clicked")
-                    .map(|handler| compile_expression(&handler.borrow().expression, ctx))
+                    .map(|handler| compile_binding(&handler.borrow(), "handler", ctx))
                     .unwrap_or_default(),
             );
-            let (w, h) = (&geometry.width, &geometry.height);
+            let (w, h) = element_size(elem, ctx);
             quote!(
                 if (offset_x..offset_x.saturating_add(#w)).contains(&position.x)
                     && (offset_y..offset_y.saturating_add(#h)).contains(&position.y)
@@ -764,12 +1022,12 @@ fn compile_property_reference(nr: &NamedReference, ctx: &Ctx) -> Option<TokenStr
                     let getter = rust_accessor_ident(nr.name(), AccessorKind::Getter);
                     quote!(self.#getter())
                 }
-                Some(b) => compile_expression(&b.borrow().expression, ctx),
+                Some(b) => compile_binding(&b.borrow(), "binding", ctx),
             });
         }
     }
     match element.borrow().binding_cell_including_synthetic(nr.name()) {
-        Some(b) => Some(compile_expression(&b.borrow().expression, ctx)),
+        Some(b) => Some(compile_binding(&b.borrow(), "binding", ctx)),
         None if is_root => match nr.name().as_str() {
             "width" => Some(quote!((self.window_size.width as i32))),
             "height" => Some(quote!((self.window_size.height as i32))),

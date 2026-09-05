@@ -79,6 +79,36 @@ built with, so build the compiler with the same one. That holds for a cross
 build too: its host products sit next to the target ones, under the same
 profile. Pass `SLINT_COMPILER` to use a binary from somewhere else.
 
+## Code Coverage
+
+The Rust code is measured with [`cargo llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov), a separate
+cargo subcommand: install it and the LLVM tools once with `cargo install cargo-llvm-cov` and
+`rustup component add llvm-tools-preview`.
+The scene in `main.slint` is measured by the same run, at the level of the Slint language: the compiler writes,
+next to the generated code, a map of the ranges of the code that are a coverage point, one for every element,
+binding, callback handler and call, and for both outcomes of every `?:`, `&&` and `||`. The generated code
+carries nothing, so the code measured is the code that ships. The `slint-sc-coverage` tool maps the LLVM
+coverage of the code at those ranges back to the `.slint` file, in the lcov format, reporting which points were
+never reached:
+
+```
+cargo build -p slint-compiler --no-default-features --features slint-sc
+cd examples/safe-ui
+SLINT_COMPILER=$PWD/../../target/debug/slint-compiler \
+    cargo llvm-cov --json --output-path coverage.json -p slint-safeui-app
+cargo run --manifest-path ../../Cargo.toml -p slint-sc-coverage -- --export coverage.json -o slint-lcov.info
+```
+
+`cargo llvm-cov` builds into its own target directory, where the build script would look for the compiler,
+hence `SLINT_COMPILER`.
+Any lcov consumer shows the result, `genhtml` or an editor's coverage view alike, and it merges with the Rust
+coverage of the same run into one report:
+
+```
+cargo llvm-cov report --lcov --output-path lcov.info
+genhtml lcov.info slint-lcov.info -o coverage
+```
+
 ## Build System Integration
 
 Integration of this example into an existing safety domain build system works by means of CMake. In your existing `CMakeLists.txt` for your target

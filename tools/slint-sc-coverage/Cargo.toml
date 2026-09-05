@@ -13,5 +13,14 @@ rust-version.workspace = true
 version.workspace = true
 publish = false
 
+[dependencies]
+clap = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
 [lib]
 path = "lib.rs"
+
+[[bin]]
+name = "slint-sc-coverage"
+path = "main.rs"

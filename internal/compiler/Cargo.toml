@@ -26,7 +26,7 @@ python = ["dep:pathdiff", "dep:serde", "smol_str/serde", "dep:serde_json", "dep:
 
 # Safety-critical subset: enables the SlintSc output format and compile-time checks.
 # The `image` crate decodes `@image-url()` images at compile time.
-slint-sc = ["quote", "proc-macro2", "image"]
+slint-sc = ["quote", "proc-macro2", "proc-macro2/span-locations", "image"]
 
 # Support for proc_macro spans in the token (only useful for use within a proc macro)
 proc_macro_span = ["quote", "proc-macro2"]
