@@ -10,7 +10,7 @@ use i_slint_core::window::WindowAdapter;
 use i_slint_core::window::WindowInner;
 use slotmap::{Key, KeyData, SlotMap};
 use std::cell::{Cell, RefCell};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::{Rc, Weak};
 
 use crate::{ElementHandle, ElementRoot, LayoutKind};
@@ -123,6 +123,10 @@ pub(crate) struct IntrospectionState {
     pub windows: RefCell<SlotMap<ArenaIndex, TrackedWindow>>,
     pub element_handles: RefCell<SlotMap<ArenaIndex, ElementHandle>>,
     element_handle_order: RefCell<VecDeque<ArenaIndex>>,
+    /// Reverse lookup into `element_handles`, so an element that is mentioned again
+    /// keeps its handle. `ElementHandle` compares by pointer and doesn't hash, so
+    /// entries are bucketed by a hint that equal elements share.
+    element_handle_lookup: RefCell<HashMap<(u32, usize), Vec<ArenaIndex>>>,
     event_log: RefCell<VecDeque<proto::RecordedEvent>>,
     next_event_sequence: Cell<u64>,
     dropped_event_count: Cell<u64>,
@@ -137,6 +141,7 @@ impl IntrospectionState {
             windows: Default::default(),
             element_handles: Default::default(),
             element_handle_order: Default::default(),
+            element_handle_lookup: Default::default(),
             event_log: Default::default(),
             next_event_sequence: Default::default(),
             dropped_event_count: Default::default(),
@@ -209,9 +214,25 @@ impl IntrospectionState {
             .root_element_handle)
     }
 
+    /// Returns the handle for `element`, minting one only if the element isn't
+    /// tracked yet.
+    ///
+    /// Interning keeps a handle stable for as long as the element lives, so a client
+    /// that re-queries doesn't fill the arena with duplicates of what it already has
+    /// and evict its own live handles (#13243).
     pub fn element_to_handle(&self, element: ElementHandle) -> ArenaIndex {
+        let hint = element.identity_hint();
+        if let Some(hint) = hint
+            && let Some(index) = self.tracked_handle(&element, hint)
+        {
+            return index;
+        }
+
         let mut arena = self.element_handles.borrow_mut();
         let index = arena.insert(element);
+        if let Some(hint) = hint {
+            self.element_handle_lookup.borrow_mut().entry(hint).or_default().push(index);
+        }
         let mut order = self.element_handle_order.borrow_mut();
         order.push_back(index);
         if arena.len() > ELEMENT_HANDLE_CAP {
@@ -228,10 +249,40 @@ impl IntrospectionState {
                     order.push_back(oldest);
                     continue;
                 }
-                arena.remove(oldest);
+                if let Some(hint) = arena.remove(oldest).and_then(|e| e.identity_hint()) {
+                    let mut lookup = self.element_handle_lookup.borrow_mut();
+                    if let Some(bucket) = lookup.get_mut(&hint) {
+                        bucket.retain(|candidate| *candidate != oldest);
+                        if bucket.is_empty() {
+                            lookup.remove(&hint);
+                        }
+                    }
+                }
             }
         }
         index
+    }
+
+    /// Returns the handle already tracking `element`, dropping lookup entries whose
+    /// slot was evicted or whose element is gone.
+    fn tracked_handle(&self, element: &ElementHandle, hint: (u32, usize)) -> Option<ArenaIndex> {
+        let arena = self.element_handles.borrow();
+        let mut lookup = self.element_handle_lookup.borrow_mut();
+        let bucket = lookup.get_mut(&hint)?;
+        let mut tracked = None;
+        bucket.retain(|candidate| match arena.get(*candidate) {
+            Some(tracked_element) if tracked_element.is_valid() => {
+                if tracked_element.is_same_element(element) {
+                    tracked = Some(*candidate);
+                }
+                true
+            }
+            _ => false,
+        });
+        if bucket.is_empty() {
+            lookup.remove(&hint);
+        }
+        tracked
     }
 
     pub fn element(&self, request: &str, index: ArenaIndex) -> Result<ElementHandle, String> {
@@ -977,6 +1028,70 @@ pub(crate) mod dispatch {
 // ============================================================================
 // Tests
 // ============================================================================
+
+#[cfg(test)]
+fn window_adapter_for_test(app: &impl slint::ComponentHandle) -> std::rc::Rc<dyn WindowAdapter> {
+    WindowInner::from_pub(app.window()).window_adapter()
+}
+
+#[test]
+fn test_element_handle_is_interned() {
+    crate::init_no_event_loop();
+    slint::slint! {
+        export component App inherits Window { width: 100px; height: 50px; }
+    }
+    let app = App::new().unwrap();
+    let adapter = window_adapter_for_test(&app);
+    let state = IntrospectionState::new();
+
+    // Both calls mention the same root element.
+    state.add_window(&adapter);
+    state.add_window(&adapter);
+
+    let roots: Vec<_> =
+        state.windows.borrow().values().map(|window| window.root_element_handle).collect();
+    assert_eq!(roots[0], roots[1], "the same element was given two handles");
+    assert_eq!(state.element_handles.borrow().len(), 1);
+}
+
+#[test]
+fn test_element_handle_differs_per_element() {
+    crate::init_no_event_loop();
+    slint::slint! {
+        export component App inherits Window { width: 100px; height: 50px; }
+    }
+    let first = App::new().unwrap();
+    let second = App::new().unwrap();
+    let state = IntrospectionState::new();
+
+    state.add_window(&window_adapter_for_test(&first));
+    state.add_window(&window_adapter_for_test(&second));
+
+    let roots: Vec<_> =
+        state.windows.borrow().values().map(|window| window.root_element_handle).collect();
+    assert_ne!(roots[0], roots[1]);
+    assert_eq!(state.element_handles.borrow().len(), 2);
+}
+
+#[test]
+fn test_element_handle_is_recreated_after_eviction() {
+    crate::init_no_event_loop();
+    slint::slint! {
+        export component App inherits Window { width: 100px; height: 50px; }
+    }
+    let app = App::new().unwrap();
+    let adapter = window_adapter_for_test(&app);
+    let state = IntrospectionState::new();
+    state.add_window(&adapter);
+    let evicted = state.windows.borrow().values().next().unwrap().root_element_handle;
+
+    state.element_handles.borrow_mut().remove(evicted);
+    let item_tree = WindowInner::from_pub(adapter.window()).component();
+    let recreated = state.element_to_handle(RootWrapper(&item_tree).root_element());
+
+    assert_ne!(recreated, evicted, "the evicted slot was handed out again");
+    assert_eq!(state.element_handles.borrow().len(), 1);
+}
 
 #[test]
 fn test_dispatch_element_properties_stale_handle() {

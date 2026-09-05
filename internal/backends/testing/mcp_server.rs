@@ -540,7 +540,9 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "All handles are JSON objects with string-valued fields: {\"index\": \"0\", \"generation\": \"0\"}. ",
                     "Values are uint64 encoded as strings (protobuf JSON convention). ",
                     "Zero-valued fields may be omitted by the serializer, so {} means {\"index\": \"0\", \"generation\": \"0\"}. ",
-                    "When sending handles back, you may omit zero fields or include them — both work.\n\n",
+                    "When sending handles back, you may omit zero fields or include them — both work. ",
+                    "A handle stays the same for as long as the element lives, so the same element keeps its handle across queries. ",
+                    "Re-query when a call reports an invalid or destroyed handle.\n\n",
 
                     "IMPORTANT: window handles and element handles are SEPARATE, NON-INTERCHANGEABLE kinds, ",
                     "even though they share this {index, generation} shape. ",
