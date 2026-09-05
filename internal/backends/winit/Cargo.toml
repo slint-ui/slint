@@ -161,3 +161,7 @@ rustdoc-args = ["--generate-link-to-definition"]
 [[test]]
 name = "menubar_borrow"
 harness = false
+
+[[test]]
+name = "set_size_before_show"
+harness = false

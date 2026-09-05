@@ -520,12 +520,18 @@ impl WinitWindowAdapter {
         let scale_factor = runtime_window.scale_factor() as f64;
         let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
         let width = round_up_logical(layout_info_h.preferred_bounded() as f64, scale_factor);
-        if let Some(window_item) = runtime_window.window_item() {
-            // Setting the width to its preferred size before querying the vertical layout info
-            // is important in case the height depends on the width
-            window_item.width.set(LogicalLength::new(width as Coord));
-        }
-        let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+        let layout_info_v = match runtime_window.window_item() {
+            // The height may depend on the width, so query it at the preferred width. Restore
+            // the width afterwards: it may hold a size set explicitly before the window is shown.
+            Some(window_item) => {
+                let current_width = window_item.as_pin_ref().width();
+                window_item.width.set(LogicalLength::new(width as Coord));
+                let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+                window_item.width.set(current_width);
+                layout_info_v
+            }
+            None => component.as_ref().layout_info(Orientation::Vertical),
+        };
         let height = round_up_logical(layout_info_v.preferred_bounded() as f64, scale_factor);
         let size = winit::dpi::LogicalSize::new(width as Coord, height as Coord);
         (size.width > 0 as Coord && size.height > 0 as Coord).then_some(size)
