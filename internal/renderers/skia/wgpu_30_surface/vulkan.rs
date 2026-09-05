@@ -142,22 +142,48 @@ pub fn release_vulkan_swapchain_surface(
 /// [`skia_safe::gpu::vk::ImageLayout::GENERAL`] over to a consumer outside Vulkan,
 /// such as a display controller scanning out an imported dma-buf.
 ///
-/// `GENERAL` is the one layout every such consumer can read, and
-/// `VK_QUEUE_FAMILY_EXTERNAL` releases ownership of the image. Both are core
-/// since Vulkan 1.1, so neither needs an extension the wgpu device might lack.
+/// The image is created with `VK_SHARING_MODE_EXCLUSIVE`, so the consumer only
+/// gets readable pixels if ownership is released to it: the driver has no other
+/// reason to resolve whatever compressed or reordered form the image is in.
+/// `GENERAL` is the layout such a consumer can read, and `queue_family_index`
+/// names who it is released to — see [`scanout_queue_family_index`].
 pub fn release_vulkan_scanout_surface(
     gr_context: &mut skia_safe::gpu::DirectContext,
     skia_surface: &mut skia_safe::Surface,
+    queue_family_index: u32,
 ) {
     let scanout_state = skia_safe::gpu::vk::mutable_texture_states::new_vulkan(
         skia_safe::gpu::vk::ImageLayout::GENERAL,
-        ash::vk::QUEUE_FAMILY_EXTERNAL,
+        queue_family_index,
     );
     gr_context.flush_surface_with_texture_state(
         skia_surface,
         &skia_safe::gpu::FlushInfo::default(),
         Some(&scanout_state),
     );
+}
+
+/// The queue family that [`release_vulkan_scanout_surface`] releases an image to.
+///
+/// `VK_QUEUE_FAMILY_FOREIGN_EXT` is the one that describes a consumer outside
+/// Vulkan altogether, which a display controller is, but it needs
+/// `VK_EXT_queue_family_foreign` enabled on the device. Where that is missing,
+/// `VK_QUEUE_FAMILY_EXTERNAL` — core since Vulkan 1.1 — stands for a consumer on
+/// the same device and driver. That is a weaker claim than the truth, and drivers
+/// that act on the difference would resolve the image less thoroughly than the
+/// display needs.
+///
+/// # Safety
+/// `device` must be backed by the Vulkan wgpu backend.
+pub unsafe fn scanout_queue_family_index(device: &wgpu::Device) -> Option<u32> {
+    let hal_device = unsafe { device.as_hal::<wgpu::wgc::api::Vulkan>()? };
+    Some(
+        if hal_device.enabled_device_extensions().contains(&ash::ext::queue_family_foreign::NAME) {
+            ash::vk::QUEUE_FAMILY_FOREIGN_EXT
+        } else {
+            ash::vk::QUEUE_FAMILY_EXTERNAL
+        },
+    )
 }
 
 /// Extension names as `String`, for [`vk::BackendContextBuilder::with_extensions`]. Vulkan

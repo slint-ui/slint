@@ -555,6 +555,9 @@ pub(crate) enum Backend {
         /// The family Skia has to hand the swapchain image back to, see
         /// [`Backend::release_swapchain_surface`].
         queue_family_index: u32,
+        /// The family Skia hands a scanout image to, see
+        /// [`Backend::release_scanout_surface`].
+        scanout_queue_family_index: u32,
     },
 }
 
@@ -577,6 +580,13 @@ impl Backend {
                         )
                     },
                 )?,
+                // SAFETY: as above.
+                scanout_queue_family_index: unsafe { vulkan::scanout_queue_family_index(_device) }
+                    .ok_or_else(|| {
+                        PlatformError::from(
+                            "Cannot query the scanout queue family of the WGPU Vulkan device",
+                        )
+                    })?,
             }),
             #[cfg(target_vendor = "apple")]
             wgpu_30::Backend::Metal => Ok(Self::Metal),
@@ -676,8 +686,12 @@ impl Backend {
             #[cfg(target_family = "windows")]
             Self::Dx12 => {}
             #[cfg(skia_wgpu_vulkan)]
-            Self::Vulkan { .. } => {
-                vulkan::release_vulkan_scanout_surface(_gr_context, _skia_surface)
+            Self::Vulkan { scanout_queue_family_index, .. } => {
+                vulkan::release_vulkan_scanout_surface(
+                    _gr_context,
+                    _skia_surface,
+                    *scanout_queue_family_index,
+                )
             }
         }
     }
@@ -723,7 +737,7 @@ impl Backend {
             #[cfg(target_family = "windows")]
             Self::Dx12 => {}
             #[cfg(skia_wgpu_vulkan)]
-            Self::Vulkan { queue_family_index } => vulkan::release_vulkan_swapchain_surface(
+            Self::Vulkan { queue_family_index, .. } => vulkan::release_vulkan_swapchain_surface(
                 _gr_context,
                 _skia_surface,
                 *queue_family_index,

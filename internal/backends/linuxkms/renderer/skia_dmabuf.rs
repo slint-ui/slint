@@ -132,6 +132,11 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
     }
 }
 
+/// The extension whose `VK_QUEUE_FAMILY_FOREIGN_EXT` names a consumer outside
+/// Vulkan, which is what the display controller reading the dma-buf is. wgpu
+/// doesn't ask for it on its own, so this path adds it to the device.
+const QUEUE_FAMILY_FOREIGN: &std::ffi::CStr = c"VK_EXT_queue_family_foreign";
+
 fn init_wgpu() -> Result<(wgpu::Instance, wgpu::Adapter, wgpu::Device, wgpu::Queue), PlatformError>
 {
     let instance = wgpu::Instance::new(instance_descriptor());
@@ -144,16 +149,51 @@ fn init_wgpu() -> Result<(wgpu::Instance, wgpu::Adapter, wgpu::Device, wgpu::Que
     }))
     .map_err(|e| format!("Error finding a Vulkan adapter for dma-buf rendering: {e}"))?;
 
-    let features = adapter.features() - wgpu::Features::all_experimental_mask();
-
-    spin_on::spin_on(adapter.request_device(&wgpu::DeviceDescriptor {
+    let descriptor = wgpu::DeviceDescriptor {
         label: Some("Slint linuxkms dma-buf device"),
-        required_features: features,
+        required_features: adapter.features() - wgpu::Features::all_experimental_mask(),
         required_limits: adapter.limits(),
         experimental_features: wgpu::ExperimentalFeatures::disabled(),
         memory_hints: wgpu::MemoryHints::MemoryUsage,
         trace: wgpu::Trace::default(),
-    }))
-    .map(|(device, queue)| (instance, adapter, device, queue))
-    .map_err(|e| format!("Error creating a Vulkan device for dma-buf rendering: {e}").into())
+    };
+
+    let (device, queue) = open_device_with_queue_family_foreign(&adapter, &descriptor)
+        .unwrap_or_else(|| spin_on::spin_on(adapter.request_device(&descriptor)))
+        .map_err(|e| format!("Error creating a Vulkan device for dma-buf rendering: {e}"))?;
+
+    Ok((instance, adapter, device, queue))
+}
+
+/// Opens the device the way `request_device` would, with
+/// `VK_EXT_queue_family_foreign` added.
+///
+/// Returns `None` when the extension can't be added — the adapter doesn't support
+/// it, or it isn't a Vulkan adapter after all — leaving the caller to open the
+/// device the ordinary way and release scanout buffers to `VK_QUEUE_FAMILY_EXTERNAL`
+/// instead.
+fn open_device_with_queue_family_foreign(
+    adapter: &wgpu::Adapter,
+    descriptor: &wgpu::DeviceDescriptor<'_>,
+) -> Option<Result<(wgpu::Device, wgpu::Queue), wgpu::RequestDeviceError>> {
+    // Safety: the hal adapter is only used to open a device, within this scope.
+    let open_device = unsafe {
+        let hal_adapter = adapter.as_hal::<wgpu::hal::api::Vulkan>()?;
+        if !hal_adapter.physical_device_capabilities().supports_extension(QUEUE_FAMILY_FOREIGN) {
+            return None;
+        }
+        hal_adapter.open_with_callback(
+            descriptor.required_features,
+            &descriptor.required_limits,
+            &descriptor.memory_hints,
+            Some(Box::new(|args| args.extensions.push(QUEUE_FAMILY_FOREIGN))),
+        )
+    }
+    .inspect_err(|e| eprintln!("Error opening a Vulkan device with {QUEUE_FAMILY_FOREIGN:?}: {e}"))
+    .ok()?;
+
+    // Safety: `open_device` was just opened from this adapter with `descriptor`.
+    Some(unsafe {
+        adapter.create_device_from_hal::<wgpu::hal::api::Vulkan>(open_device, descriptor)
+    })
 }
