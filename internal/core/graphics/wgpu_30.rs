@@ -513,8 +513,10 @@ pub fn init_instance_adapter_device_queue_surface_then(
     }
 }
 
-// Helper function to poll a future once. Remove once the suspension API uses async.
-fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
+/// Polls `future` once, which is all a wgpu future needs on native platforms.
+/// `None` if it isn't ready.
+#[doc(hidden)]
+pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
     let waker = std::task::Waker::noop();
     let mut ctx = std::task::Context::from_waker(waker);
 

@@ -1,3 +1,5 @@
+<!-- cSpell: ignore DMABUF drmoutput gbmdisplay gbmdmabufdisplay swdisplay -->
+
 # Window & Backend Integration
 
 > Note for AI coding assistants (agents):
@@ -219,6 +221,24 @@ Direct framebuffer rendering:
 - No windowing system required
 - DRM/KMS for display
 - libinput for input
+
+#### Presentation Paths
+
+Each renderer reaches the screen one of four ways, three of them in `display/`:
+
+- `swdisplay/` — a DRM dumb buffer or `/dev/fb0`, for the software renderer.
+- `gbmdisplay.rs` — a GBM surface behind an EGL context, for the OpenGL renderers.
+- The wgpu DRM surface target in `drmoutput.rs`, where Vulkan owns the display itself.
+  This needs `VK_EXT_acquire_drm_display`, which few drivers offer.
+- `gbmdmabufdisplay.rs` — the fallback for the drivers that don't.
+  GBM allocates a ring of scanout buffers, and wgpu imports each as a texture via dma-buf.
+  Vulkan renders into the memory the display scans out,
+  and the backend posts it with the same page flip as the other paths.
+
+`renderer/skia.rs` picks between the last two.
+It falls back to the dma-buf path when the Vulkan loader doesn't offer `VK_EXT_acquire_drm_display`,
+or when creating the surface fails anyway.
+`SLINT_KMS_WGPU_DMABUF` forces the fallback on hardware that supports both.
 
 ### Testing Backend (`internal/backends/testing/`)
 
