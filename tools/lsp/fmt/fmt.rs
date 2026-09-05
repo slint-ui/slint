@@ -3019,6 +3019,7 @@ component ABC {
 export component MainWindow inherits Window {
     animate background { duration: 800ms;}
     animate x { duration: 100ms; easing: ease-out-bounce; }
+    animate rotation { duration: 600ms; angle-interpolation: shorter; }
     Rectangle {}
 }
 "#,
@@ -3028,6 +3029,10 @@ export component MainWindow inherits Window {
     animate x {
         duration: 100ms;
         easing: ease-out-bounce;
+    }
+    animate rotation {
+        duration: 600ms;
+        angle-interpolation: shorter;
     }
     Rectangle { }
 }

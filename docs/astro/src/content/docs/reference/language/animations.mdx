@@ -38,8 +38,9 @@ animate <property> {
   A qualified name such as `other.property` is not allowed here; it is a compile error to refer to a property of another element.
 - The body may contain only bindings of the form `field: value;`.
   Any other statement is a compile error.
-- The only fields are `delay`, `duration`, `easing`, `iteration-count`, `direction`, and `enabled`.
+- The only fields are `delay`, `duration`, `easing`, `iteration-count`, `direction`, `enabled`, and `angle-interpolation`.
   Binding any other name is a compile error.
+  `angle-interpolation` is allowed only when every animated property has the type `angle`; using it elsewhere is a compile error.
   Every field is optional.
 
 Attaching two `animate` blocks to the same property is a compile error.
@@ -108,6 +109,59 @@ The direction in which each iteration plays.
 <SlintProperty propName="enabled" typeName="bool" defaultValue="true">
 Whether the animation runs.
 When `false`, a change sets the property to its target value at once, with no delay, easing, or iteration.
+</SlintProperty>
+
+### angle-interpolation
+<SlintProperty propName="angle-interpolation" typeName="enum" enumName="AngleInterpolation" defaultValue="linear">
+How an `angle` property moves between its start and target values.
+This field is allowed only when animating properties of type `angle`.
+
+- `linear`: The angle is interpolated as a plain number.
+- `shorter`: The angle moves along the shorter arc between the two values.
+- `longer`: The angle moves along the longer arc between the two values.
+- `increasing`: The angle value always increases, wrapping around when the target is smaller.
+- `decreasing`: The angle value always decreases, wrapping around when the target is larger.
+
+With any mode other than `linear`, the animated value stays within 0° to 360° while the animation runs.
+Once it finishes, the property holds the target value exactly as written.
+
+For example, when animating from 10° to 350°:
+
+- `linear` passes through 180° and covers 340°.
+- `shorter` decreases through 0° and covers 20°.
+- `longer` increases through 180° and covers 340°.
+- `increasing` increases through 180° and covers 340°.
+- `decreasing` decreases through 0° and covers 20°.
+
+```slint
+export component Example inherits Window {
+    preferred-width: 200px;
+    preferred-height: 200px;
+
+    in-out property <angle> rotation: 10deg;
+
+    Rectangle {
+        width: 100px;
+        height: 20px;
+        x: 50px;
+        y: 90px;
+        background: blue;
+        transform-rotation: rotation;
+        transform-origin: { x: 0px, y: 10px };
+
+        animate transform-rotation {
+            duration: 1000ms;
+            angle-interpolation: shorter;
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            rotation = rotation == 10deg ? 350deg : 10deg;
+        }
+    }
+}
+```
 </SlintProperty>
 
 ## Transitions

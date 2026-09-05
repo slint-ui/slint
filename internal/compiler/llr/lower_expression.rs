@@ -769,6 +769,10 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
             (SmolStr::new_static("easing"), Type::Easing),
             (SmolStr::new_static("delay"), Type::Int32),
             (SmolStr::new_static("enabled"), Type::Bool),
+            (
+                SmolStr::new_static("angle-interpolation"),
+                Type::Enumeration(BUILTIN.enums.AngleInterpolation.clone()),
+            ),
         ])
     }
 

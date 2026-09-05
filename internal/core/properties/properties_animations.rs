@@ -1,13 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore coterminal
 use super::*;
 use crate::{
     animations::simulations::{
         Parameter, Simulation,
         spring::{SpringDurationBounceParameters, SpringParameters, SpringRegime},
     },
-    items::{AnimationDirection, PropertyAnimation},
+    items::{AngleInterpolation, AnimationDirection, PropertyAnimation},
     lengths::LogicalLength,
 };
 use euclid::Length;
@@ -280,7 +281,11 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                                 self.compute_interpolated_value()
                             } else {
                                 let progress = if reversed(current_iteration) { 1. - t } else { t };
-                                let val = self.from_value.interpolate(&to_value, progress);
+                                let val = self.from_value.interpolate_with_mode(
+                                    &to_value,
+                                    progress,
+                                    self.details.angle_interpolation,
+                                );
                                 (self.apply_map(val), false)
                             }
                         }
@@ -316,7 +321,11 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                         if reversed(current_iteration) { 1. - progress } else { progress }
                     };
                     let t = crate::animations::easing_curve(&self.details.easing, progress);
-                    let val = self.from_value.interpolate(&to_value, t);
+                    let val = self.from_value.interpolate_with_mode(
+                        &to_value,
+                        t,
+                        self.details.angle_interpolation,
+                    );
 
                     (self.apply_map(val), false)
                 } else {
@@ -460,6 +469,19 @@ pub trait InterpolatedPropertyValue: PartialEq + Default + 'static {
     fn scalar_delta(&self, _target_value: &Self) -> f32 {
         0.0
     }
+
+    /// Returns the interpolated value with a specific interpolation mode.
+    /// This is particularly useful for angle values where the interpolation path matters.
+    /// The default implementation ignores the mode and uses linear interpolation.
+    #[must_use]
+    fn interpolate_with_mode(
+        &self,
+        target_value: &Self,
+        t: f32,
+        _mode: AngleInterpolation,
+    ) -> Self {
+        self.interpolate(target_value, t)
+    }
 }
 
 impl InterpolatedPropertyValue for f32 {
@@ -469,6 +491,67 @@ impl InterpolatedPropertyValue for f32 {
 
     fn scalar_delta(&self, target_value: &Self) -> f32 {
         target_value - self
+    }
+
+    fn interpolate_with_mode(&self, target_value: &Self, t: f32, mode: AngleInterpolation) -> Self {
+        // f32::rem_euclid is not always available in no_std builds, and when it is it has a
+        // different signature than num_traits::Euclid::rem_euclid (issue #11333).
+        const FULL_ROTATION: f32 = 360.0;
+        const HALF_ROTATION: f32 = 180.0;
+
+        // Difference normalized to (-180, 180]; for an exact 180° opposite, the sign of the
+        // original delta is preserved so the traversal direction follows the user's input.
+        let shorter = || {
+            let raw = target_value - self;
+            let d = num_traits::Euclid::rem_euclid(&raw, &FULL_ROTATION);
+            if d > HALF_ROTATION || (d == HALF_ROTATION && raw < 0.0) {
+                d - FULL_ROTATION
+            } else {
+                d
+            }
+        };
+
+        let diff = match mode {
+            AngleInterpolation::Linear => return self.interpolate(target_value, t),
+            AngleInterpolation::Shorter => shorter(),
+            AngleInterpolation::Longer => {
+                let s = shorter();
+                if s > 0.0 {
+                    s - FULL_ROTATION
+                } else if s < 0.0 {
+                    s + FULL_ROTATION
+                } else {
+                    // shorter() returned 0: either target == self (no motion) or
+                    // the endpoints are coterminal (raw is a non-zero multiple of 360°).
+                    // For the coterminal case, take a full rotation in the direction
+                    // of the user-supplied delta.
+                    let raw = target_value - self;
+                    if raw > 0.0 {
+                        FULL_ROTATION
+                    } else if raw < 0.0 {
+                        -FULL_ROTATION
+                    } else {
+                        0.0
+                    }
+                }
+            }
+            AngleInterpolation::Increasing => {
+                let d = num_traits::Euclid::rem_euclid(&(target_value - self), &FULL_ROTATION);
+                if d == 0.0 && target_value != self { FULL_ROTATION } else { d }
+            }
+            AngleInterpolation::Decreasing => {
+                let d = num_traits::Euclid::rem_euclid(&(target_value - self), &FULL_ROTATION);
+                if d == 0.0 {
+                    // target == self: no motion; otherwise a full negative rotation
+                    if target_value == self { 0.0 } else { -FULL_ROTATION }
+                } else {
+                    d - FULL_ROTATION
+                }
+            }
+        };
+        // Keep the value inside a single turn so that the animation ends on a normalized
+        // angle (e.g. 350° → 10° with `Increasing` ends at 10°, not 370°).
+        num_traits::Euclid::rem_euclid(&(self + t * diff), &FULL_ROTATION)
     }
 }
 
@@ -1735,5 +1818,246 @@ mod animation_tests {
             driver.update_animations(start_time + core::time::Duration::from_millis(3000))
         });
         compo.width.handle.access(|binding| assert!(binding.is_some()));
+    }
+
+    // Tests for AngleInterpolation modes (angle interpolation)
+    // Note: Slint stores angles in DEGREES (not radians)
+    mod interpolation_tests {
+        use super::*;
+
+        const EPSILON: f32 = 0.1; // 0.1 degree tolerance
+
+        fn approx_eq(a: f32, b: f32) -> bool {
+            (a - b).abs() < EPSILON
+        }
+
+        #[test]
+        fn test_linear_interpolation() {
+            // Linear interpolation: 10° to 350° should go through 180° (340° rotation)
+            let from = 10.0_f32;
+            let to = 350.0_f32;
+
+            let mid = from.interpolate_with_mode(&to, 0.5, AngleInterpolation::Linear);
+            let expected = 180.0_f32;
+            assert!(approx_eq(mid, expected), "Linear: expected {}°, got {}°", expected, mid);
+        }
+
+        #[test]
+        fn test_shorter_interpolation() {
+            // Shorter arc: 10° to 350° goes via the angle decreasing (20° total)
+            let from = 10.0_f32;
+            let to = 350.0_f32;
+
+            let mid = from.interpolate_with_mode(&to, 0.5, AngleInterpolation::Shorter);
+            assert!(approx_eq(mid, 0.0), "Shorter mid: expected 0°, got {}°", mid);
+
+            let end = from.interpolate_with_mode(&to, 1.0, AngleInterpolation::Shorter);
+            assert!(approx_eq(end, 350.0), "Shorter end: expected 350°, got {}°", end);
+        }
+
+        #[test]
+        fn test_longer_interpolation() {
+            // Longer arc: 10° to 100° normally takes 90° (shorter)
+            // Longer takes 270° in the decreasing direction
+            let from = 10.0_f32;
+            let to = 100.0_f32;
+
+            let mid = from.interpolate_with_mode(&to, 0.5, AngleInterpolation::Longer);
+            assert!(approx_eq(mid, 235.0), "Longer mid: expected 235°, got {}°", mid);
+        }
+
+        #[test]
+        fn test_increasing_interpolation() {
+            // Increasing: angle value always increases
+            // From 350° to 10°, goes 350° -> 0° -> 10° (20° total, wrapping at 360°)
+            let from = 350.0_f32;
+            let to = 10.0_f32;
+
+            let mid = from.interpolate_with_mode(&to, 0.5, AngleInterpolation::Increasing);
+            assert!(approx_eq(mid, 0.0), "Increasing mid: expected 0°, got {}°", mid);
+
+            let end = from.interpolate_with_mode(&to, 1.0, AngleInterpolation::Increasing);
+            assert!(approx_eq(end, 10.0), "Increasing end: expected 10°, got {}°", end);
+        }
+
+        #[test]
+        fn test_decreasing_interpolation() {
+            // Decreasing: angle value always decreases
+            // From 10° to 350°, goes 10° -> 0° -> 350° (20° total, wrapping at 0°)
+            let from = 10.0_f32;
+            let to = 350.0_f32;
+
+            let mid = from.interpolate_with_mode(&to, 0.5, AngleInterpolation::Decreasing);
+            assert!(approx_eq(mid, 0.0), "Decreasing mid: expected 0°, got {}°", mid);
+
+            let end = from.interpolate_with_mode(&to, 1.0, AngleInterpolation::Decreasing);
+            assert!(approx_eq(end, 350.0), "Decreasing end: expected 350°, got {}°", end);
+        }
+
+        #[test]
+        fn test_shorter_already_shortest() {
+            // When the linear path is already shortest, Shorter matches Linear
+            let from = 10.0_f32;
+            let to = 100.0_f32;
+
+            let mid_linear = from.interpolate_with_mode(&to, 0.5, AngleInterpolation::Linear);
+            let mid_shorter = from.interpolate_with_mode(&to, 0.5, AngleInterpolation::Shorter);
+
+            assert!(
+                approx_eq(mid_linear, mid_shorter),
+                "Shorter should equal Linear when path is already shortest: {}° vs {}°",
+                mid_linear,
+                mid_shorter
+            );
+        }
+
+        #[test]
+        fn test_shorter_180_tie_preserves_sign() {
+            // For an exact 180° opposite, the traversal direction follows the sign of
+            // the user-supplied delta: positive raw delta increases, negative decreases.
+
+            // 90° -> 270° (raw +180): value increases through 180° to 270°.
+            let mid = 90.0_f32.interpolate_with_mode(&270.0, 0.5, AngleInterpolation::Shorter);
+            assert!(approx_eq(mid, 180.0), "Shorter +180 tie mid: expected 180°, got {}°", mid);
+            let end = 90.0_f32.interpolate_with_mode(&270.0, 1.0, AngleInterpolation::Shorter);
+            assert!(approx_eq(end, 270.0), "Shorter +180 tie end: expected 270°, got {}°", end);
+
+            // 270° -> 90° (raw -180): value decreases through 180° to 90°.
+            // Mid lands on 180° but the underlying delta is -180, not +180.
+            let mid = 270.0_f32.interpolate_with_mode(&90.0, 0.5, AngleInterpolation::Shorter);
+            assert!(approx_eq(mid, 180.0), "Shorter -180 tie mid: expected 180°, got {}°", mid);
+            let end = 270.0_f32.interpolate_with_mode(&90.0, 1.0, AngleInterpolation::Shorter);
+            assert!(approx_eq(end, 90.0), "Shorter -180 tie end: expected 90°, got {}°", end);
+
+            // Longer takes the opposite arc, so for raw +180 it goes negative
+            // (90 + 0.5 * -180 = 0).
+            let mid = 90.0_f32.interpolate_with_mode(&270.0, 0.5, AngleInterpolation::Longer);
+            assert!(approx_eq(mid, 0.0), "Longer +180 tie mid: expected 0°, got {}°", mid);
+
+            // For raw -180 Longer goes positive (270 + 0.5 * 180 = 360, normalized to 0).
+            let mid = 270.0_f32.interpolate_with_mode(&90.0, 0.5, AngleInterpolation::Longer);
+            assert!(approx_eq(mid, 0.0), "Longer -180 tie mid: expected 0°, got {}°", mid);
+        }
+
+        #[test]
+        fn test_no_motion_when_target_equals_self() {
+            // When the target value equals the current value, every mode must stay put
+            // for the whole duration of the animation (no spurious full rotation).
+            // The angle-aware modes report the value normalized to a single turn.
+            for mode in [
+                AngleInterpolation::Linear,
+                AngleInterpolation::Shorter,
+                AngleInterpolation::Longer,
+                AngleInterpolation::Increasing,
+                AngleInterpolation::Decreasing,
+            ] {
+                for &v in &[0.0_f32, 100.0, -45.0] {
+                    let expected = if matches!(mode, AngleInterpolation::Linear) {
+                        v
+                    } else {
+                        num_traits::Euclid::rem_euclid(&v, &360.0)
+                    };
+                    let mid = v.interpolate_with_mode(&v, 0.5, mode);
+                    assert!(
+                        approx_eq(mid, expected),
+                        "{:?} from {}° to {}° at t=0.5: expected {}°, got {}°",
+                        mode,
+                        v,
+                        v,
+                        expected,
+                        mid
+                    );
+                    let end = v.interpolate_with_mode(&v, 1.0, mode);
+                    assert!(
+                        approx_eq(end, expected),
+                        "{:?} from {}° to {}° at t=1.0: expected {}°, got {}°",
+                        mode,
+                        v,
+                        v,
+                        expected,
+                        end
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn test_increasing_decreasing_full_rotation() {
+            // When `to - from` is a non-zero multiple of 360 (visually the same angle),
+            // Increasing/Decreasing should still rotate a full turn.
+            let mid_inc =
+                10.0_f32.interpolate_with_mode(&370.0, 0.5, AngleInterpolation::Increasing);
+            assert!(
+                approx_eq(mid_inc, 190.0),
+                "Increasing 10→370 mid: expected 190°, got {}°",
+                mid_inc
+            );
+
+            let mid_dec =
+                10.0_f32.interpolate_with_mode(&370.0, 0.5, AngleInterpolation::Decreasing);
+            assert!(
+                approx_eq(mid_dec, 190.0),
+                "Decreasing 10→370 mid: expected 190°, got {}°",
+                mid_dec
+            );
+        }
+
+        #[test]
+        fn test_longer_coterminal_full_rotation() {
+            // For coterminal endpoints (raw delta is a non-zero multiple of 360°), Longer
+            // takes a full rotation in the direction of the user-supplied delta. Shorter
+            // intentionally stays put because the endpoints are visually identical.
+            let mid_long = 10.0_f32.interpolate_with_mode(&370.0, 0.5, AngleInterpolation::Longer);
+            assert!(
+                approx_eq(mid_long, 190.0),
+                "Longer 10→370 mid: expected 190°, got {}°",
+                mid_long
+            );
+
+            let mid_long_neg =
+                10.0_f32.interpolate_with_mode(&-350.0, 0.5, AngleInterpolation::Longer);
+            assert!(
+                approx_eq(mid_long_neg, 190.0),
+                "Longer 10→-350 mid: expected 190°, got {}°",
+                mid_long_neg
+            );
+        }
+
+        #[test]
+        fn test_angle_modes_normalize_to_single_turn() {
+            // Every angle-aware mode keeps the interpolated value in [0°, 360°), so an
+            // animation never ends on a value like 370° or -10°. A negative start value
+            // is reported normalized from the first frame on (visually identical).
+            let start = (-45.0_f32).interpolate_with_mode(&45.0, 0.0, AngleInterpolation::Shorter);
+            assert!(approx_eq(start, 315.0), "Shorter -45→45 start: expected 315°, got {}°", start);
+            let mid = (-45.0_f32).interpolate_with_mode(&45.0, 0.5, AngleInterpolation::Shorter);
+            assert!(approx_eq(mid, 0.0), "Shorter -45→45 mid: expected 0°, got {}°", mid);
+            let end = (-45.0_f32).interpolate_with_mode(&45.0, 1.0, AngleInterpolation::Shorter);
+            assert!(approx_eq(end, 45.0), "Shorter -45→45 end: expected 45°, got {}°", end);
+
+            for mode in [
+                AngleInterpolation::Shorter,
+                AngleInterpolation::Longer,
+                AngleInterpolation::Increasing,
+                AngleInterpolation::Decreasing,
+            ] {
+                for (from, to) in
+                    [(350.0_f32, 10.0_f32), (10.0, 350.0), (10.0, 370.0), (-90.0, 90.0)]
+                {
+                    for step in 0..=10 {
+                        let v = from.interpolate_with_mode(&to, step as f32 / 10.0, mode);
+                        assert!(
+                            (0.0..360.0).contains(&v),
+                            "{:?} {}→{} at step {}: {}° is outside [0°, 360°)",
+                            mode,
+                            from,
+                            to,
+                            step,
+                            v
+                        );
+                    }
+                }
+            }
+        }
     }
 }
