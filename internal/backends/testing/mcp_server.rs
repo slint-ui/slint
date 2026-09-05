@@ -228,6 +228,30 @@ enum ToolResult {
     Image { png_data: Vec<u8>, meta: Value },
 }
 
+/// Assembles the `get_element_tree` response.
+///
+/// Without debug info the walk yields no descendants and no names, so the response
+/// says so rather than looking like a UI with one unnamed element (#13225).
+fn element_tree_response(elements: Vec<Value>, truncated: bool, has_debug_info: bool) -> Value {
+    let total_count = elements.len();
+    let mut response = serde_json::json!({
+        "elements": elements,
+        "totalCount": total_count,
+        "truncated": truncated
+    });
+    if !has_debug_info && let Some(object) = response.as_object_mut() {
+        object.insert("debugInfoMissing".into(), Value::Bool(true));
+        object.insert(
+            "note".into(),
+            Value::String(format!(
+                "No descendants, type names or ids are available. {}",
+                crate::search_api::MISSING_DEBUG_INFO_MESSAGE
+            )),
+        );
+    }
+    response
+}
+
 async fn handle_tool_call(
     state: &IntrospectionState,
     name: &str,
@@ -332,11 +356,11 @@ async fn handle_tool_call(
                 std::ops::ControlFlow::<()>::Continue(())
             });
 
-            Ok(ToolResult::Json(serde_json::json!({
-                "elements": elements,
-                "totalCount": elements.len(),
-                "truncated": truncated
-            })))
+            Ok(ToolResult::Json(element_tree_response(
+                elements,
+                truncated,
+                root_element.has_debug_info(),
+            )))
         }
         "take_screenshot" => {
             let p: proto::RequestTakeSnapshot = deserialize_params(args)?;
@@ -535,6 +559,11 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "The pointer stays where it is left, so clear a hover with move_pointer to a point away from the element.\n",
                     "8. start_event_recording → then interact → stop_event_recording to verify the runtime received and processed expected input/window events\n",
                     "9. take_screenshot again to verify the visual effect\n\n",
+
+                    "# Requirements\n\n",
+                    "Element type names and ids need the application to be built with `SLINT_EMIT_DEBUG_INFO=1`, ",
+                    "or with `with_debug_info` in `slint_build`'s `CompilerConfiguration`. ",
+                    "Without it get_element_tree returns the root element alone, unnamed, and find_elements_by_id fails.\n\n",
 
                     "# Handle format\n\n",
                     "All handles are JSON objects with string-valued fields: {\"index\": \"0\", \"generation\": \"0\"}. ",
@@ -1103,6 +1132,23 @@ mod tests {
         .expect("get_element_properties failed");
         let ToolResult::Json(value) = result else { panic!("expected a json result") };
         assert_eq!(value["size"]["height"], 50.0);
+    }
+
+    #[test]
+    fn test_element_tree_response_reports_missing_debug_info() {
+        let response = element_tree_response(vec![], false, false);
+        assert_eq!(response["debugInfoMissing"], true);
+        assert!(response["note"].as_str().unwrap().contains("SLINT_EMIT_DEBUG_INFO"));
+        assert_eq!(response["totalCount"], 0);
+    }
+
+    #[test]
+    fn test_element_tree_response_omits_the_note_with_debug_info() {
+        let response = element_tree_response(vec![serde_json::json!({})], true, true);
+        assert!(response.get("debugInfoMissing").is_none());
+        assert!(response.get("note").is_none());
+        assert_eq!(response["totalCount"], 1);
+        assert_eq!(response["truncated"], true);
     }
 
     #[test]
