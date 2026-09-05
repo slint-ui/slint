@@ -571,7 +571,7 @@ impl RendererSealed for TestingWindow {
                 max: LogicalLength::new(longest_line as f32 * pixel_size),
             })
         } else {
-            sharedparley::text_content_widths(self, text_item, item_rc)
+            sharedparley::text_content_widths(self, text_item, item_rc, self.text_layout_cache())
         }
     }
 
