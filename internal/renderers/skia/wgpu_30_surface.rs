@@ -51,15 +51,6 @@ pub struct WGPUSurface {
     alpha_modes: Vec<wgpu::CompositeAlphaMode>,
 }
 
-fn backends_to_avoid() -> wgpu::Backends {
-    let mut avoid = wgpu::Backends::GL; /* we're not mapping that to skia because we can't save/restore state */
-    #[cfg(not(target_vendor = "apple"))]
-    avoid.insert(wgpu::Backends::METAL);
-    #[cfg(not(target_family = "windows"))]
-    avoid.insert(wgpu::Backends::DX12);
-    avoid
-}
-
 impl WGPUSurface {
     pub fn new_with_surface(
         surface_target: impl Into<i_slint_core::graphics::wgpu_30::SurfaceTarget>,
@@ -70,7 +61,7 @@ impl WGPUSurface {
             i_slint_core::graphics::wgpu_30::init_instance_adapter_device_queue_surface(
                 surface_target,
                 requested_graphics_api,
-                backends_to_avoid(),
+                i_slint_core::graphics::wgpu_30::default_backends_to_avoid(),
             )?;
         Self::init_with_parts(
             Rc::new(SharedWgpuState { instance, adapter, device, queue }),
@@ -304,7 +295,7 @@ impl crate::Surface for WGPUSurface {
             i_slint_core::graphics::wgpu_30::init_instance_adapter_device_queue_surface(
                 make_target(),
                 requested_graphics_api,
-                backends_to_avoid(),
+                i_slint_core::graphics::wgpu_30::default_backends_to_avoid(),
             )?;
         let wgpu = Rc::new(SharedWgpuState { instance, adapter, device, queue });
         let new_surface = Self::init_with_parts(wgpu.clone(), surface, size)?;
