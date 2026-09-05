@@ -367,6 +367,7 @@ pub struct Timer {
     pub interval: NamedReference,
     pub triggered: NamedReference,
     pub running: NamedReference,
+    pub repeat: NamedReference,
     pub element: ElementWeak,
 }
 
@@ -4549,6 +4550,7 @@ fn visit_all_named_references_dyn(component: &Component, vis: &mut dyn FnMut(&mu
                     vis(&mut t.interval);
                     vis(&mut t.triggered);
                     vis(&mut t.running);
+                    vis(&mut t.repeat);
                 });
                 for o in compo.optimized_elements.borrow().iter() {
                     visit_element_expressions(o, |expr, _, _| {
