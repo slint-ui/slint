@@ -11,6 +11,29 @@ The skill covers the `.slint` language, layouts, common gotchas, host-language i
 The plugin and skills are available from the [slint-ui/ai-plugins](https://github.com/slint-ui/ai-plugins) repository.
 
 <Tabs syncKey="ai-tool">
+  <TabItem label="Antigravity">
+  Install the Slint skill into the current project with the [`skills`](https://github.com/vercel-labs/skills) CLI:
+
+  ```sh
+  npx skills add slint-ui/ai-plugins --skill slint
+  ```
+
+  This will install the Slint skill in your current project. To install it globally, copy the contents of `.agents/skills/slint/` directory to [`~/.gemini/config/skills/slint/`](https://antigravity.google/docs/skills/#where-skills-live).
+
+  Now, configure the Slint documentation MCP server by adding the following block to [`~/.gemini/config/mcp_config.json`](https://antigravity.google/docs/mcp/#global-and-workspace-server-configs) or `.agents/mcp_config.json`.
+
+  ```json
+  {
+      "mcpServers": {
+          "slint": {
+              "serverUrl": "https://docs.slint.dev/mcp"
+          }
+      }
+  }
+  ```
+
+  Once configured, Antigravity will be able to access and use the Slint skill.
+  </TabItem>
   <TabItem label="Claude Code">
   Add the Slint marketplace from GitHub and install the plugin:
 
