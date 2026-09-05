@@ -150,6 +150,10 @@ pub fn ensure_window(
             to: Type::Brush,
         }
     });
+
+    // The element only became a window here, so it missed the defaults that `Element::from_node`
+    // gives a window the source writes, such as the title
+    crate::object_tree::apply_default_type_properties(&mut component.root_element.borrow_mut());
 }
 
 pub fn inherits_window(component: &Rc<Component>) -> bool {

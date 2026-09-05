@@ -214,7 +214,7 @@ pub mod re_exports {
     };
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind, accent_color,
-        context_for_root,
+        context_for_root, default_window_title,
     };
     pub use i_slint_core::{
         Color, Coord, SharedString, SharedVector, format, string::ToSharedString,

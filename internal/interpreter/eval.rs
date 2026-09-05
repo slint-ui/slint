@@ -1955,6 +1955,9 @@ fn call_builtin_function(
             let n = to_num(ctx, &arguments[0]);
             Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
         }
+        BuiltinFunction::DefaultWindowTitle => {
+            Value::String(i_slint_core::window::default_window_title())
+        }
         BuiltinFunction::DecimalSeparator => Value::String(
             find_window_adapter(ctx)
                 .map(|adapter| {
