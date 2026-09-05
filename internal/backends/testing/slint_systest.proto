@@ -242,6 +242,19 @@ message RequestHoverElement {
     Handle element_handle = 1;
 }
 
+message RequestScrollElement {
+    Handle element_handle = 1;
+    float delta_x = 2;
+    float delta_y = 3;
+}
+
+message RequestPointerScroll {
+    Handle window_handle = 1;
+    LogicalPosition position = 2;
+    float delta_x = 3;
+    float delta_y = 4;
+}
+
 message RequestDispatchKeyEvent {
     Handle window_handle = 1;
     string text = 2;
