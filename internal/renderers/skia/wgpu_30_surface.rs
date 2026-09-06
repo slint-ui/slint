@@ -518,6 +518,10 @@ impl crate::Surface for WGPUSurface {
         }
         Ok(())
     }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
 }
 
 struct WindowAndDisplayHandle(
