@@ -52,14 +52,11 @@ impl CachedRenderingData {
     /// This function can be used to remove an entry from the rendering cache for a given item, if it
     /// exists, i.e. if any data was ever cached. This is typically called by the graphics backend's
     /// implementation of the release_item_graphics_cache function.
-    fn release(
-        &self,
-        cache: &mut PartialRendererCache,
-    ) -> Option<CachedItemBoundingBoxAndTransform> {
+    fn release(&self, cache: &mut PartialRendererCache) -> Option<PartialRenderingCachedData> {
         if self.cache_generation.get() == cache.generation() {
             let index = self.cache_index.get();
             self.cache_generation.set(0);
-            Some(cache.remove(index).data)
+            Some(cache.remove(index))
         } else {
             None
         }
@@ -197,11 +194,11 @@ struct PartialRenderingCachedData {
     pub data: CachedItemBoundingBoxAndTransform,
     /// The property tracker that should be used to evaluate whether the item needs to be re-rendered
     pub tracker: Option<core::pin::Pin<Box<PropertyTracker>>>,
-}
-impl PartialRenderingCachedData {
-    fn new(data: CachedItemBoundingBoxAndTransform) -> Self {
-        Self { data, tracker: None }
-    }
+    /// The clipped screen-space region the item covered when it was last visited by
+    /// [`PartialRenderer::compute_dirty_regions`]. When the item is destroyed, this is
+    /// the region that needs to be repainted
+    /// (see [`PartialRenderingState::free_graphics_resources`]).
+    pub screen_rect: LogicalRect,
 }
 
 /// The cache that needs to be held by the Window for the partial rendering
@@ -386,6 +383,25 @@ pub enum RepaintBufferType {
     SwappedBuffers,
 }
 
+/// Map `rect` (relative to its parent) to screen space through `transform` and clip it
+/// to `clip_rect`. Returns `None` when nothing of the rectangle is visible.
+fn clipped_screen_rect(
+    rect: &LogicalRect,
+    transform: &ItemTransform,
+    clip_rect: &LogicalRect,
+) -> Option<LogicalRect> {
+    #[cfg(not(slint_int_coord))]
+    if !rect.origin.is_finite() {
+        // Account for NaN
+        return None;
+    }
+
+    if rect.is_empty() {
+        return None;
+    }
+    transform.outer_transformed_rect(&rect.cast()).cast().intersection(clip_rect)
+}
+
 /// Put this structure in the renderer to help with partial rendering
 ///
 /// This is constructed from a [`PartialRenderingState`]
@@ -477,10 +493,26 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                     my_sibling_index,
                 );
 
+                // The region the item covers on screen. It is stored in the cache entry so
+                // that destroying the item can repaint exactly that region
+                // (see `PartialRenderingState::free_graphics_resources`), and it doubles as
+                // the item's current-position dirty rect in the branches below.
+                let new_screen_rect = clipped_screen_rect(
+                    new_geom.bounding_rect(),
+                    &state.transform_to_screen,
+                    &state.clipped,
+                )
+                .unwrap_or_default();
+
                 let rendering_data = item.cached_rendering_data_offset();
                 let mut cache = self.cache.borrow_mut();
                 match rendering_data.get_entry(&mut cache) {
-                    Some(PartialRenderingCachedData { data: cached_geom, tracker }) => {
+                    Some(PartialRenderingCachedData {
+                        data: cached_geom,
+                        tracker,
+                        screen_rect,
+                    }) => {
+                        *screen_rect = new_screen_rect;
                         let rendering_dirty = tracker.as_ref().is_some_and(|tr| tr.is_dirty());
 
                         // Repaint when the rank among the previously known siblings changed,
@@ -523,11 +555,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                                 state.old_transform_to_screen,
                                 &state.clipped,
                             );
-                            self.mark_dirty_rect(
-                                new_geom.bounding_rect(),
-                                state.transform_to_screen,
-                                &state.clipped,
-                            );
+                            self.dirty_region.add_rect(new_screen_rect);
 
                             new_state
                                 .adjust_transforms_for_child(&new_geom.transform(), &old_transform);
@@ -547,11 +575,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                             || new_state.transform_to_screen != new_state.old_transform_to_screen;
 
                         if rendering_dirty {
-                            self.mark_dirty_rect(
-                                cached_geom.bounding_rect(),
-                                state.transform_to_screen,
-                                &state.clipped,
-                            );
+                            self.dirty_region.add_rect(new_screen_rect);
                             if moved {
                                 self.mark_dirty_rect(
                                     cached_geom.bounding_rect(),
@@ -568,11 +592,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                                     state.old_transform_to_screen,
                                     &state.clipped,
                                 );
-                                self.mark_dirty_rect(
-                                    cached_geom.bounding_rect(),
-                                    state.transform_to_screen,
-                                    &state.clipped,
-                                );
+                                self.dirty_region.add_rect(new_screen_rect);
                             } else if let Some(tr) = &tracker {
                                 tr.as_ref().register_as_dependency_to_current_binding();
                             }
@@ -604,7 +624,11 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                         }
                     }
                     None => {
-                        let cache_entry = PartialRenderingCachedData::new(new_geom.clone());
+                        let cache_entry = PartialRenderingCachedData {
+                            data: new_geom.clone(),
+                            tracker: None,
+                            screen_rect: new_screen_rect,
+                        };
                         rendering_data.cache_index.set(cache.insert(cache_entry));
                         rendering_data.cache_generation.set(cache.generation());
 
@@ -627,11 +651,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                                 .unwrap_or_default();
                         }
 
-                        self.mark_dirty_rect(
-                            new_geom.bounding_rect(),
-                            state.transform_to_screen,
-                            &state.clipped,
-                        );
+                        self.dirty_region.add_rect(new_screen_rect);
                         if new_state.clipped.is_empty() {
                             ItemVisitorResult::SkipChildren
                         } else {
@@ -660,16 +680,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         transform: ItemTransform,
         clip_rect: &LogicalRect,
     ) {
-        #[cfg(not(slint_int_coord))]
-        if !rect.origin.is_finite() {
-            // Account for NaN
-            return;
-        }
-
-        if !rect.is_empty()
-            && let Some(rect) =
-                transform.outer_transformed_rect(&rect.cast()).cast().intersection(clip_rect)
-        {
+        if let Some(rect) = clipped_screen_rect(rect, &transform, clip_rect) {
             self.dirty_region.add_rect(rect);
         }
     }
@@ -894,6 +905,12 @@ impl PartialRenderingState {
 
         let screen_region = LogicalRect::from_size(logical_window_size);
 
+        // Items destroyed during `compute_dirty_regions` (a repeater update drops its
+        // instances during the traversal) land in `force_dirty` after
+        // `create_partial_renderer` already collected it, so collect it again.
+        partial_renderer.dirty_region =
+            partial_renderer.dirty_region.union(&self.force_dirty.take());
+
         if self.force_screen_refresh.take() {
             partial_renderer.dirty_region = screen_region.into();
         }
@@ -915,15 +932,25 @@ impl PartialRenderingState {
     }
 
     /// Call this from your renderer's `free_graphics_resources` function to ensure that the cached item geometries
-    /// are cleared for the destroyed items in the item tree.
+    /// are cleared for the destroyed items in the item tree, and that the screen regions the items
+    /// covered are repainted in the next frame.
     pub fn free_graphics_resources(&self, items: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>) {
+        let mut cache = self.partial_cache.borrow_mut();
+        let mut force_dirty = self.force_dirty.borrow_mut();
         for item in items {
-            item.cached_rendering_data_offset().release(&mut self.partial_cache.borrow_mut());
+            match item.cached_rendering_data_offset().release(&mut cache) {
+                Some(entry) => {
+                    force_dirty.add_rect(entry.screen_rect);
+                }
+                None => {
+                    // Without a cache entry the item's screen region is unknown, but the item may
+                    // still be on screen: an item created after the dirty-region pass of a frame
+                    // is rendered without an entry (see `PartialRenderer::do_rendering`).
+                    // As a last resort, refresh everything.
+                    self.force_screen_refresh.set(true);
+                }
+            }
         }
-
-        // We don't have a way to determine the screen region of the delete items, what's in the cache is relative. So
-        // as a last resort, refresh everything.
-        self.force_screen_refresh.set(true)
     }
 
     /// Clears the partial rendering cache. Use this for example when the entire underlying window surface changes.

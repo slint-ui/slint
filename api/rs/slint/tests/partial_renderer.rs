@@ -330,7 +330,10 @@ fn if_condition() {
             in property <bool> c : true;
             background: black;
             // Static siblings before and after the conditional: toggling the condition
-            // must not repaint them.
+            // must not repaint the one before. The one after currently repaints when the
+            // condition turns false: the disappearance shifts its rank among the visited
+            // siblings, which is indistinguishable from a z-order change (see the
+            // `sibling_index` comment in `CachedItemBoundingBoxAndTransform`).
             Rectangle { x: 5px; y: 5px; width: 8px; height: 8px; background: green; }
             if c: Rectangle {
                 x: 45px;
@@ -354,8 +357,8 @@ fn if_condition() {
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
     ui.set_c(false);
     assert!(window.draw_if_needed(|renderer| {
-        // Currently we redraw when a condition becomes false because we don't track the position otherwise
-        do_test_render_region(renderer, 0, 0, 180, 260);
+        // The vanished conditional plus the sibling after it (see the comment above).
+        do_test_render_region(renderer, 45, 45, 100 + 20, 200 + 20);
     }));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
     ui.set_c(true);
@@ -422,14 +425,14 @@ fn list_view() {
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
     model.set_vec(vec![0, 0]);
     assert!(window.draw_if_needed(|renderer| {
-        // Currently, when ItemTree are removed, we redraw the whole window.
-        do_test_render_region(renderer, 0, 0, 300, 300);
+        // The model reset drops and recreates both rows.
+        do_test_render_region(renderer, LV_X, LV_Y, LV_X + 25, LV_Y + 20);
     }));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
     model.remove(1);
     assert!(window.draw_if_needed(|renderer| {
-        // Currently, when ItemTree are removed, we redraw the whole window.
-        do_test_render_region(renderer, 0, 0, 300, 300);
+        // Only the region of the removed row repaints.
+        do_test_render_region(renderer, LV_X, LV_Y + 10, LV_X + 25, LV_Y + 20);
     }));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
 }
