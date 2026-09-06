@@ -110,7 +110,7 @@ pub fn init_wgpu(
 /// it, or it isn't a Vulkan adapter after all — leaving the caller to open the
 /// device the ordinary way and release scanout buffers to `VK_QUEUE_FAMILY_EXTERNAL`
 /// instead.
-fn open_device_with_queue_family_foreign(
+pub(crate) fn open_device_with_queue_family_foreign(
     adapter: &wgpu::Adapter,
     descriptor: &wgpu::DeviceDescriptor<'_>,
 ) -> Option<Result<(wgpu::Device, wgpu::Queue), wgpu::RequestDeviceError>> {
