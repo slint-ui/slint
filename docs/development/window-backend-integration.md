@@ -235,10 +235,15 @@ Each renderer reaches the screen one of four ways, three of them in `display/`:
   Vulkan renders into the memory the display scans out,
   and the backend posts it with the same page flip as the other paths.
 
-`renderer/skia.rs` picks between the last two.
-It falls back to the dma-buf path when the Vulkan loader doesn't offer `VK_EXT_acquire_drm_display`,
+`renderer/skia.rs` and `renderer/femtovg_wgpu.rs` pick between the last two.
+They fall back to the dma-buf path when the Vulkan loader doesn't offer `VK_EXT_acquire_drm_display`,
 or when creating the surface fails anyway.
 `SLINT_KMS_WGPU_DMABUF` forces the fallback on hardware that supports both.
+
+Handing a buffer to the display controller is a Vulkan ownership release, which wgpu can't express.
+Both renderers draw into the buffer as an ordinary color target.
+`display/scanout_barriers.rs` records the release, and the acquire before the next frame,
+with ash and submits them on wgpu's queue.
 
 ### Testing Backend (`internal/backends/testing/`)
 
