@@ -1236,6 +1236,9 @@ pub struct PropertyAnimation {
     pub easing: crate::animations::EasingCurve,
     #[rtti_field]
     pub enabled: bool,
+    /// Interpolation method for angle properties (which arc / direction to take)
+    #[rtti_field]
+    pub angle_interpolation: AngleInterpolation,
 }
 
 impl Default for PropertyAnimation {
@@ -1249,6 +1252,7 @@ impl Default for PropertyAnimation {
             direction: Default::default(),
             easing: Default::default(),
             enabled: true,
+            angle_interpolation: Default::default(),
         }
     }
 }

@@ -595,6 +595,24 @@ macro_rules! for_each_enums {
                 AlternateReverse,
             }
 
+            /// This enum describes the interpolation method for angle values during animation.
+            ///
+            /// With any mode other than `linear`, the animated value stays within 0° to 360°
+            /// while the animation runs. Once it finishes, the property holds the target value.
+            #[non_exhaustive]
+            enum AngleInterpolation {
+                /// Standard linear interpolation between start and end values, treating the angle as a plain number.
+                Linear,
+                /// Interpolate along the shorter arc. Animating from 10° to 350° traverses 20° via the angle value decreasing.
+                Shorter,
+                /// Interpolate along the longer arc. Animating from 10° to 350° traverses 340° via the angle value increasing.
+                Longer,
+                /// The angle value always increases during the animation, wrapping around if necessary.
+                Increasing,
+                /// The angle value always decreases during the animation, wrapping around if necessary.
+                Decreasing,
+            }
+
             /// This enum describes the scrollbar visibility
             #[non_exhaustive]
             enum ScrollBarPolicy {
