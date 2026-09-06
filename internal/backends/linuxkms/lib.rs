@@ -30,6 +30,8 @@ mod renderer {
     #[cfg(enable_skia)]
     pub mod skia;
 
+    #[cfg(gbm_dmabuf)]
+    pub mod dmabuf;
     #[cfg(feature = "renderer-femtovg")]
     pub mod femtovg;
     #[cfg(feature = "renderer-femtovg-wgpu")]

@@ -73,7 +73,7 @@ impl SkiaRendererAdapter {
         // few drivers offer. Without it, render into a dma-buf and page-flip that.
         #[cfg(gbm_dmabuf)]
         if std::env::var_os("SLINT_KMS_WGPU_DMABUF").is_some()
-            || !super::skia_dmabuf::acquire_drm_display_available()
+            || !super::dmabuf::acquire_drm_display_available()
         {
             return super::skia_dmabuf::SkiaDmabufRendererAdapter::new(
                 drm_output,
