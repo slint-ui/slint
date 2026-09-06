@@ -202,7 +202,7 @@ fn importable_modifiers(
     // Safety: only the physical device and instance handles are read, and the
     // queries have no side effects.
     let modifiers = unsafe {
-        let hal_device = crate::renderer::skia_dmabuf::vulkan_device(device)?;
+        let hal_device = crate::renderer::dmabuf::vulkan_device(device)?;
         let physical_device = hal_device.raw_physical_device();
         let properties2 = Properties2::new(hal_device.shared_instance(), physical_device)?;
 
@@ -401,7 +401,7 @@ fn import_dmabuf_texture(
     // Safety: the descriptor describes the buffer object `fd` was exported from,
     // and `texture_from_dmabuf_fd` takes ownership of the fd.
     let hal_texture = unsafe {
-        crate::renderer::skia_dmabuf::vulkan_device(device)?.texture_from_dmabuf_fd(
+        crate::renderer::dmabuf::vulkan_device(device)?.texture_from_dmabuf_fd(
             fd,
             &hal_descriptor,
             modifier.into(),
