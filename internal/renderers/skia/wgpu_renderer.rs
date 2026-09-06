@@ -30,7 +30,7 @@ use crate::{SkiaRenderer, SkiaSharedContext};
 /// renderer's instance, device, and queue.
 pub struct SkiaWGPURendererGeneric<Surface> {
     renderer: SkiaRenderer,
-    surface: Surface,
+    _surface: std::marker::PhantomData<Surface>,
 }
 
 /// Renders into wgpu 29 textures. Available with the `unstable-wgpu-29` feature;
@@ -62,14 +62,19 @@ pub type SkiaWGPURenderer = SkiaWGPU30Renderer;
 #[cfg(all(feature = "wgpu-29", not(feature = "wgpu-30")))]
 pub type SkiaWGPURenderer = SkiaWGPU29Renderer;
 
-impl<Surface> SkiaWGPURendererGeneric<Surface> {
+impl<Surface: crate::Surface + 'static> SkiaWGPURendererGeneric<Surface> {
     fn new_with_surface(surface: Surface) -> Self {
         let shared_context = SkiaSharedContext::default();
-        // Use SkiaRenderer::default() to stay resilient to field additions, then disable
-        // partial rendering — there is no buffer age tracking for external texture targets.
-        let mut renderer = SkiaRenderer::default(&shared_context);
-        renderer.partial_rendering_state = None;
-        Self { renderer, surface }
+        let renderer = SkiaRenderer::new_with_surface(&shared_context, Box::new(surface));
+        Self { renderer, _surface: std::marker::PhantomData }
+    }
+
+    // SkiaRenderer owns the surface as a trait object; downcast back to the concrete
+    // type for the WGPU-specific fields and methods that `render_to_texture` needs.
+    fn surface(&self) -> std::cell::Ref<'_, Surface> {
+        std::cell::Ref::map(self.renderer.surface.borrow(), |surface| {
+            surface.as_ref().unwrap().as_any().downcast_ref::<Surface>().unwrap()
+        })
     }
 }
 
@@ -110,12 +115,13 @@ impl SkiaWGPU29Renderer {
     /// format. Supported formats depend on the GPU backend: `Rgba8Unorm` and `Rgba8UnormSrgb`
     /// are supported on all backends; `Bgra8Unorm` is additionally supported on Metal and Vulkan.
     pub fn render_to_texture(&self, texture: &wgpu_29::Texture) -> Result<(), PlatformError> {
-        self.renderer.invoke_rendering_notifier_setup(&self.surface)?;
+        let surface = self.surface();
+        self.renderer.invoke_rendering_notifier_setup(&*surface)?;
 
-        let gr_context = &mut self.surface.gr_context.borrow_mut();
+        let gr_context = &mut surface.gr_context.borrow_mut();
 
         let mut skia_surface =
-            self.surface.backend.make_surface(gr_context, texture).ok_or_else(|| {
+            surface.backend.make_surface(gr_context, texture).ok_or_else(|| {
                 PlatformError::from("Failed to wrap WGPU texture as Skia render target")
             })?;
 
@@ -128,12 +134,12 @@ impl SkiaWGPU29Renderer {
             (0., 0.),
             Some(gr_context),
             0,
-            Some(&self.surface),
+            Some(&*surface),
             window,
             None,
         );
 
-        self.surface.flush_and_submit(gr_context);
+        surface.flush_and_submit(gr_context);
 
         Ok(())
     }
@@ -173,12 +179,13 @@ impl SkiaWGPU30Renderer {
     /// format. Supported formats depend on the GPU backend: `Rgba8Unorm` and `Rgba8UnormSrgb`
     /// are supported on all backends; `Bgra8Unorm` is additionally supported on Metal and Vulkan.
     pub fn render_to_texture(&self, texture: &wgpu_30::Texture) -> Result<(), PlatformError> {
-        self.renderer.invoke_rendering_notifier_setup(&self.surface)?;
+        let surface = self.surface();
+        self.renderer.invoke_rendering_notifier_setup(&*surface)?;
 
-        let gr_context = &mut self.surface.gr_context.borrow_mut();
+        let gr_context = &mut surface.gr_context.borrow_mut();
 
         let mut skia_surface =
-            self.surface.backend.make_surface(gr_context, texture).ok_or_else(|| {
+            surface.backend.make_surface(gr_context, texture).ok_or_else(|| {
                 PlatformError::from("Failed to wrap WGPU texture as Skia render target")
             })?;
 
@@ -191,12 +198,12 @@ impl SkiaWGPU30Renderer {
             (0., 0.),
             Some(gr_context),
             0,
-            Some(&self.surface),
+            Some(&*surface),
             window,
             None,
         );
 
-        self.surface.flush_and_submit(gr_context);
+        surface.flush_and_submit(gr_context);
 
         Ok(())
     }
