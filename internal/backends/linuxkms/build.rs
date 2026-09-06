@@ -32,8 +32,12 @@ fn main() {
             feature = "unstable-wgpu-29",
             not(any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-30"))
         ) },
-        // The dma-buf import is a wgpu-30 API, and Skia is its only user so far.
-        gbm_dmabuf: { any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-30") },
+        // The dma-buf import is a wgpu-30 API.
+        gbm_dmabuf: { any(
+            feature = "renderer-skia-vulkan",
+            feature = "unstable-wgpu-30",
+            feature = "renderer-femtovg-wgpu"
+        ) },
         wgpu_30_surface_target: { any(
             feature = "unstable-wgpu-30",
             feature = "renderer-femtovg-wgpu",

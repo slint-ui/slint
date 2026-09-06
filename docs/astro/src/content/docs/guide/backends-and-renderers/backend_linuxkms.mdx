@@ -23,7 +23,7 @@ features you select. None of them are needed by every configuration:
 
 | pkg-config package name | Package name on Debian based distros | Needed for                          |
 |-------------------------|--------------------------------------|-------------------------------------|
-| `gbm`                   | `libgbm-dev`                         | the FemtoVG OpenGL renderer, and the Skia OpenGL and Vulkan renderers |
+| `gbm`                   | `libgbm-dev`                         | the FemtoVG and Skia renderers on OpenGL and Vulkan |
 | `libseat`               | `libseat-dev`                        | libseat support                     |
 | `libinput`              | `libinput-dev`                       | libinput support                    |
 | `libudev`               | `libudev-dev`                        | libinput support                    |
@@ -120,8 +120,8 @@ The LinuxKMS backend supports different renderers. They can be explicitly select
 | Skia software  | None                   | `linuxkms-skia-software` |
 | Software       | None                   | `linuxkms-software`                                                         |
 
-The Skia Vulkan renderer shows its frames through the Vulkan KHR Display Extension where the driver offers `VK_EXT_acquire_drm_display`.
-Elsewhere it renders into GBM buffers and shows them with a DRM page flip.
+The Skia Vulkan and FemtoVG wgpu renderers show their frames through the Vulkan KHR Display Extension where the driver offers `VK_EXT_acquire_drm_display`.
+Elsewhere they render into GBM buffers and show them with a DRM page flip.
 Set the `SLINT_KMS_WGPU_DMABUF` environment variable, to any value, to use GBM buffers even where the extension is available.
 
 :::note[Note]
