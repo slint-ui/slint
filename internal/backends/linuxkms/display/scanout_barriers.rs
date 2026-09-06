@@ -24,7 +24,7 @@ use ash::vk;
 use i_slint_core::platform::PlatformError;
 use wgpu_30 as wgpu;
 
-use crate::renderer::skia_dmabuf::vulkan_device;
+use crate::renderer::dmabuf::vulkan_device;
 
 const COLOR_SUBRESOURCE: vk::ImageSubresourceRange = vk::ImageSubresourceRange {
     aspect_mask: vk::ImageAspectFlags::COLOR,
@@ -46,7 +46,7 @@ pub struct ScanoutBarriers {
     slots: Vec<Slot>,
     queue_family_index: u32,
     /// Who the image is released to, see
-    /// [`scanout_queue_family_index`](crate::renderer::skia_dmabuf::scanout_queue_family_index).
+    /// [`scanout_queue_family_index`](crate::renderer::dmabuf::scanout_queue_family_index).
     scanout_queue_family_index: u32,
 }
 
@@ -60,7 +60,7 @@ impl ScanoutBarriers {
             let raw_device = hal_device.raw_device();
             let queue_family_index = hal_device.queue_family_index();
             let scanout_queue_family_index =
-                crate::renderer::skia_dmabuf::scanout_queue_family_index(&hal_device);
+                crate::renderer::dmabuf::scanout_queue_family_index(&hal_device);
 
             let command_pool = raw_device
                 .create_command_pool(
@@ -220,7 +220,7 @@ mod tests {
     //! Without a Vulkan device, the tests pass vacuously and say so.
 
     use super::*;
-    use crate::renderer::skia_dmabuf::{validation, wait_for_gpu};
+    use crate::renderer::dmabuf::{validation, wait_for_gpu};
 
     fn stand_in_scanout_buffers(device: &wgpu::Device) -> [wgpu::Texture; 2] {
         [0, 1].map(|_| {

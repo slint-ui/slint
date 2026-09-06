@@ -72,9 +72,7 @@ impl SkiaRendererAdapter {
         let drm_output = DrmOutput::new(device_opener)?;
 
         #[cfg(gbm_dmabuf)]
-        if std::env::var_os("SLINT_KMS_WGPU_DMABUF").is_some()
-            || !super::skia_dmabuf::acquire_drm_display_available()
-        {
+        if super::dmabuf::prefer_dmabuf() {
             return super::skia_dmabuf::SkiaDmabufRendererAdapter::new(
                 drm_output,
                 requested_graphics_api,
