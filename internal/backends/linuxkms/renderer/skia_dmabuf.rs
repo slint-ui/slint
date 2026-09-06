@@ -40,7 +40,11 @@ pub fn acquire_drm_display_available() -> bool {
 fn instance_descriptor() -> wgpu::InstanceDescriptor {
     wgpu::InstanceDescriptor {
         // Scanning out a dma-buf is a Vulkan-only path: the import needs
-        // VK_EXT_external_memory_dma_buf.
+        // VK_EXT_external_memory_dma_buf. A `WGPUSettings::backends` asking for
+        // anything else can't be honored here, and the other instance-level
+        // settings don't reach this path either; only the device half of the
+        // configuration applies. Validation still follows the usual environment
+        // variables through `InstanceFlags`.
         backends: wgpu::Backends::VULKAN,
         flags: wgpu::InstanceFlags::from_build_config().with_env(),
         backend_options: wgpu::BackendOptions::from_env_or_default(),
@@ -62,21 +66,7 @@ impl SkiaDmabufRendererAdapter {
         drm_output: DrmOutput,
         requested_graphics_api: Option<&RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
-        // Honoring a caller-provided wgpu configuration means matching on
-        // `RequestedGraphicsAPI::WGPU30`, which only exists when i-slint-core has
-        // its `unstable-wgpu-30` feature — something this crate can't rely on. A
-        // surface-less init helper in i-slint-core would resolve that.
-        match requested_graphics_api {
-            None | Some(RequestedGraphicsAPI::Vulkan) => {}
-            Some(api) => {
-                return Err(PlatformError::Other(format!(
-                    "Rendering into a dma-buf requires a Vulkan device created by the linuxkms \
-                     backend, so the requested graphics API {api:?} can't be used"
-                )));
-            }
-        }
-
-        let (instance, adapter, device, queue) = init_wgpu()?;
+        let (instance, adapter, device, queue) = init_wgpu(requested_graphics_api)?;
 
         let (width, height) = drm_output.size();
         let size = PhysicalWindowSize::new(width, height);
@@ -136,8 +126,9 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
 /// doesn't ask for it on its own, so this path adds it to the device.
 const QUEUE_FAMILY_FOREIGN: &std::ffi::CStr = c"VK_EXT_queue_family_foreign";
 
-fn init_wgpu() -> Result<(wgpu::Instance, wgpu::Adapter, wgpu::Device, wgpu::Queue), PlatformError>
-{
+fn init_wgpu(
+    requested_graphics_api: Option<&RequestedGraphicsAPI>,
+) -> Result<(wgpu::Instance, wgpu::Adapter, wgpu::Device, wgpu::Queue), PlatformError> {
     let instance = wgpu::Instance::new(instance_descriptor());
 
     let adapter = spin_on::spin_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -148,14 +139,19 @@ fn init_wgpu() -> Result<(wgpu::Instance, wgpu::Adapter, wgpu::Device, wgpu::Que
     }))
     .map_err(|e| format!("Error finding a Vulkan adapter for dma-buf rendering: {e}"))?;
 
-    let descriptor = wgpu::DeviceDescriptor {
-        label: Some("Slint linuxkms dma-buf device"),
-        required_features: adapter.features() - wgpu::Features::all_experimental_mask(),
-        required_limits: adapter.limits(),
-        experimental_features: wgpu::ExperimentalFeatures::disabled(),
-        memory_hints: wgpu::MemoryHints::MemoryUsage,
-        trace: wgpu::Trace::default(),
-    };
+    // The features and limits an application asked for, or everything the adapter
+    // offers when it asked for nothing. Naming the WGPU configuration here isn't
+    // possible: its type only exists with i-slint-core's `unstable-wgpu-30`, which
+    // this crate's own feature doesn't imply.
+    let mut descriptor = i_slint_core::graphics::wgpu_30::surfaceless_device_descriptor(
+        requested_graphics_api,
+        &adapter,
+    )?;
+    if descriptor.label.is_none() {
+        descriptor.label = Some("Slint linuxkms dma-buf device");
+    }
+    // Importing the scanout buffer needs this whatever the application asked for.
+    descriptor.required_features |= wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF;
 
     let (device, queue) = open_device_with_queue_family_foreign(&adapter, &descriptor)
         .unwrap_or_else(|| spin_on::spin_on(adapter.request_device(&descriptor)))
