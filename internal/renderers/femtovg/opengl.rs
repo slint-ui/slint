@@ -258,9 +258,6 @@ impl GraphicsBackend for OpenGLBackend {
                 .borrow()
                 .ensure_current()
                 .map_err(|e| PlatformError::Other(e.to_string()))?;
-            // Render the scene before reading the buffer back, like the wgpu backends do.
-            // Without this the snapshot is the last presented frame,
-            // which predates any change made since.
             render()?;
             let screenshot = canvas
                 .borrow_mut()
