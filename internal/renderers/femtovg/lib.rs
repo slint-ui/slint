@@ -393,7 +393,6 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         Ok(())
     }
 
-    /// Returns an image buffer of what was rendered last.
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         let size = self
             .maybe_window_adapter
