@@ -102,7 +102,9 @@ pub fn init_wgpu(
         .map_err(|e| format!("Error finding a Vulkan adapter for dma-buf rendering: {e}"))?;
 
     // The features and limits an application asked for, or everything the adapter
-    // offers when it asked for nothing.
+    // offers when it asked for nothing. i-slint-core reads them from the WGPU
+    // configuration, whose type only exists with its `unstable-wgpu-30`, which
+    // `renderer-femtovg-wgpu` doesn't enable by itself.
     let mut descriptor = i_slint_core::graphics::wgpu_30::surfaceless_device_descriptor(
         requested_graphics_api,
         &adapter,
