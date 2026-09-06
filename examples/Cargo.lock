@@ -4592,6 +4592,7 @@ dependencies = [
 name = "i-slint-backend-linuxkms"
 version = "1.18.0"
 dependencies = [
+ "ash",
  "bytemuck",
  "calloop 0.14.4",
  "cfg_aliases",
@@ -4608,6 +4609,7 @@ dependencies = [
  "memmap2",
  "nix",
  "raw-window-handle",
+ "spin_on",
  "wgpu 30.0.1",
  "xkbcommon",
 ]

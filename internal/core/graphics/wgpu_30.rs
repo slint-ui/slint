@@ -243,6 +243,42 @@ fn default_device_descriptor(adapter: &wgpu::Adapter) -> wgpu::DeviceDescriptor<
     }
 }
 
+/// The device descriptor for a renderer that creates its own device and has no surface
+/// to configure, such as the linuxkms renderer that scans out a dma-buf.
+///
+/// [`api::WGPUConfiguration::Automatic`] settings are honored the way
+/// [`init_instance_adapter_device_queue_surface`] honors them, so an application
+/// configures such a renderer with the same `WGPUSettings` it would use anywhere else.
+/// Only the device half applies: without a surface there is nothing to pick a backend
+/// or a present mode for, and such a renderer typically requires one backend anyway.
+///
+/// [`api::WGPUConfiguration::Manual`] is rejected. Its device already exists, and a
+/// renderer asking for this descriptor needs a device built to its own requirements —
+/// silently rendering on the supplied one instead would ignore what the caller asked for.
+pub fn surfaceless_device_descriptor<'a>(
+    requested_graphics_api: Option<&'a RequestedGraphicsAPI>,
+    adapter: &wgpu::Adapter,
+) -> Result<wgpu::DeviceDescriptor<'a>, crate::api::PlatformError> {
+    match requested_graphics_api {
+        None | Some(RequestedGraphicsAPI::Vulkan) => Ok(default_device_descriptor(adapter)),
+        #[cfg(feature = "unstable-wgpu-30")]
+        Some(RequestedGraphicsAPI::WGPU30(api::WGPUConfiguration::Automatic(settings))) => {
+            Ok(device_descriptor_from_settings(settings, adapter))
+        }
+        #[cfg(feature = "unstable-wgpu-30")]
+        Some(RequestedGraphicsAPI::WGPU30(api::WGPUConfiguration::Manual { .. })) => {
+            Err(crate::api::PlatformError::from(
+                "This renderer creates its own WGPU device and cannot use a supplied one; \
+                 configure it with WGPUConfiguration::Automatic instead",
+            ))
+        }
+        Some(api) => Err(crate::api::PlatformError::from(alloc::format!(
+            "This renderer creates its own WGPU device, so the requested graphics API {api:?} \
+             cannot be used"
+        ))),
+    }
+}
+
 /// Internal async helper function to initialize the wgpu instance/adapter/device/queue from either scratch or
 /// developer-provided config. This is called by any renderer intending to support WGPU.
 pub async fn async_init_instance_adapter_device_queue_surface(
