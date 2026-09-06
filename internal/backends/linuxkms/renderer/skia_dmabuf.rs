@@ -40,7 +40,11 @@ pub fn acquire_drm_display_available() -> bool {
 fn instance_descriptor() -> wgpu::InstanceDescriptor {
     wgpu::InstanceDescriptor {
         // Scanning out a dma-buf is a Vulkan-only path: the import needs
-        // VK_EXT_external_memory_dma_buf.
+        // VK_EXT_external_memory_dma_buf. A `WGPUSettings::backends` asking for
+        // anything else can't be honored here, and the other instance-level
+        // settings and the power preference don't reach this path either; only
+        // the device half of the configuration applies. Validation still follows
+        // the usual environment variables through `InstanceFlags`.
         backends: wgpu::Backends::VULKAN,
         ..wgpu::InstanceDescriptor::new_without_display_handle_from_env()
     }
@@ -68,21 +72,7 @@ impl SkiaDmabufRendererAdapter {
         drm_output: DrmOutput,
         requested_graphics_api: Option<&RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
-        // Honoring a caller-provided wgpu configuration means matching on
-        // `RequestedGraphicsAPI::WGPU30`, which only exists when i-slint-core has
-        // its `unstable-wgpu-30` feature — something this crate can't rely on. A
-        // surface-less init helper in i-slint-core would resolve that.
-        match requested_graphics_api {
-            None | Some(RequestedGraphicsAPI::Vulkan) => {}
-            Some(api) => {
-                return Err(PlatformError::Other(format!(
-                    "Rendering into a dma-buf requires a Vulkan device created by the linuxkms \
-                     backend, so the requested graphics API {api:?} can't be used"
-                )));
-            }
-        }
-
-        let (instance, adapter, device, queue) = init_wgpu()?;
+        let (instance, adapter, device, queue) = init_wgpu(requested_graphics_api)?;
 
         let (width, height) = drm_output.size();
         let size = PhysicalWindowSize::new(width, height);
@@ -173,12 +163,23 @@ pub(crate) unsafe fn vulkan_device(
 /// doesn't ask for it on its own, so this path adds it to the device.
 const QUEUE_FAMILY_FOREIGN: &std::ffi::CStr = c"VK_EXT_queue_family_foreign";
 
-fn init_wgpu() -> Result<(wgpu::Instance, wgpu::Adapter, wgpu::Device, wgpu::Queue), PlatformError>
-{
+fn init_wgpu(
+    requested_graphics_api: Option<&RequestedGraphicsAPI>,
+) -> Result<(wgpu::Instance, wgpu::Adapter, wgpu::Device, wgpu::Queue), PlatformError> {
     let instance = wgpu::Instance::new(instance_descriptor());
 
     let adapter = request_adapter(&instance)
         .map_err(|e| format!("Error finding a Vulkan adapter for dma-buf rendering: {e}"))?;
+
+    // The features and limits an application asked for, or everything the adapter
+    // offers when it asked for nothing.
+    let mut descriptor = i_slint_core::graphics::wgpu_30::surfaceless_device_descriptor(
+        requested_graphics_api,
+        &adapter,
+    )?;
+    if descriptor.label.is_none() {
+        descriptor.label = Some("Slint linuxkms dma-buf device");
+    }
 
     if !adapter.features().contains(wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF) {
         let display_access = if acquire_drm_display_available() {
@@ -193,14 +194,8 @@ fn init_wgpu() -> Result<(wgpu::Instance, wgpu::Adapter, wgpu::Device, wgpu::Que
         )));
     }
 
-    let descriptor = wgpu::DeviceDescriptor {
-        label: Some("Slint linuxkms dma-buf device"),
-        required_features: adapter.features() - wgpu::Features::all_experimental_mask(),
-        required_limits: adapter.limits(),
-        experimental_features: wgpu::ExperimentalFeatures::disabled(),
-        memory_hints: wgpu::MemoryHints::MemoryUsage,
-        trace: wgpu::Trace::default(),
-    };
+    // Importing the scanout buffer needs this whatever the application asked for.
+    descriptor.required_features |= wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF;
 
     let (device, queue) = open_device(&adapter, &descriptor)
         .map_err(|e| format!("Error creating a Vulkan device for dma-buf rendering: {e}"))?;
@@ -227,10 +222,18 @@ fn open_device(
 /// it or isn't a Vulkan adapter after all.
 /// The caller then opens the device the ordinary way, and releases scanout buffers to
 /// `VK_QUEUE_FAMILY_EXTERNAL` instead.
+/// Also returns `None` for a descriptor the adapter can't meet,
+/// since opening the device this way skips the checks `request_device` reports those with.
 fn open_device_with_queue_family_foreign(
     adapter: &wgpu::Adapter,
     descriptor: &wgpu::DeviceDescriptor<'_>,
 ) -> Option<Result<(wgpu::Device, wgpu::Queue), wgpu::RequestDeviceError>> {
+    if !adapter.features().contains(descriptor.required_features)
+        || descriptor.required_features.intersects(wgpu::Features::all_experimental_mask())
+        || !descriptor.required_limits.check_limits(&adapter.limits())
+    {
+        return None;
+    }
     // Safety: the hal adapter is only used to open a device, within this scope.
     let open_device = unsafe {
         let hal_adapter = adapter.as_hal::<wgpu::hal::api::Vulkan>()?;
@@ -310,14 +313,9 @@ pub(crate) mod validation {
         };
         eprintln!("Testing against {}", adapter.get_info().name);
 
-        let descriptor = wgpu::DeviceDescriptor {
-            label: Some("scanout test"),
-            required_features: adapter.features() - wgpu::Features::all_experimental_mask(),
-            required_limits: adapter.limits(),
-            experimental_features: wgpu::ExperimentalFeatures::disabled(),
-            memory_hints: wgpu::MemoryHints::MemoryUsage,
-            trace: wgpu::Trace::default(),
-        };
+        let descriptor =
+            i_slint_core::graphics::wgpu_30::surfaceless_device_descriptor(None, &adapter)
+                .expect("the default device descriptor");
         Some(super::open_device(&adapter, &descriptor).expect("creating the device"))
     }
 
