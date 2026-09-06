@@ -107,9 +107,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
         // the plane's IN_FENCE_FD property, and wgpu won't take a signal semaphore
         // for a submission. Block until the GPU is done instead, at the cost of a
         // pipeline stall per frame.
-        self.device
-            .poll(wgpu::PollType::Wait { submission_index: None, timeout: None })
-            .map_err(|e| format!("Error waiting for the GPU to finish the frame: {e}"))?;
+        wait_for_gpu(&self.device)?;
 
         self.display.present().map_err(|e| format!("Error presenting dma-buf: {e}"))?;
 
@@ -119,6 +117,23 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
     fn size(&self) -> PhysicalWindowSize {
         self.size
     }
+}
+
+/// Blocks until everything submitted to the device's queue has executed.
+///
+/// `wgpu::Device::poll` only waits for wgpu's own submissions. Skia draws through
+/// the raw queue and submits last, so a frame could reach the display before Skia
+/// finished it. Waiting on the queue itself covers every submitter.
+pub fn wait_for_gpu(device: &wgpu::Device) -> Result<(), PlatformError> {
+    // Safety: the queue is only waited on. Nothing else submits to it concurrently;
+    // rendering is single-threaded.
+    unsafe {
+        let hal_device = device
+            .as_hal::<wgpu::hal::api::Vulkan>()
+            .ok_or_else(|| PlatformError::from("The wgpu device is not a Vulkan device"))?;
+        hal_device.raw_device().queue_wait_idle(hal_device.raw_queue())
+    }
+    .map_err(|e| format!("Error waiting for the GPU to finish the frame: {e}").into())
 }
 
 /// The extension whose `VK_QUEUE_FAMILY_FOREIGN_EXT` names a consumer outside
