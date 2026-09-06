@@ -71,7 +71,7 @@ impl SkiaRendererAdapter {
 
         // Letting Vulkan drive the display needs VK_EXT_acquire_drm_display, which
         // few drivers offer. Without it, render into a dma-buf and page-flip that.
-        #[cfg(gbm_dmabuf)]
+        #[cfg(skia_wgpu_30)]
         if std::env::var_os("SLINT_KMS_WGPU_DMABUF").is_some()
             || !super::dmabuf::acquire_drm_display_available()
         {
@@ -92,7 +92,7 @@ impl SkiaRendererAdapter {
             Ok(surface) => surface,
             // The extension is there but unusable for this device: no Vulkan
             // physical device matching the DRM fd, or no matching display mode.
-            #[cfg(gbm_dmabuf)]
+            #[cfg(skia_wgpu_30)]
             Err(err) => {
                 eprintln!("Falling back to dma-buf presentation: {err}");
                 return super::skia_dmabuf::SkiaDmabufRendererAdapter::new(
@@ -100,7 +100,7 @@ impl SkiaRendererAdapter {
                     requested_graphics_api,
                 );
             }
-            #[cfg(not(gbm_dmabuf))]
+            #[cfg(not(skia_wgpu_30))]
             Err(err) => return Err(err),
         };
 

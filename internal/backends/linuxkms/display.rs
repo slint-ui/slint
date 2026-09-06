@@ -14,6 +14,8 @@ pub trait Presenter {
 pub mod gbmdisplay;
 #[cfg(gbm_dmabuf)]
 pub mod gbmdmabufdisplay;
+#[cfg(gbm_dmabuf)]
+pub mod scanout_barriers;
 #[cfg(any(enable_skia, feature = "renderer-software"))]
 pub mod swdisplay;
 

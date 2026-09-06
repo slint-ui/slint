@@ -4,13 +4,14 @@
 // cSpell: ignore readback Texel unpadded
 use std::{cell::RefCell, pin::Pin, rc::Rc};
 
+use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedGraphicsAPI};
 
 use i_slint_core::renderer::DrawOutcome;
 
-use crate::{BeginRendering, FemtoVGRenderer, GraphicsBackend, WindowSurface};
+use crate::{BeginRendering, FemtoVGRenderer, FemtoVGRendererExt, GraphicsBackend, WindowSurface};
 
 use wgpu_30 as wgpu;
 
@@ -561,6 +562,47 @@ impl FemtoVGWGPURenderer {
         height: u32,
         format: wgpu::TextureFormat,
     ) -> Result<(), PlatformError> {
+        self.render_to_texture_view_impl(texture_view, width, height, format, 0., (0., 0.), None)
+    }
+
+    /// Render the scene to the given texture, rotated by `rotation_angle_degrees` around the
+    /// origin and then moved by `translation`.
+    ///
+    /// Use this for a screen mounted in a different orientation than the window's, where the
+    /// translation brings the rotated scene back into the texture. `post_render_cb` draws on
+    /// top of the finished scene, for a cursor the platform renders itself.
+    ///
+    /// The texture requirements of [`Self::render_to_texture`] apply.
+    pub fn render_to_texture_transformed(
+        &self,
+        texture: &wgpu::Texture,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+    ) -> Result<(), PlatformError> {
+        let size = texture.size();
+        self.render_to_texture_view_impl(
+            &texture.create_view(&wgpu::TextureViewDescriptor::default()),
+            size.width,
+            size.height,
+            texture.format(),
+            rotation_angle_degrees,
+            translation,
+            post_render_cb,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn render_to_texture_view_impl(
+        &self,
+        texture_view: &wgpu::TextureView,
+        width: u32,
+        height: u32,
+        format: wgpu::TextureFormat,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+    ) -> Result<(), PlatformError> {
         *self.0.graphics_backend.render_output.borrow_mut() =
             Some(femtovg::renderer::WGPURenderOutput {
                 view: texture_view.clone(),
@@ -568,7 +610,15 @@ impl FemtoVGWGPURenderer {
                 height,
                 format,
             });
-        let result = self.0.render();
+        let result = self
+            .0
+            .render_transformed_with_post_callback(
+                rotation_angle_degrees,
+                translation,
+                PhysicalWindowSize::new(width, height),
+                post_render_cb,
+            )
+            .map(|_| ());
         *self.0.graphics_backend.render_output.borrow_mut() = None;
         result
     }

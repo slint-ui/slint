@@ -3400,6 +3400,7 @@ dependencies = [
  "i-slint-renderer-software",
  "input",
  "libseat",
+ "log",
  "memmap2",
  "nix",
  "raw-window-handle",

@@ -233,10 +233,15 @@ Each renderer reaches the screen one of four ways, in `display/`:
   as a texture, so Vulkan renders into the memory the display scans out and the backend posts
   it with the same page flip the other paths use.
 
-`renderer/skia.rs` picks between the last two: it asks whether the Vulkan instance enabled
-`VK_EXT_acquire_drm_display`, and falls back to the dma-buf path when it didn't, or when
-creating the surface fails anyway.
+`renderer/skia.rs` and `renderer/femtovg_wgpu.rs` pick between the last two: they ask whether
+the Vulkan instance enabled `VK_EXT_acquire_drm_display`, and fall back to the dma-buf path when
+it didn't, or when creating the surface fails anyway.
 `SLINT_KMS_WGPU_DMABUF` forces the fallback on hardware that supports both.
+
+Handing a buffer to the display controller is a Vulkan ownership release.
+Skia performs it through its own Vulkan access.
+FemtoVG draws through wgpu alone, so `display/scanout_barriers.rs` records the release, and
+the matching re-acquire before the next frame, with ash and submits them on wgpu's queue.
 
 ### Testing Backend (`internal/backends/testing/`)
 

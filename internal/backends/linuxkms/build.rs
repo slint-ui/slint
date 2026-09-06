@@ -30,9 +30,13 @@ fn main() {
             not(any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-30"))
         ) },
         // Rendering into GBM-allocated dma-bufs, for drivers without
-        // VK_EXT_acquire_drm_display. Same feature set as skia_wgpu_30: the
-        // dma-buf import is a wgpu-30 API and skia is its only user so far.
-        gbm_dmabuf: { any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-30") },
+        // VK_EXT_acquire_drm_display: every wgpu-30 renderer, since the dma-buf
+        // import is a wgpu-30 API.
+        gbm_dmabuf: { any(
+            feature = "renderer-skia-vulkan",
+            feature = "unstable-wgpu-30",
+            feature = "renderer-femtovg-wgpu"
+        ) },
         // The DRM wgpu-29 surface target is not skia specific: the vello
         // renderer uses it too.
         wgpu_29_surface_target: { any(feature = "unstable-wgpu-29", feature = "renderer-vello") },

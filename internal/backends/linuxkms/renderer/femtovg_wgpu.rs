@@ -24,6 +24,52 @@ impl FemtoVGWgpuRendererAdapter {
         requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
+
+        // Letting Vulkan drive the display needs VK_EXT_acquire_drm_display, which
+        // few drivers offer. Without it, render into a dma-buf and page-flip that.
+        if std::env::var_os("SLINT_KMS_WGPU_DMABUF").is_some()
+            || !super::dmabuf::acquire_drm_display_available()
+        {
+            return super::femtovg_dmabuf::FemtoVGDmabufRendererAdapter::new(
+                drm_output,
+                requested_graphics_api,
+            );
+        }
+
+        let (renderer, size) = match Self::new_wgpu_surface(&drm_output, requested_graphics_api) {
+            Ok(surface) => surface,
+            // The extension is there but unusable for this device: no Vulkan
+            // physical device matching the DRM fd, or no matching display mode.
+            Err(err) => {
+                eprintln!("Falling back to dma-buf presentation: {err}");
+                return super::femtovg_dmabuf::FemtoVGDmabufRendererAdapter::new(
+                    drm_output,
+                    requested_graphics_api,
+                );
+            }
+        };
+
+        let renderer = Box::new(Self { renderer, size, _drm_output: drm_output });
+
+        eprintln!("Using FemtoVG wgpu renderer");
+
+        Ok(renderer)
+    }
+}
+
+impl FemtoVGWgpuRendererAdapter {
+    /// Creates the renderer that draws straight onto a DRM plane, which requires
+    /// `VK_EXT_acquire_drm_display`.
+    fn new_wgpu_surface(
+        drm_output: &DrmOutput,
+        requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
+    ) -> Result<
+        (
+            i_slint_renderer_femtovg::FemtoVGRenderer<i_slint_renderer_femtovg::wgpu::WGPUBackend>,
+            i_slint_core::api::PhysicalSize,
+        ),
+        PlatformError,
+    > {
         let (surface_target, size) = drm_output.wgpu_30_surface_target()?;
 
         let renderer = i_slint_renderer_femtovg::FemtoVGRenderer::new_suspended();
@@ -31,11 +77,7 @@ impl FemtoVGWgpuRendererAdapter {
             .set_surface(surface_target, size, requested_graphics_api.cloned(), false)
             .map_err(|e| format!("Error initializing FemtoVG wgpu surface: {e}"))?;
 
-        let renderer = Box::new(Self { renderer, size, _drm_output: drm_output });
-
-        eprintln!("Using FemtoVG wgpu renderer");
-
-        Ok(renderer)
+        Ok((renderer, size))
     }
 }
 
