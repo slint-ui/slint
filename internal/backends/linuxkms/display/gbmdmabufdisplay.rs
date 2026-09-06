@@ -21,9 +21,9 @@ use wgpu_30 as wgpu;
 
 use crate::drmoutput::{DrmOutput, SharedFd};
 
-/// Number of buffers in the ring. Two would leave the GPU waiting on the buffer
-/// currently being scanned out; the third gives it something to render into
-/// while a flip is pending.
+/// Number of buffers in the ring. A frame is drawn while the previous one is
+/// still on its way to the screen, so at any moment one buffer is being rendered
+/// into, one is mid-flip and one is on screen.
 const BUFFER_COUNT: usize = 3;
 
 /// The scanout format. `Xrgb8888` is the one format every DRM plane is required
@@ -46,7 +46,7 @@ struct Buffer {
 
 pub struct GbmDmabufDisplay {
     pub drm_output: DrmOutput,
-    buffers: Vec<Buffer>,
+    buffers: [Buffer; BUFFER_COUNT],
     /// Index into `buffers` of the buffer to render the next frame into.
     next: Cell<usize>,
 }
@@ -77,18 +77,20 @@ impl GbmDmabufDisplay {
 
         let importable_modifiers = importable_modifiers(device)?;
 
-        let buffers = (0..BUFFER_COUNT)
-            .map(|_| {
-                Self::allocate_buffer(
-                    &gbm_device,
-                    &drm_output,
-                    device,
-                    &importable_modifiers,
-                    width,
-                    height,
-                )
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut buffers = Vec::with_capacity(BUFFER_COUNT);
+        for _ in 0..BUFFER_COUNT {
+            buffers.push(Self::allocate_buffer(
+                &gbm_device,
+                &drm_output,
+                device,
+                &importable_modifiers,
+                width,
+                height,
+            )?);
+        }
+        let buffers: [Buffer; BUFFER_COUNT] = buffers
+            .try_into()
+            .unwrap_or_else(|_| unreachable!("the loop pushes exactly BUFFER_COUNT buffers"));
 
         eprintln!(
             "Scanning out {BUFFER_COUNT} gbm buffers with DRM format modifier {:?}{}",
@@ -187,9 +189,13 @@ impl GbmDmabufDisplay {
     /// for the GPU work writing it to complete.
     pub fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let index = self.next.get();
+        // Waiting here rather than before the frame was drawn is what overlaps
+        // rendering with the flip still in flight, and what makes the third
+        // buffer necessary. A flip can only be queued once the last one landed.
+        self.drm_output.wait_for_page_flip();
         // The buffers outlive the flip, so no keep-alive is handed over.
         self.drm_output.present_framebuffer(self.buffers[index].framebuffer)?;
-        self.next.set((index + 1) % self.buffers.len());
+        self.next.set((index + 1) % BUFFER_COUNT);
         Ok(())
     }
 }

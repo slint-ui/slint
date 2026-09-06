@@ -101,10 +101,9 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
         rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<DrawOutcome, PlatformError> {
-        // Make sure the buffer about to be rendered into is no longer the one on
-        // its way to the screen.
-        self.display.drm_output.wait_for_page_flip();
-
+        // The buffer to draw into is two flips old, so the frame can be drawn
+        // while the previous one is still on its way to the screen.
+        // `GbmDmabufDisplay::present` waits for that flip.
         self.renderer.render_to_scanout_texture(
             self.display.back_buffer(),
             rotation.degrees(),
