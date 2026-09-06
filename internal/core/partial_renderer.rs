@@ -205,11 +205,16 @@ struct PartialRenderingCachedData {
 struct PartialRendererCache {
     slab: slab::Slab<PartialRenderingCachedData>,
     generation: usize,
+    /// True when an item may be on screen without a cache entry that records its region:
+    /// an item was rendered without an entry since the last dirty-region pass
+    /// (see [`PartialRenderer::do_rendering`]), or the cache was cleared.
+    /// While set, releasing an item without an entry must fall back to a full refresh.
+    rendered_without_entry: bool,
 }
 
 impl Default for PartialRendererCache {
     fn default() -> Self {
-        Self { slab: Default::default(), generation: 1 }
+        Self { slab: Default::default(), generation: 1, rendered_without_entry: false }
     }
 }
 
@@ -240,6 +245,8 @@ impl PartialRendererCache {
     pub fn clear(&mut self) {
         self.slab.clear();
         self.generation += 1;
+        // Items rendered before the clear are still on screen, but their entries are gone.
+        self.rendered_without_entry = true;
     }
 }
 
@@ -702,6 +709,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
             // This item was created between the computation of the dirty region and the actual rendering.
             // Register a dependency to the geometry since this wasn't done before
             item_rc.geometry();
+            cache.rendered_without_entry = true;
             render_fn();
         }
     }
@@ -905,6 +913,11 @@ impl PartialRenderingState {
 
         let screen_region = LogicalRect::from_size(logical_window_size);
 
+        // Every item now on screen was visited by the dirty-region passes above and has a
+        // cache entry, so from here on a released item without one was never rendered
+        // (until `PartialRenderer::do_rendering` renders another entry-less item).
+        self.partial_cache.borrow_mut().rendered_without_entry = false;
+
         // Items destroyed during `compute_dirty_regions` (a repeater update drops its
         // instances during the traversal) land in `force_dirty` after
         // `create_partial_renderer` already collected it, so collect it again.
@@ -943,11 +956,13 @@ impl PartialRenderingState {
                     force_dirty.add_rect(entry.screen_rect);
                 }
                 None => {
-                    // Without a cache entry the item's screen region is unknown, but the item may
-                    // still be on screen: an item created after the dirty-region pass of a frame
-                    // is rendered without an entry (see `PartialRenderer::do_rendering`).
-                    // As a last resort, refresh everything.
-                    self.force_screen_refresh.set(true);
+                    // Without a cache entry the item was never visited by the dirty-region pass.
+                    // Unless an item was rendered without an entry since then
+                    // (see `PartialRendererCache::rendered_without_entry`), it was never
+                    // rendered either, so there is nothing on screen to erase.
+                    if cache.rendered_without_entry {
+                        self.force_screen_refresh.set(true);
+                    }
                 }
             }
         }
@@ -962,6 +977,19 @@ impl PartialRenderingState {
     pub fn force_screen_refresh(&self) {
         self.force_screen_refresh.set(true);
     }
+}
+
+#[test]
+fn dirty_region_ignores_empty_rects() {
+    // A released item that was never visible stores an empty `screen_rect`;
+    // adding it must not drag the region towards the empty rect's origin.
+    let mut region = DirtyRegion::default();
+    region.add_rect(LogicalRect::default());
+    assert_eq!(region.iter().count(), 0);
+    let real = LogicalRect::new(LogicalPoint::new(10., 10.), LogicalSize::new(16., 16.));
+    region.add_rect(real);
+    region.add_rect(LogicalRect::default());
+    assert_eq!(region.bounding_rect(), real);
 }
 
 #[test]

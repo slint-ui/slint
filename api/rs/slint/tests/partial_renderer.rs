@@ -1800,3 +1800,41 @@ fn partial_rendering_popup_position_size_change() {
         }
     }
 }
+
+#[test]
+fn destroy_never_rendered_item() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <bool> c : false;
+            background: black;
+            Rectangle { x: 5px; y: 5px; width: 8px; height: 8px; background: green; }
+            if c: Rectangle { x: 45px; y: 45px; width: 32px; height: 3px; background: pink; }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(180, 260));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Materialize the conditional between two frames without rendering it: the pointer
+    // event's hit-testing instantiates the repeater's instance.
+    ui.set_c(true);
+    window.dispatch_event(slint::platform::WindowEvent::PointerMoved {
+        position: slint::LogicalPosition::new(90., 90.),
+    });
+    ui.set_c(false);
+
+    // The instance is destroyed without ever having been rendered: nothing repaints.
+    assert!(window.draw_if_needed(|renderer| {
+        let mut buffer = vec![TestPixel(false); 500 * 500];
+        let r = renderer.render(buffer.as_mut_slice(), 500);
+        assert_eq!(r.bounding_box_size(), PhysicalSize::default());
+        assert!(buffer.iter().all(|p| !p.0), "something was rendered");
+    }));
+}
