@@ -167,7 +167,7 @@ impl BackendBuilder {
     }
 
     /// Render on the leased DRM device `fd` instead of opening a card from `/dev/dri`.
-    /// Wins over `SLINT_DRM_LEASE_FD` and `DRM_LEASE_NAME`.
+    /// Wins over `SLINT_DRM_LEASE_FD` and `SLINT_DRM_LEASE_NAME`.
     #[cfg(target_os = "linux")]
     pub fn with_drm_lease_fd(mut self, fd: OwnedFd) -> Self {
         self.drm_lease_fd = Some(fd);

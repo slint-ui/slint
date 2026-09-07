@@ -88,7 +88,7 @@ pub struct Backend {
     drm_lease_fd: Option<Rc<OwnedFd>>,
 }
 
-// Pick the lease fd: builder, then SLINT_DRM_LEASE_FD, then DRM_LEASE_NAME.
+// Pick the lease fd: builder, then SLINT_DRM_LEASE_FD, then SLINT_DRM_LEASE_NAME.
 // A variable that is set but unusable is an error.
 fn resolve_drm_lease_fd(builder_fd: Option<OwnedFd>) -> Result<Option<Rc<OwnedFd>>, String> {
     let fd = match builder_fd {
@@ -122,7 +122,7 @@ fn drm_lease_fd_from_env() -> Result<Option<OwnedFd>, String> {
     }
 }
 
-// Ask the AGL drm-lease-manager for the lease named by DRM_LEASE_NAME.
+// Ask the AGL drm-lease-manager for the lease named by SLINT_DRM_LEASE_NAME.
 // Ok(None) when the variable is unset.
 #[cfg(feature = "libdlmclient")]
 fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
@@ -138,9 +138,9 @@ fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
         fn dlm_lease_fd(lease: *mut DlmLease) -> std::os::raw::c_int;
     }
 
-    let Ok(name) = std::env::var("DRM_LEASE_NAME") else { return Ok(None) };
+    let Ok(name) = std::env::var("SLINT_DRM_LEASE_NAME") else { return Ok(None) };
     let c_name = std::ffi::CString::new(name.as_str())
-        .map_err(|_| format!("DRM_LEASE_NAME {name:?} contains a NUL byte"))?;
+        .map_err(|_| format!("SLINT_DRM_LEASE_NAME {name:?} contains a NUL byte"))?;
 
     // Safety: plain C calls; c_name outlives them.
     let lease = unsafe { dlm_get_lease(c_name.as_ptr()) };
@@ -161,9 +161,9 @@ fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
 
 #[cfg(not(feature = "libdlmclient"))]
 fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
-    match std::env::var("DRM_LEASE_NAME") {
+    match std::env::var("SLINT_DRM_LEASE_NAME") {
         Ok(name) => Err(format!(
-            "DRM_LEASE_NAME is set to {name:?} but this build has no drm-lease-manager support, enable the backend-linuxkms-libdlmclient feature"
+            "SLINT_DRM_LEASE_NAME is set to {name:?} but this build has no drm-lease-manager support, enable the backend-linuxkms-libdlmclient feature"
         )),
         Err(_) => Ok(None),
     }
