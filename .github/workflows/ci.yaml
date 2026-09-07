@@ -608,6 +608,10 @@ jobs:
             - name: Build slint-viewer for Android
               run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --features remote
 
+    android_reproducible:
+        if: ${{ inputs.full }}
+        uses: ./.github/workflows/android_reproducible.yaml
+
     android_cpp:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'android_backend') }}
         runs-on: ubuntu-latest
