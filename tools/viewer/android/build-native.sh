@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-# cSpell: ignore jniLibs
+# cSpell: ignore jniLibs ffile CXXFLAGS
 #
 # Produce what gradle needs that isn't checked in: the launcher icons and the
 # slint-viewer native libraries under app/src/main/jniLibs.
