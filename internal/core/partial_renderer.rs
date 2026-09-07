@@ -214,21 +214,11 @@ struct PartialRendererCache {
     /// When a tree is destroyed, this is the region that needs to be repainted
     /// (see [`PartialRenderingState::free_graphics_resources`]).
     tree_screen_rects: alloc::collections::BTreeMap<usize, LogicalRect>,
-    /// True when an item may be on screen without a cache entry that records its region:
-    /// an item was rendered without an entry since the last dirty-region pass
-    /// (see [`PartialRenderer::do_rendering`]), or the cache was cleared.
-    /// While set, releasing an item without an entry must fall back to a full refresh.
-    rendered_without_entry: bool,
 }
 
 impl Default for PartialRendererCache {
     fn default() -> Self {
-        Self {
-            slab: Default::default(),
-            generation: 1,
-            tree_screen_rects: Default::default(),
-            rendered_without_entry: false,
-        }
+        Self { slab: Default::default(), generation: 1, tree_screen_rects: Default::default() }
     }
 }
 
@@ -260,8 +250,6 @@ impl PartialRendererCache {
         self.slab.clear();
         self.generation += 1;
         self.tree_screen_rects.clear();
-        // Items rendered before the clear are still on screen, but their entries are gone.
-        self.rendered_without_entry = true;
     }
 }
 
@@ -731,7 +719,6 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
             // This item was created between the computation of the dirty region and the actual rendering.
             // Register a dependency to the geometry since this wasn't done before
             item_rc.geometry();
-            cache.rendered_without_entry = true;
             render_fn();
         }
     }
@@ -935,11 +922,6 @@ impl PartialRenderingState {
 
         let screen_region = LogicalRect::from_size(logical_window_size);
 
-        // Every item now on screen was visited by the dirty-region passes above and has a
-        // cache entry, so from here on a released item without one was never rendered
-        // (until `PartialRenderer::do_rendering` renders another entry-less item).
-        self.partial_cache.borrow_mut().rendered_without_entry = false;
-
         // Items destroyed during `compute_dirty_regions` (a repeater update drops its
         // instances during the traversal) land in `force_dirty` after
         // `create_partial_renderer` already collected it, so collect it again.
@@ -981,20 +963,10 @@ impl PartialRenderingState {
             self.force_dirty.borrow_mut().add_rect(rect);
         }
 
-        let mut released_without_entry = false;
+        // An item without a cache entry was never visited by the dirty-region pass, and
+        // therefore never rendered: there is nothing on screen to erase for it.
         for item in items {
-            if item.cached_rendering_data_offset().release(&mut cache).is_none() {
-                released_without_entry = true;
-            }
-        }
-
-        // An item without a cache entry was never visited by the dirty-region pass, so the
-        // tree's screen region above does not cover it. Unless an item was rendered without
-        // an entry since that pass (see `PartialRendererCache::rendered_without_entry`), it
-        // was never rendered either and there is nothing on screen to erase; otherwise
-        // refresh everything as a last resort.
-        if released_without_entry && cache.rendered_without_entry {
-            self.force_screen_refresh.set(true);
+            item.cached_rendering_data_offset().release(&mut cache);
         }
     }
 
