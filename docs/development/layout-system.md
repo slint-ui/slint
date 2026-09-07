@@ -405,3 +405,32 @@ cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter
 # Visual verification (for humans)
 cargo run --manifest-path examples/Cargo.toml -p gallery
 ```
+
+### Writing a layout test case
+
+Creating the component already computes layout *info*: the constraints of every element are pulled, even with no `test` property at all.
+What it does not do is *solve*, so no child is positioned or sized.
+A `test` that reads neither result exercises only half of the layout, and a case that panics once the solve runs still passes.
+
+Read what the half you are testing produces:
+
+```slint,ignore
+// Info: the intrinsic size the element reports.
+out property <bool> test: fl.preferred-height >= 0px;
+
+// Solve: a size the enclosing layout hands out.
+out property <bool> test: txt.width >= 0px;
+```
+
+The read has to reach a binding.
+`fl.width` on an element declared `width: 120px` is a constant and forces nothing, so the case passes however broken the layout is.
+
+An id inside a `for` is not in scope outside the loop.
+Give the enclosing layout an id and read its geometry instead.
+
+A `>= 0px` read forces the computation and checks nothing else.
+Assert the value you expect once the read reaches it.
+Where the value is not known, prefer `>= 0px` over `> 0px` for a nested layout.
+With no children it is 0 wide, and `> 0px` then fails for a reason that has nothing to do with what the test checks.
+
+See [testing.md](../testing.md#driver-tests) for the `test` property and the per-driver blocks.
