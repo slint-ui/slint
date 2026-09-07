@@ -5,8 +5,8 @@
 //!
 //! A backend implements [`Platform`] — a clock, the display size, touch events,
 //! and an RGB8 frame buffer — and drives the UI by calling [`app_main`]. The
-//! scene has no `Timer` and no model, so the airlock sequence that full Slint
-//! would express in `.slint` lives here in Rust.
+//! airlock sequence is application logic, so it lives here in Rust. The scene
+//! shows the state it's given and decides nothing.
 
 #![no_std]
 
