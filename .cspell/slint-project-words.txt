@@ -341,6 +341,7 @@ libavformat
 libavutil
 LIBC
 LIBCLANG
+libdlmclient
 libdrm
 libegl
 libfile

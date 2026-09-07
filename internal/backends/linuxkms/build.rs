@@ -38,4 +38,11 @@ fn main() {
             feature = "renderer-vello"
         ) },
     }
+
+    if std::env::var_os("CARGO_FEATURE_LIBDLMCLIENT").is_some() {
+        // libdlmclient.pc ships with the AGL drm-lease-manager
+        pkg_config::probe_library("libdlmclient").unwrap_or_else(|e| {
+            panic!("the libdlmclient feature needs the drm-lease-manager client library: {e}")
+        });
+    }
 }

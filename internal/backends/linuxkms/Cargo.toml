@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore libdlmclient memmap xkbcommon
+# cSpell: ignore memmap xkbcommon
 [package]
 name = "i-slint-backend-linuxkms"
 description = "OpenGL rendering backend for Slint"
@@ -39,6 +39,9 @@ libseat = ["dep:libseat"]
 ## backend renders but receives no input events (and libinput, libudev and
 ## libxkbcommon are not needed at build or run time).
 libinput = ["dep:input", "dep:xkbcommon"]
+## Obtain a DRM lease by name from the AGL drm-lease-manager, linking its client
+## library libdlmclient (found with pkg-config).
+libdlmclient = []
 
 default = []
 
@@ -62,8 +65,6 @@ libseat = { version = "0.2.1", optional = true, default-features = false }
 nix = { version = "0.31.0", features = ["fs", "ioctl"] }
 # Keep in sync with the drm version used by gbm
 drm = { version = "0.14.0", optional = true }
-# Loads libdlmclient at run time, see calloop_backend.rs
-libloading = { version = "0.8" }
 gbm = { version = "0.18.0", optional = true, default-features = false, features = ["drm-support"] }
 glutin = { workspace = true, optional = true, default-features = false, features = ["libloading", "egl"] }
 raw-window-handle = { version = "0.6.2", optional = true }
@@ -72,6 +73,7 @@ memmap2 = { version = "0.9.4", optional = true }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }
+pkg-config = "0.3"
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

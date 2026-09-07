@@ -2,7 +2,7 @@
 title: LinuxKMS Backend
 description: LinuxKMS Backend
 ---
-{/* cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat keymap xkeyboard udevadm CRTC libdlmclient dlmclient */}
+{/* cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat keymap xkeyboard udevadm CRTC */}
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
@@ -28,6 +28,7 @@ features you select. None of them are needed by every configuration:
 | `libinput`              | `libinput-dev`                       | libinput support                    |
 | `libudev`               | `libudev-dev`                        | libinput support                    |
 | `xkbcommon`             | `libxkbcommon-dev`                   | libinput support                    |
+| `libdlmclient`          | part of [drm-lease-manager](https://github.com/AGLExport/drm-lease-manager) | drm-lease-manager support |
 
 The software renderer needs none of these: it renders through DRM dumb buffers, which Slint drives
 directly without a C library. Font handling is separate from this table and needs fontconfig
@@ -188,12 +189,13 @@ application with `SLINT_DRM_LEASE_FD=7`.
 
 Alternatively, the backend can obtain the lease directly from the
 [AGL drm-lease-manager](https://github.com/AGLExport/drm-lease-manager) instead of receiving a file
-descriptor. Set the `DRM_LEASE_NAME` environment variable to the lease name managed by the daemon
-(for example `card0-HDMI-A-1`); the backend then requests that lease through the manager's client
-library, `libdlmclient`, and renders on it. The library is loaded at run time, so it only needs to
-be installed on systems that use the manager. The variable carries no `SLINT_` prefix because the
-name is a drm-lease-manager concept: a launcher can set it once for every application it starts.
-`SLINT_DRM_LEASE_FD` takes precedence if both are set.
+descriptor. This needs the manager's client library, `libdlmclient`: enable the
+`backend-linuxkms-libdlmclient` Cargo feature (`SLINT_FEATURE_BACKEND_LINUXKMS_LIBDLMCLIENT` in
+CMake), which links it via pkg-config. Set the `DRM_LEASE_NAME` environment variable to the lease
+name managed by the daemon (for example `card0-HDMI-A-1`); the backend then requests that lease and
+renders on it. The variable carries no `SLINT_` prefix because the name is a drm-lease-manager
+concept: a launcher can set it once for every application it starts. `SLINT_DRM_LEASE_FD` takes
+precedence if both are set.
 
 ## Configuring the Keyboard
 

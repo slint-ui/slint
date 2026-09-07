@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore CLOEXEC GETFL NOCTTY NONBLOCK dlm dlmclient libdlmclient
+// cSpell: ignore CLOEXEC GETFL NOCTTY NONBLOCK dlm dlmclient
 use std::cell::RefCell;
 #[cfg(not(feature = "libseat"))]
 use std::fs::OpenOptions;
@@ -123,59 +123,50 @@ fn drm_lease_fd_from_env() -> Result<Option<OwnedFd>, String> {
 }
 
 // Ask the AGL drm-lease-manager for the lease named by DRM_LEASE_NAME.
-// libdlmclient is loaded at run time so only systems with the manager need it.
 // Ok(None) when the variable is unset.
+#[cfg(feature = "libdlmclient")]
 fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
     use std::os::fd::FromRawFd;
-    use std::os::raw::{c_char, c_int};
-
-    let Ok(name) = std::env::var("DRM_LEASE_NAME") else { return Ok(None) };
-    let c_name = std::ffi::CString::new(name.as_str())
-        .map_err(|_| format!("DRM_LEASE_NAME {name:?} contains a NUL byte"))?;
 
     #[repr(C)]
     struct DlmLease {
         _opaque: [u8; 0],
     }
-    type DlmGetLease = unsafe extern "C" fn(*const c_char) -> *mut DlmLease;
-    type DlmLeaseFd = unsafe extern "C" fn(*mut DlmLease) -> c_int;
+    // From dlmclient.h
+    unsafe extern "C" {
+        fn dlm_get_lease(name: *const std::os::raw::c_char) -> *mut DlmLease;
+        fn dlm_lease_fd(lease: *mut DlmLease) -> std::os::raw::c_int;
+    }
 
-    // Safety: dlopen runs the library's initializers.
-    let library = ["libdlmclient.so.0", "libdlmclient.so"]
-        .iter()
-        .find_map(|file_name| unsafe { libloading::Library::new(file_name) }.ok())
-        .ok_or_else(|| {
-            format!(
-                "DRM_LEASE_NAME is set to {name:?} but libdlmclient, the drm-lease-manager client library, could not be loaded"
-            )
-        })?;
+    let Ok(name) = std::env::var("DRM_LEASE_NAME") else { return Ok(None) };
+    let c_name = std::ffi::CString::new(name.as_str())
+        .map_err(|_| format!("DRM_LEASE_NAME {name:?} contains a NUL byte"))?;
 
-    // Safety: the signatures match dlmclient.h.
-    let raw = unsafe {
-        let get_lease: libloading::Symbol<DlmGetLease> = library
-            .get(b"dlm_get_lease\0")
-            .map_err(|e| format!("libdlmclient has no dlm_get_lease: {e}"))?;
-        let lease_fd: libloading::Symbol<DlmLeaseFd> = library
-            .get(b"dlm_lease_fd\0")
-            .map_err(|e| format!("libdlmclient has no dlm_lease_fd: {e}"))?;
-        let lease = get_lease(c_name.as_ptr());
-        if lease.is_null() {
-            return Err(format!(
-                "drm-lease-manager did not grant the lease {name:?}: {}",
-                std::io::Error::last_os_error()
-            ));
-        }
-        lease_fd(lease)
-    };
+    // Safety: plain C calls; c_name outlives them.
+    let lease = unsafe { dlm_get_lease(c_name.as_ptr()) };
+    if lease.is_null() {
+        return Err(format!(
+            "drm-lease-manager did not grant the lease {name:?}: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    let raw = unsafe { dlm_lease_fd(lease) };
     if raw < 0 {
         return Err(format!("drm-lease-manager returned no file descriptor for lease {name:?}"));
     }
-
-    // dlm_release_lease() closes the fd, so the lease and the library are kept for the whole
-    // process.
-    std::mem::forget(library);
+    // dlm_release_lease() closes the fd, so the lease is kept for the whole process.
     // Safety: the fd stays open because the lease is never released.
     Ok(Some(unsafe { OwnedFd::from_raw_fd(raw) }))
+}
+
+#[cfg(not(feature = "libdlmclient"))]
+fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
+    match std::env::var("DRM_LEASE_NAME") {
+        Ok(name) => Err(format!(
+            "DRM_LEASE_NAME is set to {name:?} but this build has no drm-lease-manager support, enable the backend-linuxkms-libdlmclient feature"
+        )),
+        Err(_) => Ok(None),
+    }
 }
 
 impl Backend {
