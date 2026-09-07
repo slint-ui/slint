@@ -409,7 +409,16 @@ fn clipped_screen_rect(
     if rect.is_empty() {
         return None;
     }
-    transform.outer_transformed_rect(&rect.cast()).cast().intersection(clip_rect)
+    let rect = rect.cast();
+    // Fast path for the common case of a pure translation, so that the per-item,
+    // per-frame calls of `compute_dirty_regions` skip the four-corner transform.
+    let transformed =
+        if (transform.m11, transform.m12, transform.m21, transform.m22) == (1., 0., 0., 1.) {
+            rect.translate(euclid::vec2(transform.m31, transform.m32))
+        } else {
+            transform.outer_transformed_rect(&rect)
+        };
+    transformed.cast().intersection(clip_rect)
 }
 
 /// Put this structure in the renderer to help with partial rendering
@@ -520,16 +529,15 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
 
                 let tree_key = vtable::VRef::as_ptr(crate::item_tree::ItemTreeRc::borrow(component))
                     .as_ptr() as usize;
-                if index == 0 {
+                if index == 0
+                    && let Some(acc) = cache.tree_screen_rects.get_mut(&tree_key)
+                {
                     // Entering the tree: rebuild its screen region from this pass's visits.
-                    cache.tree_screen_rects.remove(&tree_key);
+                    *acc = LogicalRect::default();
                 }
                 if !new_screen_rect.is_empty() {
                     let acc = cache.tree_screen_rects.entry(tree_key).or_default();
-                    // Not `Rect::union`, which would extend an empty accumulator's rect
-                    // towards the origin.
-                    *acc =
-                        if acc.is_empty() { new_screen_rect } else { acc.union(&new_screen_rect) };
+                    *acc = acc.union(&new_screen_rect);
                 }
 
                 match rendering_data.get_entry(&mut cache) {
@@ -900,7 +908,7 @@ impl PartialRenderingState {
         &self,
         renderer: T,
     ) -> PartialRenderer<'_, T> {
-        PartialRenderer::new(&self.partial_cache, self.force_dirty.take(), renderer)
+        PartialRenderer::new(&self.partial_cache, DirtyRegion::default(), renderer)
     }
 
     /// Compute the correct partial rendering region based on the components to be drawn, the bounding rectangles of
@@ -922,9 +930,10 @@ impl PartialRenderingState {
 
         let screen_region = LogicalRect::from_size(logical_window_size);
 
-        // Items destroyed during `compute_dirty_regions` (a repeater update drops its
-        // instances during the traversal) land in `force_dirty` after
-        // `create_partial_renderer` already collected it, so collect it again.
+        // Collect the regions accumulated in `force_dirty` (destroyed item trees,
+        // `mark_dirty_region` calls) only now: repeater instances are dropped by
+        // `ensure_tree_instantiated` inside `draw_contents`, after the partial renderer
+        // for the frame was already created.
         partial_renderer.dirty_region =
             partial_renderer.dirty_region.union(&self.force_dirty.take());
 
@@ -983,8 +992,8 @@ impl PartialRenderingState {
 
 #[test]
 fn dirty_region_ignores_empty_rects() {
-    // A released item that was never visible stores an empty `screen_rect`;
-    // adding it must not drag the region towards the empty rect's origin.
+    // `compute_dirty_regions` feeds the empty rect of an invisible item into
+    // `add_rect`; it must not drag the region towards the empty rect's origin.
     let mut region = DirtyRegion::default();
     region.add_rect(LogicalRect::default());
     assert_eq!(region.iter().count(), 0);

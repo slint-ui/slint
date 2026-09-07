@@ -435,6 +435,17 @@ fn list_view() {
         do_test_render_region(renderer, LV_X, LV_Y + 10, LV_X + 25, LV_Y + 20);
     }));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    model.set_vec(vec![1, 0]);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, LV_X, LV_Y, LV_X + 25, LV_Y + 20);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    model.remove(0);
+    assert!(window.draw_if_needed(|renderer| {
+        // Removing a leading row repaints the following rows too: they move up.
+        do_test_render_region(renderer, LV_X, LV_Y, LV_X + 25, LV_Y + 20);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
 }
 
 #[test]
@@ -1808,7 +1819,11 @@ fn destroy_never_rendered_item() {
             in property <bool> c : false;
             background: black;
             Rectangle { x: 5px; y: 5px; width: 8px; height: 8px; background: green; }
-            if c: Rectangle { x: 45px; y: 45px; width: 32px; height: 3px; background: pink; }
+            out property <int> instantiated;
+            if c: Rectangle {
+                x: 45px; y: 45px; width: 32px; height: 3px; background: pink;
+                init => { root.instantiated += 1; }
+            }
         }
     }
 
@@ -1828,13 +1843,9 @@ fn destroy_never_rendered_item() {
     window.dispatch_event(slint::platform::WindowEvent::PointerMoved {
         position: slint::LogicalPosition::new(90., 90.),
     });
+    assert_eq!(ui.get_instantiated(), 1);
     ui.set_c(false);
 
     // The instance is destroyed without ever having been rendered: nothing repaints.
-    assert!(window.draw_if_needed(|renderer| {
-        let mut buffer = vec![TestPixel(false); 500 * 500];
-        let r = renderer.render(buffer.as_mut_slice(), 500);
-        assert_eq!(r.bounding_box_size(), PhysicalSize::default());
-        assert!(buffer.iter().all(|p| !p.0), "something was rendered");
-    }));
+    do_test_no_repaint(&window);
 }
