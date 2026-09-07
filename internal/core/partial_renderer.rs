@@ -972,8 +972,6 @@ impl PartialRenderingState {
             self.force_dirty.borrow_mut().add_rect(rect);
         }
 
-        // An item without a cache entry was never visited by the dirty-region pass, and
-        // therefore never rendered: there is nothing on screen to erase for it.
         for item in items {
             item.cached_rendering_data_offset().release(&mut cache);
         }
