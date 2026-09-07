@@ -39,8 +39,8 @@ The UI and its logic are independent of the platform they run on:
 - [`app/`](./app) — the scene ([`main.slint`](./app/main.slint)) and the event loop `app_main`.
   A backend implements the `Platform` trait (a clock, the display size, touch events, and an RGB8 framebuffer),
   and drives the UI by calling `app_main`.
-  The airlock sequence, which full Slint would express with a `Timer` and a global in `.slint`,
-  is written in Rust here.
+  The airlock sequence is application logic, so it's written in Rust here,
+  and the scene shows the state it's given.
 - [`desktop/`](./desktop) — a desktop backend that shows the rendered frames in a Slint window and forwards its input,
   for running the example on a development machine.
 - [`ffi/`](./ffi) — a backend over the C system interface, exposing `slint_app_main()` so C firmware can drive the UI.
