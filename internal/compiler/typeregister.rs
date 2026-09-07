@@ -61,29 +61,36 @@ macro_rules! declare_enums {
         }
         impl BuiltinEnums {
             fn new() -> Self {
-                Self {
-                    $($Name : Arc::new(Enumeration {
-                        name: stringify!($Name).replace_smolstr("_", "-"),
-                        values: vec![$(crate::generator::to_kebab_case(stringify!($Value).trim_start_matches("r#")).into()),*],
-                        default_value: 0,
-                        node: None,
-                        rust_attributes: Vec::new(),
-                    })),*
-                }
+                Self { $($Name: enumeration(stringify!($Name), &[$(stringify!($Value)),*])),* }
+            }
+            fn all(&self) -> impl Iterator<Item = &Arc<Enumeration>> {
+                [$(&self.$Name),*].into_iter()
             }
             fn fill_register(&self, register: &mut TypeRegister) {
-                $(if stringify!($Name) != "PathEvent" && stringify!($Name) != "BuiltInMouseCursor" {
-                    register.insert_type_with_name(
-                        Type::Enumeration(self.$Name.clone()),
-                        stringify!($Name).replace_smolstr("_", "-")
-                    );
-                })*
+                for e in self.all() {
+                    if !matches!(e.name.as_str(), "PathEvent" | "BuiltInMouseCursor") {
+                        register.insert_type_with_name(Type::Enumeration(e.clone()), e.name.clone());
+                    }
+                }
             }
         }
     };
 }
 
 i_slint_common::for_each_enums!(declare_enums);
+
+fn enumeration(name: &str, values: &[&str]) -> Arc<Enumeration> {
+    Arc::new(Enumeration {
+        name: name.into(),
+        values: values
+            .iter()
+            .map(|v| crate::generator::to_kebab_case(v.trim_start_matches("r#")).into())
+            .collect(),
+        default_value: 0,
+        node: None,
+        rust_attributes: Vec::new(),
+    })
+}
 
 pub struct BuiltinTypes {
     pub enums: BuiltinEnums,
@@ -778,30 +785,24 @@ pub mod builtin_structs {
         ($pub_type:ident, Keys) => { Type::Keys };
         ($pub_type:ident, DataTransfer) => { Type::DataTransfer };
         ($pub_type:ident, LogicalPosition) => { Type::Struct(logical_point_type()) };
-        ($pub_type:ident, LogicalSize) => { Type::Struct(logical_size_type()) };
-        // builtin structs
-        ($pub_type:ident, KeyboardModifiers) => {
-            // Note, this references the local variable in the BuiltinStructs constructor
-            Type::Struct($pub_type.clone())
-        };
-        // builtin enums
-        ($pub_type:ident, $_:ident) => {
-            Type::Enumeration(BUILTIN.enums.$pub_type.clone())
-        };
+        // A builtin struct declared earlier: `$pub_type` names the local of `BuiltinStructs::new`
+        ($pub_type:ident, KeyboardModifiers) => { Type::Struct($pub_type.clone()) };
+        ($pub_type:ident, $enum:ident) => { Type::Enumeration(BUILTIN.enums.$enum.clone()) };
     }
 
-    macro_rules! parse_default_field {
-        (true) => { ConstantExpression::BoolLiteral(true) };
-        (false) => { ConstantExpression::BoolLiteral(false) };
-        ($lit:literal) => { ConstantExpression::NumberLiteral($lit as _, Unit::None) };
+    #[rustfmt::skip]
+    macro_rules! field_default {
+        () => { None };
+        (true) => { Some(ConstantExpression::BoolLiteral(true)) };
+        (false) => { Some(ConstantExpression::BoolLiteral(false)) };
         ($enum:ident :: $value:ident) => {
-            ConstantExpression::EnumerationValue({
-                let variant = crate::generator::to_kebab_case(stringify!($value));
-                BUILTIN.enums.$enum.clone().try_value_from_string(&variant)
-                    .expect(concat!("unknown enum variant in field default ", stringify!($enum), "::", stringify!($value)))
-            })
+            Some(ConstantExpression::EnumerationValue(
+                BUILTIN.enums.$enum.clone()
+                    .try_value_from_string(&crate::generator::to_kebab_case(stringify!($value)))
+                    .expect(concat!("unknown enum variant in field default ", stringify!($enum), "::", stringify!($value))),
+            ))
         };
-        (($($tt:tt)*)) => { parse_default_field!($($tt)*) };
+        (($($tt:tt)*)) => { field_default!($($tt)*) };
     }
 
     macro_rules! declare_builtin_structs {
@@ -821,30 +822,11 @@ pub mod builtin_structs {
                 pub fn new() -> Self {
                     $(
                         #[allow(non_snake_case)]
-                        let $Name = {
-                            let mut fields = BTreeMap::new();
-                            #[allow(unused_mut)]
-                            let mut field_defaults = BTreeMap::new();
-                            $(
-                                let field_name = stringify!($field).replace_smolstr("_", "-");
-                                let field_type = map_type!($field_type, $field_type);
-                                $(field_defaults.insert(
-                                    field_name.clone(),
-                                    parse_default_field!($field_default),
-                                );)?
-                                fields.insert(field_name, field_type);
-                            )*
-                            Arc::new(Struct {
-                                fields,
-                                field_defaults,
-                                name: BuiltinStruct::$Name.into(),
-                            })
-                        };
+                        let $Name = build_struct(BuiltinStruct::$Name, &[$(
+                            (stringify!($field), map_type!($field_type, $field_type), field_default!($($field_default)?)),
+                        )*]);
                     )*
-
-                    Self {
-                        $($Name),*
-                    }
+                    Self { $($Name),* }
                 }
             }
 
@@ -863,6 +845,22 @@ pub mod builtin_structs {
         };
     }
     i_slint_common::for_each_builtin_structs!(declare_builtin_structs);
+
+    fn build_struct(
+        name: BuiltinStruct,
+        fields: &[(&str, Type, Option<ConstantExpression>)],
+    ) -> Arc<Struct> {
+        let mut s =
+            Struct { fields: BTreeMap::new(), field_defaults: BTreeMap::new(), name: name.into() };
+        for (field, ty, default) in fields {
+            let field = field.replace_smolstr("_", "-");
+            if let Some(default) = default {
+                s.field_defaults.insert(field.clone(), default.clone());
+            }
+            s.fields.insert(field, ty.clone());
+        }
+        Arc::new(s)
+    }
 }
 
 pub fn logical_point_type() -> Arc<Struct> {
