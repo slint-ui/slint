@@ -5731,6 +5731,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-occlusion-culling-skia"
+version = "1.18.0"
+dependencies = [
+ "i-slint-core",
+ "i-slint-renderer-skia",
+ "slint-interpreter",
+ "spin_on",
+]
+
+[[package]]
+name = "test-occlusion-culling-software"
+version = "1.18.0"
+dependencies = [
+ "i-slint-core",
+ "i-slint-renderer-software",
+ "slint-interpreter",
+ "spin_on",
+]
+
+[[package]]
 name = "test_driver_lib"
 version = "1.18.0"
 dependencies = [

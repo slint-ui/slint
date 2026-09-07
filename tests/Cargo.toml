@@ -23,6 +23,11 @@ members = [
   'manual/module-builds/blogica',
   'manual/module-builds/blogicb',
   'manual/module-builds/app',
+  # These two dev-depend on `i-slint-core/occlusion-culling`. Under resolver "3", CI's
+  # `--all-features --workspace` unifies that on for every other member too, so a culling
+  # regression can surface as an unrelated screenshot/interpreter test failure.
+  'issues/test-1051-occlusion-culling/software',
+  'issues/test-1051-occlusion-culling/skia',
   'issues/test-11836-project/test-app',
   'issues/test-11836-project/test-library',
 ]
@@ -59,6 +64,7 @@ i-slint-renderer-anyrender = { version = "=1.18.0", path = "../internal/renderer
 # only a dependency, so without a backend `skia_windowed` is unset and the
 # renderer fails to compile.
 i-slint-renderer-skia = { version = "=1.18.0", path = "../internal/renderers/skia" }
+i-slint-renderer-software = { version = "=1.18.0", path = "../internal/renderers/software", default-features = false }
 
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 itertools = { version = "0.15" }

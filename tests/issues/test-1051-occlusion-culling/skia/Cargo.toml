@@ -1,0 +1,20 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "test-occlusion-culling-skia"
+description = "Regression tests for opaque occlusion culling in PartialRenderer, exercised through Skia's headless CPU/raster backend"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[dev-dependencies]
+slint-interpreter = { workspace = true, features = ["compat-1-2"] }
+i-slint-core = { workspace = true, features = ["std", "testing", "occlusion-culling"] }
+i-slint-renderer-skia = { workspace = true, features = ["testing"] }
+spin_on = { workspace = true }

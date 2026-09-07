@@ -217,6 +217,10 @@ renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-
 ## [`BackendSelector::renderer_name()`](crate::BackendSelector::renderer_name()).
 renderer-vello = ["i-slint-backend-selector/renderer-vello", "std"]
 
+## Skip drawing items fully hidden behind opaque content. Off by default: adds a second tree
+## walk plus per-item bookkeeping each frame.
+occlusion-culling = ["i-slint-core/occlusion-culling"]
+
 ## KMS with Vulkan or EGL on Linux is used to render the application in full screen mode, without any
 ## windowing system.
 ##
