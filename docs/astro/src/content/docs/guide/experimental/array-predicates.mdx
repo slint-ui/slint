@@ -16,7 +16,7 @@ The array function `index-of` looks up a value in an array, and the operations `
 `array.index-of(value)` reads the index of the first element that equals `value`,
 or `-1` if the array contains no such element.
 
-```slint no-test
+```slint
 export component Example {
     in-out property<[string]> names: ["Aardvark", "Beaver"];
     out property <int> beaver-index: names.index-of("Beaver"); // 1
@@ -49,7 +49,7 @@ Reach for `find-index` when the match condition is more than equality against a 
 
 ## Example
 
-```slint no-test
+```slint
 export component Example {
     in-out property<[int]> list-of-int: [1, 2, 3];
 

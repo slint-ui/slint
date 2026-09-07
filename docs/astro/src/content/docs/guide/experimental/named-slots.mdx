@@ -13,7 +13,7 @@ It generalizes the built-in `@children` placeholder: instead of a single anonymo
 
 Use the `slot` keyword inside a component to declare a slot, then render it at the desired location by writing the slot's name as an empty element.
 
-```slint no-test
+```slint
 export component Base inherits Rectangle {
     slot header;
     slot footer;
@@ -65,7 +65,7 @@ export component App inherits Rectangle {
 A component can forward one of its own slots to a slot of a child component, again with the `<<` operator.
 This lets a wrapper expose a nested component's slots as its own.
 
-```slint no-test
+```slint
 export component SlotHost inherits Rectangle {
     slot host-header;
     VerticalLayout {
@@ -85,7 +85,7 @@ export component Outer inherits Rectangle {
 
 ## Full example
 
-```slint no-test
+```slint
 export component Card inherits Rectangle {
     slot header;
     slot footer;
