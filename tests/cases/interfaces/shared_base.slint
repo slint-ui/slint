@@ -1,0 +1,52 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Base {
+    in-out property <string> text;
+}
+
+interface Left inherits Base {
+    out property <int> l;
+}
+
+interface Right inherits Base {
+    out property <int> r;
+}
+
+export component TestCase {
+    implement Left <=> self;
+    implement Right <=> self;
+
+    in-out property <string> text: "hello";
+    out property <int> l: 1;
+    out property <int> r: 2;
+
+    out property <bool> test: self.text == "hello" && self.l == 1 && self.r == 2;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_text(), "hello");
+assert_eq!(instance.get_l(), 1);
+assert_eq!(instance.get_r(), 2);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_text(), "hello");
+assert_eq(instance.get_l(), 1);
+assert_eq(instance.get_r(), 2);
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.text, "hello");
+assert.equal(instance.l, 1);
+assert.equal(instance.r, 2);
+assert(instance.test);
+```
+*/
