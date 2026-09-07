@@ -62,27 +62,105 @@ mod native {
                 T::METHOD.to_string(),
                 request,
             ));
-            self.sender.send(msg)?;
             let queue = self.queue.clone();
             queue.insert(id.clone(), OutgoingRequest::Start);
-            Ok(std::future::poll_fn(move |ctx| match queue.remove(&id).unwrap().1 {
-                OutgoingRequest::Pending(_) | OutgoingRequest::Start => {
-                    queue.insert(id.clone(), OutgoingRequest::Pending(ctx.waker().clone()));
-                    Poll::Pending
+            if let Err(err) = self.sender.send(msg) {
+                queue.remove(&id);
+                return Err(err.into());
+            }
+            Ok(std::future::poll_fn(move |ctx| {
+                let mut entry = queue.get_mut(&id).unwrap();
+                if !matches!(*entry, OutgoingRequest::Done(_)) {
+                    *entry = OutgoingRequest::Pending(ctx.waker().clone());
+                    return Poll::Pending;
                 }
-                OutgoingRequest::Done(d) => match d.response_result {
+                drop(entry);
+                let OutgoingRequest::Done(response) = queue.remove(&id).unwrap().1 else {
+                    unreachable!();
+                };
+                match response.response_result {
                     Err(err) => Poll::Ready(Err(err.message.into())),
                     Ok(result) => Poll::Ready(
                         serde_json::from_value(result)
                             .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
                     ),
-                },
+                }
             }))
         }
 
         #[cfg(test)]
         pub fn dummy() -> Self {
             Self { sender: crossbeam_channel::unbounded().0, queue: Default::default() }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn request_is_registered_before_transport_receives_it() {
+            let (sender, receiver) = crossbeam_channel::bounded(0);
+            let queue = OutgoingRequestQueue::default();
+            let notifier = ServerNotifier::new(sender, queue.clone());
+            let sender_thread = std::thread::spawn(move || {
+                let _request = notifier
+                    .send_request::<lsp_types::request::WorkspaceConfiguration>(
+                        lsp_types::ConfigurationParams { items: vec![] },
+                    )
+                    .unwrap();
+            });
+
+            let mut select = crossbeam_channel::Select::new();
+            select.recv(&receiver);
+            select.ready_timeout(std::time::Duration::from_secs(5)).unwrap();
+            let registered = queue.len();
+            receiver.recv().unwrap();
+            sender_thread.join().unwrap();
+
+            assert_eq!(registered, 1, "The transport can receive an unregistered request");
+        }
+
+        #[test]
+        fn failed_send_removes_request() {
+            let (sender, receiver) = crossbeam_channel::unbounded();
+            let queue = OutgoingRequestQueue::default();
+            let notifier = ServerNotifier::new(sender, queue.clone());
+            drop(receiver);
+
+            assert!(
+                notifier
+                    .send_request::<lsp_types::request::WorkspaceConfiguration>(
+                        lsp_types::ConfigurationParams { items: vec![] },
+                    )
+                    .is_err()
+            );
+            assert!(queue.is_empty());
+        }
+
+        #[test]
+        fn response_before_first_poll_completes() {
+            let (sender, receiver) = crossbeam_channel::unbounded();
+            let queue = OutgoingRequestQueue::default();
+            let notifier = ServerNotifier::new(sender, queue.clone());
+            let response = notifier
+                .send_request::<lsp_types::request::WorkspaceConfiguration>(
+                    lsp_types::ConfigurationParams { items: vec![] },
+                )
+                .unwrap();
+            let Message::Request(request) = receiver.recv().unwrap() else {
+                panic!("Expected a request");
+            };
+            *queue.get_mut(&request.id).unwrap() = OutgoingRequest::Done(
+                lsp_server::Response::new_ok(request.id.clone(), serde_json::json!([])),
+            );
+
+            let mut response = std::pin::pin!(response);
+            let mut context = std::task::Context::from_waker(Waker::noop());
+            assert!(
+                matches!(response.as_mut().poll(&mut context), Poll::Ready(Ok(value)) if value.is_empty())
+            );
+            assert!(queue.is_empty());
         }
     }
 }

@@ -668,6 +668,58 @@ fn crossbeam_tokio_adapter(
     }
 }
 
+#[cfg(test)]
+mod outgoing_request_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn fast_client_responses_complete() {
+        let (connection, client) = Connection::memory();
+        let connection = Arc::new(connection);
+        let queue = OutgoingRequestQueue::default();
+        let notifier = ServerNotifier::new(connection.sender.clone(), queue.clone());
+        let (sender, _receiver) = mpsc::unbounded_channel();
+        let adapter = std::thread::spawn(move || {
+            crossbeam_tokio_adapter(connection, sender, queue);
+        });
+        let client = std::thread::spawn(move || {
+            while let Ok(Message::Request(request)) = client.receiver.recv() {
+                client
+                    .sender
+                    .send(Message::Response(lsp_server::Response::new_ok(
+                        request.id,
+                        serde_json::json!([]),
+                    )))
+                    .unwrap();
+            }
+        });
+
+        let mut failed_round = None;
+        for round in 0..10_000 {
+            let response = notifier
+                .send_request::<lsp_types::request::WorkspaceConfiguration>(
+                    lsp_types::ConfigurationParams { items: vec![] },
+                )
+                .unwrap();
+            let result = tokio::time::timeout(std::time::Duration::from_secs(2), response).await;
+            if !matches!(result, Ok(Ok(values)) if values.is_empty()) {
+                failed_round = Some(round);
+                break;
+            }
+        }
+
+        notifier
+            .send_message(Message::Notification(lsp_server::Notification::new(
+                "exit".into(),
+                serde_json::Value::Null,
+            )))
+            .unwrap();
+        client.join().unwrap();
+        adapter.join().unwrap();
+        assert!(failed_round.is_none(), "Client response failed at round {failed_round:?}");
+    }
+}
+
 async fn handle_notification(
     req: lsp_server::Notification,
     ctx: &mut Context,
