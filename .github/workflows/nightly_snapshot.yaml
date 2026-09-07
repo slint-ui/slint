@@ -736,7 +736,7 @@ jobs:
         env:
             CARGO_PROFILE_DEV_DEBUG: 0
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Qt
               uses: jurplel/install-qt-action@v4
@@ -836,7 +836,7 @@ jobs:
             # bundle, then derive the nightly slint-viewer APK from it so the
             # viewer is only compiled once.
             - name: Set up JDK 17 for Android Gradle Plugin
-              uses: actions/setup-java@v5
+              uses: actions/setup-java@v6
               with:
                   distribution: temurin
                   java-version: "17"
