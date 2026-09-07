@@ -73,6 +73,8 @@ macro_rules! expectation {
 }
 
 fn main() {
+    slint::BackendSelector::new().backend_name("winit".into()).select().unwrap();
+
     let logical = slint::LogicalSize::new(700., 500.);
     let physical = slint::PhysicalSize::new(650, 450);
     let mut expectations = Vec::new();
