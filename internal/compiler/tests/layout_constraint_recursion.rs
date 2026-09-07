@@ -154,6 +154,66 @@ component Inner inherits FlexboxLayout {{
 }
 
 #[test]
+fn measured_cell_of_an_hlayout_inside_a_vlayout() {
+    // slint-ui/slint#13199 as reported: no constraint written anywhere. A
+    // horizontal layout's main pass hands each width-for-height cell the
+    // layout's own height, which the enclosing vertical layout is still
+    // solving. The runtime `flex-direction` is what makes the flexbox a
+    // width-for-height cell here; with a static one this compiles clean.
+    let chain = assert_same_loop_each_run(
+        "hlayout in a vlayout",
+        &format!(
+            r#"
+export component Main inherits Window {{
+    in property <bool> horizontal: true;
+    width: 400px; height: 300px;
+    VerticalLayout {{
+        Rectangle {{ height: 40px; }}
+        HorizontalLayout {{
+            Rectangle {{ width: 40px; }}
+            fl := FlexboxLayout {{
+                {RUNTIME_FLEX}
+                Rectangle {{ min-width: 60px; min-height: 20px; }}
+            }}
+        }}
+    }}
+}}"#
+        ),
+    );
+    assert_eq!(
+        chain,
+        "layoutinfo-v -> layout-cache -> height -> layout-cache -> fl.width \
+         -> fl.layoutinfo-v -> layoutinfo-v"
+    );
+}
+
+#[test]
+fn repeated_cell_of_a_vlayout_inside_an_hlayout() {
+    // The mirror of the case above. `solve_box_layout` embeds the perpendicular
+    // size on either axis for a constrained repeated cell
+    // (`repeated_cross_size`), but only the horizontal one closes a loop, so
+    // only it has an edge. This pins that the vertical one stays accepted.
+    assert_accepted(
+        "repeated cell in a vlayout",
+        &format!(
+            r#"
+export component Main inherits Window {{
+    in property <bool> horizontal: true;
+    width: 400px; height: 300px;
+    HorizontalLayout {{
+        VerticalLayout {{
+            for i in [1, 2]: FlexboxLayout {{
+                {RUNTIME_FLEX}
+                Rectangle {{ min-width: 20px; min-height: 20px; }}
+            }}
+        }}
+    }}
+}}"#
+        ),
+    );
+}
+
+#[test]
 fn constraint_reading_own_width() {
     assert_same_loop_each_run(
         "own width",

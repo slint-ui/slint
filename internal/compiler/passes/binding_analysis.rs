@@ -653,9 +653,22 @@ fn recurse_expression(
         }
         Expression::SolveBoxLayout(l, o)
         | Expression::ComputeBoxLayoutInfo { layout: l, orientation: o, .. } => {
+            let is_solve = matches!(expr, Expression::SolveBoxLayout(..));
             // we should only visit the layout geometry for the orientation
-            if matches!(expr, Expression::SolveBoxLayout(..))
-                && let Some(nr) = l.geometry.rect.size_reference(*o)
+            if is_solve && let Some(nr) = l.geometry.rect.size_reference(*o) {
+                vis(&nr.clone().into(), P);
+            }
+            // A horizontal layout's main pass hands every width-for-height cell
+            // the layout's own height, which nothing has solved yet: see
+            // `cross_override` in `solve_box_layout`. Its `repeated_cross_size`
+            // hands a repeated cell the width in the vertical pass, but the
+            // horizontal solve ran first and produced it, so that one closes no
+            // loop and needs no edge.
+            if is_solve
+                && *o == l.orientation
+                && *o == Orientation::Horizontal
+                && crate::layout::box_layout_measures_its_cells(l, *o)
+                && let Some(nr) = l.geometry.rect.size_reference(o.orthogonal())
             {
                 vis(&nr.clone().into(), P);
             }
@@ -675,7 +688,7 @@ fn recurse_expression(
 
             // The orthogonal solve depends on `cross-axis-alignment` and on the
             // cells' `cross-axis-self-alignment`.
-            if matches!(expr, Expression::SolveBoxLayout(..)) && *o != l.orientation {
+            if is_solve && *o != l.orientation {
                 if let Some(nr) = l.cross_alignment.as_ref() {
                     vis(&nr.clone().into(), P);
                 }
