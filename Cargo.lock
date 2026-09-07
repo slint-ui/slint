@@ -7751,7 +7751,6 @@ dependencies = [
  "clru",
  "console_error_panic_hook",
  "crossbeam-channel",
- "dashmap",
  "dissimilar",
  "futures-util",
  "i-slint-backend-selector",

@@ -27,7 +27,7 @@ pub use i_slint_editor_preview::util;
 
 use editor_preview::Result;
 use language::*;
-pub use server_notifier::{OutgoingRequest, OutgoingRequestQueue, ServerNotifier};
+pub use server_notifier::{OutgoingRequestQueue, ServerNotifier, complete_request};
 
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
@@ -644,19 +644,9 @@ fn crossbeam_tokio_adapter(
     loop {
         match connection.receiver.recv() {
             Ok(Message::Response(resp)) => {
-                let Some(mut q) = request_queue.get_mut(&resp.id) else {
+                if !complete_request(&request_queue, resp) {
                     tracing::error!("Response to unknown request");
-                    continue;
-                };
-                match &*q {
-                    OutgoingRequest::Done(_) => {
-                        tracing::error!("Response to unknown request");
-                        continue;
-                    }
-                    OutgoingRequest::Start => { /* nothing to do */ }
-                    OutgoingRequest::Pending(x) => x.wake_by_ref(),
-                };
-                *q = OutgoingRequest::Done(resp);
+                }
             }
             Ok(msg) => {
                 if from_lsp_sender.send(msg.clone()).is_err() {
@@ -666,6 +656,63 @@ fn crossbeam_tokio_adapter(
             Err(_) => return,
         }
     }
+}
+
+/// Round-trips requests through the adapter thread with an in-memory connection.
+/// The client answers every request twice, so the adapter also sees the duplicate
+/// it must ignore, and answers one request with an error that the future reports.
+/// A response that gets lost shows up as a timeout.
+#[tokio::test]
+async fn fast_client_responses_complete() {
+    let (connection, client) = Connection::memory();
+    let connection = Arc::new(connection);
+    let queue = OutgoingRequestQueue::default();
+    let notifier = ServerNotifier::new(connection.sender.clone(), queue.clone());
+    let (sender, _receiver) = mpsc::unbounded_channel();
+    let adapter = std::thread::spawn(move || {
+        crossbeam_tokio_adapter(connection, sender, queue);
+    });
+    let client = std::thread::spawn(move || {
+        while let Ok(Message::Request(request)) = client.receiver.recv() {
+            let response = if request.method == "window/showMessageRequest" {
+                Response::new_err(request.id, ErrorCode::RequestFailed as i32, "refused".into())
+            } else {
+                Response::new_ok(request.id, serde_json::json!([]))
+            };
+            for _ in 0..2 {
+                client.sender.send(Message::Response(response.clone())).unwrap();
+            }
+        }
+    });
+
+    for round in 0..100 {
+        let response = notifier
+            .send_request::<lsp_types::request::WorkspaceConfiguration>(
+                lsp_types::ConfigurationParams { items: vec![] },
+            )
+            .unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(2), response).await;
+        assert!(
+            matches!(&result, Ok(Ok(values)) if values.is_empty()),
+            "round {round}: {result:?}"
+        );
+    }
+
+    let response = notifier
+        .send_request::<lsp_types::request::ShowMessageRequest>(
+            lsp_types::ShowMessageRequestParams {
+                typ: lsp_types::MessageType::INFO,
+                message: String::new(),
+                actions: None,
+            },
+        )
+        .unwrap();
+    let result = tokio::time::timeout(Duration::from_secs(2), response).await;
+    assert!(matches!(&result, Ok(Err(err)) if err.to_string() == "refused"), "{result:?}");
+
+    notifier.send_notification::<lsp_types::notification::Exit>(()).unwrap();
+    client.join().unwrap();
+    adapter.join().unwrap();
 }
 
 async fn handle_notification(
