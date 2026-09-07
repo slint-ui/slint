@@ -939,7 +939,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         self.text_layout_cache.component_destroyed(component);
 
         if let Some(partial_rendering_state) = self.partial_rendering_state() {
-            partial_rendering_state.free_graphics_resources(items);
+            partial_rendering_state.free_graphics_resources(component, items);
         }
 
         Ok(())

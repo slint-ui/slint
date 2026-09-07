@@ -52,11 +52,14 @@ impl CachedRenderingData {
     /// This function can be used to remove an entry from the rendering cache for a given item, if it
     /// exists, i.e. if any data was ever cached. This is typically called by the graphics backend's
     /// implementation of the release_item_graphics_cache function.
-    fn release(&self, cache: &mut PartialRendererCache) -> Option<PartialRenderingCachedData> {
+    fn release(
+        &self,
+        cache: &mut PartialRendererCache,
+    ) -> Option<CachedItemBoundingBoxAndTransform> {
         if self.cache_generation.get() == cache.generation() {
             let index = self.cache_index.get();
             self.cache_generation.set(0);
-            Some(cache.remove(index))
+            Some(cache.remove(index).data)
         } else {
             None
         }
@@ -194,17 +197,18 @@ struct PartialRenderingCachedData {
     pub data: CachedItemBoundingBoxAndTransform,
     /// The property tracker that should be used to evaluate whether the item needs to be re-rendered
     pub tracker: Option<core::pin::Pin<Box<PropertyTracker>>>,
-    /// The clipped screen-space region the item covered when it was last visited by
-    /// [`PartialRenderer::compute_dirty_regions`]. When the item is destroyed, this is
-    /// the region that needs to be repainted
-    /// (see [`PartialRenderingState::free_graphics_resources`]).
-    pub screen_rect: LogicalRect,
 }
 
 /// The cache that needs to be held by the Window for the partial rendering
 struct PartialRendererCache {
     slab: slab::Slab<PartialRenderingCachedData>,
     generation: usize,
+    /// Per ItemTree (keyed by its instance pointer), the union of the clipped screen-space
+    /// regions of the tree's own items, as of the tree's last visit by
+    /// [`PartialRenderer::compute_dirty_regions`]. Nested trees have their own entry.
+    /// When a tree is destroyed, this is the region that needs to be repainted
+    /// (see [`PartialRenderingState::free_graphics_resources`]).
+    tree_screen_rects: alloc::collections::BTreeMap<usize, LogicalRect>,
     /// True when an item may be on screen without a cache entry that records its region:
     /// an item was rendered without an entry since the last dirty-region pass
     /// (see [`PartialRenderer::do_rendering`]), or the cache was cleared.
@@ -214,7 +218,12 @@ struct PartialRendererCache {
 
 impl Default for PartialRendererCache {
     fn default() -> Self {
-        Self { slab: Default::default(), generation: 1, rendered_without_entry: false }
+        Self {
+            slab: Default::default(),
+            generation: 1,
+            tree_screen_rects: Default::default(),
+            rendered_without_entry: false,
+        }
     }
 }
 
@@ -245,6 +254,7 @@ impl PartialRendererCache {
     pub fn clear(&mut self) {
         self.slab.clear();
         self.generation += 1;
+        self.tree_screen_rects.clear();
         // Items rendered before the clear are still on screen, but their entries are gone.
         self.rendered_without_entry = true;
     }
@@ -500,10 +510,11 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                     my_sibling_index,
                 );
 
-                // The region the item covers on screen. It is stored in the cache entry so
-                // that destroying the item can repaint exactly that region
-                // (see `PartialRenderingState::free_graphics_resources`), and it doubles as
-                // the item's current-position dirty rect in the branches below.
+                // The region the item covers on screen. It is unioned into the owning
+                // tree's entry in `tree_screen_rects` so that destroying the tree can
+                // repaint that region (see `PartialRenderingState::free_graphics_resources`),
+                // and it doubles as the item's current-position dirty rect in the branches
+                // below.
                 let new_screen_rect = clipped_screen_rect(
                     new_geom.bounding_rect(),
                     &state.transform_to_screen,
@@ -513,13 +524,23 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
 
                 let rendering_data = item.cached_rendering_data_offset();
                 let mut cache = self.cache.borrow_mut();
+
+                let tree_key = vtable::VRef::as_ptr(crate::item_tree::ItemTreeRc::borrow(component))
+                    .as_ptr() as usize;
+                if index == 0 {
+                    // Entering the tree: rebuild its screen region from this pass's visits.
+                    cache.tree_screen_rects.remove(&tree_key);
+                }
+                if !new_screen_rect.is_empty() {
+                    let acc = cache.tree_screen_rects.entry(tree_key).or_default();
+                    // Not `Rect::union`, which would extend an empty accumulator's rect
+                    // towards the origin.
+                    *acc =
+                        if acc.is_empty() { new_screen_rect } else { acc.union(&new_screen_rect) };
+                }
+
                 match rendering_data.get_entry(&mut cache) {
-                    Some(PartialRenderingCachedData {
-                        data: cached_geom,
-                        tracker,
-                        screen_rect,
-                    }) => {
-                        *screen_rect = new_screen_rect;
+                    Some(PartialRenderingCachedData { data: cached_geom, tracker }) => {
                         let rendering_dirty = tracker.as_ref().is_some_and(|tr| tr.is_dirty());
 
                         // Repaint when the rank among the previously known siblings changed,
@@ -631,11 +652,8 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                         }
                     }
                     None => {
-                        let cache_entry = PartialRenderingCachedData {
-                            data: new_geom.clone(),
-                            tracker: None,
-                            screen_rect: new_screen_rect,
-                        };
+                        let cache_entry =
+                            PartialRenderingCachedData { data: new_geom.clone(), tracker: None };
                         rendering_data.cache_index.set(cache.insert(cache_entry));
                         rendering_data.cache_generation.set(cache.generation());
 
@@ -945,25 +963,31 @@ impl PartialRenderingState {
     }
 
     /// Call this from your renderer's `free_graphics_resources` function to ensure that the cached item geometries
-    /// are cleared for the destroyed items in the item tree, and that the screen regions the items
-    /// covered are repainted in the next frame.
-    pub fn free_graphics_resources(&self, items: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>) {
+    /// are cleared for the destroyed items in the item tree, and that the screen region the tree
+    /// covered is repainted in the next frame.
+    pub fn free_graphics_resources(
+        &self,
+        component: crate::item_tree::ItemTreeRef,
+        items: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+    ) {
         let mut cache = self.partial_cache.borrow_mut();
-        let mut force_dirty = self.force_dirty.borrow_mut();
+
+        let tree_key = vtable::VRef::as_ptr(component).as_ptr() as usize;
+        if let Some(rect) = cache.tree_screen_rects.remove(&tree_key) {
+            self.force_dirty.borrow_mut().add_rect(rect);
+        }
+
         for item in items {
-            match item.cached_rendering_data_offset().release(&mut cache) {
-                Some(entry) => {
-                    force_dirty.add_rect(entry.screen_rect);
-                }
-                None => {
-                    // Without a cache entry the item was never visited by the dirty-region pass.
-                    // Unless an item was rendered without an entry since then
-                    // (see `PartialRendererCache::rendered_without_entry`), it was never
-                    // rendered either, so there is nothing on screen to erase.
-                    if cache.rendered_without_entry {
-                        self.force_screen_refresh.set(true);
-                    }
-                }
+            if item.cached_rendering_data_offset().release(&mut cache).is_none()
+                && cache.rendered_without_entry
+            {
+                // Without a cache entry the item was never visited by the dirty-region pass,
+                // so the tree's screen region above does not cover it. Unless an item was
+                // rendered without an entry since that pass
+                // (see `PartialRendererCache::rendered_without_entry`), it was never rendered
+                // either and there is nothing on screen to erase; otherwise refresh
+                // everything as a last resort.
+                self.force_screen_refresh.set(true);
             }
         }
     }
