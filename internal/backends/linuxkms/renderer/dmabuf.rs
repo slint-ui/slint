@@ -85,7 +85,7 @@ pub fn init_wgpu(
     // The features and limits an application asked for, or everything the adapter
     // offers when it asked for nothing. Naming the WGPU configuration here isn't
     // possible: its type only exists with i-slint-core's `unstable-wgpu-30`, which
-    // this crate's own feature doesn't imply.
+    // `renderer-femtovg-wgpu` on its own doesn't enable.
     let mut descriptor = i_slint_core::graphics::wgpu_30::surfaceless_device_descriptor(
         requested_graphics_api,
         &adapter,
