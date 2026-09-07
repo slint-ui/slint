@@ -456,8 +456,11 @@ impl crate::Surface for WGPUSurface {
         let texture: wgpu_29::Texture = match any_wgpu_texture {
             #[cfg(feature = "unstable-wgpu-29")]
             i_slint_core::graphics::WGPUTexture::WGPU29Texture(texture) => texture.clone(),
-            #[cfg(feature = "unstable-wgpu-30")]
-            i_slint_core::graphics::WGPUTexture::WGPU30Texture(..) => return None,
+            // The enum's variants follow i-slint-core's `unstable-wgpu-*` features, which
+            // another crate can enable without this one's — so a texture of a wgpu version
+            // this surface wasn't built for can exist even when no arm above names it.
+            #[allow(unreachable_patterns)]
+            _ => return None,
         };
 
         // Skia won't submit commands right away, so remember the texture and transition before
