@@ -44,6 +44,8 @@ fn check_property_declaration_conflicts(
     }
 }
 
+const SELF_ID: &str = "self";
+
 #[derive(Debug, PartialEq)]
 pub(super) enum ImplementBinding {
     OnSelf,
@@ -57,13 +59,20 @@ pub(super) enum ImplementBinding {
 
 impl ImplementBinding {
     fn from_target(target_id: &SmolStr, target_name: &SmolStr) -> ImplementBinding {
-        if target_id.as_str() == "self" {
+        if target_id.as_str() == SELF_ID {
             ImplementBinding::OnSelf
         } else {
             ImplementBinding::OnChild {
                 child_id: target_id.clone(),
                 child_name: target_name.clone(),
             }
+        }
+    }
+
+    fn target_id(&self) -> SmolStr {
+        match self {
+            ImplementBinding::OnSelf => SmolStr::new_static(SELF_ID),
+            ImplementBinding::OnChild { child_id, .. } => child_id.clone(),
         }
     }
 }
@@ -151,15 +160,23 @@ fn interface_chain(interface: &ElementRc) -> impl Iterator<Item = ElementRc> {
     })
 }
 
+struct InterfaceMember {
+    declaration: PropertyDeclaration,
+    declaring_interface: ElementRc,
+}
+
 /// The members an interface declares under their source names, including inherited ones.
 /// A derived declaration hides the inherited member of the same name.
 /// A shadowing declaration counts as derived, too.
-fn declared_members(interface: &ElementRc) -> BTreeMap<SmolStr, PropertyDeclaration> {
+fn declared_members(interface: &ElementRc) -> BTreeMap<SmolStr, InterfaceMember> {
     let mut members = BTreeMap::new();
     for element in interface_chain(interface) {
         for (internal_name, declaration) in &element.borrow().property_declarations {
             members.entry(declaration.declared_name(internal_name).clone()).or_insert_with(|| {
-                PropertyDeclaration { shadowed_name: None, ..declaration.clone() }
+                InterfaceMember {
+                    declaration: PropertyDeclaration { shadowed_name: None, ..declaration.clone() },
+                    declaring_interface: element.clone(),
+                }
             });
         }
     }
@@ -207,12 +224,18 @@ fn filter_inherited_implement_statements(
         .collect()
 }
 
+struct SeenMember {
+    interface_name: SmolStr,
+    declaring_interface: ElementRc,
+    target_id: SmolStr,
+}
+
 fn filter_conflicting_implement_statements(
     diagnostics: &mut BuildDiagnostics,
     statements: Vec<ImplementedInterface>,
 ) -> Vec<ImplementedInterface> {
     let mut seen_interfaces: Vec<ElementRc> = Vec::new();
-    let mut seen_interface_api: BTreeMap<SmolStr, SmolStr> = BTreeMap::new();
+    let mut seen_interface_api: BTreeMap<SmolStr, SeenMember> = BTreeMap::new();
     statements
         .into_iter()
         .filter(|stmt| {
@@ -227,19 +250,31 @@ fn filter_conflicting_implement_statements(
             }
             seen_interfaces.push(stmt.interface.clone());
 
+            let target_id = stmt.binding.target_id();
             let mut valid = true;
-            for prop_name in declared_members(&stmt.interface).into_keys() {
-                if let Some(existing_interface) = seen_interface_api.get(&prop_name) {
-                    diagnostics.push_error(
-                        format!(
-                            "'{}' occurs in '{}' and '{}'",
-                            prop_name, stmt.interface_name, existing_interface
-                        ),
-                        &stmt.node.QualifiedName(),
-                    );
-                    valid = false;
+            for (prop_name, member) in declared_members(&stmt.interface) {
+                if let Some(seen) = seen_interface_api.get(&prop_name) {
+                    if !Rc::ptr_eq(&seen.declaring_interface, &member.declaring_interface)
+                        || seen.target_id != target_id
+                    {
+                        diagnostics.push_error(
+                            format!(
+                                "'{}' occurs in '{}' and '{}'",
+                                prop_name, stmt.interface_name, seen.interface_name
+                            ),
+                            &stmt.node.QualifiedName(),
+                        );
+                        valid = false;
+                    }
                 } else {
-                    seen_interface_api.insert(prop_name, stmt.interface_name.clone());
+                    seen_interface_api.insert(
+                        prop_name,
+                        SeenMember {
+                            interface_name: stmt.interface_name.clone(),
+                            declaring_interface: member.declaring_interface,
+                            target_id: target_id.clone(),
+                        },
+                    );
                 }
             }
             valid
@@ -396,11 +431,11 @@ fn validate_interface_implementation(
 ) -> bool {
     let mut errors = Vec::new();
     let mut notes = Vec::new();
-    for (member_name, member_declaration) in declared_members(interface) {
+    for (member_name, member) in declared_members(interface) {
         if let Some(mut conflict) = validate_interface_member_implementation(
             element,
             &member_name,
-            &member_declaration,
+            &member.declaration,
             interface_name,
             binding,
         ) {
@@ -482,6 +517,7 @@ pub(super) fn apply_child_implement_statements(
     child_implements: Vec<ImplementedInterface>,
     diagnostics: &mut BuildDiagnostics,
 ) {
+    let mut applied_members: BTreeMap<SmolStr, ElementRc> = BTreeMap::new();
     for ImplementedInterface { node, interface, interface_name, binding } in child_implements {
         debug_assert_ne!(binding, ImplementBinding::OnSelf);
         let ImplementBinding::OnChild { child_id, child_name } = &binding else {
@@ -506,7 +542,18 @@ pub(super) fn apply_child_implement_statements(
 
         let mut conflicts = Vec::new();
         let mut notes = Vec::new();
-        for (name, mut prop_decl) in declared_members(&interface) {
+        for (name, InterfaceMember { declaration: mut prop_decl, declaring_interface }) in
+            declared_members(&interface)
+        {
+            if let Some(applied) = applied_members.get(&name) {
+                debug_assert!(
+                    Rc::ptr_eq(applied, &declaring_interface),
+                    "Conflicting members should have been caught earlier"
+                );
+                continue;
+            }
+            applied_members.insert(name.clone(), declaring_interface);
+
             let lookup_result = element
                 .borrow()
                 .base_type
