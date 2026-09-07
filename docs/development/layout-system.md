@@ -405,3 +405,22 @@ cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter
 # Visual verification (for humans)
 cargo run --manifest-path examples/Cargo.toml -p gallery
 ```
+
+### Writing a layout test case
+
+The drivers instantiate the component and read `test`.
+Nothing lays anything out on its own, so a `test` that reads no layout result passes without the layout ever running — including for a case that panics with "Recursion detected".
+
+```slint
+// Vacuous: passes even when the layout would panic.
+out property <bool> test: true;
+
+// Forces the solve.
+out property <bool> test: fl.width >= 0px && fl.height >= 0px;
+```
+
+When the interesting element sits inside a `for`, give the enclosing layout an id and read its geometry instead:
+`vl := VerticalLayout { for i in m: ... }` with `test: vl.width >= 0px`.
+
+Prefer `>= 0px` over `> 0px` unless the element really has a size.
+An empty layout is 0 wide, and the test then fails for a reason that has nothing to do with what it checks.
