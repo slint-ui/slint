@@ -125,6 +125,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
         drop(p.start_node(SyntaxKind::Element));
         return false;
     }
+    let mut interface_inherits = false;
     if is_global {
         if p.peek().kind() == SyntaxKind::ColonEqual {
             p.warning("':=' to declare a global is deprecated. Remove the ':='");
@@ -137,6 +138,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
         }
         if p.peek().as_str() == "inherits" {
             p.consume();
+            interface_inherits = true;
         }
     } else if !is_new_component {
         if p.peek().kind() == SyntaxKind::ColonEqual {
@@ -159,7 +161,8 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
         return false;
     }
 
-    if (is_global || is_interface) && p.peek().kind() == SyntaxKind::LBrace {
+    if (is_global || (is_interface && !interface_inherits)) && p.peek().kind() == SyntaxKind::LBrace
+    {
         let mut p = p.start_node(SyntaxKind::Element);
         p.consume();
         parse_element_content(&mut *p);
