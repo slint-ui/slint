@@ -36,7 +36,7 @@ The embedded component is placed at `(0, 0)` inside the container and its size c
 
 A minimal `.slint` file that exposes the factory as a property of the root component:
 
-```slint no-test
+```slint
 export component MainWindow inherits Window {
     in property <component-factory> plugin <=> container.component-factory;
 

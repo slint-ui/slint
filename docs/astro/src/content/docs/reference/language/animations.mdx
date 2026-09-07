@@ -57,13 +57,13 @@ Animating a property that cannot be assigned, such as a private property of anot
 
 Listing several comma-separated names applies the same animation to each:
 
-```slint no-test
+```slint
 animate x, y { duration: 100ms; easing: ease-out-bounce; }
 ```
 
 is equivalent to:
 
-```slint no-test
+```slint
 animate x { duration: 100ms; easing: ease-out-bounce; }
 animate y { duration: 100ms; easing: ease-out-bounce; }
 ```
