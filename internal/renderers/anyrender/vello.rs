@@ -159,7 +159,7 @@ impl VelloWindowRenderer {
             i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
                 surface_target,
                 self.requested_graphics_api.clone(),
-                wgpu::Backends::empty(),
+                i_slint_core::graphics::wgpu_29::default_backends_to_avoid(),
             )
             .map_err(|e| format!("Error initializing WGPU for vello rendering: {e}"))?;
 

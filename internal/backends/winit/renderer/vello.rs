@@ -26,6 +26,7 @@ impl WinitVelloRenderer {
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
         if !i_slint_core::graphics::wgpu_29::any_wgpu29_adapters_with_gpu(
             shared_backend_data.requested_graphics_api.clone(),
+            i_slint_core::graphics::wgpu_29::default_backends_to_avoid(),
         ) {
             return Err(PlatformError::from("WGPU: No GPU adapters found"));
         }
