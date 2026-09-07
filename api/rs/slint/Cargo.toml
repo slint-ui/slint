@@ -236,6 +236,9 @@ backend-linuxkms-libinput = ["i-slint-backend-selector/backend-linuxkms-libinput
 ## but no libseat.
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
+## Render on a leased DRM device with the LinuxKMS backend. Off by default.
+linuxkms-drm-lease = ["i-slint-backend-selector/linuxkms-drm-lease"]
+
 ## Use the backend based on the [android-activity](https://docs.rs/android-activity) crate. (Using it's native activity feature)
 backend-android-activity-06 = [
   "i-slint-backend-android-activity/native-activity",

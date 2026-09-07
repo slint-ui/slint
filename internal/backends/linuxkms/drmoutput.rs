@@ -47,6 +47,12 @@ pub struct DrmOutput {
 
 impl DrmOutput {
     pub fn new(device_opener: &DeviceOpener) -> Result<Self, PlatformError> {
+        // A lease only holds its own connector, so skip the /dev/dri scan and SLINT_DRM_OUTPUT.
+        #[cfg(feature = "drm-lease")]
+        if let Some(lease_fd) = device_opener.lease_fd() {
+            return Self::new_from_drm_device(SharedFd(lease_fd), false);
+        }
+
         let mut last_err = None;
         if let Ok(drm_devices) = std::fs::read_dir("/dev/dri/") {
             for device in drm_devices {
@@ -65,13 +71,20 @@ impl DrmOutput {
         device_opener: &DeviceOpener,
         device: &std::path::Path,
     ) -> Result<Self, PlatformError> {
-        let drm_device = SharedFd(device_opener(device)?);
+        Self::new_from_drm_device(SharedFd(device_opener.open(device)?), true)
+    }
 
+    fn new_from_drm_device(
+        drm_device: SharedFd,
+        honor_output_env: bool,
+    ) -> Result<Self, PlatformError> {
         let resources = drm_device
             .resource_handles()
             .map_err(|e| format!("Error reading DRM resource handles: {e}"))?;
 
-        let connector = if let Ok(requested_connector_name) = std::env::var("SLINT_DRM_OUTPUT") {
+        let requested_connector_name =
+            honor_output_env.then(|| std::env::var("SLINT_DRM_OUTPUT").ok()).flatten();
+        let connector = if let Some(requested_connector_name) = requested_connector_name {
             let mut connectors = resources.connectors().iter().filter_map(|handle| {
                 let connector = drm_device.get_connector(*handle, false).ok()?;
                 let name =

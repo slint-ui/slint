@@ -26,6 +26,7 @@ backend-linuxkms-libseat = ["backend-linuxkms", "i-slint-backend-linuxkms/libsea
 backend-linuxkms-libinput = ["backend-linuxkms", "i-slint-backend-linuxkms/libinput"]
 # Pre-1.18 spelling of "input, but no libseat".
 backend-linuxkms-noseat = ["backend-linuxkms-libinput"]
+linuxkms-drm-lease = ["i-slint-backend-linuxkms?/drm-lease"]
 backend-qt = ["i-slint-backend-qt/enable"]
 backend-testing = ["i-slint-backend-testing/internal"]
 

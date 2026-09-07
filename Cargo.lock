@@ -3397,6 +3397,7 @@ dependencies = [
  "i-slint-renderer-skia",
  "i-slint-renderer-software",
  "input",
+ "libloading 0.8.9",
  "libseat",
  "memmap2",
  "nix",
