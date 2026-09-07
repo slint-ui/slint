@@ -510,7 +510,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                     my_sibling_index,
                 );
 
-                // The region the item covers on screen. It is unioned into the owning
+                // The region the item covers on screen. It is merged into the owning
                 // tree's entry in `tree_screen_rects` so that destroying the tree can
                 // repaint that region (see `PartialRenderingState::free_graphics_resources`),
                 // and it doubles as the item's current-position dirty rect in the branches
