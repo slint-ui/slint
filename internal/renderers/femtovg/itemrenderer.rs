@@ -1034,6 +1034,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         window: &'a i_slint_core::api::Window,
         width: u32,
         height: u32,
+        render_target: femtovg::RenderTarget,
     ) -> Self {
         let scale_factor = ScaleFactor::new(window.scale_factor());
         Self {
@@ -1052,7 +1053,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                     PhysicalSize::new(width as f32, height as f32) / scale_factor,
                 ),
                 global_alpha: 1.,
-                current_render_target: femtovg::RenderTarget::Screen,
+                current_render_target: render_target,
             }],
             metrics: RenderingMetrics { layers_created: Some(0), ..Default::default() },
         }
