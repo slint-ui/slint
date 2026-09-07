@@ -168,9 +168,6 @@ Set `SLINT_DRM_MODE` to `4` to select 1920x1080@60.
 
 ## DRM Leasing
 
-This requires the `linuxkms-drm-lease` Cargo feature, which is off by default since most targets
-don't use DRM leasing.
-
 Instead of opening a card from `/dev/dri` itself, the backend can render on a pre-leased DRM device:
 a [DRM *lease*](https://www.kernel.org/doc/html/latest/gpu/drm-uapi.html#drm-leases) that exposes
 only a specific connector, CRTC and planes. This lets Slint drive one output while another DRM

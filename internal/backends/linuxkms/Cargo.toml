@@ -39,8 +39,6 @@ libseat = ["dep:libseat"]
 ## backend renders but receives no input events (and libinput, libudev and
 ## libxkbcommon are not needed at build or run time).
 libinput = ["dep:input", "dep:xkbcommon"]
-## Render on a leased DRM device. Off by default.
-drm-lease = ["drm", "dep:libloading"]
 
 default = []
 
@@ -65,7 +63,7 @@ nix = { version = "0.31.0", features = ["fs", "ioctl"] }
 # Keep in sync with the drm version used by gbm
 drm = { version = "0.14.0", optional = true }
 # Loads libdlmclient at run time, see calloop_backend.rs
-libloading = { version = "0.8", optional = true }
+libloading = { version = "0.8" }
 gbm = { version = "0.18.0", optional = true, default-features = false, features = ["drm-support"] }
 glutin = { workspace = true, optional = true, default-features = false, features = ["libloading", "egl"] }
 raw-window-handle = { version = "0.6.2", optional = true }

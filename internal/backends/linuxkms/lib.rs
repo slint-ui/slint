@@ -19,7 +19,6 @@ pub(crate) struct DeviceOpener<'a> {
             ) -> Result<std::rc::Rc<OwnedFd>, i_slint_core::platform::PlatformError>
             + 'a,
     >,
-    #[cfg(feature = "drm-lease")]
     lease_fd: Option<std::rc::Rc<OwnedFd>>,
 }
 
@@ -30,13 +29,9 @@ impl<'a> DeviceOpener<'a> {
             &std::path::Path,
         ) -> Result<std::rc::Rc<OwnedFd>, i_slint_core::platform::PlatformError>
         + 'a,
-        #[cfg(feature = "drm-lease")] lease_fd: Option<std::rc::Rc<OwnedFd>>,
+        lease_fd: Option<std::rc::Rc<OwnedFd>>,
     ) -> Self {
-        Self {
-            opener: Box::new(opener),
-            #[cfg(feature = "drm-lease")]
-            lease_fd,
-        }
+        Self { opener: Box::new(opener), lease_fd }
     }
 
     #[cfg_attr(not(feature = "drm"), allow(dead_code))]
@@ -47,7 +42,7 @@ impl<'a> DeviceOpener<'a> {
         (self.opener)(path)
     }
 
-    #[cfg(feature = "drm-lease")]
+    #[cfg_attr(not(feature = "drm"), allow(dead_code))]
     pub(crate) fn lease_fd(&self) -> Option<std::rc::Rc<OwnedFd>> {
         self.lease_fd.clone()
     }
@@ -144,7 +139,7 @@ pub struct BackendBuilder {
     pub(crate) requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
     #[cfg(all(target_os = "linux", feature = "libinput"))]
     pub(crate) libinput_event_hook: Option<Box<dyn Fn(&input::Event) -> bool>>,
-    #[cfg(all(target_os = "linux", feature = "drm-lease"))]
+    #[cfg(target_os = "linux")]
     pub(crate) drm_lease_fd: Option<OwnedFd>,
 }
 
@@ -173,7 +168,7 @@ impl BackendBuilder {
 
     /// Render on the leased DRM device `fd` instead of opening a card from `/dev/dri`.
     /// Wins over `SLINT_DRM_LEASE_FD` and `DRM_LEASE_NAME`.
-    #[cfg(all(target_os = "linux", feature = "drm-lease"))]
+    #[cfg(target_os = "linux")]
     pub fn with_drm_lease_fd(mut self, fd: OwnedFd) -> Self {
         self.drm_lease_fd = Some(fd);
         self

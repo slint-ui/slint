@@ -48,7 +48,6 @@ pub struct DrmOutput {
 impl DrmOutput {
     pub fn new(device_opener: &DeviceOpener) -> Result<Self, PlatformError> {
         // A lease only holds its own connector, so skip the /dev/dri scan and SLINT_DRM_OUTPUT.
-        #[cfg(feature = "drm-lease")]
         if let Some(lease_fd) = device_opener.lease_fd() {
             return Self::new_from_drm_device(SharedFd(lease_fd), false);
         }

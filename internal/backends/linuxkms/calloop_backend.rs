@@ -5,9 +5,7 @@
 use std::cell::RefCell;
 #[cfg(not(feature = "libseat"))]
 use std::fs::OpenOptions;
-#[cfg(any(feature = "libseat", feature = "drm-lease"))]
-use std::os::fd::AsFd;
-use std::os::fd::OwnedFd;
+use std::os::fd::{AsFd, OwnedFd};
 #[cfg(feature = "libseat")]
 use std::os::fd::{AsRawFd, FromRawFd};
 #[cfg(not(feature = "libseat"))]
@@ -87,13 +85,11 @@ pub struct Backend {
     clipboard: RefCell<Option<String>>,
     #[cfg(feature = "libinput")]
     libinput_event_hook: Option<Box<dyn Fn(&::input::Event) -> bool>>,
-    #[cfg(feature = "drm-lease")]
     drm_lease_fd: Option<Rc<OwnedFd>>,
 }
 
 // Pick the lease fd: builder, then SLINT_DRM_LEASE_FD, then DRM_LEASE_NAME.
 // A variable that is set but unusable is an error.
-#[cfg(feature = "drm-lease")]
 fn resolve_drm_lease_fd(builder_fd: Option<OwnedFd>) -> Result<Option<Rc<OwnedFd>>, String> {
     let fd = match builder_fd {
         Some(fd) => fd,
@@ -116,7 +112,6 @@ fn resolve_drm_lease_fd(builder_fd: Option<OwnedFd>) -> Result<Option<Rc<OwnedFd
 }
 
 // Lease fd inherited from a launcher. Ok(None) when the variable is unset.
-#[cfg(feature = "drm-lease")]
 fn drm_lease_fd_from_env() -> Result<Option<OwnedFd>, String> {
     use std::os::fd::FromRawFd;
     let Ok(value) = std::env::var("SLINT_DRM_LEASE_FD") else { return Ok(None) };
@@ -130,7 +125,6 @@ fn drm_lease_fd_from_env() -> Result<Option<OwnedFd>, String> {
 // Ask the AGL drm-lease-manager for the lease named by DRM_LEASE_NAME.
 // libdlmclient is loaded at run time so only systems with the manager need it.
 // Ok(None) when the variable is unset.
-#[cfg(feature = "drm-lease")]
 fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
     use std::os::fd::FromRawFd;
     use std::os::raw::{c_char, c_int};
@@ -243,7 +237,6 @@ impl Backend {
             }
         }
 
-        #[cfg(feature = "drm-lease")]
         let drm_lease_fd = resolve_drm_lease_fd(builder.drm_lease_fd)?;
 
         Ok(Backend {
@@ -259,7 +252,6 @@ impl Backend {
             clipboard: Default::default(),
             #[cfg(feature = "libinput")]
             libinput_event_hook: builder.libinput_event_hook,
-            #[cfg(feature = "drm-lease")]
             drm_lease_fd,
         })
     }
@@ -316,11 +308,7 @@ impl i_slint_core::platform::Platform for Backend {
                     .map_err(|e| format!("Failed to parse SLINT_KMS_ROTATION: {e}"))
             })?;
 
-        let device_opener = crate::DeviceOpener::new(
-            device_accessor,
-            #[cfg(feature = "drm-lease")]
-            self.drm_lease_fd.clone(),
-        );
+        let device_opener = crate::DeviceOpener::new(device_accessor, self.drm_lease_fd.clone());
 
         let renderer =
             (self.renderer_factory)(&device_opener, self.requested_graphics_api.as_ref())?;
