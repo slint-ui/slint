@@ -198,6 +198,11 @@ struct PartialRenderingCachedData {
     /// The property tracker that should be used to evaluate whether the item needs to be re-rendered
     pub tracker: Option<core::pin::Pin<Box<PropertyTracker>>>,
 }
+impl PartialRenderingCachedData {
+    fn new(data: CachedItemBoundingBoxAndTransform) -> Self {
+        Self { data, tracker: None }
+    }
+}
 
 /// The cache that needs to be held by the Window for the partial rendering
 struct PartialRendererCache {
@@ -652,8 +657,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                         }
                     }
                     None => {
-                        let cache_entry =
-                            PartialRenderingCachedData { data: new_geom.clone(), tracker: None };
+                        let cache_entry = PartialRenderingCachedData::new(new_geom.clone());
                         rendering_data.cache_index.set(cache.insert(cache_entry));
                         rendering_data.cache_generation.set(cache.generation());
 
@@ -977,18 +981,20 @@ impl PartialRenderingState {
             self.force_dirty.borrow_mut().add_rect(rect);
         }
 
+        let mut released_without_entry = false;
         for item in items {
-            if item.cached_rendering_data_offset().release(&mut cache).is_none()
-                && cache.rendered_without_entry
-            {
-                // Without a cache entry the item was never visited by the dirty-region pass,
-                // so the tree's screen region above does not cover it. Unless an item was
-                // rendered without an entry since that pass
-                // (see `PartialRendererCache::rendered_without_entry`), it was never rendered
-                // either and there is nothing on screen to erase; otherwise refresh
-                // everything as a last resort.
-                self.force_screen_refresh.set(true);
+            if item.cached_rendering_data_offset().release(&mut cache).is_none() {
+                released_without_entry = true;
             }
+        }
+
+        // An item without a cache entry was never visited by the dirty-region pass, so the
+        // tree's screen region above does not cover it. Unless an item was rendered without
+        // an entry since that pass (see `PartialRendererCache::rendered_without_entry`), it
+        // was never rendered either and there is nothing on screen to erase; otherwise
+        // refresh everything as a last resort.
+        if released_without_entry && cache.rendered_without_entry {
+            self.force_screen_refresh.set(true);
         }
     }
 
