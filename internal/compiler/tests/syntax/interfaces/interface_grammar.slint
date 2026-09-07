@@ -9,3 +9,7 @@
 interface ColonEqual := {
 //                   ><error{':=' to declare an interface is not supported. Remove the ':='}
 }
+
+interface DanglingInherits inherits {
+//                                  ^error{Syntax error: expected Identifier}
+}
