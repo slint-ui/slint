@@ -45,6 +45,26 @@ pub use wgpu::FemtoVGWGPURenderer;
 
 pub trait WindowSurface<R: femtovg::Renderer> {
     fn render_output(&self) -> impl Into<R::RenderOutput>;
+    /// Return [`femtovg::RenderTarget::Image`] to redirect the frame when
+    /// [`Self::render_output`] cannot select an offscreen target, as for OpenGL, which
+    /// renders into whatever framebuffer is bound.
+    fn initial_render_target(&self) -> femtovg::RenderTarget {
+        femtovg::RenderTarget::Screen
+    }
+}
+
+/// Call after every [`femtovg::Canvas::set_size`], which queues a `SetRenderTarget(Screen)` of
+/// its own without updating the cached target. [`femtovg::Canvas::set_render_target`] does
+/// nothing when the target matches that cache, so switch through `Screen` to force the frame's
+/// target to be queued again.
+fn select_render_target<R: femtovg::Renderer>(
+    canvas: &mut femtovg::Canvas<R>,
+    target: femtovg::RenderTarget,
+) {
+    if target != femtovg::RenderTarget::Screen {
+        canvas.set_render_target(femtovg::RenderTarget::Screen);
+        canvas.set_render_target(target);
+    }
 }
 
 /// Result of [`GraphicsBackend::begin_surface_rendering`]. `Skipped` carries the reason,
@@ -82,9 +102,9 @@ pub trait GraphicsBackend {
         height: NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
-    /// Implement screenshot capture for this backend. The `canvas` is the FemtoVG canvas
-    /// (available for GL backends to call `canvas.screenshot()`). The `render` closure triggers
-    /// a full render pass, which WGPU-style implementations may redirect to an offscreen texture.
+    /// Redirect the full frame drawn by `render` offscreen and read back its pixels, using
+    /// `canvas` if this backend reads back through it. `width` and `height` are the window
+    /// size, guaranteed non-zero by the caller.
     /// Return `None` if this backend does not support `take_snapshot`.
     fn take_snapshot_pixels(
         &self,
@@ -155,6 +175,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
             BeginRendering::Acquired(s) => s,
             BeginRendering::Skipped(outcome) => return Ok(outcome),
         };
+        let render_target = surface.initial_render_target();
 
         if self.rendering_first_time.take() {
             *self.rendering_metrics_collector.borrow_mut() = RenderingMetricsCollector::new(
@@ -201,6 +222,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     // dpi / device pixel ratio as the anti-alias of femtovg needs that to draw text clearly.
                     // We need to care about that `ceil()` when calculating metrics.
                     femtovg_canvas.set_size(surface_size.width, surface_size.height, scale);
+                    select_render_target(&mut femtovg_canvas, render_target);
 
                     // Clear with window background if it is a solid color otherwise it will drawn as gradient
                     if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
@@ -231,6 +253,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     self.graphics_backend.submit_commands(commands);
 
                     femtovg_canvas.set_size(width.get(), height.get(), scale);
+                    select_render_target(&mut femtovg_canvas, render_target);
                     drop(femtovg_canvas);
 
                     self.with_graphics_api(|api| {
@@ -252,6 +275,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     window,
                     width.get(),
                     height.get(),
+                    render_target,
                 );
 
                 if let Some(window_item_rc) = window_inner.window_item_rc() {
@@ -401,6 +425,9 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             .and_then(|w| w.upgrade())
             .map(|a| a.size())
             .unwrap_or_default();
+        if size.width == 0 || size.height == 0 {
+            return Err("take_snapshot: window size is zero".into());
+        }
         let canvas = self.canvas.borrow().as_ref().cloned();
         self.graphics_backend
             .take_snapshot_pixels(canvas, size.width, size.height, &|| self.render())
