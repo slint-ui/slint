@@ -1,0 +1,8 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//|^<<error{Syntax error: expected Identifier}
+
+// A dangling `inherits` at the end of the file reports at offset 0,
+// so the marker can't sit next to the declaration.
+// Kept apart from the other declaration syntax errors for that reason.
+interface DanglingInherits inherits
