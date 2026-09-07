@@ -138,7 +138,7 @@ pub async fn run_passes(
         );
         lower_states::lower_states(component, &symbol_counters, &mut forwarded_references, diag);
         lower_text_input_interface::lower_text_input_interface(component);
-        compile_paths::compile_paths(component, &doc.local_registry, diag);
+        compile_paths::check_derived_paths(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
@@ -164,6 +164,9 @@ pub async fn run_passes(
     }
 
     doc.visit_all_used_components(|component| {
+        // After inlining, so that path elements added through `@children` or to a
+        // component inheriting `Path` are direct children of the `Path` element
+        compile_paths::compile_paths(component, &doc.local_registry, diag);
         border_radius::handle_border_radius(component, diag);
         check_drag_area::check_drag_area(component, diag);
         deprecated_rotation_origin::handle_rotation_origin(component, diag);

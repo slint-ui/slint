@@ -3536,7 +3536,8 @@ impl Element {
         })
     }
 
-    fn any_in_inheritance_chain(&self, predicate: impl Fn(&Element) -> bool + Copy) -> bool {
+    /// Whether `predicate` holds for this element or the root element of a component it derives from
+    pub fn any_in_inheritance_chain(&self, predicate: impl Fn(&Element) -> bool + Copy) -> bool {
         predicate(self)
             || matches!(
                 &self.base_type,
