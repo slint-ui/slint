@@ -9,18 +9,23 @@
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
     use crate::editor_preview::Result;
-    use lsp_server::{Message, RequestId};
+    use lsp_server::{Message, RequestId, Response};
     use lsp_types::notification::Notification;
-    use std::sync::{Arc, atomic};
-    use std::task::{Poll, Waker};
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex, atomic};
+    use tokio::sync::oneshot;
 
-    pub enum OutgoingRequest {
-        Start,
-        Pending(Waker),
-        Done(lsp_server::Response),
+    /// The requests sent to the client that still wait for their response.
+    pub type OutgoingRequestQueue = Arc<Mutex<HashMap<RequestId, oneshot::Sender<Response>>>>;
+
+    /// Delivers a response from the client to the future waiting for it.
+    /// Returns false if no request with that id is waiting.
+    pub fn complete_request(queue: &OutgoingRequestQueue, response: Response) -> bool {
+        let Some(sender) = queue.lock().unwrap().remove(&response.id) else { return false };
+        // Sending fails when the future was dropped before the response came.
+        let _ = sender.send(response);
+        true
     }
-
-    pub type OutgoingRequestQueue = Arc<dashmap::DashMap<RequestId, OutgoingRequest>>;
 
     /// A handle that can be used to communicate with the client
     #[derive(Clone)]
@@ -54,7 +59,19 @@ mod native {
         pub fn send_request<T: lsp_types::request::Request>(
             &self,
             request: T::Params,
-        ) -> Result<impl Future<Output = Result<T::Result>>> {
+        ) -> Result<impl Future<Output = Result<T::Result>> + use<T>> {
+            /// Forgets the request when its future is dropped before the client answers.
+            struct Registration {
+                queue: OutgoingRequestQueue,
+                id: RequestId,
+            }
+
+            impl Drop for Registration {
+                fn drop(&mut self) {
+                    self.queue.lock().unwrap().remove(&self.id);
+                }
+            }
+
             static REQ_ID: atomic::AtomicI32 = atomic::AtomicI32::new(0);
             let id = RequestId::from(REQ_ID.fetch_add(1, atomic::Ordering::Relaxed));
             let msg = Message::Request(lsp_server::Request::new(
@@ -62,27 +79,73 @@ mod native {
                 T::METHOD.to_string(),
                 request,
             ));
+            let (sender, receiver) = oneshot::channel();
+            // Register before sending: the client may answer before `send` returns.
+            let registration = Registration { queue: self.queue.clone(), id: id.clone() };
+            registration.queue.lock().unwrap().insert(id, sender);
             self.sender.send(msg)?;
-            let queue = self.queue.clone();
-            queue.insert(id.clone(), OutgoingRequest::Start);
-            Ok(std::future::poll_fn(move |ctx| match queue.remove(&id).unwrap().1 {
-                OutgoingRequest::Pending(_) | OutgoingRequest::Start => {
-                    queue.insert(id.clone(), OutgoingRequest::Pending(ctx.waker().clone()));
-                    Poll::Pending
+            Ok(async move {
+                let _registration = registration;
+                let response = receiver.await.map_err(|_| "no response from the client")?;
+                match response.response_result {
+                    Err(err) => Err(err.message.into()),
+                    Ok(result) => serde_json::from_value(result)
+                        .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
                 }
-                OutgoingRequest::Done(d) => match d.response_result {
-                    Err(err) => Poll::Ready(Err(err.message.into())),
-                    Ok(result) => Poll::Ready(
-                        serde_json::from_value(result)
-                            .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
-                    ),
-                },
-            }))
+            })
         }
 
         #[cfg(test)]
         pub fn dummy() -> Self {
             Self { sender: crossbeam_channel::unbounded().0, queue: Default::default() }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn notifier(
+            sender: crossbeam_channel::Sender<Message>,
+        ) -> (ServerNotifier, OutgoingRequestQueue) {
+            let queue = OutgoingRequestQueue::default();
+            (ServerNotifier::new(sender, queue.clone()), queue)
+        }
+
+        fn config_request(
+            notifier: &ServerNotifier,
+        ) -> Result<impl Future<Output = Result<Vec<serde_json::Value>>> + use<>> {
+            notifier.send_request::<lsp_types::request::WorkspaceConfiguration>(
+                lsp_types::ConfigurationParams { items: vec![] },
+            )
+        }
+
+        #[test]
+        fn request_is_registered_before_it_is_sent() {
+            // A zero-capacity channel blocks `send` until the test receives,
+            // so the queue can be inspected while the request is in flight.
+            let (sender, receiver) = crossbeam_channel::bounded(0);
+            let (notifier, queue) = notifier(sender);
+            let sender_thread = std::thread::spawn(move || config_request(&notifier).unwrap());
+
+            let mut select = crossbeam_channel::Select::new();
+            select.recv(&receiver);
+            select.ready_timeout(std::time::Duration::from_secs(5)).unwrap();
+            assert_eq!(queue.lock().unwrap().len(), 1);
+
+            receiver.recv().unwrap();
+            drop(sender_thread.join().unwrap());
+            assert!(queue.lock().unwrap().is_empty());
+        }
+
+        #[test]
+        fn dropped_future_removes_request() {
+            let (sender, _receiver) = crossbeam_channel::unbounded();
+            let (notifier, queue) = notifier(sender);
+            let response = config_request(&notifier).unwrap();
+            assert_eq!(queue.lock().unwrap().len(), 1);
+            drop(response);
+            assert!(queue.lock().unwrap().is_empty());
         }
     }
 }

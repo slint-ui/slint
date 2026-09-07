@@ -1844,19 +1844,8 @@ pub mod tests {
         }
 
         fn respond(&self, request: Request, result: impl serde::Serialize) {
-            let mut entry = loop {
-                if let Some(entry) = self.queue.get_mut(&request.id) {
-                    break entry;
-                }
-                std::thread::yield_now();
-            };
-            if let crate::OutgoingRequest::Pending(waker) = &*entry {
-                waker.wake_by_ref();
-            }
-            *entry = crate::OutgoingRequest::Done(Response::new_ok(
-                request.id,
-                serde_json::to_value(result).unwrap(),
-            ));
+            let response = Response::new_ok(request.id, serde_json::to_value(result).unwrap());
+            assert!(crate::complete_request(&self.queue, response), "unknown request");
         }
 
         fn next_show_message(&self) -> lsp_types::ShowMessageParams {
