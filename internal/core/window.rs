@@ -1856,6 +1856,7 @@ impl WindowInner {
 
         item_renderer.save_state();
         item_renderer.translate(top_left.to_vector());
+        item_renderer.scale(self.scale_factor(), self.scale_factor());
         item_renderer.draw_image_direct(image);
         item_renderer.restore_state();
 
