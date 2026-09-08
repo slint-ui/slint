@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { verifyRuntime } from "./runtime-pin.mjs";
 import { createHash } from "node:crypto";
 import { execFile as execFileCallback } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -29,7 +28,6 @@ const { version } = JSON.parse(
     await readFile(resolve(projectRoot, "package.json"), "utf8"),
 );
 const packageDir = `Figma to Slint_${version}`;
-verifyRuntime(!testing && !nightly);
 const outputPath = resolve(
     zipDir,
     nightly ? "figma-plugin.zip" : `${packageDir}.zip`,
