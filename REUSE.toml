@@ -436,6 +436,10 @@ path = ["tools/editor/ui/assets/lucide/square.svg", "tools/editor/ui/assets/luci
 SPDX-FileCopyrightText = ["Copyright (c) 2026 Lucide Icons and Contributors", "Copyright (c) 2013-present Cole Bemis"]
 
 [[annotations]]
-path = ["tools/figma-inspector/fixtures/**.png", "tools/figma-inspector/fixtures/**.svg", "tools/figma-inspector/fixtures/**.slint"]
+path = [
+  "tools/figma-inspector/fixtures/**.png",
+  "tools/figma-inspector/fixtures/**.svg",
+  "tools/figma-inspector/fixtures/**.slint",
+]
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
