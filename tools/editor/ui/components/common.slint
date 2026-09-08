@@ -256,6 +256,7 @@ export component ComponentPaletteRow inherits Rectangle {
                 : root.kind == PaletteComponentKind.rectangle ? EditorTreeIcons.rectangle
                 : EditorTreeIcons.text;
             colorize: root.active ? StudioTheme.accent-strong : StudioTheme.text;
+            opacity: root.active ? 1 : 0.5;
         }
 
         Text {
