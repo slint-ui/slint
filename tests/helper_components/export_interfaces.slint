@@ -15,3 +15,7 @@ export interface ComboBoxInterface {
     in-out property <int> current-index;
     in-out property <string> current-value;
 }
+
+export interface ExportedDerived inherits ExportedInterface {
+    in-out property <string> label;
+}
