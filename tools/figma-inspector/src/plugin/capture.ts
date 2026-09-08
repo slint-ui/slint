@@ -7,6 +7,7 @@ import type { ComponentLibrary } from "./components";
 import { planReachableVariants } from "./components";
 import type { CaptureCache } from "./capture-work";
 import {
+    CaptureCancelled,
     captureBusyTime,
     captureScheduler,
     mapCaptureChildren,
@@ -386,7 +387,7 @@ export async function captureSource<Binary extends boolean = false>(
         rawPng &&
         ((node, scale) =>
             schedule(async () => {
-                if (cancelled?.()) throw Error("Capture cancelled");
+                if (cancelled?.()) throw new CaptureCancelled();
                 const stop =
                     node.type === "TEXT" ? fontTiming.start() : undefined;
                 try {
@@ -398,7 +399,7 @@ export async function captureSource<Binary extends boolean = false>(
             }));
     const scheduledSvg: SvgExporter = (node) =>
         schedule(async () => {
-            if (cancelled?.()) throw Error("Capture cancelled");
+            if (cancelled?.()) throw new CaptureCancelled();
             const stop = node.type === "TEXT" ? fontTiming.start() : undefined;
             try {
                 work.svgExports++;
@@ -534,6 +535,7 @@ export async function captureSource<Binary extends boolean = false>(
         hidden: boolean,
         suppressed = false,
         ancestors = "",
+        cacheableContext = true,
     ): Promise<SourceNode<Bytes>> {
         const raw = node as unknown as Record<string, unknown>;
         const result: SourceNode<Bytes> = {
@@ -592,6 +594,26 @@ export async function captureSource<Binary extends boolean = false>(
                 });
             }
         }
+        // Backdrop/mask composition needs pixels outside this subtree. Do not
+        // treat a metadata fingerprint as proof that those pixels are unchanged.
+        const contextProperties = decodeValue(result.properties) as Record<
+            string,
+            unknown
+        >;
+        const rasterContextSafe =
+            cacheableContext &&
+            result.errors.length === 0 &&
+            contextProperties.isMask !== true &&
+            (contextProperties.blendMode === undefined ||
+                contextProperties.blendMode === "NORMAL" ||
+                contextProperties.blendMode === "PASS_THROUGH") &&
+            !(
+                Array.isArray(contextProperties.effects) &&
+                contextProperties.effects.some(
+                    (effect: { type?: string }) =>
+                        effect.type === "BACKGROUND_BLUR",
+                )
+            );
         if (node.type === "TEXT" && "getStyledTextSegments" in node) {
             try {
                 result.segments = {
@@ -660,7 +682,7 @@ export async function captureSource<Binary extends boolean = false>(
                     operation: () => Promise<T>,
                 ): Promise<SourceResult<T>> {
                     try {
-                        if (cancelled?.()) throw new Error("Capture cancelled");
+                        if (cancelled?.()) throw new CaptureCancelled();
                         return { value: await operation() };
                     } catch (error) {
                         return {
@@ -670,11 +692,38 @@ export async function captureSource<Binary extends boolean = false>(
                         };
                     }
                 }
-                const textKey =
-                    cache && node.type === "TEXT"
+                const rasterKey =
+                    cache &&
+                    rasterContextSafe &&
+                    (node.type === "TEXT" ||
+                        (node.type === "VECTOR" && !("children" in node)))
                         ? (() => {
                               try {
+                                  const geometry =
+                                      node.type === "VECTOR"
+                                          ? [
+                                                raw.vectorPaths,
+                                                raw.vectorNetwork,
+                                                raw.strokeCap,
+                                                raw.strokeJoin,
+                                                raw.strokeMiterLimit,
+                                            ]
+                                          : [];
+                                  if (
+                                      node.type === "VECTOR" &&
+                                      (geometry[0] === undefined ||
+                                          geometry[1] === undefined)
+                                  )
+                                      return undefined;
+                                  if (
+                                      result.segments?.error ||
+                                      (node.type === "TEXT" &&
+                                          "hasMissingFont" in node &&
+                                          node.hasMissingFont)
+                                  )
+                                      return undefined;
                                   return JSON.stringify([
+                                      geometry,
                                       ancestors,
                                       result.id,
                                       result.properties,
@@ -717,15 +766,17 @@ export async function captureSource<Binary extends boolean = false>(
                                       return value;
                                   };
                                   const bytes =
-                                      cache && textKey
+                                      cache && rasterKey
                                           ? await cache.get(
-                                                `text:${textKey}`,
+                                                `raster:${rasterKey}`,
                                                 load,
                                                 (value) => value.byteLength,
                                                 () => {
-                                                    fontMetrics.cacheHits++;
-                                                    work.textCacheHits++;
-                                                    fontMetrics.exports--;
+                                                    if (node.type === "TEXT") {
+                                                        fontMetrics.cacheHits++;
+                                                        work.textCacheHits++;
+                                                        fontMetrics.exports--;
+                                                    }
                                                 },
                                             )
                                           : await load();
@@ -829,6 +880,7 @@ export async function captureSource<Binary extends boolean = false>(
                                 (result.exports !== undefined ||
                                     maskExport !== undefined)),
                         childAncestors,
+                        rasterContextSafe,
                     ),
                 cancelled,
             );
@@ -855,7 +907,7 @@ export async function captureSource<Binary extends boolean = false>(
     // discover another instance family, so this is a fixed-point queue rather
     // than an eager expansion of every known component set.
     while (true) {
-        if (cancelled?.()) throw Error("Capture cancelled");
+        if (cancelled?.()) throw new CaptureCancelled();
         const owner = [...componentOwners.values()]
             .filter((n) => {
                 const required = requiredVariants.get(n.id);
@@ -1151,7 +1203,7 @@ export async function captureSource<Binary extends boolean = false>(
             }
         }
         for (const id of needed) {
-            if (cancelled?.()) throw Error("Capture cancelled");
+            if (cancelled?.()) throw new CaptureCancelled();
             const variable = await figma.variables.getVariableByIdAsync(id);
             if (!variable) throw Error(`Bound variable ${id} is unavailable`);
             if (
