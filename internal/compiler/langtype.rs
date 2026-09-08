@@ -364,8 +364,8 @@ impl Type {
 pub enum BuiltinPropertyDefault {
     None,
     Expr(ConstantExpression),
-    /// When materializing a property of this type, it will be initialized with an Expression that depends on the ElementRc
-    WithElement(fn(&crate::object_tree::ElementRc) -> Expression),
+    /// The property is computed per element by this function, which takes the element.
+    ElementFunction(BuiltinFunction),
     /// The property is actually not a property but a builtin function
     BuiltinFunction(BuiltinFunction),
 }
@@ -375,7 +375,11 @@ impl BuiltinPropertyDefault {
         match self {
             BuiltinPropertyDefault::None => None,
             BuiltinPropertyDefault::Expr(constant) => Some(constant.to_expression()),
-            BuiltinPropertyDefault::WithElement(init_expr) => Some(init_expr(elem)),
+            BuiltinPropertyDefault::ElementFunction(function) => Some(Expression::FunctionCall {
+                function: function.clone().into(),
+                arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
+                source_location: None,
+            }),
             BuiltinPropertyDefault::BuiltinFunction(..) => {
                 unreachable!("can't get an expression for functions")
             }
