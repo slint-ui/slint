@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinStruct, ElementType, Enumeration, Function,
-    PropertyLookupResult, Struct, Type,
+    BuiltinElement, BuiltinStruct, ElementType, Enumeration, Function, PropertyLookupResult,
+    Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -99,7 +99,6 @@ pub struct BuiltinTypes {
     pub set_selection_offsets_callback_type: Type,
     pub logical_point_type: Arc<Struct>,
     pub logical_size_type: Arc<Struct>,
-    pub font_metrics_type: Type,
     pub layout_info_type: Arc<Struct>,
     pub state_info_type: Arc<Struct>,
     pub gridlayout_input_data_type: Type,
@@ -152,16 +151,6 @@ impl BuiltinTypes {
                 .collect(),
                 BuiltinStruct::LogicalSize,
             )),
-            font_metrics_type: Type::Struct(Arc::new(Struct::new(
-                IntoIterator::into_iter([
-                    (SmolStr::new_static("ascent"), Type::LogicalLength),
-                    (SmolStr::new_static("descent"), Type::LogicalLength),
-                    (SmolStr::new_static("x-height"), Type::LogicalLength),
-                    (SmolStr::new_static("cap-height"), Type::LogicalLength),
-                ])
-                .collect(),
-                BuiltinStruct::FontMetrics,
-            ))),
             noarg_callback_type: Type::Callback(Arc::new(Function {
                 return_type: Type::Void,
                 args: Vec::new(),
@@ -551,38 +540,6 @@ impl TypeRegister {
 
         crate::builtin_elements::load(&mut register);
 
-        let font_metrics_prop = crate::langtype::BuiltinPropertyInfo {
-            property_visibility: PropertyVisibility::Output,
-            default_value: BuiltinPropertyDefault::WithElement(|elem| {
-                crate::expression_tree::Expression::FunctionCall {
-                    function: BuiltinFunction::ItemFontMetrics.into(),
-                    arguments: vec![crate::expression_tree::Expression::ElementReference(
-                        Rc::downgrade(elem),
-                    )],
-                    source_location: None,
-                }
-            }),
-            ..crate::langtype::BuiltinPropertyInfo::new(font_metrics_type())
-        };
-
-        match &mut register.elements.get_mut("TextInput").unwrap() {
-            ElementType::Builtin(b) => {
-                let text_input = Rc::get_mut(b).unwrap();
-                text_input.properties.insert("font-metrics".into(), font_metrics_prop.clone());
-            }
-
-            _ => unreachable!(),
-        };
-
-        match &mut register.elements.get_mut("Text").unwrap() {
-            ElementType::Builtin(b) => {
-                let text = Rc::get_mut(b).unwrap();
-                text.properties.insert("font-metrics".into(), font_metrics_prop);
-            }
-
-            _ => unreachable!(),
-        };
-
         register
     }
 
@@ -836,7 +793,7 @@ pub fn logical_size_type() -> Arc<Struct> {
 }
 
 pub fn font_metrics_type() -> Type {
-    BUILTIN.font_metrics_type.clone()
+    Type::Struct(builtin_structs::FontMetrics())
 }
 
 /// The [`Type`] for a runtime LayoutInfo structure

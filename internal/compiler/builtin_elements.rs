@@ -19,6 +19,7 @@
 //!     callback edited(text: string) -> bool;
 //!     function close() { }                                  // implemented by a compiler pass
 //!     function start() { BuiltinFunction.StartTimer }       // implemented by a BuiltinFunction
+//!     out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics } // computed per element
 //! } }
 //! ```
 //!
@@ -179,6 +180,18 @@ macro_rules! members {
         }
         members!($l $e $($rest)*);
     };
+    // property computed per element by a BuiltinFunction that takes the element
+    ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident)*
+        $vis:ident property < $($ty:tt)-+ > $($name:tt)-+ { BuiltinFunction . $bf:ident } $($rest:tt)*) => {
+        $e.section(docs!($($s)*));
+        {
+            let mut info = BuiltinPropertyInfo::new($l.ty(stringify!($($ty)-+)));
+            info.property_visibility = visibility!($vis);
+            info.default_value = BuiltinPropertyDefault::ElementFunction(BuiltinFunction::$bf);
+            $e.add(stringify!($($name)-+), info, &[$(stringify!($mod)),*], docs!($($d)*));
+        }
+        members!($l $e $($rest)*);
+    };
     // callback
     ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident)*
         callback $($name:tt)-+ $(( $($n:tt : $($t:tt)-+),* ))? $(-> $($ret:tt)-+)? ; $($rest:tt)*) => {
@@ -225,7 +238,13 @@ impl Builder {
         info.docs = join_docs(docs);
         let name = kebab(name);
         self.member_doc(name.clone());
-        self.class.properties.insert(name, info);
+        // A property computed per element isn't a property of the native item.
+        match info.default_value {
+            BuiltinPropertyDefault::ElementFunction(_) => {
+                self.element.properties.insert(name, info)
+            }
+            _ => self.class.properties.insert(name, info),
+        };
     }
 
     /// The docs are only assembled when they reach the binary.
@@ -1110,11 +1129,8 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         in property <TextStrokeStyle> stroke-style;
-        // Inserted in typeregister.rs: the default value is computed per element.
-        //! ### font-metrics
-        //! <SlintProperty propName="font-metrics" typeName="struct" structName="FontMetrics" propertyVisibility="out">
-        //! The design metrics of the font scaled to the font pixel size used by the element.
-        //! </SlintProperty>
+        /// The design metrics of the font scaled to the font pixel size used by the element.
+        out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics }
     } }
 
     element! {
@@ -2293,11 +2309,8 @@ fn build(l: &mut Loader) {
         in property <bool> read-only: false;
         // Internal, undocumented property, only exposed for IME.
         out property <string> preedit-text;
-        // Inserted in typeregister.rs: the default value is computed per element.
-        //! ### font-metrics
-        //! <SlintProperty propName="font-metrics" typeName="struct" structName="FontMetrics" propertyVisibility="out">
-        //! The design metrics of the font scaled to the font pixel size used by the element.
-        //! </SlintProperty>
+        /// The design metrics of the font scaled to the font pixel size used by the element.
+        out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics }
 
 
         /// Selects the text between two UTF-8 offsets.
