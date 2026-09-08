@@ -74,15 +74,6 @@ export component EditorUi inherits Window {
             }
 
             capture-key-pressed(event) => {
-                if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z") {
-                    Api.inspector-cancel();
-                    if event.modifiers.shift {
-                        if Api.redo-enabled { Api.redo(); }
-                    } else {
-                        if Api.undo-enabled { Api.undo(); }
-                    }
-                    return accept;
-                }
                 if event.text == Key.Shift || event.text == Key.ShiftR {
                     self.shift-pressed = true;
                     return reject;
@@ -99,6 +90,17 @@ export component EditorUi inherits Window {
             }
 
             key-pressed(event) => {
+                if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z") {
+                    Api.inspector-cancel();
+                    // Cancel the gesture even when there is no document edit to undo.
+                    Api.inspector-generation += 1;
+                    if event.modifiers.shift {
+                        if Api.redo-enabled { Api.redo(); }
+                    } else {
+                        if Api.undo-enabled { Api.undo(); }
+                    }
+                    return accept;
+                }
                 if event.text == Key.Escape && AppState.has-active-drag() {
                     AppState.cancel-active-drags();
                     return accept;

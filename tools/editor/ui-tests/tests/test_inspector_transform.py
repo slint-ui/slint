@@ -490,3 +490,73 @@ def test_source_reload_cancels_knob_gesture(
         )
         time.sleep(0.2)
         assert (fixture_project / SOURCE).read_bytes() == updated
+
+
+@pytest.mark.parametrize(
+    "label,text", [("Search elements", "Text"), ("Rotation", "99")]
+)
+def test_text_input_undo_does_not_revert_document(
+    editor_binary, editor_environment, fixture_project, label, text
+):
+    baseline = prepare(fixture_project)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    expected = baseline.replace(b"32deg", b"40deg")
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / SOURCE
+    ) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        edit_field(window, "Rotation", "40")
+        snapshot.wait_for_exact(expected, relative_path=SOURCE)
+        wait_for_field(window, "Rotation", "40")
+        field = window_element_with_label(
+            window, label, slint_testing.AccessibleRole.TextInput
+        )
+        field.single_click(slint_testing.PointerEventButton.Left)
+        for character in text:
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=character))
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=character))
+        wait_for_field(window, label, text)
+        shortcut(window)
+        assert field.accessible_value != text
+        snapshot.wait_for_exact(expected, relative_path=SOURCE)
+        shortcut(window, redo=True)
+        wait_for_field(window, label, text)
+        snapshot.wait_for_exact(expected, relative_path=SOURCE)
+
+
+@pytest.mark.parametrize("history", [False, True])
+def test_undo_while_dragging_cancels_release(
+    editor_binary, editor_environment, fixture_project, history
+):
+    baseline = prepare(fixture_project)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / SOURCE
+    ) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        if history:
+            edit_field(window, "Rotation", "42")
+            snapshot.wait_for_exact(
+                baseline.replace(b"32deg", b"42deg"), relative_path=SOURCE
+            )
+            wait_for_field(window, "Rotation", "42")
+        knob = window_element_with_label(window, "Rotation knob")
+        start, end = point(knob, 32), point(knob, 62)
+        window.dispatch_event(
+            slint_testing.PointerPressEvent(
+                start, slint_testing.PointerEventButton.Left
+            )
+        )
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_field(window, "Rotation", "72" if history else "62")
+        shortcut(window)
+        window.dispatch_event(
+            slint_testing.PointerReleaseEvent(
+                end, slint_testing.PointerEventButton.Left
+            )
+        )
+        time.sleep(0.3)
+        snapshot.wait_for_exact(baseline, relative_path=SOURCE)
+        wait_for_field(window, "Rotation", "32")
