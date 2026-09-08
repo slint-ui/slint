@@ -6,6 +6,8 @@ import { InspectorTokens } from "tokens.slint";
 
 export component InspectorRotationKnob inherits FocusScope {
     in property <float> value;
+    in property <string> accessible-name: "Rotation knob";
+    in property <angle> angle-offset: 0deg;
     in property <string> commit-key;
     out property <float> visual-value: root.dragging ? root.drag-value : root.value;
     callback preview(float) -> bool;
@@ -20,7 +22,7 @@ export component InspectorRotationKnob inherits FocusScope {
     width: 32px;
     height: 32px;
     accessible-role: AccessibleRole.slider;
-    accessible-label: "Rotation knob";
+    accessible-label: root.accessible-name;
     accessible-value: "\{root.visual-value}";
     accessible-action-set-value(value) => {
         if value.is-float() { root.accepted(value.to-float()); }
@@ -33,7 +35,7 @@ export component InspectorRotationKnob inherits FocusScope {
         }
     }
     function pointer-angle() -> angle {
-        return atan2((touch.mouse-x - 16px) / 1px, (16px - touch.mouse-y) / 1px);
+        return atan2((touch.mouse-x - 16px) / 1px, (16px - touch.mouse-y) / 1px) - root.angle-offset;
     }
     function update(shift: bool) {
         let angle = root.pointer-angle();
@@ -79,8 +81,8 @@ export component InspectorRotationKnob inherits FocusScope {
             drop-shadow-offset-y: 1px;
         }
         Rectangle {
-            x: 14px + (root.visual-value.mod(360) * 1deg).sin() * 9px;
-            y: 14px - (root.visual-value.mod(360) * 1deg).cos() * 9px;
+            x: 14px + (root.visual-value.mod(360) * 1deg + root.angle-offset).sin() * 9px;
+            y: 14px - (root.visual-value.mod(360) * 1deg + root.angle-offset).cos() * 9px;
             width: 4px; height: 4px; border-radius: 2px;
             background: @linear-gradient(180deg, #0879b7, #38b9fa);
             border-width: 0.5px;

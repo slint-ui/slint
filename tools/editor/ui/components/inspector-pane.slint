@@ -756,6 +756,7 @@ export component InspectorPane inherits Rectangle {
 
                             InspectorEffectDial {
                                 accessible-name: "Shadow angle";
+                                commit-key: root.inspector-key + ":" + root.current-shadow-prefix();
                                 value: root.shadow-angle();
                                 accepted(angle) => {
                                     return root.commit-shadow-offsets(angle, root.shadow-distance());
