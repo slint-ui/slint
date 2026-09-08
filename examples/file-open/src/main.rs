@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+// cSpell: ignore slintsave
 
 // This example shows how a Slint application can handle the files that the operating
 // system asks it to open, for example because the user double-clicked a file of an

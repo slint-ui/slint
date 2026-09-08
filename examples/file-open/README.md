@@ -1,3 +1,5 @@
+<!-- cSpell: ignore slintsave -->
+
 # File Open (macOS)
 
 This example demonstrates how a Slint application receives the files that the operating
