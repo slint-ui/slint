@@ -1083,12 +1083,14 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::BoxLayoutInfoOrthoWithMeasure { .. } => {
             crate::eval_layout::box_layout_info_ortho_with_measure(ctx, expression)
         }
-        Expression::TranslationReference { .. } => {
-            // TranslationReference is only emitted when `bundle-translations`
-            // is active, which the interpreter does not use. Runtime @tr()
-            // goes through BuiltinFunction::Translate instead.
-            Value::String(Default::default())
+        #[cfg(feature = "bundle-translations")]
+        Expression::TranslationReference { format_args, string_index, plural } => {
+            eval_translation_reference(ctx, format_args, *string_index, plural.as_deref())
         }
+        // TranslationReference is only emitted when `bundle-translations` is active.
+        // Runtime @tr() goes through BuiltinFunction::Translate instead.
+        #[cfg(not(feature = "bundle-translations"))]
+        Expression::TranslationReference { .. } => Value::String(Default::default()),
         Expression::Closure { .. } => unreachable!(
             "closures are dispatched by their consuming builtin and should not go through eval_expression"
         ),
@@ -1886,6 +1888,58 @@ fn log_message_location(
     })
 }
 
+/// Arguments of a `@tr(...)` formatting, as a model of strings.
+struct StringModelWrapper(ModelRc<Value>);
+impl i_slint_core::translations::FormatArgs for StringModelWrapper {
+    type Output<'a> = SharedString;
+    fn from_index(&self, index: usize) -> Option<SharedString> {
+        self.0.row_data(index).and_then(|v| v.try_into().ok())
+    }
+}
+
+/// Look up a string that the compiler bundled from the `.po` files, in the language currently
+/// selected with `slint::select_bundled_translation`.
+#[cfg(feature = "bundle-translations")]
+fn eval_translation_reference(
+    ctx: &mut EvalContext,
+    format_args: &Expression,
+    string_index: usize,
+    plural: Option<&Expression>,
+) -> Value {
+    let unit = ctx.compilation_unit.clone();
+    let Some(translations) = unit.translations.as_ref() else {
+        return Value::String(Default::default());
+    };
+    let Value::Model(args) = eval_expression(ctx, format_args) else {
+        return Value::String(Default::default());
+    };
+    let args = StringModelWrapper(args);
+    let Some(plural) = plural else {
+        return Value::String(i_slint_core::translations::translate_from_bundle(
+            &translations.strings[string_index],
+            &args,
+        ));
+    };
+
+    let n: i32 = eval_expression(ctx, plural).try_into().unwrap_or(0);
+    let forms = translations.plurals[string_index].iter().map(|f| f.as_deref()).collect::<Vec<_>>();
+    let globals = ctx.globals.clone();
+    Value::String(i_slint_core::translations::translate_from_bundle_with_plural_form(
+        &forms,
+        |language_index| {
+            let rule = translations.plural_rules.get(language_index)?.as_ref()?;
+            // The rules can't access any property, they only take `n` as argument
+            let mut rule_ctx = EvalContext::for_global(globals, unit.clone());
+            rule_ctx.function_arguments = vec![Value::Number(n as f64)];
+            rule_ctx.function_arg_types = vec![Type::Int32];
+            let form: i32 = eval_expression(&mut rule_ctx, rule).try_into().ok()?;
+            usize::try_from(form).ok()
+        },
+        &args,
+        n,
+    ))
+}
+
 fn call_builtin_function(
     ctx: &mut EvalContext,
     f: BuiltinFunction,
@@ -2566,13 +2620,6 @@ fn call_builtin_function(
             let Value::Model(args) = args else {
                 return Value::String(original);
             };
-            struct StringModelWrapper(ModelRc<Value>);
-            impl i_slint_core::translations::FormatArgs for StringModelWrapper {
-                type Output<'a> = SharedString;
-                fn from_index(&self, index: usize) -> Option<SharedString> {
-                    self.0.row_data(index).and_then(|v| v.try_into().ok())
-                }
-            }
             let n: i32 = eval_expression(ctx, &arguments[4]).try_into().unwrap_or(0);
             let plural: SharedString = to_string(ctx, &arguments[5]);
             Value::String(i_slint_core::translations::translate(

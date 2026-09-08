@@ -331,18 +331,19 @@ pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> st
 ///
 /// `strs` - the string which should be translated. The slice contains the string in multiple languages
 /// `arguments` - arguments for the translation
-pub fn translate_from_bundle(
-    strs: &[Option<&str>],
+pub fn translate_from_bundle<S: AsRef<str>>(
+    strs: &[Option<S>],
     arguments: &(impl FormatArgs + ?Sized),
 ) -> SharedString {
     let idx = global_translation_property();
     let mut output = SharedString::default();
-    let Some(translated) = strs.get(idx).and_then(|x| *x).or_else(|| strs.first().and_then(|x| *x))
+    let Some(translated) =
+        strs.get(idx).and_then(|x| x.as_ref()).or_else(|| strs.first().and_then(|x| x.as_ref()))
     else {
         return output;
     };
     use core::fmt::Write;
-    write!(output, "{}", formatter::format(translated, arguments)).unwrap();
+    write!(output, "{}", formatter::format(translated.as_ref(), arguments)).unwrap();
     output
 }
 
@@ -357,22 +358,41 @@ pub fn translate_from_bundle_with_plural(
     arguments: &(impl FormatArgs + ?Sized),
     n: i32,
 ) -> SharedString {
+    translate_from_bundle_with_plural_form(
+        strs,
+        |language_index| plural_rules.get(language_index).and_then(|x| *x).map(|rule| rule(n)),
+        arguments,
+        n,
+    )
+}
+
+/// Same as [`translate_from_bundle_with_plural`], but the plural form is computed by the given
+/// function from the index of the language, instead of being looked up in an array of rules.
+/// It returns `None` if the language has no rule, in which case the English rule is used.
+pub fn translate_from_bundle_with_plural_form<S: AsRef<str>>(
+    strs: &[Option<&[S]>],
+    plural_form: impl FnOnce(usize) -> Option<usize>,
+    arguments: &(impl FormatArgs + ?Sized),
+    n: i32,
+) -> SharedString {
     let idx = global_translation_property();
     let mut output = SharedString::default();
     let en = |n| (n != 1) as usize;
-    let (translations, rule) = match strs.get(idx) {
-        Some(Some(x)) => (x, plural_rules.get(idx).and_then(|x| *x).unwrap_or(en)),
+    let (translations, form) = match strs.get(idx) {
+        Some(Some(x)) => (x, plural_form(idx)),
         _ => match strs.first() {
-            Some(Some(x)) => (x, plural_rules.first().and_then(|x| *x).unwrap_or(en)),
+            Some(Some(x)) => (x, plural_form(0)),
             _ => return output,
         },
     };
-    let Some(translated) = translations.get(rule(n)).or_else(|| translations.first()).cloned()
+    let Some(translated) =
+        translations.get(form.unwrap_or_else(|| en(n))).or_else(|| translations.first())
     else {
         return output;
     };
     use core::fmt::Write;
-    write!(output, "{}", formatter::format(translated, &WithPlural(arguments, n))).unwrap();
+    write!(output, "{}", formatter::format(translated.as_ref(), &WithPlural(arguments, n)))
+        .unwrap();
     output
 }
 
