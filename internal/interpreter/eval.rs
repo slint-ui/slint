@@ -1978,10 +1978,11 @@ fn call_builtin_function(
             crate::popup::setup_system_tray_icon(ctx, arguments)
         }
         BuiltinFunction::StringIsFloat => Value::Bool(
-            <f64 as core::str::FromStr>::from_str(to_string(ctx, &arguments[0]).as_str()).is_ok(),
+            i_slint_core::string::string_to_float(to_string(ctx, &arguments[0]).as_str()).is_some(),
         ),
         BuiltinFunction::StringToFloat => Value::Number(
-            core::str::FromStr::from_str(to_string(ctx, &arguments[0]).as_str()).unwrap_or(0.),
+            i_slint_core::string::string_to_float(to_string(ctx, &arguments[0]).as_str())
+                .unwrap_or_default() as f64,
         ),
         BuiltinFunction::StringIsEmpty => Value::Bool(to_string(ctx, &arguments[0]).is_empty()),
         BuiltinFunction::StringCharacterCount => Value::Number(
