@@ -23,7 +23,11 @@
         "check:syntax-assets": "node scripts/check-syntax-assets.mjs",
         "check:slint": "node scripts/check-slint-artifact.mjs",
         "prepare:slint": "node scripts/prepare-slint.mjs",
-        "test:replacement": "vitest run --config vitest.replacement.config.ts"
+        "test:replacement": "vitest run --config vitest.replacement.config.ts --project unit",
+        "build:replacement": "node scripts/build.mjs",
+        "build:replacement:dev": "cross-env MODE=dev node scripts/build.mjs",
+        "test:replacement:browser": "vitest run --config vitest.replacement.config.ts --project browser --project raster-1.25 --project raster-2",
+        "verify:replacement": "pnpm build:slint && pnpm check:syntax-assets && pnpm check:slint && tsc --noEmit -p tsconfig.replacement.json && pnpm build:replacement && pnpm build:replacement:dev && node tests/bundle-contract.mjs && node tests/sandbox-harness.mjs && pnpm test:replacement && pnpm test:replacement:browser"
     },
     "devDependencies": {
         "@figma/plugin-typings": "1.138.0",
