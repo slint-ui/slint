@@ -27,6 +27,24 @@ export component EditorUi inherits Window {
     background: StudioTheme.app-bg;
     default-font-family: "Inter";
 
+    MenuBar {
+        Menu {
+            title: @tr("Edit");
+            MenuItem {
+                title: @tr("Undo");
+                shortcut: @keys(Control + Z);
+                enabled: Api.undo-enabled;
+                activated => { Api.undo(); }
+            }
+            MenuItem {
+                title: @tr("Redo");
+                shortcut: Platform.os == OperatingSystemType.windows ? @keys(Control + Y) : @keys(Control + Shift + Z);
+                enabled: Api.redo-enabled;
+                activated => { Api.redo(); }
+            }
+        }
+    }
+
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
 
