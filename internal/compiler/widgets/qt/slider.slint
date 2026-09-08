@@ -1,7 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { SliderInterface } from "../common/std-widget-interfaces.slint";
+
 export component Slider inherits NativeSlider {
+    implement SliderInterface <=> self;
+
     value: root.minimum;
     accessible-role: slider;
     accessible-enabled: root.enabled;

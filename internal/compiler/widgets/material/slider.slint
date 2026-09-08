@@ -1,22 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-
 import { MaterialPalette, Elevation } from "styling.slint";
 import { SliderBase } from "../common/slider-base.slint";
 
+import { SliderInterface } from "../common/std-widget-interfaces.slint";
+
 // Allows to select a value from a range of values.
 export component Slider {
-    in property <Orientation> orientation <=> base.orientation;
-    in property <float> maximum <=> base.maximum;
-    in property <bool> enabled <=> base.enabled;
-    in property <float> minimum <=> base.minimum;
-    in property <float> step <=> base.step;
-    out property <bool> has-focus <=> base.has-focus;
-    in-out property <float> value <=> base.value;
-
-    callback changed <=> base.changed;
-    callback released <=> base.released;
+    implement SliderInterface <=> base;
 
     min-width: base.vertical ? 20px : 0px;
     min-height: base.vertical ? 0px : 20px;
