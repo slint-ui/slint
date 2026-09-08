@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, ScrollView } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    in property <string> current-file-name: "";
+    in property <[string]> archive-entries;
+    in property <string> opened-at: "";
+    in property <bool> has-archive: current-file-name != "";
+    title: "Slint Backup Archive Inspector";
+    width: 720px;
+    height: 480px;
+
+    callback open-file-requested(string);
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        Rectangle {
+            height: 64px;
+            background: #264653;
+            border-radius: 4px;
+
+            VerticalLayout {
+                padding: 12px;
+                spacing: 4px;
+                Text {
+                    text: "Backup Inspector";
+                    color: white;
+                    font-size: 20px;
+                    font-weight: 700;
+                }
+                Text {
+                    text: current-file-name == "" ? "Open a .slintsave archive by double-clicking it or via \"Open With\"" : current-file-name;
+                    color: #e9ecef;
+                    font-size: 13px;
+                    overflow: elide;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            Text {
+                text: "Archive contents:";
+                font-size: 14px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+
+            Rectangle {
+                height: 1px;
+                background: transparent;
+            }
+
+            if has-archive: Text {
+                text: opened-at;
+                color: gray;
+                font-size: 12px;
+                horizontal-alignment: right;
+            }
+        }
+
+        Rectangle {
+            border-width: 1px;
+            border-color: #dee2e6;
+            border-radius: 4px;
+            height: 300px;
+
+            if archive-entries.length == 0: VerticalLayout {
+                padding: 16px;
+                Text {
+                    text: "No backup opened yet. Double-click a .slintsave file or use \"Open With\" to inspect it.";
+                    color: gray;
+                }
+            }
+
+            if archive-entries.length > 0: ScrollView {
+                for entry in archive-entries: HorizontalLayout {
+                    padding: 6px;
+                    spacing: 8px;
+                    Text { text: "•"; color: #2a9d8f; }
+                    Text { text: entry; }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            Button {
+                text: "Restore";
+                enabled: has-archive;
+            }
+        }
+    }
+}
