@@ -275,13 +275,15 @@ async fn lsp_main(
         &mut watch_paths_revision,
     )?;
 
-    const RECOMPILE_IDLE_TIMEOUT: Duration = Duration::from_millis(50);
+    const RECOMPILE_DELAY: Duration = Duration::from_millis(50);
+    let mut recompile_deadline = None;
     loop {
-        let recompile_idle_timeout = if session.pending_recompile.is_empty() {
-            Duration::MAX
+        if session.pending_recompile.is_empty() {
+            recompile_deadline = None;
         } else {
-            RECOMPILE_IDLE_TIMEOUT
-        };
+            // Preview messages must not postpone a pending source update.
+            recompile_deadline.get_or_insert_with(|| tokio::time::Instant::now() + RECOMPILE_DELAY);
+        }
         tokio::select! {
             watcher_event = file_watcher_rx.recv() => {
                 match watcher_event {
@@ -300,7 +302,13 @@ async fn lsp_main(
                     }
                 }
             }
-            _ = tokio::time::sleep(recompile_idle_timeout) => {
+            _ = async {
+                match recompile_deadline {
+                    Some(deadline) => tokio::time::sleep_until(deadline).await,
+                    None => std::future::pending().await,
+                }
+            } => {
+                recompile_deadline = None;
                 tracing::debug!("LSP recompiling");
                 let pending_recompile = std::mem::take(&mut session.pending_recompile);
 

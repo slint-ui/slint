@@ -24,6 +24,7 @@ from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     elements_with_label,
+    file_row,
     first_window,
     launch_editor,
     select_fixture_element,
@@ -135,29 +136,36 @@ def test_component_palette_preserves_compact_row_layout(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         section = window_element_with_label(
-            window, "ELEMENTS", slint_testing.AccessibleRole.Text
+            window, "Elements", slint_testing.AccessibleRole.Text
+        )
+        search = window_element_with_label(window, "Search elements")
+        group = window_element_with_label(
+            window, "Visual", slint_testing.AccessibleRole.Button
         )
         rows = [
             window_element_with_label(
                 window, kind, slint_testing.AccessibleRole.ListItem
             )
-            for kind in PALETTE_DROP_SIZES
+            for kind in sorted(PALETTE_DROP_SIZES)
         ]
-
-        assert section.absolute_position.y + section.size.height + 8 == pytest.approx(
+        assert (
+            section.absolute_position.y + section.size.height
+            <= search.absolute_position.y
+        )
+        assert (
+            search.absolute_position.y + search.size.height <= group.absolute_position.y
+        )
+        assert group.absolute_position.y + group.size.height == pytest.approx(
             rows[0].absolute_position.y
         )
-        assert all(row.size.height == pytest.approx(62) for row in rows)
-        assert all(
-            row.absolute_position.x == rows[0].absolute_position.x for row in rows
-        )
+        assert all(row.size.height == pytest.approx(36) for row in rows)
         assert all(row.size.width == rows[0].size.width for row in rows)
-        assert rows[1].absolute_position.y - rows[
-            0
-        ].absolute_position.y == pytest.approx(70)
+        assert rows[0].absolute_position.y == rows[1].absolute_position.y
+        assert rows[1].absolute_position.x > rows[0].absolute_position.x
+        assert rows[2].absolute_position.x == rows[0].absolute_position.x
         assert rows[2].absolute_position.y - rows[
-            1
-        ].absolute_position.y == pytest.approx(70)
+            0
+        ].absolute_position.y == pytest.approx(36)
 
 
 @pytest.mark.parametrize("kind", PALETTE_DROP_SIZES)
@@ -652,13 +660,9 @@ def test_image_asset_mode_destroys_canvas_without_replaying_palette_drop(
         wait_for_source_change(source_file, baseline)
         snapshot = SourceSnapshot.capture(fixture_project)
 
-        asset_directory_row = window_element_with_label(
-            window, str(asset_directory), slint_testing.AccessibleRole.ListItem
-        )
+        asset_directory_row = file_row(window, asset_directory)
         asset_directory_row.single_click(slint_testing.PointerEventButton.Left)
-        image_row = window_element_with_label(
-            window, str(image_file), slint_testing.AccessibleRole.ListItem
-        )
+        image_row = file_row(window, image_file)
         image_row.single_click(slint_testing.PointerEventButton.Left)
         preview_tab = window_element_with_label(
             window, "Preview", slint_testing.AccessibleRole.Button
@@ -673,9 +677,7 @@ def test_image_asset_mode_destroys_canvas_without_replaying_palette_drop(
             .find_all()
         )
 
-        component_row = window_element_with_label(
-            window, str(source_file), slint_testing.AccessibleRole.ListItem
-        )
+        component_row = file_row(window, source_file)
         component_row.single_click(slint_testing.PointerEventButton.Left)
         window_element_with_label(
             window, "Artboard", slint_testing.AccessibleRole.Region

@@ -114,3 +114,24 @@ def launch_editor(
         arguments, env=environment, launch_timeout=20
     ) as application:
         yield application
+
+
+def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:
+    from canvas_interactions import center
+
+    tree = window_element_with_label(window, "Files", slint_testing.AccessibleRole.Tree)
+    for delta in [0, 10000, -250, -250, -250, -250, -250, -250]:
+        if delta:
+            window.dispatch_event(
+                slint_testing.PointerScrolledEvent(
+                    center(tree), delta_x=0, delta_y=delta
+                )
+            )
+        rows = elements_with_label(
+            tree, str(path), slint_testing.AccessibleRole.ListItem
+        )
+        if rows:
+            return rows[0]
+    return window_element_with_label(
+        window, str(path), slint_testing.AccessibleRole.ListItem
+    )
