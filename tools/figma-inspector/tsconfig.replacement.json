@@ -32,6 +32,8 @@
         "src/images.ts",
         "src/asset-transport.ts",
         "src/protocol.ts",
-        "tests/**/*.unit.spec.ts"
+        "tests/**/*.unit.spec.ts",
+        "src/preview/**/*.ts",
+        "src/export/**/*.ts"
     ]
 }
