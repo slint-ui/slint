@@ -128,7 +128,7 @@ jobs:
               with:
                   target: "aarch64-apple-ios aarch64-apple-ios-sim"
             - name: Build iOS wheels
-              uses: pypa/cibuildwheel@v4.2.0
+              uses: pypa/cibuildwheel@v4.2.1
               with:
                   package-dir: api/python/slint
                   output-dir: wheelhouse
@@ -180,7 +180,7 @@ jobs:
             # backend, which needs a display and the system libxkbcommon-x11
             # (dlopened at runtime, so not bundled into the manylinux wheel).
             - name: Setup headless display
-              uses: pyvista/setup-headless-display-action@v4
+              uses: pyvista/setup-headless-display-action@v5
             # The wheels no longer vendor their dependencies, so provide the
             # extension's direct DT_NEEDED libraries; apt pulls the rest.
             - name: Install runtime system libraries
