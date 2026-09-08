@@ -99,6 +99,10 @@ The configure output reports which of the two libraries the build ends up with.
 :::note[Note]
 Without libseat, the application must run as a user privileged to access the input and DRM/KMS device
 files; typically that's the root user.
+
+While the event loop runs, Slint switches off the keyboard of the active virtual console,
+so that keystrokes don't also reach the shell on that console.
+If the application is killed and the console keyboard stays off, restore it with `kbd_mode -u`.
 :::
 
 :::note[Note]
