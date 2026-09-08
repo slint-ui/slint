@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import type { CodegenVariable } from "../plugin/codegen-variables";
+import { applyCodegenVariables } from "./codegen-variables";
 import type { ComponentGenerationOptions } from "./component-behavior";
 import {
     binding,
@@ -585,6 +587,7 @@ export function convertSnapshot(
     options: ComponentGenerationOptions & {
         target?: "preview" | "export";
         scope?: "tree" | "root-only";
+        codegenVariables?: readonly CodegenVariable[];
     } = {},
 ): ConversionResult {
     // Project before validation so out-of-scope descendants and component
@@ -619,14 +622,13 @@ export function convertSnapshot(
     const snapshot = validation.snapshot;
     const warnings: Diagnostic[] = [];
     if (options.scope === "root-only") {
-        const source = nodeSource(
+        const lines = nodeSource(
             snapshot.root,
             { warnings, preview: false, componentTemplates: false },
             { depth: 0 },
-        )
-            .map(printLine)
-            .concat("")
-            .join("\n");
+        );
+        applyCodegenVariables(lines, options.codegenVariables ?? [], warnings);
+        const source = lines.map(printLine).concat("").join("\n");
         return {
             ok: true,
             source,

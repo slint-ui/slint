@@ -75,6 +75,7 @@ function propertyType(name: string): string {
             "default-color",
             "border-color",
             "fill",
+            "stroke",
             "drop-shadow-color",
         ].includes(name)
     )
@@ -114,6 +115,7 @@ function propertyType(name: string): string {
         name.startsWith("preferred-") ||
         name.includes("radius") ||
         name === "border-width" ||
+        name === "stroke-width" ||
         name.startsWith("drop-shadow-")
     )
         return "length";

@@ -12,9 +12,10 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const development = process.env.MODE === "dev";
 const distDir = resolve(
     projectRoot,
-    process.env.PLUGIN_OUTPUT_DIR ?? (development ? "dist-replacement-dev" : "dist-replacement"),
+    process.env.PLUGIN_OUTPUT_DIR ??
+        (development ? "dist-replacement-dev" : "dist-replacement"),
 );
-const pluginId = process.env.FIGMA_PLUGIN_ID ?? "000000000000000000";
+const pluginId = process.env.FIGMA_PLUGIN_ID ?? "1474418299182276871";
 
 await verifyArtifact(resolve(projectRoot, ".generated/slint-wasm"));
 
@@ -116,14 +117,26 @@ await writeFile(
     resolve(distDir, "manifest.json"),
     `${JSON.stringify(
         {
-            name: "Slint WASM Preview",
+            name: "Figma to Slint",
             id: pluginId,
             api: "1.0.0",
             main: "code.js",
             ui: "ui.html",
             editorType: ["figma", "dev"],
-            capabilities: ["codegen"],
+            capabilities: ["codegen", "vscode"],
             codegenLanguages: [{ label: "Slint", value: "slint" }],
+            codegenPreferences: [
+                {
+                    itemType: "select",
+                    propertyName: "useVariables",
+                    label: "Use Variables",
+                    options: [
+                        { label: "Yes", value: "true" },
+                        { label: "No", value: "false", isDefault: true },
+                    ],
+                    includedLanguages: ["slint"],
+                },
+            ],
             documentAccess: "dynamic-page",
             networkAccess: { allowedDomains: ["none"] },
         },

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { captureSource } from "./capture";
+import { captureSource, captureCodegenVariables } from "./capture";
 import { normalizeSource } from "./normalize";
 import { convertSnapshot } from "../preview/converter";
 import type { Diagnostic } from "./snapshot";
@@ -23,6 +23,7 @@ function diagnostics(items: readonly Diagnostic[]): CodegenResult[] {
 export async function generateCodegen(
     node: SceneNode,
     mixed: unknown,
+    useVariables = false,
 ): Promise<CodegenResult[]> {
     try {
         const captured = await captureSource(
@@ -47,6 +48,9 @@ export async function generateCodegen(
         if (normalized.empty) return [];
         const converted = convertSnapshot(normalized.snapshot, {
             scope: "root-only",
+            codegenVariables: useVariables
+                ? await captureCodegenVariables(captured.source.root)
+                : [],
         });
         if (!converted.ok) return diagnostics(converted.diagnostics);
         return [
