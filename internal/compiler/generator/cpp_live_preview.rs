@@ -156,11 +156,12 @@ fn generate_public_component(
                 .join(", ")
         }),
         format!(
-            "auto live_preview = slint::private_api::live_preview::LiveReloadingComponent({main_file:?}, {:?}, include_paths, library_paths, {:?}, {:?}, {});",
+            "auto live_preview = slint::private_api::live_preview::LiveReloadingComponent({main_file:?}, {:?}, include_paths, library_paths, {:?}, {:?}, {}, {:?});",
             component.name,
             compiler_config.style.as_ref().unwrap_or(&String::new()),
             compiler_config.translation_domain.as_ref().unwrap_or(&String::new()),
             compiler_config.default_translation_context == crate::DefaultTranslationContext::None,
+            compiler_config.translation_bundle_path().unwrap_or_default(),
         ),
         format!(
             "auto self_rc = vtable::VRc<slint::private_api::ItemTreeVTable, {component_id}>::make(std::move(live_preview));"
