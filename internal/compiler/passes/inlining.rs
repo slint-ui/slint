@@ -149,10 +149,11 @@ fn inline_element(
 
     // Ensure @children CIP exists if it's missing but the component is a builtin that accepts children.
     // This preserves the implicit-children behavior for builtins without explicit placeholders.
+    // Which children a builtin accepts was checked when the object tree was built, so a builtin
+    // restricted to specific child types, such as `Path`, gets the placeholder too.
     if !inlined_insertion_points.contains_key(DEFAULT_SLOT_NAME)
         && let Some(builtin) = inlined_component.root_element.borrow().builtin_type()
         && !builtin.is_non_item_type
-        && !builtin.disallow_global_types_as_child_elements
     {
         let cip_node = inlined_component
             .node
