@@ -1,0 +1,46 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "stroke:ring",
+    "name": "Asymmetric rounded stroke",
+    "type": "RECTANGLE",
+    "errors": [],
+    "properties": {
+      "x": 0,
+      "y": 0,
+      "width": 100,
+      "height": 60,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "layoutPositioning": "AUTO",
+      "cornerRadius": 12,
+      "fills": [
+        {
+          "type": "SOLID",
+          "color": { "r": 1, "g": 1, "b": 1 },
+          "opacity": 1
+        }
+      ],
+      "strokes": [
+        {
+          "type": "SOLID",
+          "color": { "r": 1, "g": 0, "b": 0 },
+          "opacity": 1
+        }
+      ],
+      "strokeWeight": { "$source": "mixed" },
+      "strokeTopWeight": 10,
+      "strokeRightWeight": 2,
+      "strokeBottomWeight": 6,
+      "strokeLeftWeight": 14,
+      "strokeAlign": "INSIDE",
+      "dashPattern": [],
+      "effects": []
+    }
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false,
+  "options": {}
+}

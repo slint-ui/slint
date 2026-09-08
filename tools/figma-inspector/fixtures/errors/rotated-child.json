@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "1:1",
+    "nodeName": "Button"
+  },
+  "root": {
+    "kind": "group",
+    "id": "1:1",
+    "name": "Button",
+    "x": 0,
+    "y": 0,
+    "width": 240,
+    "height": 72,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": null,
+    "layoutSizingVertical": null,
+    "children": [
+      {
+        "kind": "rectangle",
+        "id": "1:2",
+        "name": "Rotated child",
+        "x": 0,
+        "y": 0,
+        "width": 240,
+        "height": 72,
+        "opacity": 1,
+        "visible": true,
+        "rotation": 15,
+        "layoutSizingHorizontal": null,
+        "layoutSizingVertical": null,
+        "fills": [],
+        "strokes": [],
+        "layoutPositioning": "auto",
+        "cornerRadii": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "clipsContent": false,
+        "containerKind": "native",
+        "layoutFallback": "freeform",
+        "shadows": []
+      }
+    ],
+    "layoutPositioning": "auto",
+    "containerKind": "group",
+    "layoutFallback": "freeform"
+  }
+}
