@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { codegenAliases, type CodegenVariable } from "./codegen-variables";
 import type { VariableLibrary, VariableValue } from "./variable-library";
 import type { ComponentLibrary } from "./components";
 import { planReachableVariants } from "./components";
@@ -1356,4 +1357,43 @@ export async function captureSelectionSource(
             ],
         };
     }
+}
+
+/** Read only variables bound to the captured root, without expanding its subtree. */
+export async function captureCodegenVariables(
+    root: SourceNode,
+): Promise<CodegenVariable[]> {
+    const variables = new Map<
+        string,
+        Promise<Omit<CodegenVariable, "field">>
+    >();
+    return Promise.all(
+        codegenAliases(root).map(async ({ field, id }) => {
+            if (!variables.has(id))
+                variables.set(
+                    id,
+                    (async () => {
+                        try {
+                            const variable =
+                                await figma.variables.getVariableByIdAsync(id);
+                            if (!variable) return {};
+                            const collection =
+                                await figma.variables.getVariableCollectionByIdAsync(
+                                    variable.variableCollectionId,
+                                );
+                            if (!collection) return {};
+                            return {
+                                name: variable.name,
+                                collection: collection.name,
+                                modes: collection.modes.length,
+                                type: variable.resolvedType,
+                            };
+                        } catch {
+                            return {};
+                        }
+                    })(),
+                );
+            return { field, ...(await variables.get(id)) };
+        }),
+    );
 }
