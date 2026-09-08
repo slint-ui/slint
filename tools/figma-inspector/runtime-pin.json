@@ -1,0 +1,8 @@
+{
+    "repository": "https://github.com/slint-ui/slint.git",
+    "revision": "a4843f0166d56ae471d0189cafebd4edc22abe69",
+    "version": "1.18.0",
+    "releaseTag": "v1.18.0",
+    "development": true,
+    "wasmPack": "0.13.1"
+}

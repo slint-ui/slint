@@ -17,8 +17,14 @@
     "isolatedModules": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "lib": ["es2017", "dom"],
-    "types": ["plugin-typings", "node"],
+    "lib": [
+      "es2017",
+      "dom"
+    ],
+    "types": [
+      "plugin-typings",
+      "node"
+    ],
     "typeRoots": [
       "../../node_modules/@figma",
       "../../node_modules/@types"
@@ -32,5 +38,14 @@
     "tests/**/*.ts",
     "shared/universals.d.ts",
     "backend/**/*.ts"
+  ],
+  "exclude": [
+    "src/plugin",
+    "src/preview",
+    "src/ui",
+    "src/export",
+    "src/performance",
+    "tests/**/*.unit.spec.ts",
+    "tests/**/*.browser.spec.ts"
   ]
 }

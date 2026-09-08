@@ -18,7 +18,12 @@
     "format:fix": "biome format --write",
     "spellcheck": "cspell --no-progress --gitignore --exclude 'archive/**' \"./**/*.{ts,tsx}\"",
     "test": "vitest",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "build:slint": "pnpm prepare:slint && node scripts/build-slint.mjs",
+    "check:syntax-assets": "node scripts/check-syntax-assets.mjs",
+    "check:slint": "node scripts/check-slint-artifact.mjs",
+    "prepare:slint": "node scripts/prepare-slint.mjs",
+    "test:replacement": "vitest run --config vitest.replacement.config.ts"
   },
   "devDependencies": {
     "@figma/plugin-typings": "1.138.0",
@@ -34,7 +39,14 @@
     "vite": "catalog:",
     "vite-figma-plugin": "0.0.24",
     "vite-plugin-singlefile": "2.3.3",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@biomejs/biome": "catalog:",
+    "@noble/hashes": "2.4.0",
+    "@shikijs/types": "4.4.3",
+    "@vitest/browser-playwright": "catalog:",
+    "esbuild": "0.28.2",
+    "knip": "6.34.0",
+    "playwright": "catalog:"
   },
   "dependencies": {
     "figma-kit": "1.0.0-beta.23",

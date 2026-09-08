@@ -1,7 +1,7 @@
 // Copyright © Hyper Brew LLC
 // SPDX-License-Identifier: MIT
 
-import { defineConfig } from "vite";
+import { configDefaults, defineConfig } from "vitest/config";
 import { viteSingleFile } from "vite-plugin-singlefile";
 import { figmaPlugin, figmaPluginInit, runAction } from "vite-figma-plugin";
 
@@ -23,6 +23,14 @@ figmaPluginInit();
 
 // https://vitejs.dev/config/
 export default defineConfig({
+    test: {
+        exclude: [
+            ...configDefaults.exclude,
+            "**/.generated/**",
+            "**/*.unit.spec.ts",
+            "**/*.browser.spec.ts",
+        ],
+    },
     plugins: [react(), viteSingleFile(), figmaPlugin(config, mode)],
     build: {
         assetsInlineLimit: Number.POSITIVE_INFINITY,
