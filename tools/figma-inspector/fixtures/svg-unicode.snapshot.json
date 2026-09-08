@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "20:3",
+    "nodeName": "Unicode icon"
+  },
+  "root": {
+    "kind": "svg",
+    "id": "20:3",
+    "name": "Unicode icon",
+    "x": 0,
+    "y": 0,
+    "width": 48,
+    "height": 24,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": null,
+    "layoutSizingVertical": null,
+    "sourceType": "VECTOR",
+    "svg": "<svg width=\"48\" height=\"24\" viewBox=\"0 0 48 24\"><text x=\"0\" y=\"18\" fill=\"#ffffff\">☃ 世界</text></svg>",
+    "layoutPositioning": "auto"
+  }
+}

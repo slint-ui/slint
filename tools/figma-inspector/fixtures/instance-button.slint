@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component Demo inherits Window {
+    width: 240px;
+    height: 72px;
+    background: transparent;
+    Rectangle {
+        background: @linear-gradient(90deg, #1A59E6 0%, #731ACC 100%);
+        border-width: 2px;
+        border-color: #0D33A6;
+        border-radius: 12px;
+        FlexboxLayout {
+            flex-wrap: no-wrap;
+            padding-left: 16px;
+            padding-right: 16px;
+            padding-top: 12px;
+            padding-bottom: 12px;
+            spacing: 8px;
+            alignment: center;
+            cross-axis-alignment: center;
+            Image {
+                width: 24px;
+                height: 24px;
+                source: @image-url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjRkZGRkZGIiBkPSJNMyAxMiA5IDZsMTIgNi0xMiA2eiIvPjxwYXRoIGZpbGw9IiMxQTU5RTYiIGQ9Ik05IDloMnY2SDl6Ii8+PC9zdmc+");
+                image-fit: fill;
+            }
+            Text {
+                horizontal-stretch: 0;
+                height: 24px;
+                color: #FFFFFF;
+                text: "Continue now";
+                font-family: "Inter";
+                font-size: 16px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

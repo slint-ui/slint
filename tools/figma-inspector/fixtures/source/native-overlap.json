@@ -1,0 +1,105 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "layout:native-overlap",
+    "name": "native-overlap",
+    "type": "FRAME",
+    "errors": [],
+    "properties": {
+      "x": 12,
+      "y": 24,
+      "width": 100,
+      "height": 60,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "fills": [],
+      "strokes": [],
+      "effects": [],
+      "layoutMode": "HORIZONTAL",
+      "layoutSizingHorizontal": "HUG",
+      "layoutSizingVertical": "HUG",
+      "primaryAxisAlignItems": "MIN",
+      "counterAxisAlignItems": "MIN",
+      "layoutWrap": "NO_WRAP",
+      "counterAxisSpacing": 0,
+      "paddingLeft": 0,
+      "paddingRight": 0,
+      "paddingTop": 0,
+      "paddingBottom": 0,
+      "itemSpacing": -10,
+      "cornerRadius": 4,
+      "layoutPositioning": "AUTO"
+    },
+    "children": [
+      {
+        "id": "source:1",
+        "name": "Captured rectangle",
+        "type": "RECTANGLE",
+        "errors": [],
+        "properties": {
+          "x": 0,
+          "y": 0,
+          "width": 40,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "layoutPositioning": "AUTO",
+          "cornerRadius": 0,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED"
+        }
+      },
+      {
+        "id": "blue",
+        "name": "Captured rectangle",
+        "type": "RECTANGLE",
+        "errors": [],
+        "properties": {
+          "x": 30,
+          "y": 0,
+          "width": 40,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "layoutPositioning": "AUTO",
+          "cornerRadius": 0,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 0,
+                "g": 0,
+                "b": 1
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED"
+        }
+      }
+    ]
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false,
+  "options": {}
+}

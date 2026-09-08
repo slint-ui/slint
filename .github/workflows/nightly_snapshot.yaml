@@ -326,32 +326,29 @@ jobs:
                       ${{ steps.publishToVSCM.outputs.vsixPath }}
 
     build-figma-plugin:
+        needs: [wasm]
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v7
             - uses: actions/setup-node@v7
               with:
-                node-version: 24
-                package-manager-cache: false
-              id: node-install
+                  node-version: 24
+                  package-manager-cache: false
             - uses: pnpm/action-setup@v6.0.10
-            - name: Run pnpm install
+            - uses: ./.github/actions/setup-rust
+            - uses: actions/download-artifact@v8
+              with:
+                  name: wasm
+            - run: pnpm install --frozen-lockfile
+            # Source licenses are needed for the runtime dependency notices.
+            - run: cargo fetch --locked --manifest-path api/wasm-interpreter/Cargo.toml
+            - name: Build nightly archive with the shared interpreter
               working-directory: tools/figma-inspector
-              run: pnpm install --frozen-lockfile
-            - name: Add build timestamp to readme
-              working-directory: tools/figma-inspector/public-zip
-              run: echo "Built on $(date '+%d-%m-%Y %H:%M:%S %Z')" >> readme.txt
-            - name: Build zip
-              working-directory: tools/figma-inspector
-              run: pnpm zip
-            - name: Prepare Figma plugin artifact
-              run: mv *.zip figma-plugin.zip
-              working-directory: tools/figma-inspector/zip
-            - name: Archive zip
-              uses: actions/upload-artifact@v7
+              run: pnpm test:nightly
+            - uses: actions/upload-artifact@v7
               with:
                   name: figma-plugin
-                  path: tools/figma-inspector/zip
+                  path: tools/figma-inspector/zip/figma-plugin.zip
 
     #  publish_tree_sitter:
     #    if: github.event.inputs.mode != 'test'

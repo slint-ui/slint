@@ -1,24 +1,26 @@
+# Publishing Figma to Slint
 
-## Publishing The Plugin
+## Community release
 
-The official Figma store has a manual publishing process that cannot be automated.
+1. Check out the Slint release revision you intend to publish.
+2. Install dependencies and build tools as described in [README.md](README.md).
+   Run `pnpm verify`, then `pnpm zip` from this directory.
+3. Extract the release ZIP from `zip/` and import its manifest in Figma Desktop.
+   Check preview, selection changes and clearing, pinning, diagnostics, copying,
+   and project export. Check native codegen with Use Variables on and off in
+   Figma Desktop and the Figma VS Code extension.
+4. Check the archive's notices, dependency inventory, provenance and checksums.
+5. Sign in with the Slint publisher account and select the SixtyFPS GmbH team.
+   Open Plugins > Manage Plugins > Figma to Slint > Publish for the verified build.
+   Confirm plugin ID `1474418299182276871`, publisher SixtyFPS GmbH, and support
+   contact info@slint.dev.
 
+## Nightly builds
 
-### Prerequisites
+```sh
+pnpm build:slint
+pnpm zip:nightly
+```
 
-1. Have a valid Figma Account AND have 2 factor authentication enabled. Plugin cannot be submitted without 2FA.
-2. Have an admin account under the SixtyFPS GmbH figma team.
-
-
-
-1. Build the plugin as per the README.
-2. Open Figma for Desktop and login with your @slint.dev account.
-3. On the left sidebar ensure the team is set to "SixtyFPS GmbH" it most likely
-defaulted to your personal team, not this one.
-4. Open the plugin in Figma for Desktop via the `dist/manifest.json` file.
-5. In Figma for Desktop select from the menu Plugins -> Manage Plugins...
-6. On the right of `Figma to Slint` is a menu (3 dots) and chose publish.
-7. Ensure all fields are filled in and the support contact is `info@slint.dev`.
-8. Ensure the publisher shows as SixtyFPS GmbH and not your personal account. If the drop down is missing
-SixtyFPS GmbH see step 3.
-9. Publish.
+This creates `zip/figma-plugin.zip` using the interpreter built from this checkout. Nightly archives record their channel and
+runtime revision; they must not be submitted as Community releases.

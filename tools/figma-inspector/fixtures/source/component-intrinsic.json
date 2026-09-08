@@ -1,0 +1,598 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "hug:gallery",
+    "type": "COMPONENT_SET",
+    "name": "Intrinsic button gallery",
+    "errors": [],
+    "properties": {
+      "x": 0,
+      "y": 0,
+      "width": 660,
+      "height": 360,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "layoutMode": "NONE",
+      "fills": [],
+      "strokes": [],
+      "effects": [],
+      "cornerRadius": 0,
+      "clipsContent": false
+    },
+    "children": [
+      {
+        "id": "hug:Enabled",
+        "type": "COMPONENT",
+        "name": "Enabled",
+        "errors": [],
+        "properties": {
+          "x": 0,
+          "y": 0,
+          "width": 90,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "layoutMode": "HORIZONTAL",
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 0,
+                "g": 0.5,
+                "b": 0.6
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 20,
+          "clipsContent": false,
+          "layoutSizingHorizontal": "HUG",
+          "layoutSizingVertical": "HUG",
+          "primaryAxisAlignItems": "MIN",
+          "counterAxisAlignItems": "CENTER",
+          "paddingLeft": 10,
+          "paddingRight": 10,
+          "paddingTop": 8,
+          "paddingBottom": 8,
+          "itemSpacing": 6,
+          "layoutWrap": "NO_WRAP"
+        },
+        "children": [
+          {
+            "id": "hug:Enabled:label",
+            "type": "TEXT",
+            "name": "Label",
+            "errors": [],
+            "properties": {
+              "x": 10,
+              "y": 10,
+              "width": 70,
+              "height": 20,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "layoutMode": "NONE",
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1
+                  },
+                  "opacity": 1
+                }
+              ],
+              "strokes": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "clipsContent": false,
+              "characters": "Button",
+              "fontName": {
+                "family": "Inter",
+                "style": "Regular"
+              },
+              "fontSize": 14,
+              "fontWeight": 400,
+              "textAutoResize": "WIDTH_AND_HEIGHT",
+              "textAlignHorizontal": "LEFT",
+              "textAlignVertical": "TOP",
+              "lineHeight": {
+                "unit": "AUTO"
+              },
+              "letterSpacing": {
+                "unit": "PIXELS",
+                "value": 0
+              },
+              "componentPropertyReferences": {
+                "characters": "Label#1"
+              },
+              "layoutSizingHorizontal": "HUG",
+              "layoutSizingVertical": "HUG"
+            }
+          },
+          {
+            "id": "hug:Enabled:marker",
+            "name": "Marker",
+            "type": "RECTANGLE",
+            "properties": {
+              "visible": true,
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "opacity": 1,
+              "rotation": 0,
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1
+                  }
+                }
+              ],
+              "strokes": [],
+              "effects": [],
+              "layoutSizingHorizontal": "FIXED",
+              "layoutSizingVertical": "FIXED"
+            },
+            "errors": []
+          }
+        ]
+      },
+      {
+        "id": "hug:Pressed",
+        "type": "COMPONENT",
+        "name": "Pressed",
+        "errors": [],
+        "properties": {
+          "x": 0,
+          "y": 0,
+          "width": 90,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "layoutMode": "HORIZONTAL",
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 0.0,
+                "g": 0.25,
+                "b": 0.3
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 20,
+          "clipsContent": false,
+          "layoutSizingHorizontal": "HUG",
+          "layoutSizingVertical": "HUG",
+          "primaryAxisAlignItems": "MIN",
+          "counterAxisAlignItems": "CENTER",
+          "paddingLeft": 10,
+          "paddingRight": 10,
+          "paddingTop": 8,
+          "paddingBottom": 8,
+          "itemSpacing": 6,
+          "layoutWrap": "NO_WRAP"
+        },
+        "children": [
+          {
+            "id": "hug:Pressed:label",
+            "type": "TEXT",
+            "name": "Label",
+            "errors": [],
+            "properties": {
+              "x": 10,
+              "y": 10,
+              "width": 70,
+              "height": 20,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "layoutMode": "NONE",
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1
+                  },
+                  "opacity": 1
+                }
+              ],
+              "strokes": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "clipsContent": false,
+              "characters": "Button",
+              "fontName": {
+                "family": "Inter",
+                "style": "Regular"
+              },
+              "fontSize": 14,
+              "fontWeight": 400,
+              "textAutoResize": "WIDTH_AND_HEIGHT",
+              "textAlignHorizontal": "LEFT",
+              "textAlignVertical": "TOP",
+              "lineHeight": {
+                "unit": "AUTO"
+              },
+              "letterSpacing": {
+                "unit": "PIXELS",
+                "value": 0
+              },
+              "componentPropertyReferences": {
+                "characters": "Label#1"
+              },
+              "layoutSizingHorizontal": "HUG",
+              "layoutSizingVertical": "HUG"
+            }
+          },
+          {
+            "id": "hug:Pressed:marker",
+            "name": "Marker",
+            "type": "RECTANGLE",
+            "properties": {
+              "visible": true,
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "opacity": 1,
+              "rotation": 0,
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1
+                  }
+                }
+              ],
+              "strokes": [],
+              "effects": [],
+              "layoutSizingHorizontal": "FIXED",
+              "layoutSizingVertical": "FIXED"
+            },
+            "errors": []
+          }
+        ]
+      }
+    ]
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false,
+  "components": {
+    "version": 1,
+    "definitions": [
+      {
+        "id": "hug:set",
+        "name": "Button",
+        "axes": {
+          "State": {
+            "defaultValue": "Enabled",
+            "options": [
+              "Enabled",
+              "Pressed"
+            ]
+          }
+        },
+        "contract": {
+          "version": 1,
+          "properties": {
+            "Label#1": {
+              "type": "TEXT",
+              "defaultValue": "Button"
+            },
+            "Show marker#2": {
+              "type": "BOOLEAN",
+              "defaultValue": true
+            }
+          },
+          "bindings": {
+            "hug:Enabled:label": {
+              "characters": "Label#1"
+            },
+            "hug:Enabled:marker": {
+              "visible": "Show marker#2"
+            },
+            "hug:Pressed:label": {
+              "characters": "Label#1"
+            },
+            "hug:Pressed:marker": {
+              "visible": "Show marker#2"
+            }
+          }
+        },
+        "variants": [
+          {
+            "id": "hug:Enabled",
+            "values": {
+              "State": "Enabled"
+            },
+            "root": {
+              "id": "hug:Enabled",
+              "type": "COMPONENT",
+              "name": "Enabled",
+              "errors": [],
+              "properties": {
+                "x": 0,
+                "y": 0,
+                "width": 90,
+                "height": 40,
+                "rotation": 0,
+                "opacity": 1,
+                "visible": true,
+                "layoutMode": "HORIZONTAL",
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 0,
+                      "g": 0.5,
+                      "b": 0.6
+                    },
+                    "opacity": 1
+                  }
+                ],
+                "strokes": [],
+                "effects": [],
+                "cornerRadius": 20,
+                "clipsContent": false,
+                "layoutSizingHorizontal": "HUG",
+                "layoutSizingVertical": "HUG",
+                "primaryAxisAlignItems": "MIN",
+                "counterAxisAlignItems": "CENTER",
+                "paddingLeft": 10,
+                "paddingRight": 10,
+                "paddingTop": 8,
+                "paddingBottom": 8,
+                "itemSpacing": 6,
+                "layoutWrap": "NO_WRAP"
+              },
+              "children": [
+                {
+                  "id": "hug:Enabled:label",
+                  "type": "TEXT",
+                  "name": "Label",
+                  "errors": [],
+                  "properties": {
+                    "x": 10,
+                    "y": 10,
+                    "width": 70,
+                    "height": 20,
+                    "rotation": 0,
+                    "opacity": 1,
+                    "visible": true,
+                    "layoutMode": "NONE",
+                    "fills": [
+                      {
+                        "type": "SOLID",
+                        "color": {
+                          "r": 1,
+                          "g": 1,
+                          "b": 1
+                        },
+                        "opacity": 1
+                      }
+                    ],
+                    "strokes": [],
+                    "effects": [],
+                    "cornerRadius": 0,
+                    "clipsContent": false,
+                    "characters": "Button",
+                    "fontName": {
+                      "family": "Inter",
+                      "style": "Regular"
+                    },
+                    "fontSize": 14,
+                    "fontWeight": 400,
+                    "textAutoResize": "WIDTH_AND_HEIGHT",
+                    "textAlignHorizontal": "LEFT",
+                    "textAlignVertical": "TOP",
+                    "lineHeight": {
+                      "unit": "AUTO"
+                    },
+                    "letterSpacing": {
+                      "unit": "PIXELS",
+                      "value": 0
+                    },
+                    "componentPropertyReferences": {
+                      "characters": "Label#1"
+                    },
+                    "layoutSizingHorizontal": "HUG",
+                    "layoutSizingVertical": "HUG"
+                  }
+                },
+                {
+                  "id": "hug:Enabled:marker",
+                  "name": "Marker",
+                  "type": "RECTANGLE",
+                  "properties": {
+                    "visible": true,
+                    "x": 0,
+                    "y": 0,
+                    "width": 6,
+                    "height": 6,
+                    "opacity": 1,
+                    "rotation": 0,
+                    "fills": [
+                      {
+                        "type": "SOLID",
+                        "color": {
+                          "r": 1,
+                          "g": 1,
+                          "b": 1
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "effects": [],
+                    "layoutSizingHorizontal": "FIXED",
+                    "layoutSizingVertical": "FIXED"
+                  },
+                  "errors": []
+                }
+              ]
+            }
+          },
+          {
+            "id": "hug:Pressed",
+            "values": {
+              "State": "Pressed"
+            },
+            "root": {
+              "id": "hug:Pressed",
+              "type": "COMPONENT",
+              "name": "Pressed",
+              "errors": [],
+              "properties": {
+                "x": 0,
+                "y": 0,
+                "width": 90,
+                "height": 40,
+                "rotation": 0,
+                "opacity": 1,
+                "visible": true,
+                "layoutMode": "HORIZONTAL",
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 0.0,
+                      "g": 0.25,
+                      "b": 0.3
+                    },
+                    "opacity": 1
+                  }
+                ],
+                "strokes": [],
+                "effects": [],
+                "cornerRadius": 20,
+                "clipsContent": false,
+                "layoutSizingHorizontal": "HUG",
+                "layoutSizingVertical": "HUG",
+                "primaryAxisAlignItems": "MIN",
+                "counterAxisAlignItems": "CENTER",
+                "paddingLeft": 10,
+                "paddingRight": 10,
+                "paddingTop": 8,
+                "paddingBottom": 8,
+                "itemSpacing": 6,
+                "layoutWrap": "NO_WRAP"
+              },
+              "children": [
+                {
+                  "id": "hug:Pressed:label",
+                  "type": "TEXT",
+                  "name": "Label",
+                  "errors": [],
+                  "properties": {
+                    "x": 10,
+                    "y": 10,
+                    "width": 70,
+                    "height": 20,
+                    "rotation": 0,
+                    "opacity": 1,
+                    "visible": true,
+                    "layoutMode": "NONE",
+                    "fills": [
+                      {
+                        "type": "SOLID",
+                        "color": {
+                          "r": 1,
+                          "g": 1,
+                          "b": 1
+                        },
+                        "opacity": 1
+                      }
+                    ],
+                    "strokes": [],
+                    "effects": [],
+                    "cornerRadius": 0,
+                    "clipsContent": false,
+                    "characters": "Button",
+                    "fontName": {
+                      "family": "Inter",
+                      "style": "Regular"
+                    },
+                    "fontSize": 14,
+                    "fontWeight": 400,
+                    "textAutoResize": "WIDTH_AND_HEIGHT",
+                    "textAlignHorizontal": "LEFT",
+                    "textAlignVertical": "TOP",
+                    "lineHeight": {
+                      "unit": "AUTO"
+                    },
+                    "letterSpacing": {
+                      "unit": "PIXELS",
+                      "value": 0
+                    },
+                    "componentPropertyReferences": {
+                      "characters": "Label#1"
+                    },
+                    "layoutSizingHorizontal": "HUG",
+                    "layoutSizingVertical": "HUG"
+                  }
+                },
+                {
+                  "id": "hug:Pressed:marker",
+                  "name": "Marker",
+                  "type": "RECTANGLE",
+                  "properties": {
+                    "visible": true,
+                    "x": 0,
+                    "y": 0,
+                    "width": 6,
+                    "height": 6,
+                    "opacity": 1,
+                    "rotation": 0,
+                    "fills": [
+                      {
+                        "type": "SOLID",
+                        "color": {
+                          "r": 1,
+                          "g": 1,
+                          "b": 1
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "effects": [],
+                    "layoutSizingHorizontal": "FIXED",
+                    "layoutSizingVertical": "FIXED"
+                  },
+                  "errors": []
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "references": {
+      "hug:Enabled": {
+        "definitionId": "hug:set",
+        "variantId": "hug:Enabled"
+      },
+      "hug:Pressed": {
+        "definitionId": "hug:set",
+        "variantId": "hug:Pressed"
+      }
+    }
+  }
+}

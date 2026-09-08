@@ -1,0 +1,4 @@
+{
+    "selection": ["1:1", "1:2"],
+    "expectedDiagnostics": [{ "code": "MULTIPLE_SELECTION" }]
+}

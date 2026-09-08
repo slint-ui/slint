@@ -1,0 +1,237 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "NestedSizing:gallery",
+    "name": "Gallery",
+    "type": "FRAME",
+    "properties": {"x": 0, "y": 0, "width": 300, "height": 100, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 1, "g": 1, "b": 1}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "MIN", "counterAxisAlignItems": "MIN", "paddingLeft": 0, "paddingRight": 0, "paddingTop": 0, "paddingBottom": 0, "itemSpacing": 0, "layoutWrap": "NO_WRAP"},
+    "errors": [],
+    "children": [
+      {
+        "id": "NestedSizing:instance",
+        "name": "Position=leading",
+        "type": "INSTANCE",
+        "properties": {"x": 0, "y": 0, "width": 117, "height": 32, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 1}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "MIN", "counterAxisAlignItems": "CENTER", "paddingLeft": 16, "paddingRight": 16, "paddingTop": 6, "paddingBottom": 6, "itemSpacing": 8, "layoutWrap": "NO_WRAP"},
+        "errors": [],
+        "children": [
+          {
+            "id": "NestedSizing:leading:row",
+            "name": "Content",
+            "type": "FRAME",
+            "properties": {"x": 0, "y": 0, "width": 71, "height": 20, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 1}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "HUG", "layoutSizingVertical": "HUG", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "MIN", "counterAxisAlignItems": "CENTER", "paddingLeft": 0, "paddingRight": 0, "paddingTop": 0, "paddingBottom": 0, "itemSpacing": 8, "layoutWrap": "NO_WRAP"},
+            "errors": [],
+            "children": [
+              {
+                "id": "NestedSizing:leading:leading",
+                "name": "Leading",
+                "type": "RECTANGLE",
+                "properties": {"x": 0, "y": 0, "width": 16, "height": 16, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 1, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                "errors": []
+              },
+              {
+                "id": "NestedSizing:leading:label",
+                "name": "Label",
+                "type": "RECTANGLE",
+                "properties": {"x": 0, "y": 0, "width": 47, "height": 20, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 1, "g": 0, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                "errors": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "components": {
+    "version": 1,
+    "definitions": [
+      {
+        "id": "NestedSizing",
+        "name": "NestedSizing",
+        "axes": {
+          "Position": {
+            "defaultValue": "leading",
+            "options": [
+              "leading",
+              "trailing",
+              "both"
+            ]
+          }
+        },
+        "contract": {
+          "version": 1,
+          "properties": {
+            "Label#1": {
+              "type": "TEXT",
+              "defaultValue": "Button"
+            },
+            "Icons#1": {
+              "type": "BOOLEAN",
+              "defaultValue": true
+            }
+          },
+          "bindings": {
+            "NestedSizing:leading:label": {
+              "characters": "Label#1"
+            },
+            "NestedSizing:leading:leading": {
+              "visible": "Icons#1"
+            },
+            "NestedSizing:leading:trailing": {
+              "visible": "Icons#1"
+            },
+            "NestedSizing:trailing:label": {
+              "characters": "Label#1"
+            },
+            "NestedSizing:trailing:leading": {
+              "visible": "Icons#1"
+            },
+            "NestedSizing:trailing:trailing": {
+              "visible": "Icons#1"
+            },
+            "NestedSizing:both:label": {
+              "characters": "Label#1"
+            },
+            "NestedSizing:both:leading": {
+              "visible": "Icons#1"
+            },
+            "NestedSizing:both:trailing": {
+              "visible": "Icons#1"
+            }
+          }
+        },
+        "variants": [
+          {
+            "id": "NestedSizing:leading",
+            "values": {
+              "Position": "leading"
+            },
+            "root": {
+              "id": "NestedSizing:leading",
+              "name": "Position=leading",
+              "type": "COMPONENT",
+              "properties": {"x": 0, "y": 0, "width": 117, "height": 32, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 1}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "MIN", "counterAxisAlignItems": "CENTER", "paddingLeft": 16, "paddingRight": 16, "paddingTop": 6, "paddingBottom": 6, "itemSpacing": 8, "layoutWrap": "NO_WRAP"},
+              "errors": [],
+              "children": [
+                {
+                  "id": "NestedSizing:leading:row",
+                  "name": "Content",
+                  "type": "FRAME",
+                  "properties": {"x": 0, "y": 0, "width": 71, "height": 20, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 1}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "HUG", "layoutSizingVertical": "HUG", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "MIN", "counterAxisAlignItems": "CENTER", "paddingLeft": 0, "paddingRight": 0, "paddingTop": 0, "paddingBottom": 0, "itemSpacing": 8, "layoutWrap": "NO_WRAP"},
+                  "errors": [],
+                  "children": [
+                    {
+                      "id": "NestedSizing:leading:leading",
+                      "name": "Leading",
+                      "type": "RECTANGLE",
+                      "properties": {"x": 0, "y": 0, "width": 16, "height": 16, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 1, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                      "errors": []
+                    },
+                    {
+                      "id": "NestedSizing:leading:label",
+                      "name": "Label",
+                      "type": "RECTANGLE",
+                      "properties": {"x": 0, "y": 0, "width": 47, "height": 20, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 1, "g": 0, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                      "errors": []
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "NestedSizing:trailing",
+            "values": {
+              "Position": "trailing"
+            },
+            "root": {
+              "id": "NestedSizing:trailing",
+              "name": "Position=trailing",
+              "type": "COMPONENT",
+              "properties": {"x": 0, "y": 0, "width": 117, "height": 32, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 1}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "MIN", "counterAxisAlignItems": "CENTER", "paddingLeft": 16, "paddingRight": 16, "paddingTop": 6, "paddingBottom": 6, "itemSpacing": 8, "layoutWrap": "NO_WRAP"},
+              "errors": [],
+              "children": [
+                {
+                  "id": "NestedSizing:trailing:row",
+                  "name": "Content",
+                  "type": "FRAME",
+                  "properties": {"x": 0, "y": 0, "width": 71, "height": 20, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 1}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "HUG", "layoutSizingVertical": "HUG", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "CENTER", "counterAxisAlignItems": "CENTER", "paddingLeft": 0, "paddingRight": 0, "paddingTop": 0, "paddingBottom": 0, "itemSpacing": 8, "layoutWrap": "NO_WRAP"},
+                  "errors": [],
+                  "children": [
+                    {
+                      "id": "NestedSizing:trailing:label",
+                      "name": "Label",
+                      "type": "RECTANGLE",
+                      "properties": {"x": 0, "y": 0, "width": 47, "height": 20, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 1, "g": 0, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                      "errors": []
+                    },
+                    {
+                      "id": "NestedSizing:trailing:trailing",
+                      "name": "Trailing",
+                      "type": "RECTANGLE",
+                      "properties": {"x": 0, "y": 0, "width": 16, "height": 16, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 1, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                      "errors": []
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "NestedSizing:both",
+            "values": {
+              "Position": "both"
+            },
+            "root": {
+              "id": "NestedSizing:both",
+              "name": "Position=both",
+              "type": "COMPONENT",
+              "properties": {"x": 0, "y": 0, "width": 117, "height": 32, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 1}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "MIN", "counterAxisAlignItems": "CENTER", "paddingLeft": 16, "paddingRight": 16, "paddingTop": 6, "paddingBottom": 6, "itemSpacing": 8, "layoutWrap": "NO_WRAP"},
+              "errors": [],
+              "children": [
+                {
+                  "id": "NestedSizing:both:row",
+                  "name": "Content",
+                  "type": "FRAME",
+                  "properties": {"x": 0, "y": 0, "width": 95, "height": 20, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 1}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "HUG", "layoutSizingVertical": "HUG", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "MIN", "counterAxisAlignItems": "CENTER", "paddingLeft": 0, "paddingRight": 0, "paddingTop": 0, "paddingBottom": 0, "itemSpacing": 8, "layoutWrap": "NO_WRAP"},
+                  "errors": [],
+                  "children": [
+                    {
+                      "id": "NestedSizing:both:leading",
+                      "name": "Leading",
+                      "type": "RECTANGLE",
+                      "properties": {"x": 0, "y": 0, "width": 16, "height": 16, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 1, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                      "errors": []
+                    },
+                    {
+                      "id": "NestedSizing:both:label",
+                      "name": "Label",
+                      "type": "RECTANGLE",
+                      "properties": {"x": 0, "y": 0, "width": 47, "height": 20, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 1, "g": 0, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                      "errors": []
+                    },
+                    {
+                      "id": "NestedSizing:both:trailing",
+                      "name": "Trailing",
+                      "type": "RECTANGLE",
+                      "properties": {"x": 0, "y": 0, "width": 16, "height": 16, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 1, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                      "errors": []
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "references": {
+      "NestedSizing:instance": {
+        "definitionId": "NestedSizing",
+        "variantId": "NestedSizing:leading"
+      }
+    }
+  },
+  "exportScale": 1,
+  "pngEnabled": true,
+  "images": {}
+}

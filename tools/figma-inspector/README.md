@@ -1,119 +1,43 @@
-# Figma to Slint Property Inspector
+# Figma to Slint
 
-A Figma plugin that displays Slint code snippets in Figma's Dev mode inspector. When you select a design element, the plugin shows the equivalent Slint markup instead of CSS properties.
+A Figma plugin that previews a selection with Slint and exports editable Slint
+projects. It also provides Slint snippets in Figma Dev Mode, including the
+Figma VS Code extension. All conversion and preview processing runs offline.
 
-## Features
+## Installation and usage
 
-- Converts Figma elements to Slint component snippets
-- Supports Figma variables (references them as Slint property paths)
-- Works in Figma Desktop and VS Code extension
+Install from [Figma Community](https://www.figma.com/community/plugin/1474418299182276871/figma-to-slint),
+or download the [nightly ZIP](https://github.com/slint-ui/slint/releases/download/nightly/figma-plugin.zip).
+For a nightly build, extract the archive and import its `manifest.json` through
+Figma Desktop's Plugins > Development > Import plugin from manifest.
 
-### Supported Elements
+Select a node and run the plugin to preview it. Use Copy Slint for the generated
+source or Export ZIP for a project. Pin keeps the current selection in view.
+Diagnostics explains unsupported features and approximations.
 
-| Figma Node Type | Slint Element |
-|-----------------|---------------|
-| Frame, Rectangle, Group | `Rectangle { }` |
-| Component, Instance | `Rectangle { }` |
-| Text | `Text { }` |
-| Vector | `Path { }` |
-
-### Converted Properties
-
-**Layout:** `x`, `y`, `width`, `height`
-
-**Appearance:**
-- `background` / `fill` (solid colors, linear and radial gradients)
-- `opacity`
-- `border-radius` (uniform or per-corner)
-- `border-width`, `border-color`
-
-**Text:**
-- `text`, `color`
-- `font-family`, `font-size`, `font-weight`
-- `horizontal-alignment`
-
-**Path:** `commands` (extracted from SVG), `stroke`, `stroke-width`
-
-### Figma Variables
-
-When enabled, the plugin references Figma variables as Slint property paths:
-
-```slint,no-test
-// Without variables
-background: #3b82f6;
-
-// With variables enabled
-background: Colors.current.primary;
-```
-
-## Installation
-
-### From Figma Community (Recommended)
-
-Install directly from [Figma Community](https://www.figma.com/community/plugin/1474418299182276871/figma-to-slint) or search for "Figma To Slint" in the Figma plugin browser.
-
-### From Nightly Build
-
-1. Download [figma-plugin.zip](https://github.com/slint-ui/slint/releases/download/nightly/figma-plugin.zip)
-2. Extract the archive
-3. In Figma: right-click → `Plugins` → `Development` → `Import Plugin From Manifest...`
-4. Select the `manifest.json` from the extracted folder
-
-### Requirements
-
-- Figma Desktop App or Figma VS Code extension
-- Figma subscription with Dev mode access (Team Professional or higher)
+In Dev Mode, choose Slint to generate a snippet for the selected node only.
+Enable Use Variables to reference existing Slint variable globals; it is off by
+default. Use preview and project export for the complete selected tree.
 
 ## Development
 
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) v20 or newer
-- [pnpm](https://pnpm.io/)
-- Figma Desktop App or VS Code extension
-
-### Build
+Use the repository's Node.js and pnpm versions, Rust with the
+`wasm32-unknown-unknown` target, and wasm-pack.
 
 ```sh
-pnpm install    # Install dependencies (first time only)
-pnpm build      # Build the plugin
+pnpm install --frozen-lockfile # from the repository root
+cd tools/figma-inspector
+pnpm build:slint
+pnpm build
 ```
 
-Import the plugin in Figma: right-click → `Plugins` → `Development` → `Import Plugin From Manifest...` → select `dist/manifest.json`
+Import `dist/manifest.json` in Figma Desktop. For development, run `pnpm dev`
+and import `dist-dev/manifest.json`.
+Run `pnpm verify` for the full checks and tests.
 
-### Development Mode
+The plugin captures Figma nodes as JSON, converts them to Slint, and uses that
+output for preview and export. Its Slint runtime is built from
+`api/wasm-interpreter` in this checkout, using the same wasm-pack command as SlintPad.
+Use `pnpm build:slint:dev` for a development interpreter build.
 
-```sh
-pnpm dev
-```
-
-Enable hot reload in Figma: `Plugins` → `Development` → `Hot Reload Plugin`
-
-Changes are automatically recompiled and reloaded.
-
-### Testing
-
-Unit tests use Vitest with exported Figma JSON fixtures.
-
-```sh
-pnpm test       # Run tests in watch mode
-```
-
-#### Updating Test Fixtures
-
-1. Generate a Figma access token:
-   - Figma home → click username → `Settings` → `Security` → `Generate new token`
-
-2. Get the file ID from the Figma URL:
-   ```
-   https://www.figma.com/design/njC6jSUbrYpqLRJ2dyV6NT/...
-                               └─────────────────────┘
-                                      File ID
-   ```
-
-3. Download the file as JSON:
-   ```sh
-   curl -H 'X-Figma-Token: <TOKEN>' \
-        'https://api.figma.com/v1/files/<FILE_ID>' \
-        -o tests/figma_output.json
-   ```
+See [fixture instructions](fixtures/README.md) and [publishing](PUBLISH.md).

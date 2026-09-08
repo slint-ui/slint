@@ -1,0 +1,13 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "source:1", "name": "Captured rectangle", "type": "RECTANGLE", "errors": [],
+    "properties": {
+      "x": 12, "y": 24, "width": 100, "height": 60, "rotation": 0, "opacity": 1,
+      "visible": true, "layoutPositioning": "AUTO", "cornerRadius": 4,
+      "fills": [{"type": "SOLID", "color": {"r": 1, "g": 0, "b": 0}, "opacity": 1}],
+      "strokes": [], "effects": []
+    }
+  },
+  "images": {}, "exportScale": 1, "pngEnabled": false, "options": {}
+}

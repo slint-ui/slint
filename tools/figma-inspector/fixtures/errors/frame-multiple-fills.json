@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "2:1",
+    "nodeName": "Styled Frame"
+  },
+  "root": {
+    "kind": "frame",
+    "id": "2:1",
+    "name": "Styled Frame",
+    "x": 0,
+    "y": 0,
+    "width": 240,
+    "height": 72,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": null,
+    "layoutSizingVertical": null,
+    "fills": [
+      {
+        "kind": "solid",
+        "color": {
+          "r": 0,
+          "g": 0,
+          "b": 0,
+          "a": 1
+        },
+        "opacity": 1
+      },
+      {
+        "kind": "solid",
+        "color": {
+          "r": 1,
+          "g": 1,
+          "b": 1,
+          "a": 1
+        },
+        "opacity": 1
+      }
+    ],
+    "strokes": [],
+    "autoLayout": null,
+    "children": [],
+    "layoutPositioning": "auto",
+    "cornerRadii": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "clipsContent": false,
+    "containerKind": "native",
+    "layoutFallback": "freeform",
+    "shadows": []
+  }
+}

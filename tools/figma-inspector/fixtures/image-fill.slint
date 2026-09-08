@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component Demo inherits Window {
+    width: 240px;
+    height: 72px;
+    background: transparent;
+    Rectangle {
+        Image {
+            width: 100%;
+            height: 100%;
+            source: @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAADklEQVR4nGP4z8AAQv8BD/kD/YURmXYAAAAASUVORK5CYII=");
+            image-fit: contain;
+            opacity: 0.8;
+        }
+    }
+}

@@ -377,7 +377,9 @@
     "ui-libraries/material/docs/vendor/**",
     ".cspell/slint-project-words.txt",
     ".cspell/slint-project-words-audit.tsv",
-    "tools/figma-inspector/tests/figma_output.json",
+    "tools/figma-inspector/fixtures/**",
+    "tools/figma-inspector/src/ui/syntax-assets/**",
+    "tools/figma-inspector/.generated/**",
     "**/*.gltf",
     "**/*.po",
     "**/*.pot",
@@ -386,6 +388,39 @@
     "**/node_modules/**"
   ],
   "overrides": [
+    {
+      "filename": "tools/figma-inspector/**",
+      "words": [
+        "aqid",
+        "capturable",
+        "currentpagechange",
+        "desaturation",
+        "dios",
+        "disqualifier",
+        "dppx",
+        "glyphicons",
+        "ihdr",
+        "licen",
+        "materialicons",
+        "materialsymbols",
+        "nodebuffer",
+        "nodechange",
+        "onig",
+        "remixicon",
+        "resizer",
+        "roundoff",
+        "stylechange",
+        "ungenerated",
+        "uninflated",
+        "unoutlined",
+        "unrenderable",
+        "unstub",
+        "uploadlabel",
+        "worktree",
+        "worktrees",
+        "xlink"
+      ]
+    },
     {
       "filename": "tools/editor/ui-tests/**",
       "words": [
