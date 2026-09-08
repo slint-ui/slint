@@ -47,7 +47,7 @@ define_class!(
                 display_link.setPaused(true);
                 return;
             }
-            if !adapter.window().has_active_animations() && !adapter.pending_redraw() {
+            if adapter.nothing_left_to_draw() {
                 display_link.setPaused(true);
             }
         }
@@ -78,6 +78,10 @@ impl super::FrameThrottle for CADisplayLinkFrameThrottle {
     fn request_throttled_redraw(&self, _winit_window: &winit::window::Window) {
         self.display_link.setPaused(false);
     }
+
+    fn cancel_throttled_redraw(&self) {
+        self.display_link.setPaused(true);
+    }
 }
 
 /// Register `display_link` on the main run loop and wrap it into a throttle that
@@ -104,8 +108,6 @@ pub(super) fn try_create(
 ) -> Option<Box<dyn super::FrameThrottle>> {
     use objc2::runtime::AnyClass;
     use objc2::sel;
-    use objc2_app_kit::NSView;
-    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
     // -[NSView displayLinkWithTarget:selector:] is only available on macOS
     // 14.0+. The CADisplayLink class itself is reachable on older macOS via
@@ -116,10 +118,7 @@ pub(super) fn try_create(
 
     let mtm = MainThreadMarker::new().expect("frame throttle must be created on main thread");
 
-    let RawWindowHandle::AppKit(handle) = winit_window.window_handle().ok()?.as_raw() else {
-        return None;
-    };
-    let ns_view: &NSView = unsafe { handle.ns_view.cast().as_ref() };
+    let ns_view = crate::macos::ns_view(winit_window)?;
 
     let target = DisplayLinkTarget::new(mtm, window_adapter);
     let display_link = unsafe { ns_view.displayLinkWithTarget_selector(&target, sel!(tick:)) };

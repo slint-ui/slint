@@ -30,6 +30,8 @@ pub fn create_frame_throttle(
 
 pub trait FrameThrottle {
     fn request_throttled_redraw(&self, winit_window: &winit::window::Window);
+    #[cfg(target_vendor = "apple")]
+    fn cancel_throttled_redraw(&self) {}
 }
 
 struct TimerBasedFrameThrottle {
@@ -72,6 +74,11 @@ impl FrameThrottle for TimerBasedFrameThrottle {
                 timer.restart();
             }
         });
+    }
+
+    #[cfg(target_vendor = "apple")]
+    fn cancel_throttled_redraw(&self) {
+        self.timer.stop();
     }
 }
 

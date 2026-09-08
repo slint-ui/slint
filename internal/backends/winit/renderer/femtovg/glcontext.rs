@@ -189,19 +189,7 @@ impl OpenGLContext {
         // Align the GL layer to the top-left, so that resizing only invalidates the bottom/right
         // part of the window.
         #[cfg(target_os = "macos")]
-        if let raw_window_handle::RawWindowHandle::AppKit(raw_window_handle::AppKitWindowHandle {
-            ns_view,
-            ..
-        }) = window
-            .window_handle()
-            .map_err(|e| {
-                format!(
-                    "Error obtaining window handle to adjust nsview layer contents placement: {e}"
-                )
-            })?
-            .as_raw()
-        {
-            let ns_view: &objc2_app_kit::NSView = unsafe { ns_view.cast().as_ref() };
+        if let Some(ns_view) = crate::macos::ns_view(&window) {
             ns_view.setLayerContentsPlacement(objc2_app_kit::NSViewLayerContentsPlacement::TopLeft);
         }
 

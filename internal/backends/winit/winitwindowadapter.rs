@@ -968,7 +968,9 @@ impl WinitWindowAdapter {
         }
     }
 
-    pub fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) -> Result<(), PlatformError> {
+    /// Applies a new window size.
+    /// Returns whether it was applied: a zero size is ignored.
+    pub fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) -> Result<bool, PlatformError> {
         self.pending_resize_event_after_show.set(false);
         if self.physical_size_before_scale_factor.get().is_some_and(|requested| requested != size) {
             self.physical_size_before_scale_factor.set(None);
@@ -1001,7 +1003,36 @@ impl WinitWindowAdapter {
                 html_canvas.set_width(physical_size.width);
                 html_canvas.set_height(physical_size.height);
             }
+
+            return Ok(true);
         }
+        Ok(false)
+    }
+
+    /// Renders the frame for a just-applied resize right away, instead of leaving it to the frame throttle.
+    #[cfg(target_os = "macos")]
+    fn draw_resized_frame(
+        &self,
+        winit_window: &winit::window::Window,
+    ) -> Result<(), PlatformError> {
+        self.draw()?;
+
+        // AppKit marks the view for display when it resizes, so without this the frame we
+        // just drew gets drawn a second time from `drawRect:`.
+        if let Some(ns_view) = crate::macos::ns_view(winit_window) {
+            ns_view.setNeedsDisplay(false);
+        }
+
+        // The resize armed the throttle before we got here, and draw() has served it. Let
+        // the throttle sleep rather than spend a second full render on the same frame.
+        // Anything dirtied since re-arms it, as does the next request_redraw().
+        if self.nothing_left_to_draw()
+            && let WinitWindowOrNone::HasWindow { frame_throttle, .. } =
+                &*self.winit_window_or_none.borrow()
+        {
+            frame_throttle.cancel_throttled_redraw();
+        }
+
         Ok(())
     }
 
@@ -1274,7 +1305,13 @@ impl WinitWindowAdapter {
                     }
                 }
 
+                #[cfg(not(target_os = "macos"))]
                 resized?;
+
+                #[cfg(target_os = "macos")]
+                if resized? {
+                    self.draw_resized_frame(winit_window)?;
+                }
             }
             WinitWindowEvent::CloseRequested => {
                 self.window()
@@ -1706,6 +1743,12 @@ impl WinitWindowAdapter {
 
     pub(crate) fn pending_redraw(&self) -> bool {
         self.pending_redraw.get()
+    }
+
+    /// Whether the frame just drawn is the last one, so the frame throttle can stop ticking.
+    #[cfg(target_vendor = "apple")]
+    pub(crate) fn nothing_left_to_draw(&self) -> bool {
+        !self.pending_redraw.get() && !self.window().has_active_animations()
     }
 
     pub async fn async_winit_window(
