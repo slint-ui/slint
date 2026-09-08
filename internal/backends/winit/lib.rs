@@ -449,6 +449,51 @@ pub(crate) struct SharedBackendData {
     keyboard_notifications: ios::KeyboardNotifications,
 }
 
+/// The Objective-C class that owns the `NSApplication` delegate instance winit installs.
+///
+/// This is an internal winit implementation detail: winit declares the class in
+/// `crates/winit/src/platform_impl/macos/app_state.rs` without exposing the name. Everything
+/// here that pokes at the delegate targets this class, so on a winit upgrade the class may
+/// be renamed, go away, or start (or stop) implementing the selectors below. Verify the
+/// coupling below against that file when bumping `winit` in `Cargo.toml`.
+///
+/// The unit tests at the bottom of this file pin the class *name* (catching a rename) and
+/// exercise the injection helper, but the class is only registered once a running event
+/// loop exists, which a unit test can't create on the main thread.
+/// TODO: verify the class and its method set against the live delegate in a manual /
+/// interactive macOS run when bumping winit.
+#[cfg(target_os = "macos")]
+const WINIT_APPLICATION_DELEGATE_CLASS_NAME: &core::ffi::CStr = c"WinitApplicationDelegate";
+
+/// Add `selector` to `cls` if it isn't already implemented by the class or one of its
+/// superclasses.
+///
+/// Returns `Some(())` when the method was installed. Returns `None` when the selector
+/// already exists in the class hierarchy (so that we don't override code that handles the
+/// request itself), or when the class rejected the addition. The existence check is
+/// across the whole hierarchy because `class_addMethod` shadows an implementation from a
+/// superclass.
+#[cfg(target_os = "macos")]
+fn install_delegate_method(
+    cls: &objc2::runtime::AnyClass,
+    selector: objc2::runtime::Sel,
+    imp: objc2::runtime::Imp,
+    encoding: *const core::ffi::c_char,
+) -> Option<()> {
+    if cls.instance_method(selector).is_some() {
+        return None;
+    }
+    let added = unsafe {
+        objc2::ffi::class_addMethod(
+            (cls as *const objc2::runtime::AnyClass).cast_mut(),
+            selector,
+            imp,
+            encoding,
+        )
+    };
+    added.as_bool().then_some(())
+}
+
 impl SharedBackendData {
     /// Panics if the backend is not bound: an event loop only runs inside a live context.
     pub(crate) fn context(&self) -> i_slint_core::SlintContext {
@@ -501,6 +546,8 @@ impl SharedBackendData {
 
         #[cfg(target_os = "macos")]
         Self::disable_macos_automatic_shortcut_localization();
+        #[cfg(target_os = "macos")]
+        Self::inject_macos_open_file_handler();
 
         cfg_if::cfg_if! {
             if #[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))] {
@@ -557,7 +604,7 @@ impl SharedBackendData {
     // TODO: Replace with a proper delegate class when upgrading to the next winit version.
     #[cfg(target_os = "macos")]
     fn disable_macos_automatic_shortcut_localization() {
-        use objc2::runtime::{AnyClass, AnyObject, Bool, Imp, Sel};
+        use objc2::runtime::{AnyObject, Bool, Imp, Sel};
         use objc2::sel;
 
         unsafe extern "C-unwind" fn should_not_localize(
@@ -568,21 +615,140 @@ impl SharedBackendData {
             Bool::NO
         }
 
-        let sel = sel!(applicationShouldAutomaticallyLocalizeKeyEquivalents:);
-        if let Some(cls) = AnyClass::get(c"WinitApplicationDelegate")
-            && cls.instance_method(sel).is_none()
-        {
-            unsafe {
-                objc2::ffi::class_addMethod(
-                    (cls as *const AnyClass).cast_mut(),
-                    sel,
+        // The delegate class only exists once the winit event loop has been created, which
+        // happens before this backend is built. See `WINIT_APPLICATION_DELEGATE_CLASS_NAME`.
+        if let Some(cls) = objc2::runtime::AnyClass::get(WINIT_APPLICATION_DELEGATE_CLASS_NAME) {
+            install_delegate_method(
+                cls,
+                sel!(applicationShouldAutomaticallyLocalizeKeyEquivalents:),
+                unsafe {
                     core::mem::transmute::<
                         unsafe extern "C-unwind" fn(*mut AnyObject, Sel, *mut AnyObject) -> Bool,
                         Imp,
-                    >(should_not_localize),
-                    c"B@:@".as_ptr(),
-                );
-            }
+                    >(should_not_localize)
+                },
+                c"B@:@".as_ptr(),
+            );
+        }
+    }
+
+    // `application:openURLs:` is the modern delivery path (macOS 10.13+): per Apple's
+    // documentation, if the delegate implements it, AppKit does not call the
+    // `application:openFile:` / `application:openFiles:` methods. Slint applications
+    // aren't document-based (`NSDocument`), so open requests for their files arrive as
+    // URL-based resources through this method. The other two methods cover the file
+    // path variants on older macOS versions.
+    //
+    // The methods have to live on winit's `WinitApplicationDelegate` class: winit 0.30
+    // rejects a foreign delegate (its `ApplicationDelegate::get` panics unless the app's
+    // delegate is its own instance), so a Slint-owned delegate that wraps winit's is not
+    // possible without upgrading winit. The injection is done at runtime because the
+    // class only exists once the winit event loop has been created, which happens before
+    // this backend is built.
+    #[cfg(target_os = "macos")]
+    fn inject_macos_open_file_handler() {
+        use objc2::runtime::{AnyObject, Bool, Imp, Sel};
+        use objc2::sel;
+        use objc2_foundation::{NSArray, NSString, NSURL};
+
+        unsafe extern "C-unwind" fn open_urls(
+            _this: *mut AnyObject,
+            _cmd: Sel,
+            _app: *mut AnyObject,
+            urls: *mut AnyObject,
+        ) {
+            let array: &NSArray<NSURL> = unsafe { &*(urls as *const NSArray<NSURL>) };
+            queue_open_files(url_array_to_paths(array));
+        }
+
+        unsafe extern "C-unwind" fn open_files(
+            _this: *mut AnyObject,
+            _cmd: Sel,
+            _app: *mut AnyObject,
+            filenames: *mut AnyObject,
+        ) {
+            let array: &NSArray<NSString> = unsafe { &*(filenames as *const NSArray<NSString>) };
+            queue_open_files(ns_array_to_strings(array));
+        }
+
+        unsafe extern "C-unwind" fn open_file(
+            _this: *mut AnyObject,
+            _cmd: Sel,
+            _app: *mut AnyObject,
+            filename: *mut AnyObject,
+        ) -> Bool {
+            let path: &NSString = unsafe { &*(filename as *const NSString) };
+            queue_open_files([path.to_string()]);
+            Bool::YES
+        }
+
+        // See `WINIT_APPLICATION_DELEGATE_CLASS_NAME`: this lookup is coupled to an internal
+        // winit class, revisit it when upgrading winit.
+        let Some(cls) = objc2::runtime::AnyClass::get(WINIT_APPLICATION_DELEGATE_CLASS_NAME) else {
+            i_slint_core::debug_log!(
+                "Slint: the winit application delegate class is unavailable, file-open events will not be delivered"
+            );
+            return;
+        };
+
+        let open_urls_installed = install_delegate_method(
+            cls,
+            sel!(application:openURLs:),
+            unsafe {
+                core::mem::transmute::<
+                    unsafe extern "C-unwind" fn(
+                        *mut AnyObject,
+                        Sel,
+                        *mut AnyObject,
+                        *mut AnyObject,
+                    ),
+                    Imp,
+                >(open_urls)
+            },
+            c"v@:@@".as_ptr(),
+        );
+        let open_files_installed = install_delegate_method(
+            cls,
+            sel!(application:openFiles:),
+            unsafe {
+                core::mem::transmute::<
+                    unsafe extern "C-unwind" fn(
+                        *mut AnyObject,
+                        Sel,
+                        *mut AnyObject,
+                        *mut AnyObject,
+                    ),
+                    Imp,
+                >(open_files)
+            },
+            c"v@:@@".as_ptr(),
+        );
+        let open_file_installed = install_delegate_method(
+            cls,
+            sel!(application:openFile:),
+            unsafe {
+                core::mem::transmute::<
+                    unsafe extern "C-unwind" fn(
+                        *mut AnyObject,
+                        Sel,
+                        *mut AnyObject,
+                        *mut AnyObject,
+                    ) -> Bool,
+                    Imp,
+                >(open_file)
+            },
+            // `- (BOOL)application:(NSApplication *)sender openFile:(NSString *)filename`
+            // takes two object arguments after `_cmd`, hence `B@:@@`.
+            c"B@:@@".as_ptr(),
+        );
+
+        if open_urls_installed.is_none()
+            || open_files_installed.is_none()
+            || open_file_installed.is_none()
+        {
+            i_slint_core::debug_log!(
+                "Slint: failed to install a file-open selector on winit's application delegate (already implemented, or the class rejected the addition); slint::set_open_file_handler may not receive all open-file events"
+            );
         }
     }
 
@@ -746,6 +912,71 @@ impl Backend {
 static GLOBAL_PROXY: std::sync::Mutex<Option<winit::event_loop::EventLoopProxy<SlintEvent>>> =
     std::sync::Mutex::new(None);
 
+// [`i_slint_core::SlintContextWeak`] of the context that owns this backend, as recorded
+// by [`Platform::bind_context`](i_slint_core::platform::Platform::bind_context). The
+// Objective-C delegate methods are plain C functions without any Rust state, so this is
+// how they reach the context — on the main thread, where AppKit calls them — to queue
+// the files the operating system asked us to open. A thread-local is used because the
+// context isn't `Send`; `bind_context` runs on the same main thread.
+#[cfg(target_os = "macos")]
+std::thread_local! {
+    #[allow(dead_code)] // read from the Objective-C callback only, not from Rust call sites
+    static BOUND_CONTEXT: std::cell::RefCell<Option<i_slint_core::SlintContextWeak>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Queue a file-open request from the operating system the way AppKit delivered it: one
+/// batch per `application:openFiles:` / `application:openFile:` call. The paths are
+/// stored in the bound context's open-file state, which forwards them to the handler
+/// installed with `slint::set_open_file_handler` once the event loop runs. To make the
+/// loop run and dispatch them, [`CustomEvent::OpenFiles`] is sent, waking it up if it is
+/// already running.
+#[cfg(target_os = "macos")]
+pub(crate) fn queue_open_files(paths: impl IntoIterator<Item = String>) {
+    let paths: alloc::vec::Vec<i_slint_core::SharedString> =
+        paths.into_iter().map(|p| p.into()).collect();
+    let ctx = BOUND_CONTEXT.with(|bound| bound.borrow().as_ref().and_then(|ctx| ctx.upgrade()));
+    match ctx {
+        Some(ctx) => ctx.queue_open_files(&paths),
+        None => i_slint_core::debug_log!(
+            "Slint: dropping a file-open request while no Slint context is bound"
+        ),
+    }
+    if let Some(proxy) = GLOBAL_PROXY.lock().unwrap().clone() {
+        let _ = proxy.send_event(SlintEvent(CustomEvent::OpenFiles));
+    }
+}
+
+/// Convert the `NSArray<NSString>` that AppKit passes to `application:openFiles:` into a
+/// `Vec` of Rust strings. Free-standing so it can be exercised from unit tests on a
+/// macOS host without a running application.
+#[cfg(target_os = "macos")]
+fn ns_array_to_strings(
+    array: &objc2_foundation::NSArray<objc2_foundation::NSString>,
+) -> alloc::vec::Vec<String> {
+    (0..array.len()).map(|i| unsafe { array.objectAtIndex_unchecked(i) }.to_string()).collect()
+}
+
+/// Convert the `NSArray<NSURL>` that AppKit passes to `application:openURLs:` into the
+/// file paths it contains. Only URLs with the `file` scheme are filesystem paths and are
+/// returned; other URLs (http, ...) are dropped because the open-file handler receives
+/// paths. Free-standing so it can be exercised from unit tests on a macOS host without a
+/// running application.
+#[cfg(target_os = "macos")]
+fn url_array_to_paths(
+    array: &objc2_foundation::NSArray<objc2_foundation::NSURL>,
+) -> alloc::vec::Vec<String> {
+    (0..array.len())
+        .filter_map(|i| {
+            let url = unsafe { array.objectAtIndex_unchecked(i) };
+            if !url.isFileURL() {
+                return None;
+            }
+            url.to_file_path().map(|path| path.to_string_lossy().into_owned())
+        })
+        .collect()
+}
+
 /// Schedules a callback to be invoked in the winit event loop, and passes winit's
 /// [`ActiveEventLoop`] to it.
 ///
@@ -820,6 +1051,10 @@ impl Drop for Backend {
 impl i_slint_core::platform::Platform for Backend {
     fn bind_context(&self, _ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
         let _ = self.shared_data.context.set(_ctx.clone());
+        #[cfg(target_os = "macos")]
+        {
+            BOUND_CONTEXT.with(|bound| *bound.borrow_mut() = Some(_ctx));
+        }
         #[cfg(xdg_desktop_settings)]
         {
             *self.xdg_watcher.borrow_mut() =
@@ -1358,4 +1593,89 @@ fn test_window_accessor_and_rwh() {
     .unwrap();
 
     slint::run_event_loop().unwrap();
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod test_open_file {
+    use super::*;
+    use objc2::ClassType;
+    use objc2::rc::Retained;
+    use objc2::runtime::{AnyObject, Imp, Sel};
+    use objc2::sel;
+    use objc2_foundation::{NSArray, NSObject, NSString, NSURL};
+
+    #[test]
+    fn install_delegate_method_skips_existing_implementations() {
+        unsafe extern "C-unwind" fn dummy_imp(
+            _this: *mut AnyObject,
+            _cmd: Sel,
+            _arg: *mut AnyObject,
+        ) {
+        }
+
+        let cls = NSObject::class();
+        let imp = unsafe {
+            core::mem::transmute::<
+                unsafe extern "C-unwind" fn(*mut AnyObject, Sel, *mut AnyObject),
+                Imp,
+            >(dummy_imp)
+        };
+
+        // `init` is implemented by NSObject (the superclass): must not be shadowed.
+        assert!(install_delegate_method(cls, sel!(init), imp, c"@:@".as_ptr()).is_none());
+
+        assert!(
+            install_delegate_method(cls, sel!(application:openFiles:), imp, c"v@:@@".as_ptr())
+                .is_some()
+        );
+        assert!(
+            install_delegate_method(cls, sel!(application:openFiles:), imp, c"v@:@@".as_ptr())
+                .is_none()
+        );
+    }
+
+    /// The class name this backend pokes at is internal to winit 0.30; this test pins the
+    /// constant to the name `WinitApplicationDelegate` so an upgrade that renames the class
+    /// is called out. The class itself is only registered once an event loop exists, so the
+    /// presence of the class can't be asserted here, only the name we're coupling to.
+    #[test]
+    fn winit_delegate_class_name_is_pinned() {
+        assert_eq!(WINIT_APPLICATION_DELEGATE_CLASS_NAME, c"WinitApplicationDelegate");
+    }
+
+    /// The cast AppKit performs when calling `application:openFiles:`.
+    #[test]
+    fn ns_array_to_strings_reads_every_element() {
+        let array: Retained<NSArray<NSString>> = NSArray::from_retained_slice(&[
+            NSString::from_str("a.txt"),
+            NSString::from_str("b.txt"),
+        ]);
+        assert_eq!(ns_array_to_strings(&array), ["a.txt".to_string(), "b.txt".to_string()]);
+    }
+
+    /// An empty array is a valid `application:openFiles:` payload.
+    #[test]
+    fn ns_array_to_strings_handles_an_empty_array() {
+        let array: Retained<NSArray<NSString>> = NSArray::from_retained_slice(&[]);
+        assert!(ns_array_to_strings(&array).is_empty());
+    }
+
+    /// The cast AppKit performs when calling `application:openURLs:`: file URLs become
+    /// paths, non-file URLs (which the open-file handler can't represent) are dropped.
+    #[test]
+    fn url_array_to_paths_reads_file_urls_only() {
+        let file_url: Retained<NSURL> = NSURL::from_file_path("/tmp/save.slintsave").unwrap();
+        let web_url: Retained<NSURL> =
+            NSURL::URLWithString(&NSString::from_str("https://example.com/doc.pdf")).unwrap();
+        let array: Retained<NSArray<NSURL>> = NSArray::from_retained_slice(&[file_url, web_url]);
+
+        assert_eq!(url_array_to_paths(&array), ["/tmp/save.slintsave".to_string()]);
+    }
+
+    /// An empty array is a valid `application:openURLs:` payload.
+    #[test]
+    fn url_array_to_paths_handles_an_empty_array() {
+        let array: Retained<NSArray<NSURL>> = NSArray::from_retained_slice(&[]);
+        assert!(url_array_to_paths(&array).is_empty());
+    }
 }
