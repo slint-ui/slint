@@ -1265,9 +1265,9 @@ impl WinitWindowAdapter {
                 // TODO: remove this when we have a version of winit featuring the following change:
                 // <https://github.com/rust-windowing/winit/pull/4625>
                 #[cfg(target_os = "macos")]
-                let size = self.winit_window().map_or(size, |w| {
-                    crate::winit_compat::WindowSurfaceSizeExt::surface_size(&*w)
-                });
+                let size = self
+                    .winit_window()
+                    .map_or(size, |w| crate::winit_compat::WindowSurfaceSizeExt::surface_size(&*w));
 
                 let resized = self.resize_event(size);
 
