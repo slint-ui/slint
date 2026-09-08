@@ -81,12 +81,7 @@ protocol = [
   "dep:getrandom",
 ]
 file-watcher = ["dep:notify", "dep:i-slint-compiler"]
-live-component = [
-  "file-watcher",
-  "dep:slint-interpreter",
-  "dep:i-slint-core",
-  "slint-interpreter/bundle-translations",
-]
+live-component = ["file-watcher", "dep:slint-interpreter", "dep:i-slint-core", "slint-interpreter/bundle-translations"]
 ffi = ["live-component", "slint-interpreter/ffi"]
 remote = [
   "protocol",
