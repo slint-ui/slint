@@ -132,7 +132,6 @@ def test_palette_drop_outside_canvas_does_not_edit_source(
 
 
 @pytest.mark.parametrize("kind", PALETTE_KINDS)
-@pytest.mark.skip(reason="Requires Rust palette drop-marker support")
 def test_escape_cancels_palette_drag_without_source_edit(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -146,11 +145,11 @@ def test_escape_cancels_palette_drag_without_source_edit(
         target = canvas_drop_position(window)
         begin_palette_drag(window, kind, target)
         window_element_with_label(
-            window, "Canvas drop marker", slint_testing.AccessibleRole.Region
+            window, f"{kind} drag preview", slint_testing.AccessibleRole.Region
         )
         press_key(window, keys.Escape)
         release_palette_drag(window, target)
-        assert not elements_with_label(window.root_element, "Canvas drop marker")
+        assert not elements_with_label(window.root_element, f"{kind} drag preview")
         snapshot.assert_unchanged()
 
 
@@ -307,7 +306,10 @@ def test_toucharea_drag_preview(
 )
 @pytest.mark.parametrize(
     ("group_label", "tab_count", "remaining"),
-    [("Visual", 1, ["TouchArea"]), ("Input & interaction", 2, ["Image", "Rectangle", "Text"])],
+    [
+        ("Visual", 1, ["TouchArea"]),
+        ("Input & interaction", 2, ["Image", "Rectangle", "Text"]),
+    ],
 )
 def test_group_header_keyboard_activation(
     editor_binary: Path,
@@ -329,7 +331,9 @@ def test_group_header_keyboard_activation(
             press_key(window, keys.Tab)
         press_key(window, activation_key)
         expect_library(window, remaining)
-        window_element_with_label(window, group_label, slint_testing.AccessibleRole.Button)
+        window_element_with_label(
+            window, group_label, slint_testing.AccessibleRole.Button
+        )
         press_key(window, activation_key)
         expect_library(window, list(PALETTE_KINDS))
         snapshot.assert_unchanged()

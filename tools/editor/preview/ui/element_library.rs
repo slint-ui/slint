@@ -10,12 +10,21 @@ fn catalog() -> ModelRc<ElementLibraryGroup> {
         (
             "Visual",
             vec![
-                ElementLibraryEntry { label: "Rectangle".into(), kind: PaletteComponentKind::Rectangle },
+                ElementLibraryEntry {
+                    label: "Rectangle".into(),
+                    kind: PaletteComponentKind::Rectangle,
+                },
                 ElementLibraryEntry { label: "Text".into(), kind: PaletteComponentKind::Text },
                 ElementLibraryEntry { label: "Image".into(), kind: PaletteComponentKind::Image },
             ],
         ),
-        ("Input & interaction", vec![ElementLibraryEntry { label: "TouchArea".into(), kind: PaletteComponentKind::TouchArea }]),
+        (
+            "Input & interaction",
+            vec![ElementLibraryEntry {
+                label: "TouchArea".into(),
+                kind: PaletteComponentKind::TouchArea,
+            }],
+        ),
     ];
     ModelRc::new(slint::VecModel::from(
         groups
@@ -85,11 +94,19 @@ mod tests {
         let interaction = groups.row_data(1).unwrap();
         assert_eq!(interaction.label, "Input & interaction");
         assert_eq!(interaction.entries.row_data(0).unwrap().kind, PaletteComponentKind::TouchArea);
-        for (query, expected) in
-            [("", vec!["TouchArea"]), ("  ", vec!["TouchArea"]), (" tOuCh ", vec!["TouchArea"]), ("AREA", vec!["TouchArea"]), ("image", vec![]), ("missing", vec![])]
-        {
+        for (query, expected) in [
+            ("", vec!["TouchArea"]),
+            ("  ", vec!["TouchArea"]),
+            (" tOuCh ", vec!["TouchArea"]),
+            ("AREA", vec!["TouchArea"]),
+            ("image", vec![]),
+            ("missing", vec![]),
+        ] {
             assert_eq!(
-                filter(interaction.entries.clone(), normalize_query(query.into())).iter().map(|entry| entry.label.to_string()).collect::<Vec<_>>(),
+                filter(interaction.entries.clone(), normalize_query(query.into()))
+                    .iter()
+                    .map(|entry| entry.label.to_string())
+                    .collect::<Vec<_>>(),
                 expected
             );
         }
