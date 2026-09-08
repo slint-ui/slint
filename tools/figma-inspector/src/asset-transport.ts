@@ -240,11 +240,13 @@ export type AssetPreview = {
     readonly assets: readonly string[];
     readonly source: Parts;
     readonly snapshotJson: Parts;
+    readonly renderSource?: Parts;
 };
 
 export function packPreviewAssets(
     source: string,
     snapshotJson = "",
+    renderSource?: string,
 ): AssetPreview {
     const assets: string[] = [];
     const indices = new Map<string, number>();
@@ -281,12 +283,21 @@ export function packPreviewAssets(
         assets,
         source: split(source, /data:image\/(?:png|jpeg|gif|svg\+xml);base64,/g),
         snapshotJson: split(snapshotJson, /"data":"/g),
+        ...(renderSource === undefined
+            ? {}
+            : {
+                  renderSource: split(
+                      renderSource,
+                      /data:image\/(?:png|jpeg|gif|svg\+xml);base64,/g,
+                  ),
+              }),
     };
 }
 
 export function unpackPreviewAssets(value: unknown): {
     source: string;
     snapshotJson: string;
+    renderSource?: string;
 } {
     if (!isAssetPreview(value)) throw Error("Invalid asset preview");
     const packed = value;
@@ -308,6 +319,9 @@ export function unpackPreviewAssets(value: unknown): {
     return {
         source: join(packed.source),
         snapshotJson: join(packed.snapshotJson),
+        ...(packed.renderSource === undefined
+            ? {}
+            : { renderSource: join(packed.renderSource) }),
     };
 }
 
@@ -318,7 +332,11 @@ export function isAssetPreview(value: unknown): value is AssetPreview {
         return false;
     for (const asset of packed.assets)
         if (typeof asset !== "string") return false;
-    for (const parts of [packed.source, packed.snapshotJson]) {
+    for (const parts of [
+        packed.source,
+        packed.snapshotJson,
+        ...(packed.renderSource === undefined ? [] : [packed.renderSource]),
+    ]) {
         if (!Array.isArray(parts)) return false;
         for (const part of parts)
             if (

@@ -305,3 +305,38 @@ describe("preview-assets", () => {
         }
     });
 });
+
+test("display and render programs share one asset table with validated references", () => {
+    const data = "a".repeat(256);
+    const source = `// readable\n@image-url("data:image/png;base64,${data}")`;
+    const renderSource = `// specialized\n@image-url("data:image/png;base64,${data}")`;
+    const packed = packPreviewAssets(source, "", renderSource);
+    expect(packed.assets).toEqual([data]);
+    expect(unpackPreviewAssets(packed)).toEqual({
+        source,
+        snapshotJson: "",
+        renderSource,
+    });
+    expect(
+        isPluginToUiMessage({
+            type: "preview-source",
+            revision: 1,
+            source: packed,
+        }),
+    ).toBe(true);
+    expect(
+        isPluginToUiMessage({
+            type: "preview-source",
+            revision: 1,
+            source: { ...packed, renderSource: [1] },
+        }),
+    ).toBe(false);
+    expect(
+        isPluginToUiMessage({
+            type: "preview-source",
+            revision: 1,
+            source,
+            renderSource: 4,
+        }),
+    ).toBe(false);
+});

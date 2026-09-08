@@ -64,6 +64,7 @@ export type PluginToUiMessage =
           readonly type: "preview-source";
           readonly revision: number;
           readonly source: string | AssetPreview;
+          readonly renderSource?: string;
           readonly warnings?: readonly Diagnostic[];
           readonly snapshotJson?: string;
           readonly exportPackage?: ExportPackage;
@@ -189,6 +190,9 @@ export function isPluginToUiMessage(
                 : "source" in value &&
                   (typeof value.source === "string" ||
                       isAssetPreview(value.source))) &&
+            (!("renderSource" in value) ||
+                value.renderSource === undefined ||
+                typeof value.renderSource === "string") &&
             (!("exportPackage" in value) ||
                 value.exportPackage === undefined ||
                 isExportPackage(value.exportPackage)) &&

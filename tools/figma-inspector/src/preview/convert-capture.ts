@@ -126,9 +126,10 @@ export async function convertCapture(
             };
         if (normalized.empty) return { ...common, type: "preview-clear" };
         state.snapshot = normalized.snapshot;
-        const converted = measure("slintConversion", () =>
+        const [converted, render] = measure("slintConversion", () => [
             convertSnapshot(normalized.snapshot),
-        );
+            convertSnapshot(normalized.snapshot, { specialize: true }),
+        ]);
         if (!converted.ok)
             return {
                 ...common,
@@ -136,13 +137,21 @@ export async function convertCapture(
                 diagnostics: converted.diagnostics,
                 trace: { ...trace, outcome: "conversion-error" },
             };
+        if (!render.ok)
+            return {
+                ...common,
+                type: "preview-diagnostics",
+                diagnostics: render.diagnostics,
+                trace: { ...trace, outcome: "conversion-error" },
+            };
         const packed = measure("assetPacking", () =>
-            packPreviewAssets(converted.source),
+            packPreviewAssets(converted.source, "", render.source),
         );
         return {
             ...common,
             type: "preview-source",
             source: packed.assets.length ? packed : converted.source,
+            ...(packed.assets.length ? {} : { renderSource: render.source }),
             warnings: [...normalized.warnings, ...converted.warnings],
         };
     } catch (error) {
