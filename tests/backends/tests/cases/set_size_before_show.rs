@@ -54,11 +54,11 @@ fn run_and_measure(measure: impl Fn() -> Measured + 'static) -> Measured {
     measured.take().expect("the timer ran before the event loop quit")
 }
 
-/// Compares in physical pixels: the windowing system rounds the size, and on a fractional scale
-/// factor the preferred size is rounded up to the logical size whose physical size holds it,
-/// which overshoots by up to one and a half physical pixels.
+/// Compares in physical pixels. On a fractional scale factor the preferred size is rounded up
+/// to the logical size whose physical size holds it, which overshoots by up to one and a half
+/// physical pixels, and the windowing system's own rounding adds up to two more.
 fn assert_size(measured: &Measured, expected: slint::LogicalSize) {
-    let close = |a: f32, b: f32| (a - b).abs() * measured.scale_factor < 2.;
+    let close = |a: f32, b: f32| (a - b).abs() * measured.scale_factor < 4.;
     assert!(
         close(measured.size.width, expected.width) && close(measured.size.height, expected.height),
         "window size {:?} != {expected:?}",
