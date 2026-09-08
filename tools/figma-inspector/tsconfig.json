@@ -16,7 +16,7 @@
         "types": ["node", "@figma/plugin-typings"],
         "paths": {
             "slint-wasm-generated": [
-                "./.generated/slint-wasm/slint_wasm_interpreter.d.ts"
+                "../../api/wasm-interpreter/pkg/slint_wasm_interpreter.d.ts"
             ]
         }
     },
