@@ -22,8 +22,8 @@ struct Cli {
     experimental: bool,
 
     /// Generate the SC-filtered reference into docs/safety instead of docs/astro.
-    /// Only items annotated with `\sc` are included, and screenshot code-fence
-    /// attributes are stripped.
+    /// Only elements and members declared `@sc` are included, and screenshot
+    /// code-fence attributes are stripped.
     #[arg(long, action)]
     slint_sc: bool,
 
@@ -84,7 +84,7 @@ pub struct Config {
     /// of the site the pages belong to. Pages carry an explicit `slug`, so
     /// this location doesn't determine their URL.
     pub generated_dir: PathBuf,
-    /// Skip items that don't carry a `\sc` marker in their doc comment.
+    /// Skip elements and members not declared `@sc`, and every builtin enum and struct.
     pub sc_only: bool,
     /// Strip screenshot code-fence attributes instead of wrapping with
     /// `<CodeSnippetMD>`.

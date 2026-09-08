@@ -18,43 +18,6 @@ use std::io::{BufWriter, Write};
 use crate::Config;
 use crate::mdx;
 
-// -- SC annotation --
-
-/// Find each standalone occurrence of `\sc` (not followed by an identifier
-/// character so we don't collide with hypothetical markers like `\scope`).
-fn find_sc_markers(doc: &str) -> impl Iterator<Item = (usize, usize)> + '_ {
-    doc.match_indices("\\sc").filter_map(|(start, _)| {
-        let end = start + 3;
-        match doc.as_bytes().get(end).copied() {
-            None => Some((start, end)),
-            Some(b) if !b.is_ascii_alphanumeric() && b != b'_' => Some((start, end)),
-            _ => None,
-        }
-    })
-}
-
-/// Whether a doc string carries the `\sc` marker, identifying content that's
-/// part of the Slint SC safety-certified surface.
-pub fn is_sc_covered(doc: &str) -> bool {
-    find_sc_markers(doc).next().is_some()
-}
-
-/// Remove every `\sc` marker from a doc string so it never leaks into rendered output.
-pub fn strip_sc(doc: &str) -> String {
-    let ranges: Vec<(usize, usize)> = find_sc_markers(doc).collect();
-    if ranges.is_empty() {
-        return doc.to_string();
-    }
-    let mut out = String::with_capacity(doc.len());
-    let mut cursor = 0;
-    for (s, e) in ranges {
-        out.push_str(&doc[cursor..s]);
-        cursor = e;
-    }
-    out.push_str(&doc[cursor..]);
-    out.trim_end().to_string()
-}
-
 // -- Annotation helpers --
 
 /// Split at `\footer`, returning (description, footer).
@@ -821,8 +784,8 @@ pub fn generate(cfg: &Config, links: &mdx::TypeLinks) -> Result<(), Box<dyn std:
     create_dir_all(&generated_dir)?;
 
     let types = TypeContext {
-        enums: mdx::extract_enum_docs(true, false).keys().cloned().collect(),
-        structs: mdx::extract_builtin_structs(true, false).keys().cloned().collect(),
+        enums: mdx::extract_enum_docs(true).keys().cloned().collect(),
+        structs: mdx::extract_builtin_structs(true).keys().cloned().collect(),
         links,
     };
 
