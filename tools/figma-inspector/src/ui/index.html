@@ -1,0 +1,62 @@
+<main id="app">
+    <header class="toolbar" aria-label="Slint preview toolbar">
+    <nav class="workspace-tabs" role="tablist" aria-label="Preview views">
+        <button id="preview-tab" role="tab" aria-selected="true" aria-controls="preview-workspace" type="button">Preview</button>
+        <button id="diagnostics-tab" role="tab" aria-selected="false" aria-controls="diagnostics-workspace" tabindex="-1" type="button">Diagnostics <span id="diagnostic-count" hidden></span></button>
+    </nav>
+        <button id="pin-button" class="pin-button" type="button" aria-label="Pin selected preview root" title="Pin selected preview root" aria-pressed="false" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M8 3h8v3l-2 2v4l3 3v2H7v-2l3-3V8L8 6V3Z" />
+                <path d="M12 17v4" />
+            </svg>
+        </button>
+    </header>
+
+    <span id="status" data-state="initializing" hidden>Initializing</span>
+    <section id="preview-workspace" role="tabpanel" aria-labelledby="preview-tab">
+    <section class="rendered-preview">
+    <h2 class="preview-title">Rendered with Slint</h2>
+    <div class="preview-area">
+    <div id="preview-busy" role="status" aria-label="Rendering preview" hidden><span class="preview-spinner"></span></div>
+    <section class="preview-shell" aria-label="Slint preview">
+        <canvas id="preview-canvas" width="240" height="72"></canvas>
+    </section>
+    </div>
+    </section>
+    <p id="output-provenance" class="selection" hidden></p>
+    <section id="source-panel" aria-label="Generated Slint source">
+        <header class="source-heading"><h2>Generated Slint source</h2>
+        <div class="source-actions">
+        <button id="export-button" class="copy-button" type="button" title="Export ZIP" disabled>Export ZIP</button>
+        <button id="copy-button" class="copy-button" type="button" aria-label="Copy generated Slint" title="Copy generated Slint" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="currentColor" fill-rule="evenodd" d="M10 6h4v1h-4zM9 6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1 2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2m0 1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1 1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m1 3.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5m.5 2.5a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1z" clip-rule="evenodd" />
+            </svg><span>Copy Slint</span>
+        </button>
+        </div>
+        </header>
+        <div id="source-view" class="source-view" hidden></div>
+    </section>
+    </section>
+    <section id="diagnostics-workspace" role="tabpanel" aria-labelledby="diagnostics-tab" hidden>
+    <div class="diagnostics-heading"><h2>Diagnostics</h2><p>Conversion and rendering details for the current selection.</p></div>
+    <p id="diagnostics-empty">No issues to report.</p>
+    <div id="diagnostics" class="diagnostics" hidden></div>
+    <!-- development:start -->
+    <details id="timing-panel" class="timing-panel" aria-label="Performance timings">
+        <summary class="timing-heading">
+            <span>Performance</span>
+            <strong id="timing-total" data-timing-total>Waiting for a render</strong>
+        </summary>
+        <p id="timing-label" class="timing-label">Waiting for a plugin event</p>
+        <dl id="timing-phases" class="timing-phases"></dl>
+        <div class="timing-actions">
+            <button id="copy-snapshot" type="button">Copy snapshot JSON</button>
+            <button id="copy-source" type="button" disabled>Copy Slint</button>
+            <button id="copy-trace" type="button">Copy trace JSON</button>
+        </div>
+    </details>
+    <!-- development:end -->
+    </section>
+    <footer class="workspace-footer"><span id="selection" class="selection"></span></footer>
+</main>
