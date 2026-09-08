@@ -1863,6 +1863,11 @@ impl WindowAdapter for WinitWindowAdapter {
         // But not if there is a pending resize in flight as that resize will reset these properties back
         if ((existing_size.width - width).abs() > 1. || (existing_size.height - height).abs() > 1.)
             && self.pending_requested_size.get().is_none()
+            // Nor while the item still holds a physical size set before the window existed as
+            // its logical size: the scale factor to convert it is not known yet.
+            && self.physical_size_before_scale_factor.get().is_none_or(|requested| {
+                requested.width as f32 != width || requested.height as f32 != height
+            })
         {
             // If we're in fullscreen state, don't try to resize the window but maintain the surface
             // size we've been assigned to from the windowing system. Weston/Wayland don't like it
