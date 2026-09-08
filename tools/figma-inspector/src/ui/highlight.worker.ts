@@ -7,7 +7,7 @@ import { createOnigurumaEngine } from "shiki/engine/oniguruma";
 import OnigurumaEngine from "shiki/wasm";
 import darkSlint from "./syntax-assets/dark-theme.json";
 import lightSlint from "./syntax-assets/light-theme.json";
-import slintLang from "./syntax-assets/slint.tmLanguage.json";
+import slintLang from "../../../../docs/common/src/utils/slint.tmLanguage.json";
 
 const highlighter = createHighlighterCore({
     themes: [darkSlint as ThemeRegistration, lightSlint as ThemeRegistration],

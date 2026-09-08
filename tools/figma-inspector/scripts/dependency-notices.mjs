@@ -4,7 +4,8 @@
 import { execFileSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { runtimeRoot } from "./runtime-pin.mjs";
+import { fileURLToPath } from "node:url";
+const runtimeRoot = fileURLToPath(new URL("../../../", import.meta.url));
 
 export async function dependencyNotices(metafiles) {
     const packages = new Map();
@@ -41,7 +42,7 @@ export async function dependencyNotices(metafiles) {
         }
     const metadata = JSON.parse(
         execFileSync(
-            process.env.SLINT_CARGO ?? "cargo",
+            "cargo",
             [
                 "metadata",
                 "--locked",
@@ -77,7 +78,7 @@ export async function dependencyNotices(metafiles) {
             license: pkg.license,
             directory: dirname(pkg.manifest_path),
             licenseFile: pkg.license_file,
-            ecosystem: process.env.SLINT_CARGO ?? "cargo",
+            ecosystem: "cargo",
         });
     const sections = [];
     const inventory = [];

@@ -20,7 +20,8 @@ const manifest = JSON.parse(
 assert.equal(provenance.channel, "nightly");
 assert.equal(provenance.repository, "https://github.com/slint-ui/slint.git");
 assert.equal(provenance.manifest, "api/wasm-interpreter/Cargo.toml");
-assert.equal(provenance.dirty, false);
+assert.match(provenance.revision, /^[a-f0-9]{40}$/);
+assert.equal(provenance.version, version);
 assert.equal(manifest.id, "1474418299182276871");
 assert.deepEqual(manifest.networkAccess.allowedDomains, ["none"]);
 assert.ok(
@@ -64,9 +65,6 @@ rejects(["--nightly"], /FIGMA_PLUGIN_ID must be an assigned/, {
     ...process.env,
     FIGMA_PLUGIN_ID: "000000000000000000",
 });
-const pin = JSON.parse(await readFile("runtime-pin.json", "utf8"));
-if (pin.development !== false)
-    rejects([], /Development snapshots cannot be published/);
 assert.deepEqual(await readFile("zip/figma-plugin.zip"), bytes);
 console.log(
     "Validated nightly identity, portable provenance, ZIP checksums and packaging-mode isolation",

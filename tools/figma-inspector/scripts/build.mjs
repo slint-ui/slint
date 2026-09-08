@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { verifyArtifact } from "./check-slint-artifact.mjs";
+import { execFileSync } from "node:child_process";
 import { dependencyNotices } from "./dependency-notices.mjs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -15,9 +15,6 @@ const distDir = resolve(
     process.env.PLUGIN_OUTPUT_DIR ?? (development ? "dist-dev" : "dist"),
 );
 const pluginId = process.env.FIGMA_PLUGIN_ID ?? "1474418299182276871";
-
-// biome-ignore lint/nursery/noFloatingPromises: The artifact validation promise is awaited here.
-await verifyArtifact(resolve(projectRoot, ".generated/slint-wasm"));
 
 await rm(distDir, { recursive: true, force: true });
 await mkdir(distDir, { recursive: true });
@@ -73,11 +70,11 @@ const uiBuild = await build({
     alias: {
         "slint-wasm-generated": resolve(
             projectRoot,
-            ".generated/slint-wasm/slint_wasm_interpreter.js",
+            "../../api/wasm-interpreter/pkg/slint_wasm_interpreter.js",
         ),
         "slint-wasm-binary": resolve(
             projectRoot,
-            ".generated/slint-wasm/slint_wasm_interpreter_bg.wasm",
+            "../../api/wasm-interpreter/pkg/slint_wasm_interpreter_bg.wasm",
         ),
     },
     bundle: true,
@@ -156,34 +153,19 @@ await writeFile(
     resolve(distDir, "dependencies.json"),
     `${JSON.stringify(notices.inventory, null, 4)}\n`,
 );
-const localProvenance = JSON.parse(
-    await readFile(
-        resolve(projectRoot, ".generated/slint-wasm/provenance.json"),
-        "utf8",
-    ),
-);
-// Publish build identity, keeping checkout paths and cache metadata local.
 const publicProvenance = {
     channel: process.env.PLUGIN_BUILD_CHANNEL ?? "development",
-    repository: localProvenance.runtimePin.repository,
+    repository: "https://github.com/slint-ui/slint.git",
     manifest: "api/wasm-interpreter/Cargo.toml",
+    revision: execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: projectRoot,
+        encoding: "utf8",
+    }).trim(),
+    version: JSON.parse(
+        await readFile(resolve(projectRoot, "package.json"), "utf8"),
+    ).version,
 };
-for (const key of [
-    "schemaVersion",
-    "artifactRevision",
-    "artifactSourceTree",
-    "revision",
-    "sourceTree",
-    "dirty",
-    "inputWasmHash",
-    "cacheKey",
-    "buildRecipe",
-    "runtimePin",
-    "artifactHashes",
-    "toolVersions",
-])
-    publicProvenance[key] = localProvenance[key];
 await writeFile(
     resolve(distDir, "provenance.json"),
-    `${JSON.stringify(publicProvenance, null, 4)}\n`,
+    JSON.stringify(publicProvenance, null, 4) + "\n",
 );

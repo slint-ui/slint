@@ -33,6 +33,7 @@
       ]
     },
     "tools/figma-inspector": {
+      "ignoreBinaries": ["wasm-pack"],
       "vite": false,
       "vitest": {
         "config": [

@@ -22,7 +22,7 @@ default. Use preview and project export for the complete selected tree.
 ## Development
 
 Use the repository's Node.js and pnpm versions, Rust with the
-`wasm32-unknown-unknown` target, and the wasm-pack version in `runtime-pin.json`.
+`wasm32-unknown-unknown` target, and wasm-pack.
 
 ```sh
 pnpm install --frozen-lockfile # from the repository root
@@ -36,8 +36,8 @@ and import `dist-dev/manifest.json`.
 Run `pnpm verify` for the full checks and tests.
 
 The plugin captures Figma nodes as JSON, converts them to Slint, and uses that
-output for preview and export. Its Slint runtime is independently pinned in
-`runtime-pin.json` and prepared in `.generated/slint-source`. Set `SLINT_REPO`
-to use another clean checkout matching the pin.
+output for preview and export. Its Slint runtime is built from
+`api/wasm-interpreter` in this checkout, using the same wasm-pack command as SlintPad.
+Use `pnpm build:slint:dev` for a development interpreter build.
 
 See [fixture instructions](fixtures/README.md) and [publishing](PUBLISH.md).

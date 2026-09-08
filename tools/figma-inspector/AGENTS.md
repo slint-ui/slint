@@ -6,10 +6,9 @@ Offline Figma-to-Slint plugin in the Slint monorepo. Target Slint 1.18+; no back
 
 ## Sources of truth
 
-- Resolve Slint from `SLINT_REPO`, defaulting to the separately prepared `.generated/slint-source`; require the unmodified revision in `runtime-pin.json`.
-- Treat that checkout as read-only unless explicitly asked to edit it.
-- Syntax asset checks use the inspector sources in the separately pinned runtime checkout.
-- Use the root pnpm workspace, dependency catalog and lockfile. Never implicitly use the enclosing monorepo as runtime source.
+- Build the interpreter from `api/wasm-interpreter` in this checkout with wasm-pack, as SlintPad does.
+- Use the root pnpm workspace, dependency catalog and lockfile.
+- Import the shared Slint grammar from `docs/common`; plugin themes live in `src/ui/syntax-assets`.
 - Never edit generated files in `.generated/` or `dist/`.
 
 ## Architecture
