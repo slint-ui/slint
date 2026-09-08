@@ -44,12 +44,26 @@ struct Measured {
 /// returns what `measure` saw then. The checks happen after the loop: a panic inside a timer
 /// callback aborts the process on the Qt backend instead of failing the test.
 fn run_and_measure(measure: impl Fn() -> Measured + 'static) -> Measured {
+    run_and_measure_after(measure, std::future::ready(()))
+}
+
+/// Like [`run_and_measure`], but waits for `action` first and only then gives the window the
+/// second to settle. Creating the window takes as long as the windowing system needs, so an
+/// action that waits for it must not share its budget with the measurement.
+fn run_and_measure_after(
+    measure: impl Fn() -> Measured + 'static,
+    action: impl std::future::Future<Output = ()> + 'static,
+) -> Measured {
     let measured = Rc::new(Cell::new(None));
     let sink = measured.clone();
-    slint::Timer::single_shot(std::time::Duration::from_millis(1000), move || {
-        sink.set(Some(measure()));
-        slint::quit_event_loop().unwrap();
-    });
+    slint::spawn_local(async move {
+        action.await;
+        slint::Timer::single_shot(std::time::Duration::from_millis(1000), move || {
+            sink.set(Some(measure()));
+            slint::quit_event_loop().unwrap();
+        });
+    })
+    .unwrap();
     slint::run_event_loop().unwrap();
     measured.take().expect("the timer ran before the event loop quit")
 }
@@ -136,14 +150,13 @@ fn size_after_show() {
     let app = Fixed::new().unwrap();
     app.show().unwrap();
     let weak = app.as_weak();
-    slint::spawn_local(async move {
+    let measured = run_and_measure_after(measure!(app), async move {
         let app = weak.unwrap();
         // Set the size once the winit window exists, after the show path has applied the
         // preferred size. Another backend has no winit window and fails this right away; there
         // the window exists from the start.
         let _ = app.window().winit_window().await;
         app.window().set_size(slint::WindowSize::Logical(LOGICAL));
-    })
-    .unwrap();
-    assert_size(&run_and_measure(measure!(app)), LOGICAL);
+    });
+    assert_size(&measured, LOGICAL);
 }
