@@ -16,6 +16,7 @@
         "test:package": "node scripts/package-plugin.mjs --test && node tests/package-contract.mjs",
         "dev": "pnpm build:dev && concurrently --kill-others \"vite build --config vite.config.code.ts --mode development --watch\" \"vite build --mode development --watch\"",
         "test": "vitest run",
+        "test:performance": "vitest run --project browser tests/button-performance.browser.spec.ts",
         "test:unit": "vitest run --project unit",
         "test:browser": "vitest run --project browser --project raster-1.25 --project raster-2",
         "verify": "pnpm build:slint && pnpm check && pnpm build && pnpm build:dev && pnpm test:bundle && pnpm test:package && pnpm test:nightly && pnpm test:unit && pnpm test:browser",
