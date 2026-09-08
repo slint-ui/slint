@@ -24,6 +24,10 @@ cpp = []
 rust = ["quote", "proc-macro2"]
 python = ["dep:pathdiff", "dep:serde", "smol_str/serde", "dep:serde_json", "dep:flate2", "dep:base64"]
 
+# Keep the documentation of the builtin elements in the binary, for hover documentation
+# and doc generation.
+builtin-docs = []
+
 # Safety-critical subset: enables the SlintSc output format and compile-time checks.
 # The `image` crate decodes `@image-url()` images at compile time.
 slint-sc = ["quote", "proc-macro2", "image"]

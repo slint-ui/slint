@@ -353,7 +353,7 @@ without it never reads its own height.
 
 ### Adding a New Layout Property
 
-1. Add property to builtin layout element in `internal/compiler/builtins.slint`
+1. Add property to builtin layout element in `internal/compiler/builtin_elements.rs`
 2. Handle in `LayoutGeometry` or `LayoutConstraints` in `internal/compiler/layout.rs`
 3. Update `lower_layout.rs` to extract and use the property
 4. Update runtime structs in `internal/core/layout.rs` if needed

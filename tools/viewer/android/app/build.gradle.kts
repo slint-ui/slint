@@ -51,6 +51,11 @@ android {
             if (keystorePath != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
+            // The VCS record would carry the checkout path, which F-Droid's
+            // rebuild can't match.
+            vcsInfo {
+                include = false
+            }
         }
     }
 }

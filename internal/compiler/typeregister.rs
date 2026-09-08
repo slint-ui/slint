@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinStruct, ElementType, Enumeration, Function,
-    PropertyLookupResult, Struct, Type,
+    BuiltinElement, BuiltinStruct, ElementType, Enumeration, Function, PropertyLookupResult,
+    Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -99,7 +99,6 @@ pub struct BuiltinTypes {
     pub set_selection_offsets_callback_type: Type,
     pub logical_point_type: Arc<Struct>,
     pub logical_size_type: Arc<Struct>,
-    pub font_metrics_type: Type,
     pub layout_info_type: Arc<Struct>,
     pub state_info_type: Arc<Struct>,
     pub gridlayout_input_data_type: Type,
@@ -152,16 +151,6 @@ impl BuiltinTypes {
                 .collect(),
                 BuiltinStruct::LogicalSize,
             )),
-            font_metrics_type: Type::Struct(Arc::new(Struct::new(
-                IntoIterator::into_iter([
-                    (SmolStr::new_static("ascent"), Type::LogicalLength),
-                    (SmolStr::new_static("descent"), Type::LogicalLength),
-                    (SmolStr::new_static("x-height"), Type::LogicalLength),
-                    (SmolStr::new_static("cap-height"), Type::LogicalLength),
-                ])
-                .collect(),
-                BuiltinStruct::FontMetrics,
-            ))),
             noarg_callback_type: Type::Callback(Arc::new(Function {
                 return_type: Type::Void,
                 args: Vec::new(),
@@ -395,7 +384,6 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
     {
         return PropertyLookupResult {
             property_type: ty,
-            #[cfg(feature = "slint-sc")]
             is_slint_sc: matches!(name.as_ref(), "x" | "y" | "width" | "height"),
             resolved_name: name,
             is_local_to_component: false,
@@ -425,7 +413,6 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
                         property_visibility: crate::object_tree::PropertyVisibility::InOut,
                         declared_pure: None,
                         builtin_function: None,
-                        #[cfg(feature = "slint-sc")]
                         is_slint_sc: false,
                         internal_name: None,
                         deprecated: None,
@@ -462,7 +449,7 @@ pub struct TypeRegister {
     pub(crate) empty_type: ElementType,
     /// Map from a context restricted type to the list of contexts (parent type) it is allowed in. This is
     /// used to construct helpful error messages, such as "Row can only be within a GridLayout element".
-    context_restricted_types: HashMap<SmolStr, HashSet<SmolStr>>,
+    pub(crate) context_restricted_types: HashMap<SmolStr, HashSet<SmolStr>>,
     parent_registry: Option<Rc<RefCell<TypeRegister>>>,
     /// If the lookup function should return types that are marked as internal
     pub(crate) expose_internal_types: bool,
@@ -503,7 +490,7 @@ impl TypeRegister {
         self.types.insert(name, t).is_none()
     }
 
-    fn builtin_internal(symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>) -> Self {
+    fn builtin_internal() -> Self {
         let mut register = TypeRegister::default();
 
         register.insert_type(Type::Float32);
@@ -551,86 +538,20 @@ impl TypeRegister {
         }
         i_slint_common::for_each_builtin_structs!(register_builtin_structs);
 
-        crate::load_builtins::load_builtins(&mut register, symbol_counters);
-
-        // Walk every builtin reachable from an exported one and register each
-        // accepted child as context-restricted to its parent, so internal types
-        // like `MenuItem` report "can only be within Menu" instead of "Unknown".
-        let mut visited: HashSet<SmolStr> = HashSet::new();
-        let mut to_visit: Vec<Rc<BuiltinElement>> = register
-            .elements
-            .values()
-            .filter_map(|e| match e {
-                ElementType::Builtin(b) => Some(b.clone()),
-                _ => None,
-            })
-            .collect();
-        while let Some(b) = to_visit.pop() {
-            let parent = b.native_class.class_name.clone();
-            if !visited.insert(parent.clone()) {
-                continue;
-            }
-            for (child_name, child_type) in &b.additional_accepted_child_types {
-                register
-                    .context_restricted_types
-                    .entry(child_name.clone())
-                    .or_default()
-                    .insert(parent.clone());
-                to_visit.push(child_type.clone());
-            }
-            if b.additional_accept_self {
-                register.context_restricted_types.entry(parent.clone()).or_default().insert(parent);
-            }
-        }
-
-        let font_metrics_prop = crate::langtype::BuiltinPropertyInfo {
-            property_visibility: PropertyVisibility::Output,
-            default_value: BuiltinPropertyDefault::WithElement(|elem| {
-                crate::expression_tree::Expression::FunctionCall {
-                    function: BuiltinFunction::ItemFontMetrics.into(),
-                    arguments: vec![crate::expression_tree::Expression::ElementReference(
-                        Rc::downgrade(elem),
-                    )],
-                    source_location: None,
-                }
-            }),
-            ..crate::langtype::BuiltinPropertyInfo::new(font_metrics_type())
-        };
-
-        match &mut register.elements.get_mut("TextInput").unwrap() {
-            ElementType::Builtin(b) => {
-                let text_input = Rc::get_mut(b).unwrap();
-                text_input.properties.insert("font-metrics".into(), font_metrics_prop.clone());
-            }
-
-            _ => unreachable!(),
-        };
-
-        match &mut register.elements.get_mut("Text").unwrap() {
-            ElementType::Builtin(b) => {
-                let text = Rc::get_mut(b).unwrap();
-                text.properties.insert("font-metrics".into(), font_metrics_prop);
-            }
-
-            _ => unreachable!(),
-        };
+        crate::builtin_elements::load(&mut register);
 
         register
     }
 
     #[doc(hidden)]
     /// All builtins incl. experimental ones! Do not use in production code!
-    pub fn builtin_experimental(
-        symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
-    ) -> Rc<RefCell<Self>> {
-        let register = Self::builtin_internal(symbol_counters);
+    pub fn builtin_experimental() -> Rc<RefCell<Self>> {
+        let register = Self::builtin_internal();
         Rc::new(RefCell::new(register))
     }
 
-    pub fn builtin(
-        symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
-    ) -> Rc<RefCell<Self>> {
-        let mut register = Self::builtin_internal(symbol_counters);
+    pub fn builtin() -> Rc<RefCell<Self>> {
+        let mut register = Self::builtin_internal();
 
         register.elements.remove("ComponentContainer").unwrap();
         register.types.remove("component-factory").unwrap();
@@ -872,7 +793,7 @@ pub fn logical_size_type() -> Arc<Struct> {
 }
 
 pub fn font_metrics_type() -> Type {
-    BUILTIN.font_metrics_type.clone()
+    Type::Struct(builtin_structs::FontMetrics())
 }
 
 /// The [`Type`] for a runtime LayoutInfo structure

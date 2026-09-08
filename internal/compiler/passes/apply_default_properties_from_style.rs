@@ -12,7 +12,7 @@ use crate::object_tree::Component;
 use smol_str::SmolStr;
 use std::rc::Rc;
 
-/// Ideally we would be able to write this in builtin.slint, but the StyleMetrics is not available there
+/// Ideally the builtin element declarations would set these defaults, but the StyleMetrics is not available there
 pub fn apply_default_properties_from_style(
     root_component: &Rc<Component>,
     style_metrics: &Rc<Component>,

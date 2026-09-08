@@ -1,0 +1,4161 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore langtype typeregister borderless commonmark Strikethroughs
+
+//! The builtin elements of the language and the runtime items they lower to.
+//!
+//! `item!` declares a runtime item, one per item struct, with the properties, callbacks and
+//! functions the item implements. An item that has every property of another one names it
+//! after a colon, so the compiler can lower to the smaller item when the larger one isn't needed:
+//!
+//! ```text
+//! item! { SimpleText: Empty {
+//!     /// Documentation of the member.
+//!     in property <string> text;
+//!     in property <length> font-size: 12px;
+//!     @deprecated in property <angle> rotation-angle <=> transform-rotation;   // deprecated alias
+//!     //! ### Section heading           // free-form documentation kept in source order
+//!     callback edited(text: string) -> bool;
+//!     function close() { }                                  // implemented by a compiler pass
+//!     function start() { BuiltinFunction.StartTimer }       // implemented by a BuiltinFunction
+//!     out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics } // computed per element
+//! } }
+//! ```
+//!
+//! `element!` declares an element `.slint` code can use. An element names the native item it
+//! lowers to; the compiler picks the smallest item in that item's parent chain that has every
+//! property the element uses, so a `Rectangle { }` becomes an `Empty`. Members declared on the
+//! element itself only exist in the compiler. Accepted child elements are listed with
+//! `children:`.
+//!
+//! ```text
+//! element! {
+//!     /// Documentation of the element.
+//!     @implicit_size
+//!     Text: ComplexText
+//! }
+//!
+//! element! { Window: WindowItem { children: MenuBar; } }
+//!
+//! element! {
+//!     @is_non_item_type
+//!     Timer {
+//!         in property <duration> interval;
+//!         function start() { BuiltinFunction.StartTimer }
+//!     }
+//! }
+//! ```
+//!
+//! The `@flags` of an element are the boolean fields of `BuiltinElement` (`is_internal`,
+//! `is_global`, ...) plus `expands_to_parent_geometry` or `implicit_size` for the default size,
+//! `builtin_struct(Name)`, `sc` for an element of the Slint SC subset and `skip_inherited` to
+//! leave the docs of the native items out of the element's.
+//! Member modifiers `@shadowable`, `@deprecated` (aliases only) and `@pure` keep their Slint
+//! meaning; `@constexpr` marks a property whose value is known at compile time, `@fake` one
+//! that exists only at compile time and `@sc` one of the Slint SC subset. A default value is a
+//! literal (`true`, `4`, `8px`, `500ms`, `"text"`, `#00f`) or an enum value
+//! (`ImageFit.contain`); the compiler sets it as the property's binding.
+//!
+//! Elements that are accepted children of another element are only reachable through it.
+//! A native item or an element must be declared before the items and elements using it, so each
+//! item sits right before the element that lowers to it. The macros expand to calls on a
+//! [`Builder`] that fill a [`NativeClass`] and a [`BuiltinElement`]; [`load`] runs them.
+
+use crate::expression_tree::{BuiltinFunction, Unit};
+use crate::langtype::{
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, ConstantExpression,
+    DefaultSizeBinding, ElementDocEntry, ElementType, Function, NativeClass, Type,
+};
+use crate::object_tree::{Component, Element, PropertyVisibility};
+use crate::typeregister::TypeRegister;
+use smol_str::SmolStr;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::Arc;
+
+/// `stringify!` output of a hyphenated name, without the spaces it puts around `-`.
+fn kebab(spelled: &str) -> SmolStr {
+    debug_assert!(!spelled.contains('_'), "`{spelled}` must be spelled with dashes");
+    spelled.split(' ').collect()
+}
+
+/// Joins doc lines like the parser did for `///` comments: one space after the marker is
+/// dropped, lines are separated by `\n`.
+fn join_docs(lines: &[&str]) -> Option<String> {
+    (!lines.is_empty()).then(|| {
+        lines.iter().map(|l| l.strip_prefix(' ').unwrap_or(l)).collect::<Vec<_>>().join("\n")
+    })
+}
+
+/// The default value as written after the property: a literal (`true`, `4`, `8px`, `"text"`,
+/// `#00f`) or an enum value (`ImageFit.contain`). A number on an `int` property is cast, as the
+/// compiler does for a binding.
+fn default(ty: &Type, text: &str) -> Option<ConstantExpression> {
+    if text.is_empty() {
+        return None;
+    }
+    if text.starts_with('"') {
+        return Some(ConstantExpression::StringLiteral(
+            crate::literals::unescape_string(text).unwrap(),
+        ));
+    }
+    let text = text.replace(' ', "");
+    Some(match text.as_str() {
+        "true" => ConstantExpression::BoolLiteral(true),
+        "false" => ConstantExpression::BoolLiteral(false),
+        color if color.starts_with('#') => {
+            let argb = i_slint_common::color_parsing::parse_color_literal(color).unwrap();
+            ConstantExpression::Cast {
+                from: Box::new(ConstantExpression::NumberLiteral(argb as f64, Unit::None)),
+                to: Type::Color,
+            }
+        }
+        value if value.starts_with(|c: char| c.is_ascii_alphabetic()) => {
+            let (qualifier, value) = value.split_once('.').unwrap();
+            let Type::Enumeration(enumeration) = ty else {
+                panic!("enum default `{qualifier}.{value}` on a property of type {ty}")
+            };
+            assert_eq!(qualifier, enumeration.name, "wrong enum in `{qualifier}.{value}`");
+            let value = enumeration.clone().try_value_from_string(&kebab(value)).unwrap();
+            ConstantExpression::EnumerationValue(value)
+        }
+        number => {
+            let (value, unit) =
+                crate::literals::parse_number_literal(SmolStr::new(number)).unwrap();
+            let (value, unit) = unit.normalize(value);
+            let number = ConstantExpression::NumberLiteral(value, unit);
+            match ty {
+                Type::Int32 => ConstantExpression::Cast { from: Box::new(number), to: Type::Int32 },
+                _ => number,
+            }
+        }
+    })
+}
+
+#[cfg(feature = "builtin-docs")]
+macro_rules! docs {
+    ($($l:literal)*) => { &[$($l),*] };
+}
+/// Without the feature the doc strings stay out of the binary.
+#[cfg(not(feature = "builtin-docs"))]
+macro_rules! docs {
+    ($($l:literal)*) => {
+        &[]
+    };
+}
+
+#[rustfmt::skip]
+macro_rules! visibility {
+    (in) => { PropertyVisibility::Input };
+    (out) => { PropertyVisibility::Output };
+    (in - out) => { PropertyVisibility::InOut };
+    (private) => { PropertyVisibility::Private };
+}
+
+/// An `@flag` of an element; a bare flag names a `BuiltinElement` field.
+macro_rules! flag {
+    ($e:ident sc) => { $e.element.slint_sc = true };
+    ($e:ident skip_inherited) => { $e.element.docs.truncate(1) };
+    ($e:ident expands_to_parent_geometry) => { $e.element.default_size_binding = DefaultSizeBinding::ExpandsToParentGeometry };
+    ($e:ident implicit_size) => { $e.element.default_size_binding = DefaultSizeBinding::ImplicitSize };
+    ($e:ident builtin_struct($s:ident)) => { $e.class.builtin_struct = Some(BuiltinStruct::$s) };
+    ($e:ident $flag:ident) => { $e.element.$flag = true };
+}
+
+/// The members of a native item or builtin element, as calls on the builder `$e`.
+macro_rules! members {
+    ($l:ident $e:ident $(#![doc = $s:literal])*) => { $e.section(docs!($($s)*)); };
+    // property
+    ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident)*
+        $vis:ident $(- $vis2:ident)? property < $($ty:tt)-+ > $($name:tt)-+ $(: $default:tt $(. $($dv:tt)-+)? $($hex:literal)?)? $(<=> $($alias:tt)-+)? ;
+        $($rest:tt)*) => {
+        $e.section(docs!($($s)*));
+        {
+            let ty = $l.ty(stringify!($($ty)-+));
+            let default = default(&ty, stringify!($($default $(. $($dv)-+)? $($hex)?)?));
+            $e.property(stringify!($($name)-+), ty, visibility!($vis $(- $vis2)?), default,
+                None $(.or(Some(stringify!($($alias)-+))))?, &[$(stringify!($mod)),*], docs!($($d)*));
+        }
+        members!($l $e $($rest)*);
+    };
+    // property computed per element by a BuiltinFunction that takes the element
+    ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident)*
+        $vis:ident property < $($ty:tt)-+ > $($name:tt)-+ { BuiltinFunction . $bf:ident } $($rest:tt)*) => {
+        $e.section(docs!($($s)*));
+        {
+            let mut info = BuiltinPropertyInfo::new($l.ty(stringify!($($ty)-+)));
+            info.property_visibility = visibility!($vis);
+            info.default_value = BuiltinPropertyDefault::ElementFunction(BuiltinFunction::$bf);
+            $e.add(stringify!($($name)-+), info, &[$(stringify!($mod)),*], docs!($($d)*));
+        }
+        members!($l $e $($rest)*);
+    };
+    // callback
+    ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident)*
+        callback $($name:tt)-+ $(( $($n:tt : $($t:tt)-+),* ))? $(-> $($ret:tt)-+)? ; $($rest:tt)*) => {
+        $e.section(docs!($($s)*));
+        $e.function(stringify!($($name)-+), Type::Callback,
+            $l.function(&[$($((stringify!($n), stringify!($($t)-+))),*)?], stringify!($($($ret)-+)?)),
+            None, &[$(stringify!($mod)),*], docs!($($d)*));
+        members!($l $e $($rest)*);
+    };
+    // function, implemented by a compiler pass or by the BuiltinFunction named in its body
+    ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident)*
+        function $($name:tt)-+ ( $($n:tt : $($t:tt)-+),* ) $(-> $($ret:tt)-+)? { $(BuiltinFunction . $bf:ident)? } $($rest:tt)*) => {
+        $e.section(docs!($($s)*));
+        $e.function(stringify!($($name)-+), Type::Function,
+            $l.function(&[$((stringify!($n), stringify!($($t)-+))),*], stringify!($($($ret)-+)?)),
+            None $(.or(Some(BuiltinFunction::$bf)))?, &[$(stringify!($mod)),*], docs!($($d)*));
+        members!($l $e $($rest)*);
+    };
+    // accepted child elements
+    ($l:ident $e:ident $(#![doc = $s:literal])* children : $($child:ident),+ ; $($rest:tt)*) => {
+        $e.section(docs!($($s)*));
+        $l.children(&mut $e, &[$(stringify!($child)),+]);
+        members!($l $e $($rest)*);
+    };
+}
+
+/// A native item or builtin element being built.
+struct Builder {
+    class: NativeClass,
+    element: BuiltinElement,
+}
+
+impl Builder {
+    /// `//!` lines, kept in the docs in source order.
+    fn section(&mut self, lines: &[&str]) {
+        if let Some(text) = join_docs(lines) {
+            self.element.docs.push(ElementDocEntry::Text(text));
+        }
+    }
+
+    fn add(&mut self, name: &str, mut info: BuiltinPropertyInfo, mods: &[&str], docs: &[&str]) {
+        info.shadowable = mods.contains(&"shadowable");
+        info.slint_sc = mods.contains(&"sc");
+        info.docs = join_docs(docs);
+        let name = kebab(name);
+        self.member_doc(name.clone());
+        // A property computed per element isn't a property of the native item.
+        match info.default_value {
+            BuiltinPropertyDefault::ElementFunction(_) => {
+                self.element.properties.insert(name, info)
+            }
+            _ => self.class.properties.insert(name, info),
+        };
+    }
+
+    /// The docs are only assembled when they reach the binary.
+    fn member_doc(&mut self, name: SmolStr) {
+        if cfg!(feature = "builtin-docs") {
+            self.element.docs.push(ElementDocEntry::Member(name));
+        }
+    }
+
+    #[inline(never)]
+    fn property(
+        &mut self,
+        name: &str,
+        ty: Type,
+        vis: PropertyVisibility,
+        default: Option<ConstantExpression>,
+        alias: Option<&str>,
+        mods: &[&str],
+        docs: &[&str],
+    ) {
+        debug_assert_eq!(
+            mods.contains(&"deprecated"),
+            alias.is_some(),
+            "`@deprecated` on {}::{name} is only for two-way-binding aliases, and every alias must have it",
+            self.class.class_name
+        );
+        if let Some(target) = alias {
+            let name = kebab(name);
+            self.class.deprecated_aliases.insert(name.clone(), kebab(target));
+            self.member_doc(name);
+            return;
+        }
+        let mut info = BuiltinPropertyInfo::new(ty);
+        info.property_visibility = if mods.contains(&"constexpr") {
+            PropertyVisibility::Constexpr
+        } else if mods.contains(&"fake") {
+            PropertyVisibility::Fake
+        } else {
+            vis
+        };
+        if let Some(default) = default {
+            assert!(
+                !mods.contains(&"shadowable"),
+                "shadowable property {}::{name} can't have a default value as it would end up on the shadowing declaration",
+                self.class.class_name
+            );
+            debug_assert_eq!(
+                default.to_expression().ty(),
+                info.ty,
+                "the default value of {}::{name} has the wrong type",
+                self.class.class_name
+            );
+            info.default_value = BuiltinPropertyDefault::Expr(default);
+        }
+        self.add(name, info, mods, docs);
+    }
+
+    /// A callback or a function; `ty` is the `Type` constructor. A function is implemented by
+    /// a compiler pass, or by `builtin`.
+    #[inline(never)]
+    fn function(
+        &mut self,
+        name: &str,
+        ty: fn(Arc<Function>) -> Type,
+        function: Function,
+        builtin: Option<BuiltinFunction>,
+        mods: &[&str],
+        docs: &[&str],
+    ) {
+        let declared_pure = mods.contains(&"pure");
+        let info = match builtin {
+            Some(builtin) => {
+                // The BuiltinFunction type prepends implicit ElementReference arguments.
+                let builtin_ty = builtin.ty();
+                let implicit = builtin_ty.args.len().saturating_sub(function.args.len());
+                debug_assert!(
+                    builtin_ty.args.ends_with(&function.args)
+                        && builtin_ty.args[..implicit]
+                            .iter()
+                            .all(|t| matches!(t, Type::ElementReference))
+                        && builtin_ty.return_type == function.return_type,
+                    "the declared signature of {}::{name} doesn't match {builtin:?}: {builtin_ty:?}",
+                    self.class.class_name
+                );
+                let mut merged = (*builtin_ty).clone();
+                merged.arg_names = std::iter::repeat_n(SmolStr::default(), implicit)
+                    .chain(function.arg_names)
+                    .collect();
+                debug_assert_eq!(
+                    declared_pure,
+                    builtin.is_pure(),
+                    "the 'pure' qualifier of {}::{name} doesn't match {builtin:?}",
+                    self.class.class_name
+                );
+                // `pure` comes from the BuiltinFunction, see BuiltinPropertyInfo::pure.
+                let mut info = BuiltinPropertyInfo::from(builtin);
+                info.ty = ty(Arc::new(merged));
+                info
+            }
+            None => {
+                let mut info = BuiltinPropertyInfo::new(ty(Arc::new(function)));
+                info.pure = declared_pure;
+                info
+            }
+        };
+        self.add(name, info, mods, docs);
+    }
+}
+
+struct Loader<'a> {
+    register: &'a mut TypeRegister,
+    /// The native items by name, each with the properties and docs of its whole parent chain.
+    items: HashMap<SmolStr, (Arc<NativeClass>, BuiltinElement)>,
+    /// The builtin elements by name.
+    elements: HashMap<SmolStr, Rc<BuiltinElement>>,
+}
+
+impl Loader<'_> {
+    /// A type as written: `length`, `[MenuEntry]`, or nothing for `void`.
+    fn ty(&self, text: &str) -> Type {
+        if text.is_empty() {
+            return Type::Void;
+        }
+        if let Some(inner) = text.strip_prefix('[').and_then(|t| t.strip_suffix(']')) {
+            return Type::Array(Arc::new(self.ty(inner)));
+        }
+        let ty = self.register.lookup(&kebab(text));
+        assert!(ty != Type::Invalid, "unknown type `{text}` in a builtin element");
+        ty
+    }
+
+    /// The signature of a callback or function from its `(name: type, ..)` and return type.
+    fn function(&self, args: &[(&str, &str)], ret: &str) -> Function {
+        Function {
+            return_type: self.ty(ret),
+            args: args.iter().map(|(_, t)| self.ty(t)).collect(),
+            arg_names: args.iter().map(|(n, _)| kebab(n)).collect(),
+        }
+    }
+
+    fn item_chain(&self, name: &str) -> &(Arc<NativeClass>, BuiltinElement) {
+        self.items
+            .get(name)
+            .unwrap_or_else(|| panic!("native item `{name}` must be declared before its use"))
+    }
+
+    #[inline(never)]
+    fn item(&self, name: &str, parent: Option<&str>) -> Builder {
+        let mut class = NativeClass::new(name);
+        let mut element = BuiltinElement::default();
+        if let Some(parent) = parent {
+            let (parent_class, chain) = self.item_chain(parent);
+            class.parent = Some(parent_class.clone());
+            element.properties = chain.properties.clone();
+            element.docs = chain.docs.clone();
+        }
+        Builder { class, element }
+    }
+
+    fn finish_item(&mut self, mut e: Builder) {
+        e.element.properties.extend(e.class.properties.clone());
+        self.items.insert(e.class.class_name.clone(), (Arc::new(e.class), e.element));
+    }
+
+    #[inline(never)]
+    fn element(&self, name: &str, docs: &[&str]) -> Builder {
+        let mut e = self.item(name, None);
+        if cfg!(feature = "builtin-docs") {
+            e.element.docs.push(ElementDocEntry::Text(join_docs(docs).unwrap_or_default()));
+        }
+        e
+    }
+
+    /// The native item the element lowers to. The element gets the properties and docs of the
+    /// item and of its parents.
+    fn base(&self, e: &mut Builder, item: &str) {
+        let (class, chain) = self.item_chain(item);
+        e.element.properties.extend(chain.properties.clone());
+        e.element.docs.extend(chain.docs.iter().cloned());
+        e.class.parent = Some(class.clone());
+    }
+
+    /// The accepted child elements, which can only be used within this one.
+    fn children(&mut self, e: &mut Builder, names: &[&str]) {
+        let parent = e.class.class_name.clone();
+        for name in names {
+            let name = SmolStr::new(name);
+            if name == parent {
+                e.element.additional_accept_self = true;
+            } else {
+                let child = self.elements.get(&name).unwrap_or_else(|| {
+                    panic!(
+                        "`{name}` must be declared before the builtin elements using it as a child"
+                    )
+                });
+                e.element.additional_accepted_child_types.insert(name.clone(), child.clone());
+            }
+            self.register.context_restricted_types.entry(name).or_default().insert(parent.clone());
+        }
+    }
+
+    fn finish_element(&mut self, e: Builder) {
+        let mut builtin = e.element;
+        builtin.name = e.class.class_name.clone();
+        builtin.properties.extend(e.class.properties.clone());
+        // An element without members of its own is the native item it lowers to.
+        let own_members = !e.class.properties.is_empty()
+            || !e.class.deprecated_aliases.is_empty()
+            || e.class.builtin_struct.is_some();
+        builtin.native_class = match e.class.parent.clone() {
+            Some(item) if !own_members => item,
+            _ => Arc::new(e.class),
+        };
+        let builtin = Rc::new(builtin);
+        if builtin.is_global {
+            let global = Rc::new(Component {
+                id: builtin.name.clone(),
+                root_element: Rc::new(RefCell::new(Element {
+                    base_type: ElementType::Builtin(builtin.clone()),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            });
+            global.root_element.borrow_mut().enclosing_component = Rc::downgrade(&global);
+            self.register.add(global);
+        }
+        self.elements.insert(builtin.name.clone(), builtin);
+    }
+}
+
+/// The declarations. `item!` declares a runtime item, `element!` an element of the language.
+fn build(l: &mut Loader) {
+    macro_rules! item {
+        ($Name:ident $(: $Parent:ident)? { $($body:tt)* }) => {{
+            let mut e = l.item(stringify!($Name), None $(.or(Some(stringify!($Parent))))?);
+            members!(l e $($body)*);
+            l.finish_item(e);
+        }};
+    }
+    macro_rules! element {
+        ($(#[doc = $d:literal])* $(@$flag:ident $(($arg:ident))?)* $Name:ident $(: $Item:ident)? $({ $($body:tt)* })?) => {{
+            let mut e = l.element(stringify!($Name), docs!($($d)*));
+            $( l.base(&mut e, stringify!($Item)); )?
+            $( flag!(e $flag $(($arg))?); )*
+            members!(l e $($($body)*)?);
+            l.finish_element(e);
+        }};
+    }
+
+    item! { Empty { } }
+
+    element! {
+        @is_internal
+        Empty: Empty
+    }
+
+    item! { Rectangle: Empty {
+        /// The background brush of this `Rectangle`, filling its geometry. \{#sls.ref.rectangle.background}
+        ///
+        /// Without a `background` and without a border, the `Rectangle` paints nothing. \{#sls.ref.rectangle.empty}
+        ///
+        /// A translucent background lets the content underneath show through. \{#sls.ref.rectangle.translucent}
+        ///
+        /// ```slint imageAlt="rectangle background" width="200" height="400"
+        /// property <brush> rainbow-gradient: @linear-gradient(40deg, rgba(255, 0, 0, 1) 0%, rgba(255, 154, 0, 1) 10%, rgba(208, 222, 33, 1) 20%,rgba(79, 220, 74, 1) 30%, rgba(63, 218, 216, 1) 40%, rgba(47, 201, 226, 1) 50%, rgba(28, 127, 238, 1) 60%, rgba(95, 21, 242, 1) 70%, rgba(186, 12, 248, 1) 80%, rgba(251, 7, 217, 1) 90%, rgba(255, 0, 0, 1) 100%);
+        ///
+        /// Rectangle {
+        ///     x: 10px;
+        ///     y: 10px;
+        ///     width: 180px;
+        ///     height: 180px;
+        ///     background: #315afd;
+        /// }
+        ///
+        ///
+        /// Rectangle {
+        ///     x: 10px;
+        ///     y: 210px;
+        ///     width: 180px;
+        ///     height: 180px;
+        ///     background: rainbow-gradient;
+        /// }
+        /// ```
+        /// \default transparent
+        @sc in property <brush> background;
+        @deprecated in property <brush> color <=> background;
+    } }
+
+    item! { BasicBorderRectangle: Rectangle {
+        /// ```slint imageAlt="rectangle border-color" width="200" height="200"
+        /// Rectangle {
+        ///     width: 200px;
+        ///     height: 200px;
+        ///     border-width: 10px;
+        ///     border-color: lightslategray;
+        /// }
+        /// ```
+        /// The color of the border.
+        /// :::caution[Caution]
+        /// The default `border-width` is `0px`, so the border is invisible. After setting a color also ensure that the `border-width` is set to a non-zero value.
+        /// :::
+        /// \default transparent
+        in property <brush> border-color;
+        /// ```slint imageAlt="rectangle border-width" width="200" height="200"
+        /// Rectangle {
+        ///     width: 200px;
+        ///     height: 200px;
+        ///     border-width: 30px;
+        ///     border-color: lightslategray;
+        /// }
+        /// ```
+        /// The width of the border.
+        /// \default 0
+        in property <length> border-width;
+        //! ### clip
+        //! <SlintProperty propName="clip" typeName="bool" defaultValue="false">
+        //! ```slint imageAlt="rectangle clip" width="200" height="400"
+        //! // clip: false; the default
+        //! Rectangle {
+        //!     x: 50px; y: 50px;
+        //!     width: 150px;
+        //!     height: 150px;
+        //!     background: darkslategray;
+        //! # Text {
+        //! #     text: "clip: false";
+        //! #     font-size: 20pt;
+        //! #     color: white;
+        //! # }
+        //!     Rectangle {
+        //!         x: -40px; y: -40px;
+        //!         width: 100px;
+        //!         height: 100px;
+        //!         background: lightslategray;
+        //!     }
+        //! }
+        //!
+        //! // clip: true; Clips the children of this Rectangle
+        //! Rectangle {
+        //!     x: 50px; y: 250px;
+        //!     width: 150px;
+        //!     height: 150px;
+        //!     background: darkslategray;
+        //!     clip: true;
+        //! # Text {
+        //! #     text: "clip: true";
+        //! #     font-size: 20pt;
+        //! #     color: white;
+        //! # }
+        //!     Rectangle {
+        //!         x: -40px; y: -40px;
+        //!         width: 100px;
+        //!         height: 100px;
+        //!         background: lightslategray;
+        //!     }
+        //! }
+        //!
+        //! ```
+        //! By default, when child elements are outside the bounds of a parent,
+        //! they are still shown. When this property is set to `true`, the children
+        //! of this `Rectangle` are clipped and only the contents inside the elements bounds are shown.
+        //! </SlintProperty>
+        //!
+        //!
+        //! ## Border Radius Properties
+        /// The size of the radius. This single value is applied to all four corners.
+        /// \default 0
+        in property <length> border-radius;
+    } }
+
+    item! { BorderRectangle: BasicBorderRectangle {
+        //! To target specific corners with different values use the following properties:
+        ///
+        in property <length> border-top-left-radius;
+        ///
+        in property <length> border-top-right-radius;
+        ///
+        in property <length> border-bottom-left-radius;
+        ///
+        in property <length> border-bottom-right-radius;
+        //! ## Drop Shadows
+        //!
+        //! To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
+        //! an element, it's possible to set the following `drop-shadow` properties:
+        //!
+        //! The CSS equivalent is `box-shadow`: `box-shadow: 2px 2px 4px 1px black` translates to
+        //! `drop-shadow-offset-x: 2px; drop-shadow-offset-y: 2px; drop-shadow-blur: 4px;
+        //! drop-shadow-spread: 1px; drop-shadow-color: black;`.
+        //!
+        //! ### drop-shadow-blur
+        //! <SlintProperty propName="drop-shadow-blur" typeName="length"/>
+        //! The radius of the shadow that also describes the level of blur applied to the shadow. Negative values are ignored and zero means no blur.
+        //!
+        //! ### drop-shadow-color
+        //! <SlintProperty propName="drop-shadow-color" typeName="color"/>
+        //! The base color of the shadow to use. Typically that color is the starting color of a gradient that fades into transparency.
+        //!
+        //! ### drop-shadow-offset-x
+        //! <SlintProperty propName="drop-shadow-offset-x" typeName="length"/>
+        //! The horizontal distance of the shadow from the element's frame.
+        //!
+        //!
+        //! ### drop-shadow-offset-y
+        //! <SlintProperty propName="drop-shadow-offset-y" typeName="length"/>
+        //! The vertical distance of the shadow from the element's frame.
+        //!
+        //! ### drop-shadow-spread
+        //! <SlintProperty propName="drop-shadow-spread" typeName="length"/>
+        //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
+        //! Equivalent to the spread radius in CSS `box-shadow`. Currently only supported by the Skia renderer.
+        //!
+        //! ## Inner Shadows
+        //!
+        //! Inner shadows are rendered inside the element's geometry (inverted from drop shadows), giving
+        //! the appearance of an inwards-cast shadow. They follow the same parameters as drop shadows.
+        //! Currently only supported by the Skia renderer.
+        //!
+        //! The CSS equivalent is `box-shadow` with the `inset` keyword: `box-shadow: inset 2px 2px 4px 1px black`
+        //! translates to `inner-shadow-offset-x: 2px; inner-shadow-offset-y: 2px; inner-shadow-blur: 4px;
+        //! inner-shadow-spread: 1px; inner-shadow-color: black;`.
+        //!
+        //! ### inner-shadow-blur
+        //! <SlintProperty propName="inner-shadow-blur" typeName="length"/>
+        //! The blur radius of the inner shadow.
+        //!
+        //! ### inner-shadow-color
+        //! <SlintProperty propName="inner-shadow-color" typeName="color"/>
+        //! The base color of the inner shadow.
+        //!
+        //! ### inner-shadow-offset-x
+        //! <SlintProperty propName="inner-shadow-offset-x" typeName="length"/>
+        //! Horizontal offset of the inner shadow inside the element.
+        //!
+        //! ### inner-shadow-offset-y
+        //! <SlintProperty propName="inner-shadow-offset-y" typeName="length"/>
+        //! Vertical offset of the inner shadow inside the element.
+        //!
+        //! ### inner-shadow-spread
+        //! <SlintProperty propName="inner-shadow-spread" typeName="length"/>
+        //! Positive spread thickens the shadow band along the element's interior boundary; negative spread
+        //! thins it.
+    } }
+
+    element! {
+        /// By default, a `Rectangle` is just an empty item that shows nothing. By setting a color or configuring a border,
+        /// it's then possible to draw a rectangle on the screen. \{#sls.meta.rectangle.purpose}
+        ///
+        /// <NotInSC>
+        /// When not part of a layout, its width and height default to 100% of the parent element.
+        /// </NotInSC>
+        ///
+        /// ```slint playground imageAlt="rectangle example"
+        /// export component ExampleRectangle inherits Window {
+        ///     width: 200px; height: 800px; background: transparent;
+        ///
+        ///     Rectangle {
+        ///         x: 10px; y: 10px;
+        ///         width: 180px;
+        ///         height: 180px;
+        ///         background: #315afd;
+        ///     }
+        ///
+        ///     // Rectangle with a border
+        ///     Rectangle {
+        ///         x: 10px; y: 210px;
+        ///         width: 180px;
+        ///         height: 180px;
+        ///         background: green;
+        ///         border-width: 2px;
+        ///         border-color: red;
+        ///     }
+        ///
+        ///     // Transparent Rectangle with a border and a radius
+        ///     Rectangle {
+        ///         x: 10px; y: 410px;
+        ///         width: 180px;
+        ///         height: 180px;
+        ///         border-width: 4px;
+        ///         border-color: black;
+        ///         border-radius: 30px;
+        ///     }
+        ///
+        ///     // A radius of width/2 makes it a circle
+        ///     Rectangle {
+        ///         x: 10px; y: 610px;
+        ///         width: 180px;
+        ///         height: 180px;
+        ///         background: yellow;
+        ///         border-width: 2px;
+        ///         border-color: blue;
+        ///         border-radius: self.width/2;
+        ///     }
+        /// }
+        /// ```
+        /// \group:elements
+        @sc @expands_to_parent_geometry
+        Rectangle: BorderRectangle
+    }
+
+    item! { ImageItem: Empty {
+        in property <length> width;
+        in property <length> height;
+        /// When set, the image is used as an alpha mask and is drawn in the given color (or with the gradient).
+        /// ```slint imageAlt="image example" width="300" height="200"
+        /// Image {
+        ///     source: @image-url("slint-logo-simple-dark.png");
+        ///     colorize: darkorange;
+        /// }
+        /// ```
+        in property <brush> colorize;
+        /// The [image](/reference/property-types/images/) to draw, created with
+        /// [`@image-url()`](/reference/language/expressions/#sls.expr.image.form)
+        /// or set by the application: by default no image, drawing
+        /// nothing. \{#sls.ref.image.source}
+        ///
+        /// Access an `image`'s source dimension using its `source.width` and
+        /// `source.height` properties. \{#sls.ref.image.source.dimensions}
+        ///
+        /// ```slint
+        /// export component Example inherits Window {
+        ///     in property <image> some_image: @image-url("images/logo.png");
+        ///
+        ///     out property <int> image-width: some_image.width;
+        ///     out property <int> image-height: some_image.height;
+        /// }
+        /// ```
+        @sc in property <image> source;
+        /// ```slint imageAlt="image fill example" width="300" height="200"
+        /// Image {
+        ///     width: 200px; height: 50px;
+        ///     source: @image-url("mini-banner.png");
+        ///     image-fit: fill;
+        /// }
+        /// ```
+        ///
+        /// ```slint imageAlt="image contain example" width="300" height="200"
+        /// Image {
+        ///     width: 250px; height: 40px;
+        ///     source: @image-url("mini-banner.png");
+        ///     image-fit: contain;
+        /// }
+        /// ```
+        ///
+        /// ```slint imageAlt="image cover example" width="300" height="200"
+        /// Image {
+        ///     width: 250px; height: 250px;
+        ///     source: @image-url("mini-banner.png");
+        ///     image-fit: cover;
+        /// }
+        /// ```
+        ///
+        /// ```slint imageAlt="image preserve example" width="400" height="400"
+        /// Image {
+        ///     width: 400px; height: 400px;
+        ///     source: @image-url("mini-banner.png");
+        ///     image-fit: preserve;
+        /// }
+        /// ```
+        /// \default `contain` when the `Image` element is part of a layout, `fill` otherwise
+        in property <ImageFit> image-fit;
+        /// ```slint imageAlt="image smooth example" width="300" height="300"
+        /// Image {
+        ///     width: 800px;
+        ///     source: @image-url("mini-banner.png");
+        ///     image-rendering: smooth;
+        /// }
+        /// ```
+        ///
+        /// ```slint imageAlt="image pixelated example" width="300" height="300"
+        /// Image {
+        ///     width: 800px;
+        ///     source: @image-url("mini-banner.png");
+        ///     image-rendering: pixelated;
+        /// }
+        /// ```
+        /// \default smooth
+        in property <ImageRendering> image-rendering;
+
+        @deprecated in property <angle> rotation-angle <=> transform-rotation;
+    } }
+
+    item! { ClippedImage: ImageItem {
+        /// The horizontal alignment of the image within the element.
+        /// \default center
+        in property <ImageHorizontalAlignment> horizontal-alignment;
+        /// The vertical alignment of the image within the element.
+        /// \default center
+        in property <ImageVerticalAlignment> vertical-alignment;
+        //! ## Image Tiling
+        /// How the image is tiled horizontally.
+        /// \default none
+        in property <ImageTiling> horizontal-tiling;
+        /// ```slint imageAlt="image horizontal tiling repeat example" width="400" height="400"
+        /// Image {
+        ///     width: 400px;
+        ///     height: 400px;
+        ///     source: @image-url("slint-logo.png");
+        ///     horizontal-tiling: repeat;
+        /// }
+        /// ```
+        ///
+        /// ```slint imageAlt="image horizontal tiling round example" width="400" height="400"
+        /// Image {
+        ///     width: 400px;
+        ///     height: 400px;
+        ///     source: @image-url("slint-logo.png");
+        ///     horizontal-tiling: round;
+        /// }
+        /// ```
+        /// ```slint imageAlt="image vertical tiling repeat example" width="400" height="400"
+        /// Image {
+        ///     width: 400px;
+        ///     height: 400px;
+        ///     source: @image-url("slint-logo.png");
+        ///     vertical-tiling: repeat;
+        /// }
+        /// ```
+        ///
+        /// ```slint imageAlt="image vertical tiling round example" width="400" height="400"
+        /// Image {
+        ///     width: 400px;
+        ///     height: 400px;
+        ///     source: @image-url("slint-logo.png");
+        ///     vertical-tiling: round;
+        /// }
+        /// ```
+        ///
+        /// ```slint imageAlt="image vertical and horizontal tiling round example" width="400" height="400"
+        /// Image {
+        ///     width: 400px;
+        ///     height: 400px;
+        ///     source: @image-url("slint-logo.png");
+        ///     vertical-tiling: round;
+        ///     horizontal-tiling: round;
+        /// }
+        /// ```
+        /// \default none
+        in property <ImageTiling> vertical-tiling;
+        // TODO: sets both horizontal-tiling and vertical-tiling at the same time.
+        // in property <ImageTiling> tiling;
+        //! ## Source Clip
+        ///
+        in property <int> source-clip-x;
+        ///
+        in property <int> source-clip-y;
+        /// \default source.width - source.clip-x
+        in property <int> source-clip-width;
+        /// \default source.height - source.clip-y
+        in property <int> source-clip-height;
+        //! Properties in source image coordinates that define the region of the source image that is rendered.
+        //! By default the entire source image is visible:
+    } }
+
+    element! {
+        /// ```slint imageAlt="image example" width="300" height="200"
+        /// Image {
+        ///     source: @image-url("mini-banner.png");
+        /// }
+        /// ```
+        ///
+        /// Use the `Image` element to display an
+        /// [image](/reference/property-types/images/). \{#sls.meta.image.purpose}
+        ///
+        /// <OnlyInSC>
+        /// The element draws the image of its `source` property pixel for pixel:
+        /// the image's top-left pixel is at the element's position, and one image
+        /// pixel covers one frame-buffer pixel, without scaling. \{#sls.ref.image.draw}
+        ///
+        /// The element is always the size of its source image: `width` and `height`
+        /// hold the dimensions of that image, and setting them is an
+        /// error. \{#sls.ref.image.size}
+        /// </OnlyInSC>
+        ///
+        /// \footer
+        /// <NotInSC>
+        /// ## Accessibility
+        ///
+        /// ### Alternative text
+        ///
+        /// Consider giving an alternative text description of your image by setting the `accessible-label` property:
+        ///
+        /// ```slint
+        /// Image {
+        ///     width: 100px;
+        ///     height: 100px;
+        ///     source: @image-url("slint-logo.png");
+        ///     accessible-label: "Slint logo";
+        /// }
+        /// ```
+        ///
+        /// ### Filtering out images for users of assistive technologies
+        ///
+        /// By default, images have the `accessible-role` property set to `image`.
+        /// If your image is purely decorative and doesn't convey any information,
+        /// consider removing it from the accessibility tree:
+        ///
+        /// ```slint
+        /// Image {
+        ///     source: @image-url("mini-banner.png");
+        ///     accessible-role: none;
+        /// }
+        /// ```
+        /// </NotInSC>
+        /// \group:elements
+        @sc @implicit_size
+        Image: ClippedImage
+    }
+
+    item! { ComponentContainer: Empty {
+        in property <component-factory> component-factory;
+        out property <bool> has-component;
+
+        in-out property <length> width;
+        in-out property <length> height;
+    } }
+
+    element! {
+        @accepts_focus
+        ComponentContainer: ComponentContainer
+    }
+
+    item! { Transform: Empty {
+        in property <angle> transform-rotation;
+        in property <percent> transform-scale-x;
+        in property <percent> transform-scale-y;
+        in property <Point> transform-origin;
+    } }
+
+    element! {
+        @is_internal @expands_to_parent_geometry
+        Transform: Transform
+    }
+
+    item! { SimpleText: Empty {
+        in property <length> width;
+        in property <length> height;
+        /// The color of the text.
+        ///
+        /// ```slint "color: #3586f4;" imageAlt="text color" width="200" height="200" needsBackground
+        /// Text {
+        ///     text: "Hello";
+        ///     color: #3586f4;
+        ///     font-size: 40pt;
+        /// }
+        /// ```
+        /// \default <depends on theme>
+        in property <brush> color;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
+        /// The font size of the text.
+        ///
+        /// ```slint "font-size: 70pt;" imageAlt="text font-size" width="200" height="200" needsBackground
+        /// Text {
+        ///     text: "Big";
+        ///     color: black;
+        ///     font-size: 70pt;
+        /// }
+        /// ```
+        in property <length> font-size;
+        /// The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight. Use the <Link type="FontWeight" /> namespace for predefined constants.
+        ///
+        /// ```slint 'font-weight: FontWeight.extra-bold;' imageAlt="text font-weight" width="200" height="200" needsBackground
+        /// Text {
+        ///     text: "BOLD";
+        ///     color: black;
+        ///     font-size: 30pt;
+        ///     font-weight: FontWeight.extra-bold;
+        /// }
+        /// ```
+        in property <int> font-weight;
+        /// ```slint "horizontal-alignment: left;" imageAlt="text-horizontal-alignment" width="200" height="200" needsBackground
+        /// Text {
+        ///     x: 0;
+        ///     text: "Hello";
+        ///     color: black;
+        ///     font-size: 40pt;
+        ///     horizontal-alignment: left;
+        /// }
+        /// ```
+        in property <TextHorizontalAlignment> horizontal-alignment;
+        /// The maximum number of lines to display. Wrapped lines count towards the limit, and
+        /// with `overflow` set to `elide`, the ellipsis is placed on the last visible line.
+        /// Values less than or equal to zero don't limit the number of lines.
+        /// \default 0
+        in property <int> max-lines;
+        /// The text rendered.
+        /// \default ""
+        in property <string> text;
+        /// The vertical alignment of the text.
+        in property <TextVerticalAlignment> vertical-alignment;
+
+
+        @deprecated in property <angle> rotation-angle <=> transform-rotation;
+    } }
+
+    item! { ComplexText: SimpleText {
+        /// The name of the font family selected for rendering the text.
+        ///
+        /// ```slint 'font-family: "Comic Sans MS";' imageAlt="text font-family" width="200" height="200" needsBackground
+        /// Text {
+        ///     text: "CoMiC!";
+        ///     color: black;
+        ///     font-size: 40pt;
+        ///     font-family: "Comic Sans MS";
+        /// }
+        /// ```
+        ///
+        /// :::note[Note]
+        ///   Make sure the font is loaded before using it in a `Text` element.
+        ///   See <Link type="FontHandling" /> for more.
+        /// :::
+        in property <string> font-family;
+        /// Whether or not the font face should be drawn italicized or not.
+        ///
+        /// ```slint "font-italic: true;" imageAlt="text font-family" width="200" height="200" needsBackground
+        /// Text {
+        ///     text: "Italic";
+        ///     color: black;
+        ///     font-italic: true;
+        ///     font-size: 40pt;
+        /// }
+        /// ```
+        /// \default false
+        in property <bool> font-italic;
+        /// How the text should behave when it exceeds the available space.
+        in property <TextOverflow> overflow;
+        /// ```slint "wrap: word-wrap;" imageAlt="wrap" width="200" height="200" needsBackground
+        /// Text {
+        ///     text: "This paragraph breaks into multiple lines of text";
+        ///     font-size: 20pt;
+        ///     wrap: word-wrap;
+        ///     width: 180px;
+        /// }
+        /// ```
+        in property <TextWrap> wrap;
+        /// The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
+        /// ```slint "letter-spacing: 4px;" imageAlt="text-horizontal-alignment" width="200" height="200" needsBackground
+        /// Text {
+        ///     text: "Spaced!";
+        ///     color: black;
+        ///     font-size: 30pt;
+        ///     letter-spacing: 4px;
+        /// }
+        /// ```
+        in property <length> letter-spacing;
+        /// The line height as a unitless factor (or a percentage: `150%` equals `1.5`) applied to
+        /// the font's natural line height (ascent + descent + line gap). The default of `1` keeps
+        /// the natural line height; larger values spread the lines apart, smaller values pull them
+        /// together, and `0` collapses them onto each other. Negative or non-numeric values behave
+        /// like `1`. Unlike CSS `line-height`, the factor is relative to the natural line height,
+        /// not the font size, and keyword or length values aren't supported.
+        ///
+        /// ```slint "line-height-factor: 1.5;" imageAlt="text with increased line height" width="200" height="200" needsBackground
+        /// Text {
+        ///     text: "Two lines\nof text";
+        ///     color: black;
+        ///     font-size: 30pt;
+        ///     line-height-factor: 1.5;
+        /// }
+        /// ```
+        /// \default 1
+        in property <float> line-height-factor: 1;
+        /// The brush used for the text outline.
+        /// ```slint "stroke: darkblue;" imageAlt="text stroke" width="300" height="200" needsBackground
+        /// Text {
+        ///     text: "Stroke";
+        ///     stroke-width: 2px;
+        ///     stroke: darkblue;
+        ///     stroke-style: center;
+        ///     font-size: 80px;
+        ///     color: lightblue;
+        /// }
+        /// ```
+        in property <brush> stroke;
+        /// The width of the text outline. If the width is zero, then a hairline stroke (1 physical pixel) will be rendered.
+        in property <length> stroke-width;
+        /// ```slint "stroke-style: center;" imageAlt="stroke-style" width="200" height="200" needsBackground
+        /// Text {
+        ///     text: "Style";
+        ///     stroke-width: 2px;
+        ///     stroke: #3586f4;
+        ///     stroke-style: center;
+        ///     font-size: 60px;
+        ///     color: white;
+        /// }
+        /// ```
+        in property <TextStrokeStyle> stroke-style;
+        /// The design metrics of the font scaled to the font pixel size used by the element.
+        out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics }
+    } }
+
+    element! {
+        /// ```slint playground
+        /// // text-example.slint
+        /// export component TextExample inherits Window {
+        ///     // Text colored red.
+        ///     Text {
+        ///         x:0; y:0;
+        ///         text: "Hello World";
+        ///         color: red;
+        ///     }
+        ///
+        ///     // This paragraph breaks into multiple lines of text.
+        ///     Text {
+        ///         x:0; y: 30px;
+        ///         text: "This paragraph breaks into multiple lines of text";
+        ///         wrap: word-wrap;
+        ///         width: 150px;
+        ///         height: 100%;
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// A `Text` element for displaying text.
+        ///
+        /// By default, the `min-width`, `min-height`, `preferred-width`, and `preferred-height`
+        /// of a `Text` element are set to fit the full text as if it were displayed on a single line
+        /// (unless the text contains explicit line breaks).
+        /// However, if the `wrap` property is set to `word-wrap`, and/or if the `overflow` property is set to `elide`,
+        /// the `min-width` is reduced to zero, allowing the text to wrap or be elided,
+        /// while the `preferred-width` and `preferred-height` remain unchanged.
+        ///
+        /// \footer
+        /// ## Accessibility
+        ///
+        /// By default, `Text` elements have the following accessibility properties set:
+        ///
+        ///  - `accessible-role: text;`
+        ///  - `accessible-label: text;`
+        /// \group:elements
+        @implicit_size
+        Text: ComplexText
+    }
+
+    item! { StyledTextItem: Empty {
+        in property <length> width;
+        in property <length> height;
+        /// The default color of the text, used when no color is specified via markup.
+        /// \default <depends on theme>
+        in property <brush> default-color;
+        /// The default font family used to render the text, when no font is specified via markup. If left empty, the value falls back to the enclosing `Window`'s `default-font-family`.
+        in property <string> default-font-family;
+        /// The default font size used to render the text, when no size is specified via markup. If unset (or zero), the value falls back to the enclosing `Window`'s `default-font-size`.
+        in property <length> default-font-size;
+        /// The horizontal alignment of the text.
+        in property <TextHorizontalAlignment> horizontal-alignment;
+        /// The color used for rendering links in the text.
+        in property <color> link-color: #00f;
+        /// The maximum number of lines to display. Wrapped lines count towards the limit.
+        /// Values less than or equal to zero don't limit the number of lines.
+        /// \default 0
+        in property <int> max-lines;
+        /// The styled text rendered, using CommonMark markup with additional HTML tags for styling.
+        /// \default ""
+        in property <styled-text> text;
+        /// The vertical alignment of the text.
+        in property <TextVerticalAlignment> vertical-alignment;
+        /// A callback that's invoked when a link in the text is clicked. The parameter contains the clicked link as a string.
+        callback link-clicked(link: string);
+    } }
+
+    element! {
+        /// The `StyledText` element renders text with various styling and interactive properties, such as bolded, underlined and colored sections as well as HTTP links. It is based on a subset of the [commonmark](https://commonmark.org/) spec.
+        ///
+        /// ```slint imageAlt="Styled Text Example" width="200" height="200" scale="3"
+        /// export component Example inherits Window {
+        ///     in property <string> value: 55;
+        ///     width: 200px;
+        ///     height: 200px;
+        ///     StyledText {
+        ///       text: @markdown("This is a piece of <u>Styled Text</u>\n"
+        ///                       "with a red value inserted:"
+        ///                       "<font color=\"red\">\{value}</font>");
+        ///     }
+        /// }
+        /// ```
+        ///
+        ///
+        /// ## Features
+        ///
+        /// Styled Text supports the following features:
+        ///
+        /// Feature        | Method
+        /// ---------------|-------
+        /// Italics        | Builtin
+        /// Strikethroughs | Builtin
+        /// Inline code    | Builtin
+        /// Links          | Builtin
+        /// Ordered and unordered lists | Builtin
+        /// Underlines     | `<u>` HTML tag
+        /// Text Colors    |`<font color="...">` HTML tags
+        ///
+        /// ### Currently Unsupported
+        ///
+        /// Feature          |
+        /// -----------------|
+        /// Headings         |
+        /// Images           |
+        /// Tables           |
+        /// Block Quotes     |
+        /// Subscripts       |
+        /// Superscripts     |
+        /// Horizontal Rules |
+        /// Footnotes        |
+        /// Math expressions |
+        /// Other HTML tags  |
+        /// \group:elements
+        @implicit_size
+        StyledText: StyledTextItem
+    }
+
+    item! { TouchArea {
+        /// When disabled, the `TouchArea` doesn't recognize any touch or mouse events and they are
+        /// passed through to elements underneath.
+        ///
+        /// ```slint playground imageAlt="Basic syntax" width="200" height="100" scale="2"
+        /// import { Button, CheckBox } from "std-widgets.slint";
+        ///
+        /// export component Example inherits Window {
+        ///     width: 200px; height: 100px;
+        ///
+        ///     VerticalLayout {
+        ///         Rectangle {
+        ///             Button {
+        ///                 text: "Try to press me";
+        ///             }
+        ///             TouchArea {
+        ///                 enabled: event-blocker.checked;
+        ///             }
+        ///         }
+        ///         event-blocker := CheckBox {
+        ///             text: "Block Access";
+        ///         }
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// :::note{Note}
+        /// When `enabled` is set to false while the `TouchArea` is pressed, `pointer-event` will be
+        /// invoked with `PointerEventKind.Cancel`, and the `pressed` and `has-hover` properties will
+        /// be reset to `false`.
+        /// :::
+        in property <bool> enabled: true;
+        /// Set to true when the mouse is over the `TouchArea` area.
+        out property <bool> has-hover;
+        /// The mouse cursor when the mouse is hovering the `TouchArea`.
+        in property <MouseCursor> mouse-cursor;
+        /// Set by the `TouchArea` to the position of the mouse within it.
+        out property <length> mouse-x;
+        /// Set by the `TouchArea` to the position of the mouse within it.
+        out property <length> mouse-y;
+        /// Set by the `TouchArea` to the position of the mouse at the moment it was last pressed.
+        out property <length> pressed-x;
+        /// Set by the `TouchArea` to the position of the mouse at the moment it was last pressed.
+        out property <length> pressed-y;
+        /// Set to `true` by the `TouchArea` when the mouse is pressed over it.
+        out property <bool> pressed;
+        /// Invoked when clicked: A finger or the left mouse button is pressed, then released on this element. \{#sls.ref.toucharea.clicked}
+        ///
+        /// <OnlyInSC>
+        /// The Touch Input chapter specifies when a press and a release count as a click. \{#sls.ref.toucharea.clicked.input}
+        /// </OnlyInSC>
+        @sc callback clicked;
+        /// Invoked when double-clicked. The left mouse button is pressed and released twice on this element in a short
+        /// period of time, or the same is done with a finger. The `clicked()` callbacks will be triggered before the `double-clicked()` callback is triggered.
+        callback double-clicked;
+        /// The mouse or finger has been moved. This will only be called if the mouse is also pressed or the finger continues to touch
+        /// the display. See also **pointer-event(PointerEvent)**.
+        callback moved;
+        /// <PointerEvent />
+        callback pointer-event(event: PointerEvent);
+        /// Invoked when the mouse wheel was rotated or another scroll gesture was made.
+        /// The `PointerScrollEvent` argument contains information about how much to scroll in what direction.
+        /// <PointerScrollEvent />
+        /// The returned `EventResult`indicates whether to accept or ignore the event. Ignored events are
+        /// forwarded to the parent element.
+        /// <EventResult />
+        callback scroll-event(event: PointerScrollEvent) -> EventResult;
+    } }
+
+    element! {
+        /// Use `TouchArea` to control what happens when the region it covers is touched or interacted with
+        /// using the mouse. \{#sls.meta.toucharea.purpose}
+        ///
+        /// When not part of a layout, its width or height default to 100% of the parent element. \{#sls.ref.toucharea.size}
+        ///
+        /// <OnlyInSC>
+        /// Of the members of `TouchArea`, only `clicked` and the geometry properties are part of Slint SC. \{#sls.ref.toucharea.members}
+        /// </OnlyInSC>
+        ///
+        /// <NotInSC>
+        /// ```slint playground
+        /// export component Example inherits Window {
+        ///     width: 200px;
+        ///     height: 100px;
+        ///     area := TouchArea {
+        ///         width: parent.width;
+        ///         height: parent.height;
+        ///         clicked => {
+        ///             rect2.background = #ff0;
+        ///         }
+        ///     }
+        ///     Rectangle {
+        ///         x:0;
+        ///         width: parent.width / 2;
+        ///         height: parent.height;
+        ///         background: area.pressed ? blue: red;
+        ///     }
+        ///     rect2 := Rectangle {
+        ///         x: parent.width / 2;
+        ///         width: parent.width / 2;
+        ///         height: parent.height;
+        ///     }
+        /// }
+        /// ```
+        /// </NotInSC>
+        /// \group:gestures
+        @sc @expands_to_parent_geometry
+        TouchArea: TouchArea
+    }
+
+    item! { KeyBinding {
+        /// The <Link type="keys" label="keys" /> to match against incoming key events.
+        in property <keys> keys;
+        /// Whether this KeyBinding is currently enabled. Disabled KeyBinding elements don't consume key events and never invoke their `activated()` callback.
+        in property <bool> enabled: true;
+        /// Invoked when the parent `FocusScope` receives a key event that matches the `keys` of this `KeyBinding`.
+        callback activated;
+    } }
+
+    element! {
+        /// Place `KeyBinding` elements inside a `FocusScope` to declare keyboard shortcuts.
+        /// KeyBindings use **logical keys**, based on the character a key produces, not physical key positions.
+        ///
+        /// See <Link type="KeyBindingOverview" label="Key Bindings"/> for details.
+        @is_non_item_type
+        KeyBinding: KeyBinding
+    }
+
+    item! { FocusScope {
+        /// Is `true` when the element has keyboard focus.
+        out property <bool> has-focus;
+        /// When false, the FocusScope will not accept focus, neither via click nor via tab focus traversal, not even programmatically.
+        ///
+        /// A parent `FocusScope` will still receive key events from child `FocusScope`s that were rejected, even if `enabled` is set to false.
+        in property <bool> enabled: true;
+        /// When true, the `FocusScope` will make itself the focused element when clicked.
+        ///
+        /// This property has no effect if the `enabled` property is set to false.
+        in property <bool> focus-on-click: true;
+        /// When true, the `FocusScope` will accept focus as part of the tab focus traversal.
+        ///
+        /// This property has no effect if the `enabled` property is set to false.
+        in property <bool> focus-on-tab-navigation: true;
+        //! ## Functions
+        //!
+        //! ### focus()
+        //! Call this function to transfer keyboard focus to this `FocusScope`, to receive future <Link type="KeyEvent" />s.
+        //!
+        //! ### clear-focus()
+        //! Call this function to remove keyboard focus from this `FocusScope` if it currently has the focus. See also <Link type="FocusHandling" />.
+        /// This function is called during key event handling, *before* `key-pressed` is called. Use this to intercept key press events. The returned <Link type="EventResult" />
+        /// indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
+        callback capture-key-pressed(event: KeyEvent) -> EventResult;
+        /// This function is called during key event handling, *before* `key-released` is called. Use this to intercept key release events. The returned <Link type="EventResult" />
+        /// indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
+        callback capture-key-released(event: KeyEvent) -> EventResult;
+        /// Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. The returned <Link type="EventResult" />
+        /// indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
+        callback key-pressed(event: KeyEvent) -> EventResult;
+        /// Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. The returned <Link type="EventResult" />
+        /// indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
+        callback key-released(event: KeyEvent) -> EventResult;
+        /// Invoked when the focus on the `FocusScope` has changed. The argument is a a <Link type="FocusReason" /> enum containing the reason for focus change.
+        callback focus-changed-event(reason: FocusReason);
+        /// Invoked when the `FocusScope` gains focus. The argument is a a <Link type="FocusReason" /> enum containing the reason for focus gain.
+        callback focus-gained(reason: FocusReason);
+        /// Invoked when the `FocusScope` loses focus. The argument is a a <Link type="FocusReason" /> enum containing the reason for focus loss.
+        callback focus-lost(reason: FocusReason);
+
+
+
+    } }
+
+    element! {
+        /// ```slint playground
+        /// export component Example inherits Window {
+        ///     width: 100px;
+        ///     height: 100px;
+        ///     forward-focus: my-key-handler;
+        ///     my-key-handler := FocusScope {
+        ///         key-pressed(event) => {
+        ///             debug(event.text);
+        ///             if (event.modifiers.control) {
+        ///                 debug("control was pressed during this event");
+        ///             }
+        ///             if (event.text == Key.Escape) {
+        ///                 debug("Esc key was pressed")
+        ///             }
+        ///             accept
+        ///         }
+        ///
+        ///         KeyBinding {
+        ///             keys: @keys(Control + X);
+        ///             activated => {
+        ///                 debug("Control + X pressed")
+        ///             }
+        ///         }
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// The `FocusScope` can react to <Link type="KeyBindingOverview" label="keyboard shortcuts"/> using the <Link type="KeyBinding" label="KeyBinding element"/>, and exposes callbacks to handle key events manually.
+        /// Note that `FocusScope` will only handle key events when it either `has-focus`, or when it surrounds another FocusScope that `has-focus` (see [Key Event Delivery](#key-event-delivery))
+        ///
+        /// The <Link type="KeyEvent" /> has a text property, which is a character of the key entered.
+        /// When a non-printable key is pressed, the character will be either a control character,
+        /// or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the <Link type="KeyEvent"/> namespace
+        ///
+        /// ## Key Event Delivery
+        ///
+        /// Key events are delivered to the element that `has-focus`.
+        ///
+        /// Before attempting to deliver the `KeyEvent`, it is checked whether some other element wants to intercept the `KeyEvent`.
+        /// Visiting all the elements starting at the Window, going down toward the focused element, `capture_key_pressed` or `capture_key_released` is called.
+        /// If any of these returns `EventResult::accept`, then key event processing stops at this point. If `EventResult::reject` is returned,
+        /// then event delivery continues.
+        ///
+        /// If no element captures the `KeyEvent`, then the `KeyEvent` is delivered to the focused element by calling `key-pressed` or `key-released`.
+        /// If these callbacks return `EventResult::accept`, then event delivery is finished and the event has been handled. Otherwise, (recursively) try
+        /// to deliver the key event to the parent element.
+        /// \group:keyboard-input
+        @accepts_focus @expands_to_parent_geometry
+        FocusScope: FocusScope {
+            children: KeyBinding;
+        }
+    }
+
+    item! { Flickable: Empty {
+        /// ```slint imageAlt="flickable interactive" width="200" height="200"
+        /// Flickable {
+        ///     interactive: false;
+        /// }
+        /// ```
+        /// When false, the content can't be panned by the user, neither by dragging with the mouse
+        /// nor with touch.
+        in property <bool> interactive: true;
+        /// When true, the content can be scrolled by clicking on it and dragging it with the cursor.
+        /// Panning with a touch screen is only affected by `interactive`.
+        in property <bool> mouse-drag-pan-enabled: true;
+        /// The total width of the scrollable content.
+        @shadowable in property <length> content-width;
+        /// The total height of the scrollable content.
+        @shadowable in property <length> content-height;
+        /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
+        @shadowable in-out property <length> content-x;
+        /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
+        @shadowable in-out property <length> content-y;
+        @deprecated in property <length> viewport-width <=> content-width;
+        @deprecated in property <length> viewport-height <=> content-height;
+        @deprecated in-out property <length> viewport-x <=> content-x;
+        @deprecated in-out property <length> viewport-y <=> content-y;
+        /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
+        callback flicked;
+    } }
+
+    element! {
+        /// ```slint playground
+        /// export component Example inherits Window {
+        ///     width: 270px;
+        ///     height: 100px;
+        ///
+        ///     Flickable {
+        ///         content-height: 300px;
+        ///         Text {
+        ///             x:0;
+        ///             y: 150px;
+        ///             text: "This is some text that you have to scroll to see";
+        ///         }
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// The `Flickable` is a low-level element that is the base for scrollable
+        /// widgets, such as the <Link type="ScrollView"/> or <Link type="ListView"/>.
+        /// When the `content-width` or the `content-height` is greater than the parent's `width` or `height`
+        /// respectively, the element becomes scrollable.
+        ///
+        /// When unset, the `content-width` and `content-height` are
+        /// calculated automatically based on the `Flickable`'s children. This isn't the
+        /// case when using a `for` loop to populate the elements. This is a bug tracked in
+        /// issue [#407](https://github.com/slint-ui/slint/issues/407).
+        /// The maximum and preferred size of the `Flickable` are based on the content size.
+        ///
+        /// Note that the `Flickable` doesn't create a scrollbar.
+        /// You can use a <Link type="ScrollView"/> instead or add your own scroll bars.
+        ///
+        /// When not part of a layout, its width or height defaults to 100% of the parent
+        /// element when not specified.
+        ///
+        /// ## Pointer Event Interaction
+        ///
+        /// If the `Flickable`'s area contains elements that use `TouchArea` to act on clicking, such as `Button`
+        /// widgets, then the following algorithm is used to distinguish between the user's intent of scrolling or
+        /// interacting with `TouchArea` elements:
+        ///
+        /// 1. If the `Flickable`'s `interactive` property is `false`, all events are forwarded to elements underneath.
+        ///    If `mouse-drag-pan-enabled` is `false`, only mouse events are forwarded this way, while touch events keep panning.
+        /// 2. If a press event is received where the event's coordinates interact with a `TouchArea`, the event is stored
+        ///    and any subsequent move and release events are handled as follows:
+        ///    1. If 100ms elapse without any events, the stored press event is delivered to the `TouchArea`.
+        ///    2. If a release event is received before 100ms have elapsed, the stored press event as well as the
+        ///       release event are immediately delivered to the `TouchArea` and the algorithm resets.
+        ///    3. Any move events received will start a flicking operation on the `Flickable` if all of the following
+        ///       conditions are met:
+        ///         1. The event is received before 500ms have elapsed since receiving the press event.
+        ///         2. The distance to the press event exceeds 8 logical pixels in an orientation in which we are allowed to move.
+        ///       If `Flickable` decides to flick, any press event sent previously to a `TouchArea`, is followed up
+        ///       by an exit event. During the phase of receiving move events, the flickable follows the coordinates.
+        /// 3. If the interaction of press, move, and release events begins at coordinates that do not intersect with
+        ///    a `TouchArea`, then `Flickable` will flick immediately on pointer move events when the euclidean distance
+        ///    to the coordinates of the press event exceeds 8 logical pixels.
+        ///
+        /// If no element underneath claims a press, the `Flickable` itself only intercepts it when it can actually pan in some direction,
+        /// i.e. when its `content-width`/`content-height` exceed its own size, or its content is currently scrolled away from the origin.
+        /// Otherwise the event is forwarded to elements underneath it,
+        /// the same way wheel/scroll events already are (see below).
+        ///
+        /// ## Wheel/Scroll Event Interaction
+        ///
+        /// The `Flickable` also supports scrolling with the mouse wheel and touchpad scroll gestures.
+        /// It will scroll regardless of the `interactive` and `mouse-drag-pan-enabled` properties.
+        /// If the `Flickable` can scroll in the event's direction, the event will be intercepted.
+        /// If the Flickable can't scroll in the direction of the event, the event will be forwarded to the parent.
+        /// \group:gestures
+        @expands_to_parent_geometry
+        Flickable: Flickable
+    }
+
+    item! { SwipeGestureHandler {
+        /// When disabled, the `SwipeGestureHandler` doesn't recognize any gestures.
+        in property <bool> enabled: true;
+        /// The position of the pointer when the swipe started.
+        out property <Point> pressed-position;
+        /// The current pointer position.
+        out property <Point> current-position;
+        /// `true` while the gesture is recognized, false otherwise.
+        out property <bool> swiping;
+        //! ### Handle swipe directions properties
+        /// \default false
+        in property <bool> handle-swipe-left;
+        /// \default false
+        in property <bool> handle-swipe-right;
+        /// \default false
+        in property <bool> handle-swipe-up;
+        /// \default false
+        in property <bool> handle-swipe-down;
+
+        // For the future
+        //in property <length> swipe-distance-threshold: 8px;
+        //in property <duration> swipe-duration-threshold: 500ms;
+        // in property <bool> delays-propagation;
+        //in property <duration> propagation-delay: 100ms;
+        // in property <int> required-touch-points: 1;
+        //callback swipe-recognized();
+
+        /// Invoked when the pointer is moved.
+        callback moved;
+        /// Invoked after the swipe gesture was recognized and the pointer was released.
+        callback swiped;
+        /// Invoked when the swipe is cancelled programmatically or if the window loses focus.
+        callback cancelled;
+
+        /// Cancel any on-going swipe gesture recognition.
+        function cancel() { }
+    } }
+
+    element! {
+        /// Use the `SwipeGestureHandler` to handle swipe gesture in some particular direction.
+        /// Recognition is limited to the element's geometry.
+        ///
+        /// The `SwipeGestureHandler` recognizes touchscreen swipes and mouse drags.
+        ///
+        /// ```slint playground
+        /// export component Example inherits Window {
+        ///     width: 270px;
+        ///     height: 100px;
+        ///
+        ///     property <int> current-page: 0;
+        ///
+        ///     sgr := SwipeGestureHandler {
+        ///         handle-swipe-right: current-page > 0;
+        ///         handle-swipe-left: current-page < 5;
+        ///         swiped => {
+        ///             if self.current-position.x > self.pressed-position.x + self.width / 4 {
+        ///                 current-page -= 1;
+        ///             } else if self.current-position.x < self.pressed-position.x - self.width / 4 {
+        ///                 current-page += 1;
+        ///             }
+        ///         }
+        ///
+        ///         HorizontalLayout {
+        ///             property <length> position: - current-page * root.width;
+        ///             animate position { duration: 200ms; easing: ease-in-out; }
+        ///             property <length> swipe-offset;
+        ///             x: position + swipe-offset;
+        ///             states [
+        ///                 swiping when sgr.swiping : {
+        ///                     swipe-offset: sgr.current-position.x - sgr.pressed-position.x;
+        ///                     out { animate swipe-offset { duration: 200ms; easing: ease-in-out; }  }
+        ///                 }
+        ///             ]
+        ///
+        ///             Rectangle { width: root.width; background: green; }
+        ///             Rectangle { width: root.width; background: limegreen; }
+        ///             Rectangle { width: root.width; background: yellow; }
+        ///             Rectangle { width: root.width; background: orange; }
+        ///             Rectangle { width: root.width; background: red; }
+        ///             Rectangle { width: root.width; background: violet; }
+        ///         }
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// Specify the different swipe directions you'd like to handle by setting the `handle-swipe-left/right/up/down` properties and react to the gesture in the `swiped` callback.
+        ///
+        /// Pointer press events on the recognizer's area are forwarded to the children with a small delay.
+        /// If the pointer moves by more than 8 logical pixels in one of the enabled swipe directions, the gesture is recognized, and events are no longer forwarded to the children.
+        ///
+        /// To keep the gesture-recognition area large enough to feel responsive, wrap the `SwipeGestureHandler` around the controls it should
+        /// handle swipes for, rather than placing it as a sibling before them.
+        ///
+        /// :::note{Known issue}
+        /// [#6781](https://github.com/slint-ui/slint/issues/6781): `SwipeGestureHandler` can interfere with other controls that also recognize swipe gestures, such as `Slider`.
+        /// Work around it by disabling the relevant `handle-swipe-*` properties while the child is being interacted with, for example in a
+        /// `Slider`'s `changed` and `released` callbacks.
+        /// :::
+        /// \group:gestures
+        @expands_to_parent_geometry
+        SwipeGestureHandler: SwipeGestureHandler
+    }
+
+    item! { ScaleRotateGestureHandler {
+        /// When disabled, the `ScaleRotateGestureHandler` doesn't recognize any gestures and any on-going gesture is cancelled.
+        in property <bool> enabled: true;
+
+        /// `true` while a gesture is being recognized, `false` otherwise.
+        out property <bool> active;
+        /// The cumulative scale factor of the gesture. Always starts at `1.0` when the gesture begins.
+        /// A value greater than `1.0` means zooming in, less than `1.0` means zooming out.
+        /// When the gesture is not active, the value is `1.0`.
+        out property <float> scale;
+        /// The cumulative rotation angle of the gesture. Always starts at `0deg` when the gesture begins.
+        /// Positive values indicate clockwise rotation, negative values indicate counter-clockwise rotation.
+        /// When the gesture is not active, the value is `0deg`.
+        out property <angle> rotation;
+        /// The center point of the gesture, in the coordinate system of the `ScaleRotateGestureHandler`.
+        /// For two-finger touch input, this is the midpoint between the two fingers.
+        /// For trackpad gestures, this is the mouse cursor position.
+        out property <Point> center;
+
+        /// Invoked when a gesture begins. Use this to capture the initial state you want to transform.
+        callback started;
+        /// Invoked whenever the `scale`, `rotation`, or `center` changes during the gesture.
+        callback updated;
+        /// Invoked when the gesture completes normally (fingers lifted).
+        callback ended;
+        /// Invoked when the gesture is cancelled, for example when the handler is disabled during an active gesture or the window loses focus.
+        callback cancelled;
+    } }
+
+    element! {
+        /// Use the `ScaleRotateGestureHandler` to handle pinch and rotation gestures.
+        /// Recognition is limited to the element's geometry.
+        ///
+        /// The `ScaleRoteGestureHandler` supports touchscreens on all platforms, and additionally supports trackpad gestures on macOS and iOS.
+        ///
+        /// ```slint playground
+        /// export component Example inherits Window {
+        ///     width: 400px;
+        ///     height: 400px;
+        ///
+        ///     property <float> start-scale;
+        ///     property <angle> start-rotation;
+        ///
+        ///     gesture := ScaleRotateGestureHandler {
+        ///         started => {
+        ///             start-scale = rect.current-scale;
+        ///             start-rotation = rect.current-rotation;
+        ///         }
+        ///         updated => {
+        ///             rect.current-scale = start-scale * self.scale;
+        ///             rect.current-rotation = start-rotation + self.rotation;
+        ///         }
+        ///
+        ///         rect := Rectangle {
+        ///             background: @radial-gradient(circle, #4488ff, #224488);
+        ///             border-radius: 8px;
+        ///
+        ///             property <float> current-scale: 1.0;
+        ///             property <angle> current-rotation: 0deg;
+        ///             width: 200px * self.current-scale;
+        ///             height: 200px * self.current-scale;
+        ///             x: (parent.width - self.width) / 2;
+        ///             y: (parent.height - self.height) / 2;
+        ///
+        ///             Text {
+        ///                 text: "Pinch & rotate";
+        ///                 color: white;
+        ///             }
+        ///         }
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// The `scale` property provides a cumulative scale factor relative to the start of the gesture (starting at `1.0`).
+        /// The `rotation` property provides a cumulative rotation angle (starting at `0deg`).
+        /// Use the `started` callback to capture your initial state, then multiply by `scale` and add `rotation` in the `updated` callback to apply the gesture.
+        /// \group:gestures
+        @expands_to_parent_geometry
+        ScaleRotateGestureHandler: ScaleRotateGestureHandler
+    }
+
+    item! { DragArea {
+        /// Set to `false` to stop the `DragArea` from starting drags.
+        /// Events still reach the child elements.
+        in property <bool> enabled: true;
+        /// The payload that's transferred to a <Link type="DropArea" /> when a drop happens.
+        in property <data-transfer> data;
+        /// Bitmap drawn under the cursor while a drag is in flight.
+        /// When unset (the default empty image), no overlay is drawn.
+        in property <image> drag-image;
+        /// Horizontal hot spot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+        /// `0` puts the image's left edge at the cursor; following HTML5's `setDragImage(image, x, y)` convention.
+        in property <int> drag-image-offset-x;
+        /// Vertical hot spot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+        /// `0` puts the image's top edge at the cursor.
+        in property <int> drag-image-offset-y;
+        /// Whether the source allows the drop to copy the data. The source retains the data.
+        in property <bool> allow-copy;
+        /// Whether the source allows the drop to move the data. The source should remove the
+        /// original from its model in the `drag-finished` callback when the action is `move`.
+        in property <bool> allow-move;
+        /// Whether the source allows the drop to link to the data. Neither side gives up ownership.
+        in property <bool> allow-link;
+        /// `true` once the press has crossed the drag threshold and a drag is in flight,
+        /// `false` once the drop completes or the drag is cancelled.
+        out property <bool> dragging;
+        /// Fires when the drag ends: with the chosen action on a successful drop, or with
+        /// `DragAction.none` if the drag was cancelled.
+        callback drag-finished(action: DragAction);
+    } }
+
+    element! {
+        /// Use `DragArea` to make any part of the UI draggable.
+        /// A drag starts when the user presses the mouse inside the area and moves past a small threshold,
+        /// and the value bound to `data` becomes the drag payload delivered to a <Link type="DropArea" />.
+        /// A click doesn't start a drag, so child elements like <Link type="TouchArea" /> stay interactive.
+        ///
+        /// The payload is a `data-transfer` value, which abstracts over the file-type transfer mechanisms supported by each platform.
+        /// `data-transfer` values are opaque in Slint code:
+        /// construct and read them via callbacks implemented in the host language.
+        ///
+        /// The source declares which actions it permits via `allow-copy`, `allow-move`, and `allow-link`.
+        /// At least one must be set to true; a `DragArea` that permits no action never starts a drag.
+        /// When no modifier key is pressed, the proposed action is the first allowed of move, copy, link;
+        /// modifier keys request a specific action (Ctrl -> copy, Shift -> move, Ctrl+Shift -> link).
+        /// The target picks the final action from this set in its `can-drop` callback. Once a drop completes
+        /// (or the drag is cancelled), `drag-finished(action)` fires so a "move" source can remove the original data.
+        ///
+        /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
+        /// \group:drag-and-drop
+        @expands_to_parent_geometry
+        DragArea: DragArea
+    }
+
+    item! { DropArea {
+        /// Set to `false` to stop the `DropArea` from accepting any drops.
+        in property <bool> enabled: true;
+        /// Return the action this target wants to perform with the drag, or `DragAction.none` to reject.
+        /// The runtime clamps the returned value to the source's allowed set: anything the source did not
+        /// allow is treated as `none`.
+        /// The argument is a <Link type="DropEvent" /> describing the drag.
+        callback can-drop(event: DropEvent) -> DragAction;
+        /// Invoked when the user releases the mouse over the area after `can-drop` returned a non-`none`
+        /// action. Use this callback to read `event.data` and apply the drop. The returned
+        /// `DragAction` is reported to the source via `drag-finished`; return `event.proposed-action`
+        /// to mirror what was negotiated during hover, or a different action to refine the choice at
+        /// drop time. The runtime clamps the return value against the source's allowed set.
+        callback dropped(event: DropEvent) -> DragAction;
+        /// `true` while an accepted drag hovers over the area, `false` otherwise.
+        /// Bind it to a visual property to give the user feedback, for example a background color.
+        out property <bool> has-drag;
+        /// The action the runtime is currently negotiating with the source: `none` when no drag is hovering,
+        /// or `copy`/`move`/`link` once a concrete action is settled.
+        out property <DragAction> current-action;
+    } }
+
+    element! {
+        /// Use `DropArea` to accept drops coming from a <Link type="DragArea" />, or from another application on platforms that support it.
+        /// The `can-drop` callback runs while the cursor moves over the area to decide whether to accept the drag,
+        /// and which action (copy/move/link) to perform.
+        /// The `dropped` callback runs when the user releases the mouse inside the area after `can-drop` returned
+        /// a non-`none` action.
+        ///
+        /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
+        /// \group:drag-and-drop
+        @expands_to_parent_geometry
+        DropArea: DropArea
+    }
+
+    item! { MenuItem {
+        /// The title shown for this menu item.
+        /// \default ""
+        in property <string> title;
+        /// Invoked when the menu entry is activated.
+        callback activated;
+        /// When disabled, the `MenuItem` can be selected but not activated.
+        in property <bool> enabled: true;
+        /// When true, the `MenuItem` can be checked. The value of the `checked` property is toggled when the user activates the menu item.
+        /// \default false
+        in property <bool> checkable: false;
+        /// The keyboard shortcut for this `MenuItem`.
+        ///
+        /// This property can only be set in a `MenuItem` that is part of a <Link type="MenuBar"/>.
+        in property <keys> shortcut;
+        /// When true, a checkmark will be shown next to the title of the `MenuItem`.
+        /// \default false
+        in-out property <bool> checked: false;
+        /// The icon shown next to the title.
+        in property <image> icon;
+    } }
+
+    element! {
+        /// A `MenuItem` represents a single menu entry. It must be a child of a `Menu` element.
+        @is_non_item_type @disallow_global_types_as_child_elements
+        MenuItem: MenuItem
+    }
+
+    element! {
+        /// A `MenuSeparator` represents a separator in a menu.
+        /// It cannot have children, and doesn't have properties or callbacks.
+        /// MenuSeparator at the beginning or end of a menu will not be visible.
+        /// Consecutive `MenuSeparator`s will be merged into one.
+        @is_non_item_type @disallow_global_types_as_child_elements
+        MenuSeparator
+    }
+
+    element! {
+        /// Place the `Menu` element in a <Link type="MenuBar" />, a `ContextMenuArea`, or within another `Menu`.
+        /// Use `MenuItem` children of individual menu items, `Menu` children to create sub-menus, and `MenuSeparator` to create separators.
+        @is_non_item_type @disallow_global_types_as_child_elements
+        Menu {
+            /// This is the label of the menu as written in the menu bar or in the parent menu.
+            /// \default ""
+            in property <string> title;
+            /// When disabled, the `Menu` can be selected but not activated.
+            in property <bool> enabled: true;
+            /// The icon shown next to the title when in a parent menu.
+            in property <image> icon;
+
+
+            children: MenuItem, MenuSeparator, Menu;
+        }
+    }
+
+    element! {
+        /// Use the `MenuBar` element in a <Link type="Window" /> to declare the structure of a menu bar, including the actual
+        /// menus and sub-menus.
+        ///
+        /// :::note{Note}
+        /// There can only be one `MenuBar` element in a `Window` and it must not be in a `for` or a `if`.
+        /// :::
+        ///
+        /// The `MenuBar` doesn't have properties, but it must contain <Link type="Menu" /> as children that represent top level entries in the menu bar.
+        ///
+        /// Depending on the platform, the menu bar might be native or rendered by Slint.
+        /// This means that for example, on macOS, the menu bar will be at the top of the screen.
+        /// The `width` and `height` property of the <Link type="Window" /> define the client area, excluding the menu bar.
+        /// The `x` and `y` properties of `Window` children are also relative to the client area.
+        ///
+        /// ### Example
+        ///
+        /// ```slint
+        /// export component Example inherits Window {
+        ///     MenuBar {
+        ///         Menu {
+        ///             title: @tr("File");
+        ///             MenuItem {
+        ///                 title: @tr("New");
+        ///                 activated => { file-new(); }
+        ///                 shortcut: @keys(Control + N);
+        ///             }
+        ///             MenuItem {
+        ///                 title: @tr("Open");
+        ///                 activated => { file-open(); }
+        ///                 shortcut: @keys(Control + O);
+        ///             }
+        ///         }
+        ///         Menu {
+        ///             title: @tr("Edit");
+        ///             MenuItem {
+        ///                 title: @tr("Copy");
+        ///             }
+        ///             MenuItem {
+        ///                 title: @tr("Paste");
+        ///             }
+        ///             MenuSeparator {}
+        ///             Menu {
+        ///                 title: @tr("Find");
+        ///                 MenuItem {
+        ///                     title: @tr("Find in document...");
+        ///                 }
+        ///                 MenuItem {
+        ///                     title: @tr("Find Next");
+        ///                 }
+        ///                 MenuItem {
+        ///                     title: @tr("Find Previous");
+        ///                 }
+        ///             }
+        ///         }
+        ///     }
+        ///
+        ///     callback file-new();
+        ///     callback file-open();
+        ///
+        ///     // ... actual window content goes here
+        /// }
+        /// ```
+        /// \skip_children
+        @is_non_item_type @disallow_global_types_as_child_elements
+        MenuBar {
+            /// Whether this menu bar should be visible.  If the menu bar is not visible, the menu bar will not take up any space but shortcuts will still function.
+            /// \default true
+            in property <bool> visible: true;
+
+
+            children: Menu;
+        }
+    }
+
+    item! { ContextMenu: Empty {
+        callback activated(entry: MenuEntry);
+        callback sub-menu(entry: MenuEntry) -> [MenuEntry];
+        callback show(position: Point);
+        function close() { }
+        @pure function is-open() -> bool { }
+        in property <bool> enabled: true;
+    } }
+
+    element! {
+        // The NativeItem, exported as ContextMenuInternal for the style
+        @is_internal @expands_to_parent_geometry
+        ContextMenuInternal: ContextMenu {
+            in property <[MenuEntry]> entries;
+        }
+    }
+
+    element! {
+        // Lowered in lower_menus pass.
+        /// Use the non-visual `ContextMenuArea` element to declare an area where the user can show a context menu.
+        ///
+        /// The context menu is shown if the user right-clicks on the area covered by the `ContextMenuArea` element,
+        /// or if the user presses the "Menu" key on their keyboard while a `FocusScope` within the `ContextMenuArea` has focus.
+        /// On Android, the menu is shown with a long press.
+        /// Call the `show()` function on the `ContextMenuArea` element to programmatically show the context menu.
+        ///
+        /// One of the children of the `ContextMenuArea` must be a `Menu` element, which defines the menu to be shown.
+        /// There can be at most one `Menu` child, all other children must be of a different type and will be shown as regular visual children.
+        /// Define the structure of the menu by placing `MenuItem` or `Menu` elements inside that `Menu`.
+        ///
+        /// \footer
+        /// ## Example
+        ///
+        /// ```slint
+        /// export component Example {
+        ///     ContextMenuArea {
+        ///         Menu {
+        ///             MenuItem {
+        ///                 title: @tr("Cut");
+        ///                 activated => { debug("Cut"); }
+        ///             }
+        ///             MenuItem {
+        ///                 title: @tr("Copy");
+        ///                 activated => { debug("Copy"); }
+        ///             }
+        ///             MenuItem {
+        ///                 title: @tr("Paste");
+        ///                 activated => { debug("Paste"); }
+        ///             }
+        ///             MenuSeparator {}
+        ///             Menu {
+        ///                 title: @tr("Find");
+        ///                 MenuItem {
+        ///                     title: @tr("Find Next");
+        ///                 }
+        ///                 MenuItem {
+        ///                     title: @tr("Find Previous");
+        ///                 }
+        ///             }
+        ///         }
+        ///     }
+        /// }
+        /// ```
+        /// \group:window
+        @expands_to_parent_geometry
+        ContextMenuArea: Empty {
+            //! ## Function
+            //!
+            //! ### show(Point)
+            //!
+            //! Call this function to programmatically show the context menu at the given position relative to the `ContextMenuArea` element.
+            //!
+            //! ## close()
+            //!
+            //! Close the context menu if it's currently open.
+            // This is actually function as part of out interface, but a callback as much is the runtime concerned
+            callback show(position: Point);
+            function close() { }
+
+
+            //! ### enabled
+            //!
+            //! <SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+            //! When disabled, the `Menu` is not showing.
+            //! </SlintProperty>
+            in property <bool> enabled: true;
+            children: Menu;
+        }
+    }
+
+    item! { WindowItem {
+        /// The width of the window. \{#sls.ref.window.width}
+        ///
+        /// <OnlyInSC>
+        /// The application gives the window its size when it creates the component, so this is a value the file reads,
+        /// and binding it is an error. \{#sls.ref.window.width-out}
+        /// </OnlyInSC>
+        @sc in-out property <length> width;
+        /// The height of the window. \{#sls.ref.window.height}
+        ///
+        /// <OnlyInSC>
+        /// The application gives the window its size when it creates the component, so this is a value the file reads,
+        /// and binding it is an error. \{#sls.ref.window.height-out}
+        /// </OnlyInSC>
+        @sc in-out property <length> height;
+        /// Whether the window should be placed above all other windows on window managers supporting it.
+        /// \default false
+        in property <bool> always-on-top;
+        /// Whether to display the Window in full-screen mode. In full-screen mode the Window will occupy the entire screen, it will not be resizable, and it will not display the title bar.
+        /// \default true if 'SLINT_FULLSCREEN' environment variable is set, otherwise false
+        in-out property <bool> full-screen;
+        /// Whether the window is minimized. Setting this to true minimizes the window.
+        @shadowable in-out property <bool> minimized;
+        /// Whether the window is maximized. Setting this to true maximizes the window.
+        @shadowable in-out property <bool> maximized;
+        /// The background brush of the `Window`. It is painted first, covering the whole window. \{#sls.ref.window.background}
+        ///
+        /// <OnlyInSC>
+        /// This background must be an opaque color literal.
+        /// Rendering writes every pixel of the frame buffer, and there's nothing
+        /// underneath the window for a translucent background to blend with. \{#sls.ref.window.opaque}
+        /// </OnlyInSC>
+        /// \default depends on the style
+        @sc in property <brush> background; // StyleMetrics.background  set in apply_default_properties_from_style
+        @deprecated in property <brush> color <=> background;
+        /// The font family to use as default in text elements inside this window, that don't have their `font-family` property set.
+        in property <string> default-font-family;
+        /// The font size to use as default in text elements inside this window, that don't have their `font-size` property set. The value of this property also forms the basis for relative font sizes.
+        /// \default 0
+        in property <length> default-font-size;
+        /// The font weight to use as default in text elements inside this window, that don't have their `font-weight` property set. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight. Use the <Link type="FontWeight" /> namespace for predefined constants.
+        in property <int> default-font-weight;
+        /// The window icon shown in the title bar or the task bar on window managers supporting it.
+        in property <image> icon;
+        /// Whether the window should be borderless/frameless or not.
+        /// \default false
+        in property <bool> no-frame;
+        ///     :::caution[Caution]
+        ///     This property is `winit` only for now.
+        ///     :::
+        ///     Size of the resize border in borderless/frameless windows.
+        /// \default 0
+        in property <length> resize-border-width;
+        /// The window title that is shown in the title bar.
+        in property <string> title: "Slint Window";
+        /// Some devices, such as mobile phones, allow programs to overlap the system UI. A few examples for this are the notch on iPhones, the window buttons on macOS on windows that extend their content over the titlebar and the system bar on Android. This property exposes the amount of space at the edges of the window that can be drawn to but where no interactive elements should be placed. On most devices, this is 0 for all sides.
+        out property <Edges> safe-area-insets;
+        /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the position of the top left boundary of the rectangle covered by it in window coordinates.
+        out property <Point> virtual-keyboard-position;
+        /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width and height of the rectangle covered by it in window coordinates.
+        out property <Size> virtual-keyboard-size;
+        /// Request that the window be closed.
+        /// This triggers the `close-requested` callback, giving the application a chance to cancel the close.
+        /// Returns `true` if the application accepted the close request; false otherwise.
+        /// Returns `false` if called on a child `Window` element, which can't be closed independently.
+        @shadowable function close() -> bool { }
+        /// Hide this window. This also drops the strong reference on the window, so if this was
+        /// the last reference, the event loop will quit.
+        @shadowable function hide() { }
+    } }
+
+    element! {
+        /// `Window` is the root of the tree of elements that are visible on the screen. \{#sls.meta.window.purpose}
+        ///
+        /// <NotInSC>
+        /// The `Window` geometry will be restricted by its layout constraints: Setting the `width` will result in a fixed width,
+        /// and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
+        /// or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height.
+        /// </NotInSC>
+        ///
+        /// <NotInSC>
+        /// Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
+        /// </NotInSC>
+        /// \group:window
+        @sc
+        Window: WindowItem {
+            children: MenuBar;
+        }
+    }
+
+    item! { WindowMoveArea {
+        /// Set to `false` to stop the `WindowMoveArea` from initiating window moves.
+        /// Events still reach the child elements.
+        in property <bool> enabled: true;
+    } }
+
+    element! {
+        /// Use `WindowMoveArea` to let the user move the window by dragging a region of your UI,
+        /// such as a custom title bar in a window without native decorations (`no-frame: true`).
+        ///
+        /// The move starts when the user presses the left mouse button inside the area and drags past a small threshold.
+        /// A plain click doesn't move the window, so child elements like <Link type="TouchArea" /> stay interactive.
+        ///
+        /// The windowing system performs the move.
+        /// It requires a backend and platform with support for it (winit on Windows, macOS, X11, and Wayland; Qt).
+        /// On platforms without support, the element does nothing.
+        ///
+        /// When not part of a layout, its width and height default to 100% of the parent element.
+        ///
+        /// ```slint playground
+        /// export component Example inherits Window {
+        ///     no-frame: true;
+        ///     preferred-width: 400px;
+        ///     preferred-height: 300px;
+        ///     VerticalLayout {
+        ///         Rectangle {
+        ///             height: 32px;
+        ///             background: #444444;
+        ///             WindowMoveArea {
+        ///                 HorizontalLayout {
+        ///                     Text {
+        ///                         text: "My Application";
+        ///                         color: white;
+        ///                         vertical-alignment: center;
+        ///                         horizontal-alignment: center;
+        ///                     }
+        ///                 }
+        ///             }
+        ///         }
+        ///         Rectangle {
+        ///             background: white;
+        ///         }
+        ///     }
+        /// }
+        /// ```
+        /// \group:window
+        @expands_to_parent_geometry
+        WindowMoveArea: WindowMoveArea
+    }
+
+    item! { BoxShadow: Empty {
+        in property <length> border-top-left-radius;
+        in property <length> border-top-right-radius;
+        in property <length> border-bottom-left-radius;
+        in property <length> border-bottom-right-radius;
+        in property <length> offset-x;
+        in property <length> offset-y;
+        in property <color> color;
+        in property <length> blur;
+        in property <length> spread;
+        in property <bool> inset;
+    } }
+
+    element! {
+        @is_internal @expands_to_parent_geometry
+        BoxShadow: BoxShadow
+    }
+
+    item! { TextInput {
+        /// The text rendered and editable by the user.
+        /// \default ""
+        in-out property <string> text;
+        /// The name of the font family selected for rendering the text.
+        in property <string> font-family;
+        /// The font size of the text.
+        in property <length> font-size;
+        /// Whether or not the font face should be drawn italicized or not.
+        /// \default false
+        in property <bool> font-italic;
+        /// The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
+        in property <int> font-weight;
+        /// The color of the text.
+        /// \default depends on the style
+        in property <brush> color; // StyleMetrics.default-text-color  set in apply_default_properties_from_style
+        /// The foreground color of the selection.
+        in property <color> selection-foreground-color; // StyleMetrics.selection-foreground set in apply_default_properties_from_style
+        /// The background color of the selection.
+        in property <color> selection-background-color; // StyleMetrics.selection-background set in apply_default_properties_from_style
+        /// The horizontal alignment of the text.
+        in property <TextHorizontalAlignment> horizontal-alignment;
+        /// The vertical alignment of the text.
+        in property <TextVerticalAlignment> vertical-alignment;
+        /// The way the text input wraps. Only makes sense when `single-line` is false.
+        /// \default no-wrap
+        in property <TextWrap> wrap;
+        /// The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
+        /// \default 0
+        in property <length> letter-spacing;
+        /// The line height as a unitless factor (or a percentage: `150%` equals `1.5`) applied to
+        /// the font's natural line height (ascent + descent + line gap). The default of `1` keeps
+        /// the natural line height; larger values spread the lines apart, smaller values pull them
+        /// together, and `0` collapses them onto each other. Negative or non-numeric values behave
+        /// like `1`. Unlike CSS `line-height`, the factor is relative to the natural line height,
+        /// not the font size, and keyword or length values aren't supported.
+        /// \default 1
+        in property <float> line-height-factor: 1;
+        in property <length> width;
+        in property <length> height;
+        /// The height of the page used to compute how much to scroll when the user presses page up or page down.
+        in property <length> page-height;
+        /// The width of the text cursor.
+        /// \default provided at run-time by the selected widget style
+        in property <length> text-cursor-width; // StyleMetrics.text-cursor-width  set in apply_default_properties_from_style
+        ///  Use this to configure `TextInput` for editing special input, such as password fields.
+        /// \default text
+        in property <InputType> input-type;
+        /// Hints for the platform's input method (such as a soft keyboard), for example to configure auto-capitalization.
+        /// The input method may take these hints into account, but might also ignore them.
+        in property <InputMethodHints> input-method-hints;
+        // Internal, undocumented property, only exposed for tests.
+        out property <int> cursor-position-byte-offset;
+        // Internal, undocumented property, only exposed for tests.
+        out property <int> anchor-position-byte-offset;
+        /// `TextInput` sets this to `true` when it's focused. Only then it receives <Link type="KeyEvent"/>s.
+        out property <bool> has-focus;
+        /// Invoked when the enter key is pressed.
+        callback accepted;
+        /// Invoked when the text has changed because the user modified it.
+        callback edited;
+        /// The cursor was moved to the new (x, y) position described by the `Point` argument.
+        callback cursor-position-changed(position: Point);
+        /// Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. Use this callback to
+        /// handle keys before `TextInput` does. Return `accept` to indicate that you've handled the event, or return
+        /// `reject` to let `TextInput` handle it.
+        callback key-pressed(event: KeyEvent) -> EventResult;
+        /// Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. Use this callback to
+        /// handle keys before `TextInput` does. Return `accept` to indicate that you've handled the event, or return
+        /// `reject` to let `TextInput` handle it.
+        callback key-released(event: KeyEvent) -> EventResult;
+        in property <bool> enabled: true;
+        /// When set to `true`, the text is always rendered as a single line, regardless of new line separators in the text.
+        in property <bool> single-line: true;
+        /// When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically.
+        in property <bool> read-only: false;
+        // Internal, undocumented property, only exposed for IME.
+        out property <string> preedit-text;
+        /// The design metrics of the font scaled to the font pixel size used by the element.
+        out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics }
+
+
+        /// Selects the text between two UTF-8 offsets.
+        /// `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to,
+        /// so `focus` may precede `anchor` to select backwards.
+        /// Pass the same value for both to place the text cursor at that offset without selecting anything.
+        function set-selection-offsets(anchor: int, focus: int) { BuiltinFunction.SetSelectionOffsets }
+        /// Selects all text.
+        function select-all() { }
+        /// Clears the selection.
+        function clear-selection() { }
+        /// Copies the selected text to the clipboard and removes it from the editable area.
+        function cut() { }
+        /// Copies the selected text to the clipboard.
+        function copy() { }
+        /// Pastes the text content of the clipboard at the cursor position.
+        function paste() { }
+        /// Undoes the last text operation.
+        function undo() { }
+        /// Redoes the last undone text operation.
+        function redo() { }
+        //! ### focus()
+        //! Call this function to focus the text input and make it receive future keyboard events.
+        //!
+        //! ### clear-focus()
+        //! Call this function to remove keyboard focus from this `TextInput` if it currently has the focus. See also <Link type="FocusHandling" />.
+    } }
+
+    element! {
+        /// The `TextInput` is a lower-level item that shows text and allows entering text.
+        /// You should probably not use this directly, but instead use the <Link type="LineEdit" /> or <Link type="TextEdit" /> component.
+        ///
+        /// When not part of a layout, its width and height defaults to 100% of the parent element.
+        ///
+        /// The `TextInput` does not scroll automatically when the cursor is outside of the visible area.
+        /// This is the responsibility of the enclosing widget to ensure using the `cursor-position-changed` callback.
+        ///
+        /// ## Example
+        ///
+        /// ```slint playground
+        /// export component Example inherits Window {
+        ///     width: 270px;
+        ///     height: 40px;
+        ///     Rectangle {
+        ///         clip: true;
+        ///
+        ///         TextInput {
+        ///             text: "Edit me";
+        ///             width: max(parent.width, self.preferred-width);
+        ///             vertical-alignment: center;
+        ///
+        ///             private property <length> margin: 1rem;
+        ///             cursor-position-changed(cursor-position) => {
+        ///                 if cursor-position.x + self.x < margin {
+        ///                     self.x = - cursor-position.x + margin;
+        ///                 } else if cursor-position.x + self.x > parent.width - margin - self.text-cursor-width {
+        ///                     self.x = parent.width - cursor-position.x - margin - self.text-cursor-width;
+        ///                 }
+        ///             }
+        ///         }
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// \footer
+        /// ## Accessibility
+        ///
+        /// By default, `TextInput` elements have the following accessibility properties set:
+        ///
+        ///  - `accessible-role: text-input;`
+        ///  - `accessible-value: text;`
+        ///  - `accessible-enabled: enabled;`
+        ///  - `accessible-read-only: read-only; `
+        /// \group:keyboard-input
+        @accepts_focus @expands_to_parent_geometry
+        TextInput: TextInput
+    }
+
+    item! { Clip {
+        in property <length> border-top-left-radius;
+        in property <length> border-top-right-radius;
+        in property <length> border-bottom-left-radius;
+        in property <length> border-bottom-right-radius;
+        in property <length> border-width;
+        in property <bool> clip;
+        in property <bool> is-visibility-clip;
+    } }
+
+    element! {
+        @is_internal @expands_to_parent_geometry
+        Clip: Clip
+    }
+
+    item! { Opacity {
+        in property <float> opacity: 1;
+    } }
+
+    element! {
+        @is_internal @expands_to_parent_geometry
+        Opacity: Opacity
+    }
+
+    item! { Layer: Empty {
+        in property <bool> cache-rendering-hint;
+    } }
+
+    element! {
+        @is_internal @expands_to_parent_geometry
+        Layer: Layer
+    }
+
+    element! {
+        @is_non_item_type
+        Row
+    }
+
+    element! {
+        /// `GridLayout` places elements on a grid.
+        ///
+        /// `GridLayout` covers its entire surface with cells. Cells are not aligned.
+        /// The elements constituting the cells will be stretched inside their allocated
+        /// space, unless their size constraints&mdash;like, e.g., `min-height` or
+        /// `max-width`&mdash;work against this.
+        ///
+        ///
+        /// ```slint playground imageAlt="gridlayout example" width="200" height="100"
+        /// // This example uses the `Row` element
+        /// export component Foo inherits Window {
+        ///     width: 200px;
+        ///     height: 200px;
+        ///     GridLayout {
+        ///         spacing: 5px;
+        ///         Row {
+        ///             Rectangle { background: red; }
+        ///             Rectangle { background: blue; }
+        ///         }
+        ///         Row {
+        ///             Rectangle { background: yellow; }
+        ///             Rectangle { background: green; }
+        ///         }
+        ///     }
+        /// }
+        /// ```
+        ///
+        ///
+        /// ```slint playground imageAlt="gridlayout example2" width="200" height="100"
+        /// // This example uses the `col` and `row` properties
+        /// export component Foo inherits Window {
+        ///     width: 200px;
+        ///     height: 150px;
+        ///     GridLayout {
+        ///         Rectangle { background: red; }
+        ///         Rectangle { background: blue; }
+        ///         Rectangle { background: yellow; row: 1; }
+        ///         Rectangle { background: green; }
+        ///         Rectangle { background: black; col: 2; row: 0; }
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// \footer
+        /// ## Cell elements
+        /// Cell elements inside a `GridLayout` obtain the following new properties. Any bindings to these properties must be compile-time constants:
+        ///
+        /// ### row
+        /// <SlintProperty propName="row" typeName="int" defaultValue="auto">
+        /// The index of the element's row within the grid. Setting this property resets the element's column to zero, unless explicitly set.
+        /// </SlintProperty>
+        ///
+        /// ### col
+        /// <SlintProperty propName="col" typeName="int" defaultValue="auto">
+        /// The index of the element's column within the grid. Set this property to override the sequential column assignment (e.g., to skip a column).
+        /// </SlintProperty>
+        ///
+        /// ### rowspan
+        /// <SlintProperty propName="rowspan" typeName="int" defaultValue="1">
+        /// The number of rows this element should span.
+        /// </SlintProperty>
+        ///
+        /// ### colspan
+        /// <SlintProperty propName="colspan" typeName="int" defaultValue="1">
+        /// The number of columns this element should span.
+        /// </SlintProperty>
+        ///
+        /// To implicitly sequentially assign row indices&mdash;just like with `col`&mdash;wrap cell elements in `Row` elements.
+        ///
+        /// The following example creates a 2-by-2 grid with `Row` elements, omitting one cell:
+        ///
+        /// ```slint
+        /// import { Button } from "std-widgets.slint";
+        /// export component Foo inherits Window {
+        ///     width: 200px;
+        ///     height: 100px;
+        ///     GridLayout {
+        ///         Row { // children implicitly on row 0
+        ///             Button { col: 1; text: "Top Right"; } // implicit column after this would be 2
+        ///         }
+        ///         Row { // children implicitly on row 1
+        ///             Button { text: "Bottom Left"; }  // implicitly in column 0...
+        ///             Button { text: "Bottom Right"; } // ...and 1
+        ///         }
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// The following example creates the same grid using the `row` property. Row indices must be taken care of manually:
+        ///
+        /// ```slint
+        /// import { Button } from "std-widgets.slint";
+        /// export component Foo inherits Window {
+        ///     width: 200px;
+        ///     height: 100px;
+        ///     GridLayout {
+        ///         Button { row: 0; col: 1; text: "Top Right"; } // `row: 0;` could even be left out at the start
+        ///         Button { row: 1; text: "Bottom Left"; } // new row, implicitly resets column to 0
+        ///         Button { text: "Bottom Right"; } // same row, sequentially assigned column 1
+        ///     }
+        /// }
+        /// ```
+        /// \group:layouts
+        GridLayout {
+            //! ## Spacing Properties
+            /// The distance between the elements in the layout. This single value is applied to both horizontal and vertical spacing.
+            in property <length> spacing;
+            //! To target specific axis with different values use the following properties:
+            ///
+            in property <length> spacing-horizontal;
+            ///
+            in property <length> spacing-vertical;
+            //! ## Padding Properties
+            //!
+            //! ### padding
+            //! <SlintProperty propName="padding" typeName="length">
+            //! The padding around the grid structure as a whole. This single value is applied to all sides.
+            //! </SlintProperty>
+            //!
+            //! To target specific sides with different values use the following properties:
+            //!
+            //! ### padding-left
+            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //!
+            //! ### padding-right
+            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //!
+            //! ### padding-top
+            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //!
+            //! ### padding-bottom
+            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+
+            // Additional accepted child
+            children: Row;
+        }
+    }
+
+    element! {
+        /// ```slint
+        /// export component Foo inherits Window {
+        ///     width: 200px;
+        ///     height: 100px;
+        ///     VerticalLayout {
+        ///         spacing: 5px;
+        ///         Rectangle { background: red; width: 10px; }
+        ///         Rectangle { background: blue; min-width: 10px; }
+        ///         Rectangle { background: yellow; vertical-stretch: 1; }
+        ///         Rectangle { background: green; vertical-stretch: 2; }
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// Places its children next to each other vertically.
+        /// The size of elements can either be fixed with the `width` or `height` property, or if they aren't set
+        /// they will be computed by the layout respecting the minimum and maximum sizes and the stretch factor.
+        /// \footer
+        /// ## Cell elements
+        /// Cell elements inside a `VerticalLayout` obtain the following new properties:
+        ///
+        /// ### cross-axis-self-alignment
+        /// <SlintProperty propName="cross-axis-self-alignment" typeName="enum" enumName="CrossAxisAlignment" defaultValue="auto">
+        /// Overrides the container's `cross-axis-alignment` for this element.
+        /// The default value `auto` uses the container's `cross-axis-alignment`.
+        /// </SlintProperty>
+        ///
+        /// ### layout-order
+        /// <SlintProperty propName="layout-order" typeName="int" defaultValue="0">
+        /// Controls the visual order of the elements: they are laid out in ascending
+        /// order value, and elements with the same value keep their declaration order.
+        /// ```slint no-test
+        /// VerticalLayout {
+        ///     Rectangle { layout-order: 2; }
+        ///     Rectangle { layout-order: 1; }  // appears first
+        /// }
+        /// ```
+        /// Only the visual order changes: keyboard focus still moves in declaration order.
+        /// </SlintProperty>
+        /// \group:layouts
+        VerticalLayout {
+            //! ## Spacing Properties
+            /// The distance between the elements in the layout.
+            in property <length> spacing;
+            //! ## Padding Properties
+            //! ### padding
+            //! <SlintProperty propName="padding" typeName="length">
+            //! The padding within the layout as a whole. This single value is applied to all sides.
+            //! </SlintProperty>
+            //!
+            //! To target specific sides with different values use the following properties:
+            //! ### padding-left
+            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //!
+            //! ### padding-right
+            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //!
+            //! ### padding-top
+            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //!
+            //! ### padding-bottom
+            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //!
+            //! ## Alignment Properties
+            /// Set the alignment along the main (vertical) axis. Matches the CSS flex box.
+            in property <LayoutAlignment> alignment;
+            /// Set the alignment of items along the cross (horizontal) axis.
+            /// The default is `stretch`, meaning each item fills the full width of the layout.
+            /// The other values (`start`, `end`, `center`) size each
+            /// item to its preferred width, clamped to its min/max, and position it at the
+            /// left, right, or center of the layout's content box.
+            ///
+            /// ```slint
+            /// export component Example inherits Window {
+            ///     width: 200px;
+            ///     height: 100px;
+            ///     VerticalLayout {
+            ///         cross-axis-alignment: end;
+            ///         Rectangle { background: red; preferred-width: 30px; preferred-height: 20px; }
+            ///         Rectangle { background: blue; preferred-width: 60px; preferred-height: 20px; }
+            ///         Rectangle { background: green; preferred-width: 90px; preferred-height: 20px; }
+            ///     }
+            /// }
+            /// ```
+            in property <CrossAxisAlignment> cross-axis-alignment;
+        }
+    }
+
+    element! {
+        /// ```slint
+        /// export component Foo inherits Window {
+        ///     width: 200px;
+        ///     height: 100px;
+        ///     HorizontalLayout {
+        ///         spacing: 5px;
+        ///         Rectangle { background: red; width: 10px; }
+        ///         Rectangle { background: blue; min-width: 10px; }
+        ///         Rectangle { background: yellow; horizontal-stretch: 1; }
+        ///         Rectangle { background: green; horizontal-stretch: 2; }
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// Places its children next to each other horizontally.
+        /// The size of elements can either be fixed with the `width` or `height` property, or if they aren't set
+        /// they will be computed by the layout respecting the minimum and maximum sizes and the stretch factor.
+        /// \footer
+        /// ## Cell elements
+        /// Cell elements inside a `HorizontalLayout` obtain the following new properties:
+        ///
+        /// ### cross-axis-self-alignment
+        /// <SlintProperty propName="cross-axis-self-alignment" typeName="enum" enumName="CrossAxisAlignment" defaultValue="auto">
+        /// Overrides the container's `cross-axis-alignment` for this element.
+        /// The default value `auto` uses the container's `cross-axis-alignment`.
+        /// </SlintProperty>
+        ///
+        /// ### layout-order
+        /// <SlintProperty propName="layout-order" typeName="int" defaultValue="0">
+        /// Controls the visual order of the elements: they are laid out in ascending
+        /// order value, and elements with the same value keep their declaration order.
+        /// ```slint no-test
+        /// HorizontalLayout {
+        ///     Rectangle { layout-order: 2; }
+        ///     Rectangle { layout-order: 1; }  // appears first
+        /// }
+        /// ```
+        /// Only the visual order changes: keyboard focus still moves in declaration order.
+        /// </SlintProperty>
+        /// \group:layouts
+        HorizontalLayout {
+            //! ## Spacing Properties
+            /// The distance between the elements in the layout.
+            in property <length> spacing;
+            //! ## Padding Properties
+            //!
+            //! ### padding
+            //! <SlintProperty propName="padding" typeName="length">
+            //! The padding within the layout as a whole. This single value is applied to all sides.
+            //! </SlintProperty>
+            //!
+            //! To target specific sides with different values use the following properties:
+            //!
+            //! ### padding-left
+            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //!
+            //! ### padding-right
+            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //!
+            //! ### padding-top
+            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //!
+            //! ### padding-bottom
+            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //!
+            //! ## Alignment Properties
+            /// Set the alignment along the main (horizontal) axis. Matches the CSS flex box.
+            in property <LayoutAlignment> alignment;
+            /// Set the alignment of items along the cross (vertical) axis.
+            /// The default is `stretch`, meaning each item fills the full height of the layout.
+            /// The other values (`start`, `end`, `center`) size each
+            /// item to its preferred height, clamped to its min/max, and position it at the
+            /// top, bottom, or center of the layout's content box.
+            ///
+            /// ```slint
+            /// export component Example inherits Window {
+            ///     width: 200px;
+            ///     height: 100px;
+            ///     HorizontalLayout {
+            ///         cross-axis-alignment: center;
+            ///         Rectangle { background: red; preferred-width: 30px; preferred-height: 20px; }
+            ///         Rectangle { background: blue; preferred-width: 30px; preferred-height: 40px; }
+            ///         Rectangle { background: green; preferred-width: 30px; preferred-height: 60px; }
+            ///     }
+            /// }
+            /// ```
+            in property <CrossAxisAlignment> cross-axis-alignment;
+        }
+    }
+
+    element! {
+        /// `FlexboxLayout` is a flexible box layout that arranges its children in rows or columns with automatic wrapping.
+        /// It implements a CSS Flexbox-like layout model suitable for creating flexible, responsive UIs.
+        ///
+        /// Use `FlexboxLayout` when the items should wrap: items that don't fit continue on the next line.
+        /// That's why `flex-wrap` defaults to `wrap`, unlike CSS.
+        /// For a single row or column, use the simpler and faster
+        /// <Link type="HorizontalLayout" /> or <Link type="VerticalLayout" /> instead,
+        /// unless you need a `flex-direction` that changes at runtime,
+        /// or the reversed directions (`row-reverse` / `column-reverse`).
+        ///
+        ///
+        /// ```slint playground imageAlt="flexboxlayout example with row direction" width="300" height="150"
+        /// // This example demonstrates FlexboxLayout with row direction (default)
+        /// export component Foo inherits Window {
+        ///     width: 300px;
+        ///     height: 150px;
+        ///     FlexboxLayout {
+        ///         spacing: 8px;
+        ///         padding: 8px;
+        ///         flex-direction: row;
+        ///         Rectangle { background: red; width: 60px; height: 50px; }
+        ///         Rectangle { background: blue; width: 60px; height: 50px; }
+        ///         Rectangle { background: yellow; width: 60px; height: 50px; }
+        ///         Rectangle { background: green; width: 60px; height: 50px; }
+        ///         Rectangle { background: purple; width: 60px; height: 50px; }
+        ///     }
+        /// }
+        /// ```
+        ///
+        ///
+        /// ```slint playground imageAlt="flexboxlayout example with column direction" width="200" height="300"
+        /// // This example demonstrates FlexboxLayout with column direction
+        /// export component Foo inherits Window {
+        ///     width: 200px;
+        ///     height: 300px;
+        ///     FlexboxLayout {
+        ///         spacing: 8px;
+        ///         padding: 8px;
+        ///         flex-direction: column;
+        ///         Rectangle { background: red; width: 50px; height: 60px; }
+        ///         Rectangle { background: blue; width: 50px; height: 60px; }
+        ///         Rectangle { background: yellow; width: 50px; height: 60px; }
+        ///         Rectangle { background: green; width: 50px; height: 60px; }
+        ///         Rectangle { background: purple; width: 50px; height: 60px; }
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// ## Overview
+        ///
+        /// In row direction, items are placed from left to right. When the available width is exceeded, items automatically wrap to the next row. In column direction, items are placed from top to bottom and wrap to the next column when the available height is exceeded.
+        ///
+        /// \footer
+        /// ## Cell elements
+        /// Cell elements inside a `FlexboxLayout` obtain the following new properties:
+        ///
+        /// ### cross-axis-self-alignment
+        /// <SlintProperty propName="cross-axis-self-alignment" typeName="enum" enumName="CrossAxisAlignment" defaultValue="auto">
+        /// Overrides the container's `cross-axis-alignment` for this element. CSS Flexbox calls this "align-self".
+        /// The default value `auto` uses the container's `cross-axis-alignment`.
+        /// </SlintProperty>
+        ///
+        /// ### layout-order
+        /// <SlintProperty propName="layout-order" typeName="int" defaultValue="0">
+        /// Controls the visual order of the items, like the CSS `order` property:
+        /// items are laid out in ascending order value, and items with the same value keep
+        /// their declaration order.
+        /// ```slint no-test
+        /// FlexboxLayout {
+        ///     Rectangle { layout-order: 2; }
+        ///     Rectangle { layout-order: 1; }  // appears first
+        /// }
+        /// ```
+        /// Only the visual order changes: keyboard focus still moves in declaration order.
+        /// </SlintProperty>
+        ///
+        /// ## CSS Mapping
+        ///
+        /// The container properties map to CSS Flexbox as follows:
+        ///
+        /// | CSS               | Slint                                                     |
+        /// | ----------------- | --------------------------------------------------------- |
+        /// | `flex-direction`  | `flex-direction`                                          |
+        /// | `flex-wrap`       | `flex-wrap`, but the default is `wrap` (CSS: `nowrap`)    |
+        /// | `justify-content` | `alignment`                                               |
+        /// | `align-items`     | `cross-axis-alignment`                                    |
+        /// | `align-content`   | `cross-axis-line-alignment`                               |
+        /// | `gap`             | `spacing`                                                 |
+        /// | `column-gap`      | `spacing-horizontal`                                      |
+        /// | `row-gap`         | `spacing-vertical`                                        |
+        /// | `padding`         | `padding`, `padding-left` / `-right` / `-top` / `-bottom` |
+        ///
+        /// The CSS per-item flexbox properties are expressed with the properties the
+        /// other layouts already use:
+        ///
+        /// | CSS           | Slint                                                          |
+        /// | ------------- | -------------------------------------------------------------- |
+        /// | `flex-grow`   | `alignment: stretch` on the container, weighted per item by `horizontal-stretch` / `vertical-stretch`; `max-width` / `max-height` caps growing (space a capped item cannot take stays free) |
+        /// | `flex-shrink` | nothing to opt into: every item shrinks, in proportion to its preferred size; `min-width` / `min-height` refuses shrinking |
+        /// | `flex-basis`  | `preferred-width` (row) / `preferred-height` (column)          |
+        /// | `align-self`  | `cross-axis-self-alignment`                                    |
+        ///
+        /// ## Layout Behavior
+        ///
+        /// The layouting algorithm for FlexboxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>
+        ///
+        /// You can learn more about the CSS Flexbox specification from
+        /// - <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Flexible_box_layout/Basic_concepts">the Mozilla developer website</a>
+        /// - <a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/">A Complete Guide To Flexbox by CSS Tricks</a>. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
+        ///
+        /// \group:layouts
+        FlexboxLayout {
+            //! ## Spacing Properties
+            /// The distance between the elements in the layout. CSS Flexbox usually calls this "gap", but "spacing" is used in Slint for consistency with other layout types.
+            /// This single value is applied as both horizontal and vertical spacing between items.
+            in property <length> spacing;
+            //! To target specific directions with different values use the following properties:
+            /// The horizontal distance between items in the layout. CSS Flexbox calls this "column-gap".
+            in property <length> spacing-horizontal;
+            /// The vertical distance between items in the layout. CSS Flexbox calls this "row-gap".
+            in property <length> spacing-vertical;
+            //! ## Padding Properties
+            //!
+            //! ### padding
+            //! <SlintProperty propName="padding" typeName="length">
+            //! The padding around the layout as a whole. This single value is applied to all sides.
+            //! </SlintProperty>
+            //!
+            //! To target specific sides with different values use the following properties:
+            //! ### padding-left
+            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //!
+            //! ### padding-right
+            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //!
+            //! ### padding-top
+            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //!
+            //! ### padding-bottom
+            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //!
+            //! ## Alignment Properties
+            /// Set the alignment of items along the main axis. CSS Flexbox calls this "justify-content".
+            /// With `stretch`, items grow along the main axis to fill each line,
+            /// weighted by their `horizontal-stretch` (row) or `vertical-stretch` (column) factor.
+            /// When every factor is 0, the free space is split evenly.
+            /// Use `max-width`/`max-height` to cap an item's growth;
+            /// space a capped item cannot take stays free at the end of the line.
+            /// CSS Flexbox expresses this per item with `flex-grow` instead.
+            in property <LayoutAlignment> alignment: LayoutAlignment.start;  // CSS default is flex-start
+            //! ## Direction Properties
+            /// The primary direction in which items are placed. Set to `row` to place items horizontally left-to-right (default), or `column` to place items vertically top-to-bottom.
+            /// It also supports `row-reverse` and `column-reverse` which invert the flow: `row-reverse` places items right-to-left (starting at the right edge), and `column-reverse` places items bottom-to-top (starting at the bottom edge).
+            in property <FlexboxLayoutDirection> flex-direction;
+            /// Set the distribution of flex lines along the cross axis. CSS Flexbox calls this "align-content";
+            /// the name here pairs with `cross-axis-alignment`, which aligns the items within one line.
+            /// The default value is `stretch`.
+            in property <LayoutAlignment> cross-axis-line-alignment;
+            /// Set the alignment of individual items along the cross axis within each flex line.
+            /// CSS Flexbox calls this "align-items". The default value is `stretch`.
+            in property <CrossAxisAlignment> cross-axis-alignment;
+            /// Controls whether flex items wrap onto multiple lines when they don't fit in the container.
+            /// The default value is `wrap`, unlike CSS where it is `nowrap`.
+            in property <FlexboxLayoutWrap> flex-wrap;
+        }
+    }
+
+    element! {
+        /// The `MoveTo` sub-element closes the current sub-path, if present, and moves the current point
+        /// to the location specified by the `x` and `y` properties. Subsequent elements such as `LineTo`
+        /// will use this new position as their starting point, therefore this starts a new sub-path.
+        @is_non_item_type @builtin_struct(PathMoveTo)
+        MoveTo {
+            /// The x position of the new current point.
+            in property <float> x;
+            /// The y position of the new current point.
+            in property <float> y;
+        }
+    }
+
+    element! {
+        /// The `LineTo` sub-element describes a line from the path's current position to the
+        /// location specified by the `x` and `y` properties.
+        @is_non_item_type @builtin_struct(PathLineTo)
+        LineTo {
+            /// The target x position of the line.
+            in property <float> x;
+            /// The target y position of the line.
+            in property <float> y;
+        }
+    }
+
+    element! {
+        /// The `ArcTo` sub-element describes the portion of an ellipse. The arc is drawn from the path's
+        /// current position to the location specified by the `x` and `y` properties. The remaining properties
+        /// are modelled after the SVG specification and allow tuning visual features such as the direction
+        /// or angle.
+        @is_non_item_type @builtin_struct(PathArcTo)
+        ArcTo {
+            /// Out of the two arcs of a closed ellipse, this flag selects that the larger arc is to be rendered. If the property is `false`, the shorter arc is rendered instead.
+            in property <bool> large-arc;
+            /// The x-radius of the ellipse.
+            in property <float> radius-x;
+            /// The y-radius of the ellipse.
+            in property <float> radius-y;
+            /// If the property is `true`, the arc will be drawn as a clockwise turning arc; anti-clockwise otherwise.
+            in property <bool> sweep;
+            /// The x-axis of the ellipse will be rotated by the value of this properties, specified in as angle in degrees from 0 to 360.
+            in property <float> x-rotation;
+            /// The target x position of the line.
+            in property <float> x;
+            /// The target y position of the line.
+            in property <float> y;
+        }
+    }
+
+    element! {
+        /// The `CubicTo` sub-element describes a smooth Bézier from the path's current position to the
+        /// location specified by the `x` and `y` properties, using two control points specified by their
+        /// respective properties.
+        @is_non_item_type @builtin_struct(PathCubicTo)
+        CubicTo {
+            /// The x coordinate of the curve's first control point.
+            in property <float> control-1-x;
+            /// The y coordinate of the curve's first control point.
+            in property <float> control-1-y;
+            /// The x coordinate of the curve's second control point.
+            in property <float> control-2-x;
+            /// The y coordinate of the curve's second control point.
+            in property <float> control-2-y;
+            /// The target x position of the curve.
+            in property <float> x;
+            /// The target y position of the curve.
+            in property <float> y;
+        }
+    }
+
+    element! {
+        /// The QuadraticTo sub-element describes a smooth Bézier from the path's current position to the
+        /// location specified by the `x` and `y` properties, using the control points specified by the
+        /// `control-x` and `control-y` properties.
+        @is_non_item_type @builtin_struct(PathQuadraticTo)
+        QuadraticTo {
+            /// The x coordinate of the curve's control point.
+            in property <float> control-x;
+            /// The y coordinate of the curve's control point.
+            in property <float> control-y;
+            /// The target x position of the curve.
+            in property <float> x;
+            /// The target y position of the curve.
+            in property <float> y;
+        }
+    }
+
+    element! {
+        /// The `Close` element closes the current sub-path and draws a straight line from the current
+        /// position to the beginning of the path.
+        @is_non_item_type @builtin_struct(PathClose)
+        Close
+    }
+
+    item! { Path {
+        /// The color for filling the shape of the path.
+        in property <brush> fill;
+        /// The fill rule to use for the path.
+        /// \default nonzero
+        in property <FillRule> fill-rule;
+        /// The color for drawing the outline of the path.
+        in property <brush> stroke;
+        /// The width of the outline.
+        in property <length> stroke-width;
+        /// The appearance of the ends of the path's outline.
+        /// \default butt
+        in property <LineCap> stroke-line-cap;
+        /// The appearance of the joins between segments of stroked paths.
+        /// \default miter
+        in property <LineJoin> stroke-line-join;
+        /// The limit on the ratio of the miter length to the stroke width when `stroke-line-join` is set to `miter`.
+        /// When the limit is exceeded, the join is rendered as a bevel instead.
+        in property <float> stroke-miter-limit: 4; // SVG default is 4
+        //! ### width
+        //! <SlintProperty propName="width" typeName="length">
+        //! If non-zero, the path will be scaled to fit into the specified width.
+        //! </SlintProperty>
+        //!
+        //! ### height
+        //! <SlintProperty propName="height" typeName="length">
+        //! If non-zero, the path will be scaled to fit into the specified height.
+        //! </SlintProperty>
+        //!
+
+        @fake in property <string> commands;
+        /// Defines how the path's view box is scaled to fit the element's width and height.
+        /// If no view box is defined, the implicit bounding rectangle is used.
+        /// \default contain
+        in property <ImageFit> fit: ImageFit.contain;
+        /// By default, when a path has a view box defined and the elements render
+        /// outside of it, they are still rendered. When this property is set to `true`, then rendering will be
+        /// clipped at the boundaries of the view box.
+        /// \default false
+        in property <bool> clip;
+        ///  By default, the fill and stroke of a path is rendered with anti-aliasing, for best quality. Some GPUs
+        ///  have performance issues when rendering with anti-aliasing and animation. Setting the value to `false`
+        ///  might improve the frame-rate at the expense of a smoother looking path.
+        /// \default true
+        in property <bool> anti-alias: true;
+        //! ## Viewbox Properties
+        //!
+        //! These four properties allow defining the position and size of the viewport of the path in path coordinates.
+        //!
+        //! If the `viewbox-width` or `viewbox-height` is less or equal than zero, the viewbox properties are
+        //! ignored and instead the bounding rectangle of all path elements is used to define the view port.
+        ///
+        in property <float> viewbox-x;
+        ///
+        in property <float> viewbox-y;
+        ///
+        in property <float> viewbox-width;
+        ///
+        in property <float> viewbox-height;
+        /// Returns a point at the given percent along the path in the Path element's coordinate space.
+        /// Returns (0, 0) if the path is empty.
+        ///
+        /// If a `t` outside the bounds of 0 and 1 is passed, it will be converted to its decimal fraction.
+        /// Ex: 1.5 -> 0.5 and 2.0 -> 1.0. This allows for N iterations of a loop
+        /// by animating t from 0 to N. If `t` is animated from N to 0, it will loop N times backwards.
+        @pure function point-at(t: float) -> Point { BuiltinFunction.PathPointAt }
+        /// Returns the angle (in degrees) between the x-axis and the path's tangent vector at the given `t`.
+        /// The tangent points in the direction the path was defined, so this reflects the path's shape and not
+        /// the object's current direction of travel. Returns 0 if the path is empty.
+        /// If a `t` outside the bounds of 0 and 1 is passed, the decimal fraction will be passed.
+        @pure function angle-at(t: float) -> angle { BuiltinFunction.PathAngleAt }
+        //!
+        //! ## Path Using SVG Commands
+        //!
+        //! SVG is a popular file format for defining scalable graphics, which are often composed of paths. In SVG
+        //! paths are composed using [commands](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/d#path_commands),
+        //! which in turn are written in a string. In `.slint` the path commands are provided to the `commands`
+        //! property. The following example renders a shape consists of an arc and a rectangle, composed of `line-to`,
+        //! `move-to` and `arc` commands:
+        //!
+        //! ```slint
+        //! export component Example inherits Path {
+        //!     width: 100px;
+        //!     height: 100px;
+        //!     commands: "M 0 0 L 0 100 A 1 1 0 0 0 100 100 L 100 0 Z";
+        //!     stroke: red;
+        //!     stroke-width: 1px;
+        //! }
+        //! ```
+        //!
+        //! The commands are provided in a property:
+        //!
+        //! ### Commands
+        //! <SlintProperty propName="commands" typeName="string">
+        //! A string providing the commands according to the SVG path specification.
+        //! This property can only be set in a binding and cannot be accessed in an expression.
+        //! </SlintProperty>
+        //!
+        //! ## Path Using SVG Path Elements
+        //!
+        //! The shape of the path can also be described using elements that resemble the SVG path commands but use the
+        //! `.slint` markup syntax. The earlier example using SVG commands can also be written like that:
+        //!
+        //! ```slint
+        //! export component Example inherits Path {
+        //!     width: 100px;
+        //!     height: 100px;
+        //!     stroke: blue;
+        //!     stroke-width: 1px;
+        //!
+        //!     MoveTo {
+        //!         x: 0;
+        //!         y: 0;
+        //!     }
+        //!     LineTo {
+        //!         x: 0;
+        //!         y: 100;
+        //!     }
+        //!     ArcTo {
+        //!         radius-x: 1;
+        //!         radius-y: 1;
+        //!         x: 100;
+        //!         y: 100;
+        //!     }
+        //!     LineTo {
+        //!         x: 100;
+        //!         y: 0;
+        //!     }
+        //!     Close {
+        //!     }
+        //! }
+        //! ```
+        //!
+        //! Note how the coordinates of the path elements don't use units - they operate within the imaginary
+        //! coordinate system of the scalable path.
+
+
+
+
+
+
+
+    } }
+
+    element! {
+        /// The `Path` element allows rendering a generic shape, composed of different geometric commands. A path
+        /// shape can be filled and outlined.
+        ///
+        /// When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
+        ///
+        /// A path can be defined in two different ways:
+        ///
+        /// -   Using SVG path commands as a string
+        /// -   Using path command elements in `.slint` markup.
+        ///
+        /// The coordinates used in the geometric commands are within the imaginary coordinate system of the path.
+        /// When rendering on the screen, the shape is drawn relative to the `x` and `y` properties. If the `width`
+        /// and `height` properties are non-zero, then the entire shape is fit into these bounds - by scaling
+        /// accordingly.
+        /// \group:elements
+        @disallow_global_types_as_child_elements @expands_to_parent_geometry
+        Path: Path {
+            children: MoveTo, LineTo, ArcTo, CubicTo, QuadraticTo, Close;
+        }
+    }
+
+    element! {
+        Tab {
+            in property <string> title;
+        }
+    }
+
+    element! {
+        // Note: not a native class, handled in the lower_tabs pass
+        @is_internal @disallow_global_types_as_child_elements @expands_to_parent_geometry
+        TabWidget {
+            in-out property <int> current-index;
+
+            @constexpr in property <Orientation> orientation;
+
+
+            children: Tab;
+        }
+    }
+
+    element! {
+        RadioButton {
+            in property <string> text;
+            in property <bool> enabled: true;
+            in-out property <bool> checked;
+            callback toggled;
+        }
+    }
+
+    element! {
+        // Note: not a native class, handled in the lower_radiogroup pass
+        @is_internal @disallow_global_types_as_child_elements
+        RadioGroup {
+            in property <string> title;
+            in property <bool> enabled: true;
+            in property <Orientation> orientation;
+            out property <string> current-value;
+            out property <bool> has-focus;
+            callback selected(value: string);
+
+
+            children: RadioButton;
+        }
+    }
+
+    element! {
+        /// ```slint playground
+        /// export component Example inherits Window {
+        ///     width: 100px;
+        ///     height: 100px;
+        ///
+        ///     popup := PopupWindow {
+        ///         Rectangle { height:100%; width: 100%; background: yellow; }
+        ///         x: 20px; y: 20px; height: 50px; width: 50px;
+        ///     }
+        ///
+        ///     TouchArea {
+        ///         height:100%; width: 100%;
+        ///         clicked => { popup.show(); }
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// Use this element to show a popup window like a tooltip or a popup menu.
+        ///
+        /// :::note{Note}
+        /// It isn't allowed to access properties of elements within the popup from outside of the `PopupWindow`. See [#4438](https://github.com/slint-ui/slint/issues/4438).
+        /// :::
+        /// \group:window
+        PopupWindow {
+            //property <length> x;
+            //property <length> y;
+            in property <length> width;
+            in property <length> height;
+            /*property <length> anchor_x;
+            in property <length> anchor-y;
+            in property <length> anchor-height;
+            in property <length> anchor-width;*/
+
+            @constexpr in property <bool> close-on-click;
+            /// By default, a PopupWindow closes when the user clicks. Set this to false to prevent that behavior and close it manually using the `close()` function.
+            /// \default close-on-click
+
+            @constexpr in property <PopupClosePolicy> close-policy;
+            /// Use this read-only property to style the element that opened the popup, for example
+            /// to rotate a ComboBox's arrow while the dropdown is open.
+            /// `true` while the popup is shown on the screen, and `false` once it is closed, for example
+            /// when dismissed by a click, by a selection, or by a programmatic `close()`.
+            out property <bool> is-open;
+            /// Show the popup on the screen.
+            function show() { BuiltinFunction.ShowPopupWindow }
+            /// Closes the popup. Use this if you set the `close-policy` property to `no-auto-close`.
+            function close() { BuiltinFunction.ClosePopupWindow }
+        }
+    }
+
+    item! { TooltipArea: Empty {
+        // Set when the mouse is over the parent's region while this area is expanded to fill it during lowering.
+        out property <bool> has-hover;
+        // Pointer x within this area during hover.
+        out property <length> mouse-x;
+        // Pointer y within this area during hover.
+        out property <length> mouse-y;
+        // Tooltip configuration folded from the user-facing Tooltip element during lowering.
+        in property <styled-text> text;
+        // Delay and offset are not user-facing in 1.17; the values used here are the
+        // built-in defaults applied to the synthesized element on instantiation.
+        in property <duration> delay: 500ms;
+        in property <length> offset: 8px;
+        callback show;
+        callback hide;
+    } }
+
+    element! {
+        // Internal hover tracker used with `Tooltip` lowering (the compiler inserts `TooltipArea` so `Tooltip` can react to hover and pointer position).
+        @is_internal @expands_to_parent_geometry
+        TooltipArea: TooltipArea
+    }
+
+    element! {
+        /// ```slint playground
+        /// import { Button } from "std-widgets.slint";
+        ///
+        /// export component Example inherits Window {
+        ///     width: 280px;
+        ///     height: 160px;
+        ///
+        ///     VerticalLayout {
+        ///         alignment: center;
+        ///
+        ///         Button {
+        ///             text: "Hover me";
+        ///
+        ///             Tooltip {
+        ///                 text: @markdown("This is a tooltip");
+        ///             }
+        ///         }
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// Place a `Tooltip` inside any element to show helpful information when hovering over it.
+        /// The tooltip appears after a short delay near the pointer and hides when the pointer leaves.
+        ///
+        /// Set the `text` property for a simple text tooltip,
+        /// or add a child element instead for custom content.
+        ///
+        /// Each element can contain at most one `Tooltip`.
+        ///
+        /// \footer
+        /// ## Custom Content
+        ///
+        /// For richer tooltips, omit `text` and provide your own layout inside a single child element.
+        ///
+        ///
+        /// ```slint playground
+        /// import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+        ///
+        /// export component Example inherits Window {
+        ///     width: 320px;
+        ///     height: 200px;
+        ///
+        ///     VerticalLayout {
+        ///         alignment: center;
+        ///
+        ///         Button {
+        ///             text: "Custom tooltip";
+        ///
+        ///             Tooltip {
+        ///                 VerticalBox {
+        ///                     padding: 10px;
+        ///                     spacing: 6px;
+        ///
+        ///                     Text {
+        ///                         text: "Quick Actions";
+        ///                         font-weight: 700;
+        ///                         color: #fff;
+        ///                     }
+        ///
+        ///                     Text {
+        ///                         text: "Open command palette and search settings.";
+        ///                         color: #d1d5db;
+        ///                         wrap: word-wrap;
+        ///                     }
+        ///
+        ///                     HorizontalBox {
+        ///                         spacing: 6px;
+        ///
+        ///                         Rectangle {
+        ///                             border-radius: 4px;
+        ///                             background: #374151;
+        ///                             HorizontalBox {
+        ///                                 padding: 4px;
+        ///                                 Text { text: "Ctrl"; color: #fff; }
+        ///                             }
+        ///                         }
+        ///
+        ///                         Rectangle {
+        ///                             border-radius: 4px;
+        ///                             background: #374151;
+        ///                             HorizontalBox {
+        ///                                 padding: 4px;
+        ///                                 Text { text: "K"; color: #fff; }
+        ///                             }
+        ///                         }
+        ///                     }
+        ///                 }
+        ///             }
+        ///         }
+        ///     }
+        /// }
+        /// ```
+        /// \group:window
+        @is_non_item_type @can_be_declared_without_children_slot
+        Tooltip: Empty {
+            /// The text to display in the tooltip.
+            /// Don't set this property when using custom content.
+            in property <styled-text> text;
+        }
+    }
+
+    element! {
+        /// :::note[Note]
+        /// Timer is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
+        /// :::
+        ///
+        /// This example shows a timer that counts down from 10 to 0 every second:
+        ///
+        /// ```slint playground
+        /// import { Button } from "std-widgets.slint";
+        /// export component Example inherits Window {
+        ///     property <int> value: 10;
+        ///     timer := Timer {
+        ///         interval: 1s;
+        ///         running: true;
+        ///         triggered() => {
+        ///             value -= 1;
+        ///             if (value == 0) {
+        ///                 self.running = false;
+        ///             }
+        ///         }
+        ///     }
+        ///     HorizontalLayout {
+        ///         Text { text: value; }
+        ///         Button {
+        ///             text: "Reset";
+        ///             clicked() => { value = 10; timer.running = true; }
+        ///         }
+        ///     }
+        /// }
+        /// ```
+        ///
+        ///
+        ///
+        /// Use the Timer pseudo-element to schedule a callback at a given interval.
+        /// The timer is only running when the `running` property is set to `true`. To stop or start the timer, set that property to `true` or `false`.
+        /// It can be also set to a binding expression.
+        /// When already running, the timer will be restarted if the `interval` property is changed.
+        ///
+        /// :::caution[Caution]
+        /// By default the `Timer` is always running `running: true`. This can result in constant CPU usage and
+        /// power usage so ensure that you set `running` to `false` when you don't want the timer to run.
+        /// :::
+        ///
+        /// ```slint
+        /// property <int> count: 0;
+        /// Timer {
+        ///     interval: 8s; // every 8 seconds the timer will activate (tick)
+        ///     triggered() => { // The triggered callback activates every time the timer ticks
+        ///         if count >= 5 {
+        ///             self.running = false; // stop the timer after 5 ticks
+        ///         }
+        ///         count += 1;
+        ///     }
+        /// }
+        /// ```
+        @is_non_item_type @disallow_global_types_as_child_elements
+        Timer {
+            /// The interval between timer ticks. This property is mandatory.
+            /// ```slint "interval: 250ms;"
+            /// Timer {
+            ///     property <int> count: 0;
+            ///     interval: 250ms;
+            ///     triggered() => {
+            ///         debug("count is:", count);
+            ///         count += 1;
+            ///     }
+            /// }
+            /// ```
+            in property <duration> interval;
+            /// `true` if the timer is running.
+            /// ```slint "running: false; // timer is not running"
+            /// Timer {
+            ///     property <int> count: 0;
+            ///     interval: 250ms;
+            ///     running: false; // timer is not running
+            ///     triggered() => {
+            ///         debug("count is:", count);
+            ///     }
+            /// }
+            /// ```
+            in property <bool> running: true;
+            /// Invoked every time the timer ticks (every `interval`).
+            /// ```slint {4-6}
+            /// Timer {
+            ///     property <int> count: 0;
+            ///     interval: 250ms;
+            ///     triggered() => {
+            ///         debug("count is:", count);
+            ///     }
+            /// }
+            /// ```
+            callback triggered;
+            /// Start the timer (equivalent to setting `running` to true).
+            function start() { BuiltinFunction.StartTimer }
+            /// Stop the timer (equivalent to setting `running` to false).
+            function stop() { BuiltinFunction.StopTimer }
+            /// Restarts the timer if it was previously started.
+            function restart() { BuiltinFunction.RestartTimer }
+        }
+    }
+
+    element! {
+        /// ```slint playground imageAlt="dialog example" width="200" height="100"
+        /// import { StandardButton, Button } from "std-widgets.slint";
+        /// export component Example inherits Dialog {
+        ///     Text {
+        ///       text: "This is a dialog box";
+        ///     }
+        ///     StandardButton { kind: ok; }
+        ///     StandardButton { kind: cancel; }
+        ///     Button {
+        ///       text: "More Info";
+        ///       dialog-button-role: action;
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// Dialog can be used in place of <Link type="Window"/>, but it has buttons that are automatically laid out.
+        ///
+        /// A Dialog should have one main element as child, that isn't a button.
+        /// The dialog can have any number of `StandardButton` widgets or other buttons
+        /// with the `dialog-button-role` property.
+        /// The buttons will be placed in an order that depends on the target platform at run-time.
+        ///
+        /// The `kind` property of the `StandardButton`s and the `dialog-button-role` properties need to be set to a constant value, it can't be an arbitrary variable expression.
+        /// There can't be several `StandardButton`s of the same kind.
+        ///
+        /// A callback `<kind>_clicked` is automatically added for each `StandardButton` which doesn't have an explicit
+        /// callback handler, so it can be handled from the native code: For example if there is a button of kind `cancel`,
+        /// a `cancel_clicked` callback will be added.
+        /// Each of these automatically-generated callbacks is an alias for the `clicked` callback of the associated `StandardButton`.
+        ///
+        /// ## Properties
+        ///
+        /// Same as <Link type="Window"/>.
+        ///
+        /// ## Functions
+        ///
+        /// Same as <Link type="Window"/>.
+        /// \group:window
+        @skip_inherited
+        Dialog: WindowItem
+    }
+
+    element! {
+        @is_non_item_type
+        PropertyAnimation {
+            in property <duration> delay;
+            in property <duration> duration;
+            in property <AnimationDirection> direction;
+            in property <easing> easing;
+            in property <float> iteration-count: 1.0;
+            in property <bool> enabled: true;
+        }
+    }
+
+    element! {
+        /// ```slint
+        /// import { LineEdit } from "std-widgets.slint";
+        ///
+        /// component VKB {
+        ///     Rectangle { background: yellow; }
+        /// }
+        ///
+        /// export component Example inherits Window {
+        ///     width: 200px;
+        ///     height: 100px;
+        ///     VerticalLayout {
+        ///         LineEdit {}
+        ///         FocusScope {}
+        ///         if TextInputInterface.text-input-focused: VKB {}
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// \group:keyboard-input
+        @is_global
+        TextInputInterface {
+            //! ## Properties
+            //!
+            //! The `TextInputInterface.text-input-focused` property can be used to find out if a `TextInput` element has the focus.
+            //! If you're implementing your own virtual keyboard, this property is an indicator whether the virtual keyboard should be shown or hidden.
+            /// True if an `TextInput` element has the focus; false otherwise.
+            in property <bool> text-input-focused;
+        }
+    }
+
+    element! {
+        /// The **Platform** namespace contains properties that help deal with platform specific differences.
+        @is_global
+        Platform {
+            /// This property holds the type of the operating system detected at run-time.
+            ///
+            /// :::note{Note}
+            /// When running in a web browser, the value of this property is computed at run-time by querying the web browser's navigator properties.
+            /// :::
+            ///
+            /// :::note{Note}
+            /// When Slint is ported to new operating systems in the future, new enum values will be added.
+            /// :::
+            out property <OperatingSystemType> os;
+            /// `true` when the `.slint` file is being interpreted on its own, with nothing behind it, such as
+            /// when previewed with `slint-viewer` or the editor's preview, and `false` when the user interface
+            /// is driven by a host application: your business logic written in Rust, C++, JavaScript or Python.
+            ///
+            /// Use it to provide placeholder data and preview-only decorations that are removed from your
+            /// compiled application. This property is a compile-time constant, so branches that depend on it
+            /// are optimized away when the value is known to be `false` or `true`.
+            //
+            // ```slint playground
+            // import { ListView, VerticalBox } from "std-widgets.slint";
+            //
+            // export struct Data {
+            //     text: string,
+            //     color: color,
+            //     bg: color,
+            // }
+            // export component Example inherits Window {
+            //     width: 150px;
+            //     height: 150px;
+            //     in property<[Data]> data: Platform.uses-mock-data ? [
+            //                 { text: "Blue", color: #0000ff, bg: #eeeeee},
+            //                 { text: "Red", color: #ff0000, bg: #eeeeee},
+            //                 { text: "Green", color: #00ff00, bg: #eeeeee},
+            //                 { text: "Yellow", color: #ffff00, bg: #222222 },
+            //                 { text: "Black", color: #000000, bg: #eeeeee },
+            //                 { text: "White", color: #ffffff, bg: #222222 },
+            //                 { text: "Magenta", color: #ff00ff, bg: #eeeeee },
+            //                 { text: "Cyan", color: #00ffff, bg: #222222 },
+            //             ] : [];
+            //
+            //     VerticalBox {
+            //         ListView {
+            //             for data in root.data : Rectangle {
+            //                 height: 30px;
+            //                 background: data.bg;
+            //                 width: parent.width;
+            //                 Text {
+            //                     x: 0;
+            //                     text: data.text;
+            //                     color: data.color;
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
+            // ```
+            out property <bool> uses-mock-data;
+            /// The name of the currently selected <Link type="StyleWidgets" label="widget style"/>. Some widget
+            /// styles have dark and light variant suffixes, such as `fluent-light`. This property contains the
+            /// style name without the suffix. Use <Link type="Palette" label="Palette"/>'s `color-scheme` to
+            /// determine the currently used scheme.
+            out property <string> style-name;
+            /// The decimal separator used when converting between `float` and `string`.
+            /// It defaults to the dot (`.`) and is determined by the locale.
+            /// See the <Link type="translations" label="translations guide"/> for details.
+            out property <string> decimal-separator;
+            /// Opens the specified URL in an external browser. This function invokes the platform's URL opening mechanism.
+            /// Returns `true` on success, or `false` if the platform doesn't support opening URLs or the operation failed.
+            ///
+            /// ```slint playground
+            /// import { Button } from "std-widgets.slint";
+            ///
+            /// export component Example inherits Window {
+            ///     Button {
+            ///         text: "Open Slint Website";
+            ///         clicked => {
+            ///             Platform.open-url("https://slint.dev");
+            ///         }
+            ///     }
+            /// }
+            /// ```
+            function open-url(url: string) -> bool { }
+            /// Brings all application windows to the front of the screen.
+            ///
+            /// On macOS this invokes `[NSApp arrangeInFront:]`, which raises every application window
+            /// to the top of the window stack. On other platforms this function is a no-op.
+            ///
+            /// This corresponds to the standard macOS **Window › Bring All to Front** menu item.
+            function macos-bring-all-windows-to-front() { }
+        }
+    }
+
+    item! { NativeButton {
+        in property <string> text;
+        in property <image> icon;
+        out property <bool> pressed;
+        in property <bool> checkable;
+        in-out property <bool> checked;
+        out property <bool> has-focus;
+        in property <bool> primary;
+        in property <bool> colorize-icon;
+        in property <length> icon-size;
+        callback clicked;
+        in property <bool> enabled: true;
+        in property <StandardButtonKind> standard-button-kind;
+        in property <bool> is-standard-button;
+    } }
+
+    element! {
+        @is_internal @accepts_focus
+        NativeButton: NativeButton
+    }
+
+    item! { NativeCheckBox {
+        in property <bool> enabled: true;
+        in property <string> text;
+        in-out property <bool> checked;
+        out property <bool> has-focus;
+        callback toggled;
+    } }
+
+    element! {
+        @is_internal @accepts_focus
+        NativeCheckBox: NativeCheckBox
+    }
+
+    item! { NativeSpinBox {
+        in property <bool> enabled: true;
+        out property <bool> has-focus;
+        in-out property <int> value;
+        in property <int> minimum;
+        in property <int> maximum: 100;
+        in property <int> step-size: 1;
+        in property <TextHorizontalAlignment> horizontal-alignment;
+        in property <bool> read-only;
+        callback edited(value: int);
+    } }
+
+    element! {
+        @is_internal @accepts_focus
+        NativeSpinBox: NativeSpinBox
+    }
+
+    item! { NativeSlider {
+        in property <bool> enabled: true;
+        out property <bool> has-focus;
+        in-out property <float> value;
+        in property <float> minimum;
+        in property <float> maximum: 100;
+        in property <float> step: 1;
+        in property <Orientation> orientation: Orientation.horizontal;
+        callback changed(value: float);
+        callback released(value: float);
+    } }
+
+    element! {
+        @is_internal @accepts_focus
+        NativeSlider: NativeSlider
+    }
+
+    item! { NativeProgressIndicator {
+        in property <bool> indeterminate;
+        in property <float> progress;
+    } }
+
+    element! {
+        @is_internal
+        NativeProgressIndicator: NativeProgressIndicator
+    }
+
+    item! { NativeGroupBox {
+        in property <bool> enabled: true;
+        in property <string> title;
+        out property <length> native-padding-left;
+        out property <length> native-padding-right;
+        out property <length> native-padding-top;
+        out property <length> native-padding-bottom;
+    } }
+
+    element! {
+        @is_internal @expands_to_parent_geometry
+        NativeGroupBox: NativeGroupBox
+    }
+
+    item! { NativeLineEdit {
+        out property <length> native-padding-left;
+        out property <length> native-padding-right;
+        out property <length> native-padding-top;
+        out property <length> native-padding-bottom;
+        out property <image> clear-icon;
+        in property <bool> has-focus;
+        in property <bool> enabled: true;
+    } }
+
+    element! {
+        @is_internal
+        NativeLineEdit: NativeLineEdit
+    }
+
+    item! { NativeScrollView {
+        in property <length> horizontal-max;
+        in property <length> horizontal-page-size;
+        in property <length> horizontal-value;
+        in property <length> vertical-max;
+        in property <length> vertical-page-size;
+        in-out property <length> vertical-value;
+        out property <length> native-padding-left;
+        out property <length> native-padding-right;
+        out property <length> native-padding-top;
+        out property <length> native-padding-bottom;
+        in property <bool> has-focus;
+        in property <ScrollBarPolicy> vertical-scrollbar-policy;
+        in property <ScrollBarPolicy> horizontal-scrollbar-policy;
+        in property <bool> enabled: true;
+        callback scrolled;
+    } }
+
+    element! {
+        @is_internal @expands_to_parent_geometry
+        NativeScrollView: NativeScrollView
+    }
+
+    item! { NativeStandardListViewItem {
+        in property <int> index;
+        in property <StandardListViewItem> item;
+        in-out property <bool> is-selected;
+        in property <bool> has-hover;
+        in property <bool> has-focus;
+        in property <bool> pressed;
+        in property <bool> combobox;
+        in property <length> pressed-x;
+        in property <length> pressed-y;
+    } }
+
+    element! {
+        @is_internal
+        NativeStandardListViewItem: NativeStandardListViewItem
+    }
+
+    item! { NativeTableHeaderSection {
+        in property <int> index;
+        in property <TableColumn> item;
+        in property <bool> has-hover;
+    } }
+
+    element! {
+        @is_internal
+        NativeTableHeaderSection: NativeTableHeaderSection
+    }
+
+    item! { NativeComboBox {
+        in-out property <string> current-value;
+        in property <bool> enabled: true;
+        in property <bool> has-focus;
+    } }
+
+    element! {
+        @is_internal
+        NativeComboBox: NativeComboBox
+    }
+
+    item! { NativeComboBoxPopup { } }
+
+    element! {
+        @is_internal
+        NativeComboBoxPopup: NativeComboBoxPopup
+    }
+
+    item! { NativeTabWidget {
+        in property <length> width;
+        in property <length> height;
+
+        out property <length> content-x;
+        out property <length> content-y;
+        out property <length> content-height;
+        out property <length> content-width;
+        out property <length> tabbar-x;
+        out property <length> tabbar-y;
+        out property <length> tabbar-height;
+        out property <length> tabbar-width;
+        in property <length> tabbar-preferred-height;
+        in property <length> tabbar-preferred-width;
+        in property <length> content-min-height;
+        in property <length> content-min-width;
+
+        in property <int> current-index;
+        in property <int> current-focused;
+        in property <Orientation> orientation: Orientation.horizontal;
+    } }
+
+    element! {
+        @is_internal @expands_to_parent_geometry
+        NativeTabWidget: NativeTabWidget
+    }
+
+    item! { NativeTab {
+        in property <string> title;
+        in property <image> icon;
+        in property <bool> enabled: true;
+        in-out property <int> current; // supposed to be a binding to the tab
+        in property <int> tab-index;
+        in property <int> current-focused;
+        in property <int> num-tabs;
+    } }
+
+    element! {
+        @is_internal
+        NativeTab: NativeTab
+    }
+
+    item! { NativeStyleMetrics {
+        out property <length> layout-spacing;
+        out property <length> layout-padding;
+        out property <length> text-cursor-width;
+        out property <color> window-background;
+        out property <color> default-text-color;
+        out property <color> textedit-background;
+        out property <color> textedit-text-color;
+        out property <color> textedit-background-disabled;
+        out property <color> textedit-text-color-disabled;
+
+        out property <bool> dark-color-scheme;
+
+        // specific to the Native one
+        out property <color> placeholder-color;
+        out property <color> placeholder-color-disabled;
+
+        // Tab Bar metrics:
+        out property <LayoutAlignment> tab-bar-alignment;
+    } }
+
+    element! {
+        @is_internal @is_non_item_type @is_global
+        NativeStyleMetrics: NativeStyleMetrics
+    }
+
+    item! { NativePalette {
+        out property <brush> background;
+        out property <brush> foreground;
+        out property <brush> alternate-background;
+        out property <brush> alternate-foreground;
+        out property <brush> control-background;
+        out property <brush> control-foreground;
+        out property <brush> accent-background;
+        out property <brush> accent-foreground;
+        out property <brush> selection-background;
+        out property <brush> selection-foreground;
+        out property <brush> border;
+        in-out property <ColorScheme> color-scheme;
+    } }
+
+    element! {
+        @is_internal @is_non_item_type @is_global
+        NativePalette: NativePalette
+    }
+
+    item! { SystemTrayIcon {
+        /// The icon shown in the system tray. The image is scaled by the platform to the size expected
+        /// for tray icons. Use `@image-url(...)` to embed an icon asset, or bind to an `image` property
+        /// fed from your code. The tray icon is only created once a non-empty image has been assigned.
+        in property <image> icon;
+        /// The hover text shown over the tray icon.
+        /// Typically the application name or a short status message.
+        in property <string> tooltip;
+        /// Whether the tray icon is registered with the OS.
+        /// Set it to `false` to hide the icon without dropping the component instance, and back to `true` to show it again.
+        /// The `show()` and `hide()` methods on the language-binding side are convenience aliases that set this property.
+        in property <bool> visible: true;
+        /// A descriptive name for the tray entry, separate from the hover tooltip.
+        /// Where it actually shows up depends on the platform:
+        ///
+        /// | Platform      | Where `title` appears                                                                            |
+        /// | ------------- | ------------------------------------------------------------------------------------------------ |
+        /// | Linux, \*BSD  | Used by accessibility tools and shown by some desktops when listing tray icons (e.g. an overflow menu). Set as the [StatusNotifierItem `Title`](https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/StatusNotifierItem/) property. |
+        /// | macOS         | The visible text label rendered next to the icon in the menu bar (think battery percent, clock). |
+        /// | Windows       | Has no visible effect; the notification area renders only the icon.                              |
+        in property <string> title;
+        /// Invoked when the user left-clicks the tray icon itself, as opposed to picking an entry from its menu.
+        /// Whether it's invoked at all depends on the platform:
+        ///
+        /// | Platform      | Click behavior                                                                        |
+        /// | ------------- | ------------------------------------------------------------------------------------- |
+        /// | Linux, \*BSD  | Invoked on a left-click of the icon. The exact gesture is decided by the desktop environment or shell extension hosting the tray. |
+        /// | macOS         | Invoked on a left-click when no `Menu` is attached (or when an `if cond : Menu { ... }`'s condition is currently false). When a populated menu is attached, AppKit pops it open instead and `clicked` doesn't fire. |
+        /// | Windows       | Invoked on a left-click of the icon. Right-click opens the menu.                      |
+        callback clicked;
+    } }
+
+    element! {
+        // Lowered in lower_menus pass. See that pass documentation for more info.
+        // The optional Menu child is lifted into a separate item tree and wired via
+        // the `SetupSystemTrayIcon` builtin.
+        /// Use the `SystemTrayIcon` element to add an icon and menu to the desktop's system tray,
+        /// also known as the notification area, status area, or menu bar extras, depending on the platform.
+        ///
+        /// `SystemTrayIcon` is a top-level component: derive your own component
+        /// from it with `inherits SystemTrayIcon` instead of placing it inside a <Link type="Window" />.
+        /// A `SystemTrayIcon` component has no window of its own — the icon lives in the tray, and the only UI
+        /// it presents is the menu.
+        ///
+        /// ```slint
+        /// export component ExampleTray inherits SystemTrayIcon {
+        ///     icon: @image-url("tray-icon.png");
+        ///     tooltip: "My App";
+        ///
+        ///     Menu {
+        ///         MenuItem {
+        ///             title: "Quit";
+        ///             activated => { quit(); }
+        ///         }
+        ///     }
+        ///
+        ///     callback quit();
+        /// }
+        /// ```
+        ///
+        /// Create the component from your language binding as you would any other Slint component;
+        /// the tray icon appears as soon as the instance is created and an event loop is running,
+        /// and disappears when the instance is dropped.
+        ///
+        /// :::note{Note}
+        /// A `SystemTrayIcon` exported alongside a `Window` doesn't share <Link type="Globals" label="globals" /> with that window — each instance gets its own copy.
+        /// You may need to initialize the relevant globals on each instance, the same way you would across multiple windows.
+        /// :::
+        ///
+        /// :::note{Note}
+        /// A `SystemTrayIcon` must contain exactly one <Link type="Menu" /> child, and that `Menu` must not
+        /// be inside an `if` or a `for`. No other child element types are permitted. The menu itself may
+        /// use `if` / `for` to build its entries dynamically.
+        /// :::
+        ///
+        /// \skip_children
+        /// \footer
+        /// ## Menu
+        ///
+        /// The child `Menu` defines the menu that is shown when the user clicks or right-clicks the tray
+        /// icon. Its structure is the same as for <Link type="MenuBar" /> and `ContextMenuArea`: use
+        /// `MenuItem` for entries, nested `Menu` elements for sub-menus, and `MenuSeparator` for
+        /// separators. See <Link type="Menu" /> for the properties and callbacks available on those
+        /// elements.
+        ///
+        /// The menu tree is reactive: when any property the menu reads changes (for example the `title`,
+        /// `enabled`, or `checked` binding of a `MenuItem`), Slint rebuilds the platform menu so the tray
+        /// reflects the new state on its next open.
+        ///
+        /// Keyboard `shortcut` bindings on `MenuItem`s within a `SystemTrayIcon` are ignored — tray menus are
+        /// not attached to a focused window, so there is nothing for the shortcut to fire against.
+        ///
+        /// ## Language Bindings
+        ///
+        /// The generated public API for a `SystemTrayIcon`-rooted component is smaller than the one
+        /// for a `Window`-rooted component. Construction, property and callback accessors, and global
+        /// access work the same way. Two things are missing:
+        ///
+        /// | Operation              | Window-rooted | SystemTrayIcon-rooted |
+        /// | ---------------------- | :-----------: | :---------------: |
+        /// | access the window      | yes           | **no**            |
+        /// | run the event loop     | yes           | **no**            |
+        ///
+        /// `show` and `hide` exist on both, but on a `SystemTrayIcon` they set the `visible` property,
+        /// and the platform backend translates that into the native tray API.
+        /// A visible `SystemTrayIcon` keeps the event loop alive the same way a visible window does.
+        ///
+        /// A typical app instantiates both a main window and a tray, shows them, and runs the event loop.
+        /// The snippets below also wire the built-in `clicked` callback so a left-click on the tray icon
+        /// brings the window back if the user has hidden it.
+        ///
+        /// <Tabs syncKey="dev-language">
+        /// <TabItem label="Rust">
+        /// ```rust
+        /// fn main() -> Result<(), slint::PlatformError> {
+        ///     let window = MainWindow::new()?;
+        ///     let tray = ExampleTray::new()?;
+        ///
+        ///     let window_weak = window.as_weak();
+        ///     tray.on_clicked(move || {
+        ///         if let Some(w) = window_weak.upgrade() {
+        ///             let _ = w.show();
+        ///         }
+        ///     });
+        ///
+        ///     window.show()?;
+        ///     tray.show()?;
+        ///     slint::run_event_loop()
+        /// }
+        /// ```
+        /// </TabItem>
+        /// <TabItem label="C++">
+        /// ```cpp
+        /// int main() {
+        ///     auto window = MainWindow::create();
+        ///     auto tray = ExampleTray::create();
+        ///
+        ///     auto window_weak = slint::ComponentWeakHandle(window);
+        ///     tray->on_clicked([window_weak] {
+        ///         if (auto w = window_weak.lock()) {
+        ///             (*w)->show();
+        ///         }
+        ///     });
+        ///
+        ///     window->show();
+        ///     tray->show();
+        ///     slint::run_event_loop();
+        /// }
+        /// ```
+        /// </TabItem>
+        /// <TabItem label="NodeJS">
+        /// ```js
+        /// const window = new ui.MainWindow();
+        /// const tray = new ui.ExampleTray();
+        /// tray.clicked = () => window.show();
+        /// window.show();
+        /// tray.show();
+        /// await slint.runEventLoop();
+        /// ```
+        /// </TabItem>
+        /// <TabItem label="Python">
+        /// ```python
+        /// window = module.MainWindow()
+        /// tray = module.ExampleTray()
+        /// tray.clicked = lambda: window.show()
+        /// window.show()
+        /// tray.show()
+        /// slint.run_event_loop()
+        /// ```
+        /// </TabItem>
+        /// </Tabs>
+        ///
+        /// A program that exposes only a `SystemTrayIcon` and no window is also valid: skip the
+        /// `MainWindow` instance, and the loop quits once the tray is hidden (or `slint::quit_event_loop`
+        /// is called). No `WindowAdapter` is created in that case — the platform backend is still
+        /// selected the usual way, but no window opens.
+        ///
+        /// ## Platform Support
+        ///
+        /// | Platform      | Mechanism                                             |
+        /// | ------------- | ----------------------------------------------------- |
+        /// | Linux, \*BSD  | `StatusNotifierItem` / `AppIndicator` on D-Bus        |
+        /// | macOS         | `NSStatusItem` in the menu bar                        |
+        /// | Windows       | Shell notification area icon (`Shell_NotifyIcon`)     |
+        ///
+        /// On Linux, a desktop environment or shell extension that implements the `StatusNotifierItem`
+        /// specification is required; plain X11 system trays are not supported. GNOME, for example,
+        /// needs an extension such as *AppIndicator and KStatusNotifierItem Support*.
+        ///
+        /// \group:window
+        @is_non_item_type @disallow_global_types_as_child_elements
+        SystemTrayIcon: SystemTrayIcon {
+            children: Menu;
+        }
+    }
+}
+
+/// Fill `register` with the builtin elements. It must already contain the basic types
+/// (string, int, ...), the builtin structs and enums.
+pub(crate) fn load(register: &mut TypeRegister) {
+    let mut loader = Loader { register, items: HashMap::new(), elements: HashMap::new() };
+    build(&mut loader);
+    let Loader { register, elements, .. } = loader;
+    // Elements that are accepted children of another one are only reachable through it.
+    let is_child = |name: &SmolStr| {
+        elements.values().any(|e| e.additional_accepted_child_types.contains_key(name))
+    };
+    for (name, element) in &elements {
+        match name.as_str() {
+            "Empty" => register.empty_type = ElementType::Builtin(element.clone()),
+            "PropertyAnimation" => {
+                register.property_animation_type = ElementType::Builtin(element.clone())
+            }
+            _ if !element.is_global && !is_child(name) => register.add_builtin(element.clone()),
+            _ => {}
+        }
+    }
+}

@@ -58,9 +58,8 @@ getifs = { version = "0.6.1", optional = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"], optional = true }
 
-# The cool-down tests move the clock rather than sleeping through a
-# 60-second pairing deadline.
 [dev-dependencies]
+tempfile = "3"
 tokio = { version = "1.48.0", features = ["test-util"] }
 
 [lib]
