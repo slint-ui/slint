@@ -40,12 +40,6 @@ impl core::fmt::Display for FormattedNumber {
     }
 }
 
-#[derive(Clone)]
-pub struct TranslationsBundled {
-    pub language: &'static str,
-    pub decimal_separator: char,
-}
-
 #[cfg(feature = "locale-decimal-separator")]
 fn locale_from_string(locale: &str) -> Option<icu_locale_core::Locale> {
     // sys_locale may return locales with '_' (e.g. "de_DE.UTF-8"), normalize to BCP47 '-'

@@ -6474,7 +6474,7 @@ fn generate_translations(
         let lang = lang.as_str();
         quote!(
             sp::TranslationsBundled {
-                language: #lang,
+                language: sp::Slice::from_slice(#lang.as_bytes()),
                 decimal_separator: #separator
             }
         )

@@ -35,8 +35,9 @@ pub(crate) struct SlintContextInner {
     /// when bundling translations.
     #[pin]
     pub(crate) translations_dirty: Property<usize>,
+    /// The bundled languages. `translations_dirty` holds the index of the selected one.
     pub(crate) translations_bundle:
-        core::cell::RefCell<Option<alloc::vec::Vec<i_slint_common::TranslationsBundled>>>,
+        core::cell::RefCell<Option<crate::translations::BundledLanguages>>,
     #[cfg(feature = "tr")]
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
     #[pin]
@@ -360,6 +361,18 @@ impl SlintContext {
             .project_ref()
             .locale_decimal_separator
             .set(i_slint_common::decimal_separator_for_locale(locale));
+    }
+
+    /// Assign the list of bundled languages and their decimal separator to this context,
+    /// and select the one that matches the system locale.
+    ///
+    /// Does nothing if this context already has a list, so that a language selected with
+    /// [`crate::translations::select_bundled_translation`] survives a re-instantiation.
+    pub fn set_bundled_languages(
+        &self,
+        languages: impl IntoIterator<Item = (alloc::string::String, char)>,
+    ) {
+        crate::translations::set_bundled_languages_for_context(self, languages);
     }
 
     #[cfg(feature = "tr")]
