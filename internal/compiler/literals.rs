@@ -4,6 +4,7 @@
 // cSpell: ignore qsdf
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Span, Spanned};
 use crate::expression_tree::WrittenUnit;
+use crate::parser::{SyntaxKind, SyntaxNode};
 use itertools::Itertools;
 use smol_str::SmolStr;
 use strum::IntoEnumIterator;
@@ -342,6 +343,14 @@ pub fn parse_number_literal(s: SmolStr) -> Result<(f64, WrittenUnit), SmolStr> {
         )
     })?;
     Ok((val, unit))
+}
+
+pub fn is_integer_literal(node: &SyntaxNode) -> bool {
+    node.descendants()
+        .find_map(|n| n.child_text(SyntaxKind::NumberLiteral))
+        // This checks only the number's own text, since a comment elsewhere in the node could
+        // contain a '.' and produce a false result.
+        .is_some_and(|text| !text.contains('.'))
 }
 
 #[test]

@@ -161,10 +161,17 @@ fn resolve_match_elements(
                 type_loader,
                 diag,
             );
-            check_case_value(&case.value, &case.node, diag);
         }
-        let values: Vec<Option<CaseValue>> =
-            match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
+        let values: Vec<Option<CaseValue>> = match_element
+            .cases
+            .iter()
+            .map(|case| {
+                check_case_value(&case.value, &case.node, diag)
+                    // only add cases that don't already have an error
+                    .then(|| CaseValue::new(&case.value))
+                    .flatten()
+            })
+            .collect();
         check_duplicate_cases(&match_element.cases, &values, diag);
         check_exhaustiveness(match_element, &values, diag);
 
@@ -179,8 +186,7 @@ fn resolve_match_elements(
     }
 }
 
-/// Confirms that each case is a literal value and matches the type of the subject
-fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagnostics) {
+fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagnostics) -> bool {
     let is_literal = as_number_literal(value).is_some()
         || matches!(
             value,
@@ -191,18 +197,21 @@ fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagn
     let is_valid_cast = match value {
         Expression::Cast { from, to: Type::Color, .. } => as_number_literal(from).is_some(),
         Expression::Cast { from, to: Type::Int32, .. } => {
-            // 1.0 and 1 parse to the same number literal so the text check is needed
-            as_number_literal(from).is_some() && !node.text().to_string().contains('.')
+            // 1.0 and 1 parse to the same number literal, so this checks the case's
+            // written form to reject the float spelling.
+            as_number_literal(from).is_some() && crate::literals::is_integer_literal(node)
         }
         _ => false,
     };
 
     if is_literal || is_valid_cast {
-        // pass
+        true
     } else if matches!(value, Expression::Cast { .. }) {
         diag.push_error("Cannot perform type conversion".into(), node);
+        false
     } else {
         diag.push_error("Cases must be literal values".into(), node);
+        false
     }
 }
 
