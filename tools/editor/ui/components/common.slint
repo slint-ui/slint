@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette } from "std-widgets.slint";
+import { EditorTreeIcons } from "editor-tree-icons.slint";
 import { Api, CanvasCorner, PaletteComponentKind } from "../api.slint";
 
 export { CanvasCorner, PaletteComponentKind }
@@ -86,6 +87,7 @@ export component PrimerTextInput inherits Rectangle {
     in-out property <string> text <=> editor.text;
     in property <string> placeholder: "";
     in property <string> leading-text: "";
+    in property <string> accessible-name: "";
 
     height: 34px;
     border-radius: 6px;
@@ -116,6 +118,7 @@ export component PrimerTextInput inherits Rectangle {
                 text: "";
                 color: StudioTheme.text;
                 font-size: 13px;
+                accessible-label: root.accessible-name;
                 single-line: true;
                 wrap: no-wrap;
                 vertical-alignment: center;
@@ -215,7 +218,6 @@ export component PrimerNavRow inherits Rectangle {
 export component ComponentPaletteRow inherits Rectangle {
     in property <PaletteComponentKind> kind;
     in property <string> label;
-    in property <string> detail;
     in property <bool> enabled: true;
     in property <bool> drag-enabled: true;
     callback drag-started();
@@ -224,16 +226,15 @@ export component ComponentPaletteRow inherits Rectangle {
     property <bool> active: root.enabled && (root.dragging || touch.pressed);
     property <bool> hovered: root.enabled && touch.has-hover && !root.dragging;
 
-    height: 62px;
-    border-radius: 8px;
-    border-width: 1px;
-    border-color: !root.enabled ? StudioTheme.soft-border.with-alpha(0.68) : root.active ? StudioTheme.accent-strong.with-alpha(0.75) : root.hovered ? StudioTheme.border : StudioTheme.soft-border;
-    background: !root.enabled ? StudioTheme.panel-subtle.with-alpha(0.58) : root.active ? StudioTheme.accent.with-alpha(0.10) : root.hovered ? StudioTheme.panel-subtle.with-alpha(0.72) : StudioTheme.panel-bg;
+    height: 36px;
+    horizontal-stretch: 1;
+    border-radius: 5px;
+    background: root.active ? StudioTheme.accent.with-alpha(0.10) : root.hovered ? StudioTheme.panel-subtle : transparent;
     opacity: !root.enabled ? 0.58 : root.dragging ? 0.56 : 1;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.label;
     accessible-enabled: root.enabled && root.drag-enabled;
-    animate background, border-color, opacity { duration: 140ms; easing: ease-out-quad; }
+    animate background, opacity { duration: 140ms; easing: ease-out-quad; }
 
     function pointer-window-position() -> Point {
         return {
@@ -243,98 +244,25 @@ export component ComponentPaletteRow inherits Rectangle {
     }
 
     HorizontalLayout {
-        padding: 10px;
-        spacing: 12px;
+        padding-left: 7px;
+        padding-right: 7px;
+        spacing: 8px;
         cross-axis-alignment: center;
 
-        Rectangle {
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            border-width: 1px;
-            border-color: root.kind == PaletteComponentKind.rectangle ? #f59e0b : root.kind == PaletteComponentKind.text ? #38bdf8 : #22c55e;
-            background: root.kind == PaletteComponentKind.rectangle ? #fff7ed : root.kind == PaletteComponentKind.text ? #eff6ff : #f0fdf4;
-
-            if root.kind == PaletteComponentKind.rectangle: Rectangle {
-                x: 10px;
-                y: 11px;
-                width: 20px;
-                height: 17px;
-                border-radius: 4px;
-                border-width: 2px;
-                border-color: #d97706;
-                background: #ffffffa0;
-            }
-
-            if root.kind == PaletteComponentKind.text: Text {
-                text: "T";
-                color: #0369a1;
-                font-size: 18px;
-                font-weight: 900;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
-
-            if root.kind == PaletteComponentKind.image: Rectangle {
-                x: 9px;
-                y: 10px;
-                width: 22px;
-                height: 20px;
-                border-radius: 4px;
-                border-width: 2px;
-                border-color: #15803d;
-                background: #ffffffa0;
-
-                Rectangle {
-                    x: 5px;
-                    y: 5px;
-                    width: 5px;
-                    height: 5px;
-                    border-radius: 2.5px;
-                    background: #22c55e;
-                }
-
-                Rectangle {
-                    x: 4px;
-                    y: 13px;
-                    width: 14px;
-                    height: 3px;
-                    border-radius: 2px;
-                    background: #15803d;
-                }
-            }
-        }
-
-        VerticalLayout {
-            horizontal-stretch: 1;
-            spacing: 2px;
-            alignment: center;
-
-            BodyLabel {
-                text: root.label;
-            }
-
-            MutedLabel {
-                text: root.detail;
-            }
-        }
-
-        Rectangle {
+        Image {
             width: 18px;
             height: 18px;
-            border-radius: 9px;
-            background: root.active ? StudioTheme.accent.with-alpha(0.16) : root.hovered ? StudioTheme.panel-bg : transparent;
+            source: root.kind == PaletteComponentKind.image ? EditorTreeIcons.image
+                : root.kind == PaletteComponentKind.rectangle ? EditorTreeIcons.rectangle
+                : EditorTreeIcons.text;
+            colorize: root.active ? StudioTheme.accent-strong : StudioTheme.text;
+        }
 
-            for row in 3: Rectangle {
-                for col in 2: Rectangle {
-                    x: 5px + col * 5px;
-                    y: 4px + row * 5px;
-                    width: 2px;
-                    height: 2px;
-                    border-radius: 1px;
-                    background: root.active ? StudioTheme.accent-strong : StudioTheme.muted;
-                }
-            }
+        Text {
+            text: root.label;
+            color: root.active ? StudioTheme.accent-strong : StudioTheme.text;
+            font-size: 12px;
+            horizontal-stretch: 1;
         }
     }
 

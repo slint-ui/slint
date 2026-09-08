@@ -15,6 +15,16 @@ export enum PaletteComponentKind {
     image,
 }
 
+export struct ElementLibraryEntry {
+    label: string,
+    kind: PaletteComponentKind,
+}
+
+export struct ElementLibraryGroup {
+    label: string,
+    entries: [ElementLibraryEntry],
+}
+
 // cSpell: ignore dataonly
 /// Basic information on a known component
 export struct ComponentItem {
@@ -427,6 +437,11 @@ export global Api {
     in-out property <DropMark> drop-mark;
     // The actual preview
     in-out property <component-factory> preview-area;
+
+    in property <[ElementLibraryGroup]> element-library;
+    pure callback element-library-has-matches([ElementLibraryGroup], string) -> bool;
+    pure callback normalize-element-search(string) -> string;
+    pure callback filter-library-elements([ElementLibraryEntry], string) -> [ElementLibraryEntry];
 
     pure callback new-component-data-for-kind(kind: PaletteComponentKind) -> data-transfer;
     pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;

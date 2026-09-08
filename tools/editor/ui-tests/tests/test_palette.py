@@ -150,3 +150,112 @@ def test_escape_cancels_palette_drag_without_source_edit(
         release_palette_drag(window, target)
         assert not elements_with_label(window.root_element, "Canvas drop marker")
         snapshot.assert_unchanged()
+
+
+def library_rows(window: slint_testing.Window) -> list[slint_testing.Element]:
+    pane = window_element_with_label(
+        window, "Project and elements", slint_testing.AccessibleRole.Navigation
+    )
+    rows = (
+        pane.query_descendants()
+        .match_accessible_role(slint_testing.AccessibleRole.ListItem)
+        .find_all()
+    )
+    return sorted(
+        [row for row in rows if row.accessible_label in PALETTE_KINDS],
+        key=lambda row: (row.absolute_position.y, row.absolute_position.x),
+    )
+
+
+def expect_library(window: slint_testing.Window, labels: list[str]) -> None:
+    wait_until(
+        lambda: (
+            True
+            if [row.accessible_label for row in library_rows(window)] == labels
+            else None
+        )
+    )
+
+
+def test_library_search_and_collapse(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Palette.slint"
+    ) as editor:
+        window = first_window(editor)
+        expect_library(window, ["Image", "Rectangle", "Text"])
+        heading = window_element_with_label(window, "Elements")
+        search = window_element_with_label(window, "Search elements")
+        gap = (
+            search.absolute_position.y
+            - heading.absolute_position.y
+            - heading.size.height
+        )
+        assert 0 <= gap <= 20
+        heading_y = heading.absolute_position.y
+        search_y = search.absolute_position.y
+        rows = library_rows(window)
+        assert rows[0].absolute_position.y == rows[1].absolute_position.y
+        assert rows[2].absolute_position.y > rows[0].absolute_position.y
+        assert not elements_with_label(window.root_element, "Input & interaction")
+        group = window_element_with_label(
+            window, "Visual", slint_testing.AccessibleRole.Button
+        )
+        group.invoke_accessible_default_action()
+        expect_library(window, [])
+        assert heading.absolute_position.y == heading_y
+        assert search.absolute_position.y == search_y
+        search = window_element_with_label(window, "Search elements")
+        for query, expected in [
+            ("  aG  ", ["Image"]),
+            ("T", ["Rectangle", "Text"]),
+            ("TouchArea", []),
+        ]:
+            search.accessible_value = query
+            expect_library(window, expected)
+            assert heading.absolute_position.y == heading_y
+            assert search.absolute_position.y == search_y
+        window_element_with_label(window, "No Results")
+        assert not elements_with_label(
+            window.root_element, "Visual", slint_testing.AccessibleRole.Button
+        )
+        search.accessible_value = ""
+        expect_library(window, [])
+        assert heading.absolute_position.y == heading_y
+        assert search.absolute_position.y == search_y
+        group = window_element_with_label(
+            window, "Visual", slint_testing.AccessibleRole.Button
+        )
+        group.invoke_accessible_default_action()
+        expect_library(window, ["Image", "Rectangle", "Text"])
+        snapshot.assert_unchanged()
+
+
+def test_library_search_keyboard_does_not_delete_selection(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    from ui_driver import select_fixture_element
+
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Main.slint"
+    ) as editor:
+        window = first_window(editor)
+        select_fixture_element(window, "Rectangle")
+        search = window_element_with_label(window, "Search elements")
+        search.single_click(slint_testing.PointerEventButton.Left)
+        for key in ["T", "e", "x", "t"]:
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
+        expect_library(window, ["Text"])
+        for _ in range(5):
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Backspace))
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Backspace))
+        expect_library(window, ["Image", "Rectangle", "Text"])
+        snapshot.assert_unchanged()

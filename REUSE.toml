@@ -420,3 +420,19 @@ path = ["demos/**/android/**/gradle-wrapper.properties"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["tools/editor/ui/assets/lucide/image.svg"]
+SPDX-FileCopyrightText = "Copyright (c) 2026 Lucide Icons and Contributors"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["tools/editor/ui/assets/lucide/square.svg", "tools/editor/ui/assets/lucide/type.svg"]
+SPDX-FileCopyrightText = ["Copyright (c) 2026 Lucide Icons and Contributors", "Copyright (c) 2013-present Cole Bemis"]
+SPDX-License-Identifier = "MIT"
+
+
+[[annotations]]
+path = ["tools/editor/ui/assets/lucide/panels-top-left.svg"]
+SPDX-FileCopyrightText = "Copyright (c) 2026 Lucide Icons and Contributors"
+SPDX-License-Identifier = "MIT"

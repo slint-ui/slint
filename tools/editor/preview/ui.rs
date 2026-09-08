@@ -62,6 +62,7 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
+mod element_library;
 pub(super) mod file_tree;
 pub mod log_messages;
 pub mod palette;
@@ -118,6 +119,7 @@ pub fn initialize_editor(
     api.set_known_styles(style_model.into());
     api.set_current_style_index(current_style_index);
 
+    element_library::setup(&api);
     api.on_add_new_component(super::add_new_component);
     api.on_rename_component(super::rename_component);
     api.on_style_changed(super::change_style);
