@@ -62,9 +62,14 @@ const defaults: Record<string, string> = {
     opacity: "1",
     clip: "false",
     "font-italic": "false",
+    "drop-shadow-color": "transparent",
+    "drop-shadow-blur": "0px",
+    "drop-shadow-offset-x": "0px",
+    "drop-shadow-offset-y": "0px",
+    "drop-shadow-spread": "0px",
 };
 function elementKey(element: Element): string {
-    return `${element.type}:${element.origin?.name ?? "helper"}`;
+    return `${element.type}:${element.role ?? element.origin?.name ?? "helper"}`;
 }
 function contractNames(d: Definition) {
     const allocate = nameAllocator([
@@ -212,6 +217,62 @@ export function generateComponents(
         normalizeBindingOrder(
             assets.apply(tokens.apply(elementTree(render(node, emptyUses)))),
         );
+    if (options.specialize) {
+        const specialized = new Map<string, string>();
+        for (const [id, nodes] of occurrences) {
+            for (const node of nodes) {
+                const tree = rendered(node);
+                const preferred = (["width", "height"] as const).flatMap(
+                    (axis) => {
+                        const sizing =
+                            axis === "width"
+                                ? "layoutSizingHorizontal"
+                                : "layoutSizingVertical";
+                        return "autoLayout" in node &&
+                            node.autoLayout &&
+                            node[sizing] === "hug"
+                            ? []
+                            : [
+                                  binding(
+                                      `preferred-${axis}`,
+                                      `${node[axis]}px`,
+                                      1,
+                                  ),
+                              ];
+                    },
+                );
+                const signature = JSON.stringify([
+                    structuralSignature(tree),
+                    preferred,
+                ]);
+                let name = specialized.get(signature);
+                if (!name) {
+                    name = allocateType(
+                        `${requireValue(names.get(id))}Preview`,
+                    );
+                    specialized.set(signature, name);
+                    source.push(
+                        `component ${name} inherits ${tree.type} {`,
+                        ...preferred.map(printLine),
+                        ...tree.bindings.map((b) =>
+                            printLine({ ...b, depth: 1 }),
+                        ),
+                        ...tree.children.flatMap((child) =>
+                            treeLines(child, 1).map(printLine),
+                        ),
+                        "}",
+                        "",
+                    );
+                }
+                uses.set(node, { name, bindings: [], templateBindings: [] });
+            }
+        }
+        return {
+            source: [...assets.source(), ...tokens.source, ...source],
+            uses,
+            warnings: tokens.warnings,
+        };
+    }
     const preparedTrees = new Map<SnapshotNode, Element>();
     // Allocate family assets before processing instance overrides. Adding an
     // occurrence must not rename assets referenced by a later family.
@@ -319,6 +380,24 @@ export function generateComponents(
                 ),
             );
         }
+        for (const axis of axes.filter(
+            (axis) =>
+                axis.key === behavior?.axis ||
+                axis.key.toLowerCase() === "state",
+        )) {
+            const stateNames = new Map(
+                [...axis.options.keys()].map((value) => [
+                    value,
+                    allocateProperty(`state-${identifier(value)}`),
+                ]),
+            );
+            for (const [value, property] of stateNames)
+                declarations.push(
+                    `    private property <bool> ${property}: root.${axis.property} == ${optionValue(axis, value)};`,
+                );
+            axis.test = (value) =>
+                `root.${requireValue(stateNames.get(value))}`;
+        }
         for (const [key, p] of publicNames) {
             const findDefault = (tree: Element): string | undefined => {
                 if (
@@ -407,7 +486,156 @@ export function generateComponents(
                 ),
             );
         }
+        const privateParts: string[] = [];
+        const partNames = new Map<string, string>();
+        function conditionalPart(
+            tree: Element,
+            guard: string,
+            depth: number,
+        ): string[] {
+            const parameters = new Map(
+                [...publicNames.values()].map((property) => [
+                    property.name,
+                    property.type,
+                ]),
+            );
+            const used = new Set<string>();
+            let safe = true;
+            function inspect(element: Element) {
+                for (const expression of [
+                    element.condition ?? "",
+                    ...element.bindings.map((b) => b.value.code),
+                ])
+                    for (const match of expression.matchAll(
+                        /root\.([a-z][a-z0-9-]*)/g,
+                    )) {
+                        if (!parameters.has(match[1])) safe = false;
+                        else used.add(match[1]);
+                    }
+                element.children.forEach(inspect);
+            }
+            inspect(tree);
+            if (!safe)
+                return treeLines({ ...tree, condition: guard }, depth).map(
+                    printLine,
+                );
+            const placement = tree.bindings.filter((b) =>
+                /^(x|y|width|height|layout-order|horizontal-stretch|vertical-stretch|min-.+|max-.+|preferred-.+)$/.test(
+                    b.name,
+                ),
+            );
+            const content = {
+                ...tree,
+                condition: undefined,
+                bindings: tree.bindings.filter((b) => !placement.includes(b)),
+            };
+            const signature = structuralSignature(content);
+            let part = partNames.get(signature);
+            if (!part) {
+                part = allocateType(
+                    `${name}${typeName(tree.origin?.name?.includes("=") ? "Content" : (tree.origin?.name ?? "Content"))}`,
+                );
+                partNames.set(signature, part);
+                privateParts.push(
+                    `component ${part} inherits Rectangle {`,
+                    ...[...used].map(
+                        (property) =>
+                            `    in property <${parameters.get(property)}> ${property};`,
+                    ),
+                    ...(content.type === "Rectangle"
+                        ? [
+                              ...content.bindings.map((b) =>
+                                  printLine({ ...b, depth: 1 }),
+                              ),
+                              ...content.children.flatMap((child) =>
+                                  treeLines(child, 1).map(printLine),
+                              ),
+                          ]
+                        : treeLines(content, 1).map(printLine)),
+                    "}",
+                    "",
+                );
+            }
+            const instance: Element = {
+                type: part,
+                condition: guard,
+                children: [],
+                bindings: [
+                    ...placement,
+                    ...[...used].map((property) =>
+                        binding(
+                            property,
+                            reference(
+                                requireValue(parameters.get(property)),
+                                `root.${property}`,
+                            ),
+                        ),
+                    ),
+                ],
+            };
+            return treeLines(instance, depth).map(printLine);
+        }
         let serial = 0;
+        const conditions = new Map<string, string>();
+        function conditionFor(
+            selected: Sample[],
+            context: Sample[],
+            role: string,
+        ): string {
+            const included = new Set(selected.map((sample) => sample.values));
+            const cases = context.map((sample) => ({
+                values: sample.values,
+                code: included.has(sample.values) ? "true" : "false",
+            }));
+            const expression = selectValues(cases, axes, "false");
+            if (
+                expression === "true" ||
+                expression === "false" ||
+                /^root\.state-[a-z0-9-]+$/.test(expression)
+            )
+                return expression;
+            const existing = conditions.get(expression);
+            if (existing) return existing;
+            const inverse = selectValues(
+                cases.map((item) => ({
+                    ...item,
+                    code: item.code === "true" ? "false" : "true",
+                })),
+                axes,
+                "false",
+            );
+            const opposite = conditions.get(inverse);
+            if (opposite) return `!${opposite}`;
+            const relevant = axes.filter((axis) =>
+                expression.includes(`root.${axis.property} `),
+            );
+            const state =
+                relevant.length === 1 &&
+                relevant[0].key.toLowerCase() === "state";
+            const values = state
+                ? [
+                      ...new Set(
+                          selected.map(
+                              (sample) => sample.values[relevant[0].key],
+                          ),
+                      ),
+                  ].sort()
+                : [];
+            const property = allocateProperty(
+                state
+                    ? `state-${values.map(identifier).join("-or-")}`
+                    : `has-${identifier(role)}`,
+            );
+            declarations.push(
+                ...declaration(
+                    `    private property <bool> ${property}: `,
+                    expression,
+                ),
+            );
+            const reference = `root.${property}`;
+            conditions.set(expression, reference);
+            return reference;
+        }
         function emitTree(
             group: Sample[],
             depth: number,
@@ -442,7 +670,7 @@ export function generateComponents(
                         present.every(
                             (b) => b.value.type === present[0].value.type,
                         ) &&
-                        (present.every((b) => b.value.kind !== "raw") ||
+                        (present.every((b) => b.value.type !== "opaque") ||
                             entries.every(
                                 (b) =>
                                     b &&
@@ -502,7 +730,7 @@ export function generateComponents(
                                   bindings: tree.bindings.map((b) => [
                                       b.name,
                                       b.value.type,
-                                      b.value.kind === "raw"
+                                      b.value.type === "opaque"
                                           ? b.value.code
                                           : null,
                                   ]),
@@ -514,9 +742,10 @@ export function generateComponents(
                 }
                 return [...alternatives.values()].flatMap((list) => {
                     const condition = [
-                        predicate(
-                            list.map((s) => s.values),
-                            axes,
+                        conditionFor(
+                            list,
+                            group,
+                            `${list[0].tree.role ?? (list[0].tree.origin?.name?.includes("=") ? "content" : list[0].tree.origin?.name) ?? "content"}-${++serial}`,
                         ),
                         extraCondition,
                         rootElement && validity !== "true"
@@ -548,15 +777,8 @@ export function generateComponents(
                         const guard =
                             exact.size === 1
                                 ? condition
-                                : `(${condition}) && (${predicate(
-                                      matches.map((s) => s.values),
-                                      axes,
-                                  )})`;
-                        const lines = treeLines(matches[0].tree, depth).map(
-                            printLine,
-                        );
-                        lines[0] = `${"    ".repeat(depth)}if ${guard}: ${matches[0].tree.type} {`;
-                        return lines;
+                                : `(${condition}) && (${conditionFor(matches, list, `${matches[0].tree.origin?.name ?? "content"}-${++serial}`)})`;
+                        return conditionalPart(matches[0].tree, guard, depth);
                     });
                 });
             }
@@ -618,25 +840,59 @@ export function generateComponents(
                             }),
                         );
                 } else {
-                    if (!isDefaultBinding(first.type, field, baseCode))
-                        lines.push(
-                            printLine(
-                                binding(
-                                    field,
-                                    {
-                                        ...exemplar.value,
-                                        code: baseCode,
-                                    },
-                                    bodyDepth,
+                    // Each binding depends only on axes that change this property.
+                    // Slint states are reserved for an explicit authored state axis.
+                    const stateAxis = axes.find(
+                        (axis) =>
+                            axis.key === behavior?.axis ||
+                            axis.key.toLowerCase() === "state",
+                    );
+                    const stateValues = new Map<string, string>();
+                    const stateOnly =
+                        stateAxis &&
+                        entries.every((entry) => {
+                            const key = entry.values[stateAxis.key];
+                            if (
+                                stateValues.has(key) &&
+                                stateValues.get(key) !== entry.code
+                            )
+                                return false;
+                            stateValues.set(key, entry.code);
+                            return true;
+                        });
+                    if (stateOnly) {
+                        if (!isDefaultBinding(first.type, field, baseCode))
+                            lines.push(
+                                printLine(
+                                    binding(
+                                        field,
+                                        { ...exemplar.value, code: baseCode },
+                                        bodyDepth,
+                                    ),
                                 ),
+                            );
+                        entries.forEach((entry, i) => {
+                            appearances[i].properties[field] = entry.code;
+                        });
+                    } else {
+                        lines.push(
+                            ...declaration(
+                                `${"    ".repeat(bodyDepth)}${field}: `,
+                                selectValues(entries, axes, baseCode),
                             ),
                         );
-                    entries.forEach((entry, i) => {
-                        appearances[i].properties[field] = entry.code;
-                    });
+                    }
                 }
             }
-            lines.push(...appearanceStates(appearances, axes, bodyDepth));
+            const stateAxis = axes.find(
+                (axis) =>
+                    axis.key === behavior?.axis ||
+                    axis.key.toLowerCase() === "state",
+            );
+            if (stateAxis)
+                lines.push(
+                    ...appearanceStates(appearances, stateAxis, bodyDepth),
+                );
             for (const childKey of orderedKeys) {
                 const childGroup = group.flatMap((s, i) => {
                     const tree =
@@ -644,48 +900,22 @@ export function generateComponents(
                     return tree ? [{ tree, values: s.values }] : [];
                 });
                 if (childGroup.length !== group.length) {
-                    const condition = selectValues(
-                        group.map((s, i) => ({
-                            values: s.values,
-                            code: childKeys[i].includes(childKey)
-                                ? "true"
-                                : "false",
-                        })),
-                        axes,
-                        "false",
+                    const condition = conditionFor(
+                        childGroup,
+                        group,
+                        childGroup[0].tree.role ??
+                            childGroup[0].tree.origin?.name ??
+                            `content-${++serial}`,
                     );
-                    if (condition.length <= 100) {
-                        lines.push(
-                            ...emitTree(
-                                childGroup,
-                                bodyDepth,
-                                false,
-                                condition === "true"
-                                    ? undefined
-                                    : `(${condition})`,
-                                first.type === "FlexboxLayout",
-                            ),
-                        );
-                    } else {
-                        const pred = allocateProperty(
-                            `show-${identifier(childGroup[0].tree.origin?.name ?? `child-${++serial}`)}`,
-                        );
-                        declarations.push(
-                            ...declaration(
-                                `    private property <bool> ${pred}: `,
-                                condition,
-                            ),
-                        );
-                        lines.push(
-                            ...emitTree(
-                                childGroup,
-                                bodyDepth,
-                                false,
-                                `root.${pred}`,
-                                first.type === "FlexboxLayout",
-                            ),
-                        );
-                    }
+                    lines.push(
+                        ...emitTree(
+                            childGroup,
+                            bodyDepth,
+                            false,
+                            condition === "true" ? undefined : condition,
+                            first.type === "FlexboxLayout",
+                        ),
+                    );
                 } else
                     lines.push(
                         ...emitTree(
@@ -702,6 +932,7 @@ export function generateComponents(
         }
         const body = emitTree(samples, 1, true);
         source.push(
+            ...privateParts,
             `export component ${name} inherits Rectangle {`,
             ...declarations,
             ...body,
