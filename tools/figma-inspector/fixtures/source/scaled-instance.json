@@ -1,0 +1,82 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "scaled",
+    "name": "scaled",
+    "type": "INSTANCE",
+    "errors": [],
+    "properties": {
+      "x": 0,
+      "y": 0,
+      "width": 32,
+      "height": 32,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "fills": [],
+      "strokes": [],
+      "effects": [],
+      "scaleFactor": 0.6666666666666666,
+      "layoutMode": "NONE"
+    },
+    "children": [
+      {
+        "id": "box",
+        "name": "box",
+        "type": "RECTANGLE",
+        "errors": [],
+        "properties": {
+          "x": 0,
+          "y": 0,
+          "width": 32,
+          "height": 32,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [],
+          "strokes": [],
+          "effects": []
+        }
+      },
+      {
+        "id": "label",
+        "name": "label",
+        "type": "TEXT",
+        "errors": [],
+        "properties": {
+          "x": 0,
+          "y": 0,
+          "width": 32,
+          "height": 32,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [],
+          "strokes": [],
+          "effects": [],
+          "characters": "A",
+          "fontSize": 10,
+          "fontWeight": 400,
+          "fontName": {
+            "family": "Inter",
+            "style": "Regular"
+          },
+          "textAlignHorizontal": "CENTER",
+          "textAlignVertical": "CENTER",
+          "textAutoResize": "NONE",
+          "letterSpacing": {
+            "unit": "PIXELS",
+            "value": 0
+          },
+          "lineHeight": {
+            "unit": "AUTO"
+          }
+        }
+      }
+    ]
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false,
+  "options": {}
+}

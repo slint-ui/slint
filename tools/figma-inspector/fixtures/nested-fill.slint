@@ -1,0 +1,69 @@
+export component Demo inherits Window {
+    width: 360px;
+    height: 220px;
+    background: transparent;
+    Rectangle {
+        background: #141A29;
+        border-radius: 16px;
+        FlexboxLayout {
+            flex-direction: column;
+            flex-wrap: no-wrap;
+            padding: 16px;
+            spacing: 12px;
+            cross-axis-alignment: center;
+            Text {
+                width: 328px;
+                height: 28px;
+                color: #FFFFFF;
+                text: "Nested settings";
+                font-family: "Inter";
+                font-size: 18px;
+                font-weight: 600;
+                horizontal-alignment: left;
+                vertical-alignment: center;
+            }
+            Rectangle {
+                preferred-width: 328px;
+                min-width: 0px;
+                cross-axis-self-alignment: stretch;
+                horizontal-stretch: 0;
+                height: 120px;
+                background: @linear-gradient(90deg, #1F52D6 0%, #4D29BD 100%);
+                border-width: 2px;
+                border-color: #668CFF;
+                border-radius: 12px;
+                FlexboxLayout {
+                    flex-wrap: no-wrap;
+                    padding: 12px;
+                    spacing: 8px;
+                    alignment: stretch;
+                    cross-axis-alignment: center;
+                    Rectangle {
+                        width: 44px;
+                        preferred-height: 44px;
+                        cross-axis-self-alignment: stretch;
+                        vertical-stretch: 0;
+                        background: #FAA62E;
+                        border-radius: 8px;
+                    }
+                    Text {
+                        preferred-width: 240px;
+                        min-width: 0px;
+                        horizontal-stretch: 1;
+                        preferred-height: 44px;
+                        min-height: 0px;
+                        cross-axis-self-alignment: stretch;
+                        vertical-stretch: 0;
+                        color: #FFFFFF;
+                        text: "Every setting is live";
+                        font-family: "Inter";
+                        font-size: 16px;
+                        font-weight: 400;
+                        horizontal-alignment: left;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}
