@@ -18,6 +18,7 @@ default-run = "slint-lsp"
 
 [package.metadata.bundle]
 name = "Slint Live Preview"
+identifier = "dev.slint.lsp"
 icon = ["../../logo/slint-logo.icns"]
 
 [[bin]]
