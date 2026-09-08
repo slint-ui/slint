@@ -71,7 +71,11 @@ impl FileWatcherImpl for notify::RecommendedWatcher {
             notify::ErrorKind::PathNotFound
             | notify::ErrorKind::WatchNotFound
             | notify::ErrorKind::Generic(_) => true,
-            notify::ErrorKind::Io(e) => e.kind() == std::io::ErrorKind::NotFound,
+            // `InvalidInput` is `inotify_rm_watch` on a watch the kernel already dropped with
+            // the deleted directory, before notify processed that event.
+            notify::ErrorKind::Io(e) => {
+                matches!(e.kind(), std::io::ErrorKind::NotFound | std::io::ErrorKind::InvalidInput)
+            }
             _ => false,
         }
     }
