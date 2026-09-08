@@ -16,6 +16,7 @@ component ChildA { }
 
 export component SelfChildSameInterface {
     implement I <=> self;
+//  >                   <note{'I' is implemented here}
     implement I <=> child;
 //  >                    <error{'I' is implemented multiple times}
 
@@ -26,6 +27,7 @@ export component SelfChildSameInterface {
 
 export component SelfSelfSameInterface {
     implement I <=> self;
+//  >                   <note{'I' is implemented here}
     implement I <=> self;
 //  >                   <error{'I' is implemented multiple times}
 

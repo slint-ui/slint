@@ -44,6 +44,7 @@ export component RedundantThroughImportedDerived {
 // The same interface imported twice under two names is one interface, not two.
 export component AliasIsTheSameInterface {
     implement ImportedBase <=> self;
+//  >                              <note{'ImportedBase' names the same interface as 'AliasedBase'}
     implement AliasedBase <=> self;
 //  >                             <error{'AliasedBase' is implemented multiple times}
 

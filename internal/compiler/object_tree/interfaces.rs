@@ -224,6 +224,12 @@ fn filter_inherited_implement_statements(
         .collect()
 }
 
+struct SeenInterface {
+    interface: ElementRc,
+    interface_name: SmolStr,
+    node: syntax_nodes::ImplementStatement,
+}
+
 struct SeenMember {
     interface_name: SmolStr,
     declaring_interface: ElementRc,
@@ -234,21 +240,36 @@ fn filter_conflicting_implement_statements(
     diagnostics: &mut BuildDiagnostics,
     statements: Vec<ImplementedInterface>,
 ) -> Vec<ImplementedInterface> {
-    let mut seen_interfaces: Vec<ElementRc> = Vec::new();
+    let mut seen_interfaces: Vec<SeenInterface> = Vec::new();
     let mut seen_interface_api: BTreeMap<SmolStr, SeenMember> = BTreeMap::new();
     statements
         .into_iter()
         .filter(|stmt| {
-            // Interface identity is the resolved interface's root element, not the syntactic name,
-            // so this also catches the same interface implemented twice under different aliases.
-            if seen_interfaces.iter().any(|seen| Rc::ptr_eq(seen, &stmt.interface)) {
+            if let Some(seen) =
+                seen_interfaces.iter().find(|seen| Rc::ptr_eq(&seen.interface, &stmt.interface))
+            {
                 diagnostics.push_error(
                     format!("'{}' is implemented multiple times", stmt.interface_name),
                     &stmt.node,
                 );
+                diagnostics.push_note(
+                    if seen.interface_name == stmt.interface_name {
+                        format!("'{}' is implemented here", seen.interface_name)
+                    } else {
+                        format!(
+                            "'{}' names the same interface as '{}'",
+                            seen.interface_name, stmt.interface_name
+                        )
+                    },
+                    &seen.node,
+                );
                 return false;
             }
-            seen_interfaces.push(stmt.interface.clone());
+            seen_interfaces.push(SeenInterface {
+                interface: stmt.interface.clone(),
+                interface_name: stmt.interface_name.clone(),
+                node: stmt.node.clone(),
+            });
 
             let target_id = stmt.binding.target_id();
             let mut valid = true;
