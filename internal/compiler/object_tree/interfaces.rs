@@ -47,7 +47,7 @@ fn check_property_declaration_conflicts(
 const SELF_ID: &str = "self";
 
 #[derive(Debug, PartialEq)]
-pub(super) enum ImplementBinding {
+pub(crate) enum ImplementBinding {
     OnSelf,
     OnChild {
         /// The normalized id of the element.
@@ -77,7 +77,7 @@ impl ImplementBinding {
     }
 }
 
-pub(super) struct ImplementedInterface {
+pub(crate) struct ImplementedInterface {
     node: syntax_nodes::ImplementStatement,
     interface: ElementRc,
     interface_name: SmolStr,
@@ -342,18 +342,29 @@ pub(super) fn disallow_implement_in_non_root(
     }
 }
 
-pub(super) fn validate_self_implement_statements(
-    element: &Element,
-    implemented_interfaces: &[ImplementedInterface],
+/// A two-way binding written without a type only gets one in `infer_aliases_types`.
+/// This runs as a pass after it rather than while the object tree is built.
+pub(crate) fn validate_implement_statements(
+    element: &ElementRc,
     diagnostics: &mut BuildDiagnostics,
 ) {
-    for ImplementedInterface { interface, node, interface_name, binding } in implemented_interfaces
+    let root = element.borrow();
+    for ImplementedInterface { interface, node, interface_name, binding } in
+        &root.implement_statements
     {
+        let (target, source) = match binding {
+            ImplementBinding::OnSelf => (element.clone(), SyntaxNode::from(node.QualifiedName())),
+            ImplementBinding::OnChild { child_id, .. } => {
+                // `apply_child_implement_statements` reports a missing child.
+                let Some(child) = find_element_by_id(element, child_id) else { continue };
+                (child, SyntaxNode::from(node.DeclaredIdentifier()))
+            }
+        };
         validate_interface_implementation(
-            element,
+            &target.borrow(),
             interface,
             interface_name,
-            &node.QualifiedName(),
+            &source,
             binding,
             diagnostics,
         );
@@ -535,13 +546,13 @@ fn validate_interface_member_implementation(
 
 pub(super) fn apply_child_implement_statements(
     element: &ElementRc,
-    child_implements: Vec<ImplementedInterface>,
+    child_implements: &[ImplementedInterface],
     diagnostics: &mut BuildDiagnostics,
 ) {
     let mut applied_members: BTreeMap<SmolStr, ElementRc> = BTreeMap::new();
     for ImplementedInterface { node, interface, interface_name, binding } in child_implements {
-        debug_assert_ne!(binding, ImplementBinding::OnSelf);
-        let ImplementBinding::OnChild { child_id, child_name } = &binding else {
+        debug_assert_ne!(*binding, ImplementBinding::OnSelf);
+        let ImplementBinding::OnChild { child_id, child_name } = binding else {
             continue;
         };
         let Some(child) = find_element_by_id(element, child_id) else {
@@ -550,13 +561,15 @@ pub(super) fn apply_child_implement_statements(
             continue;
         };
 
+        // Later passes read these declarations, so generation cannot wait for
+        // `validate_implement_statements`, which reports what this check finds.
         if !validate_interface_implementation(
             &child.borrow(),
-            &interface,
-            &interface_name,
+            interface,
+            interface_name,
             &node.DeclaredIdentifier(),
-            &binding,
-            diagnostics,
+            binding,
+            &mut BuildDiagnostics::default(),
         ) {
             continue;
         }
@@ -564,7 +577,7 @@ pub(super) fn apply_child_implement_statements(
         let mut conflicts = Vec::new();
         let mut notes = Vec::new();
         for (name, InterfaceMember { declaration: mut prop_decl, declaring_interface }) in
-            declared_members(&interface)
+            declared_members(interface)
         {
             if let Some(applied) = applied_members.get(&name) {
                 debug_assert!(
@@ -587,7 +600,7 @@ pub(super) fn apply_child_implement_statements(
                     notes.push(NoteWithSource {
                         note: declared_here_note(
                             &name,
-                            &interface_name,
+                            interface_name,
                             &syntax_for_declaration(&prop_decl, &name),
                             &source,
                         ),
@@ -629,7 +642,7 @@ pub(super) fn apply_child_implement_statements(
                 );
                 diagnostics.push_note(
                     declares_as_note(
-                        &interface_name,
+                        interface_name,
                         &name,
                         &syntax_for_declaration(&prop_decl, &name),
                     ),
@@ -787,6 +800,11 @@ fn property_matches_interface(
             expected_syntax,
             anchor: DeclarationAnchor::Name,
         }]);
+    }
+
+    // Checked in `validate_implement_statements` once the type has been resolved by `infer_aliases_types`.
+    if matches!(property.property_type, Type::InferredProperty | Type::InferredCallback) {
+        return Ok(());
     }
 
     let mut errors = Vec::new();

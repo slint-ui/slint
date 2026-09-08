@@ -302,3 +302,44 @@ export component ConflictsWithBuiltIn inherits Flickable {
     implement Viewport <=> self;
 //            >       <error{Cannot implement 'Viewport'.↵- 'viewport-x' must be a 'float' property (found a 'length' property)↵- 'viewport-y' must be a 'float' property (found a 'length' property)}
 }
+
+// A member may be a two-way binding written without a type, which the language requires for a
+// callback alias. Its type arrives from `infer_aliases_types`, after the object tree is built.
+component ValidSource {
+    in-out property <int> value;
+    callback speak();
+    public function reset() { }
+}
+
+export component InferredMembers {
+    implement ValidInterface <=> self;
+
+    in-out property value <=> source.value;
+    callback speak <=> source.speak;
+    public function reset() {
+        source.reset();
+    }
+
+    source := ValidSource { }
+}
+
+component WrongTypeSource {
+    in-out property <float> value;
+    callback speak();
+    public function reset() { }
+}
+
+// A member the alias types wrongly is still reported.
+export component InferredMembersWrongType {
+    implement ValidInterface <=> self;
+//            >             <error{Cannot implement 'ValidInterface'.↵- 'value' must be a 'int' property (found a 'float' property)}
+
+    in-out property value <=> source.value;
+//                  >   <note{'InferredMembersWrongType' declares 'value' here, 'ValidInterface' expects 'in-out property <int> value;'}
+    callback speak <=> source.speak;
+    public function reset() {
+        source.reset();
+    }
+
+    source := WrongTypeSource { }
+}
