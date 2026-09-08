@@ -1,0 +1,30 @@
+export component Demo inherits Window {
+    width: 160px;
+    height: 48px;
+    background: transparent;
+    Rectangle {
+        background: #1F52D6;
+        border-radius: 12px;
+        FlexboxLayout {
+            flex-wrap: no-wrap;
+            padding-left: 16px;
+            padding-right: 16px;
+            padding-top: 12px;
+            padding-bottom: 12px;
+            spacing: 8px;
+            alignment: center;
+            cross-axis-alignment: center;
+            Text {
+                horizontal-stretch: 0;
+                height: 24px;
+                color: #FFFFFF;
+                text: "Component";
+                font-family: "Inter";
+                font-size: 16px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

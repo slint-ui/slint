@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "1:2",
+    "nodeName": "Multiple fills"
+  },
+  "root": {
+    "kind": "rectangle",
+    "id": "1:2",
+    "name": "Multiple fills",
+    "x": 0,
+    "y": 0,
+    "width": 240,
+    "height": 72,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": null,
+    "layoutSizingVertical": null,
+    "fills": [
+      {
+        "kind": "solid",
+        "color": {
+          "r": 1,
+          "g": 0,
+          "b": 0,
+          "a": 1
+        },
+        "opacity": 1
+      },
+      {
+        "kind": "solid",
+        "color": {
+          "r": 0,
+          "g": 0,
+          "b": 1,
+          "a": 1
+        },
+        "opacity": 1
+      }
+    ],
+    "strokes": [],
+    "layoutPositioning": "auto",
+    "cornerRadii": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "clipsContent": false,
+    "containerKind": "native",
+    "layoutFallback": "freeform",
+    "shadows": []
+  }
+}
