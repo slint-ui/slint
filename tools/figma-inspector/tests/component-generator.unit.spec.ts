@@ -388,7 +388,7 @@ describe("generator", () => {
     test("state output keeps the public contract and removes private style selectors and default instance arguments", async () => {
         const { result } = await convert(await fixture());
         const [library, demo] = result.source.split("export component Demo");
-        expect(library).toContain("states [");
+        expect(library).toContain("private property <bool> state-busy:");
         expect(library).not.toMatch(/private property <(?:brush|length)>/);
         expect(library).not.toContain("? true :");
         expect(demo).not.toContain("variant-state: ButtonState.enabled");

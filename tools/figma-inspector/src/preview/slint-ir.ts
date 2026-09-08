@@ -17,6 +17,7 @@ export type ElementStart = {
     type: string;
     depth: number;
     condition?: string;
+    role?: string;
     origin?: { id: string; name: string };
 };
 export type SlintLine =
@@ -25,6 +26,7 @@ export type SlintLine =
     | { kind: "close"; depth: number };
 export type Element = {
     condition?: string;
+    role?: string;
     type: string;
     origin?: { id: string; name: string };
     bindings: Binding[];
@@ -104,8 +106,8 @@ function propertyType(name: string): string {
             "width",
             "height",
             "spacing",
-            "row-spacing",
-            "column-spacing",
+            "spacing-horizontal",
+            "spacing-vertical",
             "letter-spacing",
             "font-size",
         ].includes(name) ||
@@ -143,16 +145,7 @@ export function binding(
             code === "true" ||
             code === "false" ||
             code === "transparent" ||
-            (type === "enum" &&
-                [
-                    "horizontal-alignment",
-                    "vertical-alignment",
-                    "wrap",
-                    "overflow",
-                    "image-fit",
-                    "image-rendering",
-                ].includes(name) &&
-                /^[a-z][a-z-]*$/.test(code)) ||
+            (type === "enum" && /^[a-z][a-z-]*$/.test(code)) ||
             Number.isFinite(Number(code)) ||
             ((code.endsWith("px") || code.endsWith("deg")) &&
                 Number.isFinite(
@@ -180,6 +173,8 @@ export function elementTree(lines: SlintLine[]): Element {
         if (line.kind === "open") {
             const element: Element = {
                 type: line.type,
+                condition: line.condition,
+                role: line.role,
                 origin: line.origin,
                 bindings: [],
                 children: [],
@@ -203,6 +198,7 @@ export function treeLines(tree: Element, depth = 1): SlintLine[] {
         {
             ...openElement(tree.type, depth, tree.origin),
             condition: tree.condition,
+            role: tree.role,
         },
         ...tree.bindings.map((b) => ({ ...b, depth: depth + 1 })),
         ...tree.children.flatMap((c) => treeLines(c, depth + 1)),
@@ -214,4 +210,15 @@ export function requireValue<T>(value: T | undefined | null): T {
     if (value === undefined || value === null)
         throw Error("Missing validated component data");
     return value;
+}
+
+/** Preserve helper purpose before lowering hides the authored structure. */
+export function roleLines(lines: SlintLine[], role: string): SlintLine[] {
+    const depth = lines.find((line) => line.kind === "open")?.depth;
+    let index = 0;
+    return lines.map((line) =>
+        line.kind === "open" && line.depth === depth
+            ? { ...line, role: `${role}-${++index}` }
+            : line,
+    );
 }
