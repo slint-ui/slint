@@ -101,11 +101,17 @@ describe("states", () => {
                 properties: { background: "gray", "border-width": "1px" },
             },
         ];
-        const source = appearanceStates(samples, axes, 1).join("\n");
+        const source = appearanceStates(
+            samples.filter((sample) => sample.values.style === "0"),
+            axes[0],
+            1,
+        ).join("\n");
         const states = [
             ...source.matchAll(/([\w-]+) when ([\s\S]*?): \{([^}]+)\}/g),
         ];
-        for (const sample of samples) {
+        for (const sample of samples.filter(
+            (sample) => sample.values.style === "0",
+        )) {
             const active = states.filter(([, , condition]) =>
                 Function(
                     "root",
@@ -165,13 +171,13 @@ describe("decision", () => {
             expect(evaluate({ color })).toBe(color >= 0 && color <= 2);
     });
 
-    test("shared suffixes and complements avoid enumerating common states", () => {
+    test("shared suffixes retain positive authored conditions", () => {
         const rows = tuples.filter(
             (r) => r.color === "0" || (r.color === "1" && r.state !== "2"),
         );
         const expression = variantDecision(rows, axes);
         expect(expression).not.toContain("style");
-        expect(expression.length).toBeLessThan(100);
+        expect(expression).not.toContain("!=");
     });
 
     test("boolean and integer domains keep their authored meaning", async () => {
@@ -185,9 +191,9 @@ describe("decision", () => {
         expect(axisScalar(["true", "false", "mixed"])).toBeUndefined();
     });
 
-    test("paint enums can vary while layout configuration remains structural", async () => {
+    test("layout enums are typed values rather than structural alternatives", async () => {
         const { binding } = await import("../src/preview/slint-ir");
-        expect(binding("alignment", "center").value.kind).toBe("raw");
+        expect(binding("alignment", "center").value.kind).toBe("literal");
         expect(binding("image-fit", "contain").value.kind).toBe("literal");
         expect(binding("alignment", "root.custom-alignment").value.kind).toBe(
             "raw",

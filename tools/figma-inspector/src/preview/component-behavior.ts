@@ -20,6 +20,8 @@ export type ButtonBehavior = {
 };
 export type ComponentGenerationOptions = {
     behaviors?: Record<string, ButtonBehavior>;
+    /** Internal preview emission for the already captured occurrence values. */
+    specialize?: boolean;
 };
 export function buttonBehavior(
     profile: ButtonBehavior | undefined,
