@@ -13,6 +13,15 @@ import {
 } from "../src/images";
 import { convertExport } from "../src/preview/convert-capture";
 
+/** Repository fixture headers describe the test asset, not the user's design. */
+async function readSlintFixture(path: string): Promise<string> {
+    const source = await readFile(path, "utf8");
+    return source.replace(
+        /^\/\/ Copyright[^\n]*\n\/\/ SPDX-License-Identifier[:][^\n]*\n\n/,
+        "",
+    );
+}
+
 describe("converter", () => {
     test("round-trips and deterministically converts the canonical snapshot", async () => {
         const json = await readFile("fixtures/button.snapshot.json", "utf8");
@@ -27,7 +36,7 @@ describe("converter", () => {
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.source).toBe(
-            await readFile("fixtures/button.slint", "utf8"),
+            await readSlintFixture("fixtures/button.slint"),
         );
         expect(convertSnapshotJson(json)).toEqual(result);
         expect(convertSnapshot(parsed.snapshot)).toEqual(result);
@@ -56,7 +65,7 @@ describe("converter", () => {
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.source).toBe(
-            await readFile("fixtures/frame.slint", "utf8"),
+            await readSlintFixture("fixtures/frame.slint"),
         );
         const framePosition = result.source.indexOf("    Rectangle {");
         const background = result.source.indexOf("        background:");
@@ -78,7 +87,7 @@ describe("converter", () => {
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.source).toBe(
-            await readFile("fixtures/auto-layout.slint", "utf8"),
+            await readSlintFixture("fixtures/auto-layout.slint"),
         );
         expect(result.source).toContain("FlexboxLayout {");
         expect(result.source).not.toContain("flex-direction: row;");
@@ -100,7 +109,7 @@ describe("converter", () => {
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.source).toBe(
-            await readFile("fixtures/hug-button.slint", "utf8"),
+            await readSlintFixture("fixtures/hug-button.slint"),
         );
         expect(result.source).not.toContain("min-width: 24px;");
         expect(result.source).not.toContain("preferred-width: 96px;");
@@ -415,7 +424,7 @@ describe("converter", () => {
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.source).toBe(
-            await readFile("fixtures/nested-fill.slint", "utf8"),
+            await readSlintFixture("fixtures/nested-fill.slint"),
         );
         expect(result.source.match(/FlexboxLayout \{/g)?.length).toBe(2);
         expect(result.source).toContain("flex-direction: column;");
@@ -459,7 +468,7 @@ describe("converter", () => {
         expect(componentResult.ok).toBe(true);
         if (!componentResult.ok) return;
         expect(componentResult.source).toBe(
-            await readFile("fixtures/component-text.slint", "utf8"),
+            await readSlintFixture("fixtures/component-text.slint"),
         );
 
         const instance = convertSnapshotJson(
@@ -488,7 +497,7 @@ describe("converter", () => {
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.source).toBe(
-            await readFile("fixtures/instance-button.slint", "utf8"),
+            await readSlintFixture("fixtures/instance-button.slint"),
         );
         expect(result.source).toContain("Image {");
         expect(result.source).toContain("image-fit: fill;");
@@ -579,7 +588,7 @@ describe("converter", () => {
             expect(result.ok, fixture).toBe(true);
             if (!result.ok) continue;
             expect(result.source, fixture).toBe(
-                await readFile(`fixtures/${fixture}.slint`, "utf8"),
+                await readSlintFixture(`fixtures/${fixture}.slint`),
             );
             expect(convertSnapshotJson(json), fixture).toEqual(result);
         }
