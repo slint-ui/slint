@@ -36,5 +36,5 @@ Offline Figma-to-Slint plugin in the Slint monorepo. Target Slint 1.18+; no back
 - Check `git status` first and preserve unrelated changes.
 - Inspect existing Slint implementations before designing new ones.
 - Make small logical commits and stage only relevant files.
-- Run `pnpm verify` before completion.
+- Run `pnpm verify` before completion. Also run the repository `ci:autofix:fix` and `ci:autofix:lint` mise tasks; package checks alone do not cover fixture license headers, TOML formatting, or workspace checks. Run `cargo xtask check_license_headers` explicitly; REUSE annotations do not replace the header check.
 - Visually inspect every UI change in the browser and, when Figma-specific, in Figma Desktop.
