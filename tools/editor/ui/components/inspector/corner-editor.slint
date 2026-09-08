@@ -1,0 +1,106 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0 OR LicenseRef-Slint-Royalty-free-2.0
+
+import { InspectorTokens } from "tokens.slint";
+import { InspectorValueField } from "value-field.slint";
+import { InspectorRadiusSlider } from "radius-slider.slint";
+
+component CornerMode inherits FocusScope {
+    in property <bool> selected;
+    in property <bool> separate;
+    callback activated();
+    width: 28px;
+    height: 24px;
+    accessible-role: AccessibleRole.button;
+    accessible-label: root.separate ? "Separate corners" : "All corners";
+    accessible-value: root.selected ? "selected" : "";
+    accessible-action-default => { root.activated(); }
+    key-pressed(event) => {
+        if event.text == " " || event.text == Key.Return { root.activated(); return accept; }
+        return reject;
+    }
+    Rectangle {
+        border-radius: 4px;
+        background: root.selected ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
+        border-width: root.has-focus ? 1px : 0px;
+        border-color: InspectorTokens.accent;
+        Rectangle {
+            x: 7px; y: 5px; width: 14px; height: 14px;
+            border-radius: 4px; border-width: 1px;
+            border-color: root.selected ? InspectorTokens.text : InspectorTokens.muted;
+            if root.separate: Rectangle { x: 5px; y: -1px; width: 4px; height: 16px; background: root.selected ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg; }
+            if root.separate: Rectangle { x: -1px; y: 5px; width: 16px; height: 4px; background: root.selected ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg; }
+        }
+    }
+    TouchArea { clicked => { root.focus(); root.activated(); } }
+}
+
+export component InspectorCornerEditor inherits Rectangle {
+    in property <[float]> values;
+    in property <float> maximum;
+    in property <string> commit-key;
+    callback preview(float) -> bool;
+    callback accepted(int, float) -> bool;
+    callback canceled();
+    private property <bool> unequal: root.values[0] != root.values[1] || root.values[0] != root.values[2] || root.values[0] != root.values[3];
+    private property <bool> separate: root.unequal;
+    changed commit-key => { root.separate = root.unequal; }
+    changed unequal => { if root.unequal { root.separate = true; } }
+    height: layout.preferred-height;
+    horizontal-stretch: 1;
+    layout := VerticalLayout {
+        spacing: 6px;
+        HorizontalLayout {
+            spacing: 2px;
+            Text {
+                text: "Corner Radius";
+                color: InspectorTokens.text;
+                font-size: 12px;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+            CornerMode {
+                selected: !root.separate;
+                activated => {
+                    if root.separate {
+                        root.canceled();
+                        if root.accepted(-1, root.values[0]) { root.separate = false; }
+                    }
+                }
+            }
+            CornerMode { separate: true; selected: root.separate; activated => { root.canceled(); root.separate = true; } }
+        }
+        if !root.separate: HorizontalLayout {
+            spacing: 8px;
+            slider := InspectorRadiusSlider {
+                value: root.values[0]; maximum: root.maximum; commit-key: root.commit-key;
+                preview(value) => { return root.preview(value); }
+                accepted(value) => { return root.accepted(-1, value); }
+                canceled => { root.canceled(); }
+            }
+            InspectorValueField {
+                width: 72px;
+                accessible-name: "All corner radii";
+                prefix: "px";
+                value: "\{slider.visual-value}";
+                commit-key: root.commit-key;
+                accepted(text) => { return text.is-float() && text.to-float() >= 0 && root.accepted(-1, text.to-float()); }
+            }
+        }
+        if root.separate: VerticalLayout {
+            spacing: 6px;
+            for row in 2: HorizontalLayout {
+                spacing: 6px;
+                for column in 2: InspectorValueField {
+                    property <int> index: row * 2 + column;
+                    width: (root.width - 6px) / 2;
+                    accessible-name: index == 0 ? "Top left corner radius" : index == 1 ? "Top right corner radius" : index == 2 ? "Bottom left corner radius" : "Bottom right corner radius";
+                    corner-index: self.index;
+                    value: "\{root.values[index]}";
+                    commit-key: root.commit-key;
+                    accepted(text) => { return text.is-float() && text.to-float() >= 0 && root.accepted(self.index, text.to-float()); }
+                }
+            }
+        }
+    }
+}

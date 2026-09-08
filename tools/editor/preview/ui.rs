@@ -202,6 +202,10 @@ pub fn initialize_editor(
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
+    api.on_inspector_values(super::inspector::values);
+    api.on_inspector_preview(super::inspector::preview);
+    api.on_inspector_commit(super::inspector::commit);
+    api.on_inspector_cancel(super::inspector::cancel);
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);

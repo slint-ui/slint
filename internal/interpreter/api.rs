@@ -1707,6 +1707,17 @@ impl ComponentInstance {
         crate::highlight::element_node_at_source_code_position(self.inner.vrc(), path, offset)
     }
 
+    /// Read parent-relative rotation and corner radii (top-left, top-right, bottom-left, bottom-right).
+    ///
+    /// WARNING: this is not part of the public API.
+    #[cfg(feature = "internal-highlight")]
+    pub fn element_rotation_and_radii(
+        &self,
+        element: &i_slint_compiler::object_tree::ElementRc,
+    ) -> Vec<(f32, [f32; 4])> {
+        crate::highlight::element_rotation_and_radii(self.inner.vrc(), element)
+    }
+
     /// Set a callback triggered by `Expression::DebugHook`.
     #[cfg(feature = "internal")]
     pub fn set_debug_hook_callback(&self, callback: Option<crate::debug_hook::DebugHookCallback>) {

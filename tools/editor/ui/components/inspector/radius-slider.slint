@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorRadiusSlider inherits FocusScope {
+    in property <float> value;
+    in property <float> maximum;
+    in property <string> commit-key;
+    callback preview(float) -> bool;
+    callback accepted(float) -> bool;
+    callback canceled();
+    out property <float> visual-value: root.dragging ? root.drag-value : root.value;
+    private property <bool> dragging;
+    private property <float> drag-value;
+    private property <float> progress: root.maximum > 0 ? (root.visual-value / root.maximum).clamp(0, 1) : 0;
+    height: 24px;
+    min-width: 32px;
+    horizontal-stretch: 1;
+    accessible-role: AccessibleRole.slider;
+    accessible-label: "All corner radii slider";
+    accessible-value: "\{root.visual-value}";
+    accessible-value-minimum: 0;
+    accessible-value-maximum: root.maximum;
+    accessible-action-set-value(value) => {
+        if value.is-float() { root.accepted(value.to-float().clamp(0, root.maximum)); }
+    }
+    changed commit-key => { root.cancel(); }
+    function cancel() {
+        if root.dragging { root.dragging = false; root.canceled(); }
+    }
+    function update() {
+        root.drag-value = (((touch.mouse-x - 6px) / max(1px, root.width - 12px)).clamp(0, 1) * root.maximum).round();
+        if !root.preview(root.drag-value) { root.cancel(); }
+    }
+    key-pressed(event) => {
+        if event.text == Key.Escape && root.dragging { root.cancel(); return accept; }
+        if event.text == Key.LeftArrow || event.text == Key.DownArrow { root.accepted(max(0, root.value - 1)); return accept; }
+        if event.text == Key.RightArrow || event.text == Key.UpArrow { root.accepted(min(root.maximum, root.value + 1)); return accept; }
+        return reject;
+    }
+    Rectangle { x: 6px; y: 11px; width: parent.width - 12px; height: 2px; background: InspectorTokens.divider; }
+    Rectangle {
+        x: 1px + (parent.width - 12px) * root.progress;
+        y: 7px; width: 10px; height: 10px; border-radius: 5px;
+        background: InspectorTokens.muted;
+        border-width: root.has-focus ? 1px : 0px;
+        border-color: InspectorTokens.accent;
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.focus(); root.dragging = true; root.update();
+            } else if event.kind == PointerEventKind.move && root.dragging { root.update();
+            } else if event.kind == PointerEventKind.up && root.dragging {
+                let value = root.drag-value; root.dragging = false; root.accepted(value);
+            } else if event.kind == PointerEventKind.cancel { root.cancel(); }
+        }
+    }
+}

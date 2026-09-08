@@ -399,6 +399,74 @@ fn positions_by_source(
     use_site: Option<(&Path, u32)>,
     filter: ElementPositionFilter,
 ) -> Vec<HighlightedRect> {
+    items_by_source(root, target_path, target_offset, use_site)
+        .into_iter()
+        .filter_map(|(instance, flat_idx)| {
+            if filter == ElementPositionFilter::ExcludeClipped {
+                let item = ItemRc::new(VRc::into_dyn(instance.clone()), flat_idx as u32);
+                if !item.is_visible() {
+                    return None;
+                }
+            }
+            item_flat_index_to_rect(&instance, root, flat_idx)
+        })
+        .collect()
+}
+
+pub(crate) fn element_rotation_and_radii(
+    root: &VRc<ItemTreeVTable, Instance>,
+    element: &ElementRc,
+) -> Vec<(f32, [f32; 4])> {
+    use i_slint_core::items::{BasicBorderRectangle, BorderRectangle, ItemRef, Transform};
+    let target = walk_to_native_root(element);
+    let Some((path, offset)) = source_location_of(&target) else { return Vec::new() };
+    let use_site = if Rc::ptr_eq(&target, element) { None } else { source_location_of(element) };
+    items_by_source(root, &path, offset, use_site.as_ref().map(|(p, o)| (p.as_path(), *o)))
+        .into_iter()
+        .filter_map(|(instance, flat_idx)| {
+            let item = ItemRc::new(VRc::into_dyn(instance.clone()), flat_idx as u32);
+            if item.geometry().size.is_empty() {
+                return None;
+            }
+            let item_ref = item.borrow();
+            let radii = if let Some(rect) = ItemRef::downcast_pin::<BorderRectangle>(item_ref) {
+                [
+                    rect.border_top_left_radius().get(),
+                    rect.border_top_right_radius().get(),
+                    rect.border_bottom_left_radius().get(),
+                    rect.border_bottom_right_radius().get(),
+                ]
+            } else if let Some(rect) = ItemRef::downcast_pin::<BasicBorderRectangle>(item_ref) {
+                [rect.border_radius().get(); 4]
+            } else {
+                [0.; 4]
+            };
+            let mut rotation = 0.;
+            let mut anchor = item.clone();
+            while let Some(parent) =
+                anchor.parent_item(i_slint_core::item_tree::ParentItemTraversalMode::StopAtPopups)
+            {
+                if !VRc::ptr_eq(parent.item_tree(), item.item_tree())
+                    || !is_injected_wrapper_element(&instance, parent.index() as usize)
+                {
+                    break;
+                }
+                if let Some(transform) = ItemRef::downcast_pin::<Transform>(parent.borrow()) {
+                    rotation += transform.transform_rotation();
+                }
+                anchor = parent;
+            }
+            Some((rotation, radii))
+        })
+        .collect()
+}
+
+fn items_by_source(
+    root: &VRc<ItemTreeVTable, Instance>,
+    target_path: &Path,
+    target_offset: u32,
+    use_site: Option<(&Path, u32)>,
+) -> Vec<(VRc<ItemTreeVTable, Instance>, usize)> {
     let cu = root.root_sub_component.compilation_unit.clone();
     let mut results = Vec::new();
     // Repeated / conditional rows are separate instances with their own
@@ -420,16 +488,7 @@ fn positions_by_source(
                     continue;
                 }
                 for flat_idx in find_flat_indices_for_item(&instance, sc_idx, local_idx, use_site) {
-                    if filter == ElementPositionFilter::ExcludeClipped {
-                        let dyn_rc = vtable::VRc::into_dyn(instance.clone());
-                        let item_rc = i_slint_core::items::ItemRc::new(dyn_rc, flat_idx as u32);
-                        if !item_rc.is_visible() {
-                            continue;
-                        }
-                    }
-                    if let Some(rect) = item_flat_index_to_rect(&instance, root, flat_idx) {
-                        results.push(rect);
-                    }
+                    results.push((instance.clone(), flat_idx));
                 }
             }
         }

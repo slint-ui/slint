@@ -44,6 +44,7 @@ mod drop_location;
 mod element_selection;
 pub mod eval;
 mod ext;
+mod inspector;
 #[cfg(target_os = "macos")]
 pub mod macos_titlebar;
 mod preview_data;
@@ -214,6 +215,7 @@ pub struct PreviewState {
     initial_live_data: preview_data::PreviewDataMap,
     current_live_data: preview_data::PreviewDataMap,
     undo_redo_stack: undo_redo::UndoRedoStack,
+    inspector_edit: Option<inspector::Edit>,
 
     source_code: SourceCodeCache,
     resources: HashSet<Url>,
@@ -425,6 +427,7 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &VersionedUrl, content: String) {
+    inspector::invalidate();
     if let Some((current, behavior)) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
             undo_redo::set_undo_redo_enabled(preview_state);
@@ -2394,6 +2397,7 @@ fn set_selected_element(
     selection: Option<element_selection::ElementSelection>,
     editor_notification: SelectionNotification,
 ) {
+    inspector::cancel();
     let (layout_kind, parent_layout_kind, type_name) = {
         let selection_node = selection.as_ref().and_then(|s| s.as_element_node());
         let (layout_kind, parent_layout_kind) = selection_node
@@ -2613,7 +2617,7 @@ fn update_preview_area(
 
         if let Some(compiled) = compiled {
             api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
-            api.set_current_element(Default::default());
+            // Keep the inspector mounted until reselection, so edits retain keyboard focus.
 
             set_preview_factory(
                 editor_ui,
@@ -2670,6 +2674,7 @@ fn update_preview_area(
         Ok(())
     })?;
 
+    inspector::invalidate();
     element_selection::reselect_element();
     Ok(())
 }
