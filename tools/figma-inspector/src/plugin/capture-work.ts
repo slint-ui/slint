@@ -1,10 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+export class CaptureCancelled extends Error {
+    public constructor() {
+        super("Capture cancelled");
+    }
+}
+
 /** Session-only, bounded cache. Rejections and results from invalidated runs are not retained. */
 export class CaptureCache {
     private entries = new Map<string, { value: unknown; size: number }>();
     private generation = 0;
+    private pending = new Map<string, Promise<unknown>>();
     private retained = 0;
     public hits = 0;
     public constructor(private readonly budget = 32 * 1024 * 1024) {}
@@ -20,6 +27,7 @@ export class CaptureCache {
     public clear(): void {
         this.generation++;
         this.entries.clear();
+        this.pending.clear();
         this.retained = 0;
     }
     public async get<T>(
@@ -34,9 +42,32 @@ export class CaptureCache {
             onHit?.();
             return old;
         }
-        const value = await load();
-        this.put(key, value, sizeOf(value), generation);
-        return value;
+        const pending = this.pending.get(key);
+        if (pending) {
+            try {
+                const value = (await pending) as T;
+                this.hits++;
+                onHit?.();
+                return value;
+            } catch (error) {
+                // The older selection may have been cancelled while waiting for
+                // an export slot. The current selection still needs its own load.
+                if (error instanceof CaptureCancelled)
+                    return this.get(key, load, sizeOf, onHit);
+                throw error;
+            }
+        }
+        // Publish before awaiting so concurrent captures share the host export.
+        const operation = load();
+        this.pending.set(key, operation);
+        try {
+            const value = await operation;
+            this.put(key, value, sizeOf(value), generation);
+            return value;
+        } finally {
+            // An invalidation may have installed a newer request for this key.
+            if (this.pending.get(key) === operation) this.pending.delete(key);
+        }
     }
     public peek<T>(key: string, token = this.generation): T | undefined {
         if (token !== this.generation) return undefined;
