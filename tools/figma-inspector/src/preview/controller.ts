@@ -1,12 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import wasmBytes from "slint-wasm-binary";
+import wasmDataUrl from "@interpreter/slint_wasm_interpreter_bg.wasm?url&inline";
 import initialize, {
     compile_from_string,
     run_event_loop,
     type WrappedInstance,
-} from "slint-wasm-generated";
+} from "@interpreter/slint_wasm_interpreter.js";
 import {
     cloneTimingBreakdowns,
     defaultClock,
@@ -258,6 +258,10 @@ export class PreviewController {
             trace === undefined ? undefined : cloneTrace(trace);
         try {
             const initializationStart = defaultClock.monotonicNow();
+            const wasmBytes = Uint8Array.from(
+                atob(wasmDataUrl.split(",")[1]),
+                (byte) => byte.charCodeAt(0),
+            );
             await initialize({ module_or_path: wasmBytes });
             try {
                 run_event_loop();
