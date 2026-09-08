@@ -7,6 +7,7 @@ import pytest
 import slint_testing
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    elements_with_label,
     first_window,
     launch_editor,
     select_outline_row,
@@ -39,6 +40,21 @@ def inspector_field(
     label: str,
     role: slint_testing.AccessibleRole | None = None,
 ) -> slint_testing.Element:
+    pane = window_element_with_label(
+        window, "Inspector and outline", slint_testing.AccessibleRole.Complementary
+    )
+    position = slint_testing.LogicalPosition(
+        x=pane.absolute_position.x + pane.size.width / 2,
+        y=pane.absolute_position.y + pane.size.height / 4,
+    )
+    for delta in [0, 10000, -180, -180, -180, -180, -180, -180]:
+        if delta:
+            window.dispatch_event(
+                slint_testing.PointerScrolledEvent(position, delta_x=0, delta_y=delta)
+            )
+        fields = elements_with_label(pane, label, role)
+        if len(fields) == 1:
+            return fields[0]
     return window_element_with_label(window, label, role)
 
 
@@ -104,19 +120,6 @@ def assert_rendered_element(window: slint_testing.Window, element_id: str) -> No
             if (element := next(iter(window.find_elements_by_id(element_id)), None))
             else None
         )
-    )
-
-
-def scroll_to_shadow_details(window: slint_testing.Window) -> None:
-    anchor = inspector_field(
-        window, "Shadow distance", slint_testing.AccessibleRole.Slider
-    )
-    position = slint_testing.LogicalPosition(
-        x=anchor.absolute_position.x + anchor.size.width / 2,
-        y=anchor.absolute_position.y + anchor.size.height / 2,
-    )
-    window.dispatch_event(
-        slint_testing.PointerScrolledEvent(position=position, delta_x=0, delta_y=-320)
     )
 
 
@@ -726,7 +729,6 @@ def test_each_shadow_family_control_writes_exact_source(
         window = first_window(editor)
         select_element(window, "Rectangle")
         if control in {"blur", "spread"}:
-            scroll_to_shadow_details(window)
             inspector_field(
                 window,
                 f"{label} value",
@@ -772,7 +774,6 @@ def test_shadow_control_boundary_writes_exact_source(
         window = first_window(editor)
         select_element(window, "Rectangle")
         if control in {"blur", "spread"}:
-            scroll_to_shadow_details(window)
             inspector_field(
                 window,
                 f"{label} value",
