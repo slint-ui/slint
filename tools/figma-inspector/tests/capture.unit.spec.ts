@@ -322,7 +322,7 @@ function strictObject<T extends object>(value: T): T {
         get(target, property, receiver) {
             if (
                 typeof property === "string" &&
-                !Object.prototype.hasOwnProperty.call(target, property)
+                !Object.hasOwn(target, property)
             ) {
                 throw new Error(`undeclared Figma read: ${property}`);
             }
