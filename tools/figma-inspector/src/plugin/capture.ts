@@ -817,23 +817,21 @@ export async function captureSource<Binary extends boolean = false>(
             const childAncestors = cache
                 ? ancestors + JSON.stringify(result.properties)
                 : "";
-            {
-                result.children = await mapCaptureChildren(
-                    visibleChildren,
-                    concurrency,
-                    (child) =>
-                        visit(
-                            child,
-                            invisible,
-                            suppressed ||
-                                (!includeHidden &&
-                                    (result.exports !== undefined ||
-                                        maskExport !== undefined)),
-                            childAncestors,
-                        ),
-                    cancelled,
-                );
-            }
+            result.children = await mapCaptureChildren(
+                visibleChildren,
+                concurrency,
+                (child) =>
+                    visit(
+                        child,
+                        invisible,
+                        suppressed ||
+                            (!includeHidden &&
+                                (result.exports !== undefined ||
+                                    maskExport !== undefined)),
+                        childAncestors,
+                    ),
+                cancelled,
+            );
         }
         if (maskExport) await maskExport;
         // A mask affects its following siblings. Export their existing common
