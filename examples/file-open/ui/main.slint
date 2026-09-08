@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { Button, ScrollView } from "std-widgets.slint";
+import { ListView } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
     in property <string> current-file-name: "";
@@ -78,22 +78,13 @@ export component MainWindow inherits Window {
                 }
             }
 
-            if archive-entries.length > 0: ScrollView {
+            if archive-entries.length > 0: ListView {
                 for entry in archive-entries: HorizontalLayout {
                     padding: 6px;
                     spacing: 8px;
-                    Text { text: "•"; color: #2a9d8f; }
-                    Text { text: entry; }
+                    Text { text: "•"; color: #2a9d8f; vertical-alignment: center; }
+                    Text { text: entry; vertical-alignment: center; overflow: elide; }
                 }
-            }
-        }
-
-        HorizontalLayout {
-            spacing: 8px;
-
-            Button {
-                text: "Restore";
-                enabled: has-archive;
             }
         }
     }
