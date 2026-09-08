@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": ["tools/figma-inspector/.generated/**"],
   "ignoreExportsUsedInFile": { "interface": true, "type": true },
   "workspaces": {
     ".": {
@@ -33,11 +34,31 @@
     },
     "tools/figma-inspector": {
       "vite": false,
-      "entry": ["src/main.tsx", "src/index-react.tsx", "backend/code.ts", "vite.config.ts", "figma.config.ts"],
-      "project": ["src/**/*.{ts,tsx}", "backend/**/*.ts", "tests/**/*.ts"],
-      "ignoreBinaries": ["biome"],
-      "ignoreUnresolved": ["plugin-typings"],
-      "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types"]
+      "vitest": {
+        "config": [
+          "vitest.config.ts"
+        ],
+        "entry": [
+          "tests/**/*.unit.spec.ts",
+          "tests/**/*.browser.spec.ts"
+        ]
+      },
+      "entry": [
+        "src/plugin/main.ts",
+        "src/ui/index.ts",
+        "src/ui/conversion.worker.ts",
+        "src/ui/highlight.worker.ts",
+        "scripts/*.mjs",
+        "tests/**/*.{ts,mjs}"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "scripts/*.mjs",
+        "tests/**/*.{ts,mjs}"
+      ],
+      "ignoreDependencies": [
+        "slint-wasm-binary"
+      ]
     },
     "docs/astro": {
       "entry": [],

@@ -1,23 +1,66 @@
 {
-    "root": true,
-    "extends": ["../../biome.json"],
     "files": {
-        "includes": ["**", "!**/tests/figma_output.json", "!**/.tmp"]
+        "includes": [
+            "**",
+            "!**/.generated",
+            "!**/.cache",
+            "!**/.pnpm-store",
+            "!**/.worktrees",
+            "!**/dist",
+            "!**/fixtures",
+            "!**/node_modules",
+            "!**/playwright-report",
+            "!**/src/ui/syntax-assets",
+            "!**/test-results",
+            "!**/zip",
+            "!**/.vitest-attachments",
+            "!**/.vitest",
+            "!**/dist-dev",
+            "!**/.package-test"
+        ],
+        "ignoreUnknown": true
+    },
+    "formatter": {
+        "enabled": true,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineEnding": "lf"
     },
     "linter": {
+        "enabled": true,
         "rules": {
             "style": {
+                "useConst": "error",
+                "useImportType": "error",
                 "noParameterAssign": "error",
-                "useAsConstAssertion": "error",
-                "useDefaultParameterLast": "error",
-                "useEnumInitializers": "error",
-                "useSelfClosingElements": "error",
-                "useSingleVarDeclarator": "error",
-                "noUnusedTemplateLiteral": "error",
-                "useNumberNamespace": "error",
                 "noInferrableTypes": "error",
-                "noUselessElse": "error"
-            }
+                "useBlockStatements": "off"
+            },
+            "suspicious": {
+                "noDoubleEquals": "error",
+                "noImplicitAnyLet": "error",
+                "useAwait": "off"
+            },
+            "preset": "recommended"
         }
-    }
+    },
+    "javascript": {
+        "formatter": {
+            "quoteStyle": "double",
+            "semicolons": "always",
+            "trailingCommas": "all"
+        }
+    },
+    "html": {
+        "linter": {
+            "enabled": false
+        }
+    },
+    "css": {
+        "linter": {
+            "enabled": false
+        }
+    },
+    "root": true,
+    "extends": ["../../biome.json"]
 }

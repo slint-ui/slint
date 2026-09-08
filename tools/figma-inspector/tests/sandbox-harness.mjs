@@ -8,7 +8,7 @@ import vm from "node:vm";
 // Exercise the actual bundled sandbox's event wiring. Detailed node capture,
 // normalization and conversion belong to their unit tests and the real UI worker suite.
 const code = await readFile(
-    new URL("../dist-replacement/code.js", import.meta.url),
+    new URL("../dist/code.js", import.meta.url),
     "utf8",
 );
 const fixture = JSON.parse(
@@ -189,7 +189,7 @@ console.log(
 );
 
 // Dev Mode must start without touching preview-only host APIs.
-for (const directory of ["dist-replacement", "dist-replacement-dev"]) {
+for (const directory of ["dist", "dist-dev"]) {
     const manifest = JSON.parse(
         await readFile(
             new URL(`../${directory}/manifest.json`, import.meta.url),

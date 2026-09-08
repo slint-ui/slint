@@ -104,7 +104,7 @@ export class SourcePanelController {
         this.sourceView.textContent = "";
     }
 
-    public async copy(text: string, button?: HTMLButtonElement): Promise<void> {
+    public copy(text: string, button?: HTMLButtonElement): void {
         if (text === "") return;
         const success = writeTextToClipboard(text);
         this.options.reportClipboardResult(success);
