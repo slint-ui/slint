@@ -34,6 +34,8 @@
         "src/protocol.ts",
         "tests/**/*.unit.spec.ts",
         "src/preview/**/*.ts",
-        "src/export/**/*.ts"
+        "src/export/**/*.ts",
+        "src/ui/**/*.ts",
+        "tests/**/*.browser.spec.ts"
     ]
 }
