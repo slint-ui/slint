@@ -791,30 +791,25 @@ jobs:
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install Android API platforms
-              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30" "platforms;android-36" "build-tools;36.0.0"
-            - name: Cache cargo-apk, cargo-ndk and resvg
-              id: cargo-tools-cache
+            - uses: ./.github/actions/setup-android-viewer-build
+            - name: Install the Android API platform of the demos
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+            - name: Cache cargo-apk
+              id: cargo-apk-cache
               uses: actions/cache@v6
               with:
-                  path: |
-                      ~/.cargo/bin/cargo-apk
-                      ~/.cargo/bin/cargo-ndk
-                      ~/.cargo/bin/resvg
-                  key: android-cargo-tools-cache
-            # Only build the tools if not cached
+                  path: ~/.cargo/bin/cargo-apk
+                  key: cargo-apk-cache
             - uses: dtolnay/rust-toolchain@stable
-              if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
-            - name: Install cargo-apk, cargo-ndk and resvg
-              if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
-              run: cargo install --locked cargo-apk cargo-ndk resvg
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+            - name: Install cargo-apk
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+              run: cargo install --locked cargo-apk
 
+            # Stable with arm64-v8a for the cargo-apk demos.
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android
-            # The AAB packages all three ABIs; cargo-apk only needs arm64-v8a.
-            - name: Add extra Android Rust targets for the AAB
-              run: rustup target add armv7-linux-androideabi x86_64-linux-android
 
             - name: dump keystore
               run: |
@@ -835,16 +830,6 @@ jobs:
             # Play Store accepts only AABs for new submissions. Build the
             # bundle, then derive the nightly slint-viewer APK from it so the
             # viewer is only compiled once.
-            - name: Set up JDK 17 for Android Gradle Plugin
-              uses: actions/setup-java@v5
-              with:
-                  distribution: temurin
-                  java-version: "17"
-            - name: Set up Gradle
-              uses: gradle/actions/setup-gradle@v6.3.0
-              with:
-                  # Installs Gradle on PATH; the AAB project has no wrapper jar.
-                  gradle-version: "8.11.1"
             - name: Build slint-viewer AAB
               env:
                   ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}

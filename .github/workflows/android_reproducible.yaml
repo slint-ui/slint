@@ -1,0 +1,61 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore sdkmanager diffoscope
+
+# The Android viewer build has to be reproducible so F-Droid can verify its
+# own rebuild against our signed APK. Build the arm64 APK twice, from
+# checkouts at different paths and depths, and require identical bytes.
+# Two Skia builds from source make this slow, so it runs with the full CI
+# only, not on pull requests.
+name: Android reproducible build
+
+on:
+    workflow_dispatch:
+    workflow_call:
+
+jobs:
+    build:
+        strategy:
+            matrix:
+                # The second checkout sits at another path and depth.
+                checkout: [., a/deeper/checkout/directory]
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-android-viewer-build
+            - name: Clone into the build directory
+              if: matrix.checkout != '.'
+              run: git clone . ${{ matrix.checkout }}
+            - name: Build the native library
+              run: tools/viewer/android/build-native.sh arm64-v8a
+              working-directory: ${{ matrix.checkout }}
+            - name: Build the APK
+              run: gradle --no-daemon assembleRelease
+              working-directory: ${{ matrix.checkout }}/tools/viewer/android
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: apk-${{ strategy.job-index }}
+                  path: ${{ matrix.checkout }}/tools/viewer/android/app/build/outputs/apk/release/app-release-unsigned.apk
+
+    compare:
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/download-artifact@v8
+              with:
+                  name: apk-0
+                  path: first
+            - uses: actions/download-artifact@v8
+              with:
+                  name: apk-1
+                  path: second
+            - name: Compare the two APKs
+              run: |
+                  if cmp first/app-release-unsigned.apk second/app-release-unsigned.apk; then
+                      echo "The two builds are byte-identical."
+                  else
+                      sudo apt-get install -y diffoscope-minimal
+                      diffoscope --text - --max-text-report-size 200000 first/app-release-unsigned.apk second/app-release-unsigned.apk || true
+                      exit 1
+                  fi

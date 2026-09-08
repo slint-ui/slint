@@ -9,6 +9,10 @@ This document describes the Slint release process
   - Corrosion in api/cpp/CMakeLists.txt
   - Tree sitter: in `.github/workflows/ci.yaml` for the `tree-sitter` job, bump the `tag`
     to the latest release as per https://github.com/tree-sitter/tree-sitter/releases
+  - The pins of the reproducible Android viewer build, which F-Droid's recipe has to match:
+    the Rust toolchain in `tools/viewer/android/rust-toolchain.toml` to the current stable,
+    and the `cargo-ndk` and `resvg` versions in `.github/actions/setup-android-viewer-build/action.yaml`
+    to the latest on crates.io.
 
 * Verify that the list of supported platforms in docs/astro/src/content/docs/guide/platforms/desktop/ matches what we
   test on the CI
