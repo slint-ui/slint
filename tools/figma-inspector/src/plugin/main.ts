@@ -6,7 +6,11 @@ import { generateCodegen } from "./codegen";
 
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", ({ node }) =>
-        generateCodegen(node, figma.mixed),
+        generateCodegen(
+            node,
+            figma.mixed,
+            figma.codegen.preferences?.customSettings.useVariables === "true",
+        ),
     );
 } else {
     startPreview();

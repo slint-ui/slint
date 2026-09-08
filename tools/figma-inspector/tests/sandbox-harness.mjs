@@ -196,8 +196,20 @@ for (const directory of ["dist-replacement", "dist-replacement-dev"]) {
             "utf8",
         ),
     );
+    assert.equal(manifest.id, "1474418299182276871");
+    assert.equal(manifest.name, "Figma to Slint");
+    assert.equal(manifest.codegenPreferences[0].propertyName, "useVariables");
+    assert.deepEqual(manifest.codegenPreferences[0].includedLanguages, [
+        "slint",
+    ]);
+    assert.equal(
+        manifest.codegenPreferences[0].options.find(
+            (option) => option.isDefault,
+        ).value,
+        "false",
+    );
     assert.deepEqual(manifest.editorType, ["figma", "dev"]);
-    assert.deepEqual(manifest.capabilities, ["codegen"]);
+    assert.deepEqual(manifest.capabilities, ["codegen", "vscode"]);
     assert.deepEqual(manifest.codegenLanguages, [
         { label: "Slint", value: "slint" },
     ]);
