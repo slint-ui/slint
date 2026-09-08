@@ -523,6 +523,7 @@ function acceptSource(
     }[] = [],
     exportPackage?: ExportPackage,
     exportError?: string,
+    renderSource = source,
 ): void {
     void exportError;
     if (
@@ -558,7 +559,7 @@ function acceptSource(
     };
     if (interpreterInitialization === undefined) {
         interpreterInitialization = controller.initialize(
-            source,
+            renderSource,
             revision,
             withRevision,
             warnings,
@@ -567,7 +568,12 @@ function acceptSource(
             interpreterInitialization = undefined;
         });
     } else {
-        controller.requestRender(source, revision, withRevision, warnings);
+        controller.requestRender(
+            renderSource,
+            revision,
+            withRevision,
+            warnings,
+        );
     }
 }
 
@@ -833,6 +839,7 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
                 typeof message.source === "string"
                     ? {
                           source: message.source,
+                          renderSource: message.renderSource,
                           snapshotJson: message.snapshotJson,
                       }
                     : unpackPreviewAssets(message.source);
@@ -848,6 +855,7 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
                 message.warnings ?? [],
                 message.exportPackage,
                 message.exportError,
+                decoded.renderSource,
             );
         } else if (message.type === "preview-diagnostics") {
             acceptSelection(message.selection);
