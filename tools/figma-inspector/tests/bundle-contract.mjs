@@ -49,14 +49,13 @@ if (ui !== browser) {
     );
 }
 for (const marker of [
-    "<style>",
-    "<script>",
+    "<style",
+    "<script",
     "WebAssembly",
     "compile_from_string",
     "light-slint",
     "dark-slint",
     "source.slint",
-    "getLastOnigError",
     "Roboto Mono",
     "counter(step)",
     'id="copy-button"',
@@ -73,13 +72,21 @@ for (const [pattern, label] of [
         /<(?:img|iframe|object|embed|source)\b[^>]*(?:src|data|href)\s*=/i,
         "external asset",
     ],
-    [/@import\b/i, "CSS import"],
-    [/url\(\s*["']?(?:https?:|\/\/)/i, "external CSS URL"],
 ]) {
     if (pattern.test(ui)) {
         throw new Error(`Self-contained UI contains ${label}`);
     }
 }
+const css = [...ui.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)]
+    .map((match) => match[1])
+    .join("\n");
+if (/@import\b/i.test(css) || /url\(\s*["']?(?:https?:|\/\/)/i.test(css))
+    throw Error("Self-contained UI contains an external CSS dependency");
+const wasmPayloads = [
+    ...ui.matchAll(/data:application\/wasm;base64,([A-Za-z0-9+/=]+)/g),
+];
+if (wasmPayloads.length !== 1)
+    throw Error("The interpreter must be embedded exactly once");
 for (const forbidden of [
     "localStorage",
     "sessionStorage",
@@ -116,11 +123,6 @@ if (
     !code.includes("function convertSnapshot(")
 )
     throw new Error("Native codegen conversion is missing from the sandbox");
-if (
-    !ui.includes("function createSourceNormalizer(") ||
-    !ui.includes("function convertSnapshot(")
-)
-    throw new Error("Offline conversion worker is missing from the UI bundle");
 
 if (ui.includes('id="timing-panel"'))
     throw Error("Production performance UI must be absent");

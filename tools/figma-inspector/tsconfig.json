@@ -3,7 +3,10 @@
         "target": "ES2022",
         "module": "ESNext",
         "moduleResolution": "Bundler",
-        "lib": ["ES2022", "DOM"],
+        "lib": [
+            "ES2022",
+            "DOM"
+        ],
         "strict": true,
         "noEmit": true,
         "isolatedModules": true,
@@ -13,12 +16,22 @@
         "forceConsistentCasingInFileNames": true,
         "noUnusedLocals": true,
         "noUnusedParameters": true,
-        "types": ["node", "@figma/plugin-typings"],
+        "types": [
+            "node",
+            "@figma/plugin-typings",
+            "vite/client"
+        ],
         "paths": {
-            "slint-wasm-generated": [
-                "../../api/wasm-interpreter/pkg/slint_wasm_interpreter.d.ts"
+            "@interpreter/*": [
+                "../../api/wasm-interpreter/pkg/*"
             ]
-        }
+        },
+        "allowJs": true
     },
-    "include": ["src/**/*.ts", "scripts/**/*.mjs", "tests/**/*.ts"]
+    "include": [
+        "src/**/*.ts",
+        "scripts/**/*.mjs",
+        "tests/**/*.ts",
+        "vite.config*.ts"
+    ]
 }

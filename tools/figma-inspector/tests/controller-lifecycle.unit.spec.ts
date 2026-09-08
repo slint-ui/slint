@@ -10,8 +10,10 @@ const runtime = vi.hoisted(() => ({
     run: vi.fn(),
 }));
 
-vi.mock("slint-wasm-binary", () => ({ default: new Uint8Array([0]) }));
-vi.mock("slint-wasm-generated", () => ({
+vi.mock("@interpreter/slint_wasm_interpreter_bg.wasm?url&inline", () => ({
+    default: "data:application/wasm;base64,AA==",
+}));
+vi.mock("@interpreter/slint_wasm_interpreter.js", () => ({
     default: runtime.initialize,
     compile_from_string: runtime.compile,
     run_event_loop: runtime.run,

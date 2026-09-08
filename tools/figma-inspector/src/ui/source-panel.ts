@@ -4,7 +4,7 @@
 type SourceTheme = "light-slint" | "dark-slint";
 
 export type SourcePanelOptions = {
-    workerSource: string;
+    createWorker: () => Worker;
     reportClipboardResult: (success: boolean) => void;
     canHighlight: () => boolean;
     getRevision: () => number;
@@ -156,7 +156,7 @@ export class SourcePanelController {
             this.sourceView.hidden = false;
         };
         try {
-            if (!this.worker) this.worker = this.createWorker();
+            if (!this.worker) this.worker = this.options.createWorker();
             this.highlighting = true;
             this.sourceView.setAttribute("aria-busy", "true");
             this.worker.onmessage = (event: MessageEvent<unknown>) => {
@@ -190,17 +190,6 @@ export class SourcePanelController {
             this.worker.postMessage({ id: request, source, theme });
         } catch {
             fallback();
-        }
-    }
-
-    private createWorker(): Worker {
-        const url = URL.createObjectURL(
-            new Blob([this.options.workerSource], { type: "text/javascript" }),
-        );
-        try {
-            return new Worker(url);
-        } finally {
-            URL.revokeObjectURL(url);
         }
     }
 }
