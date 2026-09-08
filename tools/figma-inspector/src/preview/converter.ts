@@ -7,6 +7,7 @@ import type { ComponentGenerationOptions } from "./component-behavior";
 import {
     binding,
     openElement,
+    roleLines,
     closeElement,
     printLine,
     type SlintLine,
@@ -245,7 +246,9 @@ function flexLayoutSource(
         )
     )
         return [];
-    const lines: SlintLine[] = [openElement("FlexboxLayout", depth)];
+    const lines: SlintLine[] = [
+        { ...openElement("FlexboxLayout", depth), role: "content-layout" },
+    ];
     const mainFill = node.children.some(
         (child) =>
             child.visible &&
@@ -538,15 +541,30 @@ function nodeSource(
         lines.push(...appearanceSource(node, depth + 1, externalStroke));
         // Shadow helpers need an opaque shape to cast from. Emit them first so
         // they cannot hide layered fills or asymmetric border strips.
-        lines.push(...shadowLayersSource(node, context, depth + 1));
-        lines.push(...fillLayersSource(node, depth + 1));
-        lines.push(...imageFillSource(node, depth + 1));
-        lines.push(...innerShadowSource(node, depth + 1));
-        if (!externalStroke) lines.push(...strokeLayersSource(node, depth + 1));
+        lines.push(
+            ...roleLines(
+                shadowLayersSource(node, context, depth + 1),
+                "shadow",
+            ),
+        );
+        lines.push(...roleLines(fillLayersSource(node, depth + 1), "fill"));
+        lines.push(
+            ...roleLines(imageFillSource(node, depth + 1), "image-fill"),
+        );
+        lines.push(
+            ...roleLines(innerShadowSource(node, depth + 1), "inner-shadow"),
+        );
+        if (!externalStroke)
+            lines.push(
+                ...roleLines(strokeLayersSource(node, depth + 1), "stroke"),
+            );
         const contentDepth = depth + (clipExternalContent ? 2 : 1);
         if (clipExternalContent) {
             lines.push(
-                openElement("Rectangle", depth + 1),
+                {
+                    ...openElement("Rectangle", depth + 1),
+                    role: "clipped-content",
+                },
                 property("clip", true, depth + 2),
                 ...cornerRadiusSource(node.cornerRadii, depth + 2),
             );
@@ -570,7 +588,10 @@ function nodeSource(
                     lines.push(line);
         }
         if (clipExternalContent) lines.push(closeElement(depth + 1));
-        if (externalStroke) lines.push(...strokeLayersSource(node, depth + 1));
+        if (externalStroke)
+            lines.push(
+                ...roleLines(strokeLayersSource(node, depth + 1), "stroke"),
+            );
     } else if (node.kind === "svg") {
         const visual = visualSource(node, depth, { flexItem, parent });
         if (visual === undefined) return [];

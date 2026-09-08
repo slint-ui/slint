@@ -3,43 +3,18 @@
 
 import type { Element } from "./slint-ir";
 
-const role = (tree: Element) => `${tree.type}:${tree.origin?.name ?? "helper"}`;
-function shape(tree: Element): string {
-    return elementShape(tree);
-}
-
-/** A unique element type gives unambiguous sibling correspondence even when
- * authored names, optional decorations, or binding schemas differ by variant.
- * Otherwise prefer authored names, then uniquely matching schemas. Repeated
- * ambiguous siblings are deliberately left for the exact-tree fallback. */
-export function childRoles(trees: Element[]): string[][] {
-    const shapes = trees.map((tree) => tree.children.map(shape));
-    return trees.map((tree, i) =>
-        tree.children.map((child, j) => {
-            if (
-                trees.every(
-                    (t) =>
-                        t.children.filter((c) => c.type === child.type)
-                            .length <= 1,
-                )
-            )
-                return `type:${child.type}`;
-            const named = role(child);
-            if (
-                trees.filter((t) => t.children.some((c) => role(c) === named))
-                    .length > 1
-            )
-                return named;
-            const schema = shapes[i][j];
-            if (
-                shapes.every(
-                    (list) => list.filter((s) => s === schema).length <= 1,
-                )
-            )
-                return `shape:${schema}`;
-            return named;
-        }),
+const role = (tree: Element) => {
+    const text = tree.bindings.find(
+        (binding) =>
+            binding.name === "text" && binding.value.kind === "reference",
     );
+    return `${tree.type}:${text ? `property:${text.value.code}` : (tree.role ?? tree.origin?.name ?? "helper")}`;
+};
+
+/** Authored names establish roles before geometry is lowered into helpers.
+ * Same-type siblings with different names are not interchangeable content. */
+export function childRoles(trees: Element[]): string[][] {
+    return trees.map((tree) => tree.children.map((child) => role(child)));
 }
 
 /** Combine partial sibling orders without treating the first variant as a
@@ -69,6 +44,7 @@ export function childOrder(lists: string[][]): string[] | undefined {
 type StructuralSignature = {
     type: string;
     condition?: string;
+    role?: string;
     bindings: readonly unknown[];
     children: StructuralSignature[];
 };
@@ -77,6 +53,7 @@ export function structuralSignature(tree: Element): string {
     const build = (element: Element): StructuralSignature => ({
         type: element.type,
         condition: element.condition,
+        role: element.role,
         bindings: element.bindings.map((binding) => [
             binding.name,
             binding.value,
@@ -90,10 +67,11 @@ export function elementShape(tree: Element): string {
     const build = (element: Element): unknown[] => [
         element.type,
         element.condition,
+        element.role,
         element.bindings.map((binding) => [
             binding.name,
             binding.value.type,
-            binding.value.kind === "raw" ? binding.value.code : null,
+            binding.value.type === "opaque" ? binding.value.code : null,
         ]),
         element.children.map(build),
     ];

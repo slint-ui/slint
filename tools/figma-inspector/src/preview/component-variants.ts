@@ -38,6 +38,7 @@ export type VariantAxis = {
     property: string;
     type: string;
     options: Map<string, string>;
+    test?: (value: string) => string;
 };
 export function optionValue(axis: VariantAxis, value: string): string {
     return axis.type === "int" || axis.type === "bool"
@@ -55,6 +56,7 @@ export function predicate(
             options: [...axis.options.keys()].sort(),
             finite: axis.type !== "int",
             test: (value) =>
+                axis.test?.(value) ??
                 `root.${axis.property} == ${optionValue(axis, value)}`,
         })),
     );
@@ -88,19 +90,39 @@ export function selectValues(
             cases.filter((c) => c.code === "true").map((c) => c.values),
             relevant,
         );
-    const groups = new Map<string, Record<string, string>[]>();
-    for (const item of cases) {
-        if (item.code === fallback) continue;
-        const group = groups.get(item.code) ?? [];
-        group.push(item.values);
-        groups.set(item.code, group);
+    // Factor values by authored axes instead of enumerating every combination
+    // producing the same value. Shared suffixes collapse before printing.
+    function choose(rows: typeof cases, remaining: VariantAxis[]): string {
+        if (!rows.length) return fallback;
+        if (rows.every((row) => row.code === rows[0].code)) return rows[0].code;
+        const [axis, ...rest] = remaining;
+        if (!axis) return fallback;
+        const groups = new Map<string, string[]>();
+        for (const option of [...axis.options.keys()].sort()) {
+            const selected = rows.filter(
+                (row) => row.values[axis.key] === option,
+            );
+            if (!selected.length) continue;
+            const code = choose(selected, rest);
+            const options = groups.get(code) ?? [];
+            options.push(option);
+            groups.set(code, options);
+        }
+        const branches = [...groups];
+        let result = branches.pop()?.[0] ?? fallback;
+        for (const [code, options] of branches.reverse()) {
+            const condition = options
+                .map(
+                    (option) =>
+                        axis.test?.(option) ??
+                        `root.${axis.property} == ${optionValue(axis, option)}`,
+                )
+                .join(" || ");
+            result = `(${condition}) ? (${code}) : (${result})`;
+        }
+        return result;
     }
-    return [...groups].reduceRight((tail, [code, values]) => {
-        const condition = predicate(values, relevant);
-        return condition === "true"
-            ? code
-            : `${condition} ? ${code} : (${tail})`;
-    }, fallback);
+    return choose(cases, relevant);
 }
 /** Break generated expressions only between tokens, never inside literal strings. */
 export function declaration(
@@ -164,83 +186,49 @@ export function appearanceDefault(values: string[]): string {
     return [...counts].sort((a, b) => b[1] - a[1])[0][0];
 }
 
-/** Partition whole appearances, not individual predicates: states on one element
- * are exclusive in Slint. Project away an axis only if all captured rows agree. */
+/** Only an explicitly authored state axis produces Slint states. Independent
+ * layout/style axes are handled by ordinary property bindings in the caller. */
 export function appearanceStates(
     samples: Appearance[],
-    axes: VariantAxis[],
+    axis: VariantAxis,
     depth: number,
 ): string[] {
+    const fields = Object.keys(samples[0].properties);
     const base = Object.fromEntries(
-        Object.keys(samples[0].properties).map((key) => [
-            key,
-            appearanceDefault(samples.map((sample) => sample.properties[key])),
+        fields.map((field) => [
+            field,
+            appearanceDefault(
+                samples.map((sample) => sample.properties[field]),
+            ),
         ]),
     );
-    let relevant = [...axes];
-    for (const axis of axes) {
-        const candidate = relevant.filter((a) => a !== axis);
-        const seen = new Map<string, string>();
-        if (
-            samples.every((s) => {
-                const key = JSON.stringify(
-                    candidate.map((a) => s.values[a.key]),
-                );
-                const value = JSON.stringify(s.properties);
-                if (seen.has(key) && seen.get(key) !== value) return false;
-                seen.set(key, value);
-                return true;
-            })
-        )
-            relevant = candidate;
-    }
-    const groups = new Map<string, Appearance[]>();
-    for (const sample of samples) {
-        const key = JSON.stringify(sample.properties);
-        const group = groups.get(key) ?? [];
-        group.push(sample);
-        groups.set(key, group);
-    }
     const indent = "    ".repeat(depth);
     const allocate = nameAllocator(enumReservedNames);
     const lines: string[] = [];
-    for (const group of groups.values()) {
-        const changes = Object.entries(group[0].properties).filter(
-            ([key, value]) => base[key] !== value,
+    for (const option of [...axis.options.keys()].sort()) {
+        const sample = samples.find(
+            (sample) => sample.values[axis.key] === option,
+        );
+        if (!sample) continue;
+        const changes = Object.entries(sample.properties).filter(
+            ([field, value]) => base[field] !== value,
         );
         if (!changes.length) continue;
         const name = allocate(
-            relevant
-                .flatMap((a) => {
-                    const values = [
-                        ...new Set(group.map((s) => s.values[a.key])),
-                    ].sort();
-                    if (values.length === a.options.size || values.length > 3)
-                        return [];
-                    return [
-                        values
-                            .map((value) =>
-                                a.type === "int"
-                                    ? `${identifier(a.key)}-${value.replace("-", "minus-")}`
-                                    : identifier(value),
-                            )
-                            .join("-or-"),
-                    ];
-                })
-                .join("-") || "appearance",
+            axis.type === "int"
+                ? `state-${option.replace("-", "minus-")}`
+                : identifier(option),
         );
         lines.push(
             ...declaration(
                 `${indent}    ${name} when `,
-                predicate(
-                    group.map((s) => s.values),
-                    relevant,
-                ),
+                axis.test?.(option) ??
+                    `root.${axis.property} == ${optionValue(axis, option)}`,
                 ": {",
             ),
         );
-        for (const [key, value] of changes)
-            lines.push(...declaration(`${indent}        ${key}: `, value));
+        for (const [field, value] of changes)
+            lines.push(...declaration(`${indent}        ${field}: `, value));
         lines.push(`${indent}    }`);
     }
     return lines.length ? [`${indent}states [`, ...lines, `${indent}]`] : [];
@@ -273,8 +261,10 @@ export function variantDecision(
         const key = `${indices.join(",")}:${remaining.join(",")}`;
         const cached = memo.get(key);
         if (cached !== undefined) return cached;
-        let best: string | undefined;
-        for (const index of remaining) {
+        // Authored axis order is stable. Do not search permutations or choose
+        // an opaque negative complement merely because its spelling is shorter.
+        const index = remaining[0];
+        {
             const axis = axes[index];
             const rest = remaining.filter((i) => i !== index);
             const groups = new Map<string, string[]>();
@@ -291,49 +281,21 @@ export function variantDecision(
             const branches = [...groups].map(([suffix, options]) => {
                 let condition = options.map(axis.test).join(" || ");
                 if (axis.finite) {
-                    const excluded = axis.options.filter(
-                        (v) => !options.includes(v),
-                    );
-                    const negative = excluded
-                        .map((v) => axis.test(v).replace(" == ", " != "))
-                        .join(" && ");
-                    if (!excluded.length) condition = "true";
-                    else if (negative.length < condition.length)
-                        condition = negative;
+                    if (options.length === axis.options.length)
+                        condition = "true";
                 }
                 if (condition === "true") return suffix;
                 if (suffix === "true") return condition;
                 return `(${condition}) && (${suffix})`;
             });
-            let expression = branches.includes("true")
+            const expression = branches.includes("true")
                 ? "true"
                 : branches.length === 1
                   ? branches[0]
                   : branches.map((s) => `(${s})`).join(" || ") || "false";
-            // A || (!A && B) == A || B. The branches partition the whole
-            // enum domain, so the non-default branch need not repeat !A.
-            if (
-                axis.finite &&
-                groups.size === 2 &&
-                groups.has("true") &&
-                [...groups.values()].flat().length === axis.options.length
-            ) {
-                const other = [...groups.keys()].find(
-                    (value) => value !== "true",
-                );
-                const trueIndex = [...groups.keys()].indexOf("true");
-                if (other !== undefined) {
-                    const reduced = `(${branches[trueIndex]}) || (${other})`;
-                    if (reduced.length < expression.length)
-                        expression = reduced;
-                }
-            }
-            if (best === undefined || expression.length < best.length)
-                best = expression;
+            memo.set(key, expression);
+            return expression;
         }
-        const result = best ?? "false";
-        memo.set(key, result);
-        return result;
     }
     return solve(
         unique.map((_, i) => i),

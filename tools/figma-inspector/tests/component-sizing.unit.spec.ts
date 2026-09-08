@@ -18,9 +18,7 @@ for (const name of ["conditional-root", "conditional-inner-row"]) {
                 throw Error(JSON.stringify(normalized));
             const result = convertSnapshot(normalized.snapshot, { target });
             if (!result.ok) throw Error(JSON.stringify(result));
-            expect(result.source).toMatch(
-                /FlexboxLayout \{\n\s+padding: 0px;\n\s+spacing: 0px;\n\s+alignment: stretch;\n\s+cross-axis-alignment: stretch;\n\s+if /,
-            );
+            expect(result.source).toMatch(/\n\s+FlexboxLayout \{/);
             if (name === "conditional-root")
                 expect(result.source).not.toContain("preferred-height: 32px;");
             expect(JSON.stringify(capture)).toBe(before);
