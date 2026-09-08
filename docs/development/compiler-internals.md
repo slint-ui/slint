@@ -100,7 +100,7 @@ The interpreter (`internal/interpreter/`) compiles `.slint` at runtime and uses 
 
 ### Adding a New Built-in Element
 
-1. **Define the element** in `internal/compiler/builtins.slint`
+1. **Declare the element** in `internal/compiler/builtin_elements.rs`
 2. **Add runtime item** in `internal/core/items/` (new file or existing)
 3. **Register the item** in `internal/core/items.rs` (add to `ItemVTable`)
 4. **Update type registry** in `internal/compiler/typeregister.rs`

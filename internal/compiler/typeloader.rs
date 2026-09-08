@@ -955,14 +955,12 @@ impl TypeLoader {
             style = get_native_style(&mut diag.all_loaded_files);
         }
 
-        // Created up front so the builtin default-value expressions and the
-        // document expressions share one set of counters and never clash.
         let symbol_counters = crate::symbol_counters::SymbolCounters::shared();
         let myself = Self {
             global_type_registry: if compiler_config.enable_experimental {
-                crate::typeregister::TypeRegister::builtin_experimental(&symbol_counters)
+                crate::typeregister::TypeRegister::builtin_experimental()
             } else {
-                crate::typeregister::TypeRegister::builtin(&symbol_counters)
+                crate::typeregister::TypeRegister::builtin()
             },
             compiler_config,
             resolved_style: style.clone(),

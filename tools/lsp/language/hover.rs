@@ -6,7 +6,7 @@ use crate::editor_preview::{
     token_info::{TokenInfo, token_info},
 };
 use crate::util;
-use i_slint_compiler::doc_comments::ElementDocEntry;
+use i_slint_compiler::langtype::ElementDocEntry;
 use i_slint_compiler::langtype::{BuiltinElement, ElementType, Type};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken};
@@ -212,7 +212,7 @@ fn strip_paragraph_id(line: &str) -> &str {
     line[..start].trim_end()
 }
 
-/// Extract the prose description from a raw builtins.slint doc comment,
+/// Extract the prose description from a raw builtin element doc comment,
 /// stripping code fences, `\`-annotations, `\{#sls.…}` paragraph ids, and
 /// `<Component />` MDX tags that don't render well in a tooltip.
 fn clean_builtin_doc(raw: &str) -> String {
@@ -456,7 +456,7 @@ export component Test { // not docs
             get_tooltip(&mut dc, find_tk("Glob.hello_world", 8.into())),
             "```slint\nproperty <{ a: int,b: float,}> hello-world\n```",
         );
-        // builtin property: signature + doc from builtins.slint
+        // builtin property: signature + doc from the builtin element declaration
         let enabled_tip = get_tooltip(&mut dc, find_tk("self.enabled", 5.into()));
         assert_tooltip_contains(enabled_tip.clone(), "property <bool> enabled");
         assert_tooltip_contains(enabled_tip, "TouchArea"); // doc mentions TouchArea
@@ -468,7 +468,7 @@ export component Test { // not docs
             get_tooltip(&mut dc, find_tk("root-prop.to-float", 1.into())),
             "```slint\n// root-prop is a property\nproperty <string> root-prop\n```",
         );
-        // builtin property: signature + doc from builtins.slint
+        // builtin property: signature + doc from the builtin element declaration
         let bg_tip = get_tooltip(&mut dc, find_tk("background: red", 0.into()));
         assert_tooltip_contains(bg_tip.clone(), "```slint\nproperty <brush> background\n```");
         assert_tooltip_contains(bg_tip, "background brush"); // doc text
