@@ -1256,6 +1256,19 @@ impl WinitWindowAdapter {
         match event {
             WinitWindowEvent::RedrawRequested => self.draw()?,
             WinitWindowEvent::Resized(size) => {
+                // winit has a bug where it defers a Resize event if it is raised at the same time
+                // as an event handler, which might happen if something's size is responsively
+                // changing while the user is also dragging to resize the window. Then that event
+                // comes back around when the user finishes dragging, but it still has the old size
+                // from the time it was raised.
+                //
+                // TODO: remove this when we have a version of winit featuring the following change:
+                // <https://github.com/rust-windowing/winit/pull/4625>
+                #[cfg(target_os = "macos")]
+                let size = self.winit_window().map_or(size, |w| {
+                    crate::winit_compat::WindowSurfaceSizeExt::surface_size(&*w)
+                });
+
                 let resized = self.resize_event(size);
 
                 // Entering fullscreen, maximizing or minimizing the window will

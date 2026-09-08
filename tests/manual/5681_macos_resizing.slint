@@ -1,0 +1,60 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Ian McFarlane <ian.mcfarlane@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Manual test for https://github.com/slint-ui/slint/issues/5681 which shows
+// some cases where resizing a window would cause some component determining
+// the min size of the window to resize, raising a window resize event during a
+// drag handler. You can observe this by making this window small, releasing
+// the mouse, then dragging to make it big, releasing the mouse, and back and
+// forth. I found it usually happens within 4-10 tries.
+// This should be resolved by
+// <https://github.com/rust-windowing/winit/pull/4625>
+
+export component MainWindow inherits Window {
+    title: "macos resize test";
+    preferred-width: 500px;
+    preferred-height: 400px;
+    background: #202020;
+
+    // border to help visibility of resize errors, though if the resize is drastic it is usually very obvious
+    Rectangle {
+        border-width: 6px;
+        border-color: #ff4040;
+        background: transparent;
+    }
+
+    // put the floating text out here to prevent binding loop on
+    // root height -> text contents -> text height after wrapped -> root height
+    floating_text := Text {
+        text: "Window size: " + root.width / 1px + " x " + root.height / 1px;
+        color: white;
+        font-size: 20px;
+        x: 20px;
+        y: 20px;
+    }
+
+    VerticalLayout {
+        padding: floating_text.x;
+        spacing: floating_text.x / 2;
+
+        Rectangle { height: floating_text.font-size; }
+
+        // Wrapped text makes the vertical layout constraint depend on the width,
+        // causing the min size to change during a drag handler
+        Text {
+            text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.";
+            color: white;
+            wrap: word-wrap;
+        }
+
+        Rectangle {
+            background: #4060c0;
+            Text {
+                text: "bottom-right corner marker";
+                color: white;
+                x: parent.width - self.width - 8px;
+                y: parent.height - self.height - 8px;
+            }
+        }
+    }
+}
