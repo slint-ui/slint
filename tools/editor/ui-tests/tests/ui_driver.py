@@ -9,7 +9,7 @@ from typing import TypeVar
 
 import slint_testing
 
-PALETTE_KINDS = ("Image", "Rectangle", "Text")
+PALETTE_KINDS = ("Image", "Rectangle", "Text", "TouchArea")
 
 
 def press_key(window: slint_testing.Window, key: str) -> None:

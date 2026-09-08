@@ -42,6 +42,8 @@ component EditorTreeRow {
         ? EditorTreeIcons.image
         : node.icon-kind == OutlineNodeIconKind.text
         ? EditorTreeIcons.text
+        : node.icon-kind == OutlineNodeIconKind.touch-area
+        ? EditorTreeIcons.touch-area
         : EditorTreeIcons.default-item;
 
     vertical-stretch: 0;

@@ -961,6 +961,7 @@ enum PaletteComponent {
     Rectangle,
     Text,
     Image,
+    TouchArea,
 }
 
 impl PaletteComponent {
@@ -969,6 +970,7 @@ impl PaletteComponent {
             ui::PaletteComponentKind::Rectangle => Some(Self::Rectangle),
             ui::PaletteComponentKind::Text => Some(Self::Text),
             ui::PaletteComponentKind::Image => Some(Self::Image),
+            ui::PaletteComponentKind::TouchArea => Some(Self::TouchArea),
             ui::PaletteComponentKind::None => None,
         }
     }
@@ -978,6 +980,7 @@ impl PaletteComponent {
             Self::Rectangle => "Rectangle",
             Self::Text => "Text",
             Self::Image => "Image",
+            Self::TouchArea => "TouchArea",
         }
     }
 }
