@@ -23,8 +23,8 @@ const builtPreviewPlugin = {
                             await readFile(
                                 resolve(
                                     fileName === "production.html"
-                                        ? "dist-replacement"
-                                        : "dist-replacement-dev",
+                                        ? "dist"
+                                        : "dist-dev",
                                     fileName === "production.html"
                                         ? "ui.html"
                                         : fileName,
