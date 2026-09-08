@@ -109,6 +109,7 @@ tree_sitter:
 
 figma_inspector:
  - 'tools/figma-inspector/**'
+ - 'api/wasm-interpreter/**'
  - *js_config
  - *ci_config
 
