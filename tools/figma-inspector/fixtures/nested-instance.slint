@@ -1,0 +1,46 @@
+export component Demo inherits Window {
+    width: 240px;
+    height: 72px;
+    background: transparent;
+    Rectangle {
+        background: #1F52D6;
+        border-radius: 12px;
+        FlexboxLayout {
+            flex-wrap: no-wrap;
+            padding-left: 16px;
+            padding-right: 16px;
+            padding-top: 12px;
+            padding-bottom: 12px;
+            spacing: 8px;
+            alignment: center;
+            cross-axis-alignment: center;
+            Rectangle {
+                width: 144px;
+                height: 48px;
+                border-radius: 8px;
+                FlexboxLayout {
+                    flex-direction: column;
+                    flex-wrap: no-wrap;
+                    padding: 8px;
+                    spacing: 4px;
+                    alignment: center;
+                    cross-axis-alignment: center;
+                    Text {
+                        preferred-width: 128px;
+                        min-width: 0px;
+                        cross-axis-self-alignment: stretch;
+                        horizontal-stretch: 0;
+                        height: 24px;
+                        color: #FFFFFF;
+                        text: "Nested override";
+                        font-family: "Inter";
+                        font-size: 14px;
+                        font-weight: 500;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}

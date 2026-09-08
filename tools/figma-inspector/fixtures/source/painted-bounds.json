@@ -1,0 +1,80 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "painted:frame",
+    "name": "Painted bounds",
+    "type": "FRAME",
+    "errors": [],
+    "properties": {
+      "x": 12,
+      "y": 24,
+      "width": 100,
+      "height": 60,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "layoutPositioning": "AUTO",
+      "cornerRadius": 4,
+      "fills": [
+        {
+          "type": "SOLID",
+          "color": {
+            "r": 1,
+            "g": 0,
+            "b": 0
+          },
+          "opacity": 1
+        }
+      ],
+      "strokes": [],
+      "effects": []
+    },
+    "children": [
+      {
+        "id": "painted:vector",
+        "name": "Authored line",
+        "type": "VECTOR",
+        "errors": [],
+        "properties": {
+          "x": 0,
+          "y": 0,
+          "width": 16,
+          "height": 16,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "layoutPositioning": "AUTO",
+          "cornerRadius": 4,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": []
+        },
+        "exports": {
+          "svg": {
+            "value": "<svg width=\"18\" height=\"18\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M1 1L17 17\" stroke=\"red\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>"
+          },
+          "svgBounds": {
+            "x": -1,
+            "y": -1,
+            "width": 18,
+            "height": 18
+          }
+        }
+      }
+    ]
+  },
+  "images": {},
+  "exportScale": 2,
+  "pngEnabled": true,
+  "options": {}
+}

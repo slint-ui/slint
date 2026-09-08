@@ -1,0 +1,77 @@
+export component Demo inherits Window {
+    width: 760px;
+    height: 420px;
+    background: transparent;
+    Rectangle {
+        x: 24px;
+        y: 24px;
+        width: 712px;
+        height: 160px;
+        border-radius: 12px;
+        clip: true;
+        Rectangle {
+            background: #0A1429;
+            border-radius: 12px;
+            drop-shadow-color: #00000040;
+            drop-shadow-blur: 12px;
+            drop-shadow-offset-y: 4px;
+            drop-shadow-spread: 2px;
+        }
+        Rectangle {
+            background: #0A1429;
+            border-radius: 12px;
+            drop-shadow-color: #1A4DCC33;
+            drop-shadow-blur: 3px;
+            drop-shadow-offset-y: 1px;
+        }
+        Rectangle {
+            background: #0A1429;
+            border-radius: 12px;
+        }
+        Rectangle {
+            background: @linear-gradient(90deg, #1A3380CC 0%, #3380CCCC 50%, #8033CCCC 100%);
+            border-radius: 12px;
+        }
+        Rectangle {
+            y: 0px;
+            height: 1px;
+            background: @linear-gradient(90deg, #FF0000 0%, #FFFF00 50%, #0000FF 100%);
+        }
+        Rectangle {
+            x: parent.width - 4px;
+            width: 4px;
+            background: @linear-gradient(90deg, #FF0000 0%, #FFFF00 50%, #0000FF 100%);
+        }
+        Rectangle {
+            y: parent.height - 2px;
+            height: 2px;
+            background: @linear-gradient(90deg, #FF0000 0%, #FFFF00 50%, #0000FF 100%);
+        }
+        Rectangle {
+            x: 0px;
+            width: 3px;
+            background: @linear-gradient(90deg, #FF0000 0%, #FFFF00 50%, #0000FF 100%);
+        }
+        Rectangle {
+            x: 16px;
+            y: 18px;
+            width: 180px;
+            height: 64px;
+            transform-rotation: 7.5deg;
+            transform-origin: { x: self.width / 2, y: self.height / 2 };
+            background: #1F335C;
+            border-radius: 8px;
+        }
+        StyledText {
+            x: 24px;
+            y: 100px;
+            width: 640px;
+            text: @markdown("<font color=\"#FFCC1A\">**Bold **</font><font color=\"#99CCFF\"><u>*&amp; &lt;safe&gt;\nita*</u></font>~~lic \\[copy\\]~~");
+            default-color: #E6F2FF;
+            default-font-family: "Inter";
+            default-font-size: 16px;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+        }
+    }
+}
