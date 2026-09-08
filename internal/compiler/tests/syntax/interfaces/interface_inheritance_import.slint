@@ -1,0 +1,66 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    ImportedBase,
+    ImportedDerived,
+} from "../../typeloader/interfaces.slint";
+import { ImportedBase as AliasedBase } from "../../typeloader/interfaces.slint";
+
+interface LocalDerived inherits ImportedBase {
+    in-out property <string> label;
+}
+
+// A local interface inheriting an imported one gains the imported members.
+export component ImplementsLocalDerived {
+    implement LocalDerived <=> self;
+
+    in-out property <float> value;
+    in-out property <string> label;
+}
+
+// The chain walk follows the local interface into the other document.
+export component RedundantThroughLocalDerived {
+    implement LocalDerived <=> self;
+//  >                              <note{'LocalDerived' inherits 'ImportedBase'}
+    implement ImportedBase <=> self;
+//  >                              <error{'ImportedBase' is already implemented through 'LocalDerived'}
+
+    in-out property <float> value;
+    in-out property <string> label;
+}
+
+// A chain built entirely in the other document is walked the same way.
+export component RedundantThroughImportedDerived {
+    implement ImportedDerived <=> self;
+//  >                                 <note{'ImportedDerived' inherits 'ImportedBase'}
+    implement ImportedBase <=> self;
+//  >                              <error{'ImportedBase' is already implemented through 'ImportedDerived'}
+
+    in-out property <float> value;
+    in-out property <string> label;
+}
+
+// The same interface imported twice under two names is one interface, not two.
+export component AliasIsTheSameInterface {
+    implement ImportedBase <=> self;
+    implement AliasedBase <=> self;
+//  >                             <error{'AliasedBase' is implemented multiple times}
+
+    in-out property <float> value;
+}
+
+// `inherits` on an alias builds the same chain, so the original base is already covered.
+interface DerivedFromAlias inherits AliasedBase {
+    in-out property <int> count;
+}
+
+export component RedundantThroughAlias {
+    implement ImportedBase <=> self;
+//  >                              <error{'ImportedBase' is already implemented through 'DerivedFromAlias'}
+    implement DerivedFromAlias <=> self;
+//  >                                  <note{'DerivedFromAlias' inherits 'ImportedBase'}
+
+    in-out property <float> value;
+    in-out property <int> count;
+}
