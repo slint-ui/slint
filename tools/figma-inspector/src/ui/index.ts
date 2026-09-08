@@ -26,8 +26,8 @@ import { mountWorkspace, mountDialogFrame } from "./workspace";
 import { SourcePanelController } from "./source-panel";
 import { ConversionClient } from "./conversion-client";
 
-declare const HIGHLIGHT_WORKER_SOURCE: string;
-declare const CONVERSION_WORKER_SOURCE: string;
+import HighlightWorker from "./highlight.worker?worker&inline";
+import ConversionWorker from "./conversion.worker?worker&inline";
 
 const app = document.querySelector<HTMLElement>("#app");
 if (app === null) throw new Error("Preview UI is missing its dialog frame");
@@ -259,7 +259,7 @@ let sourceTheme: SourceTheme = "light-slint";
 const darkModeQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
 if (darkModeQuery?.matches === true) sourceTheme = "dark-slint";
 const sourcePanel = new SourcePanelController(sourceViewElement, {
-    workerSource: HIGHLIGHT_WORKER_SOURCE,
+    createWorker: () => new HighlightWorker(),
     canHighlight: () => codeDemand && !renderingSource && latestSource !== "",
     getRevision: () => latestSourceRevision,
     reportClipboardResult: (success) => {
@@ -676,16 +676,7 @@ function acceptClear(
 }
 
 const captureAssetCache = new CaptureAssetReceiver();
-const conversionClient = new ConversionClient(() => {
-    const url = URL.createObjectURL(
-        new Blob([CONVERSION_WORKER_SOURCE], { type: "text/javascript" }),
-    );
-    try {
-        return new Worker(url);
-    } finally {
-        URL.revokeObjectURL(url);
-    }
-});
+const conversionClient = new ConversionClient(() => new ConversionWorker());
 function convertInWorker(
     message: Extract<PluginToUiMessage, { type: "preview-capture" }>,
 ): void {

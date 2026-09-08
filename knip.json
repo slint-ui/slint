@@ -1,10 +1,10 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "ignore": ["tools/figma-inspector/.generated/**"],
+  "ignore": ["tools/figma-inspector/.generated/**", "api/wasm-interpreter/pkg/**"],
   "ignoreExportsUsedInFile": { "interface": true, "type": true },
   "workspaces": {
     ".": {
-      "ignoreBinaries": ["local-package", "test_grammar", "build", "check", "biome"],
+      "ignoreBinaries": ["build", "biome"],
       "ignoreDependencies": ["@cspell/dict-fr-fr", "cookie"],
       "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
     },
@@ -12,13 +12,12 @@
       "project": ["typescript/**/*.ts", "__test__/**/*.{ts,mts}"]
     },
     "editors/vscode": {
-      "entry": ["src/extension.ts", "src/browser.ts", "src/browser-lsp-worker.ts"],
       "project": ["src/**/*.ts"]
     },
     "tools/slintpad": {
       "entry": ["src/preview.ts", "src/worker/lsp_worker.ts"],
-      "project": ["src/**/*.ts", "styles/**/*.css", "tests/**/*.ts"],
-      "ignoreFiles": ["src/types.ts", "src/worker/types.ts", "styles/colors.css", "styles/content.css", "styles/index.css"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"],
+      "ignoreFiles": ["src/types.ts", "src/worker/types.ts"],
       "ignoreBinaries": ["wasm-pack"],
       "ignoreDependencies": [
         "@codingame/monaco-vscode-api",
@@ -28,13 +27,11 @@
         "path-browserify",
         "vscode-uri",
         "@lsp/slint_lsp_wasm.js",
-        "@lsp/slint_lsp_wasm_bg.wasm",
-        "@interpreter/slint_wasm_interpreter.js"
+        "@lsp/slint_lsp_wasm_bg.wasm"
       ]
     },
     "tools/figma-inspector": {
       "ignoreBinaries": ["wasm-pack"],
-      "vite": false,
       "vitest": {
         "config": [
           "vitest.config.ts"
@@ -55,10 +52,8 @@
       "project": [
         "src/**/*.ts",
         "scripts/*.mjs",
-        "tests/**/*.{ts,mjs}"
-      ],
-      "ignoreDependencies": [
-        "slint-wasm-binary"
+        "tests/**/*.{ts,mjs}",
+        "vite.config*.ts"
       ]
     },
     "docs/astro": {
@@ -76,9 +71,6 @@
     },
     "ui-libraries/material/docs": {
       "entry": [],
-      "ignoreFiles": [
-        "src/assets/styles/starlight-material-supplement.css"
-      ],
       "ignoreDependencies": [
         "@types/mdx",
         "astrowind"
@@ -99,9 +91,6 @@
     "examples/virtual_keyboard/node": { "ignoreBinaries": ["compile"] },
     "docs/common": {
       "ignoreFiles": [
-        "src/styles/starlight-slint-custom.css",
-        "src/styles/starlight-slint-theme.css",
-        "src/styles/sls-ids.css",
         "src/components/Banner.astro",
         "src/components/Footer.astro",
         "src/components/Header.astro",
@@ -123,17 +112,12 @@
     },
     "docs/cpp": {
       "ignoreBinaries": ["doxygen"],
-      "ignoreFiles": [
-        "src/styles/api-signature.css"
-      ]
+      "ignoreFiles": []
     }
   },
   "ignoreIssues": {
     "tools/slintpad/src/editor_widget.ts": ["exports"],
     "tools/slintpad/src/lsp.ts": ["exports", "types"],
-    "tools/figma-inspector/backend/utils/property-parsing.ts": ["exports"],
-    "tools/figma-inspector/src/utils/bolt-utils.ts": ["exports"],
-    "tools/figma-inspector/figma.config.ts": ["exports"],
     "ui-libraries/material/docs/src/utils/images.ts": ["exports"],
     "ui-libraries/material/docs/src/utils/permalinks.ts": ["exports"],
     "ui-libraries/material/docs/src/components/common/Metadata.astro": ["types"],

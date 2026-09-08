@@ -7,39 +7,32 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 const runtimeRoot = fileURLToPath(new URL("../../../", import.meta.url));
 
-export async function dependencyNotices(metafiles) {
+export async function dependencyNotices(moduleIds) {
     const packages = new Map();
-    for (const meta of metafiles)
-        for (const input of Object.keys(meta.inputs)) {
-            if (!input.includes("node_modules/")) continue;
-            let directory = dirname(resolve(input));
-            while (directory !== dirname(directory)) {
-                try {
-                    const manifest = JSON.parse(
-                        await readFile(
-                            resolve(directory, "package.json"),
-                            "utf8",
-                        ),
-                    );
-                    if (manifest.name && manifest.version) {
-                        packages.set(
-                            `npm:${manifest.name}@${manifest.version}`,
-                            {
-                                name: manifest.name,
-                                version: manifest.version,
-                                license: manifest.license,
-                                directory,
-                                ecosystem: "npm",
-                            },
-                        );
-                        break;
-                    }
-                } catch {
-                    /* Continue to the owning package. */
+    for (const input of moduleIds) {
+        if (!input.includes("node_modules/")) continue;
+        let directory = dirname(resolve(input));
+        while (directory !== dirname(directory)) {
+            try {
+                const manifest = JSON.parse(
+                    await readFile(resolve(directory, "package.json"), "utf8"),
+                );
+                if (manifest.name && manifest.version) {
+                    packages.set(`npm:${manifest.name}@${manifest.version}`, {
+                        name: manifest.name,
+                        version: manifest.version,
+                        license: manifest.license,
+                        directory,
+                        ecosystem: "npm",
+                    });
+                    break;
                 }
-                directory = dirname(directory);
+            } catch {
+                /* Continue to the owning package. */
             }
+            directory = dirname(directory);
         }
+    }
     const metadata = JSON.parse(
         execFileSync(
             "cargo",

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { test } from "vitest";
+import { expect, test } from "vitest";
 import { convertSnapshotJson, convertSnapshot } from "../src/preview/converter";
 import { normalizeSource } from "../src/plugin/normalize";
 import { mountPreview, readFixture } from "./browser-harness";
@@ -103,4 +103,9 @@ test("root-only snippets compile with native text and appearance helpers without
         });
         await p.ready(revision);
     }
+    // The generated HTML must not fetch sibling scripts, styles or WASM.
+    const resources = p.win.performance.getEntriesByType("resource");
+    expect(resources.filter((entry) => /^https?:/.test(entry.name))).toEqual(
+        [],
+    );
 });
