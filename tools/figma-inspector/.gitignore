@@ -1,9 +1,3 @@
-
-dist
-dist.zip
-.tmp
-!*.d.ts
-
 node_modules/
 .pnpm-store/
 .worktrees/
@@ -22,5 +16,4 @@ playwright-report/
 dist-dev/
 .package-test/
 
-dist-replacement/
-dist-replacement-dev/
+tests/__screenshots__/

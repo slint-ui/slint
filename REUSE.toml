@@ -420,3 +420,8 @@ path = ["demos/**/android/**/gradle-wrapper.properties"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["tools/figma-inspector/fixtures/**.png", "tools/figma-inspector/fixtures/**.svg", "tools/figma-inspector/fixtures/**.slint"]
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"

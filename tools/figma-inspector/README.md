@@ -1,119 +1,76 @@
-# Figma to Slint Property Inspector
+# Figma to Slint
 
-A Figma plugin that displays Slint code snippets in Figma's Dev mode inspector. When you select a design element, the plugin shows the equivalent Slint markup instead of CSS properties.
-
-## Features
-
-- Converts Figma elements to Slint component snippets
-- Supports Figma variables (references them as Slint property paths)
-- Works in Figma Desktop and VS Code extension
-
-### Supported Elements
-
-| Figma Node Type | Slint Element |
-|-----------------|---------------|
-| Frame, Rectangle, Group | `Rectangle { }` |
-| Component, Instance | `Rectangle { }` |
-| Text | `Text { }` |
-| Vector | `Path { }` |
-
-### Converted Properties
-
-**Layout:** `x`, `y`, `width`, `height`
-
-**Appearance:**
-- `background` / `fill` (solid colors, linear and radial gradients)
-- `opacity`
-- `border-radius` (uniform or per-corner)
-- `border-width`, `border-color`
-
-**Text:**
-- `text`, `color`
-- `font-family`, `font-size`, `font-weight`
-- `horizontal-alignment`
-
-**Path:** `commands` (extracted from SVG), `stroke`, `stroke-width`
-
-### Figma Variables
-
-When enabled, the plugin references Figma variables as Slint property paths:
-
-```slint,no-test
-// Without variables
-background: #3b82f6;
-
-// With variables enabled
-background: Colors.current.primary;
-```
-
-## Installation
-
-### From Figma Community (Recommended)
-
-Install directly from [Figma Community](https://www.figma.com/community/plugin/1474418299182276871/figma-to-slint) or search for "Figma To Slint" in the Figma plugin browser.
-
-### From Nightly Build
-
-1. Download [figma-plugin.zip](https://github.com/slint-ui/slint/releases/download/nightly/figma-plugin.zip)
-2. Extract the archive
-3. In Figma: right-click → `Plugins` → `Development` → `Import Plugin From Manifest...`
-4. Select the `manifest.json` from the extracted folder
-
-### Requirements
-
-- Figma Desktop App or Figma VS Code extension
-- Figma subscription with Dev mode access (Team Professional or higher)
+An offline Figma plugin that previews a selection with Slint and exports editable
+Slint source. Targets Slint 1.18+; the exact development runtime is pinned in
+`runtime-pin.json`.
 
 ## Development
 
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) v20 or newer
-- [pnpm](https://pnpm.io/)
-- Figma Desktop App or VS Code extension
-
-### Build
+Use the monorepo Node.js and pnpm versions, Rust with the `wasm32-unknown-unknown` target,
+and wasm-pack 0.13.1. Then:
 
 ```sh
-pnpm install    # Install dependencies (first time only)
-pnpm build      # Build the plugin
+pnpm install --frozen-lockfile # from the repository root
+cd tools/figma-inspector
+pnpm build:slint
+pnpm build
+pnpm build:dev
 ```
 
-Import the plugin in Figma: right-click → `Plugins` → `Development` → `Import Plugin From Manifest...` → select `dist/manifest.json`
+`prepare:slint` prepares a separate checkout in `.generated/slint-source`.
+Set `SLINT_REPO` to use an existing clean checkout matching the pin. That source
+is read-only. `SLINT_CARGO` and `SLINT_WASM_PACK` can select explicit tool binaries
+when shell tool managers cannot run inside the prepared checkout.
 
-### Development Mode
+Import `dist/manifest.json` in Figma Desktop through Plugins > Development >
+Import plugin from manifest. Use `dist-dev/manifest.json` for development controls.
+`pnpm dev` watches plugin files and rebuilds the development bundle.
 
-```sh
-pnpm dev
-```
+## Behavior
 
-Enable hot reload in Figma: `Plugins` → `Development` → `Hot Reload Plugin`
+Select one node to capture and preview it. Empty selection clears the preview.
+Changing selection clears old output immediately; errors open Diagnostics.
+Pin keeps the selected root active until unpinned, deleted, or the page changes.
+Pin state is not persisted.
 
-Changes are automatically recompiled and reloaded.
+The converter supports fixed geometry, supported auto-layout through
+`FlexboxLayout`, text, images, masks, strokes, shadows, component families,
+variants and variables. Unsupported properties produce diagnostics and explicit
+approximations where possible. Some content is rasterized for preview fidelity;
+export preserves editable native text and supported component APIs. Exported
+fonts must be supplied by the user when requested by the package instructions.
 
-### Testing
+Copy returns raw generated Slint. Export downloads a self-contained project ZIP.
+The plugin bundle embeds its runtime and assets and denies network access.
 
-Unit tests use Vitest with exported Figma JSON fixtures.
+In Figma Dev Mode, choose Slint in the native code panel to get an element
+snippet for the selected node. This captures only the root, excluding its Figma
+descendants and component families. Generated helpers for the root's fills,
+strokes, shadows and layout remain included. Text stays native without font-file
+imports; supported images are inline. Warnings appear in a separate Diagnostics
+section. This is available in both builds and does not open the preview window.
+Use the regular preview/export workflow for the complete selected tree.
 
-```sh
-pnpm test       # Run tests in watch mode
-```
+## Checks and packaging
 
-#### Updating Test Fixtures
+- `pnpm verify`: runtime/artifact checks, formatting, lint, types, unused code,
+  production/development builds, bundle/package contracts, unit and browser tests.
+- `pnpm test:unit`: deterministic conversion and lifecycle regressions.
+- `pnpm test:browser`: built UI and interpreter integration tests.
+- `pnpm zip`: release packaging, requiring an official release pin and assigned
+  plugin ID; development pins cannot be published.
+- `pnpm zip:nightly`: builds `zip/figma-plugin.zip` from the clean pinned development runtime.
 
-1. Generate a Figma access token:
-   - Figma home → click username → `Settings` → `Security` → `Generate new token`
+See [architecture](docs/architecture.md), [authored fixtures](fixtures/README.md),
+and [release instructions](docs/RELEASING.md). Builds and package tests do not publish.
 
-2. Get the file ID from the Figma URL:
-   ```
-   https://www.figma.com/design/njC6jSUbrYpqLRJ2dyV6NT/...
-                               └─────────────────────┘
-                                      File ID
-   ```
+## Published plugin compatibility
 
-3. Download the file as JSON:
-   ```sh
-   curl -H 'X-Figma-Token: <TOKEN>' \
-        'https://api.figma.com/v1/files/<FILE_ID>' \
-        -o tests/figma_output.json
-   ```
+The plugin retains the [Figma Community listing](https://www.figma.com/community/plugin/1474418299182276871/figma-to-slint) and supports native codegen in Figma Desktop and the Figma VS Code extension.
+Choose Slint in Dev Mode and enable Use Variables to reference existing Slint variable globals.
+The setting defaults to No and affects native snippets only.
+Unavailable or unsupported variable bindings retain resolved values with diagnostics.
+The preview and project ZIP replace the old inspector UI and its separate variable-export workflow.
+
+[Nightly builds](https://github.com/slint-ui/slint/releases/download/nightly/figma-plugin.zip) use the exact runtime in `runtime-pin.json`, independently of the surrounding monorepo revision.
+Nightly packaging is separate from Community release packaging and records its channel in the ZIP provenance.

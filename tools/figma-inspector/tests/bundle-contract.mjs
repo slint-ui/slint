@@ -5,7 +5,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const projectRoot = resolve(new URL("..", import.meta.url).pathname);
-const distDir = resolve(projectRoot, "dist-replacement");
+const distDir = resolve(projectRoot, "dist");
 const expectedFiles = [
     "browser.html",
     "code.js",
@@ -124,6 +124,6 @@ if (
 
 if (ui.includes('id="timing-panel"'))
     throw Error("Production performance UI must be absent");
-const devUi = await readFile(resolve(projectRoot, "dist-replacement-dev/ui.html"), "utf8");
+const devUi = await readFile(resolve(projectRoot, "dist-dev/ui.html"), "utf8");
 if (!devUi.includes('id="timing-panel"'))
     throw Error("Development performance UI is missing");

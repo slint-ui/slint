@@ -12,11 +12,11 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const development = process.env.MODE === "dev";
 const distDir = resolve(
     projectRoot,
-    process.env.PLUGIN_OUTPUT_DIR ??
-        (development ? "dist-replacement-dev" : "dist-replacement"),
+    process.env.PLUGIN_OUTPUT_DIR ?? (development ? "dist-dev" : "dist"),
 );
 const pluginId = process.env.FIGMA_PLUGIN_ID ?? "1474418299182276871";
 
+// biome-ignore lint/nursery/noFloatingPromises: The artifact validation promise is awaited here.
 await verifyArtifact(resolve(projectRoot, ".generated/slint-wasm"));
 
 await rm(distDir, { recursive: true, force: true });
@@ -164,6 +164,7 @@ const localProvenance = JSON.parse(
 );
 // Publish build identity, keeping checkout paths and cache metadata local.
 const publicProvenance = {
+    channel: process.env.PLUGIN_BUILD_CHANNEL ?? "development",
     repository: localProvenance.runtimePin.repository,
     manifest: "api/wasm-interpreter/Cargo.toml",
 };

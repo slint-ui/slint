@@ -631,34 +631,41 @@ jobs:
     test-figma-inspector:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'figma_inspector') }}
         runs-on: ubuntu-latest
+        env:
+            CARGO_TARGET_DIR: ${{ runner.temp }}/figma-cargo-target
+            SLINT_WASM_CACHE_DIR: ${{ runner.temp }}/figma-wasm-cache
         steps:
             - uses: actions/checkout@v7
             - uses: actions/setup-node@v7
               with:
-                node-version: 24
-                package-manager-cache: false
-              id: node-install
+                  node-version: 24
+                  package-manager-cache: false
             - uses: pnpm/action-setup@v6.0.10
-            - name: Run pnpm install
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  targets: wasm32-unknown-unknown
+            - name: Identify runtime toolchain
+              id: toolchain
+              run: echo "identity=$(rustc -Vv | sha256sum | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+            - uses: actions/cache@v6
+              with:
+                  path: |
+                      ~/.cargo/registry
+                      ~/.cargo/git
+                      ${{ env.CARGO_TARGET_DIR }}
+                      ${{ env.SLINT_WASM_CACHE_DIR }}
+                  key: figma-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.identity }}-${{ hashFiles('tools/figma-inspector/runtime-pin.json', 'tools/figma-inspector/scripts/build-slint.mjs', 'tools/figma-inspector/scripts/slint-artifact.mjs', 'pnpm-lock.yaml') }}
+            - run: cargo install wasm-pack --version 0.13.1 --locked
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm exec playwright install --with-deps chromium
               working-directory: tools/figma-inspector
-              run: pnpm install --frozen-lockfile
-            - name: Run build
+            - name: Verify plugin
               working-directory: tools/figma-inspector
-              run: pnpm build
-            - name: Run tests
-              working-directory: tools/figma-inspector
-              run: pnpm test
-            - name: Type Check
-              working-directory: tools/figma-inspector
-              run: pnpm type-check
-            - name: Build zip
-              working-directory: tools/figma-inspector
-              run: pnpm zip
-            - name: Archive zip
-              uses: actions/upload-artifact@v7
+              run: pnpm verify
+            - uses: actions/upload-artifact@v7
               with:
                   name: figma-plugin
-                  path: tools/figma-inspector/zip
+                  path: tools/figma-inspector/zip/figma-plugin.zip
 
     material-components:
       if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'material_components') }}

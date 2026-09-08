@@ -109,6 +109,12 @@ tree_sitter:
 
 figma_inspector:
  - 'tools/figma-inspector/**'
+ - '.github/workflows/nightly_snapshot.yaml'
+ - 'knip.json'
+ - 'biome.json'
+ - 'cspell.json'
+ - 'REUSE.toml'
+ - 'LICENSES/**'
  - *js_config
  - *ci_config
 
