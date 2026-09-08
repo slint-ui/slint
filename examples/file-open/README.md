@@ -25,25 +25,27 @@ through the command line) and forwards them to this callback. On **Windows and L
 
 ## The `.slintsave` extension
 
-For a file type to open in the app, the app bundle has to declare it. This example's
-`Info.plist` uses the modern Uniform Type Identifier approach: it exports a
-`dev.slint.backup-archive` UTI (conforming to `public.data`) that maps to the
-`.slintsave` extension and the `application/x-slint-backup` MIME type, and references
-that UTI from `CFBundleDocumentTypes`. On older macOS versions this is equivalent to
-placing the extension directly in `CFBundleTypeExtensions`.
+For a file type to open in the app, the app bundle has to declare it. On macOS the
+build script generates the app bundle's `Info.plist`, which uses the modern Uniform
+Type Identifier approach: it exports a `dev.slint.backup-archive` UTI (conforming to
+`public.data`) that maps to the `.slintsave` extension and the
+`application/x-slint-backup` MIME type, and references that UTI from
+`CFBundleDocumentTypes`. On older macOS versions this is equivalent to placing the
+extension directly in `CFBundleTypeExtensions`.
 
 ## Running on macOS
 
 File-open events are only delivered to an `.app` app bundle, never to a bare binary.
-Build and assemble a bundle with the bundled `Info.plist`:
+Build and assemble a bundle with the generated `Info.plist`:
 
 ```sh
 cargo build --manifest-path examples/Cargo.toml -p file-open
 BIN=target/debug/file-open
+OUT_DIR=$(find target/debug/build -path '*/file-open-*/out' | head -1)
 rm -rf target/FileOpen.app
 mkdir -p target/FileOpen.app/Contents/MacOS
 cp "$BIN" target/FileOpen.app/Contents/MacOS/
-cp examples/file-open/Info.plist target/FileOpen.app/Contents/
+cp "$OUT_DIR/Info.plist" target/FileOpen.app/Contents/
 open target/FileOpen.app
 ```
 
