@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SelectionRectangle } from "api.slint";
+
+/// The topmost selectable element under a canvas position.
+export struct HoveredElement {
+    valid: bool,
+    is-selected: bool,
+    is-over-selected-element: bool,
+    element-path: string,
+    element-offset: int,
+    type-name: string,
+    geometry: [SelectionRectangle],
+}
+
+export global Hover {
+    in-out property <HoveredElement> element;
+    pure callback element-at(x: length, y: length, enter-component: bool) -> HoveredElement;
+    public function clear() {
+        self.element = {};
+    }
+}
