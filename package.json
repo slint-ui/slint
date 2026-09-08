@@ -18,5 +18,5 @@
     "type-check": "pnpm --stream -r type-check",
     "type-check:ci": "pnpm --stream --filter '!./editors/vscode' --filter '!./api/node' --filter '!slint_repository' --filter '!./docs/nodejs' --filter '!./docs/python' -r type-check"
   },
-  "packageManager": "pnpm@11.17.0"
+  "packageManager": "pnpm@11.26.0"
 }
