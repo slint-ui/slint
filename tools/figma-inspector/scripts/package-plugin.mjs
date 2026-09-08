@@ -54,7 +54,6 @@ await execFile(pnpm, ["build"], {
     env: {
         ...process.env,
         FIGMA_PLUGIN_ID: pluginId,
-        MODE: "production",
         PLUGIN_BUILD_CHANNEL: channel,
         PLUGIN_OUTPUT_DIR: distDir,
     },
