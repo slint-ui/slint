@@ -4,7 +4,11 @@
 import { FluentPalette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
+import { CheckBoxInterface } from "../common/std-widget-interfaces.slint";
+
 export component CheckBox {
+    implement CheckBoxInterface <=> self;
+
     in property <string> text;
     in property <bool> enabled <=> touch-area.enabled;
     in property <length> font-size;

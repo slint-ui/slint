@@ -4,7 +4,11 @@
 import { CosmicPalette, Icons } from "styling.slint";
 import { StateLayer } from "components.slint";
 
+import { CheckBoxInterface } from "../common/std-widget-interfaces.slint";
+
 export component CheckBox {
+    implement CheckBoxInterface <=> self;
+
     in property <string> text;
     in property <bool> enabled <=> state-layer.enabled;
     in property <length> font-size;
