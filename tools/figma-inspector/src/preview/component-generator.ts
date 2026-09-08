@@ -32,6 +32,8 @@ import {
 } from "./component-names";
 import {
     binding,
+    openElement,
+    closeElement,
     requireValue,
     elementTree,
     literal,
@@ -411,6 +413,7 @@ export function generateComponents(
             depth: number,
             rootElement = false,
             extraCondition?: string,
+            inLayout = false,
         ): string[] {
             const first = group[0].tree;
             // Different element kinds cannot share identity.
@@ -454,7 +457,38 @@ export function generateComponents(
             const order = childOrder(childKeys);
             const orderedKeys = order ?? [];
             const ordered = order !== undefined;
-            if (!compatible || !ordered) {
+            // Conditional elements only contribute intrinsic size when they are
+            // layout items. Keep a layout owner outside structural alternatives,
+            // including nested layout alternatives in otherwise shared containers.
+            const split = !compatible || !ordered;
+            if (
+                !inLayout &&
+                ((rootElement && split) ||
+                    (first.type === "FlexboxLayout" &&
+                        (split || extraCondition || first.condition)))
+            ) {
+                const condition =
+                    [
+                        extraCondition,
+                        rootElement && validity !== "true"
+                            ? "root.valid-variant"
+                            : undefined,
+                    ]
+                        .filter(Boolean)
+                        .join(" && ") || undefined;
+                return [
+                    printLine(openElement("FlexboxLayout", depth)),
+                    ...[
+                        binding("padding", "0px", depth + 1),
+                        binding("spacing", "0px", depth + 1),
+                        binding("alignment", "stretch", depth + 1),
+                        binding("cross-axis-alignment", "stretch", depth + 1),
+                    ].map(printLine),
+                    ...emitTree(group, depth + 1, false, condition, true),
+                    printLine(closeElement(depth)),
+                ];
+            }
+            if (split) {
                 const alternatives = new Map<string, Sample[]>();
                 for (const sample of group) {
                     const tree = sample.tree;
@@ -494,7 +528,13 @@ export function generateComponents(
                         .map((part) => `(${part})`)
                         .join(" && ");
                     if (list.length < group.length && list.length > 1)
-                        return emitTree(list, depth, false, condition);
+                        return emitTree(
+                            list,
+                            depth,
+                            false,
+                            condition,
+                            inLayout,
+                        );
                     // If correspondence is still ambiguous, preserve every exact
                     // tree. Never substitute the first sample for a whole bucket.
                     const exact = new Map<string, Sample[]>();
@@ -623,6 +663,7 @@ export function generateComponents(
                                 condition === "true"
                                     ? undefined
                                     : `(${condition})`,
+                                first.type === "FlexboxLayout",
                             ),
                         );
                     } else {
@@ -641,10 +682,20 @@ export function generateComponents(
                                 bodyDepth,
                                 false,
                                 `root.${pred}`,
+                                first.type === "FlexboxLayout",
                             ),
                         );
                     }
-                } else lines.push(...emitTree(childGroup, bodyDepth));
+                } else
+                    lines.push(
+                        ...emitTree(
+                            childGroup,
+                            bodyDepth,
+                            false,
+                            undefined,
+                            first.type === "FlexboxLayout",
+                        ),
+                    );
             }
             if (!rootElement) lines.push(`${indent}}`);
             return lines;
