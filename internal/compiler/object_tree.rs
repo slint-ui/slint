@@ -2134,7 +2134,7 @@ impl Element {
             #[cfg(feature = "slint-sc")]
             {
                 // A callback declared in the file is in the subset by construction;
-                // a builtin one only when marked in builtins.slint, which keeps
+                // a builtin one only when marked in its declaration, which keeps
                 // `init` and the rest of TouchArea out.
                 if !r.is_user_declared_member(&unresolved_name) && !lookup_result.is_slint_sc {
                     diag.slint_sc_error(
@@ -3172,7 +3172,6 @@ impl Element {
             is_in_direct_base: false,
             is_shadowable: p.shadowable,
             builtin_function: None,
-            #[cfg(feature = "slint-sc")]
             is_slint_sc: true,
             deprecated: p.deprecated.clone(),
             internal_name: None,
@@ -3770,7 +3769,7 @@ fn css_property_suggestion(property_name: &str, base_type: &ElementType) -> Opti
     }
 }
 
-/// Apply default property values defined in `builtins.slint` to the element.
+/// Apply the default property values of the builtin element to the element.
 pub(crate) fn apply_default_type_properties(element: &mut Element) {
     // Apply default property values on top:
     if let ElementType::Builtin(builtin_base) = &element.base_type {

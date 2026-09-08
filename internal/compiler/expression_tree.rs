@@ -25,7 +25,7 @@ pub use crate::passes::resolving;
 
 #[derive(Debug, Clone, PartialEq, Eq, strum::EnumString)]
 /// A function built into the run-time.
-/// Member functions in `builtins.slint` bind to a variant by naming it as their body.
+/// Member functions of builtin elements bind to a variant with `#[slint(builtin_function(..))]`.
 pub enum BuiltinFunction {
     GetWindowScaleFactor,
     GetWindowDefaultFontSize,

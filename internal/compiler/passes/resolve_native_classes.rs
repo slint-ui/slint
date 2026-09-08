@@ -78,8 +78,8 @@ pub fn resolve_native_classes(component: &Component) {
     })
 }
 
-/// Whether this binding just sets the property to the default value declared in
-/// `builtins.slint`, so that nothing changes if it goes away.
+/// Whether this binding just sets the property to the default value of the builtin
+/// element declaration, so that nothing changes if it goes away.
 fn is_default_value(base_type: &BuiltinElement, name: &str, binding: &BindingExpression) -> bool {
     let Some(BuiltinPropertyDefault::Expr(default)) =
         base_type.properties.get(name).map(|p| &p.default_value)
@@ -180,9 +180,7 @@ fn test_select_minimal_class_based_on_property_usage() {
 
 #[test]
 fn builtin_defaults_are_comparable() {
-    let tr = crate::typeregister::TypeRegister::builtin(
-        &crate::symbol_counters::SymbolCounters::shared(),
-    );
+    let tr = crate::typeregister::TypeRegister::builtin();
     let tr = tr.borrow();
     for (name, element) in tr.all_elements() {
         let ElementType::Builtin(element) = element else { continue };
@@ -202,9 +200,7 @@ fn builtin_defaults_are_comparable() {
 #[test]
 fn select_minimal_class() {
     use smol_str::ToSmolStr;
-    let tr = crate::typeregister::TypeRegister::builtin(
-        &crate::symbol_counters::SymbolCounters::shared(),
-    );
+    let tr = crate::typeregister::TypeRegister::builtin();
     let tr = tr.borrow();
     let rect = tr.lookup_element("Rectangle").unwrap();
     let rect = rect.as_builtin();

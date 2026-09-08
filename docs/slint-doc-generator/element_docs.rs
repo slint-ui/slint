@@ -5,9 +5,8 @@
 // Generate mdx documentation files for builtin elements using data from
 // the compiler's TypeRegister.
 
-use i_slint_compiler::doc_comments::ElementDocEntry;
 use i_slint_compiler::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementType, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementDocEntry, ElementType, Type,
 };
 use i_slint_compiler::object_tree::PropertyVisibility;
 
@@ -223,13 +222,11 @@ fn strip_hidden_regions(text: &str, tag: &str) -> String {
 /// becomes a `<CodeSnippetMD>` wrapper with an auto-generated `imagePath`.
 /// When `counter.skip_screenshots` is true, screenshot attributes are stripped
 /// instead and the fence is emitted as a plain ```slint``` block. Also strips
-/// the `\sc` marker so it never reaches the rendered output, and the
-/// `<NotInSC>`/`<OnlyInSC>` region the page's site doesn't render.
+/// the `<NotInSC>`/`<OnlyInSC>` region the page's site doesn't render.
 #[allow(clippy::while_let_on_iterator)] // inner loop also advances `lines`
 fn transform_code_fences(text: &str, counter: &mut ScreenshotCounter) -> String {
-    let stripped = strip_sc(text);
     let mut stripped =
-        strip_hidden_regions(&stripped, if counter.sc_only { "NotInSC" } else { "OnlyInSC" });
+        strip_hidden_regions(text, if counter.sc_only { "NotInSC" } else { "OnlyInSC" });
     // The safety manual mounts the language chapters at /language/ instead of
     // the main documentation's /reference/language/. Doc comments write the
     // canonical path, so links to the specification resolve on both sites.
@@ -430,13 +427,17 @@ fn element_description(builtin: &BuiltinElement) -> String {
             let mut d = t.clone();
             extract_group(&mut d);
             strip_annotation(&mut d, "\\draft");
-            strip_annotation(&mut d, "\\skip_inherited");
             strip_annotation(&mut d, "\\skip_children");
             let (desc, _) = split_footer(&d);
             desc
         }
         _ => String::new(),
     }
+}
+
+/// A member without docs, or outside the subset on the SC reference, has no section.
+fn skip_member(cfg: &Config, info: &BuiltinPropertyInfo) -> bool {
+    info.docs.is_none() || (cfg.sc_only && !info.slint_sc)
 }
 
 /// Collect all text from a builtin element for import detection.
@@ -451,7 +452,7 @@ fn collect_builtin_text(builtin: &BuiltinElement, text: &mut String, sc_only: bo
                 if let Some(info) = builtin.properties.get(name.as_str())
                     && let Some(doc) = &info.docs
                     // A member the page leaves out contributes no import
-                    && (!sc_only || is_sc_covered(doc))
+                    && (!sc_only || info.slint_sc)
                 {
                     text.push(' ');
                     text.push_str(doc);
@@ -688,8 +689,7 @@ fn write_members(
             }
             ElementDocEntry::Member(name) => {
                 let Some(info) = builtin.properties.get(name.as_str()) else { continue };
-                let Some(doc) = info.docs.as_deref() else { continue };
-                if cfg.sc_only && !is_sc_covered(doc) {
+                if skip_member(cfg, info) {
                     continue;
                 }
                 write_member(
@@ -725,12 +725,7 @@ fn write_sub_element(
     if !has_documentation(child) {
         return Ok(());
     }
-    if cfg.sc_only
-        && !child
-            .docs
-            .first()
-            .is_some_and(|e| matches!(e, ElementDocEntry::Text(t) if is_sc_covered(t)))
-    {
+    if cfg.sc_only && !child.slint_sc {
         return Ok(());
     }
 
@@ -754,8 +749,7 @@ fn write_sub_element(
         if let ElementDocEntry::Member(name) = entry
             && let Some(info) = child.properties.get(name.as_str())
         {
-            let Some(doc) = info.docs.as_deref() else { continue };
-            if cfg.sc_only && !is_sc_covered(doc) {
+            if skip_member(cfg, info) {
                 continue;
             }
             match &info.ty {
@@ -821,9 +815,7 @@ fn write_sub_element(
 
 /// Generate .mdx page files for each exported builtin element.
 pub fn generate(cfg: &Config, links: &mdx::TypeLinks) -> Result<(), Box<dyn std::error::Error>> {
-    let register = i_slint_compiler::typeregister::TypeRegister::builtin_experimental(
-        &i_slint_compiler::symbol_counters::SymbolCounters::shared(),
-    );
+    let register = i_slint_compiler::typeregister::TypeRegister::builtin_experimental();
     let register = register.borrow();
     let generated_dir = cfg.reference_dir();
     create_dir_all(&generated_dir)?;
@@ -861,7 +853,7 @@ pub fn generate(cfg: &Config, links: &mdx::TypeLinks) -> Result<(), Box<dyn std:
             continue;
         }
 
-        if cfg.sc_only && !is_sc_covered(&description) {
+        if cfg.sc_only && !builtin.slint_sc {
             continue;
         }
 
@@ -874,7 +866,6 @@ pub fn generate(cfg: &Config, links: &mdx::TypeLinks) -> Result<(), Box<dyn std:
         }
         let (desc, footer) = split_footer(&description);
         description = desc;
-        strip_annotation(&mut description, "\\skip_inherited");
         let skip_children = strip_annotation(&mut description, "\\skip_children");
 
         let filename = format!("{}.mdx", name.to_ascii_lowercase());

@@ -90,7 +90,7 @@ preview-remote = ["preview-engine", "preview-builtin", "i-slint-editor-preview/p
 default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]
 
 [dependencies]
-i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
+i-slint-compiler = { workspace = true, features = ["display-diagnostics", "builtin-docs"] }
 i-slint-common = { workspace = true }
 
 by_address = { workspace = true }
