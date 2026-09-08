@@ -9,6 +9,19 @@ from typing import TypeVar
 
 import slint_testing
 
+PALETTE_KINDS = ("Image", "Rectangle", "Text")
+
+
+def press_key(window: slint_testing.Window, key: str) -> None:
+    window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
+    window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
+
+
+def press_keys(window: slint_testing.Window, text: str) -> None:
+    for key in text:
+        press_key(window, key)
+
+
 T = TypeVar("T")
 
 

@@ -261,6 +261,7 @@ export component ComponentPaletteRow inherits Rectangle {
 
         Text {
             text: root.label;
+            overflow: elide;
             color: root.active ? StudioTheme.accent-strong : StudioTheme.text;
             font-size: 12px;
             horizontal-stretch: 1;

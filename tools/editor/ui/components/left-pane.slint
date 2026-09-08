@@ -128,6 +128,9 @@ component ElementPaletteGroup inherits VerticalLayout {
     private property <bool> collapsed: false;
     private property <bool> expanded: root.query != "" || !root.collapsed;
     private property <[ElementLibraryEntry]> matches: Api.filter-library-elements(root.group.entries, root.query);
+    function toggle() {
+        if root.query == "" { root.collapsed = !root.collapsed; }
+    }
     spacing: 0px;
 
     if root.matches.length > 0: Rectangle {
@@ -137,13 +140,15 @@ component ElementPaletteGroup inherits VerticalLayout {
         accessible-role: AccessibleRole.button;
         accessible-label: root.group.label;
         accessible-expanded: root.expanded;
-        accessible-action-default => { if root.query == "" { root.collapsed = !root.collapsed; } }
+        accessible-enabled: root.query == "";
+        accessible-action-default => { root.toggle(); }
 
         HorizontalLayout {
             spacing: 6px;
             padding-left: 2px;
             cross-axis-alignment: center;
             Image {
+                visible: root.query == "";
                 width: 12px;
                 height: 12px;
                 source: root.expanded ? EditorTreeIcons.chevron-down : EditorTreeIcons.chevron-right;
@@ -152,8 +157,9 @@ component ElementPaletteGroup inherits VerticalLayout {
             MutedLabel { text: root.group.label; horizontal-stretch: 1; }
         }
         TouchArea {
-            mouse-cursor: pointer;
-            clicked => { if root.query == "" { root.collapsed = !root.collapsed; } }
+            enabled: root.query == "";
+            mouse-cursor: self.enabled ? pointer : default;
+            clicked => { root.toggle(); }
         }
     }
 

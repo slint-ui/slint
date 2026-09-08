@@ -12,15 +12,11 @@ from ui_driver import (
     file_row,
     first_window,
     launch_editor,
+    press_key,
     select_outline_row,
     wait_until,
     window_element_with_label,
 )
-
-
-def press_key(window: slint_testing.Window, key: str) -> None:
-    window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
-    window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
 
 
 def stage_field_text(

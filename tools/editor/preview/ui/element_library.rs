@@ -1,17 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use slint::{Model, ModelRc, SharedString};
+use slint::{Model, ModelExt, ModelRc, SharedString};
 
 use super::{Api, ElementLibraryEntry, ElementLibraryGroup, PaletteComponentKind};
 
 fn catalog() -> ModelRc<ElementLibraryGroup> {
     let mut entries = [
-        ("Rectangle", PaletteComponentKind::Rectangle),
-        ("Text", PaletteComponentKind::Text),
-        ("Image", PaletteComponentKind::Image),
-    ]
-    .map(|(label, kind)| ElementLibraryEntry { label: label.into(), kind });
+        ElementLibraryEntry { label: "Rectangle".into(), kind: PaletteComponentKind::Rectangle },
+        ElementLibraryEntry { label: "Text".into(), kind: PaletteComponentKind::Text },
+        ElementLibraryEntry { label: "Image".into(), kind: PaletteComponentKind::Image },
+    ];
     entries.sort_by(|a, b| a.label.cmp(&b.label));
     ModelRc::new(slint::VecModel::from(vec![ElementLibraryGroup {
         label: "Visual".into(),
@@ -23,7 +22,7 @@ fn normalize_query(query: SharedString) -> SharedString {
     query.trim().to_lowercase().into()
 }
 
-fn matches(entry: &ElementLibraryEntry, query: &str) -> bool {
+fn matches_query(entry: &ElementLibraryEntry, query: &str) -> bool {
     entry.label.to_lowercase().contains(query)
 }
 
@@ -31,9 +30,7 @@ fn filter(
     entries: ModelRc<ElementLibraryEntry>,
     query: SharedString,
 ) -> ModelRc<ElementLibraryEntry> {
-    ModelRc::new(slint::VecModel::from(
-        entries.iter().filter(|entry| matches(entry, &query)).collect::<Vec<_>>(),
-    ))
+    ModelRc::new(entries.filter(move |entry| matches_query(entry, &query)))
 }
 
 pub(super) fn setup(api: &Api<'_>) {
@@ -41,7 +38,7 @@ pub(super) fn setup(api: &Api<'_>) {
     api.on_normalize_element_search(normalize_query);
     api.on_filter_library_elements(filter);
     api.on_element_library_has_matches(|groups, query| {
-        groups.iter().any(|group| group.entries.iter().any(|entry| matches(&entry, &query)))
+        groups.iter().any(|group| group.entries.iter().any(|entry| matches_query(&entry, &query)))
     });
 }
 
@@ -62,7 +59,6 @@ mod tests {
             ("  aG  ", vec!["Image"]),
             ("t", vec!["Rectangle", "Text"]),
             ("TouchArea", vec![]),
-            ("", vec!["Image", "Rectangle", "Text"]),
         ] {
             let result = filter(group.entries.clone(), normalize_query(query.into()));
             assert_eq!(
@@ -71,5 +67,20 @@ mod tests {
                 "query: {query:?}"
             );
         }
+    }
+
+    #[test]
+    fn filtered_entries_follow_catalog_changes() {
+        let entries = std::rc::Rc::new(slint::VecModel::from(vec![ElementLibraryEntry {
+            label: "Rectangle".into(),
+            kind: PaletteComponentKind::Rectangle,
+        }]));
+        let filtered = filter(entries.clone().into(), "text".into());
+        assert_eq!(filtered.row_count(), 0);
+        entries
+            .push(ElementLibraryEntry { label: "Text".into(), kind: PaletteComponentKind::Text });
+        assert_eq!(filtered.row_data(0).unwrap().label, "Text");
+        entries.remove(1);
+        assert_eq!(filtered.row_count(), 0);
     }
 }
