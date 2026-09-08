@@ -207,3 +207,43 @@ export component ChildWithProperties {
 //               >   <note{'child_with_conflicts' declares 'reset' here, 'ValidInterface' expects 'pure public function reset() { }'}
     }
 }
+
+// The child may satisfy a member with a two-way binding written without a type.
+component InferredMemberChild {
+    in-out property value <=> inner.value;
+    callback speak <=> inner.speak;
+    public pure function reset() {
+        inner.reset();
+    }
+
+    inner := ValidBase { }
+}
+
+export component ChildWithInferredMembers {
+    implement ValidInterface <=> base;
+    base := InferredMemberChild { }
+}
+
+component WrongTypeBase {
+    in-out property <float> value;
+    callback speak();
+    public pure function reset() { }
+}
+
+component InferredMemberChildWrongType {
+    in-out property value <=> inner.value;
+//                  >   <note{'InferredMemberChildWrongType' declares 'value' here, 'ValidInterface' expects 'in-out property <int> value;'}
+    callback speak <=> inner.speak;
+    public pure function reset() {
+        inner.reset();
+    }
+
+    inner := WrongTypeBase { }
+}
+
+// A member the child's alias types wrongly is still reported.
+export component ChildWithInferredMembersWrongType {
+    implement ValidInterface <=> base;
+//                               >  <error{Cannot implement 'ValidInterface' based on 'base'.↵- 'base.value' must be a 'int' property (found a 'float' property)}
+    base := InferredMemberChildWrongType { }
+}

@@ -1,0 +1,80 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Counter {
+    in-out property <int> count;
+    callback bump(int);
+}
+
+// A callback can only be aliased without parentheses, so a component satisfying `Counter` this
+// way has no type for either member until `infer_aliases_types` runs.
+component Backing {
+    in-out property count <=> state.count;
+    callback bump <=> state.bump;
+
+    state := Rectangle {
+        in-out property <int> count: 1;
+        callback bump(int);
+        bump(increment) => {
+            self.count += increment;
+        }
+    }
+}
+
+component Delegating {
+    implement Counter <=> backing;
+
+    backing := Backing { }
+}
+
+component SelfImplementing {
+    implement Counter <=> self;
+
+    in-out property count <=> backing.count;
+    callback bump <=> backing.bump;
+
+    backing := Backing { }
+}
+
+export component TestCase {
+    delegating := Delegating { }
+
+    self-implementing := SelfImplementing { }
+
+    out property <bool> test: delegating.count == 1 && self-implementing.count == 1;
+
+    public function bump-both() {
+        delegating.bump(10);
+        self-implementing.bump(10);
+    }
+
+    out property <int> delegating-count: delegating.count;
+    out property <int> self-implementing-count: self-implementing.count;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_bump_both();
+assert_eq!(instance.get_delegating_count(), 11);
+assert_eq!(instance.get_self_implementing_count(), 11);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.invoke_bump_both();
+assert_eq(instance.get_delegating_count(), 11);
+assert_eq(instance.get_self_implementing_count(), 11);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+instance.bump_both();
+assert.equal(instance.delegating_count, 11);
+assert.equal(instance.self_implementing_count, 11);
+```
+*/
