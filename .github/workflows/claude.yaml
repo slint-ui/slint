@@ -3,6 +3,9 @@
 
 name: Claude Code
 
+# A pull request from a fork gets no secrets and a read-only token, whatever
+# these events request, so '@claude' only works on a branch pushed to this
+# repository.
 on:
   issue_comment:
     types: [created]
@@ -77,24 +80,36 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: [
-                `@${context.actor}: Claude didn't run because you don't have a`,
-                `Claude token set up in this repository yet.`,
-                ``,
-                `Each person's \`@claude\` usage bills to their own Claude`,
-                `subscription, so you need your own token:`,
-                ``,
-                `1. Run \`claude setup-token\` locally (needs Pro, Max, Team or Enterprise).`,
-                `2. Ask a repo admin to add it as the secret`,
-                `   \`${{ steps.resolve.outputs.secret_name }}\`.`,
-                ``,
-                `Then tag me again.`,
-              ].join('\n')
-            })
+            const body = [
+              `@${context.actor}: Claude didn't run because you don't have a`,
+              `Claude token set up in this repository yet.`,
+              ``,
+              `Each person's \`@claude\` usage bills to their own Claude`,
+              `subscription, so you need your own token:`,
+              ``,
+              `1. Run \`claude setup-token\` locally (needs Pro, Max, Team or Enterprise).`,
+              `2. Ask a repo admin to add it as the secret`,
+              `   \`${{ steps.resolve.outputs.secret_name }}\`.`,
+              ``,
+              `Then tag me again.`,
+            ].join('\n');
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            } catch (error) {
+              // A pull request from a fork gets no secrets and a read-only
+              // token, so a run for one can neither authenticate nor report
+              // back. The log is the only channel left.
+              core.warning(
+                `Could not comment: ${error.message}. On a pull request from a `
+                  + `fork, GitHub withholds secrets and issues a read-only token, `
+                  + `so '@claude' cannot run there.`
+              );
+            }
 
       # The comment above is the report, so end green rather than adding a
       # failed run and its notifications on top.
