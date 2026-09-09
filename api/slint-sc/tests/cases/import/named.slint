@@ -19,6 +19,7 @@ import { Frame, Led, } from "./imported/shapes.slint";
 //#sls.file.component.inherits.base
 component Panel inherits Frame {
     background: #202020;
+//#c            ^+
 }
 
 // An import statement may follow a component definition.
@@ -27,25 +28,41 @@ component Panel inherits Frame {
 import { Led as Lamp } from "./imported/shapes.slint";
 
 export component Imports inherits Window {
+//#c                              ^+
     Panel {
+//#c^+
         width: 64px;
+//#c           ^+
         height: 64px;
+//#c            ^+
     }
     Frame {
+//#c^+
         x: 4px;
+//#c       ^+
         y: 4px;
+//#c       ^+
         Led {
+//#c    ^+
             x: 4px;
+//#c           ^+
             y: 4px;
+//#c           ^+
         }
     }
     Frame {
+//#c^+
         x: 36px;
+//#c       ^+
         y: 4px;
+//#c       ^+
         // The same component under its new name.
         Lamp {
+//#c    ^+
             x: 4px;
+//#c           ^+
             y: 4px;
+//#c           ^+
         }
     }
 }
@@ -65,23 +82,6 @@ screenshot!(x);
 ```
 
 ```coverage
-+ 21:17 binding background
-+ 29:35 element Window
-+ 30:5 element Panel
-+ 31:16 binding width
-+ 32:17 binding height
-+ 34:5 element Frame
-+ 35:12 binding x
-+ 36:12 binding y
-+ 37:9 element Led
-+ 38:16 binding x
-+ 39:16 binding y
-+ 42:5 element Frame
-+ 43:12 binding x
-+ 44:12 binding y
-+ 46:9 element Lamp
-+ 47:16 binding x
-+ 48:16 binding y
 + imported/shapes.slint:9:12 binding width
 + imported/shapes.slint:10:13 binding height
 + imported/shapes.slint:11:17 binding background

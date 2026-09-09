@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
 
-//! How the driver measures the coverage of a case, for comparing with the
-//! case's ```` ```coverage ```` block: the compiler maps the coverage points
+//! How the driver measures the coverage of a case, for comparing with what
+//! the case states: the compiler maps the coverage points
 //! to ranges of the generated code, LLVM measures the code when the test
 //! program is built with `-C instrument-coverage`, and the count of the code
 //! of a point's range is the point's.

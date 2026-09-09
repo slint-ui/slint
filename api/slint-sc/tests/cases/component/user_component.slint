@@ -6,35 +6,57 @@
 
 component Frame inherits Rectangle {
     width: 24px;
+//#c       ^+
     height: 24px;
+//#c        ^+
     background: #444444;
+//#c            ^+
 }
 
 component Led {
     width: 20px;
+//#c       ^-
     height: 20px;
+//#c        ^-
     Rectangle {
+//#c^+
         x: 2px;
+//#c       ^+
         y: 2px;
+//#c       ^+
         width: 16px;
+//#c           ^+
         height: 16px;
+//#c            ^+
         background: #ff0000;
+//#c                ^+
     }
 }
 
 export component UserComponent inherits Window {
+//#c                                    ^+
     background: #202020;
+//#c            ^+
     //#sls.file.element.instantiation-typename
     Frame {
+//#c^+
         x: 8px;
+//#c       ^+
         y: 8px;
+//#c       ^+
         Led { x: 2px; y: 2px; }
+//#c    ^+       ^+      ^+
     }
     Frame {
+//#c^+
         x: 40px;
+//#c       ^+
         y: 8px;
+//#c       ^+
         background: #006600;
+//#c                ^+
         Led { x: 2px; y: 2px; }
+//#c    ^+       ^+      ^+
     }
 }
 
@@ -49,34 +71,5 @@ Only the exported component names a generated struct:
 //#sls.gen.component
 let _ = Led::new(crate::harness::WINDOW_SIZE);
 //~ ERROR undeclared type `Led`
-```
-
-```coverage
-+ 8:12 binding width
-+ 9:13 binding height
-+ 10:17 binding background
-- 14:12 binding width
-- 15:13 binding height
-+ 16:5 element Rectangle
-+ 17:12 binding x
-+ 18:12 binding y
-+ 19:16 binding width
-+ 20:17 binding height
-+ 21:21 binding background
-+ 25:41 element Window
-+ 26:17 binding background
-+ 28:5 element Frame
-+ 29:12 binding x
-+ 30:12 binding y
-+ 31:9 element Led
-+ 31:18 binding x
-+ 31:26 binding y
-+ 33:5 element Frame
-+ 34:12 binding x
-+ 35:12 binding y
-+ 36:21 binding background
-+ 37:9 element Led
-+ 37:18 binding x
-+ 37:26 binding y
 ```
 */

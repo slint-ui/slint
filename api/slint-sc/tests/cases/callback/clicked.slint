@@ -2,27 +2,38 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
 
 export component TestCase inherits Window {
+//#c                               ^+
     //#sls.callback.def
     //#sls.callback.decl.form
     callback alarm-acknowledged;
     in-out property <color> alarm-color: #802020;
+//#c                                     ^+
     background: #202020;
+//#c            ^+
     Rectangle {
+//#c^+
         x: 8px;
+//#c       ^+
         y: 8px;
+//#c       ^+
         width: 48px;
+//#c           ^+
         height: 24px;
+//#c            ^+
         background: root.alarm-color;
+//#c                ^+
         // No geometry of its own, so it covers the rectangle
         //#sls.ref.toucharea.size
         //#sls.ref.toucharea.members
         TouchArea {
+//#c    ^+
             //#sls.callback.handler.form
             //#sls.callback.handler.target
             //#sls.ref.toucharea.clicked
             //#sls.ref.toucharea.clicked.input
             //#sls.callback.call.form
             clicked => { root.alarm-acknowledged(); }
+//#c        ^+                ^+
         }
     }
 }
@@ -78,20 +89,5 @@ runtime carries doesn't break the code built against this one.
 ```rust compile_fail
 let _ = slint_sc::TouchEvent::Pressed { position: slint_sc::Point::new(0, 0) };
 //~ ERROR cannot create non-exhaustive variant
-```
-
-```coverage
-+ 4:36 element Window
-+ 8:42 binding alarm-color
-+ 9:17 binding background
-+ 10:5 element Rectangle
-+ 11:12 binding x
-+ 12:12 binding y
-+ 13:16 binding width
-+ 14:17 binding height
-+ 15:21 binding background
-+ 19:9 element TouchArea
-+ 25:13 handler clicked
-+ 25:31 call alarm-acknowledged
 ```
 */

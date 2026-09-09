@@ -216,7 +216,7 @@ pub fn export_coverage(objects: &[PathBuf], profiles: &[PathBuf]) -> Result<Stri
         .arg(&profdata)
         .args(profiles)
         .output()
-        .map_err(|e| format!("cannot run llvm-profdata: {e}"))?;
+        .map_err(|e| format!("cannot run llvm-profdata: {e}{HINT}"))?;
     if !merge.status.success() {
         return Err(format!("llvm-profdata failed:\n{}", String::from_utf8_lossy(&merge.stderr)));
     }
@@ -228,7 +228,7 @@ pub fn export_coverage(objects: &[PathBuf], profiles: &[PathBuf]) -> Result<Stri
     }
     let output = export.output();
     let _ = std::fs::remove_file(&profdata);
-    let output = output.map_err(|e| format!("cannot run llvm-cov: {e}"))?;
+    let output = output.map_err(|e| format!("cannot run llvm-cov: {e}{HINT}"))?;
     if !output.status.success() {
         return Err(format!("llvm-cov failed:\n{}", String::from_utf8_lossy(&output.stderr)));
     }
@@ -237,6 +237,10 @@ pub fn export_coverage(objects: &[PathBuf], profiles: &[PathBuf]) -> Result<Stri
 
 /// An LLVM tool: from the environment variable of its upper-cased name, the
 /// Rust toolchain's llvm-tools component, or PATH.
+/// What to do when an LLVM tool is missing.
+const HINT: &str = "; the tools come with the `llvm-tools` rustup component, or set LLVM_COV and \
+                    LLVM_PROFDATA to them";
+
 fn llvm_tool(name: &str) -> PathBuf {
     if let Some(path) = std::env::var_os(name.to_uppercase().replace('-', "_")) {
         return path.into();
@@ -318,12 +322,12 @@ mod tests {
         // The handler has no range: never reached.
         assert_eq!(add(&map(), file, &mut report).unwrap(), 4);
         assert_eq!(
-            report.listing(Path::new("/src/ternary.slint")),
+            report.listing(Path::new("/src/case.slint")),
             [
-                "+ 13:30 binding pick",
-                "+ 13:37 branch ? true",
-                "- 13:37 branch ? false",
-                "- 20:5 handler clicked"
+                "+ ternary.slint:13:30 binding pick",
+                "+ ternary.slint:13:37 branch ? true",
+                "- ternary.slint:13:37 branch ? false",
+                "- ternary.slint:20:5 handler clicked"
             ]
         );
         // Outside every function, and a range whose code LLVM never instantiated.
@@ -361,8 +365,8 @@ mod tests {
         let file = &regions.files[Path::new("/base/gen/h.rs")];
         assert_eq!(add(&map, file, &mut report).unwrap(), 2);
         assert_eq!(
-            report.listing(Path::new("/src/a.slint")),
-            ["+ 5:1 branch ? true", "- 5:1 branch ? false"]
+            report.listing(Path::new("/src/case.slint")),
+            ["+ a.slint:5:1 branch ? true", "- a.slint:5:1 branch ? false"]
         );
     }
 

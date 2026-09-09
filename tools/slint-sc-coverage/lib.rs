@@ -7,9 +7,9 @@
 //! every element, binding, callback handler and call, and both outcomes of
 //! every `?:`, `&&` and `||`. However the points are counted, a [`Report`]
 //! gathers their hit counts by source location and writes them as lcov, as a
-//! summary, or as the listing the test driver compares with a case's
-//! expectations.
+//! summary, or as what the test driver compares with a case's expectations.
 
+pub mod expectations;
 pub mod source_map;
 
 use std::collections::BTreeMap;
@@ -151,57 +151,31 @@ impl Report {
         gaps
     }
 
-    /// The listing a test case's ```` ```coverage ```` block states: one line
-    /// per point, `+` when it was reached and `-` when not, then its
-    /// location and kind, like `+ 13:30 branch 0 false`. The points of
-    /// `case` come first without a path, those of another file with its path
-    /// relative to the case's directory.
+    /// Every point and decision outcome of `file`, by line: the column, what
+    /// it is (`element`, `binding level`, `branch ? false`) and whether it was
+    /// reached, in column order.
+    pub fn lines_of(&self, file: &Path) -> BTreeMap<usize, Vec<(usize, String, bool)>> {
+        let lines = self.files.get(file).into_iter().flatten();
+        lines.map(|(line, coverage)| (*line, coverage.entries())).collect()
+    }
+
+    /// The points of every file but `case`, one line each: `+` when reached
+    /// and `-` when not, then the path relative to the case's directory, the
+    /// location and what it is, like `+ lib/b.slint:13:30 branch ? false`.
     pub fn listing(&self, case: &Path) -> Vec<String> {
         let case_dir = case.parent().unwrap_or(Path::new(""));
-        let mut files: Vec<_> = self.files.iter().collect();
-        files.sort_by_key(|(path, _)| (*path != case, path.as_path()));
         let mut listing = Vec::new();
-        for (path, lines) in files {
-            let prefix = match path == case {
-                true => String::new(),
-                false => format!("{}:", display(path, case_dir)),
-            };
+        for (path, lines) in self.files.iter().filter(|(path, _)| path.as_path() != case) {
+            let path = display(path, case_dir);
             for (line, coverage) in lines {
                 for (column, what, reached) in coverage.entries() {
                     let status = if reached { '+' } else { '-' };
-                    listing.push(format!("{status} {prefix}{line}:{column} {what}"));
+                    listing.push(format!("{status} {path}:{line}:{column} {what}"));
                 }
             }
         }
         listing
     }
-}
-
-/// Compare a case's listing with the one its ```` ```coverage ```` block
-/// expects, and describe the difference.
-pub fn check_listing(expected: &str, actual: &[String]) -> Result<(), String> {
-    let expected: Vec<&str> = expected.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
-    if expected == actual {
-        return Ok(());
-    }
-    let mut message = String::from("the coverage differs from the ```coverage block:\n");
-    for line in &expected {
-        if !actual.iter().any(|a| a == line) {
-            message.push_str(&format!("  expected, not measured: {line}\n"));
-        }
-    }
-    for line in actual {
-        if !expected.contains(&line.as_str()) {
-            message.push_str(&format!("  measured, not expected: {line}\n"));
-        }
-    }
-    message.push_str("the measured coverage, for the block:\n```coverage\n");
-    for line in actual {
-        message.push_str(line);
-        message.push('\n');
-    }
-    message.push_str("```");
-    Err(message)
 }
 
 /// The lines and branch outcomes of a file, and how many were reached.
@@ -292,24 +266,18 @@ end_of_record
 
     #[test]
     fn listing() {
-        let listing = report().listing(Path::new("/src/a.slint"));
+        let case = Path::new("/src/a.slint");
+        assert_eq!(report().listing(case), ["+ lib/b.slint:2:1 element Led"]);
+        let lines = report().lines_of(case);
+        assert_eq!(lines.keys().copied().collect::<Vec<_>>(), [7, 13, 20]);
         assert_eq!(
-            listing,
+            lines[&13],
             [
-                "+ 7:36 element Window",
-                "+ 13:30 binding pick",
-                "+ 13:37 branch ? true",
-                "- 13:37 branch ? false",
-                "+ 13:50 binding len",
-                "- 20:5 handler clicked",
-                "+ lib/b.slint:2:1 element Led",
+                (30, "binding pick".to_string(), true),
+                (37, "branch ? true".to_string(), true),
+                (37, "branch ? false".to_string(), false),
+                (50, "binding len".to_string(), true),
             ]
         );
-        assert!(check_listing(&listing.join("\n"), &listing).is_ok());
-        let differing =
-            check_listing("+ 7:36 element Window\n+ 20:5 handler clicked\n", &listing).unwrap_err();
-        assert!(differing.contains("expected, not measured: + 20:5 handler clicked"));
-        assert!(differing.contains("measured, not expected: - 20:5 handler clicked"));
-        assert!(differing.contains("```coverage\n+ 7:36 element Window\n"));
     }
 }

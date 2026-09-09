@@ -5,19 +5,24 @@
 // the right and the branches can be any type of the subset.
 
 export component TestCase inherits Window {
+//#c                               ^-
     in property <bool> a;
     in property <bool> b;
     in property <int> lo;
     in property <int> hi;
     //#sls.op.ternary
     out property <int> pick: a ? hi : lo;
+//#c                         ^+^++
     //#sls.op.ternary.type
     out property <length> len: a ? 10px : 20px;
+//#c                           ^+^++
     // A chained conditional associates to the right.
     //#sls.op.ternary.assoc
     out property <int> rank: a ? 2 : b ? 1 : 0;
+//#c                         ^+^++     ^++
     // The condition can be a logical expression.
     out property <int> both: (a && b) ? hi : lo;
+//#c                         ^+ ^++   ^++
 }
 
 /*
@@ -45,25 +50,5 @@ for (a, b) in [(false, false), (false, true), (true, false), (true, true)] {
     // A logical expression drives the condition.
     assert_eq!(x.get_both(), if a && b { 7 } else { 3 });
 }
-```
-
-```coverage
-- 7:36 element Window
-+ 13:30 binding pick
-+ 13:32 branch ? true
-+ 13:32 branch ? false
-+ 15:32 binding len
-+ 15:34 branch ? true
-+ 15:34 branch ? false
-+ 18:30 binding rank
-+ 18:32 branch ? true
-+ 18:32 branch ? false
-+ 18:40 branch ? true
-+ 18:40 branch ? false
-+ 20:30 binding both
-+ 20:33 branch && true
-+ 20:33 branch && false
-+ 20:39 branch ? true
-+ 20:39 branch ? false
 ```
 */
