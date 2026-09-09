@@ -26,6 +26,7 @@ opengl = []
 # `vulkan-portability` is how wgpu compiles its Vulkan backend on Apple platforms (MoltenVK).
 # It feeds an apple-target-gated dependency of wgpu-core, so it's inert elsewhere.
 vulkan = [
+  "dep:ash",
   "skia-safe/vulkan",
   "wgpu-30",
   "wgpu-30/vulkan",
@@ -64,6 +65,12 @@ unicode-segmentation = { workspace = true }
 wgpu-29 = { workspace = true, optional = true }
 wgpu-30 = { workspace = true, optional = true }
 spin_on = { version = "0.1", optional = true }
+
+[target.'cfg(all(target_family = "unix", not(target_vendor = "apple")))'.dependencies]
+ash = { version = "^0.38.0" }
+
+[target.'cfg(any(target_vendor = "apple", target_family = "windows"))'.dependencies]
+ash = { version = "^0.38.0", optional = true }
 
 [target.'cfg(any(not(target_vendor = "apple"), target_os = "macos"))'.dependencies]
 glutin = { workspace = true, default-features = false, features = ["egl", "wgl"] }
