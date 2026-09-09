@@ -256,3 +256,28 @@ def test_library_search_keyboard_does_not_delete_selection(
             window, "Selected Rectangle", slint_testing.AccessibleRole.Region
         )
         snapshot.assert_unchanged()
+
+
+@pytest.mark.parametrize(
+    "activation_key", [keys.Return, keys.Space], ids=["enter", "space"]
+)
+def test_group_header_keyboard_activation(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    activation_key: str,
+) -> None:
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Palette.slint"
+    ) as editor:
+        window = first_window(editor)
+        search = window_element_with_label(window, "Search elements")
+        search.single_click(slint_testing.PointerEventButton.Left)
+        press_key(window, keys.Tab)
+        press_key(window, activation_key)
+        expect_library(window, [])
+        window_element_with_label(window, "Visual", slint_testing.AccessibleRole.Button)
+        press_key(window, activation_key)
+        expect_library(window, list(PALETTE_KINDS))
+        snapshot.assert_unchanged()

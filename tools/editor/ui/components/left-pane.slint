@@ -135,13 +135,26 @@ component ElementPaletteGroup inherits VerticalLayout {
 
     if root.matches.length > 0: Rectangle {
         height: 32px;
-        border-width: 0px;
+        border-radius: 4px;
+        border-width: group-focus.has-focus ? 2px : 0px;
+        border-color: StudioTheme.accent-strong;
         background: transparent;
         accessible-role: AccessibleRole.button;
         accessible-label: root.group.label;
         accessible-expanded: root.expanded;
         accessible-enabled: root.query == "";
         accessible-action-default => { root.toggle(); }
+
+        group-focus := FocusScope {
+            enabled: root.query == "";
+            key-pressed(event) => {
+                if event.text == Key.Return || event.text == Key.Space {
+                    root.toggle();
+                    return accept;
+                }
+                return reject;
+            }
+        }
 
         HorizontalLayout {
             spacing: 6px;
@@ -159,7 +172,7 @@ component ElementPaletteGroup inherits VerticalLayout {
         TouchArea {
             enabled: root.query == "";
             mouse-cursor: self.enabled ? pointer : default;
-            clicked => { root.toggle(); }
+            clicked => { group-focus.focus(); root.toggle(); }
         }
     }
 
