@@ -53,7 +53,11 @@ env:
 jobs:
     visual_editor:
         if: ${{ contains(fromJSON(inputs.changes), 'visual_editor') }}
-        name: Visual Editor
+        name: Visual Editor (${{ matrix.suite }})
+        strategy:
+            fail-fast: false
+            matrix:
+                suite: [rust, ui]
         runs-on: macos-14
         timeout-minutes: 120
         env:
@@ -75,21 +79,22 @@ jobs:
               with:
                   python-version: '3.11'
             - uses: astral-sh/setup-uv@v7
+              if: matrix.suite == 'ui'
             - name: Install UI test dependencies
-              if: ${{ env.UI_TESTS == 'true' }}
+              if: ${{ matrix.suite == 'ui' && env.UI_TESTS == 'true' }}
               working-directory: tools/editor/ui-tests
               env:
                   UV_INDEX: slint-private=https://testing.slint.dev/simple/
                   UV_INDEX_SLINT_PRIVATE_USERNAME: __token__
                   UV_INDEX_SLINT_PRIVATE_PASSWORD: ${{ secrets.SLINT_TESTING_TOKEN }}
               run: uv sync --locked
-            - name: Run overlapping Visual Editor checks
-              run: python3 scripts/visual_editor_ci.py
+            - name: Run Visual Editor checks
+              run: python3 scripts/visual_editor_ci.py ${{ matrix.suite }}
             - name: Upload timing reports and logs
               if: ${{ always() }}
               uses: actions/upload-artifact@v4
               with:
-                  name: visual-editor-overlap-timings
+                  name: visual-editor-${{ matrix.suite }}-timings
                   path: target/visual-editor-ci/
                   if-no-files-found: warn
                   retention-days: 7
