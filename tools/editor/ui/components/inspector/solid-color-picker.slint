@@ -186,11 +186,12 @@ export component InspectorSolidColorPicker inherits Rectangle {
 
     picker-popup := PopupWindow {
         x: -308px;
-        y: 0px;
+        y: root.height + 8px;
         width: 300px;
-        height: 408px;
+        height: picker-layout.preferred-height;
         close-policy: close-on-click-outside;
         forward-focus: picker-focus;
+
         Rectangle {
             background: InspectorTokens.panel-bg;
             border-width: 1px;
@@ -212,9 +213,11 @@ export component InspectorSolidColorPicker inherits Rectangle {
                     }
                     return reject;
                 }
-                VerticalLayout {
+
+                picker-layout := VerticalLayout {
                     padding: 12px;
-                    spacing: 9px;
+                    spacing: 12px;
+                    alignment: start;
 
                     HorizontalLayout {
                         height: 22px;
@@ -227,44 +230,87 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         }
                         Rectangle { horizontal-stretch: 1; }
                         Rectangle {
-                            width: 42px;
+                            width: 48px;
                             height: 22px;
-                            accessible-role: AccessibleRole.button;
-                            accessible-label: "Close color picker";
-                            Text {
-                                text: "Close";
-                                width: parent.width;
-                                color: InspectorTokens.muted;
-                                font-size: 11px;
-                                vertical-alignment: center;
-                                horizontal-alignment: right;
-                            }
                             TouchArea {
+                                width: parent.width;
+                                height: parent.height;
+                                accessible-role: AccessibleRole.button;
+                                accessible-label: "Close color picker";
                                 clicked => { root.close-picker(); }
+                                accessible-action-default => { root.close-picker(); }
+                                Text {
+                                    text: "Close";
+                                    width: parent.width;
+                                    height: parent.height;
+                                    color: InspectorTokens.muted;
+                                    font-size: 11px;
+                                    vertical-alignment: center;
+                                    horizontal-alignment: right;
+                                }
                             }
                         }
                     }
 
+                    Rectangle { height: 1px; background: InspectorTokens.divider; }
+
                     if root.unsupported: VerticalLayout {
                         spacing: 5px;
-                        Text { text: root.expression; color: InspectorTokens.text; font-size: 12px; overflow: elide; }
-                        Text { text: "This picker edits solid colors only."; color: InspectorTokens.muted; font-size: 11px; }
+                        Text {
+                            text: root.expression;
+                            color: InspectorTokens.text;
+                            font-size: 12px;
+                            overflow: elide;
+                        }
+                        Text {
+                            text: "This expression cannot be edited as a solid color.";
+                            color: InspectorTokens.muted;
+                            font-size: 11px;
+                            wrap: word-wrap;
+                        }
                     }
 
                     if root.bound && !root.unsupported: HorizontalLayout {
                         height: 26px;
-                        Text { text: root.expression; color: InspectorTokens.muted; font-size: 11px; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
+                        Text {
+                            text: root.expression;
+                            color: InspectorTokens.muted;
+                            font-size: 11px;
+                            horizontal-stretch: 1;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
                         Rectangle {
                             width: 58px;
                             height: 24px;
                             background: InspectorTokens.field-bg;
                             border-radius: InspectorTokens.field-radius;
-                            accessible-role: AccessibleRole.button;
-                            accessible-label: "Detach color binding";
-                            Text { text: "Detach"; width: parent.width; horizontal-alignment: center; vertical-alignment: center; color: InspectorTokens.text; font-size: 11px; }
                             TouchArea {
+                                width: parent.width;
+                                height: parent.height;
+                                accessible-role: AccessibleRole.button;
+                                accessible-label: "Detach color binding";
+                                enabled: root.bound && !root.is-detached && !Api.inspector-color-refresh-pending;
                                 clicked => {
-                                    if !Api.inspector-color-refresh-pending && root.detached(root.target-key) { root.is-detached = true; }
+                                    if self.enabled && root.detached(root.target-key) {
+                                        root.is-detached = true;
+                                        root.original-color = root.working-color;
+                                    }
+                                }
+                                accessible-action-default => {
+                                    if self.enabled && root.detached(root.target-key) {
+                                        root.is-detached = true;
+                                        root.original-color = root.working-color;
+                                    }
+                                }
+                                Text {
+                                    text: "Detach";
+                                    width: parent.width;
+                                    height: parent.height;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                    color: root.is-detached ? InspectorTokens.text : InspectorTokens.muted;
+                                    font-size: 11px;
                                 }
                             }
                         }
@@ -272,20 +318,18 @@ export component InspectorSolidColorPicker inherits Rectangle {
 
                     if !root.unsupported: Rectangle {
                         height: 170px;
-                        border-radius: 5px;
-                        clip: true;
-                        background: hsv(root.hue, 1, 1);
-
-                        Rectangle {
-                            background: @linear-gradient(90deg, white 0%, transparent 100%);
-                        }
-                        Rectangle {
-                            background: @linear-gradient(0deg, black 0%, transparent 100%);
-                        }
-                        Rectangle {
+                        sv := Rectangle {
                             border-radius: 5px;
-                            border-width: 1px;
-                            border-color: InspectorTokens.divider;
+                            clip: true;
+                            background: hsv(root.hue, 1, 1);
+
+                            Rectangle { background: @linear-gradient(90deg, white 0%, transparent 100%); }
+                            Rectangle { background: @linear-gradient(0deg, black 0%, transparent 100%); }
+                            Rectangle {
+                                border-radius: 5px;
+                                border-width: 1px;
+                                border-color: InspectorTokens.divider;
+                            }
                         }
                         TouchArea {
                             enabled: root.editable;
@@ -303,8 +347,8 @@ export component InspectorSolidColorPicker inherits Rectangle {
                             }
                         }
                         Rectangle {
-                            x: root.saturation * (parent.width - 12px) - 6px;
-                            y: (1 - root.brightness) * (parent.height - 12px) - 6px;
+                            x: root.saturation * parent.width - 6px;
+                            y: (1 - root.brightness) * parent.height - 6px;
                             width: 12px;
                             height: 12px;
                             border-radius: 6px;
@@ -318,9 +362,11 @@ export component InspectorSolidColorPicker inherits Rectangle {
 
                     if !root.unsupported: Rectangle {
                         height: 16px;
-                        border-radius: 8px;
-                        clip: true;
-                        background: @linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+                        hue-track := Rectangle {
+                            border-radius: 8px;
+                            clip: true;
+                            background: @linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+                        }
                         TouchArea {
                             enabled: root.editable;
                             pointer-event(event) => {
@@ -337,7 +383,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
                             }
                         }
                         Rectangle {
-                            x: root.hue / 360 * (parent.width - 12px);
+                            x: root.hue / 360 * parent.width - 7px;
                             y: 1px;
                             width: 14px;
                             height: 14px;
@@ -350,26 +396,24 @@ export component InspectorSolidColorPicker inherits Rectangle {
 
                     if !root.unsupported: Rectangle {
                         height: 16px;
-                        border-radius: 8px;
-                        clip: true;
-                        background: @linear-gradient(90deg, transparent, hsv(root.hue, root.saturation, root.brightness, 1));
-                        Rectangle {
-                            width: 100%;
-                            height: 100%;
-                            background: #d7d7d7;
-                            for row in 4: Rectangle {
-                                x: 4px;
-                                y: row * 4px;
-                                width: 4px;
-                                height: 4px;
-                                background: #ffffff;
+                        alpha-track := Rectangle {
+                            border-radius: 8px;
+                            clip: true;
+                            Rectangle {
+                                for row in 2: Rectangle {
+                                    y: row * 8px;
+                                    width: 100%;
+                                    height: 8px;
+                                    for col in ceil(parent.width / 8px): Rectangle {
+                                        x: col * 8px;
+                                        width: 8px;
+                                        height: 8px;
+                                        background: (row + col).mod(2) == 0 ? InspectorTokens.panel-bg : InspectorTokens.field-border;
+                                    }
+                                }
                             }
-                            for col in 75: Rectangle {
-                                x: col * 8px;
-                                y: 0px;
-                                width: 4px;
-                                height: 4px;
-                                background: #ffffff;
+                            Rectangle {
+                                background: @linear-gradient(90deg, transparent, hsv(root.hue, root.saturation, root.brightness, 1));
                             }
                         }
                         TouchArea {
@@ -387,35 +431,72 @@ export component InspectorSolidColorPicker inherits Rectangle {
                                 }
                             }
                         }
+                        Rectangle {
+                            x: root.alpha / 255 * parent.width - 7px;
+                            y: 1px;
+                            width: 14px;
+                            height: 14px;
+                            border-radius: 7px;
+                            border-width: 2px;
+                            border-color: white;
+                            background: transparent;
+                            drop-shadow-color: #00000070;
+                            drop-shadow-blur: 2px;
+                        }
                     }
 
                     if !root.unsupported: HorizontalLayout {
                         height: 26px;
                         spacing: 8px;
                         InspectorTextFieldBase {
+                            accessible-name: "Hex color";
                             enabled: root.editable;
                             value: Api.color-to-data(root.working-color).text;
                             commit-key: root.session-key;
                             horizontal-stretch: 1;
                             accepted(text) => { return root.commit-text(text); }
                         }
-                        InspectorTextFieldBase {
-                            enabled: root.editable;
-                            width: 70px;
-                            value: (root.alpha * 100 / 255).to-fixed(0);
-                            commit-key: root.session-key;
-                            accepted(text) => {
-                                if !text.is-float() || !root.editable { return false; }
-                                root.alpha = (text.to-float().clamp(0, 100) * 255 / 100).round();
-                                return root.commit-color(root.target-key, root.color-at());
+                        HorizontalLayout {
+                            width: 78px;
+                            spacing: 2px;
+                            InspectorTextFieldBase {
+                                accessible-name: "Opacity percentage";
+                                enabled: root.editable;
+                                width: 58px;
+                                value: (root.alpha * 100 / 255).to-fixed(0);
+                                commit-key: root.session-key;
+                                accepted(text) => {
+                                    if !text.is-float() || !root.editable {
+                                        return false;
+                                    }
+                                    root.alpha = (text.to-float().clamp(0, 100) * 255 / 100).round();
+                                    return root.commit-color(root.target-key, root.color-at());
+                                }
+                            }
+                            Text {
+                                text: "%";
+                                color: InspectorTokens.muted;
+                                font-size: 11px;
+                                vertical-alignment: center;
                             }
                         }
                     }
 
-                    if !root.unsupported: Text { text: "Recent colors"; color: InspectorTokens.muted; font-size: 11px; font-weight: 600; }
-                    if !root.unsupported: HorizontalLayout {
-                        height: 26px;
+                    if !root.unsupported: Text {
+                        text: "Recent colors";
+                        color: InspectorTokens.muted;
+                        font-size: 11px;
+                        font-weight: 600;
+                    }
+                    if !root.unsupported && Api.recent-colors.length == 0: Text {
+                        text: "No recent colors";
+                        color: InspectorTokens.muted;
+                        font-size: 11px;
+                    }
+                    if !root.unsupported && Api.recent-colors.length > 0: HorizontalLayout {
+                        height: 22px;
                         spacing: 6px;
+                        alignment: start;
                         for recent in Api.recent-colors: Rectangle {
                             width: 22px;
                             height: 22px;
@@ -423,7 +504,23 @@ export component InspectorSolidColorPicker inherits Rectangle {
                             border-width: 1px;
                             border-color: InspectorTokens.divider;
                             background: recent;
-                            TouchArea { clicked => { root.commit-color(root.target-key, recent); } }
+                            TouchArea {
+                                width: parent.width;
+                                height: parent.height;
+                                enabled: root.editable;
+                                accessible-role: AccessibleRole.button;
+                                accessible-label: "Recent color " + Api.color-to-data(recent).text;
+                                clicked => {
+                                    if self.enabled {
+                                        root.commit-color(root.target-key, recent);
+                                    }
+                                }
+                                accessible-action-default => {
+                                    if self.enabled {
+                                        root.commit-color(root.target-key, recent);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
