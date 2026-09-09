@@ -142,7 +142,8 @@ def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:
     from canvas_interactions import center
 
     tree = window_element_with_label(window, "Files", slint_testing.AccessibleRole.Tree)
-    for delta in [0, 10000, -250, -250, -250, -250, -250, -250]:
+    scroll_step = max(1, min(250, tree.size.height / 2))
+    for delta in [0, 10000] + [-scroll_step] * 32:
         if delta:
             window.dispatch_event(
                 slint_testing.PointerScrolledEvent(
