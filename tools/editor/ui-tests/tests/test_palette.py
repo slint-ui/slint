@@ -21,6 +21,7 @@ from ui_driver import (
 )
 
 GOLDENS = Path(__file__).resolve().parents[1] / "goldens"
+TOUCHAREA_PREVIEW_SIZE = (160, 96)
 
 
 def begin_palette_drag(
@@ -178,7 +179,7 @@ def expect_library(window: slint_testing.Window, labels: list[str]) -> None:
     )
 
 
-def test_library_search_and_collapse(
+def test_library_search_filters_elements(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
@@ -188,25 +189,7 @@ def test_library_search_and_collapse(
         editor_binary, editor_environment, fixture_project / "Palette.slint"
     ) as editor:
         window = first_window(editor)
-        expect_library(window, ["Image", "Rectangle", "Text", "TouchArea"])
-        heading = window_element_with_label(window, "ELEMENTS")
-        search = window_element_with_label(window, "Search elements")
-        heading_y = heading.absolute_position.y
-        search_y = search.absolute_position.y
-        rows = library_rows(window)
-        assert rows[0].absolute_position.y == rows[1].absolute_position.y
-        assert rows[2].absolute_position.y > rows[0].absolute_position.y
-        window_element_with_label(
-            window, "Input & interaction", slint_testing.AccessibleRole.Button
-        )
-        assert rows[3].absolute_position.y > rows[2].absolute_position.y
-        group = window_element_with_label(
-            window, "Visual", slint_testing.AccessibleRole.Button
-        )
-        group.invoke_accessible_default_action()
-        expect_library(window, ["TouchArea"])
-        assert heading.absolute_position.y == heading_y
-        assert search.absolute_position.y == search_y
+        expect_library(window, list(PALETTE_KINDS))
         search = window_element_with_label(window, "Search elements")
         for query, expected in [
             ("  aG  ", ["Image"]),
@@ -222,25 +205,44 @@ def test_library_search_and_collapse(
                     window.root_element, label, slint_testing.AccessibleRole.Button
                 ):
                     assert not header.accessible_enabled
-            assert heading.absolute_position.y == heading_y
-            assert search.absolute_position.y == search_y
         window_element_with_label(window, "No Results")
-        assert not elements_with_label(
-            window.root_element, "Visual", slint_testing.AccessibleRole.Button
-        )
+        for label in ("Visual", "Input & interaction"):
+            assert not elements_with_label(
+                window.root_element, label, slint_testing.AccessibleRole.Button
+            )
         search.accessible_value = ""
-        expect_library(window, ["TouchArea"])
-        assert heading.absolute_position.y == heading_y
-        assert search.absolute_position.y == search_y
-        group = window_element_with_label(
+        expect_library(window, list(PALETTE_KINDS))
+        snapshot.assert_unchanged()
+
+
+def test_library_search_restores_independent_collapse_states(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Palette.slint"
+    ) as editor:
+        window = first_window(editor)
+        search = window_element_with_label(window, "Search elements")
+        for label, collapsed_labels in [
+            ("Visual", ["TouchArea"]),
+            ("Input & interaction", []),
+        ]:
+            window_element_with_label(
+                window, label, slint_testing.AccessibleRole.Button
+            ).invoke_accessible_default_action()
+            expect_library(window, collapsed_labels)
+            search.accessible_value = "t"
+            expect_library(window, ["Rectangle", "Text", "TouchArea"])
+            search.accessible_value = "missing"
+            expect_library(window, [])
+            search.accessible_value = ""
+            expect_library(window, collapsed_labels)
+        window_element_with_label(
             window, "Visual", slint_testing.AccessibleRole.Button
-        )
-        group.invoke_accessible_default_action()
-        expect_library(window, ["Image", "Rectangle", "Text", "TouchArea"])
-        interaction = window_element_with_label(
-            window, "Input & interaction", slint_testing.AccessibleRole.Button
-        )
-        interaction.invoke_accessible_default_action()
+        ).invoke_accessible_default_action()
         expect_library(window, ["Image", "Rectangle", "Text"])
         search.accessible_value = "touch"
         expect_library(window, ["TouchArea"])
@@ -250,6 +252,42 @@ def test_library_search_and_collapse(
         search.accessible_value = ""
         expect_library(window, ["Image", "Rectangle", "Text"])
         snapshot.assert_unchanged()
+
+
+def test_library_layout_stays_anchored_during_search_and_collapse(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Palette.slint"
+    ) as editor:
+        window = first_window(editor)
+        expect_library(window, list(PALETTE_KINDS))
+        heading = window_element_with_label(window, "ELEMENTS")
+        search = window_element_with_label(window, "Search elements")
+        heading_y = heading.absolute_position.y
+        search_y = search.absolute_position.y
+        rows = library_rows(window)
+        assert rows[0].absolute_position.y == rows[1].absolute_position.y
+        assert rows[0].absolute_position.x < rows[1].absolute_position.x
+        assert rows[2].absolute_position.y > rows[0].absolute_position.y
+        assert rows[3].absolute_position.y > rows[2].absolute_position.y
+        for label, remaining in [
+            ("Visual", ["TouchArea"]),
+            ("Input & interaction", []),
+        ]:
+            window_element_with_label(
+                window, label, slint_testing.AccessibleRole.Button
+            ).invoke_accessible_default_action()
+            expect_library(window, remaining)
+            assert heading.absolute_position.y == heading_y
+            assert search.absolute_position.y == search_y
+        for query, expected in [("image", ["Image"]), ("missing", []), ("", [])]:
+            search.accessible_value = query
+            expect_library(window, expected)
+            assert heading.absolute_position.y == heading_y
+            assert search.absolute_position.y == search_y
 
 
 def test_library_search_keyboard_does_not_delete_selection(
@@ -291,10 +329,11 @@ def test_toucharea_drag_preview(
         preview = window_element_with_label(
             window, "TouchArea drag preview", slint_testing.AccessibleRole.Region
         )
-        assert preview.size.width == 160
-        assert preview.size.height == 96
-        assert preview.absolute_position.x == target.x - 80
-        assert preview.absolute_position.y == target.y - 48
+        expected_width, expected_height = TOUCHAREA_PREVIEW_SIZE
+        assert preview.size.width == expected_width
+        assert preview.size.height == expected_height
+        assert preview.absolute_position.x == target.x - expected_width / 2
+        assert preview.absolute_position.y == target.y - expected_height / 2
         snapshot.assert_unchanged_now()
         outside = slint_testing.LogicalPosition(x=10, y=10)
         release_palette_drag(window, outside)
