@@ -3,7 +3,11 @@
 
 import { ListItem, ScrollView } from "std-widgets-impl.slint";
 
+import { ListViewInterface } from "std-widget-interfaces.slint";
+
 export component ListView inherits ScrollView {
+    implement ListViewInterface <=> self;
+
     @children
     accessible-role: list;
     accessible-orientation: Orientation.vertical;
