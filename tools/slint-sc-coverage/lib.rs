@@ -9,6 +9,7 @@
 //! their hit counts by source location and writes them as lcov, as a
 //! summary, or as what the test driver compares with a case's expectations.
 
+pub mod expectations;
 pub mod source_map;
 
 use std::collections::BTreeMap;

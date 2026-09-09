@@ -7854,6 +7854,7 @@ dependencies = [
  "rayon",
  "regex",
  "serde_json",
+ "slint-sc-coverage",
  "tempfile",
 ]
 
