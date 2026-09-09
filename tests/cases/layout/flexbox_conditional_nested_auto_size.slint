@@ -1,0 +1,33 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for slint-ui/slint#13275: the compiler overflowed its stack
+// analyzing this, in `binding_analysis`, before any lowering. Reading the sizes
+// runs the info and the solve; the Image's 24px must reach the outer layout.
+export component TestCase inherits Window {
+    fl := FlexboxLayout {
+        if true: Rectangle {
+            FlexboxLayout { flex-direction: column; Image { height: 24px; } }
+        }
+        anchor := Rectangle { width: 5px; height: 5px; }
+    }
+    out property <bool> test: anchor.x == 0px && fl.preferred-height == 24px && fl.preferred-width == 5px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

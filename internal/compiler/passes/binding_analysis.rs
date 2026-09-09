@@ -97,9 +97,10 @@ impl std::fmt::Debug for PropertyPath {
 }
 
 impl PropertyPath {
-    /// Given a namedReference accessed by something on the same leaf component
-    /// as self, return a new PropertyPath that represent the property pointer
-    /// to by nr in the higher possible element
+    /// Given a property path `second` accessed by something on the same leaf
+    /// component as self (or, from a repeated component, on a scope enclosing
+    /// it), return a new PropertyPath that represents the same property in the
+    /// highest possible element
     fn relative(&self, second: &PropertyPath) -> Self {
         let mut element =
             second.elements.first().map_or_else(|| second.prop.element(), |f| f.0.clone());
@@ -119,6 +120,23 @@ impl PropertyPath {
                     .is_some_and(|e| check_that_element_is_in_the_component(&e, c))
         }
         let mut elements = self.elements.clone();
+        // A repeated component reads the elements of the scope that repeats
+        // it, so `second` may live in a component enclosing the leaf. Drop
+        // the descents below it. Otherwise the path would name an outer
+        // element inside the instance: a new key for the same property on
+        // every lap, and the walk would never terminate (#13275).
+        let enclosing = element.borrow().enclosing_component.upgrade().unwrap();
+        while let Some(last) = elements.last() {
+            let last_component = last.borrow().base_type.as_component().clone();
+            if check_that_element_is_in_the_component(&element, &last_component) {
+                break;
+            }
+            debug_assert!(
+                check_that_element_is_in_the_component(&last_component.root_element, &enclosing),
+                "The element is not in the component pointed at by the path ({self:?} / {second:?})"
+            );
+            elements.pop();
+        }
         loop {
             let enclosing = element.borrow().enclosing_component.upgrade().unwrap();
             if enclosing.parent_element().is_some()
@@ -126,28 +144,10 @@ impl PropertyPath {
             {
                 break;
             }
-
-            let Some(last) = elements.last() else {
+            let Some(last) = elements.pop() else {
                 break;
             };
-            let last_component = last.borrow().base_type.as_component().clone();
-            if !check_that_element_is_in_the_component(&element, &last_component) {
-                // `element` is not inside `last`'s sub-component. The reverse holds
-                // instead — `last`'s component is enclosed by `element`'s — meaning
-                // `second` is rooted in an enclosing scope (e.g. a repeated cell's
-                // input bound to an outer property). There is no descent prefix to
-                // lift it through, so return it unchanged. Neither containment
-                // holding is a malformed path (asserted in debug builds).
-                debug_assert!(
-                    check_that_element_is_in_the_component(
-                        &last_component.root_element,
-                        &enclosing
-                    ),
-                    "The element is not in the component pointed at by the path ({self:?} / {second:?})"
-                );
-                return second.clone();
-            }
-            element = elements.pop().unwrap().0;
+            element = last.0;
         }
         if second.elements.is_empty() {
             debug_assert!(elements.last().is_none_or(|x| *x != ByAddress(second.prop.element())));
@@ -406,9 +406,6 @@ fn analyze_binding(
     }
 
     if context.currently_analyzing.len() >= MAX_ANALYSIS_DEPTH {
-        // `PropertyPath::relative` can grow the element prefix of a path that
-        // denotes a property it has already reached, so `currently_analyzing`
-        // never recognizes it and the walk does not terminate (#13275).
         // Before `visited`, so a shallower path still analyzes the property.
         let span = binding_span(&element, name);
         diag.push_warning(
@@ -562,6 +559,21 @@ fn find_alias_targets(prop: &PropertyPath, reverse_aliases: &ReverseAliases) -> 
     }
 }
 
+/// Where a layout cell gets its perpendicular size while its layout info is
+/// computed.
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum CrossAxisSize {
+    /// The cell reads its own `width`: box and grid layouts pass no constraint
+    /// on the plain info path (see `cell_layout_info`), so the read is real.
+    ReadByCell,
+    /// The layout passes it as the `cross_axis_constraint` of `ImplicitLayoutInfo`.
+    /// A FlexboxLayout does so for every static `is_height_for_width_cell`
+    /// (see `cell_v_constraint` in `flexbox_layout_data`).
+    /// That set is wider than `is_builtin_height_for_width`: an Image with an
+    /// explicit height is in it.
+    GivenByLayout,
+}
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum ReadType {
     // Read from the native code
@@ -657,7 +669,7 @@ fn recurse_expression(
             {
                 vis(&nr.clone().into(), P);
             }
-            visit_layout_items_dependencies(l.elems.iter(), *o, vis);
+            visit_layout_items_dependencies(l.elems.iter(), *o, CrossAxisSize::ReadByCell, vis);
 
             // The orthogonal solve depends on `cross-axis-alignment` and on the
             // cells' `cross-axis-self-alignment`.
@@ -742,7 +754,12 @@ fn recurse_expression(
                 match layout.axis_relation(orientation) {
                     FlexboxAxisRelation::MainAxis => {
                         // Main axis: only visit same-axis item dependencies
-                        visit_layout_items_dependencies(layout.elems.iter(), orientation, vis);
+                        visit_layout_items_dependencies(
+                            layout.elems.iter(),
+                            orientation,
+                            CrossAxisSize::GivenByLayout,
+                            vis,
+                        );
                     }
                     FlexboxAxisRelation::CrossAxis => {
                         // Cross axis: depends on the perpendicular (main-axis)
@@ -766,11 +783,13 @@ fn recurse_expression(
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Horizontal,
+                            CrossAxisSize::GivenByLayout,
                             vis,
                         );
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Vertical,
+                            CrossAxisSize::GivenByLayout,
                             vis,
                         );
                     }
@@ -781,11 +800,13 @@ fn recurse_expression(
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Horizontal,
+                            CrossAxisSize::GivenByLayout,
                             vis,
                         );
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Vertical,
+                            CrossAxisSize::GivenByLayout,
                             vis,
                         );
                     }
@@ -818,6 +839,7 @@ fn recurse_expression(
             visit_layout_items_dependencies(
                 layout.elems.iter().map(|it| &it.item),
                 *orientation,
+                CrossAxisSize::ReadByCell,
                 vis,
             );
             let mut g = layout.geometry.clone();
@@ -830,9 +852,18 @@ fn recurse_expression(
         } => vis(&nr.clone().into(), P),
         Expression::FunctionCall { function: Callable::Builtin(b), arguments, .. } => match b {
             BuiltinFunction::ImplicitLayoutInfo(orientation) => {
-                if let [Expression::ElementReference(item), ..] = arguments.as_slice() {
+                if let [Expression::ElementReference(item), constraint, ..] = arguments.as_slice() {
+                    // A non-default argument is the width parameter that
+                    // `rewrite_layoutinfo_v_for_constraint` put there.
+                    let cross_size = if crate::layout::is_unconstrained_layout_info_arg(constraint)
+                    {
+                        CrossAxisSize::ReadByCell
+                    } else {
+                        CrossAxisSize::GivenByLayout
+                    };
                     visit_implicit_layout_info_dependencies(
                         *orientation,
+                        cross_size,
                         &item.upgrade().unwrap(),
                         vis,
                     );
@@ -898,19 +929,20 @@ fn recurse_expression(
 fn visit_layout_items_dependencies<'a>(
     items: impl Iterator<Item = &'a LayoutItem>,
     orientation: Orientation,
+    cross_size: CrossAxisSize,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
     for it in items {
         let mut element = it.element.clone();
-        if element
-            .borrow()
-            .repeated
-            .as_ref()
-            .map(|r| recurse_expression(&element, &r.model, vis))
-            .is_some()
-        {
+        let cross_size = if let Some(r) = &it.element.borrow().repeated {
+            recurse_expression(&element, &r.model, vis);
             element = it.element.borrow().base_type.as_component().root_element.clone();
-        }
+            // Conservative for a repeated cell: whether the layout hands the
+            // instance its width depends on it (see `cell_measure_capability`).
+            CrossAxisSize::ReadByCell
+        } else {
+            cross_size
+        };
 
         if let Some(nr) = element.borrow().layout_info_prop(orientation) {
             vis(&nr.clone().into(), ReadType::PropertyRead);
@@ -923,7 +955,7 @@ fn visit_layout_items_dependencies<'a>(
                     ReadType::PropertyRead,
                 );
             }
-            visit_implicit_layout_info_dependencies(orientation, &element, vis);
+            visit_implicit_layout_info_dependencies(orientation, cross_size, &element, vis);
         }
 
         for (nr, _) in it.constraints.for_each_restrictions(orientation) {
@@ -1028,19 +1060,27 @@ fn visit_cell_cross_axis_implicit_dependency(
 }
 
 /// The builtin function can call native code, and we need to visit the properties that are accessed by it
+///
+/// With `GivenByLayout`, the caller passes the item its width, so a
+/// height-for-width item's vertical info doesn't read it.
 fn visit_implicit_layout_info_dependencies(
     orientation: crate::layout::Orientation,
+    cross_size: CrossAxisSize,
     item: &ElementRc,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
     let base_type = item.borrow().base_type.to_smolstr();
     const N: ReadType = ReadType::NativeRead;
+    let reads_own_width =
+        orientation == Orientation::Vertical && cross_size == CrossAxisSize::ReadByCell;
     match base_type.as_str() {
         "Image" => {
             vis(&NamedReference::new(item, SmolStr::new_static("source")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("source-clip-width")).into(), N);
-            if orientation == Orientation::Vertical {
+            if reads_own_width {
                 vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
+            }
+            if orientation == Orientation::Vertical {
                 vis(
                     &NamedReference::new(item, SmolStr::new_static("source-clip-height")).into(),
                     N,
@@ -1069,7 +1109,7 @@ fn visit_implicit_layout_info_dependencies(
                     .borrow()
                     .get("wrap")
                     .is_some_and(|a| a.is_set || a.is_set_externally);
-            if wrap_set && orientation == Orientation::Vertical {
+            if wrap_set && reads_own_width {
                 vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
             }
             if base_type.as_str() == "TextInput" {
@@ -1088,7 +1128,7 @@ fn visit_implicit_layout_info_dependencies(
             // A line dropped by the limit is also excluded from the content widths, so
             // `max-lines` is a dependency of both orientations, not just the height.
             vis(&NamedReference::new(item, SmolStr::new_static("max-lines")).into(), N);
-            if orientation == Orientation::Vertical {
+            if reads_own_width {
                 // StyledText always word-wraps, so its height depends on the width.
                 vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
             }

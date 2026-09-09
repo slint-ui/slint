@@ -898,6 +898,16 @@ pub enum BuiltinFilter {
     SkipNonImplicit,
 }
 
+/// The `cross_axis_constraint` argument of `ImplicitLayoutInfo` when the caller
+/// has none: the item then reads its own perpendicular size.
+pub(crate) fn unconstrained_layout_info_arg() -> Expression {
+    Expression::NumberLiteral(-1., Unit::None)
+}
+
+pub(crate) fn is_unconstrained_layout_info_arg(e: &Expression) -> bool {
+    matches!(e, Expression::NumberLiteral(v, Unit::None) if *v == -1.)
+}
+
 /// Get the implicit layout info of a particular element.
 /// When `constraint` is `Some`, it's passed as the `cross_axis_constraint`
 /// parameter to `Item::layout_info` for height-for-width support.
@@ -990,7 +1000,7 @@ pub fn implicit_layout_info_call(
                 function: BuiltinFunction::ImplicitLayoutInfo(orientation).into(),
                 arguments: vec![
                     Expression::ElementReference(Rc::downgrade(elem)),
-                    constraint.unwrap_or(Expression::NumberLiteral(-1., Unit::None)),
+                    constraint.unwrap_or_else(unconstrained_layout_info_arg),
                 ],
                 source_location: None,
             }),
