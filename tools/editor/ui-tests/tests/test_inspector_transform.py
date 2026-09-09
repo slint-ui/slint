@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from editor_sync import current_editor_sync
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from test_inspector import edit_field as edit_inspector_field
@@ -478,14 +479,21 @@ def test_source_reload_cancels_knob_gesture(
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
         wait_for_field(window, "Rotation", "62")
         updated = baseline.replace(b"32deg", b"17.5deg")
+        checkpoint = current_editor_sync.get().checkpoint()
         (fixture_project / SOURCE).write_bytes(updated)
+        current_editor_sync.get().wait_for_processed(
+            fixture_project / SOURCE,
+            updated,
+            after=int(checkpoint["cursor"]),
+            outcome="compiled",
+        )
         wait_for_field(window, "Rotation", "17.5")
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(
                 end, slint_testing.PointerEventButton.Left
             )
         )
-        time.sleep(0.2)
+        current_editor_sync.get().checkpoint(timeout=1)
         assert (fixture_project / SOURCE).read_bytes() == updated
 
 
@@ -548,14 +556,22 @@ def test_undo_while_dragging_cancels_release(
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
         wait_for_field(window, "Rotation", "72" if history else "62")
-        shortcut(window)
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(
-                end, slint_testing.PointerEventButton.Left
+        sync = current_editor_sync.get()
+        with sync.action() as action_scope:
+            shortcut(window)
+            window.dispatch_event(
+                slint_testing.PointerReleaseEvent(
+                    end, slint_testing.PointerEventButton.Left
+                )
             )
-        )
-        time.sleep(0.3)
-        snapshot.wait_for_applied(baseline, relative_path=SOURCE)
+        if history:
+            sync.wait_for_source(
+                fixture_project / SOURCE,
+                baseline,
+                after=int(action_scope.checkpoint["cursor"]),
+            )
+        else:
+            action_scope.assert_no_source_writes(timeout=1)
         wait_for_field(window, "Rotation", "32")
 
 

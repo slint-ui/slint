@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from editor_sync import current_editor_sync
 from inspector_interactions import FIELDS
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
@@ -49,9 +50,15 @@ def test_broken_source_preserves_last_valid_preview(
         )
         handle, size = window.handle, window.size
         broken = source_file.read_bytes() + b"\nthis is not valid Slint\n"
+        checkpoint = current_editor_sync.get().checkpoint()
         source_file.write_bytes(broken)
         snapshot.wait_for_exact(broken)
-        time.sleep(0.25)
+        current_editor_sync.get().wait_for_processed(
+            source_file,
+            broken,
+            after=int(checkpoint["cursor"]),
+            outcome="compile_error",
+        )
         window_element_with_label(
             window, "Fixture text", slint_testing.AccessibleRole.Text
         )
@@ -77,8 +84,15 @@ def test_repaired_source_recovers_preview(
         window_element_with_label(
             window, "Fixture text", slint_testing.AccessibleRole.Text
         )
+        checkpoint = current_editor_sync.get().checkpoint()
         source_file.write_bytes(baseline + b"\ninvalid source\n")
-        time.sleep(0.25)
+        broken = baseline + b"\ninvalid source\n"
+        current_editor_sync.get().wait_for_processed(
+            source_file,
+            broken,
+            after=int(checkpoint["cursor"]),
+            outcome="compile_error",
+        )
         repaired = baseline.replace(b"Fixture text", b"Recovered source", 1)
         source_file.write_bytes(repaired)
         snapshot.wait_for_exact(repaired)
