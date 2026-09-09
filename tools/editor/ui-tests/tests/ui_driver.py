@@ -5,9 +5,11 @@ import contextlib
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TypeVar
 
 import slint_testing
+from editor_sync import EditorSync, current_editor_sync
 from ui_reporting import capture_failure, current_report, replay_stage
 
 PALETTE_KINDS = ("Image", "Rectangle", "Text", "TouchArea")
@@ -124,18 +126,27 @@ def launch_editor(
     arguments = [str(binary)]
     if file is not None:
         arguments.append(str(file))
-    with slint_testing.Application(
-        arguments, env=environment, launch_timeout=20
-    ) as application:
+    with TemporaryDirectory(prefix="slint-editor-sync-") as directory:
+        sync = EditorSync(Path(directory))
+        token = current_editor_sync.set(sync)
         try:
-            yield application
-            report = current_report.get()
-            if report is not None and report.completed_stages == 0:
-                with replay_stage("completed"):
-                    pass
-        except Exception as error:
-            capture_failure(application, error)
-            raise
+            with slint_testing.Application(
+                arguments,
+                env=environment | {"SLINT_EDITOR_TEST_SYNC": directory},
+                launch_timeout=20,
+            ) as application:
+                try:
+                    yield application
+                    report = current_report.get()
+                    if report is not None and report.completed_stages == 0:
+                        with replay_stage("completed"):
+                            pass
+                except Exception as error:
+                    capture_failure(application, error)
+                    raise
+
+        finally:
+            current_editor_sync.reset(token)
 
 
 def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:

@@ -163,10 +163,23 @@ def test_stale_selection_commit_is_rejected(
         snapshot.assert_unchanged()
 
 
+@pytest.mark.parametrize(
+    ("label", "property_name", "original", "updated"),
+    [
+        (FIELDS["x"], "x", "32", "36"),
+        (FIELDS["y"], "y", "32", "40"),
+        (FIELDS["width"], "width", "160", "180"),
+        (FIELDS["height"], "height", "96", "120"),
+    ],
+)
 def test_stale_revision_commit_is_rejected(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
+    label: str,
+    property_name: str,
+    original: str,
+    updated: str,
 ) -> None:
     source_file = fixture_project / "InspectorCases.slint"
     baseline = source_file.read_bytes()
@@ -175,26 +188,32 @@ def test_stale_revision_commit_is_rejected(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_outline_row(window, "inspect-rectangle")
-        stage_field_text(window, FIELDS["x"], "99")
+        stage_field_text(window, label, "99")
         snapshot.assert_unchanged_now()
-        external = baseline.replace(b"        x: 32px;", b"        x: 36px;", 1)
+        external = baseline.replace(
+            f"        {property_name}: {original}px;".encode(),
+            f"        {property_name}: {updated}px;".encode(),
+            1,
+        )
+        assert external != baseline
         source_file.write_bytes(external)
         snapshot.wait_for_exact(external, relative_path="InspectorCases.slint")
+        snapshot = SourceSnapshot.capture(fixture_project)
         wait_until(
             lambda: (
                 field
                 if (
                     field := window_element_with_label(
-                        window, FIELDS["x"], slint_testing.AccessibleRole.TextInput
+                        window, label, slint_testing.AccessibleRole.TextInput
                     )
                 ).accessible_value
-                == "36"
+                == updated
                 else None
             ),
             timeout=15,
         )
         press_key(window, keys.Return)
-        SourceSnapshot.capture(fixture_project).assert_unchanged()
+        snapshot.assert_unchanged()
 
 
 @pytest.mark.skip(reason="Requires a Rust source-watcher recovery fix")

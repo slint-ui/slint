@@ -96,6 +96,7 @@ pub fn setup(api: &ui::Api<'_>) {
         let Some(document_cache) = super::document_cache() else { return };
         super::PREVIEW_STATE.with_borrow_mut(|state| {
             if state.workspace_edit_sent {
+                state.pending_history.push_back(false);
                 return;
             }
             let Some(edit) = state.undo_redo_stack.undo_stack.pop() else {
@@ -129,6 +130,7 @@ pub fn setup(api: &ui::Api<'_>) {
         let Some(document_cache) = super::document_cache() else { return };
         super::PREVIEW_STATE.with_borrow_mut(|state| {
             if state.workspace_edit_sent {
+                state.pending_history.push_back(true);
                 return;
             }
             let Some(edit) = state.undo_redo_stack.redo_stack.pop() else {
@@ -158,6 +160,23 @@ pub fn setup(api: &ui::Api<'_>) {
             state.workspace_edit_sent = true;
         })
     });
+}
+
+pub(super) fn apply_pending() {
+    loop {
+        let next = super::PREVIEW_STATE.with_borrow_mut(|state| {
+            if state.workspace_edit_sent {
+                return None;
+            }
+            Some((state.api.upgrade()?, state.pending_history.pop_front()?))
+        });
+        let Some((api, redo)) = next else { return };
+        if redo {
+            api.invoke_redo();
+        } else {
+            api.invoke_undo();
+        }
+    }
 }
 
 pub fn set_undo_redo_enabled(state: &super::PreviewState) {

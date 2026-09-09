@@ -40,6 +40,7 @@ component PalettePlaceholderDragPreview inherits Rectangle {
 }
 
 export component DragPreview inherits Rectangle {
+    in property <Point> parent-origin;
     private property <bool> palette-drag-active: AppState.palette-drag-kind != PaletteComponentKind.none;
     visible: AppState.outline-drag-active || root.palette-drag-active;
     width: AppState.outline-drag-active
@@ -48,12 +49,12 @@ export component DragPreview inherits Rectangle {
     height: AppState.outline-drag-active
         ? AppState.outline-drag-preview-size.height
         : AppState.palette-drag-size.height;
-    x: AppState.outline-drag-active
+    x: (AppState.outline-drag-active
         ? AppState.outline-drag-position.x
-        : AppState.palette-drag-preview-position.x;
-    y: AppState.outline-drag-active
+        : AppState.palette-drag-preview-position.x) - root.parent-origin.x;
+    y: (AppState.outline-drag-active
         ? AppState.outline-drag-position.y
-        : AppState.palette-drag-preview-position.y;
+        : AppState.palette-drag-preview-position.y) - root.parent-origin.y;
     border-radius: AppState.outline-drag-active
         ? EditorTreeTokens.row-radius
         : AppState.palette-drag-kind == PaletteComponentKind.touch-area ? 0px

@@ -14,6 +14,7 @@ export component InspectorTextFieldBase inherits Rectangle {
     in property <color> input-color: root.enabled ? InspectorTokens.text : InspectorTokens.muted;
     in property <string> commit-key: "";
     private property <string> active-commit-key: root.commit-key;
+    private property <bool> edited: false;
     callback accepted(string) -> bool;
 
     height: InspectorTokens.field-height;
@@ -37,12 +38,13 @@ export component InspectorTextFieldBase inherits Rectangle {
     }
 
     changed value => {
-        if !input.has-focus {
+        if !input.has-focus || !root.edited {
             input.text = root.value;
         }
     }
 
     changed commit-key => {
+        root.edited = false;
         input.text = root.value;
         root.active-commit-key = root.commit-key;
     }
@@ -80,6 +82,8 @@ export component InspectorTextFieldBase inherits Rectangle {
                 vertical-alignment: center;
                 selection-background-color: InspectorTokens.accent.with-alpha(0.28);
                 text-cursor-width: 1px;
+
+                edited => { root.edited = true; }
 
                 accepted => {
                     if !root.accept-input(self.text) {

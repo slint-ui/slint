@@ -45,6 +45,21 @@ cd tools/editor/ui-tests
 The runner uses up to four workers and lets pytest report the result and total duration.
 The tests use the headless Skia backend by default, so editor windows do not appear locally or in CI.
 
+## Wait for Edits
+
+Use `snapshot.wait_for_applied(expected, relative_path)` before an action that depends on an edit's completed preview and history update.
+It checks exact project source, then waits for matching source in the installed preview with no compilation, workspace edit, or history request pending.
+For external file writes, use `editor_sync.wait_for_source(path, expected)` to wait for the installed source directly.
+
+`launch_editor` creates a private synchronization directory for each editor process.
+The `system-testing` build answers requests on its UI thread through `SLINT_EDITOR_TEST_SYNC`.
+Request IDs prevent an earlier response from satisfying a later wait; source comparisons prevent an older compilation from satisfying it.
+Timeout failures include the pending-work flag and documents that haven't reached the preview.
+
+Keep `wait_for_exact` for disk-only assertions and tests that deliberately send input while compilation is pending.
+Keyboard helpers dispatch immediately; put completion waits at the call sites that need them.
+Don't use completion waits for invalid source or transient drag previews, which must not become installed document revisions.
+
 ## Watch the Tests on a Desktop
 
 Run the suite with native windows to see each interaction:

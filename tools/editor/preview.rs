@@ -44,6 +44,7 @@ mod drop_location;
 mod element_selection;
 pub mod eval;
 mod ext;
+mod inspector;
 #[cfg(target_os = "macos")]
 pub mod macos_titlebar;
 mod preview_data;
@@ -53,6 +54,8 @@ mod properties;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
 pub(crate) mod settings;
+#[cfg(feature = "system-testing")]
+mod test_sync;
 pub mod ui;
 mod undo_redo;
 
@@ -70,6 +73,9 @@ pub fn initialize(
         preview_state.editor_ui = Some(editor_ui.clone_strong());
         preview_state.settings = settings;
     });
+
+    #[cfg(feature = "system-testing")]
+    test_sync::initialize();
 
     to_lsp
         .send_telemetry(&mut [(
@@ -214,6 +220,8 @@ pub struct PreviewState {
     initial_live_data: preview_data::PreviewDataMap,
     current_live_data: preview_data::PreviewDataMap,
     undo_redo_stack: undo_redo::UndoRedoStack,
+    pending_history: std::collections::VecDeque<bool>,
+    inspector_edit: Option<inspector::Edit>,
 
     source_code: SourceCodeCache,
     resources: HashSet<Url>,
@@ -425,27 +433,33 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &VersionedUrl, content: String) {
-    if let Some((current, behavior)) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+    let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
             undo_redo::set_undo_redo_enabled(preview_state);
         }
-
         let old = preview_state.source_code.insert(
             url.url().clone(),
             SourceCodeCacheEntry { version: *url.version(), code: content.clone() },
         );
-
-        if Some(content) == old.map(|o| o.code) {
-            return None;
-        }
-
-        if preview_state.dependencies.contains(url.url()) {
-            preview_state.current_component().map(|current| (current, LoadBehavior::Reload))
-        } else {
-            None
-        }
-    }) {
-        load_preview(current, behavior);
+        let changed = old.as_ref().is_none_or(|old| old.code != content);
+        let version_changed = old.as_ref().is_none_or(|old| old.version != *url.version());
+        let selected_document = preview_state
+            .selected
+            .as_ref()
+            .and_then(|selected| Url::from_file_path(&selected.path).ok())
+            .as_ref()
+            == Some(url.url());
+        let dependency = preview_state.dependencies.contains(url.url());
+        let invalidate =
+            (selected_document && (changed || version_changed)) || (dependency && changed);
+        let reload = (dependency && changed).then(|| preview_state.current_component()).flatten();
+        (reload, invalidate)
+    });
+    if invalidate {
+        inspector::invalidate();
+    }
+    if let Some(current) = reload {
+        load_preview(current, LoadBehavior::Reload);
     }
 }
 
@@ -2391,9 +2405,10 @@ pub enum SelectionNotification {
 }
 
 fn set_selected_element(
-    selection: Option<element_selection::ElementSelection>,
+    mut selection: Option<element_selection::ElementSelection>,
     editor_notification: SelectionNotification,
 ) {
+    inspector::cancel();
     let (layout_kind, parent_layout_kind, type_name) = {
         let selection_node = selection.as_ref().and_then(|s| s.as_element_node());
         let (layout_kind, parent_layout_kind) = selection_node
@@ -2494,6 +2509,14 @@ fn set_selected_element(
                         properties::query_properties(&uri, version, &selection, in_layout).ok(),
                     ));
                 }
+            } else if !notify_editor_about_selection_after_update
+                && !preview_state.workspace_edit_sent
+            {
+                api.set_current_element(Default::default());
+                api.set_properties(Default::default());
+                api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
+                preview_state.property_range_declarations = None;
+                selection = None;
             }
         }
 
@@ -2613,7 +2636,7 @@ fn update_preview_area(
 
         if let Some(compiled) = compiled {
             api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
-            api.set_current_element(Default::default());
+            // Keep the inspector mounted until reselection, so edits retain keyboard focus.
 
             set_preview_factory(
                 editor_ui,
@@ -2670,7 +2693,9 @@ fn update_preview_area(
         Ok(())
     })?;
 
+    inspector::invalidate();
     element_selection::reselect_element();
+    undo_redo::apply_pending();
     Ok(())
 }
 
@@ -2760,6 +2785,34 @@ mod tests {
             *state = PreviewState::default();
             state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
         });
+    }
+
+    #[test]
+    fn source_push_only_invalidates_relevant_inspector_edits() {
+        i_slint_backend_testing::init_no_event_loop();
+        reset_preview_state(Default::default());
+        let editor = ui::EditorUi::new().unwrap();
+        let api = editor.global::<ui::Api>();
+        let path = std::env::temp_dir().join("inspector-push.slint");
+        let url = Url::from_file_path(&path).unwrap();
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+            state.selected = Some(ElementSelection { path, offset: 0.into(), instance_index: 0 });
+            state.dependencies.insert(url.clone());
+            state
+                .source_code
+                .insert(url.clone(), SourceCodeCacheEntry { version: Some(1), code: "old".into() });
+        });
+        set_contents(&VersionedUrl::new(url.clone(), Some(1)), "old".into());
+        assert_eq!(api.get_inspector_generation(), 0);
+        let unrelated = Url::from_file_path(std::env::temp_dir().join("unrelated.slint")).unwrap();
+        set_contents(&VersionedUrl::new(unrelated, Some(2)), "other".into());
+        assert_eq!(api.get_inspector_generation(), 0);
+        set_contents(&VersionedUrl::new(url.clone(), Some(2)), "old".into());
+        assert_eq!(api.get_inspector_generation(), 1);
+        set_contents(&VersionedUrl::new(url, Some(2)), "new".into());
+        assert_eq!(api.get_inspector_generation(), 2);
+        reset_preview_state(Default::default());
     }
 
     fn temp_file(name: &str) -> PathBuf {

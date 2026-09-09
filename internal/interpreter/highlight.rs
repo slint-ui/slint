@@ -42,9 +42,26 @@ pub struct HighlightedRect {
     /// Absolute rotation (in degrees) of this instance's parent coordinate system.
     ///
     /// `angle - parent_rotation` yields the element's own rotation relative to its parent, which
-    /// matches the `rotation-angle`/`transform-rotation` property written to the source.
+    /// matches `transform-rotation` modulo complete turns. Use `transform_rotation` to retain those turns.
     pub parent_rotation: f32,
+    /// Evaluated parent-relative rotation in degrees, including complete turns.
+    pub transform_rotation: f32,
+    /// Evaluated corner radii in logical pixels.
+    pub corner_radii: CornerRadii,
 }
+/// Evaluated rectangle corner radii in logical pixels.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CornerRadii {
+    /// Top-left radius.
+    pub top_left: f32,
+    /// Top-right radius.
+    pub top_right: f32,
+    /// Bottom-left radius.
+    pub bottom_left: f32,
+    /// Bottom-right radius.
+    pub bottom_right: f32,
+}
+
 impl HighlightedRect {
     /// Returns true if `position` lies inside the (potentially rotated) rectangle.
     pub fn contains(&self, position: LogicalPoint) -> bool {
@@ -340,6 +357,7 @@ fn item_flat_index_to_rect(
     // `lower_property_to_element`) take over the element's geometry and lay the element
     // out at (0,0) inside themselves, so measuring the parent frame from the element
     // directly would collapse `rect.origin - parent_origin` to ~0.
+    let mut transform_rotation = 0.;
     let mut anchor = item_rc.clone();
     while let Some(parent) =
         anchor.parent_item(i_slint_core::item_tree::ParentItemTraversalMode::StopAtPopups)
@@ -349,6 +367,12 @@ fn item_flat_index_to_rect(
         }
         if !is_injected_wrapper_element(instance, parent.index() as usize) {
             break;
+        }
+        if let Some(transform) = i_slint_core::items::ItemRef::downcast_pin::<
+            i_slint_core::items::Transform,
+        >(parent.borrow())
+        {
+            transform_rotation += transform.transform_rotation();
         }
         anchor = parent;
     }
@@ -389,6 +413,8 @@ fn item_flat_index_to_rect(
         angle: angle_rad.to_degrees(),
         parent_origin,
         parent_rotation,
+        transform_rotation,
+        corner_radii: item_corner_radii(item_rc.borrow()),
     })
 }
 
@@ -399,6 +425,48 @@ fn positions_by_source(
     use_site: Option<(&Path, u32)>,
     filter: ElementPositionFilter,
 ) -> Vec<HighlightedRect> {
+    items_by_source(root, target_path, target_offset, use_site)
+        .into_iter()
+        .filter_map(|(instance, flat_idx)| {
+            if filter == ElementPositionFilter::ExcludeClipped {
+                let item = ItemRc::new(VRc::into_dyn(instance.clone()), flat_idx as u32);
+                if !item.is_visible() {
+                    return None;
+                }
+            }
+            item_flat_index_to_rect(&instance, root, flat_idx)
+        })
+        .collect()
+}
+
+fn item_corner_radii(item: Pin<i_slint_core::items::ItemRef<'_>>) -> CornerRadii {
+    use i_slint_core::items::{BasicBorderRectangle, BorderRectangle, ItemRef};
+    if let Some(rect) = ItemRef::downcast_pin::<BorderRectangle>(item) {
+        CornerRadii {
+            top_left: rect.border_top_left_radius().get(),
+            top_right: rect.border_top_right_radius().get(),
+            bottom_left: rect.border_bottom_left_radius().get(),
+            bottom_right: rect.border_bottom_right_radius().get(),
+        }
+    } else if let Some(rect) = ItemRef::downcast_pin::<BasicBorderRectangle>(item) {
+        let radius = rect.border_radius().get();
+        CornerRadii {
+            top_left: radius,
+            top_right: radius,
+            bottom_left: radius,
+            bottom_right: radius,
+        }
+    } else {
+        CornerRadii::default()
+    }
+}
+
+fn items_by_source(
+    root: &VRc<ItemTreeVTable, Instance>,
+    target_path: &Path,
+    target_offset: u32,
+    use_site: Option<(&Path, u32)>,
+) -> Vec<(VRc<ItemTreeVTable, Instance>, usize)> {
     let cu = root.root_sub_component.compilation_unit.clone();
     let mut results = Vec::new();
     // Repeated / conditional rows are separate instances with their own
@@ -420,16 +488,7 @@ fn positions_by_source(
                     continue;
                 }
                 for flat_idx in find_flat_indices_for_item(&instance, sc_idx, local_idx, use_site) {
-                    if filter == ElementPositionFilter::ExcludeClipped {
-                        let dyn_rc = vtable::VRc::into_dyn(instance.clone());
-                        let item_rc = i_slint_core::items::ItemRc::new(dyn_rc, flat_idx as u32);
-                        if !item_rc.is_visible() {
-                            continue;
-                        }
-                    }
-                    if let Some(rect) = item_flat_index_to_rect(&instance, root, flat_idx) {
-                        results.push(rect);
-                    }
+                    results.push((instance.clone(), flat_idx));
                 }
             }
         }
@@ -550,5 +609,50 @@ export component Win inherits Window {
 
         check("outer", 30.0);
         check("inner", 15.0);
+    }
+    #[test]
+    fn evaluated_rotation_and_radii_share_geometry_instances() {
+        let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 300px;
+    outer := Rectangle {
+        width: 200px;
+        height: 200px;
+        transform-rotation: 30deg;
+        for angle in [382.25deg, -397.5deg]: Rectangle {
+            width: 40px;
+            height: 40px;
+            transform-rotation: angle;
+            border-top-left-radius: 1.5px;
+            border-top-right-radius: 2.5px;
+            border-bottom-left-radius: 3.5px;
+            border-bottom-right-radius: 4.5px;
+        }
+    }
+}"#;
+        let instance = compile_with_debug_hooks(code);
+        let offset = code
+            .find(
+                "Rectangle {
+            width",
+            )
+            .unwrap();
+        let (element, _) = instance
+            .element_node_at_source_code_position(&test_path(), offset as u32)
+            .first()
+            .cloned()
+            .unwrap();
+        let geometries = instance.element_positions(&element);
+        assert_eq!(geometries.len(), 2);
+        for (geometry, expected) in geometries.iter().zip([382.25, -397.5]) {
+            assert_eq!(geometry.transform_rotation, expected);
+            assert!((geometry.parent_rotation - 30.).abs() < 0.001);
+            let radii = geometry.corner_radii;
+            assert_eq!(
+                [radii.top_left, radii.top_right, radii.bottom_left, radii.bottom_right],
+                [1.5, 2.5, 3.5, 4.5]
+            );
+        }
     }
 }

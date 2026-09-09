@@ -41,20 +41,28 @@ export component EditorUi inherits Window {
     function open-project() {
         root.close-startup-wizard();
     }
+    function apply-history(redo: bool) {
+        Api.inspector-cancel();
+        Api.inspector-generation += 1;
+        if redo {
+            if Api.redo-enabled { Api.redo(); }
+        } else {
+            if Api.undo-enabled { Api.undo(); }
+        }
+    }
+
     MenuBar {
         Menu {
             title: @tr("Edit");
             MenuItem {
                 title: @tr("Undo");
-                shortcut: @keys(Control + Z);
                 enabled: Api.undo-enabled;
-                activated => { Api.undo(); }
+                activated => { root.apply-history(false); }
             }
             MenuItem {
                 title: @tr("Redo");
-                shortcut: Platform.os == OperatingSystemType.windows ? @keys(Control + Y) : @keys(Control + Shift + Z);
                 enabled: Api.redo-enabled;
-                activated => { Api.redo(); }
+                activated => { root.apply-history(true); }
             }
         }
     }
@@ -76,7 +84,7 @@ export component EditorUi inherits Window {
             capture-key-pressed(event) => {
                 if event.text == Key.Shift || event.text == Key.ShiftR {
                     self.shift-pressed = true;
-                    return accept;
+                    return reject;
                 }
                 reject
             }
@@ -84,12 +92,17 @@ export component EditorUi inherits Window {
             capture-key-released(event) => {
                 if event.text == Key.Shift || event.text == Key.ShiftR {
                     self.shift-pressed = false;
-                    return accept;
+                    return reject;
                 }
                 reject
             }
 
             key-pressed(event) => {
+                let redo-y = Platform.os == OperatingSystemType.windows && (event.text == "y" || event.text == "Y");
+                if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z" || redo-y) {
+                    root.apply-history(event.modifiers.shift || redo-y);
+                    return accept;
+                }
                 if event.text == Key.Escape && AppState.has-active-drag() {
                     AppState.cancel-active-drags();
                     return accept;
@@ -109,7 +122,7 @@ export component EditorUi inherits Window {
             DropArea {
                 can-drop(event) => {
                     if AppState.palette-drag-kind != PaletteComponentKind.none {
-                        AppState.update-palette-drag(AppState.palette-drag-kind, event.position);
+                        AppState.update-palette-drag(AppState.palette-drag-kind, { x: event.position.x + self.absolute-position.x, y: event.position.y + self.absolute-position.y });
                     }
                     return DragAction.none;
                 }
@@ -156,7 +169,7 @@ export component EditorUi inherits Window {
                     }
                 }
 
-                DragPreview { }
+                DragPreview { parent-origin: parent.absolute-position; }
 
                 if root.sidebars-collapsed: Rectangle {
                     x: 18px;
