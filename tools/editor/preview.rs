@@ -2150,25 +2150,12 @@ async fn reload_timer_function() {
         let work = PREVIEW_STATE
             .with_borrow_mut(|s| test_sync::Work::combine(std::mem::take(&mut s.sync_reload_work)));
         #[cfg(feature = "system-testing")]
-        let result = work
-            .during(reload_preview_impl(preview_component, behavior, style, config, generation))
+        work.during(reload_preview_impl(preview_component, behavior, style, config, generation))
             .await;
         #[cfg(not(feature = "system-testing"))]
-        let result =
-            reload_preview_impl(preview_component, behavior, style, config, generation).await;
+        reload_preview_impl(preview_component, behavior, style, config, generation).await;
         #[cfg(feature = "system-testing")]
         completion_work.push(work);
-        match result {
-            Ok(()) => {}
-            Err(e) => {
-                tracing::debug!("Preview reload failed: {}", e);
-                PREVIEW_STATE.with_borrow_mut(|preview_state| {
-                    preview_state.loading_state = PreviewFutureState::Pending;
-                });
-                tracing::error!("{e}");
-                std::process::exit(3);
-            }
-        }
 
         match PREVIEW_STATE.with_borrow(|preview_state| preview_state.loading_state) {
             PreviewFutureState::Loading => {
@@ -2353,7 +2340,7 @@ async fn reload_preview_impl(
     style: String,
     config: PreviewConfig,
     generation: u64,
-) -> Result<(), PlatformError> {
+) {
     let compilation = PREVIEW_STATE.with_borrow_mut(|state| {
         state.compilation_sequence += 1;
         state.compilation_sequence
@@ -2474,41 +2461,23 @@ async fn reload_preview_impl(
     let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
     lsp.notify_diagnostics(diags).unwrap();
 
+    let install = move || {
+        finish_preview_installation(update_preview_area(
+            compiled,
+            behavior,
+            open_import_callback,
+            source_file_versions,
+            format,
+            generation,
+            installation,
+            #[cfg(feature = "system-testing")]
+            Some(attempt),
+        ));
+    };
     #[cfg(feature = "system-testing")]
-    {
-        let work = test_sync::Work::capture("preview installation");
-        test_sync::publish(&component.url, attempt, move || {
-            work.run(|| {
-                if !preview_generation_is_current(generation) {
-                    test_sync::processed(attempt, "superseded", Vec::new());
-                    return;
-                }
-                if let Err(error) = update_preview_area(
-                    compiled,
-                    behavior,
-                    open_import_callback,
-                    source_file_versions,
-                    format,
-                    generation,
-                    installation,
-                    Some(attempt),
-                ) {
-                    tracing::error!("Preview installation failed: {error}");
-                    test_sync::effect(test_sync::Outcome::Failed);
-                }
-            })
-        });
-    }
+    test_sync::publish(&component.url, attempt, install);
     #[cfg(not(feature = "system-testing"))]
-    update_preview_area(
-        compiled,
-        behavior,
-        open_import_callback,
-        source_file_versions,
-        format,
-        generation,
-        installation,
-    )?;
+    install();
 
     if let Some(loaded_component_name) = loaded_component_name {
         let current_preview_loaded = PREVIEW_STATE.with_borrow_mut(|preview_state| {
@@ -2527,7 +2496,14 @@ async fn reload_preview_impl(
     }
 
     finish_parsing();
-    Ok(())
+}
+
+fn finish_preview_installation(result: Result<(), PlatformError>) {
+    if let Err(error) = result {
+        PREVIEW_STATE.with_borrow_mut(|state| state.loading_state = PreviewFutureState::Pending);
+        tracing::error!("Preview installation failed: {error}");
+        std::process::exit(3);
+    }
 }
 
 /// This sets up the preview area to show the ComponentInstance

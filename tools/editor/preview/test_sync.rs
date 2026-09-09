@@ -811,6 +811,48 @@ mod tests {
     }
 
     #[test]
+    fn installation_errors_are_fatal_with_or_without_a_publication_gate() {
+        const CHILD: &str = "SLINT_TEST_INSTALLATION_FAILURE";
+        if let Ok(mode) = std::env::var(CHILD) {
+            i_slint_backend_testing::init_no_event_loop();
+            STATE.set(Arc::new(Mutex::new(observer()))).ok().unwrap();
+            let url: Url = "file:///Main.slint".parse().unwrap();
+            let mut open = request(1, "gate_open");
+            open["kind"] = "publication".into();
+            open["url"] = json!(url);
+            let gate = (mode == "deferred").then(|| respond(open)["gate"].clone());
+            let attempt = begin_attempt(&url, None);
+            publish(&url, attempt, || {
+                super::super::finish_preview_installation(Err(
+                    "injected installation failure".into()
+                ));
+            });
+            println!("publication held");
+            let mut release = request(2, "gate_release");
+            release["gate"] = gate.unwrap();
+            respond(release);
+            pump_publications();
+            panic!("installation failure did not terminate the editor");
+        }
+        for mode in ["immediate", "deferred"] {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "preview::test_sync::tests::installation_errors_are_fatal_with_or_without_a_publication_gate", "--nocapture"])
+                .env(CHILD, mode)
+                .output().unwrap();
+            assert_eq!(
+                output.status.code(),
+                Some(3),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(
+                String::from_utf8_lossy(&output.stdout).contains("publication held"),
+                mode == "deferred"
+            );
+        }
+    }
+
+    #[test]
     fn older_requests_cannot_run_again() {
         let mut state = observer();
         respond_in(&mut state, request(1, "checkpoint"));
