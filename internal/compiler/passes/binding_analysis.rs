@@ -166,6 +166,16 @@ impl From<NamedReference> for PropertyPath {
     }
 }
 
+/// Depth at which the walk gives up rather than overflow the stack. This is a
+/// backstop for a path that keeps changing key for the same property (which
+/// `currently_analyzing` then never recognizes), not a real limit: reaching
+/// it is a compiler bug, reported as a warning.
+///
+/// Far above any chain a real binding graph forms, and not higher because the
+/// frames are large: 1024 of them overflow a small thread stack such as the
+/// 512 KiB pool of the rust test driver (`tests/driver/rust/build.rs`).
+const MAX_ANALYSIS_DEPTH: usize = 256;
+
 struct AnalysisContext<'a> {
     visited: HashSet<PropertyPath>,
     /// The stack of properties that depends on each other
@@ -307,6 +317,13 @@ fn analyze_element(
 #[derive(Copy, Clone, dm::BitAnd, dm::BitOr, dm::BitAndAssign, dm::BitOrAssign)]
 struct DependsOnExternal(bool);
 
+/// Where to report a diagnostic about the binding of `name` on `elem`.
+fn binding_span(elem: &ElementRc, name: &SmolStr) -> crate::diagnostics::SourceLocation {
+    let elem = elem.borrow();
+    let binding = elem.binding_cell_including_synthetic(name).unwrap().borrow();
+    binding.span.clone().unwrap_or_else(|| elem.to_source_location())
+}
+
 fn analyze_binding(
     current: &PropertyPath,
     context: &mut AnalysisContext,
@@ -325,14 +342,7 @@ fn analyze_binding(
             .two_way_bindings
             .is_empty()
     {
-        let span = element
-            .borrow()
-            .binding_cell_including_synthetic(name)
-            .unwrap()
-            .borrow()
-            .span
-            .clone()
-            .unwrap_or_else(|| element.borrow().to_source_location());
+        let span = binding_span(&element, name);
         diag.push_error(format!("Property '{name}' cannot refer to itself"), &span);
         return depends_on_external;
     }
@@ -393,6 +403,19 @@ fn analyze_binding(
             }
         }
         return depends_on_external;
+    }
+
+    if context.currently_analyzing.len() >= MAX_ANALYSIS_DEPTH {
+        // `PropertyPath::relative` can grow the element prefix of a path that
+        // denotes a property it has already reached, so `currently_analyzing`
+        // never recognizes it and the walk does not terminate (#13275).
+        // Before `visited`, so a shallower path still analyzes the property.
+        let span = binding_span(&element, name);
+        diag.push_warning(
+            format!("Binding analysis gave up at depth {MAX_ANALYSIS_DEPTH} on property '{name}', so binding loops through it are not reported. This is a compiler bug, please report it"),
+            &span,
+        );
+        return DependsOnExternal(true);
     }
 
     let element_borrow = element.borrow();
