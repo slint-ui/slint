@@ -229,9 +229,9 @@ export component InspectorPane inherits Rectangle {
         return root.inspector-key + ":" + property-name;
     }
 
-    function property-brush(property-name: string, fallback: brush) -> brush {
+    function property-brush(property-name: string) -> brush {
         let property = Api.current-property-value-data(property-name);
-        return property.code != "" ? property.value-brush : fallback;
+        return property.value-resolved ? property.value-brush : transparent;
     }
 
     function property-string(property-name: string, fallback: string) -> string {
@@ -250,10 +250,16 @@ export component InspectorPane inherits Rectangle {
 
     function property-is-solid(property-name: string) -> bool {
         let property = Api.current-property-value-data(property-name);
-        return property.code == ""
-            || property.kind == PropertyValueKind.color
-            || property.value-kind == PropertyValueKind.color
-            || property.brush-kind == BrushKind.solid;
+        return property.value-resolved
+            && (property.kind == PropertyValueKind.color
+                || property.value-kind == PropertyValueKind.color
+                || ((property.kind == PropertyValueKind.brush || property.value-kind == PropertyValueKind.brush)
+                    && property.brush-kind == BrushKind.solid));
+    }
+
+    function property-effective-color(property-name: string) -> color {
+        let property = Api.current-property-value-data(property-name);
+        return root.property-is-solid(property-name) ? property.value-brush : transparent;
     }
 
     function property-length-label(property-name: string, fallback: string) -> string {
@@ -320,17 +326,11 @@ export component InspectorPane inherits Rectangle {
     }
 
     function shadow-color-code() -> string {
-        let prefix = root.current-shadow-prefix();
-        let fallback = prefix == "inner-shadow-" ? "#00000030" : "#00000040";
-        return Api.current-property-value(prefix + "color", fallback);
+        return Api.current-property-value(root.current-shadow-prefix() + "color", "");
     }
 
-    function shadow-color-swatch() -> color {
-        let property = Api.current-property-value-data(root.current-shadow-prefix() + "color");
-        if property.code != "" {
-            return property.value-brush;
-        }
-        return root.current-shadow-prefix() == "inner-shadow-" ? #00000030 : #00000040;
+    function shadow-color-swatch() -> brush {
+        return root.property-brush(root.current-shadow-prefix() + "color");
     }
 
     function shadow-blur() -> float {
@@ -419,19 +419,19 @@ export component InspectorPane inherits Rectangle {
     }
 
     function rectangle-background-code() -> string {
-        return Api.current-property-value("background", StudioTheme.dark ? "#383838" : "#ffffff");
+        return Api.current-property-value("background", "");
     }
 
     function rectangle-background-swatch() -> brush {
-        return root.property-brush("background", StudioTheme.dark ? #383838 : #ffffff);
+        return root.property-brush("background");
     }
 
     function text-color-code() -> string {
-        return Api.current-property-value("color", StudioTheme.dark ? "#f4f4f4" : "#1f2328");
+        return Api.current-property-value("color", "");
     }
 
     function text-color-swatch() -> brush {
-        return root.property-brush("color", StudioTheme.dark ? #f4f4f4 : #1f2328);
+        return root.property-brush("color");
     }
 
     function text-content-code() -> string {
@@ -721,7 +721,7 @@ export component InspectorPane inherits Rectangle {
                             accessible-name: "Rectangle background";
                             value: root.rectangle-background-code();
                             swatch: root.rectangle-background-swatch();
-                            effective-color: root.rectangle-background-swatch();
+                            effective-color: root.property-effective-color("background");
                             unsupported: !root.property-is-solid("background");
                             commit-key: root.field-key("background");
                             width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
@@ -734,7 +734,7 @@ export component InspectorPane inherits Rectangle {
                             accessible-name: "Text color";
                             value: root.text-color-code();
                             swatch: root.text-color-swatch();
-                            effective-color: root.text-color-swatch();
+                            effective-color: root.property-effective-color("color");
                             unsupported: !root.property-is-solid("color");
                             commit-key: root.field-key("color");
                             width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
@@ -810,7 +810,7 @@ export component InspectorPane inherits Rectangle {
                                     accessible-name: "Shadow color";
                                     value: root.shadow-color-code();
                                     swatch: root.shadow-color-swatch();
-                                    effective-color: root.shadow-color-swatch();
+                                    effective-color: root.property-effective-color(root.current-shadow-prefix() + "color");
                                     unsupported: !root.property-is-solid(root.current-shadow-prefix() + "color");
                                     commit-key: root.field-key(root.current-shadow-prefix() + "color");
                                     accepted(text) => {
