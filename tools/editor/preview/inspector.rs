@@ -10,11 +10,13 @@ const CORNERS: [&str; 4] = [
     "border-bottom-right-radius",
 ];
 
+pub(super) type SavedOverrides = Vec<(SmolStr, Option<slint_interpreter::Value>)>;
+
 pub(super) struct Edit {
     key: String,
     #[cfg(feature = "system-testing")]
     work: test_sync::Work,
-    overrides: Vec<(SmolStr, Option<slint_interpreter::Value>)>,
+    overrides: SavedOverrides,
 }
 
 fn target(key: &str) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
@@ -73,15 +75,21 @@ pub(super) fn cancel() {
                 }
             }
         }
-        // A committed edit has already consumed its gesture record. If its
-        // filesystem write later fails, no record remains to restore these
-        // temporary values, so discard all inspector overrides at the same
-        // terminal boundary as cancellation.
-        (*state.debug_hook_overrides).borrow_mut().clear();
     });
     if let Some(instance) = component_instance() {
         instance.window().request_redraw();
     }
+}
+
+pub(super) fn restore_committed() {
+    PREVIEW_STATE.with_borrow_mut(|state| {
+        let overrides = state.debug_hook_overrides.borrow();
+        for (id, previous) in state.committed_inspector_overrides.drain(..) {
+            if let Some(property) = overrides.get(&id) {
+                property.as_ref().set(previous);
+            }
+        }
+    });
 }
 
 pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool {
@@ -172,7 +180,9 @@ fn commit_impl(key: SharedString, name: SharedString, value: f32) -> bool {
     });
     if accepted {
         PREVIEW_STATE.with_borrow_mut(|state| {
-            state.inspector_edit.take();
+            if let Some(edit) = state.inspector_edit.take() {
+                state.committed_inspector_overrides = edit.overrides;
+            }
         });
     } else {
         cancel();
@@ -207,4 +217,36 @@ pub(super) fn invalidate() {
             api.set_inspector_generation(api.get_inspector_generation().wrapping_add(1));
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn committed_cleanup_preserves_unrelated_overrides() {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            let mut overrides = (*state.debug_hook_overrides).borrow_mut();
+            for (id, value) in [("owned", 45.), ("unrelated", 12.)] {
+                overrides.insert(
+                    id.into(),
+                    Box::pin(i_slint_core::Property::new(Some(slint_interpreter::Value::Number(
+                        value,
+                    )))),
+                );
+            }
+            state.committed_inspector_overrides = vec![("owned".into(), None)];
+        });
+        restore_committed();
+        PREVIEW_STATE.with_borrow(|state| {
+            let overrides = state.debug_hook_overrides.borrow();
+            assert_eq!(overrides["owned"].as_ref().get(), None);
+            assert_eq!(
+                overrides["unrelated"].as_ref().get(),
+                Some(slint_interpreter::Value::Number(12.))
+            );
+            assert!(state.committed_inspector_overrides.is_empty());
+        });
+        PREVIEW_STATE.with_borrow_mut(|state| *state = super::super::PreviewState::default());
+    }
 }

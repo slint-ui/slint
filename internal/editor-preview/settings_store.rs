@@ -31,6 +31,7 @@ pub fn save(tool_name: &str, name: &str, contents: &str) -> crate::Result<()> {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn settings_path(tool_name: &str, name: &str) -> Option<PathBuf> {
+    #[cfg(feature = "system-testing")]
     if tool_name == "visual-editor"
         && let Some(config_dir) = std::env::var_os("SLINT_EDITOR_TEST_CONFIG_DIR")
     {

@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 
 pub(crate) const PROTOCOL_VERSION: u32 = 3;
 const MAX_EVENTS: usize = 512;
+const MAX_COMPLETED: usize = 128;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 struct Content {
@@ -42,7 +43,6 @@ struct Attempt {
     kind: String,
     root: Url,
     component: Option<String>,
-    epoch: u64,
     started_cursor: u64,
     inputs: BTreeMap<Url, Input>,
     outcome: Option<String>,
@@ -91,7 +91,6 @@ struct Observer {
     cursor: u64,
     discarded_through: u64,
     serial: u64,
-    epoch: u64,
     events: VecDeque<Value>,
     inputs: BTreeMap<Url, Input>,
     attempts: BTreeMap<u64, Attempt>,
@@ -100,10 +99,42 @@ struct Observer {
     capturing: Option<u64>,
     gates: BTreeMap<u64, Gate>,
     replies: BTreeMap<u64, (Value, Value)>,
+    retired_request_through: u64,
     writes: u64,
     accepted_edits: u64,
 }
 impl Observer {
+    fn prune(&mut self) {
+        let settled: Vec<_> =
+            self.operations.iter().filter(|(_, op)| op.settled()).map(|(id, _)| *id).collect();
+        for id in settled.iter().take(settled.len().saturating_sub(MAX_COMPLETED)) {
+            self.operations.remove(id);
+        }
+        let released: Vec<_> =
+            self.gates.iter().filter(|(_, g)| g.released).map(|(id, _)| *id).collect();
+        for id in released.iter().take(released.len().saturating_sub(MAX_COMPLETED)) {
+            self.gates.remove(id);
+        }
+        let finished: Vec<_> = self
+            .attempts
+            .iter()
+            .filter(|(id, a)| {
+                a.outcome.is_some()
+                    && self.installed.is_none_or(|(installed, _)| installed != **id)
+                    && !self.gates.values().any(|g| !g.released && g.attempt == Some(**id))
+            })
+            .map(|(id, _)| *id)
+            .collect();
+        for id in finished.iter().take(finished.len().saturating_sub(MAX_COMPLETED)) {
+            self.attempts.remove(id);
+        }
+        while self.replies.len() > MAX_COMPLETED {
+            if let Some((id, _)) = self.replies.pop_first() {
+                self.retired_request_through = self.retired_request_through.max(id);
+            }
+        }
+    }
+
     fn id(&mut self) -> u64 {
         self.serial += 1;
         self.serial
@@ -232,9 +263,6 @@ pub(crate) fn written(url: &Url) {
     });
 }
 
-pub(crate) fn request_reload() {
-    with_state(|s| s.epoch += 1);
-}
 pub(crate) fn begin_attempt(root: &Url, component: Option<String>) -> u64 {
     with_state(|s| {
         let id = s.id();
@@ -246,7 +274,6 @@ pub(crate) fn begin_attempt(root: &Url, component: Option<String>) -> u64 {
                 kind: "compilation".into(),
                 root: root.clone(),
                 component,
-                epoch: s.epoch,
                 started_cursor,
                 inputs: BTreeMap::new(),
                 outcome: None,
@@ -275,7 +302,6 @@ pub(crate) fn observed_read(url: &Url, content: Option<&str>) {
                     kind: "load".into(),
                     root: url.clone(),
                     component: None,
-                    epoch: s.epoch,
                     started_cursor: observation,
                     inputs: BTreeMap::from([(url.clone(), input)]),
                     outcome: Some("load_error".into()),
@@ -335,9 +361,6 @@ pub(crate) fn processed(attempt: u64, outcome: &str, diagnostics: Vec<String>) {
             a.diagnostics = diagnostics;
         }
     });
-}
-pub(crate) fn current_attempt(attempt: u64) -> bool {
-    with_state(|s| s.attempts.get(&attempt).is_some_and(|a| a.epoch == s.epoch)).unwrap_or(true)
 }
 pub(crate) fn applied(attempt: u64) {
     with_state(|s| {
@@ -457,7 +480,7 @@ fn answer(s: &mut Observer, r: &Request) -> Result<Value, String> {
         }
         "seal" => {
             let id = r.operation.ok_or("missing operation")?;
-            let op = s.operations.get_mut(&id).ok_or("unknown operation")?;
+            let op = s.operations.get_mut(&id).ok_or("unknown or expired operation")?;
             op.sealed = true;
             if s.capturing == Some(id) {
                 s.capturing = None;
@@ -465,7 +488,7 @@ fn answer(s: &mut Observer, r: &Request) -> Result<Value, String> {
         }
         "settled" | "operation" => {
             let id = r.operation.ok_or("missing operation")?;
-            let op = s.operations.get(&id).ok_or("unknown operation")?;
+            let op = s.operations.get(&id).ok_or("unknown or expired operation")?;
             ready = r.mode == "operation" || op.settled();
             result["settled"] = op.settled().into();
             result["operation"] = id.into();
@@ -543,7 +566,7 @@ fn answer(s: &mut Observer, r: &Request) -> Result<Value, String> {
         }
         "gate_release" | "gate_wait" => {
             let id = r.gate.ok_or("missing gate")?;
-            let g = s.gates.get_mut(&id).ok_or("unknown gate")?;
+            let g = s.gates.get_mut(&id).ok_or("unknown or expired gate")?;
             if r.mode == "gate_release" {
                 g.released = true;
                 GATE_CHANGED.notify_one();
@@ -564,6 +587,9 @@ fn respond_in(s: &mut Observer, raw: Value) -> Value {
     let Ok(request) = serde_json::from_value::<Request>(raw.clone()) else {
         return json!({"id":id,"error":"malformed request"});
     };
+    if request.id <= s.retired_request_through {
+        return json!({"id":id,"error":"request history expired"});
+    }
     let immutable = matches!(
         request.mode.as_str(),
         "handshake" | "checkpoint" | "begin" | "seal" | "gate_open" | "gate_release"
@@ -586,7 +612,8 @@ fn respond_in(s: &mut Observer, raw: Value) -> Value {
     result["writes"] = s.writes.into();
     result["accepted_edits"] = s.accepted_edits.into();
     result["installed"] = json!(s.installed.and_then(|(id, _)| s.attempts.get(&id)));
-    result["operations"] = json!(s.operations);
+    result["operations"] =
+        json!(s.operations.iter().filter(|(_, op)| !op.settled()).collect::<BTreeMap<_, _>>());
     result["attempts"] = json!(s.attempts.values().rev().take(16).collect::<Vec<_>>());
     result["events"] = json!(
         s.events
@@ -597,6 +624,7 @@ fn respond_in(s: &mut Observer, raw: Value) -> Value {
     if immutable {
         s.replies.insert(request.id, (raw, result.clone()));
     }
+    s.prune();
     result
 }
 
@@ -660,6 +688,35 @@ mod tests {
     }
     fn observer() -> Observer {
         Observer { session: "test".into(), ..Default::default() }
+    }
+
+    #[test]
+    fn completed_records_expire_without_discarding_pending_work() {
+        let mut state = observer();
+        state.operations.insert(1, Operation::default());
+        for id in 2..=(MAX_COMPLETED as u64 + 3) {
+            state.operations.insert(id, Operation { sealed: true, ..Default::default() });
+        }
+        state.prune();
+        assert!(state.operations.contains_key(&1));
+        assert!(!state.operations.contains_key(&2));
+        assert_eq!(state.operations.len(), MAX_COMPLETED + 1);
+        let mut query = request(1000, "operation");
+        query["operation"] = 2.into();
+        assert_eq!(respond_in(&mut state, query)["error"], "unknown or expired operation");
+    }
+
+    #[test]
+    fn expired_control_requests_cannot_run_again() {
+        let mut state = observer();
+        for id in 1..=(MAX_COMPLETED as u64 + 1) {
+            respond_in(&mut state, request(id, "checkpoint"));
+        }
+        assert_eq!(state.replies.len(), MAX_COMPLETED);
+        assert_eq!(
+            respond_in(&mut state, request(1, "checkpoint"))["error"],
+            "request history expired"
+        );
     }
 
     #[test]
@@ -767,7 +824,6 @@ mod tests {
             kind: "compilation".into(),
             root: root.clone(),
             component: None,
-            epoch: 0,
             started_cursor: observation,
             inputs: BTreeMap::from([(
                 root,

@@ -30,7 +30,7 @@ fn content_hash(content: &str) -> u64 {
 fn prepare_history_edit(
     document_cache: &i_slint_editor_preview::DocumentCache,
     item: &EditItem,
-) -> Option<(lsp_types::WorkspaceEdit, FileHashes)> {
+) -> Option<(lsp_types::WorkspaceEdit, FileHashes, Vec<text_edit::EditedText>)> {
     for (url, expected) in &item.file_hashes {
         let document = document_cache.get_document(url)?;
         let cached = document.node.as_ref()?.source_file.source()?;
@@ -41,7 +41,7 @@ fn prepare_history_edit(
     }
     let result = text_edit::apply_workspace_edit(document_cache, &item.edit).ok()?;
     let reverse = text_edit::reversed_edit(document_cache, &item.edit)?;
-    Some((reverse, compute_file_hashes(&result)))
+    Some((reverse, compute_file_hashes(&result), result))
 }
 
 #[derive(Default)]
@@ -55,23 +55,6 @@ impl UndoRedoStack {
     pub fn clear(&mut self) {
         self.undo_stack.clear();
         self.redo_stack.clear();
-    }
-
-    pub fn push(
-        &mut self,
-        title: String,
-        reverse_edit: Option<lsp_types::WorkspaceEdit>,
-        file_hashes: FileHashes,
-    ) {
-        match reverse_edit {
-            Some(edit) => {
-                self.undo_stack.push(EditItem { title, edit, file_hashes });
-                self.redo_stack.clear();
-            }
-            None => {
-                self.clear();
-            }
-        }
     }
 
     pub fn check_set_contents_valid(&mut self, url: &lsp_types::Url, content: &str) -> bool {
@@ -98,14 +81,14 @@ impl UndoRedoStack {
                     self.clear();
                 }
             }
-            PendingEdit::Undo { original: _, replacement } => {
+            PendingEdit::Undo { replacement } => {
                 if self.undo_stack.pop().is_some() {
                     self.redo_stack.push(replacement);
                 } else {
                     self.clear();
                 }
             }
-            PendingEdit::Redo { original: _, replacement } => {
+            PendingEdit::Redo { replacement } => {
                 if self.redo_stack.pop().is_some() {
                     self.undo_stack.push(replacement);
                 } else {
@@ -121,11 +104,12 @@ impl UndoRedoStack {
 /// write, so a rejected edit cannot strand an undo or redo entry.
 pub(super) enum PendingEdit {
     New(Option<EditItem>),
-    Undo { original: EditItem, replacement: EditItem },
-    Redo { original: EditItem, replacement: EditItem },
+    Undo { replacement: EditItem },
+    Redo { replacement: EditItem },
 }
 
 pub(super) struct PendingWorkspaceEdit {
+    pub(super) id: u64,
     pub(super) history: PendingEdit,
 }
 
@@ -155,7 +139,9 @@ pub fn setup(api: &ui::Api<'_>) {
             let Some(edit) = state.undo_redo_stack.undo_stack.last().cloned() else {
                 return;
             };
-            let Some((reverse, file_hashes)) = prepare_history_edit(&document_cache, &edit) else {
+            let Some((reverse, file_hashes, expected)) =
+                prepare_history_edit(&document_cache, &edit)
+            else {
                 #[cfg(feature = "system-testing")]
                 super::test_sync::effect("rejected");
                 state.undo_redo_stack.clear();
@@ -167,7 +153,8 @@ pub fn setup(api: &ui::Api<'_>) {
                 state,
                 format!("Undo \"{}\"", edit.title),
                 edit.edit.clone(),
-                PendingEdit::Undo { original: edit, replacement },
+                PendingEdit::Undo { replacement },
+                expected.into_iter().map(|e| (e.url, e.contents)).collect(),
             );
         })
     });
@@ -181,7 +168,9 @@ pub fn setup(api: &ui::Api<'_>) {
             let Some(edit) = state.undo_redo_stack.redo_stack.last().cloned() else {
                 return;
             };
-            let Some((reverse, file_hashes)) = prepare_history_edit(&document_cache, &edit) else {
+            let Some((reverse, file_hashes, expected)) =
+                prepare_history_edit(&document_cache, &edit)
+            else {
                 #[cfg(feature = "system-testing")]
                 super::test_sync::effect("rejected");
                 state.undo_redo_stack.clear();
@@ -193,7 +182,8 @@ pub fn setup(api: &ui::Api<'_>) {
                 state,
                 format!("Redo \"{}\"", edit.title),
                 edit.edit.clone(),
-                PendingEdit::Redo { original: edit, replacement },
+                PendingEdit::Redo { replacement },
+                expected.into_iter().map(|e| (e.url, e.contents)).collect(),
             );
         })
     });
@@ -214,6 +204,13 @@ pub(super) fn discard_pending(state: &mut super::PreviewState, partial_write: bo
         state.undo_redo_stack.clear();
     }
     set_undo_redo_enabled(state);
+}
+
+pub(super) fn cancel_pending(state: &mut super::PreviewState) {
+    for _history in state.pending_history.drain(..) {
+        #[cfg(feature = "system-testing")]
+        _history.work.run(|| super::test_sync::effect("canceled"));
+    }
 }
 
 pub(super) fn apply_pending() {

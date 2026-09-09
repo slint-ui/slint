@@ -9,7 +9,6 @@ mod versioned_url;
 
 pub use lsp_to_preview::{
     LspToPreview, LspToPreviewMessage, PreviewComponent, PreviewConfig, RemoteConnectionState,
-    WorkspaceEditOutcome,
 };
 pub use pairing::PairingRejection;
 pub use preview_to_lsp::{PreviewTarget, PreviewToLsp, PreviewToLspMessage};

@@ -24,7 +24,7 @@ use i_slint_editor_preview::{
 };
 use i_slint_live_preview::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
-    VersionedUrl, WorkspaceEditOutcome,
+    VersionedUrl,
 };
 use lsp_types::Url;
 use slint::{LogicalPosition, LogicalSize, PlatformError, SharedString, ToSharedString};
@@ -133,9 +133,6 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         M::SetUserSettings { name, contents } => {
             set_user_settings(name, contents);
         }
-        M::WorkspaceEditResult { outcome } => {
-            workspace_edit_result(outcome);
-        }
         M::ShowPreview(preview_component) => {
             tracing::debug!(
                 "Preview: opening url={}, component={:?}",
@@ -243,6 +240,8 @@ pub struct PreviewState {
     selected: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
     workspace_edit_sent: bool,
+    pub(crate) edit_sender: Option<crossbeam_channel::Sender<crate::PreviewMessage>>,
+    next_edit_id: u64,
     compilation_sequence: u64,
     workspace_edit_installation: Option<edit_installation::PendingInstallation>,
     known_components: Vec<ComponentInformation>,
@@ -258,6 +257,7 @@ pub struct PreviewState {
     #[cfg(feature = "system-testing")]
     sync_reload_work: Vec<test_sync::Work>,
     inspector_edit: Option<inspector::Edit>,
+    committed_inspector_overrides: inspector::SavedOverrides,
 
     source_code: SourceCodeCache,
     resources: HashSet<Url>,
@@ -321,9 +321,9 @@ fn preview_generation_is_current(generation: u64) -> bool {
     PREVIEW_STATE.with_borrow(|state| state.preview_generation == generation)
 }
 
-fn retire_factory(state: &mut PreviewState) {
+fn retire_factory(_state: &mut PreviewState) {
     #[cfg(feature = "system-testing")]
-    if let Some(lease) = state.factory_lease.take() {
+    if let Some(lease) = _state.factory_lease.take() {
         // The ComponentFactory may remain retained by a component container
         // after the surface is removed. Emptying the lease here lets the
         // operation settle even when that abandoned factory is never invoked.
@@ -335,12 +335,20 @@ fn retire_factory(state: &mut PreviewState) {
 /// mode. A stale factory may still be retained by the declarative UI, so it
 /// must fail its generation check if it is invoked after the mode switch.
 pub(crate) fn invalidate_preview_generation() {
-    #[cfg(feature = "system-testing")]
-    test_sync::request_reload();
     PREVIEW_STATE.with_borrow_mut(|state| {
         state.preview_generation = state.preview_generation.wrapping_add(1);
         retire_factory(state);
+        if let Some(edit) = state.workspace_edit_installation.as_mut() {
+            edit.abandon();
+            if state.pending_workspace_edit.is_none() {
+                state.workspace_edit_installation = None;
+                state.workspace_edit_sent = false;
+            }
+        }
+        undo_redo::cancel_pending(state);
     });
+    inspector::restore_committed();
+    inspector::invalidate();
 }
 
 fn invalidate_contents(url: &lsp_types::Url) {
@@ -1747,37 +1755,26 @@ fn dispatch_workspace_edit(
     label: String,
     edit: lsp_types::WorkspaceEdit,
     history: undo_redo::PendingEdit,
+    expected: std::collections::HashMap<Url, String>,
 ) -> bool {
     if state.workspace_edit_sent {
         #[cfg(feature = "system-testing")]
         test_sync::effect("rejected");
         return false;
     }
-    let Some(to_lsp) = state.to_lsp.borrow().as_ref().cloned() else {
+    let Some(sender) = state.edit_sender.as_ref() else {
         #[cfg(feature = "system-testing")]
         test_sync::effect("rejected");
         return false;
     };
 
-    let expected = state
-        .document_cache
-        .borrow()
-        .as_ref()
-        .and_then(|cache| text_edit::apply_workspace_edit(cache, &edit).ok());
-    let Some(expected) = expected else {
-        #[cfg(feature = "system-testing")]
-        test_sync::effect("rejected");
-        return false;
-    };
-    state.workspace_edit_installation = Some(edit_installation::PendingInstallation::new(
-        state.compilation_sequence,
-        expected.into_iter().map(|e| (e.url, e.contents)).collect(),
-    ));
-    state.pending_workspace_edit = Some(undo_redo::PendingWorkspaceEdit { history });
+    state.workspace_edit_installation =
+        Some(edit_installation::PendingInstallation::new(state.compilation_sequence, expected));
+    state.next_edit_id += 1;
+    let id = state.next_edit_id;
+    state.pending_workspace_edit = Some(undo_redo::PendingWorkspaceEdit { id, history });
     state.workspace_edit_sent = true;
-    if let Err(error) =
-        to_lsp.send(&PreviewToLspMessage::SendWorkspaceEdit { label: Some(label.clone()), edit })
-    {
+    if let Err(error) = sender.send(crate::PreviewMessage::edit(id, label.clone(), edit)) {
         tracing::error!("Failed to send workspace edit '{}': {error}", label);
         state.pending_workspace_edit.take();
         state.workspace_edit_installation = None;
@@ -1802,6 +1799,7 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
     };
     let file_hashes = undo_redo::compute_file_hashes(&result);
 
+    let expected = result.iter().map(|e| (e.url.clone(), e.contents.clone())).collect();
     if test_edit {
         let test_result = drop_location::edited_text_compiles(&document_cache, result);
         match test_result {
@@ -1821,27 +1819,29 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
     }));
 
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        dispatch_workspace_edit(preview_state, label, edit, history)
+        dispatch_workspace_edit(preview_state, label, edit, history, expected)
     })
 }
 
-fn workspace_edit_result(outcome: WorkspaceEditOutcome) {
+#[derive(Clone, Copy)]
+pub(crate) enum WorkspaceEditOutcome {
+    Applied,
+    Rejected,
+    Failed,
+}
+
+pub(crate) fn workspace_edit_result(id: u64, outcome: WorkspaceEditOutcome) {
     let (needs_recovery, release_pending) = PREVIEW_STATE.with_borrow_mut(|state| {
-        if !state.workspace_edit_sent && state.pending_workspace_edit.is_none() {
-            // A delayed acknowledgement from a previous edit cannot release
-            // a newer edit's lease.
+        if state.pending_workspace_edit.as_ref().is_none_or(|edit| edit.id != id) {
             return (false, false);
         }
         match outcome {
-            WorkspaceEditOutcome::Applied { .. } => {
+            WorkspaceEditOutcome::Applied => {
                 undo_redo::commit_pending(state);
                 // The filesystem acknowledgement and preview installation are
                 // independent. Release queued history only after both have
                 // reached their terminal state.
-                if state
-                    .workspace_edit_installation
-                    .as_ref()
-                    .is_some_and(|edit| edit.is_installed())
+                if state.workspace_edit_installation.as_ref().is_some_and(|edit| edit.is_finished())
                 {
                     state.workspace_edit_installation = None;
                     state.workspace_edit_sent = false;
@@ -1856,8 +1856,8 @@ fn workspace_edit_result(outcome: WorkspaceEditOutcome) {
                 state.workspace_edit_sent = false;
                 (true, true)
             }
-            WorkspaceEditOutcome::Failed { written, .. } => {
-                undo_redo::discard_pending(state, written != 0);
+            WorkspaceEditOutcome::Failed => {
+                undo_redo::discard_pending(state, true);
                 state.workspace_edit_installation = None;
                 state.workspace_edit_sent = false;
                 (true, true)
@@ -1865,6 +1865,7 @@ fn workspace_edit_result(outcome: WorkspaceEditOutcome) {
         }
     });
     if needs_recovery {
+        inspector::restore_committed();
         inspector::invalidate();
     }
     if needs_recovery || release_pending {
@@ -2210,7 +2211,6 @@ async fn reload_timer_function() {
 pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
     #[cfg(feature = "system-testing")]
     {
-        test_sync::request_reload();
         let work = test_sync::Work::capture("preview debounce");
         PREVIEW_STATE.with_borrow_mut(|s| s.sync_reload_work.push(work));
     }
@@ -2408,7 +2408,7 @@ async fn reload_preview_impl(
 
     let installation = edit_installation::CompilationSnapshot {
         id: compilation,
-        inputs: compilation_inputs.as_ref().borrow().clone(),
+        inputs: std::mem::take(&mut *compilation_inputs.as_ref().borrow_mut()),
     };
     let success = compiled.is_some();
     let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
@@ -2457,10 +2457,6 @@ async fn reload_preview_impl(
         let work = test_sync::Work::capture("preview installation");
         test_sync::publish(&component.url, attempt, move || {
             work.run(|| {
-                if !test_sync::current_attempt(attempt) {
-                    test_sync::processed(attempt, "superseded", Vec::new());
-                    return;
-                }
                 if !preview_generation_is_current(generation) {
                     test_sync::processed(attempt, "superseded", Vec::new());
                     return;
@@ -2579,9 +2575,7 @@ fn set_preview_factory(
         let work = factory_lease.as_ref().borrow_mut().take().unwrap_or_default();
         #[cfg(feature = "system-testing")]
         return work.run(|| {
-            if !preview_generation_is_current(generation)
-                || !attempt.is_none_or(test_sync::current_attempt)
-            {
+            if !preview_generation_is_current(generation) {
                 if let Some(attempt) = attempt {
                     test_sync::processed(attempt, "superseded", Vec::new());
                 }
@@ -2992,15 +2986,13 @@ fn update_preview_area(
             api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
             // Keep the inspector mounted until reselection, so edits retain keyboard focus.
 
-            #[cfg(feature = "system-testing")]
-            let factory_lease = set_preview_factory(
+            let _factory_lease = set_preview_factory(
                 editor_ui,
                 &api,
                 compiled,
                 Box::new(move |instance| {
-                    if !preview_generation_is_current(generation)
-                        || !attempt.is_none_or(test_sync::current_attempt)
-                    {
+                    if !preview_generation_is_current(generation) {
+                        #[cfg(feature = "system-testing")]
                         if let Some(attempt) = attempt {
                             test_sync::processed(attempt, "superseded", Vec::new());
                         }
@@ -3033,6 +3025,8 @@ fn update_preview_area(
                         )));
                     }
 
+                    PREVIEW_STATE
+                        .with_borrow_mut(|state| state.committed_inspector_overrides.clear());
                     shared_handle.replace(Some(instance));
                     previewed_component_changed();
                     let release_pending = PREVIEW_STATE.with_borrow_mut(|state| {
@@ -3060,72 +3054,13 @@ fn update_preview_area(
                 }),
                 behavior,
                 generation,
+                #[cfg(feature = "system-testing")]
                 attempt,
             );
             #[cfg(feature = "system-testing")]
             {
-                preview_state.factory_lease = Some(factory_lease);
+                preview_state.factory_lease = Some(_factory_lease);
             }
-            #[cfg(not(feature = "system-testing"))]
-            set_preview_factory(
-                editor_ui,
-                &api,
-                compiled,
-                Box::new(move |instance| {
-                    if !preview_generation_is_current(generation) {
-                        return;
-                    }
-                    if let Some(rtl) = instance.definition().raw_type_loader() {
-                        shared_document_cache.replace(Some(Rc::new(
-                            i_slint_editor_preview::DocumentCache::new_from_raw_parts(
-                                rtl,
-                                open_import_callback.clone(),
-                                source_file_versions.clone(),
-                                format,
-                            ),
-                        )));
-                    }
-
-                    // element_hash (and thus hook ids) change on every recompile, so drop stale overrides.
-                    (*shared_overrides).borrow_mut().clear();
-                    {
-                        let overrides = shared_overrides.clone();
-                        instance.set_debug_hook_callback(Some(Box::new(
-                            move |id: &str| -> Option<slint_interpreter::Value> {
-                                let mut m = (*overrides).borrow_mut();
-                                let p = m.entry(SmolStr::from(id)).or_insert_with(|| {
-                                    tracing::trace!("Inserting Property override: {id}");
-                                    Box::pin(i_slint_core::Property::new(None))
-                                });
-                                p.as_ref().get()
-                            },
-                        )));
-                    }
-
-                    shared_handle.replace(Some(instance));
-                    previewed_component_changed();
-                    let release_pending = PREVIEW_STATE.with_borrow_mut(|state| {
-                        let matches = state
-                            .workspace_edit_installation
-                            .as_mut()
-                            .is_some_and(|edit| edit.observe(&installation));
-                        if matches && state.pending_workspace_edit.is_none() {
-                            state.workspace_edit_installation = None;
-                            state.workspace_edit_sent = false;
-                            true
-                        } else {
-                            false
-                        }
-                    });
-                    inspector::invalidate();
-                    element_selection::reselect_element();
-                    if release_pending {
-                        undo_redo::apply_pending();
-                    }
-                }),
-                behavior,
-                generation,
-            );
         }
 
         editor_ui.clone_strong()
@@ -3238,6 +3173,29 @@ mod tests {
             *state = PreviewState::default();
             state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
         });
+    }
+
+    #[test]
+    fn stale_acknowledgment_cannot_finish_another_edit() {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.workspace_edit_sent = true;
+            state.pending_workspace_edit = Some(undo_redo::PendingWorkspaceEdit {
+                id: 42,
+                history: undo_redo::PendingEdit::New(None),
+            });
+        });
+        for outcome in [
+            WorkspaceEditOutcome::Applied,
+            WorkspaceEditOutcome::Rejected,
+            WorkspaceEditOutcome::Failed,
+        ] {
+            workspace_edit_result(41, outcome);
+            PREVIEW_STATE.with_borrow(|state| {
+                assert!(state.workspace_edit_sent);
+                assert_eq!(state.pending_workspace_edit.as_ref().unwrap().id, 42);
+            });
+        }
+        PREVIEW_STATE.with_borrow_mut(|state| *state = PreviewState::default());
     }
 
     #[test]

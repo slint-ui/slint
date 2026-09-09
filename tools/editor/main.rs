@@ -18,7 +18,7 @@ use i_slint_editor_preview::{LspToPreviews, Result, document_cache::OpenImportCa
 use i_slint_live_preview::file_watcher::{FileWatcher, WatchEvent};
 use i_slint_live_preview::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewTarget, PreviewToLspMessage, SourceFileVersion,
-    VersionedUrl, WorkspaceEditOutcome,
+    VersionedUrl,
 };
 use lsp_types::{MessageType, Url};
 use slint::ComponentHandle;
@@ -129,10 +129,46 @@ impl editor_preview::LspToPreview for EditorLspToPreview {
     }
 }
 
-struct PreviewMessage {
+pub(crate) struct PreviewMessage {
+    edit_id: Option<u64>,
     message: PreviewToLspMessage,
     #[cfg(feature = "system-testing")]
     work: preview::test_sync::Work,
+}
+
+impl PreviewMessage {
+    pub(crate) fn edit(id: u64, label: String, edit: lsp_types::WorkspaceEdit) -> Self {
+        Self {
+            edit_id: Some(id),
+            message: PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit },
+            #[cfg(feature = "system-testing")]
+            work: preview::test_sync::Work::capture("LSP edit"),
+        }
+    }
+}
+
+async fn handle_local_message(
+    message: PreviewToLspMessage,
+    edit_id: Option<u64>,
+    session: &mut editor_preview::EditorSession,
+    project_root: &std::path::Path,
+) {
+    if let (Some(id), PreviewToLspMessage::SendWorkspaceEdit { label, edit }) = (edit_id, &message)
+    {
+        let outcome = handle_workspace_edit(&session.document_cache, label.as_deref(), edit);
+        #[cfg(feature = "system-testing")]
+        let work = preview::test_sync::Work::capture("edit acknowledgment");
+        if let Err(error) = slint::invoke_from_event_loop(move || {
+            #[cfg(feature = "system-testing")]
+            work.run(|| preview::workspace_edit_result(id, outcome));
+            #[cfg(not(feature = "system-testing"))]
+            preview::workspace_edit_result(id, outcome);
+        }) {
+            tracing::error!("Failed to queue edit acknowledgment: {error}");
+        }
+    } else {
+        handle_preview_message(message, session, project_root).await;
+    }
 }
 
 struct EmbeddedPreviewToLsp {
@@ -142,6 +178,7 @@ struct EmbeddedPreviewToLsp {
 impl editor_preview::PreviewToLsp for EmbeddedPreviewToLsp {
     fn send(&self, message: &PreviewToLspMessage) -> editor_preview::Result<()> {
         self.sender.send(PreviewMessage {
+            edit_id: None,
             message: message.clone(),
             #[cfg(feature = "system-testing")]
             work: preview::test_sync::Work::capture("LSP message"),
@@ -181,6 +218,7 @@ fn start_editor_session(
     settings: preview::settings::VisualEditorSettings,
 ) {
     let (to_lsp, from_preview) = crossbeam_channel::unbounded();
+    preview::PREVIEW_STATE.with_borrow_mut(|state| state.edit_sender = Some(to_lsp.clone()));
     let to_lsp = Rc::new(EmbeddedPreviewToLsp { sender: to_lsp })
         as Rc<dyn editor_preview::PreviewToLsp + 'static>;
     preview::ui::initialize_editor(editor_ui, &to_lsp, "");
@@ -341,11 +379,11 @@ async fn lsp_main(
                     Some(msg) => {
                         #[cfg(feature = "system-testing")]
                         {
-                            msg.work.during(handle_preview_message(msg.message, &mut session, &project_root)).await;
+                            msg.work.during(handle_local_message(msg.message, msg.edit_id, &mut session, &project_root)).await;
                             pending_work.push(msg.work);
                         }
                         #[cfg(not(feature = "system-testing"))]
-                        handle_preview_message(msg.message, &mut session, &project_root).await;
+                        handle_local_message(msg.message, msg.edit_id, &mut session, &project_root).await;
                     }
                     None => {
                         tracing::debug!("Preview->LSP channel closed, exiting");
@@ -533,12 +571,7 @@ async fn handle_preview_message(
             tracing::debug!("Ignoring message from preview: {msg:?}");
         }
         SendWorkspaceEdit { label, edit } => {
-            handle_workspace_edit(
-                &session.document_cache,
-                session.to_preview.as_ref(),
-                label.as_deref(),
-                edit,
-            );
+            handle_workspace_edit(&session.document_cache, label.as_deref(), edit);
         }
     }
 }
@@ -589,21 +622,18 @@ fn canonical_preview_component(
 
 fn handle_workspace_edit(
     document_cache: &editor_preview::DocumentCache,
-    to_preview: &editor_preview::LspToPreviews,
     label: Option<&str>,
     edit: &lsp_types::WorkspaceEdit,
-) {
+) -> preview::WorkspaceEditOutcome {
     match editor_preview::editing::text_edit::apply_workspace_edit(document_cache, edit) {
         Ok(edited_texts) if edited_texts.is_empty() => {
             #[cfg(feature = "system-testing")]
             crate::preview::test_sync::effect("rejected");
-            to_preview.send(&LspToPreviewMessage::WorkspaceEditResult {
-                outcome: WorkspaceEditOutcome::Rejected,
-            });
             tracing::warn!(
                 "Workspace edit '{}' did not address any loaded document",
                 label.unwrap_or("(unnamed)")
             );
+            preview::WorkspaceEditOutcome::Rejected
         }
         Ok(edited_texts) => {
             let files = u32::try_from(edited_texts.len()).unwrap_or(u32::MAX);
@@ -635,25 +665,22 @@ fn handle_workspace_edit(
                     }
                 }
             }
-            let outcome = if written == files {
-                WorkspaceEditOutcome::Applied { files }
+            if written == files {
+                preview::WorkspaceEditOutcome::Applied
             } else {
                 #[cfg(feature = "system-testing")]
                 crate::preview::test_sync::effect("failed");
-                WorkspaceEditOutcome::Failed { files, written }
-            };
-            to_preview.send(&LspToPreviewMessage::WorkspaceEditResult { outcome });
+                preview::WorkspaceEditOutcome::Failed
+            }
         }
         Err(err) => {
             #[cfg(feature = "system-testing")]
             crate::preview::test_sync::effect("rejected");
-            to_preview.send(&LspToPreviewMessage::WorkspaceEditResult {
-                outcome: WorkspaceEditOutcome::Rejected,
-            });
             tracing::error!(
                 "Failed to compute workspace edit '{}': {err}",
                 label.unwrap_or("(unnamed)")
             );
+            preview::WorkspaceEditOutcome::Rejected
         }
     }
 }

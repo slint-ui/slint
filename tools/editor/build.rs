@@ -26,10 +26,15 @@ fn record_test_build() {
     let git = |args: &[&str]| {
         std::process::Command::new("git").args(args).output().ok().filter(|o| o.status.success())
     };
-    let revision = git(&["rev-parse", "HEAD"])
+    let mut revision = git(&["rev-parse", "HEAD"])
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_owned())
         .unwrap_or_else(|| "unknown".into());
-    for reference in ["HEAD", "refs/heads"] {
+    if git(&["status", "--porcelain", "--untracked-files=normal"])
+        .is_some_and(|output| !output.stdout.is_empty())
+    {
+        revision.push_str("-dirty");
+    }
+    for reference in ["HEAD", "refs/heads", "index"] {
         if let Some(output) = git(&["rev-parse", "--git-path", reference]) {
             println!("cargo:rerun-if-changed={}", String::from_utf8_lossy(&output.stdout).trim());
         }

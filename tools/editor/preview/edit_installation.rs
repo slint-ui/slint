@@ -13,15 +13,17 @@ pub(super) struct PendingInstallation {
     after: u64,
     expected: HashMap<lsp_types::Url, String>,
     installed: Option<u64>,
+    abandoned: bool,
 }
 
 impl PendingInstallation {
     pub fn new(after: u64, expected: HashMap<lsp_types::Url, String>) -> Self {
-        Self { after, expected, installed: None }
+        Self { after, expected, installed: None, abandoned: false }
     }
 
     pub fn observe(&mut self, compilation: &CompilationSnapshot) -> bool {
-        let matches = compilation.id > self.after
+        let matches = !self.abandoned
+            && compilation.id > self.after
             && !self.expected.is_empty()
             && self
                 .expected
@@ -30,6 +32,15 @@ impl PendingInstallation {
         // A later unrelated installation must not leave an earlier match valid.
         self.installed = matches.then_some(compilation.id);
         matches
+    }
+
+    pub fn abandon(&mut self) {
+        self.abandoned = true;
+        self.installed = None;
+    }
+
+    pub fn is_finished(&self) -> bool {
+        self.abandoned || self.is_installed()
     }
 
     pub fn is_installed(&self) -> bool {
@@ -46,6 +57,17 @@ mod tests {
             .iter()
             .map(|(path, content)| (format!("file:///{path}").parse().unwrap(), (*content).into()))
             .collect()
+    }
+
+    #[test]
+    fn abandoned_installation_is_terminal_without_claiming_application() {
+        let mut edit = PendingInstallation::new(1, inputs(&[("Main.slint", "new")]));
+        edit.abandon();
+        assert!(edit.is_finished());
+        assert!(!edit.is_installed());
+        assert!(
+            !edit.observe(&CompilationSnapshot { id: 2, inputs: inputs(&[("Main.slint", "new")]) })
+        );
     }
 
     #[test]
