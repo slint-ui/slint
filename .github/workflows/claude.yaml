@@ -142,6 +142,11 @@ jobs:
             actions: read
           # Bounds a runaway loop. It caps turns, not tokens or spend, and a
           # review that hits the cap stops unfinished, so keep it generous.
+          #
+          # The action restores only CLAUDE.md and .claude from the base branch,
+          # so instructions that must hold while reviewing a fork's pull request
+          # belong here rather than in AGENTS.md.
           claude_args: |
             --max-turns 40
             --allowedTools "Bash(cargo:*)"
+            --append-system-prompt "When reviewing, pay attention to any change to the public API: added, removed or renamed items under api/, and any change to a .slint element's properties or callbacks. Say plainly whether it breaks compatibility. Write your review in plain English: short sentences, everyday words, and no jargon where a common word works."
