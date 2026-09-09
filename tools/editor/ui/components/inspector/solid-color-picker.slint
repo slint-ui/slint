@@ -52,16 +52,18 @@ export component InspectorSolidColorPicker inherits Rectangle {
     changed open => {
         if root.open {
             root.update-color(root.value);
+            picker-popup.show();
+        } else {
+            picker-popup.close();
         }
     }
 
-    PopupWindow {
+    picker-popup := PopupWindow {
         x: 0px;
         y: 0px;
         width: 300px;
         height: 408px;
         close-policy: close-on-click-outside;
-        visible: root.open;
         Rectangle {
             background: InspectorTokens.panel-bg;
             border-width: 1px;
