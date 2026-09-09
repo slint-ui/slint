@@ -127,6 +127,12 @@ export interface InstantiatesInterface {
 //  >      <error{An interface cannot have sub elements}
 }
 
+// A conditional sub element is a sub element, and reports as one.
+export interface ConditionalInstantiation {
+    if true: Base { }
+//  >               <error{An interface cannot have sub elements}
+}
+
 // The instantiation hint stays suppressed at any depth inside the interface.
 export interface NestedInstantiation {
     Rectangle {
