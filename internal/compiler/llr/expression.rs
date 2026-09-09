@@ -608,7 +608,7 @@ macro_rules! visit_impl {
                 $visitor(sub);
             }
             Expression::ImageReference { .. } => {}
-            Expression::Condition { condition, true_expr, false_expr } => {
+            Expression::Condition { condition, true_expr, false_expr, .. } => {
                 $visitor(condition);
                 $visitor(true_expr);
                 $visitor(false_expr);

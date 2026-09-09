@@ -1152,6 +1152,7 @@ impl GridLayout {
                             lhs: Box::new(base.clone()),
                             rhs: Box::new(model_idx),
                             op: '+',
+                            source_location: None,
                         }
                     } else {
                         model_idx
@@ -1203,6 +1204,7 @@ impl GridLayout {
                             condition: Box::new(model_expr),
                             true_expr: Box::new(Expression::NumberLiteral(1., Unit::None)),
                             false_expr: Box::new(Expression::NumberLiteral(0., Unit::None)),
+                            source_location: None,
                         }
                     } else {
                         Expression::FunctionCall {
@@ -1216,6 +1218,7 @@ impl GridLayout {
                             lhs: Box::new(prev),
                             rhs: Box::new(len_expr),
                             op: '+',
+                            source_location: None,
                         }
                     } else {
                         len_expr
@@ -1227,6 +1230,7 @@ impl GridLayout {
                             lhs: Box::new(prev),
                             rhs: Box::new(Expression::NumberLiteral(1., Unit::None)),
                             op: '+',
+                            source_location: None,
                         }
                     } else {
                         Expression::NumberLiteral(1., Unit::None)
@@ -1509,7 +1513,12 @@ fn single_cell_box_layout(layout: &BoxLayout) -> Option<SingleCellBoxLayout> {
 }
 
 fn bin(op: char, lhs: Expression, rhs: Expression) -> Expression {
-    Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
+    Expression::BinaryExpression {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+        op,
+        source_location: None,
+    }
 }
 
 fn min_max(op: MinMaxOp, lhs: Expression, rhs: Expression) -> Expression {

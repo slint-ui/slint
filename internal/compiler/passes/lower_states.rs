@@ -64,6 +64,7 @@ fn lower_state_in_element(
                 condition: Box::new(condition.clone()),
                 true_expr: Box::new(Expression::NumberLiteral((idx + 1) as _, Unit::None)),
                 false_expr: Box::new(std::mem::take(&mut state_value)),
+                source_location: None,
             };
         }
         for (property_reference, expr, node) in state.property_changes {
@@ -86,12 +87,14 @@ fn lower_state_in_element(
             };
             let new_expr = Expression::Condition {
                 condition: Box::new(Expression::BinaryExpression {
+                    source_location: None,
                     lhs: Box::new(state_property_ref.clone()),
                     rhs: Box::new(Expression::NumberLiteral((idx + 1) as _, Unit::None)),
                     op: '=',
                 }),
                 true_expr: Box::new(expr),
                 false_expr: Box::new(property_expr),
+                source_location: None,
             };
 
             let name = property_reference.name();

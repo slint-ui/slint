@@ -4202,7 +4202,7 @@ fn compile_binary_expression(expr: &Expression, ctx: &EvaluationContext) -> Toke
     // stack depth stays bounded no matter how long the chain is.
     let mut spine = Vec::new();
     let mut node = expr;
-    while let Expression::BinaryExpression { lhs, rhs, op } = node {
+    while let Expression::BinaryExpression { lhs, rhs, op, .. } = node {
         spine.push((rhs, *op));
         node = lhs;
     }
@@ -4282,7 +4282,9 @@ fn compile_image_reference(expr: &Expression) -> TokenStream {
 
 #[inline(never)]
 fn compile_condition(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::Condition { condition, true_expr, false_expr } = expr else { unreachable!() };
+    let Expression::Condition { condition, true_expr, false_expr, .. } = expr else {
+        unreachable!()
+    };
     let condition_code = compile_expression_no_parenthesis(condition, ctx);
     let true_code = compile_expression(true_expr, ctx);
     let false_code = compile_expression_no_parenthesis(false_expr, ctx);
