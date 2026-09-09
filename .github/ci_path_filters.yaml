@@ -74,6 +74,9 @@ slint:
  - 'xtask/**'
 
 visual_editor:
+ - '.github/workflows/ci.yaml'
+ - '.github/actions/setup-rust/**'
+ - '.github/actions/install-skia-dependencies/**'
  - 'tools/editor/**'
 
 # Qt backend and widget definitions — gates the Qt test step in build_and_test
