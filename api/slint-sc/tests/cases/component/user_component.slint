@@ -5,36 +5,36 @@
 //#sls.file.component.definition-forms
 
 component Frame inherits Rectangle {
-    width: 24px;
-    height: 24px;
-    background: #444444;
+    width: 24px; //#cov(width+)
+    height: 24px; //#cov(height+)
+    background: #444444; //#cov(background+)
 }
 
 component Led {
-    width: 20px;
-    height: 20px;
-    Rectangle {
-        x: 2px;
-        y: 2px;
-        width: 16px;
-        height: 16px;
-        background: #ff0000;
+    width: 20px; //#cov(width-)
+    height: 20px; //#cov(height-)
+    Rectangle { //#cov(Rectangle+)
+        x: 2px; //#cov(x+)
+        y: 2px; //#cov(y+)
+        width: 16px; //#cov(width+)
+        height: 16px; //#cov(height+)
+        background: #ff0000; //#cov(background+)
     }
 }
 
-export component UserComponent inherits Window {
-    background: #202020;
+export component UserComponent inherits Window { //#cov(Window+)
+    background: #202020; //#cov(background+)
     //#sls.file.element.instantiation-typename
-    Frame {
-        x: 8px;
-        y: 8px;
-        Led { x: 2px; y: 2px; }
+    Frame { //#cov(Frame+)
+        x: 8px; //#cov(x+)
+        y: 8px; //#cov(y+)
+        Led { x: 2px; y: 2px; } //#cov(Led+ x+ y+)
     }
-    Frame {
-        x: 40px;
-        y: 8px;
-        background: #006600;
-        Led { x: 2px; y: 2px; }
+    Frame { //#cov(Frame+)
+        x: 40px; //#cov(x+)
+        y: 8px; //#cov(y+)
+        background: #006600; //#cov(background+)
+        Led { x: 2px; y: 2px; } //#cov(Led+ x+ y+)
     }
 }
 
@@ -49,34 +49,5 @@ Only the exported component names a generated struct:
 //#sls.gen.component
 let _ = Led::new(crate::harness::WINDOW_SIZE);
 //~ ERROR undeclared type `Led`
-```
-
-```coverage
-+ 8:12 binding width
-+ 9:13 binding height
-+ 10:17 binding background
-- 14:12 binding width
-- 15:13 binding height
-+ 16:5 element Rectangle
-+ 17:12 binding x
-+ 18:12 binding y
-+ 19:16 binding width
-+ 20:17 binding height
-+ 21:21 binding background
-+ 25:41 element Window
-+ 26:17 binding background
-+ 28:5 element Frame
-+ 29:12 binding x
-+ 30:12 binding y
-+ 31:9 element Led
-+ 31:18 binding x
-+ 31:26 binding y
-+ 33:5 element Frame
-+ 34:12 binding x
-+ 35:12 binding y
-+ 36:21 binding background
-+ 37:9 element Led
-+ 37:18 binding x
-+ 37:26 binding y
 ```
 */

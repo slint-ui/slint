@@ -4,17 +4,17 @@
 // `&&` and `||` combine two booleans, `!` negates one. They compose with
 // parentheses to override precedence.
 
-export component TestCase inherits Window {
+export component TestCase inherits Window { //#cov(Window-)
     in property <bool> a;
     in property <bool> b;
     //#sls.op.logical
-    out property <bool> both: a && b;
-    out property <bool> either: a || b;
+    out property <bool> both: a && b; //#cov(both+ &&++)
+    out property <bool> either: a || b; //#cov(either+ ||++)
     //#sls.op.not
-    out property <bool> not_a: !a;
-    out property <bool> neither: !a && !b;
-    out property <bool> not_both: !(a && b);
-    out property <bool> grouped: (a || b) && !(a && b);
+    out property <bool> not_a: !a; //#cov(not-a+)
+    out property <bool> neither: !a && !b; //#cov(neither+ &&++)
+    out property <bool> not_both: !(a && b); //#cov(not-both+ &&++)
+    out property <bool> grouped: (a || b) && !(a && b); //#cov(grouped+ ||++ &&++ &&++)
 }
 
 /*
@@ -39,29 +39,5 @@ for (a, b) in [(false, false), (false, true), (true, false), (true, true)] {
     // Parentheses override precedence: exclusive-or built from the primitives.
     assert_eq!(x.get_grouped(), (a || b) && !(a && b));
 }
-```
-
-```coverage
-- 7:36 element Window
-+ 11:31 binding both
-+ 11:33 branch && true
-+ 11:33 branch && false
-+ 12:33 binding either
-+ 12:35 branch || true
-+ 12:35 branch || false
-+ 14:32 binding not-a
-+ 15:34 binding neither
-+ 15:37 branch && true
-+ 15:37 branch && false
-+ 16:35 binding not-both
-+ 16:39 branch && true
-+ 16:39 branch && false
-+ 17:34 binding grouped
-+ 17:37 branch || true
-+ 17:37 branch || false
-+ 17:43 branch && true
-+ 17:43 branch && false
-+ 17:50 branch && true
-+ 17:50 branch && false
 ```
 */

@@ -18,7 +18,7 @@ import { Frame, Led, } from "./imported/shapes.slint";
 // An imported component can be the base of a local one.
 //#sls.file.component.inherits.base
 component Panel inherits Frame {
-    background: #202020;
+    background: #202020; //#cov(background+)
 }
 
 // An import statement may follow a component definition.
@@ -26,26 +26,26 @@ component Panel inherits Frame {
 //#sls.import.rename
 import { Led as Lamp } from "./imported/shapes.slint";
 
-export component Imports inherits Window {
-    Panel {
-        width: 64px;
-        height: 64px;
+export component Imports inherits Window { //#cov(Window+)
+    Panel { //#cov(Panel+)
+        width: 64px; //#cov(width+)
+        height: 64px; //#cov(height+)
     }
-    Frame {
-        x: 4px;
-        y: 4px;
-        Led {
-            x: 4px;
-            y: 4px;
+    Frame { //#cov(Frame+)
+        x: 4px; //#cov(x+)
+        y: 4px; //#cov(y+)
+        Led { //#cov(Led+)
+            x: 4px; //#cov(x+)
+            y: 4px; //#cov(y+)
         }
     }
-    Frame {
-        x: 36px;
-        y: 4px;
+    Frame { //#cov(Frame+)
+        x: 36px; //#cov(x+)
+        y: 4px; //#cov(y+)
         // The same component under its new name.
-        Lamp {
-            x: 4px;
-            y: 4px;
+        Lamp { //#cov(Lamp+)
+            x: 4px; //#cov(x+)
+            y: 4px; //#cov(y+)
         }
     }
 }
@@ -65,23 +65,6 @@ screenshot!(x);
 ```
 
 ```coverage
-+ 21:17 binding background
-+ 29:35 element Window
-+ 30:5 element Panel
-+ 31:16 binding width
-+ 32:17 binding height
-+ 34:5 element Frame
-+ 35:12 binding x
-+ 36:12 binding y
-+ 37:9 element Led
-+ 38:16 binding x
-+ 39:16 binding y
-+ 42:5 element Frame
-+ 43:12 binding x
-+ 44:12 binding y
-+ 46:9 element Lamp
-+ 47:16 binding x
-+ 48:16 binding y
 + imported/shapes.slint:9:12 binding width
 + imported/shapes.slint:10:13 binding height
 + imported/shapes.slint:11:17 binding background

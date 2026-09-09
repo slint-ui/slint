@@ -1,28 +1,28 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
 
-export component TestCase inherits Window {
+export component TestCase inherits Window { //#cov(Window+)
     //#sls.callback.def
     //#sls.callback.decl.form
     callback alarm-acknowledged;
-    in-out property <color> alarm-color: #802020;
-    background: #202020;
-    Rectangle {
-        x: 8px;
-        y: 8px;
-        width: 48px;
-        height: 24px;
-        background: root.alarm-color;
+    in-out property <color> alarm-color: #802020; //#cov(alarm-color+)
+    background: #202020; //#cov(background+)
+    Rectangle { //#cov(Rectangle+)
+        x: 8px; //#cov(x+)
+        y: 8px; //#cov(y+)
+        width: 48px; //#cov(width+)
+        height: 24px; //#cov(height+)
+        background: root.alarm-color; //#cov(background+)
         // No geometry of its own, so it covers the rectangle
         //#sls.ref.toucharea.size
         //#sls.ref.toucharea.members
-        TouchArea {
+        TouchArea { //#cov(TouchArea+)
             //#sls.callback.handler.form
             //#sls.callback.handler.target
             //#sls.ref.toucharea.clicked
             //#sls.ref.toucharea.clicked.input
             //#sls.callback.call.form
-            clicked => { root.alarm-acknowledged(); }
+            clicked => { root.alarm-acknowledged(); } //#cov(clicked+ alarm-acknowledged+)
         }
     }
 }
@@ -78,20 +78,5 @@ runtime carries doesn't break the code built against this one.
 ```rust compile_fail
 let _ = slint_sc::TouchEvent::Pressed { position: slint_sc::Point::new(0, 0) };
 //~ ERROR cannot create non-exhaustive variant
-```
-
-```coverage
-+ 4:36 element Window
-+ 8:42 binding alarm-color
-+ 9:17 binding background
-+ 10:5 element Rectangle
-+ 11:12 binding x
-+ 12:12 binding y
-+ 13:16 binding width
-+ 14:17 binding height
-+ 15:21 binding background
-+ 19:9 element TouchArea
-+ 25:13 handler clicked
-+ 25:31 call alarm-acknowledged
 ```
 */

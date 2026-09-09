@@ -3,17 +3,17 @@
 
 // The coverage of decisions: each outcome of a `?:`, `&&`, or `||` is a
 // coverage point, reached when the outcome came about. The test takes some
-// outcomes and never the others, and the ```coverage block states which.
+// outcomes and never the others, and the annotations state which.
 
-export component TestCase inherits Window {
+export component TestCase inherits Window { //#cov(Window-)
     in property <bool> a;
     in property <bool> b;
     // Only the true arm of the first decision, both of the nested one.
-    out property <int> nested: a ? (b ? 1 : 2) : 3;
+    out property <int> nested: a ? (b ? 1 : 2) : 3; //#cov(nested+ ?+- ?++)
     // `a` is always true: `b` is always evaluated.
-    out property <bool> both: a && b;
+    out property <bool> both: a && b; //#cov(both+ &&+-)
     // `a` is always true: `b` is never evaluated.
-    out property <bool> either: a || b;
+    out property <bool> either: a || b; //#cov(either+ ||+-)
 }
 
 /*
@@ -26,20 +26,5 @@ for b in [false, true] {
     assert_eq!(x.get_both(), b);
     assert!(x.get_either());
 }
-```
-
-```coverage
-- 8:36 element Window
-+ 12:32 binding nested
-+ 12:34 branch ? true
-- 12:34 branch ? false
-+ 12:39 branch ? true
-+ 12:39 branch ? false
-+ 14:31 binding both
-+ 14:33 branch && true
-- 14:33 branch && false
-+ 16:33 binding either
-+ 16:35 branch || true
-- 16:35 branch || false
 ```
 */
