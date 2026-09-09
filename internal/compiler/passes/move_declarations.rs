@@ -181,8 +181,9 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
         let elem_decl = Declarations::take_from_element(&mut elem.borrow_mut());
         decl.property_declarations.extend(elem_decl.property_declarations.into_iter().map(
             |(p, mut d)| {
-                d.moved_to_root = true;
-                (moved_name(renames, elem, &p), d)
+                let name = moved_name(renames, elem, &p);
+                d.moved_from = Some(p);
+                (name, d)
             },
         ));
     };

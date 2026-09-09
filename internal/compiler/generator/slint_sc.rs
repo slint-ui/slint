@@ -341,7 +341,7 @@ fn property_field(name: &str) -> Ident {
 /// `move_declarations` hoists the declarations of every other element onto it,
 /// under a name of its own making.
 fn is_own_declaration(decl: &PropertyDeclaration) -> bool {
-    decl.node.is_some() && !decl.moved_to_root
+    decl.node.is_some() && decl.moved_from.is_none()
 }
 
 /// Whether `root`, the root element of the component being generated, declares
