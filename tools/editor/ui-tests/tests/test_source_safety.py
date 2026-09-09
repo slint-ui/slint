@@ -56,7 +56,7 @@ def test_broken_source_preserves_last_valid_preview(
         current_editor_sync.get().wait_for_processed(
             source_file,
             broken,
-            after=int(checkpoint["cursor"]),
+            after=checkpoint.cursor,
             outcome="compile_error",
         )
         window_element_with_label(
@@ -90,7 +90,7 @@ def test_repaired_source_recovers_preview(
         current_editor_sync.get().wait_for_processed(
             source_file,
             broken,
-            after=int(checkpoint["cursor"]),
+            after=checkpoint.cursor,
             outcome="compile_error",
         )
         repaired = baseline.replace(b"Fixture text", b"Recovered source", 1)

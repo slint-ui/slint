@@ -576,7 +576,7 @@ def test_undo_while_dragging_cancels_release(
         if history:
             result = action_scope.wait_for_settled(outcome="completed")
             assert result.data["operation_state"]["writes"] == 1
-            sync.wait_for_source(
+            sync.wait_for_applied(
                 fixture_project / SOURCE,
                 baseline,
             )

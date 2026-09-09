@@ -77,13 +77,15 @@ class SourceSnapshot:
         timeout: float = 15,
     ) -> None:
         """Check exact project source, then wait for this revision in the preview."""
-        from editor_sync import wait_for_source
+        from editor_sync import current_editor_sync
 
         deadline = time.monotonic() + timeout
         self.wait_for_exact(
             expected, relative_path, timeout=max(0, deadline - time.monotonic())
         )
-        wait_for_source(self.project / relative_path, expected, deadline=deadline)
+        current_editor_sync.get().wait_for_applied(
+            self.project / relative_path, expected, deadline=deadline
+        )
         expected_sources = self.sources | {Path(relative_path): expected}
         current = slint_sources(self.project)
         assert current == expected_sources, exact_source_mismatch(

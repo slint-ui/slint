@@ -23,29 +23,11 @@ class Process(Protocol):
 class SyncCheckpoint:
     session: str
     cursor: int
-    writes: int
-    accepted_edits: int
-    operation: int | None = None
-
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
 
 
 @dataclass(frozen=True)
 class SyncResult:
     data: dict[str, Any]
-
-    @property
-    def cursor(self) -> int:
-        return self.data["cursor"]
-
-    @property
-    def operation(self) -> int | None:
-        return self.data.get("operation")
-
-    @property
-    def outcome(self) -> str | None:
-        return self.data.get("outcome")
 
 
 @dataclass
@@ -153,9 +135,7 @@ class EditorSync:
 
     def checkpoint(self, timeout: float = 15) -> SyncCheckpoint:
         r = self._request(mode="checkpoint", timeout=timeout).data
-        return SyncCheckpoint(
-            r["session"], r["cursor"], r["writes"], r["accepted_edits"]
-        )
+        return SyncCheckpoint(r["session"], r["cursor"])
 
     def wait_for_observed(
         self,
@@ -186,7 +166,7 @@ class EditorSync:
             timeout=timeout,
         )
 
-    def wait_for_source(
+    def wait_for_applied(
         self,
         path: Path,
         expected: bytes | None,
@@ -202,8 +182,6 @@ class EditorSync:
             timeout=timeout,
             deadline=deadline,
         )
-
-    wait_for_applied = wait_for_source
 
     @contextmanager
     def action(self, timeout: float = 15) -> Iterator["EditorAction"]:
@@ -275,15 +253,3 @@ class EditorGate:
 
 
 current_editor_sync: ContextVar[EditorSync] = ContextVar("current_editor_sync")
-
-
-def wait_for_source(
-    path: Path,
-    expected: bytes | None,
-    timeout: float = 15,
-    *,
-    deadline: float | None = None,
-) -> None:
-    current_editor_sync.get().wait_for_source(
-        path, expected, timeout, deadline=deadline
-    )

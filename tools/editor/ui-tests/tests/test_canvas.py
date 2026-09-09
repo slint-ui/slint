@@ -22,7 +22,7 @@ from canvas_interactions import (
     same_state,
     selection_frame,
 )
-from editor_sync import current_editor_sync, wait_for_source
+from editor_sync import current_editor_sync
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
@@ -566,12 +566,12 @@ def test_repeated_palette_drop_preserves_component_kind(
             reload_label = f"Reload probe {step}"
             reloaded = expected.replace(b"Reload probe", reload_label.encode(), 1)
             source_file.write_bytes(reloaded)
-            wait_for_source(source_file, reloaded)
+            current_editor_sync.get().wait_for_applied(source_file, reloaded)
             window_element_with_label(
                 window, reload_label, slint_testing.AccessibleRole.Text
             )
             source_file.write_bytes(expected)
-            wait_for_source(source_file, expected)
+            current_editor_sync.get().wait_for_applied(source_file, expected)
             window_element_with_label(
                 window, "Reload probe", slint_testing.AccessibleRole.Text
             )

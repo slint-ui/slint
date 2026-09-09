@@ -50,7 +50,7 @@ def test_wait_rejects_old_response_and_waits_for_terminal_state(tmp_path, clock)
         reply(2, ready=True),
     ]
     clock.steps = [lambda r=r: response.write_text(json.dumps(r)) for r in replies]
-    EditorSync(tmp_path).wait_for_source(tmp_path / "Main.slint", b"new source")
+    EditorSync(tmp_path).wait_for_applied(tmp_path / "Main.slint", b"new source")
     assert not clock.steps
     assert not (tmp_path / "request.json").exists()
     assert "publication" in (tmp_path / "trace.jsonl").read_text()
@@ -60,7 +60,7 @@ def test_one_deadline_includes_handshake(tmp_path, clock):
     response = tmp_path / "response.json"
     clock.steps = [lambda: response.write_text(json.dumps(reply()))]
     with pytest.raises(AssertionError, match="did not reach applied"):
-        EditorSync(tmp_path).wait_for_source(
+        EditorSync(tmp_path).wait_for_applied(
             tmp_path / "Main.slint", b"source", timeout=0.04
         )
     assert clock.now == pytest.approx(0.04)
@@ -101,7 +101,7 @@ def test_stale_checkpoint_is_rejected_before_request(tmp_path, clock):
     sync = EditorSync(tmp_path, session="s")
     with pytest.raises(AssertionError, match="another editor session"):
         sync.wait_for_processed(
-            tmp_path / "Main.slint", None, after=SyncCheckpoint("old", 0, 0, 0)
+            tmp_path / "Main.slint", None, after=SyncCheckpoint("old", 0)
         )
     assert not (tmp_path / "request.json").exists()
 

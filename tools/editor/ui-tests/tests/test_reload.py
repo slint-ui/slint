@@ -87,10 +87,10 @@ def test_rapid_root_writes_show_newest_revision(
         sync.wait_for_processed(
             source_file,
             expected,
-            after=int(checkpoint["cursor"]),
+            after=checkpoint.cursor,
             outcome="compiled",
         )
-        sync.wait_for_source(source_file, expected, after=int(checkpoint["cursor"]))
+        sync.wait_for_applied(source_file, expected, after=checkpoint.cursor)
         window_element_with_label(
             window, "Newest revision", slint_testing.AccessibleRole.Text, timeout=15
         )
