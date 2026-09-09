@@ -8,8 +8,8 @@ use crate::erased::{ErasedItemRc, SubComponentCallback, SubComponentProperty};
 use crate::globals::GlobalStorage;
 use crate::item_registry::ItemRegistry;
 use i_slint_compiler::llr::{
-    self, CompilationUnit, ItemInstanceIdx, RepeatedElementIdx, SubComponentIdx,
-    SubComponentInstanceIdx,
+    self, CompilationUnit, ItemInstanceIdx, PublicComponentIdx, RepeatedElementIdx,
+    SubComponentIdx, SubComponentInstanceIdx,
 };
 use i_slint_core::item_tree::{ItemTreeNode, ItemTreeVTable};
 use i_slint_core::model::{Conditional, Repeater};
@@ -223,7 +223,7 @@ pub struct Instance {
     /// Index into `compilation_unit.public_components` for the public
     /// component this instance was built from. `None` for repeated /
     /// nested instances that don't correspond to a public component.
-    pub public_component_index: Option<usize>,
+    pub public_component_index: Option<PublicComponentIdx>,
     /// Lazily-created window adapter, used by `ImplicitLayoutInfo` and the
     /// public window/run helpers.
     pub window_adapter: OnceCell<WindowAdapterRc>,
@@ -636,7 +636,7 @@ impl Instance {
     /// up `property_init`, `two_way_bindings` and `init_code`.
     pub fn new(
         compilation_unit: Rc<CompilationUnit>,
-        public_component_index: usize,
+        public_component_index: PublicComponentIdx,
     ) -> VRc<ItemTreeVTable, Instance> {
         Self::new_with_window(compilation_unit, public_component_index, None, Default::default())
     }
@@ -646,7 +646,7 @@ impl Instance {
     /// the old instance so reloaded components keep the same window frame.
     pub fn new_with_window(
         compilation_unit: Rc<CompilationUnit>,
-        public_component_index: usize,
+        public_component_index: PublicComponentIdx,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
         type_loaders: crate::component::TypeLoaders,
     ) -> VRc<ItemTreeVTable, Instance> {
@@ -665,7 +665,7 @@ impl Instance {
     /// `parent_node` can walk back into the host tree.
     pub fn new_embedded(
         compilation_unit: Rc<CompilationUnit>,
-        public_component_index: usize,
+        public_component_index: PublicComponentIdx,
         type_loaders: crate::component::TypeLoaders,
         parent: vtable::VWeak<ItemTreeVTable>,
         parent_item_tree_index: u32,
@@ -681,7 +681,7 @@ impl Instance {
 
     fn new_with_options(
         compilation_unit: Rc<CompilationUnit>,
-        public_component_index: usize,
+        public_component_index: PublicComponentIdx,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
         type_loaders: crate::component::TypeLoaders,
         embedded_in: Option<(vtable::VWeak<ItemTreeVTable>, u32)>,
@@ -758,7 +758,7 @@ fn build_instance(
     item_tree: &llr::ItemTree,
     parent: Weak<SubComponentInstance>,
     globals: Rc<GlobalStorage>,
-    public_component_index: Option<usize>,
+    public_component_index: Option<PublicComponentIdx>,
     type_loaders: crate::component::TypeLoaders,
 ) -> VRc<ItemTreeVTable, Instance> {
     let parent_for_root = parent.clone();
