@@ -29,6 +29,12 @@ export component EditorUi inherits Window {
 
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
+    in property <length> elements-pane-height: 0px;
+    in property <length> outline-pane-height: 0px;
+    callback elements-pane-resized(length);
+    callback outline-pane-resized(length);
+    callback elements-pane-reset();
+    callback outline-pane-reset();
 
     function open-startup-wizard() {
         Api.open-startup-wizard();
@@ -143,9 +149,16 @@ export component EditorUi inherits Window {
 
                         if !root.sidebars-collapsed: LeftPane {
                             can-collapse: true;
+                            elements-pane-height: root.elements-pane-height;
                             drag-started => { editor.focus(); }
                             panes-collapsed => {
                                 root.sidebars-collapsed = true;
+                            }
+                            elements-pane-resized(height) => {
+                                root.elements-pane-resized(height);
+                            }
+                            elements-pane-reset => {
+                                root.elements-pane-reset();
                             }
                         }
 
@@ -159,12 +172,19 @@ export component EditorUi inherits Window {
                         }
 
                         if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
+                            outline-pane-height: root.outline-pane-height;
                             phone-background: StudioTheme.phone-bg;
                             phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
                             element-information: Api.current-element;
                             inspector-scroll-y <=> root.inspector-scroll-y;
                             element-selected => { editor.focus(); }
                             outline-drag-started => { editor.focus(); }
+                            outline-pane-resized(height) => {
+                                root.outline-pane-resized(height);
+                            }
+                            outline-pane-reset => {
+                                root.outline-pane-reset();
+                            }
                         }
                     }
                 }
@@ -202,6 +222,8 @@ export component EditorUi inherits Window {
 
                         SidebarToggleButton {
                             active: true;
+                            accessible-role: AccessibleRole.button;
+                            accessible-label: "Expand sidebars";
                             clicked => {
                                 root.sidebars-collapsed = false;
                             }

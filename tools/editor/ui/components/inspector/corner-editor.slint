@@ -21,15 +21,15 @@ component CornerMode inherits FocusScope {
     }
     Rectangle {
         border-radius: 4px;
-        background: root.selected ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
+        background: root.selected ? InspectorTokens.selected-control-bg : InspectorTokens.field-bg;
         border-width: root.has-focus ? 1px : 0px;
         border-color: InspectorTokens.accent;
         Rectangle {
             x: 7px; y: 5px; width: 14px; height: 14px;
             border-radius: 4px; border-width: 1px;
             border-color: root.selected ? InspectorTokens.text : InspectorTokens.muted;
-            if root.separate: Rectangle { x: 5px; y: -1px; width: 4px; height: 16px; background: root.selected ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg; }
-            if root.separate: Rectangle { x: -1px; y: 5px; width: 16px; height: 4px; background: root.selected ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg; }
+            if root.separate: Rectangle { x: 5px; y: -1px; width: 4px; height: 16px; background: root.selected ? InspectorTokens.selected-control-bg : InspectorTokens.field-bg; }
+            if root.separate: Rectangle { x: -1px; y: 5px; width: 16px; height: 4px; background: root.selected ? InspectorTokens.selected-control-bg : InspectorTokens.field-bg; }
         }
     }
     TouchArea { clicked => { root.focus(); root.activated(); } }

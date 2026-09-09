@@ -40,10 +40,11 @@ export component InspectorRadiusSlider inherits FocusScope {
         return reject;
     }
     Rectangle { x: 6px; y: 11px; width: parent.width - 12px; height: 2px; background: InspectorTokens.divider; }
+    Rectangle { x: 6px; y: 11px; width: (parent.width - 12px) * root.progress; height: 2px; background: InspectorTokens.slider-fill; }
     Rectangle {
         x: 1px + (parent.width - 12px) * root.progress;
         y: 7px; width: 10px; height: 10px; border-radius: 5px;
-        background: InspectorTokens.muted;
+        background: InspectorTokens.slider-thumb;
         border-width: root.has-focus ? 1px : 0px;
         border-color: InspectorTokens.accent;
     }
