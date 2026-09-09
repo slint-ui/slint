@@ -185,6 +185,58 @@ fn take_touch_pos(
         .unwrap_or_default()
 }
 
+// Match the wheel step used by the winit backend.
+const WHEEL_SCROLL_PIXELS: f64 = 60.0;
+
+fn scroll_event(
+    position: Option<LogicalPosition>,
+    screen_size: i_slint_core::api::LogicalSize,
+    delta_x: f64,
+    delta_y: f64,
+    units_to_pixels: f64,
+) -> Option<WindowEvent> {
+    if delta_x == 0.0 && delta_y == 0.0 {
+        return None;
+    }
+    // Use the same initial position as relative pointer motion.
+    let position = position
+        .unwrap_or(LogicalPosition { x: screen_size.width / 2., y: screen_size.height / 2. });
+    // libinput reports positive values for down/right scrolling; Slint expects
+    // content displacement, as in the winit backend's Wayland axis conversion.
+    Some(WindowEvent::PointerScrolled {
+        position,
+        delta_x: (-delta_x * units_to_pixels) as f32,
+        delta_y: (-delta_y * units_to_pixels) as f32,
+    })
+}
+
+fn pointer_scroll_delta(event: &input::event::PointerEvent) -> Option<(f64, f64, f64)> {
+    use input::event::PointerEvent;
+    use input::event::pointer::{Axis, PointerScrollEvent};
+    // A scroll event carries only the axes that moved; a wheel usually has
+    // one. Reading the other makes libinput log a client bug for every event.
+    fn axis(event: &impl PointerScrollEvent, axis: Axis, read: impl FnOnce() -> f64) -> f64 {
+        if event.has_axis(axis) { read() } else { 0.0 }
+    }
+    fn continuous(event: &impl PointerScrollEvent) -> (f64, f64, f64) {
+        (
+            axis(event, Axis::Horizontal, || event.scroll_value(Axis::Horizontal)),
+            axis(event, Axis::Vertical, || event.scroll_value(Axis::Vertical)),
+            1.0,
+        )
+    }
+    Some(match event {
+        PointerEvent::ScrollWheel(event) => (
+            axis(event, Axis::Horizontal, || event.scroll_value_v120(Axis::Horizontal)),
+            axis(event, Axis::Vertical, || event.scroll_value_v120(Axis::Vertical)),
+            WHEEL_SCROLL_PIXELS / 120.0,
+        ),
+        PointerEvent::ScrollFinger(event) => continuous(event),
+        PointerEvent::ScrollContinuous(event) => continuous(event),
+        _ => return None,
+    })
+}
+
 impl<'a> calloop::EventSource for LibInputHandler<'a> {
     type Event = i_slint_core::platform::WindowEvent;
     type Metadata = ();
@@ -218,6 +270,13 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
             };
             match event {
                 input::Event::Pointer(pointer_event) => {
+                    if let Some((dx, dy, factor)) = pointer_scroll_delta(&pointer_event) {
+                        if let Some(event) =
+                            scroll_event(self.mouse_pos.as_ref().get(), screen_size, dx, dy, factor)
+                        {
+                            window.dispatch_event_with_result(event).map_err(Self::Error::other)?;
+                        }
+                    }
                     match pointer_event {
                         input::event::PointerEvent::Motion(motion_event) => {
                             let mut mouse_pos =
@@ -427,4 +486,36 @@ fn map_key_sym(sym: xkb::Keysym) -> Option<SharedString> {
     }
     let char = i_slint_common::for_each_keys!(keysym_to_string);
     Some(char.into())
+}
+
+#[cfg(test)]
+mod scroll_tests {
+    use super::*;
+
+    #[test]
+    fn scroll_direction_and_high_resolution_steps_match_content_displacement() {
+        let screen = i_slint_core::api::LogicalSize::new(1920., 1080.);
+        for (dx, dy, factor, expected_x, expected_y) in [
+            (0., 120., WHEEL_SCROLL_PIXELS / 120., 0., -60.),
+            (-120., 0., WHEEL_SCROLL_PIXELS / 120., 60., 0.),
+            (30., -15., WHEEL_SCROLL_PIXELS / 120., -15., 7.5),
+            (2.5, -3.25, 1., -2.5, 3.25),
+        ] {
+            let Some(WindowEvent::PointerScrolled { position, delta_x, delta_y }) =
+                scroll_event(None, screen, dx, dy, factor)
+            else {
+                panic!("missing scroll");
+            };
+            assert_eq!(position, LogicalPosition::new(960., 540.));
+            assert_eq!((delta_x, delta_y), (expected_x, expected_y));
+        }
+        assert!(scroll_event(None, screen, 0., 0., 1.).is_none());
+        let position = LogicalPosition::new(12., 34.);
+        let Some(WindowEvent::PointerScrolled { position: actual, .. }) =
+            scroll_event(Some(position), screen, 1., 1., 1.)
+        else {
+            panic!("missing scroll");
+        };
+        assert_eq!(actual, position);
+    }
 }
