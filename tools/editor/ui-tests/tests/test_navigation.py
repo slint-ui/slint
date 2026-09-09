@@ -31,11 +31,11 @@ def test_file_tree_opens_sibling_component(
             file_row(
                 window, fixture_project / "Sibling.slint"
             ).invoke_accessible_default_action()
-            window_element_with_label(
-                window, "sibling-rectangle", slint_testing.AccessibleRole.ListItem
-            )
-            assert not elements_with_label(window.root_element, "root-text")
         input_action.assert_no_source_writes()
+        window_element_with_label(
+            window, "sibling-rectangle", slint_testing.AccessibleRole.ListItem
+        )
+        assert not elements_with_label(window.root_element, "root-text")
         snapshot.assert_unchanged_now()
 
 
@@ -51,20 +51,20 @@ def test_file_tree_folder_expand_and_collapse(
         editor_binary, editor_environment, fixture_project / "Main.slint"
     ) as editor:
         window = first_window(editor)
+        folder = file_row(window, assets)
+        assert not elements_with_label(window.root_element, str(image))
         with current_editor_sync.get().action() as input_action:
-            folder = file_row(window, assets)
-            assert not elements_with_label(window.root_element, str(image))
             folder.invoke_accessible_default_action()
             file_row(window, image)
             file_row(window, assets).invoke_accessible_default_action()
-            wait_until(
-                lambda: (
-                    True
-                    if not elements_with_label(window.root_element, str(image))
-                    else None
-                )
-            )
         input_action.assert_no_source_writes()
+        wait_until(
+            lambda: (
+                True
+                if not elements_with_label(window.root_element, str(image))
+                else None
+            )
+        )
         snapshot.assert_unchanged_now()
 
 
@@ -79,10 +79,10 @@ def test_file_tree_switches_image_and_component_surfaces(
     image = assets / "checker.svg"
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
+        window_element_with_label(
+            window, "Editor canvas", slint_testing.AccessibleRole.Main
+        )
         with current_editor_sync.get().action() as input_action:
-            window_element_with_label(
-                window, "Editor canvas", slint_testing.AccessibleRole.Main
-            )
             file_row(window, assets).invoke_accessible_default_action()
             file_row(window, image).invoke_accessible_default_action()
             image_editor = window_element_with_label(
@@ -116,8 +116,8 @@ def test_file_tree_switches_image_and_component_surfaces(
             window_element_with_label(
                 window, "Editor canvas", slint_testing.AccessibleRole.Main
             )
-            window_element_with_label(
-                window, "Fixture text", slint_testing.AccessibleRole.Text
-            )
         input_action.assert_no_source_writes()
+        window_element_with_label(
+            window, "Fixture text", slint_testing.AccessibleRole.Text
+        )
         snapshot.assert_unchanged_now()

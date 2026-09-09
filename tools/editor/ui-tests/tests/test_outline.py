@@ -215,8 +215,8 @@ def test_outline_disclosure_collapses_and_expands_without_source_edit(
                 )
             )
             outline_row(window, "container").invoke_accessible_expand_action()
-            outline_row(window, "child-a")
         input_action.assert_no_source_writes()
+        outline_row(window, "child-a")
         snapshot.assert_unchanged_now()
 
 
@@ -243,9 +243,9 @@ def test_outline_keyboard_selection_synchronizes_editor(
         editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
     ) as editor:
         window = first_window(editor)
+        initial_row = outline_row(window, initial)
+        row = outline_row(window, target)
         with current_editor_sync.get().action() as input_action:
-            initial_row = outline_row(window, initial)
-            row = outline_row(window, target)
             initial_row.single_click(slint_testing.PointerEventButton.Left)
             assert initial_row.accessible_item_selected
             assert not row.accessible_item_selected
@@ -253,13 +253,13 @@ def test_outline_keyboard_selection_synchronizes_editor(
             window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Tab))
             window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
             window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
-            wait_until(lambda: row if row.accessible_item_selected else None)
-            window_element_with_label(
-                window,
-                selection,
-                slint_testing.AccessibleRole.Region,
-            )
         input_action.assert_no_source_writes()
+        wait_until(lambda: row if row.accessible_item_selected else None)
+        window_element_with_label(
+            window,
+            selection,
+            slint_testing.AccessibleRole.Region,
+        )
         snapshot.assert_unchanged_now()
 
 
@@ -314,10 +314,10 @@ def test_escape_cancels_outline_drag_without_source_edit(
         editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
     ) as editor:
         window = first_window(editor)
+        start = center(outline_row(window, "sibling-a"))
+        end = drop_position(window, "container", "onto")
+        button = slint_testing.PointerEventButton.Left
         with current_editor_sync.get().action() as input_action:
-            start = center(outline_row(window, "sibling-a"))
-            end = drop_position(window, "container", "onto")
-            button = slint_testing.PointerEventButton.Left
             window.dispatch_event(slint_testing.PointerPressEvent(start, button))
             window.dispatch_event(slint_testing.PointerMoveEvent(end))
             window_element_with_label(

@@ -208,19 +208,19 @@ def test_palette_preview_follows_rejected_pointer(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        with current_editor_sync.get().action() as input_action:
-            artboard = window_element_with_label(
-                window, "Artboard", slint_testing.AccessibleRole.Region
-            )
-            first_rejected_position = slint_testing.LogicalPosition(
-                x=artboard.absolute_position.x - 60,
-                y=artboard.absolute_position.y + 180,
-            )
-            second_rejected_position = slint_testing.LogicalPosition(
-                x=artboard.absolute_position.x - 100,
-                y=artboard.absolute_position.y + 280,
-            )
+        artboard = window_element_with_label(
+            window, "Artboard", slint_testing.AccessibleRole.Region
+        )
+        first_rejected_position = slint_testing.LogicalPosition(
+            x=artboard.absolute_position.x - 60,
+            y=artboard.absolute_position.y + 180,
+        )
+        second_rejected_position = slint_testing.LogicalPosition(
+            x=artboard.absolute_position.x - 100,
+            y=artboard.absolute_position.y + 280,
+        )
 
+        with current_editor_sync.get().action() as input_action:
             begin_palette_drag(window, "Rectangle", first_rejected_position)
             preview = window_element_with_label(
                 window,
@@ -266,59 +266,59 @@ def test_unselected_element_shows_hover_outline_without_side_effects(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
+        artboard = window_element_with_label(
+            window, "Artboard", slint_testing.AccessibleRole.Region
+        )
         with current_editor_sync.get().action() as input_action:
-            artboard = window_element_with_label(
-                window, "Artboard", slint_testing.AccessibleRole.Region
-            )
             hover = hover_fixture_element(window, kind)
-            expected = {
-                "Rectangle": (40, 40, 180, 120),
-                "Text": (180, 56, 180, 48),
-                "Image": (230, 132, 128, 96),
-            }[kind]
-            x, y, width, height = expected
-            assert hover.absolute_position.x == pytest.approx(
-                artboard.absolute_position.x + x
-            )
-            assert hover.absolute_position.y == pytest.approx(
-                artboard.absolute_position.y + y
-            )
-            assert hover.size.width == pytest.approx(width)
-            assert hover.size.height == pytest.approx(height)
-            assert not elements_with_label(window.root_element, f"Selected {kind}")
         input_action.assert_no_source_writes()
+        expected = {
+            "Rectangle": (40, 40, 180, 120),
+            "Text": (180, 56, 180, 48),
+            "Image": (230, 132, 128, 96),
+        }[kind]
+        x, y, width, height = expected
+        assert hover.absolute_position.x == pytest.approx(
+            artboard.absolute_position.x + x
+        )
+        assert hover.absolute_position.y == pytest.approx(
+            artboard.absolute_position.y + y
+        )
+        assert hover.size.width == pytest.approx(width)
+        assert hover.size.height == pytest.approx(height)
+        assert not elements_with_label(window.root_element, f"Selected {kind}")
         snapshot.assert_unchanged_now()
 
+        blank = slint_testing.LogicalPosition(
+            x=artboard.absolute_position.x + artboard.size.width - 12,
+            y=artboard.absolute_position.y + artboard.size.height - 12,
+        )
         with current_editor_sync.get().action() as input_action:
-            blank = slint_testing.LogicalPosition(
-                x=artboard.absolute_position.x + artboard.size.width - 12,
-                y=artboard.absolute_position.y + artboard.size.height - 12,
-            )
             window.dispatch_event(slint_testing.PointerMoveEvent(blank))
-            wait_until(
-                lambda: (
-                    True
-                    if not elements_with_label(window.root_element, f"Hovered {kind}")
-                    else None
-                )
-            )
         input_action.assert_no_source_writes()
+        wait_until(
+            lambda: (
+                True
+                if not elements_with_label(window.root_element, f"Hovered {kind}")
+                else None
+            )
+        )
         snapshot.assert_unchanged_now()
 
+        outside = slint_testing.LogicalPosition(
+            x=artboard.absolute_position.x - 12,
+            y=artboard.absolute_position.y - 12,
+        )
         with current_editor_sync.get().action() as input_action:
-            outside = slint_testing.LogicalPosition(
-                x=artboard.absolute_position.x - 12,
-                y=artboard.absolute_position.y - 12,
-            )
             window.dispatch_event(slint_testing.PointerMoveEvent(outside))
-            wait_until(
-                lambda: (
-                    True
-                    if not elements_with_label(window.root_element, f"Hovered {kind}")
-                    else None
-                )
-            )
         input_action.assert_no_source_writes()
+        wait_until(
+            lambda: (
+                True
+                if not elements_with_label(window.root_element, f"Hovered {kind}")
+                else None
+            )
+        )
         snapshot.assert_unchanged_now()
 
 
@@ -331,29 +331,27 @@ def test_overlapping_elements_update_hover_outline_to_topmost_item(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
+        artboard = window_element_with_label(
+            window, "Artboard", slint_testing.AccessibleRole.Region
+        )
+        rectangle_only = center(fixture_element(window, "Rectangle"))
+        overlapping = slint_testing.LogicalPosition(
+            x=artboard.absolute_position.x + 200,
+            y=artboard.absolute_position.y + 80,
+        )
         with current_editor_sync.get().action() as input_action:
-            artboard = window_element_with_label(
-                window, "Artboard", slint_testing.AccessibleRole.Region
-            )
-            rectangle_only = center(fixture_element(window, "Rectangle"))
-            overlapping = slint_testing.LogicalPosition(
-                x=artboard.absolute_position.x + 200,
-                y=artboard.absolute_position.y + 80,
-            )
             window.dispatch_event(slint_testing.PointerMoveEvent(rectangle_only))
             window_element_with_label(window, "Hovered Rectangle")
             window.dispatch_event(slint_testing.PointerMoveEvent(overlapping))
-            wait_until(
-                lambda: (
-                    True
-                    if elements_with_label(window.root_element, "Hovered Text")
-                    and not elements_with_label(
-                        window.root_element, "Hovered Rectangle"
-                    )
-                    else None
-                )
-            )
         input_action.assert_no_source_writes()
+        wait_until(
+            lambda: (
+                True
+                if elements_with_label(window.root_element, "Hovered Text")
+                and not elements_with_label(window.root_element, "Hovered Rectangle")
+                else None
+            )
+        )
         snapshot.assert_unchanged_now()
 
 
@@ -435,8 +433,8 @@ def test_selected_element_does_not_get_a_duplicate_hover_outline(
             window.dispatch_event(
                 slint_testing.PointerMoveEvent(center(fixture_element(window, "Text")))
             )
-            assert not elements_with_label(window.root_element, "Hovered Text")
         input_action.assert_no_source_writes()
+        assert not elements_with_label(window.root_element, "Hovered Text")
         snapshot.assert_unchanged_now()
 
 
@@ -464,11 +462,11 @@ def test_unselected_element_click_selects_without_editing_source(
             window.dispatch_event(
                 slint_testing.PointerReleaseEvent(below_threshold, button)
             )
-            window_element_with_label(
-                window, f"Selected {kind}", slint_testing.AccessibleRole.Region
-            )
-            assert not elements_with_label(window.root_element, f"Hovered {kind}")
         input_action.assert_no_source_writes()
+        window_element_with_label(
+            window, f"Selected {kind}", slint_testing.AccessibleRole.Region
+        )
+        assert not elements_with_label(window.root_element, f"Hovered {kind}")
         snapshot.assert_unchanged_now()
 
 
@@ -1587,46 +1585,44 @@ def test_repeated_rectangles_show_radius_handles_only_on_primary_instance(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        with current_editor_sync.get().action() as input_action:
-            instances = wait_until(
-                lambda: (
-                    elements
-                    if len(
-                        elements := window.find_elements_by_id("Main::root-rectangle")
-                    )
-                    == 3
-                    else None
-                )
+        instances = wait_until(
+            lambda: (
+                elements
+                if len(elements := window.find_elements_by_id("Main::root-rectangle"))
+                == 3
+                else None
             )
-            target = center(instances[1])
-            button = slint_testing.PointerEventButton.Left
+        )
+        target = center(instances[1])
+        button = slint_testing.PointerEventButton.Left
+        with current_editor_sync.get().action() as input_action:
             window.dispatch_event(slint_testing.PointerMoveEvent(target))
             window.dispatch_event(slint_testing.PointerPressEvent(target, button))
             window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
-            wait_until(
-                lambda: (
-                    selected
-                    if len(
-                        selected := elements_with_label(
-                            window.root_element,
-                            "Selected Rectangle",
-                            slint_testing.AccessibleRole.Region,
-                        )
-                    )
-                    == 3
-                    else None
-                )
-            )
-
-            for corner in CORNERS:
-                handles = elements_with_label(
-                    window.root_element,
-                    f"Rectangle radius {corner}",
-                    slint_testing.AccessibleRole.Button,
-                )
-                assert len(handles) == 1
-                assert position_distance(center(handles[0]), target) < 100
         input_action.assert_no_source_writes()
+        wait_until(
+            lambda: (
+                selected
+                if len(
+                    selected := elements_with_label(
+                        window.root_element,
+                        "Selected Rectangle",
+                        slint_testing.AccessibleRole.Region,
+                    )
+                )
+                == 3
+                else None
+            )
+        )
+
+        for corner in CORNERS:
+            handles = elements_with_label(
+                window.root_element,
+                f"Rectangle radius {corner}",
+                slint_testing.AccessibleRole.Button,
+            )
+            assert len(handles) == 1
+            assert position_distance(center(handles[0]), target) < 100
         snapshot.assert_unchanged_now()
 
 
@@ -1782,8 +1778,8 @@ def test_disabled_manipulation_does_not_edit_source(
     source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
+        snapshot = SourceSnapshot.capture(fixture_project)
         with current_editor_sync.get().action() as input_action:
-            snapshot = SourceSnapshot.capture(fixture_project)
             select_outline_row(window, element_id)
             window_element_with_label(window, "Selected Rectangle")
             handle = window_element_with_label(window, "Rectangle resize bottom-right")

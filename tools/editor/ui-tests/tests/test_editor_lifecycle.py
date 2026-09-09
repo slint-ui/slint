@@ -1,6 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+from contextlib import contextmanager
+
 import pytest
 import slint_testing
 from editor_sync import current_editor_sync
@@ -17,6 +19,16 @@ from test_inspector_transform import (
 from ui_driver import file_row, first_window, launch_editor, window_element_with_label
 
 
+@contextmanager
+def selected_rectangle(binary, environment, source, baseline):
+    with launch_editor(binary, environment, source) as app:
+        window = first_window(app)
+        sync = current_editor_sync.get()
+        sync.wait_for_applied(source, baseline)
+        select_element(window, "Rectangle")
+        yield window, sync
+
+
 def operation_state(action):
     return action.sync._request(mode="operation", operation=action.operation).data
 
@@ -29,11 +41,10 @@ def test_publication_gate_holds_the_instance_and_supersedes_old_attempt(
     source = fixture_project / SOURCE
     older = baseline.replace(b"32deg", b"45deg")
     newest = baseline.replace(b"32deg", b"67deg")
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
-        sync.wait_for_applied(source, baseline)
+    with selected_rectangle(editor_binary, editor_environment, source, baseline) as (
+        window,
+        sync,
+    ):
         checkpoint = sync.checkpoint()
         with sync.gate(stage, source) as gate:
             source.write_bytes(older)
@@ -57,11 +68,10 @@ def test_edit_and_queued_undo_remain_pending_until_publication(
     baseline = prepare(fixture_project)
     source = fixture_project / SOURCE
     edited = baseline.replace(b"32deg", b"62deg")
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
-        sync.wait_for_applied(source, baseline)
+    with selected_rectangle(editor_binary, editor_environment, source, baseline) as (
+        window,
+        sync,
+    ):
         with sync.gate("publication", source) as gate:
             with sync.action() as edit:
                 edit_field(window, "Rotation", "62")
@@ -94,11 +104,10 @@ def test_source_gate_preserves_overlap_without_blocking_ui(
     baseline = prepare(fixture_project)
     source = fixture_project / SOURCE
     changed = baseline.replace(b"32deg", b"77deg")
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
-        sync.wait_for_applied(source, baseline)
+    with selected_rectangle(editor_binary, editor_environment, source, baseline) as (
+        window,
+        sync,
+    ):
         with sync.gate("source", source) as gate:
             source.write_bytes(changed)
             gate.wait_for_reached()
@@ -113,67 +122,29 @@ def test_source_gate_preserves_overlap_without_blocking_ui(
         wait_for_field(window, "Rotation", "77")
 
 
+@pytest.mark.parametrize("move", [False, True])
 @pytest.mark.parametrize("cancel", ["escape", "selection", "source"])
-def test_active_gesture_has_terminal_cancellation_and_release_cannot_write(
-    editor_binary, editor_environment, fixture_project, cancel
+def test_sealed_gesture_stays_pending_until_cancellation(
+    editor_binary, editor_environment, fixture_project, cancel, move
 ):
     baseline = prepare(fixture_project)
     source = fixture_project / SOURCE
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
-        sync.wait_for_applied(source, baseline)
+    with selected_rectangle(editor_binary, editor_environment, source, baseline) as (
+        window,
+        sync,
+    ):
         knob = window_element_with_label(window, "Rotation knob")
-        start, end = point(knob, 32), point(knob, 62)
-        with sync.action() as gesture:
-            window.dispatch_event(
-                slint_testing.PointerPressEvent(
-                    start, slint_testing.PointerEventButton.Left
-                )
-            )
-            window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        assert not operation_state(gesture)["settled"]
-        assert source.read_bytes() == baseline
-        if cancel == "source":
-            baseline = baseline.replace(b"32deg", b"17deg")
-            source.write_bytes(baseline)
-            sync.wait_for_applied(source, baseline)
-        with sync.action() as release:
-            if cancel == "escape":
-                window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
-                window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
-            elif cancel == "selection":
-                select_element(window, "Text")
-            window.dispatch_event(
-                slint_testing.PointerReleaseEvent(
-                    end, slint_testing.PointerEventButton.Left
-                )
-            )
-        gesture.wait_for_settled(outcome="canceled")
-        gesture.assert_no_source_writes()
-        release.assert_no_source_writes()
-        assert source.read_bytes() == baseline
-
-
-@pytest.mark.parametrize("cancel", ["escape", "selection", "source"])
-def test_sealed_pointer_down_stays_pending_until_cancellation(
-    editor_binary, editor_environment, fixture_project, cancel
-):
-    baseline = prepare(fixture_project)
-    source = fixture_project / SOURCE
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
-        sync.wait_for_applied(source, baseline)
-        position = point(window_element_with_label(window, "Rotation knob"), 32)
+        position = point(knob, 32)
         with sync.action() as gesture:
             window.dispatch_event(
                 slint_testing.PointerPressEvent(
                     position, slint_testing.PointerEventButton.Left
                 )
             )
+            if move:
+                position = point(knob, 62)
+                window.dispatch_event(slint_testing.PointerMoveEvent(position))
+        assert source.read_bytes() == baseline
         state = operation_state(gesture)
         assert state["operation_state"]["sealed"]
         assert not state["settled"]
@@ -206,11 +177,10 @@ def test_write_then_undo_counts_both_writes_even_when_final_bytes_match(
 ):
     baseline = prepare(fixture_project)
     source = fixture_project / SOURCE
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
-        sync.wait_for_applied(source, baseline)
+    with selected_rectangle(editor_binary, editor_environment, source, baseline) as (
+        window,
+        sync,
+    ):
         with sync.action() as edit_and_undo:
             edit_field(window, "Rotation", "42")
             sync.wait_for_applied(source, baseline.replace(b"32deg", b"42deg"))
@@ -232,11 +202,10 @@ def test_same_content_and_return_to_original_have_new_observations(
     baseline = prepare(fixture_project)
     source = fixture_project / SOURCE
     changed = baseline.replace(b"32deg", b"42deg")
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
-        sync.wait_for_applied(source, baseline)
+    with selected_rectangle(editor_binary, editor_environment, source, baseline) as (
+        window,
+        sync,
+    ):
         checkpoint = sync.checkpoint()
         with sync.gate("source", source) as gate:
             source.write_bytes(baseline)
@@ -260,11 +229,10 @@ def test_unrelated_installation_cannot_release_pending_edit_history(
     source = fixture_project / SOURCE
     older = baseline.replace(b"32deg", b"45deg")
     edited = baseline.replace(b"32deg", b"62deg")
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
-        sync.wait_for_applied(source, baseline)
+    with selected_rectangle(editor_binary, editor_environment, source, baseline) as (
+        window,
+        sync,
+    ):
         with sync.gate("publication", source) as publication:
             source.write_bytes(older)
             publication.wait_for_reached()
@@ -302,10 +270,10 @@ def test_edit_waits_for_both_matching_milestones(
     baseline = prepare(fixture_project)
     source = fixture_project / SOURCE
     seeded = baseline.replace(b"32deg", b"42deg")
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
+    with selected_rectangle(editor_binary, editor_environment, source, baseline) as (
+        window,
+        sync,
+    ):
         with sync.action() as seed:
             edit_field(window, "Rotation", "42")
         seed.wait_for_settled(outcome="completed")
@@ -357,10 +325,10 @@ def test_obsolete_acknowledgment_cannot_finish_newer_edit(
 ):
     baseline = prepare(fixture_project)
     source = fixture_project / SOURCE
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
+    with selected_rectangle(editor_binary, editor_environment, source, baseline) as (
+        window,
+        sync,
+    ):
         with sync.gate("acknowledgment", source) as acknowledgment:
             with sync.action() as obsolete:
                 edit_field(window, "Rotation", "62")
@@ -409,10 +377,10 @@ def test_retired_assigned_factory_resolves_edit_and_queued_history(
     baseline = prepare(fixture_project)
     source = fixture_project / SOURCE
     edited = baseline.replace(b"32deg", b"62deg")
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
+    with selected_rectangle(editor_binary, editor_environment, source, baseline) as (
+        window,
+        sync,
+    ):
         with sync.action() as seed:
             edit_field(window, "Rotation", "42")
         seed.wait_for_settled(outcome="completed")
@@ -481,10 +449,10 @@ def test_write_failure_reports_mutation_and_reconciles_history(
     source = fixture_project / SOURCE
     seeded = baseline.replace(b"32deg", b"42deg")
     expected = seeded if prefix is None else seeded[:prefix]
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
+    with selected_rectangle(editor_binary, editor_environment, source, baseline) as (
+        window,
+        sync,
+    ):
         with sync.action() as seed:
             edit_field(window, "Rotation", "42")
         seed.wait_for_settled(outcome="completed")
@@ -536,10 +504,10 @@ def test_newer_preview_resolves_pending_edit(
     source = fixture_project / SOURCE
     edited = baseline.replace(b"32deg", b"62deg")
     newer = baseline.replace(b"32deg", b"77deg")
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
+    with selected_rectangle(editor_binary, editor_environment, source, baseline) as (
+        window,
+        sync,
+    ):
         with sync.action() as seed:
             edit_field(window, "Rotation", "42")
         seed.wait_for_settled(outcome="completed")
@@ -633,10 +601,10 @@ def test_coalesced_edit_resolves_without_compiling_its_written_revision(
     baseline = prepare(fixture_project)
     source = fixture_project / SOURCE
     newer = baseline.replace(b"32deg", b"77deg")
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
-        select_element(window, "Rectangle")
-        sync = current_editor_sync.get()
+    with selected_rectangle(editor_binary, editor_environment, source, baseline) as (
+        window,
+        sync,
+    ):
         checkpoint = sync.checkpoint()
         with (
             sync.gate("source", source) as processing,
