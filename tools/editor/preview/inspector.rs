@@ -41,6 +41,20 @@ fn names(name: &str) -> Option<Vec<&str>> {
     }
 }
 
+fn validate<'a>(
+    key: &str,
+    name: &'a str,
+    value: f32,
+) -> Option<(ElementRcNode, Url, SourceFileVersion, Vec<&'a str>)> {
+    let Some((node, url, version)) = target(key) else {
+        cancel();
+        return None;
+    };
+    let names = names(name)?;
+    (value.is_finite() && (name == "transform-rotation" || value >= 0.))
+        .then_some((node, url, version, names))
+}
+
 pub(super) fn cancel() {
     PREVIEW_STATE.with_borrow_mut(|state| {
         if let Some(edit) = state.inspector_edit.take() {
@@ -58,14 +72,7 @@ pub(super) fn cancel() {
 }
 
 pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool {
-    let Some((node, _, _)) = target(&key) else {
-        cancel();
-        return false;
-    };
-    let Some(names) = names(&name) else { return false };
-    if !value.is_finite() || (name != "transform-rotation" && value < 0.) {
-        return false;
-    }
+    let Some((node, _, _, names)) = validate(&key, &name, value) else { return false };
     let hash = node.with_element_debug(|debug| debug.element_hash);
     let ids: Vec<_> = names
         .iter()
@@ -98,14 +105,7 @@ pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool
 }
 
 pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool {
-    let Some((node, url, version)) = target(&key) else {
-        cancel();
-        return false;
-    };
-    let Some(names) = names(&name) else { return false };
-    if !value.is_finite() || (name != "transform-rotation" && value < 0.) {
-        return false;
-    }
+    let Some((node, url, version, names)) = validate(&key, &name, value) else { return false };
     let unit = if name == "transform-rotation" { "deg" } else { "px" };
     let changes = names
         .iter()
@@ -138,7 +138,13 @@ pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool 
             true,
         )
     });
-    cancel();
+    if accepted {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.inspector_edit.take();
+        });
+    } else {
+        cancel();
+    }
     accepted
 }
 
@@ -147,11 +153,16 @@ pub(super) fn values(key: SharedString) -> slint::ModelRc<f32> {
         let (node, _, _) = target(&key)?;
         let selected = selected_element()?;
         let instance = component_instance()?;
-        let (rotation, radii) = instance
-            .element_rotation_and_radii(&node.element)
-            .get(selected.instance_index)
-            .copied()?;
-        Some(vec![rotation, radii[0], radii[1], radii[2], radii[3]])
+        let geometry =
+            instance.element_positions(&node.element).get(selected.instance_index).copied()?;
+        let radii = geometry.corner_radii;
+        Some(vec![
+            geometry.transform_rotation,
+            radii.top_left,
+            radii.top_right,
+            radii.bottom_left,
+            radii.bottom_right,
+        ])
     })()
     .unwrap_or_else(|| vec![0.; 5]);
     slint::ModelRc::new(slint::VecModel::from(values))

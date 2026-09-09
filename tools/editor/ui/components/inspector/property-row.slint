@@ -5,12 +5,12 @@ import { InspectorTokens } from "tokens.slint";
 
 export component InspectorPropertyRow inherits HorizontalLayout {
     in property <string> label;
-    spacing: 6px;
+    spacing: InspectorTokens.row-gap;
     padding-left: InspectorTokens.side-padding;
     padding-right: InspectorTokens.side-padding;
     cross-axis-alignment: center;
     Text {
-        width: 52px;
+        width: InspectorTokens.label-width;
         text: root.label;
         color: InspectorTokens.muted;
         font-size: 12px;

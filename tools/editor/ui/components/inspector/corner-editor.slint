@@ -39,12 +39,13 @@ export component InspectorCornerEditor inherits Rectangle {
     in property <[float]> values;
     in property <float> maximum;
     in property <string> commit-key;
+    in property <string> selection-key;
     callback preview(float) -> bool;
     callback accepted(int, float) -> bool;
     callback canceled();
     private property <bool> unequal: root.values[0] != root.values[1] || root.values[0] != root.values[2] || root.values[0] != root.values[3];
     private property <bool> separate: root.unequal;
-    changed commit-key => { root.separate = root.unequal; }
+    changed selection-key => { root.separate = root.unequal; }
     changed unequal => { if root.unequal { root.separate = true; } }
     height: layout.preferred-height;
     horizontal-stretch: 1;

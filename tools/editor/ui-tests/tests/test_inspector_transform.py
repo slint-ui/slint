@@ -560,3 +560,88 @@ def test_undo_while_dragging_cancels_release(
         time.sleep(0.3)
         snapshot.wait_for_exact(baseline, relative_path=SOURCE)
         wait_for_field(window, "Rotation", "32")
+
+
+def test_separate_corners_survive_rotation_edit(
+    editor_binary, editor_environment, fixture_project
+):
+    baseline = prepare(fixture_project)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / SOURCE
+    ) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        action(window, "Separate corners")
+        wait_for_field(window, LABELS[0], "12")
+        edit_field(window, "Rotation", "47.5")
+        snapshot.wait_for_exact(baseline.replace(b"32deg", b"47.5deg"), SOURCE)
+        wait_for_field(window, "Rotation", "47.5")
+        time.sleep(0.5)
+        for label in LABELS:
+            wait_for_field(window, label, "12")
+
+
+def test_deleted_selected_element_clears_inspector(
+    editor_binary, editor_environment, fixture_project
+):
+    from ui_driver import elements_with_label, wait_until
+
+    source = fixture_project / SOURCE
+    with launch_editor(editor_binary, editor_environment, source) as app:
+        window = first_window(app)
+        select_element(window, "Image")
+        window_element_with_label(
+            window, "Selected Image", slint_testing.AccessibleRole.Region
+        )
+        original = source.read_text()
+        source.write_text(original[: original.index("    inspect-image :=")] + "}\n")
+        wait_until(
+            lambda: (
+                True
+                if not elements_with_label(
+                    window.root_element,
+                    "Selected Image",
+                    slint_testing.AccessibleRole.Region,
+                )
+                else None
+            )
+        )
+        assert not elements_with_label(window.root_element, "Image fit")
+
+
+def test_rotation_release_keeps_preview_until_reload(
+    editor_binary, editor_environment, fixture_project
+):
+    baseline = prepare(fixture_project)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / SOURCE
+    ) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        knob = window_element_with_label(window, "Rotation knob")
+        start, end = point(knob, 90), point(knob, 108)
+        window.dispatch_event(
+            slint_testing.PointerPressEvent(
+                start, slint_testing.PointerEventButton.Left
+            )
+        )
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_field(window, "Rotation", "50")
+        snapshot.assert_unchanged()
+        window.dispatch_event(
+            slint_testing.PointerReleaseEvent(
+                end, slint_testing.PointerEventButton.Left
+            )
+        )
+        deadline = time.monotonic() + 0.5
+        while time.monotonic() < deadline:
+            assert (
+                window_element_with_label(
+                    window, "Rotation", slint_testing.AccessibleRole.TextInput
+                ).accessible_value
+                == "50"
+            )
+            time.sleep(0.01)
+        snapshot.wait_for_exact(baseline.replace(b"32deg", b"50deg"), SOURCE)

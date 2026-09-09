@@ -77,6 +77,7 @@ export component InspectorPane inherits Rectangle {
         { value: "inner", label: "Inner Shadow" },
     ];
 
+    property <string> selection-key: root.element-information.source-uri + ":" + root.element-information.offset + ":" + Api.selection.highlight-index;
     property <string> inspector-key: root.element-information.source-uri + ":" + root.element-information.source-version + ":" + root.element-information.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
     property <[float]> control-values: Api.inspector-values(root.inspector-key);
     function commit-inspector(name: string, value: float) -> bool {
@@ -621,13 +622,13 @@ export component InspectorPane inherits Rectangle {
                     InspectorPropertyRow {
                         label: "Position";
                         InspectorValueField {
-                            width: (parent.width - 58px - 24px - 6px) / 2;
+                            width: (parent.width - InspectorTokens.label-width - 2 * InspectorTokens.side-padding - 2 * InspectorTokens.row-gap) / 2;
                             accessible-name: "Position X"; prefix: "X";
                             value: root.selected-x-label(); commit-key: root.field-key("x");
                             accepted(text) => { return root.commit-geometry(text, root.selected-y-label(), root.selected-width-label(), root.selected-height-label()); }
                         }
                         InspectorValueField {
-                            width: (parent.width - 58px - 24px - 6px) / 2;
+                            width: (parent.width - InspectorTokens.label-width - 2 * InspectorTokens.side-padding - 2 * InspectorTokens.row-gap) / 2;
                             accessible-name: "Position Y"; prefix: "Y";
                             value: root.selected-y-label(); commit-key: root.field-key("y");
                             accepted(text) => { return root.commit-geometry(root.selected-x-label(), text, root.selected-width-label(), root.selected-height-label()); }
@@ -636,13 +637,13 @@ export component InspectorPane inherits Rectangle {
                     InspectorPropertyRow {
                         label: "Size";
                         InspectorValueField {
-                            width: (parent.width - 58px - 24px - 6px) / 2;
+                            width: (parent.width - InspectorTokens.label-width - 2 * InspectorTokens.side-padding - 2 * InspectorTokens.row-gap) / 2;
                             accessible-name: "Width"; prefix: "W";
                             value: root.selected-width-label(); commit-key: root.field-key("width");
                             accepted(text) => { return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), text, root.selected-height-label()); }
                         }
                         InspectorValueField {
-                            width: (parent.width - 58px - 24px - 6px) / 2;
+                            width: (parent.width - InspectorTokens.label-width - 2 * InspectorTokens.side-padding - 2 * InspectorTokens.row-gap) / 2;
                             accessible-name: "Height"; prefix: "H";
                             value: root.selected-height-label(); commit-key: root.field-key("height");
                             accepted(text) => { return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), root.selected-width-label(), text); }
@@ -659,7 +660,7 @@ export component InspectorPane inherits Rectangle {
                             canceled => { Api.inspector-cancel(); }
                         }
                         InspectorValueField {
-                            width: parent.width - 58px - 24px - 38px;
+                            width: parent.width - InspectorTokens.label-width - 2 * InspectorTokens.side-padding - 2 * InspectorTokens.row-gap - knob.width;
                             accessible-name: "Rotation"; prefix: "°";
                             value: "\{knob.visual-value}";
                             commit-key: root.inspector-key;
@@ -679,7 +680,7 @@ export component InspectorPane inherits Rectangle {
                             value: root.phone-background-label;
                             swatch: root.phone-background;
                             commit-key: root.field-key("background");
-                            width: root.width - 2 * InspectorTokens.side-padding - 59px;
+                            width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
                             accepted(text) => {
                                 return root.commit-code("background", text);
                             }
@@ -690,7 +691,7 @@ export component InspectorPane inherits Rectangle {
                             value: root.rectangle-background-code();
                             swatch: root.rectangle-background-swatch();
                             commit-key: root.field-key("background");
-                            width: root.width - 2 * InspectorTokens.side-padding - 59px;
+                            width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
                             accepted(text) => {
                                 return root.commit-code("background", text);
                             }
@@ -701,7 +702,7 @@ export component InspectorPane inherits Rectangle {
                             value: root.text-color-code();
                             swatch: root.text-color-swatch();
                             commit-key: root.field-key("color");
-                            width: root.width - 2 * InspectorTokens.side-padding - 59px;
+                            width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
                             accepted(text) => {
                                 return root.commit-code("color", text);
                             }
@@ -714,6 +715,7 @@ export component InspectorPane inherits Rectangle {
                             width: root.width - 2 * InspectorTokens.side-padding - 1px;
                             values: [root.control-values[1], root.control-values[2], root.control-values[3], root.control-values[4]];
                             maximum: min(root.selected-width(), root.selected-height()) / 2px;
+                            selection-key: root.selection-key;
                             commit-key: root.inspector-key;
                             preview(value) => { return Api.inspector-preview(root.inspector-key, "all-corners", value); }
                             accepted(index, value) => {
