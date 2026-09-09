@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TypeVar
 
 import slint_testing
+from ui_reporting import capture_failure, current_report, replay_stage
 
 PALETTE_KINDS = ("Image", "Rectangle", "Text")
 
@@ -126,7 +127,15 @@ def launch_editor(
     with slint_testing.Application(
         arguments, env=environment, launch_timeout=20
     ) as application:
-        yield application
+        try:
+            yield application
+            report = current_report.get()
+            if report is not None and report.completed_stages == 0:
+                with replay_stage("completed"):
+                    pass
+        except Exception as error:
+            capture_failure(application, error)
+            raise
 
 
 def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:

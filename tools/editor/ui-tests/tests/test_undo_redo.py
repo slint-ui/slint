@@ -1,11 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import logging
 import math
-import os
 import sys
-import time
 from pathlib import Path
 
 import pytest
@@ -31,6 +28,7 @@ from ui_driver import (
     wait_until,
     window_element_with_label,
 )
+from ui_reporting import replay_stage
 
 SOURCE = "UndoRedo.slint"
 INITIAL = {"x": 80, "y": 80, "width": 180, "height": 120, "rotation": 0, "radius": 12}
@@ -46,12 +44,6 @@ CASES = [
     ("inspector-rotation", {"rotation": 15}),
     ("inspector-radius", {"radius": 20}),
 ]
-
-
-def pause(case: str, stage: str) -> None:
-    print(f"{case}: {stage}", flush=True)
-    if os.environ.get("SLINT_UNDO_REDO_REPLAY") == "1":
-        time.sleep(1)
 
 
 def assert_visual(
@@ -195,10 +187,9 @@ def test_rectangle_undo_redo(
         assert expected.count(old) == 1
         expected = expected.replace(old, f"        {prop}: {value}{unit};".encode())
     snapshot = SourceSnapshot.capture(fixture_project)
-    stage = "initial"
     with launch_editor(editor_binary, editor_environment, source) as editor:
         window = first_window(editor)
-        try:
+        with replay_stage("initial"):
             select_fixture_element(window, "Rectangle")
             cx, cy, *_ = wait_until(
                 lambda: oriented_selection_frame(window, "Rectangle")
@@ -209,26 +200,17 @@ def test_rectangle_undo_redo(
             )
             assert_visual(window, INITIAL, origin, case.endswith("radius"))
             snapshot.assert_unchanged_now()
-            pause(case, stage)
-            stage = "initial edit"
+        with replay_stage("initial edit"):
             edit(window, case, changes, snapshot)
-            for stage, content, values in [
-                ("edited", expected, INITIAL | changes),
-                ("undo", baseline, INITIAL),
-                ("redo", expected, INITIAL | changes),
-            ]:
-                if stage != "edited":
-                    if case.startswith("inspector-"):
-                        select_fixture_element(window, "Rectangle")
-                    shortcut(window, redo=stage == "redo")
+            snapshot.wait_for_exact(expected, SOURCE)
+            assert_visual(window, INITIAL | changes, origin, case.endswith("radius"))
+        for name, content, values in [
+            ("undo", baseline, INITIAL),
+            ("redo", expected, INITIAL | changes),
+        ]:
+            with replay_stage(name):
+                if case.startswith("inspector-"):
+                    select_fixture_element(window, "Rectangle")
+                shortcut(window, redo=name == "redo")
                 snapshot.wait_for_exact(content, SOURCE)
                 assert_visual(window, values, origin, case.endswith("radius"))
-                pause(case, stage)
-        except Exception as error:
-            artifact = fixture_project.parent / f"{case}-{stage.replace(' ', '-')}.png"
-            try:
-                artifact.write_bytes(window.grab_window_as_png())
-                print(f"Failure screenshot: {artifact}", flush=True)
-            except Exception:
-                logging.getLogger(__name__).exception("Screenshot unavailable")
-            raise AssertionError(f"{case} failed at {stage}: {error}") from error
