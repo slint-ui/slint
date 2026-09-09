@@ -9,9 +9,13 @@ import { StandardButton } from "../common/standardbutton.slint";
 
 import { MenuBorder } from "./components.slint";
 
+import { TimePickerPopupInterface } from "../common/std-widget-interfaces.slint";
+
 export { Time }
 
 export component TimePickerPopup inherits PopupWindow {
+    implement TimePickerPopupInterface <=> self;
+
     in property <bool> use-24-hour-format <=> base.use-24-hour-format;
     in property <string> title: "Select time";
     in property <Time> time <=> base.time;
