@@ -93,9 +93,9 @@ rgb = { version = "0.8.27", optional = true }
 bytemuck = { workspace = true, optional = true, features = ["derive"] }
 webbrowser = "1.2.0"
 itertools.workspace = true
-id-pool = "0.2.2"
 
 [target.'cfg(any(target_os = "macos", target_family = "windows"))'.dependencies]
+id-pool = "0.2.2"
 muda = { version = "0.19.0", optional = true, default-features = false }
 vtable = { workspace = true }
 

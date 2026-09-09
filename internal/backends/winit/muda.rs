@@ -22,6 +22,8 @@ use winit::event_loop::EventLoopProxy;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
+const MAX_DEPTH: u32 = 15;
+
 #[derive(Clone, Debug)]
 struct MenuNode {
     entry: MenuEntry,
@@ -67,7 +69,7 @@ impl PropertyDirtyHandler for MudaPropertyTracker {
 fn build_menu_tree_for_parent(
     menu: vtable::VRef<'_, MenuVTable>,
     parent: Option<&MenuEntry>,
-    depth: usize,
+    depth: u32,
 ) -> Vec<MenuNode> {
     let mut raw_entries = Default::default();
     match parent {
@@ -77,7 +79,7 @@ fn build_menu_tree_for_parent(
 
     let mut tree = Vec::new();
     for entry in raw_entries {
-        let children = if entry.has_sub_menu && depth < 15 {
+        let children = if entry.has_sub_menu && depth <= MAX_DEPTH {
             build_menu_tree_for_parent(menu, Some(&entry), depth + 1)
         } else {
             Vec::new()
@@ -92,9 +94,7 @@ fn build_menu_tree(menu: &vtable::VRc<MenuVTable>) -> Vec<MenuNode> {
 }
 
 fn build_menu_item(node: &MenuNode, id: muda::MenuId) -> Box<dyn muda::IsMenuItem> {
-    if node.entry.is_separator {
-        Box::new(muda::PredefinedMenuItem::separator())
-    } else if !node.entry.has_sub_menu {
+    if !node.entry.has_sub_menu {
         let accelerator = keys_to_accelerator(&node.entry.shortcut);
         let err_handler = |err| {
             i_slint_core::debug_log!(
@@ -149,7 +149,7 @@ fn update_menu_branch(
     muda_type: MudaType,
     depth: u32,
 ) {
-    if depth > 15 && !new_items.is_empty() {
+    if depth > MAX_DEPTH && !new_items.is_empty() {
         // infinite menu depth is possible, but we want to limit the amount of item passed to muda
         menu.insert(&muda::MenuItem::new("<Error: Menu Depth limit reached>", false, None), 0)
             .unwrap();
@@ -219,12 +219,17 @@ fn update_menu_branch(
 
         // Do we need to add a new item?
         if let Some(new_item_to_build) = new_item_to_build {
-            // Allocate an id for this item
-            let entry_id = map.insert(new_item_to_build.entry.clone());
-            let menu_id = muda::MenuId(format!("{window_id}|{entry_id}|{muda_type}"));
-
             // Create the new item
-            let new_muda_item = build_menu_item(new_item_to_build, menu_id);
+            let new_muda_item = if new_item_to_build.entry.is_separator {
+                Box::new(muda::PredefinedMenuItem::separator())
+            } else {
+                // Allocate an id for this item
+                let entry_id = map.insert(new_item_to_build.entry.clone());
+                let menu_id = muda::MenuId(format!("{window_id}|{entry_id}|{muda_type}"));
+
+                // And build it
+                build_menu_item(new_item_to_build, menu_id)
+            };
 
             // And if this is a submenu, recurse
             if let muda::MenuItemKind::Submenu(submenu) = new_muda_item.kind() {
@@ -356,7 +361,7 @@ impl MudaAdapter {
                             #[cfg(target_os = "macos")]
                             {
                                 menu.init_for_nsapp();
-                                create_default_app_menu(menu).unwrap();
+                                create_default_app_menu(&menu).unwrap();
                             }
                         };
                         menu
@@ -418,7 +423,7 @@ impl MudaAdapter {
         let menu_bar = muda::Menu::new();
         create_default_app_menu(&menu_bar)?;
         menu_bar.init_for_nsapp();
-        Ok(Self { entries: Vec::new(), menu: Some(menu_bar), tracker: None })
+        Ok(Self { map: HashMap::new(), pool: IdPool::new(), menu: Some(menu_bar), tracker: None })
     }
 
     #[cfg(target_os = "macos")]
