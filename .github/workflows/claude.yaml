@@ -3,9 +3,9 @@
 
 name: Claude Code
 
-# A pull request from a fork gets no secrets and a read-only token, whatever
-# these events request, so '@claude' only works on a branch pushed to this
-# repository.
+# On a pull request from a fork, only the comment events reach Claude with the
+# secrets and the write token it needs. The two review events get neither, so
+# '@claude' there has to go in a plain comment rather than a review.
 on:
   issue_comment:
     types: [created]
@@ -101,13 +101,12 @@ jobs:
                 body,
               });
             } catch (error) {
-              // A pull request from a fork gets no secrets and a read-only
-              // token, so a run for one can neither authenticate nor report
-              // back. The log is the only channel left.
+              // Reviewing a fork's pull request leaves the run unable to
+              // authenticate or to comment, so the log is the only channel.
               core.warning(
-                `Could not comment: ${error.message}. On a pull request from a `
-                  + `fork, GitHub withholds secrets and issues a read-only token, `
-                  + `so '@claude' cannot run there.`
+                `Could not comment: ${error.message}. Reviewing a pull request `
+                  + `from a fork withholds secrets and issues a read-only token, so `
+                  + `write '@claude' in a plain comment on it instead.`
               );
             }
 
