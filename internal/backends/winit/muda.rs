@@ -423,7 +423,7 @@ impl MudaAdapter {
         let menu_bar = muda::Menu::new();
         create_default_app_menu(&menu_bar)?;
         menu_bar.init_for_nsapp();
-        Ok(Self { map: HashMap::new(), pool: IdPool::new(), menu: Some(menu_bar), tracker: None })
+        Ok(Self { map: EntryMap::new(), menu: Some(menu_bar), tracker: None })
     }
 
     #[cfg(target_os = "macos")]
