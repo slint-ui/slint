@@ -557,11 +557,14 @@ mod tests {
             pending_recompile: Default::default(),
         };
         let (tx, rx) = std::sync::mpsc::channel();
+        let (error_tx, error_rx) = std::sync::mpsc::channel();
         let mut watcher = FileWatcher::start(
             move |event| {
                 let _ = tx.send(event);
             },
-            |_| {},
+            move |error| {
+                let _ = error_tx.send(error);
+            },
         )
         .unwrap();
         spin_on::spin_on(open_initial_preview(
@@ -573,16 +576,21 @@ mod tests {
         .unwrap();
         sync_file_watcher_if_needed(&mut watcher, &session, &root, &mut None).unwrap();
         let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        let mut seen = Vec::new();
         loop {
             let event = rx
                 .recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()))
-                .expect(
-                    "repair made while publishing the initial preview must produce a watch event",
-                );
-            if event.path == source {
+                .unwrap_or_else(|error| {
+                    let errors = error_rx.try_iter().collect::<Vec<_>>();
+                    panic!(
+                        "repair made while publishing the initial preview must produce a watch event for {url}: {error}; received {seen:?}; watcher errors {errors:?}"
+                    );
+                });
+            if Url::from_file_path(&event.path).ok().as_ref() == Some(&url) {
                 spin_on::spin_on(trigger_editor_file_watcher(&mut session, event)).unwrap();
                 break;
             }
+            seen.push(event);
         }
         assert!(session.pending_recompile.remove(&url));
         spin_on::spin_on(session.reload_document(url.clone())).unwrap();
