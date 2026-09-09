@@ -1,17 +1,17 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import time
 from pathlib import Path
 
 import pytest
 import slint_testing
 from editor_sync import current_editor_sync
-from inspector_interactions import FIELDS
+from inspector_interactions import FIELDS, wait_for_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     file_row,
+    find_window_element_with_label,
     first_window,
     launch_editor,
     press_key,
@@ -114,10 +114,17 @@ def test_imported_file_edit_targets_only_nested_source(
 
     with launch_editor(editor_binary, editor_environment, main_file) as editor:
         window = first_window(editor)
+        file_row(window, main_file)
         wait_until(
             lambda: (
                 current
-                if (current := file_row(window, main_file)).accessible_item_selected
+                if (
+                    current := find_window_element_with_label(
+                        window, str(main_file), slint_testing.AccessibleRole.ListItem
+                    )
+                )
+                is not None
+                and current.accessible_item_selected
                 else None
             ),
             timeout=15,
@@ -160,21 +167,17 @@ def test_stale_selection_commit_is_rejected(
         stage_field_text(window, FIELDS["x"], "99")
         snapshot.assert_unchanged_now()
         select_outline_row(window, "inspect-text")
-        wait_until(
-            lambda: (
-                field
-                if (
-                    field := window_element_with_label(
-                        window, FIELDS["x"], slint_testing.AccessibleRole.TextInput
-                    )
-                ).accessible_value
-                == "224"
-                else None
-            ),
+        wait_for_field(
+            window,
+            FIELDS["x"],
+            "224",
+            slint_testing.AccessibleRole.TextInput,
             timeout=15,
         )
-        press_key(window, keys.Return)
-        snapshot.assert_unchanged()
+        with current_editor_sync.get().action() as commit:
+            press_key(window, keys.Return)
+        commit.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
 
 
 @pytest.mark.parametrize(
@@ -213,21 +216,13 @@ def test_stale_revision_commit_is_rejected(
         source_file.write_bytes(external)
         snapshot.wait_for_exact(external, relative_path="InspectorCases.slint")
         snapshot = SourceSnapshot.capture(fixture_project)
-        wait_until(
-            lambda: (
-                field
-                if (
-                    field := window_element_with_label(
-                        window, label, slint_testing.AccessibleRole.TextInput
-                    )
-                ).accessible_value
-                == updated
-                else None
-            ),
-            timeout=15,
+        wait_for_field(
+            window, label, updated, slint_testing.AccessibleRole.TextInput, timeout=15
         )
-        press_key(window, keys.Return)
-        snapshot.assert_unchanged()
+        with current_editor_sync.get().action() as commit:
+            press_key(window, keys.Return)
+        commit.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
 
 
 @pytest.mark.skip(reason="Requires a Rust source-watcher recovery fix")
@@ -243,8 +238,11 @@ def test_deleted_root_file_recovers_without_relaunch(
         window_element_with_label(
             window, "Fixture text", slint_testing.AccessibleRole.Text
         )
+        checkpoint = current_editor_sync.get().checkpoint()
         source_file.unlink()
-        time.sleep(0.25)
+        current_editor_sync.get().wait_for_processed(
+            source_file, None, after=checkpoint, outcome="load_error"
+        )
         window_element_with_label(
             window, "Fixture text", slint_testing.AccessibleRole.Text
         )

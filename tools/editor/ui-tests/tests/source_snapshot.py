@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
 from difflib import unified_diff
 from pathlib import Path
@@ -49,23 +48,6 @@ class SourceSnapshot:
         current = slint_sources(self.project)
         assert current == self.sources, exact_source_mismatch(current, self.sources)
 
-    def assert_unchanged(
-        self,
-        quiescence: float = 0.25,
-        poll_interval: float = 0.02,
-        after_first_observation: Callable[[], None] | None = None,
-    ) -> None:
-        deadline = time.monotonic() + quiescence
-        first_observation = True
-        while True:
-            self.assert_unchanged_now()
-            if time.monotonic() >= deadline:
-                return
-            if first_observation and after_first_observation is not None:
-                first_observation = False
-                after_first_observation()
-            time.sleep(poll_interval)
-
     def wait_for_exact(
         self,
         expected: bytes,
@@ -97,8 +79,11 @@ class SourceSnapshot:
         """Check exact project source, then wait for this revision in the preview."""
         from editor_sync import wait_for_source
 
-        self.wait_for_exact(expected, relative_path, timeout=timeout)
-        wait_for_source(self.project / relative_path, expected, timeout=timeout)
+        deadline = time.monotonic() + timeout
+        self.wait_for_exact(
+            expected, relative_path, timeout=max(0, deadline - time.monotonic())
+        )
+        wait_for_source(self.project / relative_path, expected, deadline=deadline)
         expected_sources = self.sources | {Path(relative_path): expected}
         current = slint_sources(self.project)
         assert current == expected_sources, exact_source_mismatch(

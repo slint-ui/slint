@@ -1033,6 +1033,11 @@ impl Connection {
                                             );
                                         }
                                         LspToPreviewMessage::OpenProject { .. } => {}
+                                        LspToPreviewMessage::WorkspaceEditResult { .. } => {
+                                            tracing::warn!(
+                                                "Ignoring unexpected WorkspaceEditResult over WebSocket"
+                                            );
+                                        }
                                         // Pairing is settled before the session starts, so
                                         // these can only be a confused or malicious peer.
                                         LspToPreviewMessage::PairingHello { .. }

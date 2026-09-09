@@ -115,6 +115,8 @@ impl EditorSession {
             }
             match std::fs::read(&path) {
                 Ok(contents) => {
+                    #[cfg(feature = "system-testing")]
+                    self.to_preview.observe_source(url, std::str::from_utf8(&contents).ok());
                     tracing::debug!("Sending file {} ({} bytes) to preview", url, contents.len());
                     self.to_preview.send(&LspToPreviewMessage::SetContents {
                         url: VersionedUrl::new(url.clone(), None),
@@ -122,6 +124,8 @@ impl EditorSession {
                     });
                 }
                 Err(err) => {
+                    #[cfg(feature = "system-testing")]
+                    self.to_preview.observe_source(url, None);
                     tracing::warn!("Failed to read file {}: {err}", path.display());
                     self.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
                 }
@@ -192,6 +196,8 @@ impl EditorSession {
         }
 
         tracing::trace!("Loading document: {url} (version: {version:?})");
+        #[cfg(feature = "system-testing")]
+        self.to_preview.observe_source(&url, Some(&content));
 
         let Some(path) = crate::uri_to_file(&url) else { return Default::default() };
         // Normalize the URL
@@ -324,6 +330,8 @@ impl EditorSession {
                 Ok(content) => self.load_document(content, url, None).await,
                 // The file was likely deleted, log and move on
                 Err(err) => {
+                    #[cfg(feature = "system-testing")]
+                    self.to_preview.observe_source(&url, None);
                     tracing::debug!("Failed to read {} from disk: {err}", path.display());
                     Ok(Default::default())
                 }
@@ -363,6 +371,8 @@ impl EditorSession {
         url: lsp_types::Url,
     ) -> crate::Result<crate::VersionedDiagnostics> {
         tracing::debug!("Deleting document: {url}");
+        #[cfg(feature = "system-testing")]
+        self.to_preview.observe_source(&url, None);
         // The preview cares about resources and slint files, so forward everything
         self.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
 

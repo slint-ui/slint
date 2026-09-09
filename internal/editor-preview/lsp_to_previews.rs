@@ -38,6 +38,9 @@ pub trait RemoteTransport {
     fn accept_unpaired_connection(&self);
 }
 
+#[cfg(feature = "system-testing")]
+type SourceObserver = Rc<dyn Fn(&lsp_types::Url, Option<&str>)>;
+
 /// Fans LSP messages out to the active local preview and, if connected, to a
 /// remote viewer. The local target is itself swappable between `ChildProcess`
 /// and `EmbeddedWasm`, driven by
@@ -45,6 +48,8 @@ pub trait RemoteTransport {
 /// The remote viewer receives every wire-format message in parallel — it isn't
 /// a target on its own.
 pub struct LspToPreviews {
+    #[cfg(feature = "system-testing")]
+    source_observer: RefCell<Option<SourceObserver>>,
     locals: HashMap<PreviewTarget, Box<dyn LspToPreview>>,
     current_local: RefCell<PreviewTarget>,
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
@@ -66,6 +71,8 @@ impl LspToPreviews {
         // itself, which the remote transport keeps for the connection-state
         // back-channel without forming an `Rc` cycle.
         Ok(Rc::new_cyclic(|_weak| Self {
+            #[cfg(feature = "system-testing")]
+            source_observer: Default::default(),
             locals,
             current_local: RefCell::new(current_local),
             #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
@@ -78,11 +85,25 @@ impl LspToPreviews {
         let locals =
             std::iter::once((target, Box::new(lsp_to_preview) as Box<dyn LspToPreview>)).collect();
         Rc::new(Self {
+            #[cfg(feature = "system-testing")]
+            source_observer: Default::default(),
             locals,
             current_local: RefCell::new(target),
             #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
             remote: None,
         })
+    }
+
+    #[cfg(feature = "system-testing")]
+    pub fn set_source_observer(&self, observer: SourceObserver) {
+        self.source_observer.replace(Some(observer));
+    }
+
+    #[cfg(feature = "system-testing")]
+    pub(crate) fn observe_source(&self, url: &lsp_types::Url, content: Option<&str>) {
+        if let Some(observer) = self.source_observer.borrow().as_ref() {
+            observer(url, content);
+        }
     }
 
     /// Send to the local preview and to the remote viewer in parallel.

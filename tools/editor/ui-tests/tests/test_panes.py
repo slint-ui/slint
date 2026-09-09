@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 import slint_testing
 from canvas_interactions import center
+from editor_sync import current_editor_sync
 from ui_driver import first_window, launch_editor, wait_until, window_element_with_label
 
 
@@ -61,8 +62,6 @@ def test_pane_sizes_persist_across_relaunch(
     fixture_project: Path,
     tmp_path: Path,
 ) -> None:
-    editor_environment["HOME"] = str(tmp_path / "home")
-    editor_environment["XDG_CONFIG_HOME"] = str(tmp_path / "config")
     source_file = fixture_project / "Main.slint"
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
@@ -72,8 +71,10 @@ def test_pane_sizes_persist_across_relaunch(
         initial_elements_y = elements_divider.absolute_position.y
         initial_outline_y = outline_divider.absolute_position.y
 
-        drag_vertically(window, elements_divider, 72)
-        drag_vertically(window, outline_divider, -64)
+        with current_editor_sync.get().action() as resize:
+            drag_vertically(window, elements_divider, 72)
+            drag_vertically(window, outline_divider, -64)
+        resize.wait_for_settled(outcome="completed")
 
         assert window_element_with_label(window, "FILES").accessible_label == "FILES"
         assert (
@@ -134,8 +135,6 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
     fixture_project: Path,
     tmp_path: Path,
 ) -> None:
-    editor_environment["HOME"] = str(tmp_path / "home")
-    editor_environment["XDG_CONFIG_HOME"] = str(tmp_path / "config")
     with launch_editor(
         editor_binary, editor_environment, fixture_project / "Main.slint"
     ) as editor:
@@ -208,8 +207,9 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
         assert no_results.absolute_position.x + no_results.size.width <= (
             pane.absolute_position.x + pane.size.width - 14
         )
-        double_click(window, elements)
-
+        with current_editor_sync.get().action() as reset:
+            double_click(window, elements)
+        reset.wait_for_settled(outcome="completed")
         assert float(elements.accessible_value.split()[0]) == default_elements
         wait_for_pane_settings(tmp_path, {"elements_pane_height": None})
 

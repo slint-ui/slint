@@ -18,6 +18,8 @@ version.workspace = true
 path = "lib.rs"
 
 [features]
+# Private source lifecycle hooks for the Visual Editor test observer.
+system-testing = []
 preview-engine = []
 preview-builtin = ["preview-engine"]
 preview-external = []

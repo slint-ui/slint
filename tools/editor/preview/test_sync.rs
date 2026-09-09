@@ -1,526 +1,823 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Opt-in synchronization for editor system tests.
-//!
-//! This observer is process shared because source writes happen on the LSP
-//! thread while requests are served on the preview UI thread. Events contain
-//! compact identities; source text is never retained in the event ring.
+//! Private lifecycle observation for system tests.
+//! Causal leases cross the UI/LSP queues and outlive deferred compilation and publication.
 
+use std::cell::RefCell;
 use std::collections::{BTreeMap, VecDeque};
+use std::future::Future;
 use std::hash::{Hash, Hasher};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 
-const PROTOCOL_VERSION: u32 = 2;
+use lsp_types::Url;
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+
+pub(crate) const PROTOCOL_VERSION: u32 = 3;
 const MAX_EVENTS: usize = 512;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct ContentIdentity {
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+struct Content {
     hash: u64,
-    len: u64,
+    len: usize,
 }
-
-fn content_identity(content: Option<&str>) -> Option<ContentIdentity> {
-    content.map(|content| {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        content.hash(&mut hasher);
-        ContentIdentity { hash: hasher.finish(), len: content.len() as u64 }
+fn identity(content: Option<&str>) -> Option<Content> {
+    content.map(|text| {
+        let mut hash = std::collections::hash_map::DefaultHasher::new();
+        text.hash(&mut hash);
+        Content { hash: hash.finish(), len: text.len() }
     })
 }
 
-#[derive(Clone, Debug, serde::Serialize)]
-struct Event {
-    cursor: u64,
-    kind: &'static str,
-    url: String,
-    content_hash: Option<u64>,
-    content_len: Option<u64>,
-    outcome: Option<&'static str>,
-    operation: Option<u64>,
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct Input {
+    observation: u64,
+    version: Option<i32>,
+    content: Option<Content>,
+}
+#[derive(Clone, Debug, Serialize)]
+struct Attempt {
+    id: u64,
+    kind: String,
+    root: Url,
+    component: Option<String>,
+    epoch: u64,
+    started_cursor: u64,
+    inputs: BTreeMap<Url, Input>,
+    outcome: Option<String>,
+    diagnostics: Vec<String>,
+    processed_cursor: u64,
+}
+#[derive(Default, Serialize)]
+struct Operation {
+    sealed: bool,
+    pending: BTreeMap<u64, String>,
+    accepted_edits: u64,
+    writes: u64,
+    effects: Vec<String>,
+}
+impl Operation {
+    fn outcome(&self) -> &str {
+        if self.effects.iter().any(|s| s == "failed") {
+            "failed"
+        } else if self.accepted_edits > 0 || self.effects.iter().any(|s| s == "completed") {
+            "completed"
+        } else if self.effects.iter().any(|s| s == "rejected") {
+            "rejected"
+        } else if self.effects.iter().any(|s| s == "canceled") {
+            "canceled"
+        } else {
+            "noop"
+        }
+    }
+    fn settled(&self) -> bool {
+        self.sealed && self.pending.is_empty()
+    }
+}
+#[derive(Serialize)]
+struct Gate {
+    kind: String,
+    url: Url,
+    after: u64,
+    reached: Option<u64>,
     attempt: Option<u64>,
-    inputs: Vec<(String, Option<i32>)>,
+    released: bool,
 }
-
-#[derive(Clone, Debug)]
-struct Installed {
-    url: String,
-    content: Option<ContentIdentity>,
-    cursor: u64,
-    attempt: u64,
-}
-
 #[derive(Default)]
 struct Observer {
     session: String,
-    next_cursor: u64,
+    ui_thread: Option<std::thread::ThreadId>,
+    cursor: u64,
     discarded_through: u64,
-    next_attempt: u64,
-    next_operation: u64,
-    events: VecDeque<Event>,
-    installed: Option<Installed>,
+    serial: u64,
+    epoch: u64,
+    events: VecDeque<Value>,
+    inputs: BTreeMap<Url, Input>,
+    attempts: BTreeMap<u64, Attempt>,
+    installed: Option<(u64, u64)>,
+    operations: BTreeMap<u64, Operation>,
+    capturing: Option<u64>,
+    gates: BTreeMap<u64, Gate>,
+    replies: BTreeMap<u64, (Value, Value)>,
     writes: u64,
     accepted_edits: u64,
-    pending_operations: u64,
-    active_operation: Option<u64>,
-    gate_source: bool,
-    gate_publication: bool,
-    held_sources: Vec<(lsp_types::Url, String)>,
-    held_publications: Vec<(lsp_types::Url, String)>,
+}
+impl Observer {
+    fn id(&mut self) -> u64 {
+        self.serial += 1;
+        self.serial
+    }
+    fn event(&mut self, mut value: Value) -> u64 {
+        self.cursor += 1;
+        value["cursor"] = self.cursor.into();
+        self.events.push_back(value);
+        if self.events.len() > MAX_EVENTS {
+            self.discarded_through = self.events.pop_front().unwrap()["cursor"].as_u64().unwrap();
+        }
+        self.cursor
+    }
+}
+static STATE: OnceLock<Arc<Mutex<Observer>>> = OnceLock::new();
+static GATE_CHANGED: tokio::sync::Notify = tokio::sync::Notify::const_new();
+fn with_state<R>(f: impl FnOnce(&mut Observer) -> R) -> Option<R> {
+    STATE.get().map(|s| f(&mut s.lock().unwrap()))
+}
+thread_local! {
+    static CACHE_INPUTS: RefCell<BTreeMap<Url, Input>> = const { RefCell::new(BTreeMap::new()) };
+    static CONTEXT: RefCell<Option<Vec<u64>>> = const { RefCell::new(None) };
+    static PUBLICATIONS: RefCell<Vec<(u64, Work, Box<dyn FnOnce()>)>> = const { RefCell::new(Vec::new()) };
 }
 
-static OBSERVER: OnceLock<Arc<Mutex<Observer>>> = OnceLock::new();
-
-fn observer() -> Option<&'static Arc<Mutex<Observer>>> {
-    OBSERVER.get()
+#[derive(Default, Clone)]
+pub(crate) struct Work(Vec<Arc<Lease>>);
+struct Lease {
+    observer: Weak<Mutex<Observer>>,
+    operation: u64,
+    id: u64,
 }
-
-fn enabled_observer() -> Option<&'static Arc<Mutex<Observer>>> {
-    observer().filter(|_| cfg!(test) || std::env::var_os("SLINT_EDITOR_TEST_SYNC").is_some())
-}
-
-fn session_id() -> String {
-    format!(
-        "{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos()
-    )
-}
-
-fn push(
-    observer: &mut Observer,
-    kind: &'static str,
-    url: &lsp_types::Url,
-    content: Option<&str>,
-    outcome: Option<&'static str>,
-    operation: Option<u64>,
-    attempt: Option<u64>,
-) -> u64 {
-    observer.next_cursor += 1;
-    let cursor = observer.next_cursor;
-    observer.events.push_back(Event {
-        cursor,
-        kind,
-        url: url.to_string(),
-        content_hash: content_identity(content).map(|value| value.hash),
-        content_len: content_identity(content).map(|value| value.len),
-        outcome,
-        operation,
-        attempt,
-        inputs: Vec::new(),
-    });
-    while observer.events.len() > MAX_EVENTS {
-        if let Some(event) = observer.events.pop_front() {
-            observer.discarded_through = event.cursor;
+impl Drop for Lease {
+    fn drop(&mut self) {
+        if let Some(observer) = self.observer.upgrade()
+            && let Some(op) = observer.lock().unwrap().operations.get_mut(&self.operation)
+        {
+            op.pending.remove(&self.id);
         }
     }
-    cursor
 }
-
-fn with_observer(mut callback: impl FnMut(&mut Observer)) {
-    let Some(observer) = enabled_observer() else { return };
-    callback(&mut observer.lock().unwrap());
-}
-
-pub(crate) fn record_observed(url: &lsp_types::Url, content: Option<&str>) {
-    with_observer(|observer| {
-        if observer.session.is_empty() {
-            observer.session = session_id();
-        }
-        push(observer, "observed", url, content, None, None, None);
-    });
-}
-
-pub(crate) fn record_processed_with_inputs(
-    url: &lsp_types::Url,
-    content: Option<&str>,
-    outcome: &'static str,
-    inputs: &std::collections::HashMap<std::path::PathBuf, Option<i32>>,
-) -> u64 {
-    let mut result = 0;
-    with_observer(|observer| {
-        let attempt = {
-            observer.next_attempt += 1;
-            observer.next_attempt
-        };
-        result = push(observer, "processed", url, content, Some(outcome), None, Some(attempt));
-        if let Some(event) = observer.events.back_mut() {
-            event.inputs = inputs
-                .iter()
-                .map(|(path, version)| (path.display().to_string(), *version))
-                .collect();
-        }
-    });
-    result
-}
-
-pub(crate) fn record_applied_with_attempt(
-    url: &lsp_types::Url,
-    content: &str,
-    attempt: Option<u64>,
-) {
-    with_observer(|observer| {
-        if observer.gate_publication {
-            observer.held_publications.push((url.clone(), content.to_owned()));
-            push(observer, "gate", url, Some(content), Some("publication_reached"), None, None);
-            return;
-        }
-        record_applied_now(observer, url, content, attempt);
-    });
-}
-
-fn record_applied_now(
-    observer: &mut Observer,
-    url: &lsp_types::Url,
-    content: &str,
-    attempt: Option<u64>,
-) {
-    let attempt = attempt.unwrap_or_else(|| {
-        observer.next_attempt += 1;
-        observer.next_attempt
-    });
-    let cursor =
-        push(observer, "applied", url, Some(content), Some("compiled"), None, Some(attempt));
-    observer.installed = Some(Installed {
-        url: url.to_string(),
-        content: content_identity(Some(content)),
-        cursor,
-        attempt,
-    });
-}
-
-pub(crate) fn record_write() {
-    with_observer(|observer| {
-        observer.writes += 1;
-        push(
-            observer,
-            "write",
-            &lsp_types::Url::parse("about:workspace").unwrap(),
-            None,
-            Some("written"),
-            observer.active_operation,
-            None,
-        );
-    });
-}
-
-pub(crate) fn record_accepted_edit() -> u64 {
-    let mut operation = 0;
-    with_observer(|observer| {
-        operation = observer.active_operation.unwrap_or_else(|| {
-            observer.next_operation = observer.next_operation.saturating_add(1);
-            observer.pending_operations += 1;
-            observer.next_operation
-        });
-        observer.active_operation = Some(operation);
-        observer.accepted_edits += 1;
-        push(
-            observer,
-            "edit",
-            &lsp_types::Url::parse("about:workspace").unwrap(),
-            None,
-            Some("accepted"),
-            Some(operation),
-            None,
-        );
-    });
-    operation
-}
-
-pub(crate) fn record_edit_completed(operation: u64, outcome: &'static str) {
-    with_observer(|observer| {
-        observer.pending_operations = observer.pending_operations.saturating_sub(1);
-        if observer.active_operation == Some(operation) {
-            observer.active_operation = None;
-        }
-        push(
-            observer,
-            "action",
-            &lsp_types::Url::parse("about:action").unwrap(),
-            None,
-            Some(outcome),
-            Some(operation),
-            None,
-        );
-    });
-}
-
-pub(crate) fn should_hold_source(url: &lsp_types::Url, content: &str) -> bool {
-    let Some(observer) = enabled_observer() else { return false };
-    let mut observer = observer.lock().unwrap();
-    if !observer.gate_source {
-        return false;
+struct Scope(Option<Vec<u64>>);
+impl Drop for Scope {
+    fn drop(&mut self) {
+        CONTEXT.with_borrow_mut(|c| *c = self.0.take());
     }
-    observer.held_sources.push((url.clone(), content.to_owned()));
-    push(&mut observer, "gate", url, Some(content), Some("source_reached"), None, None);
-    true
 }
-
-fn pump() {
-    let Some(observer) = enabled_observer() else { return };
-    let (sources, publications) = {
-        let mut observer = observer.lock().unwrap();
-        if observer.gate_source || observer.gate_publication {
-            return;
-        }
-        (
-            std::mem::take(&mut observer.held_sources),
-            std::mem::take(&mut observer.held_publications),
-        )
-    };
-    for (url, content) in sources {
-        super::set_contents(&i_slint_live_preview::protocol::VersionedUrl::new(url, None), content);
-    }
-    if !publications.is_empty() {
-        with_observer(|observer| {
-            for (url, content) in &publications {
-                record_applied_now(observer, url, content, None);
+fn operations() -> Vec<u64> {
+    CONTEXT.with_borrow(|c| c.clone()).unwrap_or_else(|| {
+        with_state(|s| {
+            if s.ui_thread == Some(std::thread::current().id()) {
+                s.capturing.into_iter().collect()
+            } else {
+                Vec::new()
             }
+        })
+        .unwrap_or_default()
+    })
+}
+impl Work {
+    pub(crate) fn capture(stage: &str) -> Self {
+        STATE.get().map(|state| Self::capture_in(state, operations(), stage)).unwrap_or_default()
+    }
+    fn capture_in(observer: &Arc<Mutex<Observer>>, ids: Vec<u64>, stage: &str) -> Self {
+        let mut s = observer.lock().unwrap();
+        Self(
+            ids.into_iter()
+                .map(|operation| {
+                    let id = s.id();
+                    s.operations.get_mut(&operation).unwrap().pending.insert(id, stage.into());
+                    Arc::new(Lease { observer: Arc::downgrade(observer), operation, id })
+                })
+                .collect(),
+        )
+    }
+    pub(crate) fn combine(work: Vec<Self>) -> Self {
+        Self(work.into_iter().flat_map(|w| w.0).collect())
+    }
+    fn enter(&self) -> Scope {
+        let mut ids: Vec<_> = self.0.iter().map(|l| l.operation).collect();
+        ids.sort_unstable();
+        ids.dedup();
+        Scope(CONTEXT.with_borrow_mut(|c| c.replace(ids)))
+    }
+    pub(crate) fn run<R>(&self, f: impl FnOnce() -> R) -> R {
+        let _scope = self.enter();
+        f()
+    }
+    pub(crate) async fn during<F: Future>(&self, future: F) -> F::Output {
+        let mut future = std::pin::pin!(future);
+        std::future::poll_fn(|cx| {
+            let _scope = self.enter();
+            future.as_mut().poll(cx)
+        })
+        .await
+    }
+}
+
+pub(crate) fn effect(outcome: &str) {
+    let ids = operations();
+    with_state(|s| {
+        for id in ids {
+            s.operations.get_mut(&id).unwrap().effects.push(outcome.into());
+            s.event(json!({"kind":"effect", "operation":id, "outcome":outcome}));
+        }
+    });
+}
+pub(crate) fn accepted_edit() {
+    let ids = operations();
+    with_state(|s| {
+        s.accepted_edits += 1;
+        for id in ids {
+            s.operations.get_mut(&id).unwrap().accepted_edits += 1;
+        }
+        s.event(json!({"kind":"accepted_edit"}));
+    });
+}
+pub(crate) fn written(url: &Url) {
+    let ids = operations();
+    with_state(|s| {
+        s.writes += 1;
+        for id in &ids {
+            s.operations.get_mut(id).unwrap().writes += 1;
+        }
+        s.event(json!({"kind":"write", "url":url, "operations":ids}));
+    });
+}
+
+pub(crate) fn request_reload() {
+    with_state(|s| s.epoch += 1);
+}
+pub(crate) fn begin_attempt(root: &Url, component: Option<String>) -> u64 {
+    with_state(|s| {
+        let id = s.id();
+        let started_cursor = s.event(json!({"kind":"attempt_started", "attempt":id, "url":root}));
+        s.attempts.insert(
+            id,
+            Attempt {
+                id,
+                kind: "compilation".into(),
+                root: root.clone(),
+                component,
+                epoch: s.epoch,
+                started_cursor,
+                inputs: BTreeMap::new(),
+                outcome: None,
+                diagnostics: Vec::new(),
+                processed_cursor: 0,
+            },
+        );
+        id
+    })
+    .unwrap_or(0)
+}
+pub(crate) fn observed_read(url: &Url, content: Option<&str>) {
+    with_state(|s| {
+        let content = identity(content);
+        let observation = s.event(json!({"kind":"observed", "url":url, "content":content}));
+        let input = Input { observation, version: None, content };
+        s.inputs.insert(url.clone(), input.clone());
+        if input.content.is_none() {
+            let id = s.id();
+            let processed_cursor =
+                s.event(json!({"kind":"processed", "attempt":id, "outcome":"load_error"}));
+            s.attempts.insert(
+                id,
+                Attempt {
+                    id,
+                    kind: "load".into(),
+                    root: url.clone(),
+                    component: None,
+                    epoch: s.epoch,
+                    started_cursor: observation,
+                    inputs: BTreeMap::from([(url.clone(), input)]),
+                    outcome: Some("load_error".into()),
+                    diagnostics: vec![format!("Unable to load {url}")],
+                    processed_cursor,
+                },
+            );
+        }
+    });
+}
+
+pub(crate) fn source_delivery(
+    message: &i_slint_live_preview::protocol::LspToPreviewMessage,
+) -> Option<(Url, Input)> {
+    use i_slint_live_preview::protocol::LspToPreviewMessage as M;
+    let (url, version, content) = match message {
+        M::SetContents { url, contents } => {
+            (url.url(), *url.version(), identity(std::str::from_utf8(contents).ok()))
+        }
+        M::ForgetFile { url } => (url, None, None),
+        _ => return None,
+    };
+    with_state(|s| {
+        s.inputs
+            .get(url)
+            .filter(|i| i.content == content)
+            .map(|i| (url.clone(), Input { version, ..i.clone() }))
+    })
+    .flatten()
+}
+
+pub(crate) fn install_source(input: Option<(Url, Input)>) {
+    if let Some((url, input)) = input {
+        CACHE_INPUTS.with_borrow_mut(|c| {
+            c.insert(url, input);
         });
     }
 }
 
-fn matching(
-    event: &Event,
-    url: &lsp_types::Url,
-    expected: Option<&str>,
-    outcome: Option<&str>,
-) -> bool {
-    event.url == url.as_str()
-        && event.content_hash == content_identity(expected).map(|value| value.hash)
-        && event.content_len == content_identity(expected).map(|value| value.len)
-        && outcome.is_none_or(|outcome| event.outcome == Some(outcome))
+pub(crate) fn read_input(attempt: u64, url: &Url, version: Option<i32>, content: Option<&str>) {
+    let content = identity(content);
+    let input = CACHE_INPUTS.with_borrow(|c| c.get(url).filter(|i| i.content == content).cloned());
+    with_state(|s| {
+        if let Some(a) = s.attempts.get_mut(&attempt) {
+            a.inputs
+                .insert(url.clone(), input.unwrap_or(Input { observation: 0, version, content }));
+        }
+    });
 }
 
-#[derive(serde::Deserialize)]
+pub(crate) fn processed(attempt: u64, outcome: &str, diagnostics: Vec<String>) {
+    with_state(|s| {
+        let cursor = s.event(json!({"kind":"processed", "attempt":attempt, "outcome":outcome}));
+        if let Some(a) = s.attempts.get_mut(&attempt) {
+            a.outcome = Some(outcome.into());
+            a.processed_cursor = cursor;
+            a.diagnostics = diagnostics;
+        }
+    });
+}
+pub(crate) fn current_attempt(attempt: u64) -> bool {
+    with_state(|s| s.attempts.get(&attempt).is_some_and(|a| a.epoch == s.epoch)).unwrap_or(true)
+}
+pub(crate) fn applied(attempt: u64) {
+    with_state(|s| {
+        let cursor = s.event(json!({"kind":"applied", "attempt":attempt}));
+        s.installed = Some((attempt, cursor));
+    });
+}
+
+fn claim_gate(kind: &str, url: &Url, attempt: Option<u64>) -> Option<u64> {
+    with_state(|s| {
+        let id = s.gates.iter().find_map(|(id, g)| {
+            (!g.released
+                && g.kind == kind
+                && &g.url == url
+                && (kind == "source"
+                    || (g.reached.is_none()
+                        && attempt
+                            .and_then(|id| s.attempts.get(&id))
+                            .is_some_and(|a| a.started_cursor > g.after))))
+            .then_some(*id)
+        })?;
+        if s.gates[&id].reached.is_none() {
+            let cursor =
+                s.event(json!({"kind":"gate_reached", "gate":id, "attempt":attempt, "url":url}));
+            let gate = s.gates.get_mut(&id).unwrap();
+            gate.reached = Some(cursor);
+            gate.attempt = attempt;
+        }
+        Some(id)
+    })
+    .flatten()
+}
+pub(crate) fn hold_source(url: &Url) -> Option<u64> {
+    claim_gate("source", url, None)
+}
+pub(crate) fn gate_released(id: u64) -> bool {
+    with_state(|s| s.gates.get(&id).is_none_or(|g| g.released)).unwrap_or(true)
+}
+pub(crate) async fn gate_changed() {
+    GATE_CHANGED.notified().await;
+}
+pub(crate) fn publish(url: &Url, attempt: u64, callback: impl FnOnce() + 'static) {
+    if let Some(gate) = claim_gate("publication", url, Some(attempt)) {
+        PUBLICATIONS.with_borrow_mut(|p| {
+            p.push((gate, Work::capture("publication gate"), Box::new(callback)))
+        });
+    } else {
+        callback();
+    }
+}
+fn pump_publications() {
+    let ready = PUBLICATIONS.with_borrow_mut(|p| {
+        let mut ready = Vec::new();
+        let mut held = Vec::new();
+        for item in p.drain(..) {
+            if gate_released(item.0) {
+                ready.push(item);
+            } else {
+                held.push(item);
+            }
+        }
+        *p = held;
+        ready
+    });
+    for (_, work, callback) in ready {
+        work.run(callback);
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Request {
     id: u64,
     protocol: u32,
     session: Option<String>,
-    mode: Mode,
+    mode: String,
+    #[serde(default)]
     after: u64,
-    operation: Option<u64>,
+    #[serde(default)]
+    sources: BTreeMap<Url, Option<String>>,
     outcome: Option<String>,
-    sources: BTreeMap<lsp_types::Url, Option<String>>,
-    gate: Option<String>,
-    release: bool,
-    gate_control: bool,
-    begin_action: bool,
+    operation: Option<u64>,
+    gate: Option<u64>,
+    kind: Option<String>,
+    url: Option<Url>,
 }
-
-#[derive(Clone, Copy, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum Mode {
-    Handshake,
-    Checkpoint,
-    Processed,
-    Applied,
-    Settled,
-    Gate,
-    Finish,
-}
-
-fn response(request: &Request) -> serde_json::Value {
-    let Some(observer) = observer() else {
-        return serde_json::json!({ "id": request.id, "error": "observer disabled" });
-    };
-    let mut observer = observer.lock().unwrap();
-    if request.protocol != PROTOCOL_VERSION && !matches!(request.mode, Mode::Handshake) {
-        return serde_json::json!({ "id": request.id, "error": "protocol mismatch" });
+fn answer(s: &mut Observer, r: &Request) -> Result<Value, String> {
+    if r.protocol != PROTOCOL_VERSION {
+        return Err("protocol mismatch".into());
     }
-    if !matches!(request.mode, Mode::Handshake)
-        && request.session.as_deref() != Some(observer.session.as_str())
+    if r.mode != "handshake" && r.session.as_deref() != Some(&s.session) {
+        return Err("stale session".into());
+    }
+    if r.after > s.cursor {
+        return Err("future cursor".into());
+    }
+    if matches!(r.mode.as_str(), "observed" | "processed" | "events")
+        && r.after < s.discarded_through
     {
-        return serde_json::json!({ "id": request.id, "error": "stale session" });
+        return Err("event history overflow".into());
     }
-    if request.after > observer.next_cursor {
-        return serde_json::json!({ "id": request.id, "error": "future cursor" });
-    }
-    if request.after < observer.discarded_through {
-        return serde_json::json!({ "id": request.id, "error": "event history overflow" });
-    }
-    if observer.session.is_empty() {
-        observer.session = session_id();
-    }
-    if let Some(gate) = &request.gate {
-        match gate.as_str() {
-            "source" => observer.gate_source = !request.release,
-            "publication" => observer.gate_publication = !request.release,
-            _ => return serde_json::json!({ "id": request.id, "error": "unknown gate" }),
+    let mut ready = true;
+    let mut result = json!({});
+    match r.mode.as_str() {
+        "handshake" => {
+            result["build"] = json!({"revision": env!("SLINT_EDITOR_BUILD_REVISION"), "features": env!("SLINT_EDITOR_BUILD_FEATURES")});
         }
-    }
-    let cursor = observer.next_cursor;
-    if matches!(request.mode, Mode::Handshake) {
-        return serde_json::json!({ "id": request.id, "protocol": PROTOCOL_VERSION, "session": observer.session, "cursor": cursor, "writes": observer.writes, "ready": true });
-    }
-    if matches!(request.mode, Mode::Checkpoint) && request.begin_action {
-        observer.next_operation = observer.next_operation.saturating_add(1);
-        observer.pending_operations += 1;
-        observer.active_operation = Some(observer.next_operation);
-    }
-    if matches!(request.mode, Mode::Finish) {
-        let Some(operation) = request.operation else {
-            return serde_json::json!({ "id": request.id, "error": "missing operation" });
-        };
-        observer.pending_operations = observer.pending_operations.saturating_sub(1);
-        let outcome = match request.outcome.as_deref() {
-            Some("canceled") => Some("canceled"),
-            Some("rejected") => Some("rejected"),
-            Some("noop") => Some("noop"),
-            Some("completed") => Some("completed"),
-            _ => None,
-        };
-        push(
-            &mut observer,
-            "action",
-            &lsp_types::Url::parse("about:action").unwrap(),
-            None,
-            outcome,
-            Some(operation),
-            None,
-        );
-        return serde_json::json!({ "id": request.id, "protocol": PROTOCOL_VERSION, "session": observer.session, "cursor": observer.next_cursor, "writes": observer.writes, "accepted_edits": observer.accepted_edits, "ready": true, "operation": operation });
-    }
-    let source_matches = |kind: &str| {
-        request.sources.iter().all(|(url, expected)| {
-            observer.events.iter().any(|event| {
-                event.cursor > request.after
-                    && event.kind == kind
-                    && matching(event, url, expected.as_deref(), request.outcome.as_deref())
-            })
-        })
-    };
-    let current_matches = request.sources.iter().all(|(url, expected)| {
-        observer.installed.as_ref().is_some_and(|installed| {
-            installed.url == url.as_str()
-                && installed.content == content_identity(expected.as_deref())
-        })
-    });
-    let ready = match request.mode {
-        Mode::Checkpoint => true,
-        Mode::Processed => source_matches("processed"),
-        Mode::Applied => current_matches && (request.after == 0 || source_matches("applied")),
-        Mode::Settled => {
-            current_matches
-                && request.operation.is_some_and(|operation| {
-                    observer.pending_operations == 0
-                        && observer.events.iter().any(|event| {
-                            event.operation == Some(operation)
-                                && event.outcome == request.outcome.as_deref()
+        "checkpoint" => {}
+        "begin" => {
+            if s.capturing.is_some() {
+                return Err("an input action is already open".into());
+            }
+            let id = s.id();
+            s.operations.insert(id, Operation::default());
+            s.capturing = Some(id);
+            result["operation"] = id.into();
+        }
+        "seal" => {
+            let id = r.operation.ok_or("missing operation")?;
+            let op = s.operations.get_mut(&id).ok_or("unknown operation")?;
+            op.sealed = true;
+            if s.capturing == Some(id) {
+                s.capturing = None;
+            }
+        }
+        "settled" | "operation" => {
+            let id = r.operation.ok_or("missing operation")?;
+            let op = s.operations.get(&id).ok_or("unknown operation")?;
+            ready = r.mode == "operation" || op.settled();
+            result["settled"] = op.settled().into();
+            result["operation"] = id.into();
+            result["operation_state"] = json!(op);
+            result["outcome"] = op.outcome().into();
+            if op.settled() && r.outcome.as_deref().is_some_and(|o| o != op.outcome()) {
+                return Err(format!(
+                    "operation {id}: expected {:?}, got {}",
+                    r.outcome,
+                    op.outcome()
+                ));
+            }
+        }
+        "observed" => {
+            let found = s.events.iter().rev().find(|e| {
+                e["kind"] == "observed"
+                    && e["cursor"].as_u64().is_some_and(|c| c > r.after)
+                    && r.sources.iter().all(|(url, c)| {
+                        e["url"] == url.as_str() && e["content"] == json!(identity(c.as_deref()))
+                    })
+            });
+            ready = found.is_some();
+            result["observation"] = json!(found);
+        }
+        "processed" => {
+            let found = s.attempts.values().rev().find(|a| {
+                a.processed_cursor > r.after
+                    && a.outcome.is_some()
+                    && r.sources.iter().all(|(url, c)| {
+                        a.inputs.get(url).is_some_and(|i| {
+                            i.content == identity(c.as_deref())
+                                && (r.after == 0 || i.observation > r.after)
                         })
+                    })
+                    && r.outcome.as_deref().is_none_or(|o| a.outcome.as_deref() == Some(o))
+            });
+            ready = found.is_some();
+            result["attempt"] = json!(found);
+        }
+        "applied" => {
+            let found = s.installed.and_then(|(id, cursor)| {
+                (cursor > r.after || r.after == 0).then(|| s.attempts.get(&id)).flatten()
+            });
+            ready = found.is_some_and(|a| {
+                r.sources.iter().all(|(url, c)| {
+                    a.inputs.get(url).is_some_and(|i| {
+                        i.content == identity(c.as_deref())
+                            && (r.after == 0 || i.observation > r.after)
+                    })
                 })
+            });
+            ready &= super::PREVIEW_STATE.with_borrow(|p| {
+                !p.workspace_edit_sent
+                    && p.pending_workspace_edit.is_none()
+                    && p.pending_history.is_empty()
+                    && matches!(p.loading_state, super::PreviewFutureState::Pending)
+            });
+            result["attempt"] = json!(found);
         }
-        Mode::Gate if request.gate_control => true,
-        Mode::Gate => request.gate.as_deref().is_some_and(|gate| {
-            observer.events.iter().any(|event| {
-                event.kind == "gate"
-                    && event.outcome
-                        == Some(match gate {
-                            "source" => "source_reached",
-                            "publication" => "publication_reached",
-                            _ => "",
-                        })
-            })
-        }),
-        Mode::Handshake | Mode::Finish => true,
+        "gate_open" => {
+            let kind = r.kind.clone().ok_or("missing gate kind")?;
+            if kind != "source" && kind != "publication" {
+                return Err("unknown gate kind".into());
+            }
+            let url = r.url.clone().ok_or("missing gate URL")?;
+            if s.gates.values().any(|g| !g.released && g.kind == kind && g.url == url) {
+                return Err("overlapping gate".into());
+            }
+            let id = s.id();
+            s.gates.insert(
+                id,
+                Gate { kind, url, after: s.cursor, reached: None, attempt: None, released: false },
+            );
+            result["gate"] = id.into();
+        }
+        "gate_release" | "gate_wait" => {
+            let id = r.gate.ok_or("missing gate")?;
+            let g = s.gates.get_mut(&id).ok_or("unknown gate")?;
+            if r.mode == "gate_release" {
+                g.released = true;
+                GATE_CHANGED.notify_one();
+            } else {
+                ready = g.reached.is_some_and(|c| c > g.after && c > r.after);
+            }
+            result["gate"] = id.into();
+            result["gate_state"] = json!(g);
+        }
+        "events" => {}
+        _ => return Err("unknown mode".into()),
+    }
+    result["ready"] = ready.into();
+    Ok(result)
+}
+fn respond_in(s: &mut Observer, raw: Value) -> Value {
+    let id = raw.get("id").cloned().unwrap_or(Value::Null);
+    let Ok(request) = serde_json::from_value::<Request>(raw.clone()) else {
+        return json!({"id":id,"error":"malformed request"});
     };
-    serde_json::json!({
-        "id": request.id,
-        "protocol": PROTOCOL_VERSION,
-        "session": observer.session,
-        "cursor": cursor,
-        "writes": observer.writes,
-        "accepted_edits": observer.accepted_edits,
-        "ready": ready,
-        "events": observer.events.iter().filter(|event| event.cursor > request.after).take(32).collect::<Vec<_>>(),
-        "installed_attempt": observer.installed.as_ref().map(|installed| installed.attempt),
-        "installed_cursor": observer.installed.as_ref().map(|installed| installed.cursor),
-        "operation": observer.active_operation,
-    })
+    let immutable = matches!(
+        request.mode.as_str(),
+        "handshake" | "checkpoint" | "begin" | "seal" | "gate_open" | "gate_release"
+    );
+    if let Some((previous, result)) = s.replies.get(&request.id) {
+        return if previous == &raw {
+            result.clone()
+        } else {
+            json!({"id":id,"error":"request ID reused"})
+        };
+    }
+    let mut result = match answer(s, &request) {
+        Ok(v) => v,
+        Err(e) => json!({"error":e}),
+    };
+    result["id"] = id;
+    result["protocol"] = PROTOCOL_VERSION.into();
+    result["session"] = s.session.clone().into();
+    result["cursor"] = s.cursor.into();
+    result["writes"] = s.writes.into();
+    result["accepted_edits"] = s.accepted_edits.into();
+    result["installed"] = json!(s.installed.and_then(|(id, _)| s.attempts.get(&id)));
+    result["operations"] = json!(s.operations);
+    result["attempts"] = json!(s.attempts.values().rev().take(16).collect::<Vec<_>>());
+    result["events"] = json!(
+        s.events
+            .iter()
+            .filter(|e| e["cursor"].as_u64().unwrap() > request.after)
+            .collect::<Vec<_>>()
+    );
+    if immutable {
+        s.replies.insert(request.id, (raw, result.clone()));
+    }
+    result
 }
 
-pub(super) fn initialize() {
+fn respond(raw: Value) -> Value {
+    with_state(|s| respond_in(s, raw.clone()))
+        .unwrap_or_else(|| json!({"id":raw["id"],"error":"observer disabled"}))
+}
+
+pub(crate) fn initialize() {
     let Some(directory) = std::env::var_os("SLINT_EDITOR_TEST_SYNC") else { return };
-    let observer = Arc::new(Mutex::new(Observer { session: session_id(), ..Default::default() }));
-    let _ = OBSERVER.set(observer);
+    let session = format!(
+        "{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    );
+    let _ = STATE.set(Arc::new(Mutex::new(Observer {
+        session,
+        ui_thread: Some(std::thread::current().id()),
+        ..Default::default()
+    })));
     let directory = std::path::PathBuf::from(directory);
-    thread_local! { static TIMER: slint::Timer = slint::Timer::default(); }
+    thread_local! {static TIMER:slint::Timer=slint::Timer::default();}
     TIMER.with(|timer| {
         timer.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(20), move || {
-            pump();
+            pump_publications();
             let Ok(bytes) = std::fs::read(directory.join("request.json")) else { return };
-            let Ok(request) = serde_json::from_slice::<Request>(&bytes) else {
-                let id = serde_json::from_slice::<serde_json::Value>(&bytes)
-                    .ok()
-                    .and_then(|value| value.get("id").and_then(serde_json::Value::as_u64))
-                    .unwrap_or_default();
-                let result = serde_json::json!({
-                    "id": id,
-                    "protocol": PROTOCOL_VERSION,
-                    "error": "malformed request"
-                });
-                let temporary = directory.join("response.tmp");
-                if std::fs::write(&temporary, result.to_string()).is_ok() {
-                    let _ = std::fs::rename(temporary, directory.join("response.json"));
-                }
-                return;
-            };
-            let result = response(&request);
+            let raw = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+            let response = respond(raw);
             let temporary = directory.join("response.tmp");
-            if std::fs::write(&temporary, result.to_string()).is_ok() {
+            if std::fs::write(&temporary, response.to_string()).is_ok() {
                 let _ = std::fs::rename(temporary, directory.join("response.json"));
             }
         })
     });
 }
 
+static WATCH_WORK: OnceLock<Mutex<BTreeMap<Url, Vec<Work>>>> = OnceLock::new();
+pub(crate) fn expect_watch(url: &Url) {
+    let work = Work::capture("filesystem observation");
+    if work.0.is_empty() {
+        return;
+    }
+    WATCH_WORK
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap()
+        .entry(url.clone())
+        .or_default()
+        .push(work);
+}
+pub(crate) fn observed_write(url: &Url) -> Work {
+    Work::combine(WATCH_WORK.get().and_then(|w| w.lock().unwrap().remove(url)).unwrap_or_default())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn request(id: u64, mode: &str) -> Value {
+        json!({"id":id,"protocol":PROTOCOL_VERSION,"session":"test","mode":mode})
+    }
+    fn observer() -> Observer {
+        Observer { session: "test".into(), ..Default::default() }
+    }
+
     #[test]
-    fn current_installation_and_shared_writes_are_authoritative() {
-        let observer =
-            Arc::new(Mutex::new(Observer { session: "test".into(), ..Default::default() }));
-        let _ = OBSERVER.set(observer);
-        let url = lsp_types::Url::parse("file:///tmp/Main.slint").unwrap();
-        record_applied_with_attempt(&url, "A", None);
-        record_applied_with_attempt(&url, "B", None);
-        let req = Request {
-            id: 1,
-            protocol: 2,
-            session: Some("test".into()),
-            mode: Mode::Applied,
-            after: 0,
-            operation: None,
-            outcome: None,
-            sources: [(url, Some("A".into()))].into(),
-            gate: None,
-            release: false,
-            gate_control: false,
-            begin_action: false,
-        };
-        assert!(!response(&req)["ready"].as_bool().unwrap());
-        let thread = std::thread::spawn(record_write);
-        thread.join().unwrap();
+    fn repeated_control_requests_are_idempotent() {
+        let mut state = observer();
+        let begin = request(1, "begin");
+        let first = respond_in(&mut state, begin.clone());
+        state.event(json!({"kind":"unrelated"}));
+        assert_eq!(first, respond_in(&mut state, begin));
+        assert_eq!(state.operations.len(), 1);
+        assert_eq!(respond_in(&mut state, request(1, "checkpoint"))["error"], "request ID reused");
+        let mut gate = request(2, "gate_open");
+        gate["kind"] = "publication".into();
+        gate["url"] = "file:///Main.slint".into();
+        let opened = respond_in(&mut state, gate.clone());
+        assert_eq!(opened, respond_in(&mut state, gate));
+        assert_eq!(state.gates.len(), 1);
+    }
+
+    #[test]
+    fn settlement_cannot_manufacture_a_canceled_result() {
+        let mut state = observer();
+        let id = respond_in(&mut state, request(1, "begin"))["operation"].clone();
+        let mut seal = request(2, "seal");
+        seal["operation"] = id.clone();
+        respond_in(&mut state, seal);
+        let mut wait = request(3, "settled");
+        wait["operation"] = id.clone();
+        wait["outcome"] = "canceled".into();
+        assert!(respond_in(&mut state, wait)["error"].as_str().unwrap().contains("got noop"));
+        assert!(state.operations[&id.as_u64().unwrap()].effects.is_empty());
+    }
+
+    #[test]
+    fn leases_survive_queue_transfers_and_release_only_after_last_owner() {
+        let state = Arc::new(Mutex::new(observer()));
+        state
+            .lock()
+            .unwrap()
+            .operations
+            .insert(7, Operation { sealed: true, ..Default::default() });
+        let work = Work::capture_in(&state, vec![7], "queued history");
+        let queued = work.clone();
+        drop(work);
+        assert!(!state.lock().unwrap().operations[&7].settled());
+        std::thread::spawn(move || {
+            queued.run(|| assert_eq!(operations(), vec![7]));
+            assert!(operations().is_empty());
+            drop(queued);
+        })
+        .join()
+        .unwrap();
+        assert!(state.lock().unwrap().operations[&7].settled());
+    }
+
+    #[test]
+    fn async_context_is_restored_between_polls() {
+        let state = Arc::new(Mutex::new(observer()));
+        state.lock().unwrap().operations.insert(7, Operation::default());
+        let work = Work::capture_in(&state, vec![7], "compile");
+        let mut polls = 0;
+        let future = std::future::poll_fn(|_| {
+            assert_eq!(operations(), vec![7]);
+            polls += 1;
+            if polls == 1 { std::task::Poll::Pending } else { std::task::Poll::Ready(()) }
+        });
+        let mut scoped = std::pin::pin!(work.during(future));
+        let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+        assert!(scoped.as_mut().poll(&mut cx).is_pending());
+        assert!(operations().is_empty());
+        assert!(scoped.as_mut().poll(&mut cx).is_ready());
+        assert!(operations().is_empty());
+    }
+
+    #[test]
+    fn history_overflow_does_not_prevent_checkpoint_or_gate_cleanup() {
+        let mut state = observer();
+        for _ in 0..MAX_EVENTS + 2 {
+            state.event(json!({"kind":"observed"}));
+        }
         assert_eq!(
-            response(&Request {
-                id: 2,
-                mode: Mode::Checkpoint,
-                protocol: 2,
-                session: Some("test".into()),
-                after: 0,
-                operation: None,
-                outcome: None,
-                sources: BTreeMap::new(),
-                gate: None,
-                release: false,
-                gate_control: false,
-                begin_action: false
-            })["writes"],
-            1
+            respond_in(&mut state, request(1, "processed"))["error"],
+            "event history overflow"
         );
+        assert_eq!(respond_in(&mut state, request(2, "checkpoint"))["ready"], true);
+        let mut open = request(3, "gate_open");
+        open["kind"] = "source".into();
+        open["url"] = "file:///Main.slint".into();
+        let gate = respond_in(&mut state, open)["gate"].clone();
+        let mut release = request(4, "gate_release");
+        release["gate"] = gate;
+        assert_eq!(respond_in(&mut state, release)["ready"], true);
+    }
+
+    fn attempt(
+        id: u64,
+        observation: u64,
+        processed_cursor: u64,
+        content: Option<&str>,
+        outcome: &str,
+    ) -> Attempt {
+        let root = Url::parse("file:///Main.slint").unwrap();
+        Attempt {
+            id,
+            kind: "compilation".into(),
+            root: root.clone(),
+            component: None,
+            epoch: 0,
+            started_cursor: observation,
+            inputs: BTreeMap::from([(
+                root,
+                Input { observation, version: Some(id as i32), content: identity(content) },
+            )]),
+            outcome: Some(outcome.into()),
+            diagnostics: vec!["diagnostic".into()],
+            processed_cursor,
+        }
+    }
+
+    #[test]
+    fn old_input_cannot_acknowledge_same_content_after_a_new_boundary() {
+        let mut state = observer();
+        state.cursor = 12;
+        state.attempts.insert(1, attempt(1, 1, 11, Some("A"), "compiled"));
+        let mut wait = request(1, "processed");
+        wait["after"] = 10.into();
+        wait["sources"] = json!({"file:///Main.slint":"A"});
+        assert_eq!(respond_in(&mut state, wait.clone())["ready"], false);
+        state.attempts.insert(2, attempt(2, 11, 12, Some("A"), "compiled"));
+        assert_eq!(respond_in(&mut state, wait)["attempt"]["id"], 2);
+    }
+
+    #[test]
+    fn missing_and_failed_inputs_are_separate_from_installed_success() {
+        let mut state = observer();
+        state.cursor = 6;
+        state.attempts.insert(1, attempt(1, 1, 2, Some("A"), "compiled"));
+        state.installed = Some((1, 3));
+        state.attempts.insert(2, attempt(2, 4, 5, None, "load_error"));
+        let mut wait = request(1, "processed");
+        wait["after"] = 3.into();
+        wait["sources"] = json!({"file:///Main.slint":null});
+        wait["outcome"] = "load_error".into();
+        let result = respond_in(&mut state, wait);
+        assert_eq!(result["attempt"]["id"], 2);
+        assert_eq!(result["installed"]["id"], 1);
+        assert_eq!(result["attempt"]["diagnostics"], json!(["diagnostic"]));
+    }
+
+    #[test]
+    fn protocol_and_session_are_validated_before_mutation() {
+        let mut state = observer();
+        let mut wrong = request(1, "begin");
+        wrong["protocol"] = 0.into();
+        assert_eq!(respond_in(&mut state, wrong)["error"], "protocol mismatch");
+        let mut stale = request(2, "begin");
+        stale["session"] = "previous".into();
+        assert_eq!(respond_in(&mut state, stale)["error"], "stale session");
+        assert!(state.operations.is_empty());
     }
 }

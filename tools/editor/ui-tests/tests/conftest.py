@@ -18,15 +18,18 @@ FIXTURE_PROJECT = UI_TEST_ROOT / "fixtures" / "editor-project"
 DEFAULT_EDITOR_BINARY = REPOSITORY_ROOT / "target" / "debug" / "slint-editor"
 
 
-@pytest.fixture
-def editor_binary() -> Path:
+@pytest.fixture(scope="session")
+def editor_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
     binary = Path(os.environ.get("SLINT_EDITOR_BINARY", DEFAULT_EDITOR_BINARY))
     assert binary.is_file(), f"Editor binary not found at {binary}"
-    return binary
+    pinned = tmp_path_factory.mktemp("editor-binary") / binary.name
+    shutil.copy2(binary, pinned)
+    pinned.chmod(0o755)
+    return pinned
 
 
 @pytest.fixture
-def editor_environment() -> dict[str, str]:
+def editor_environment(tmp_path: Path) -> dict[str, str]:
     environment = os.environ.copy()
     environment.pop("SLINT_SCALE_FACTOR", None)
     environment.update(
@@ -38,6 +41,7 @@ def editor_environment() -> dict[str, str]:
             "SLINT_ENABLE_EXPERIMENTAL_FEATURES": "1",
             "SLINT_SCALE_FACTOR": "1",
             "SLINT_STYLE": "fluent",
+            "SLINT_EDITOR_TEST_CONFIG_DIR": str(tmp_path / "editor-settings"),
         }
     )
     return environment

@@ -3,6 +3,7 @@
 
 import math
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ from canvas_interactions import (
     rotated_handle_center,
     rotation_delta,
 )
+from editor_sync import current_editor_sync
 from inspector_interactions import FIELDS, edit_field, wait_for_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
@@ -246,12 +248,21 @@ def test_redo_after_external_edit_preserves_source(
             window, FIELDS["x"], "80", slint_testing.AccessibleRole.TextInput
         )
         select_fixture_element(window, "Rectangle")
-        source.write_bytes(external)
-        snapshot_after_external = SourceSnapshot.capture(fixture_project)
-        if wait_for_reload:
-            wait_for_field(
-                window, FIELDS["x"], "900", slint_testing.AccessibleRole.TextInput
-            )
-        shortcut(window, redo=True)
+        sync = current_editor_sync.get()
+        scope = nullcontext() if wait_for_reload else sync.gate("source", source)
+        with scope as gate:
+            source.write_bytes(external)
+            snapshot_after_external = SourceSnapshot.capture(fixture_project)
+            if gate is not None:
+                gate.wait_for_reached()
+            else:
+                sync.wait_for_applied(source, external)
+                wait_for_field(
+                    window, FIELDS["x"], "900", slint_testing.AccessibleRole.TextInput
+                )
+            with sync.action() as redo:
+                shortcut(window, redo=True)
+            redo.wait_for_settled(outcome="noop" if wait_for_reload else "rejected")
+            redo.assert_no_source_writes()
         snapshot.wait_for_applied(external, SOURCE)
-        snapshot_after_external.assert_unchanged()
+        snapshot_after_external.assert_unchanged_now()

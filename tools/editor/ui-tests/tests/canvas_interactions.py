@@ -4,9 +4,15 @@
 import math
 
 import slint_testing
+from editor_sync import current_editor_sync
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
-from ui_driver import elements_with_label, wait_until, window_element_with_label
+from ui_driver import (
+    elements_with_label,
+    find_window_element_with_label,
+    wait_until,
+    window_element_with_label,
+)
 
 Frame = tuple[float, float, float, float]
 
@@ -233,32 +239,33 @@ def cancel_pointer_interaction(
             lambda: (
                 value
                 if (
-                    value := float(
-                        window_element_with_label(
-                            window, readout_label, slint_testing.AccessibleRole.Text
-                        ).accessible_value
+                    field := find_window_element_with_label(
+                        window, readout_label, slint_testing.AccessibleRole.Text
                     )
                 )
-                != initial_readout
+                is not None
+                and (value := float(field.accessible_value)) != initial_readout
                 else None
             )
         )
     snapshot.assert_unchanged_now()
 
-    window.dispatch_event(slint_testing.PointerExitedEvent())
-    window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
-    if kind == "Text":
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
-    wait_until(
-        lambda: (
-            True
-            if same_state(selection_frame(window, frame_kind), initial_frame)
-            else None
+    with current_editor_sync.get().action() as cancellation:
+        window.dispatch_event(slint_testing.PointerExitedEvent())
+        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+        if kind == "Text":
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
+        wait_until(
+            lambda: (
+                True
+                if same_state(selection_frame(window, frame_kind), initial_frame)
+                else None
+            )
         )
-    )
-    assert not elements_with_label(window.root_element, "Rotation angle")
-    assert not elements_with_label(window.root_element, "Radius value")
-    snapshot.assert_unchanged()
+        assert not elements_with_label(window.root_element, "Rotation angle")
+        assert not elements_with_label(window.root_element, "Radius value")
+    cancellation.assert_no_source_writes()
+    snapshot.assert_unchanged_now()
 
 
 def live_modifier_resize(
@@ -327,13 +334,12 @@ def manual_radius_drag(
         lambda: (
             value
             if (
-                value := float(
-                    window_element_with_label(
-                        window, "Radius value", slint_testing.AccessibleRole.Text
-                    ).accessible_value
+                field := find_window_element_with_label(
+                    window, "Radius value", slint_testing.AccessibleRole.Text
                 )
             )
-            != initial_value
+            is not None
+            and (value := float(field.accessible_value)) != initial_value
             else None
         )
     )

@@ -4,17 +4,15 @@
 use super::ui;
 use core::hash::{Hash as _, Hasher as _};
 use i_slint_editor_preview::editing::text_edit;
-use i_slint_live_preview::protocol::PreviewToLspMessage;
-
 use std::collections::HashMap;
 
 type FileHashes = HashMap<lsp_types::Url, u64>;
 
 #[derive(Clone)]
-struct EditItem {
-    title: String,
-    edit: lsp_types::WorkspaceEdit,
-    file_hashes: FileHashes,
+pub(super) struct EditItem {
+    pub(super) title: String,
+    pub(super) edit: lsp_types::WorkspaceEdit,
+    pub(super) file_hashes: FileHashes,
 }
 
 pub fn compute_file_hashes(
@@ -89,6 +87,61 @@ impl UndoRedoStack {
         }
         ok
     }
+
+    fn commit(&mut self, pending: PendingEdit) {
+        match pending {
+            PendingEdit::New(item) => {
+                if let Some(item) = item {
+                    self.undo_stack.push(item);
+                    self.redo_stack.clear();
+                } else {
+                    self.clear();
+                }
+            }
+            PendingEdit::Undo { original: _, replacement } => {
+                if self.undo_stack.pop().is_some() {
+                    self.redo_stack.push(replacement);
+                } else {
+                    self.clear();
+                }
+            }
+            PendingEdit::Redo { original: _, replacement } => {
+                if self.redo_stack.pop().is_some() {
+                    self.undo_stack.push(replacement);
+                } else {
+                    self.clear();
+                }
+            }
+        }
+    }
+}
+
+/// The history mutation associated with the one workspace edit currently in
+/// flight. The stacks stay unchanged until the editor confirms the filesystem
+/// write, so a rejected edit cannot strand an undo or redo entry.
+pub(super) enum PendingEdit {
+    New(Option<EditItem>),
+    Undo { original: EditItem, replacement: EditItem },
+    Redo { original: EditItem, replacement: EditItem },
+}
+
+pub(super) struct PendingWorkspaceEdit {
+    pub(super) history: PendingEdit,
+}
+
+pub(super) struct PendingHistory {
+    redo: bool,
+    #[cfg(feature = "system-testing")]
+    work: super::test_sync::Work,
+}
+impl PendingHistory {
+    fn new(redo: bool) -> Self {
+        Self {
+            redo,
+            #[cfg(feature = "system-testing")]
+            work: super::test_sync::Work::capture("queued history"),
+        }
+    }
 }
 
 pub fn setup(api: &ui::Api<'_>) {
@@ -96,70 +149,71 @@ pub fn setup(api: &ui::Api<'_>) {
         let Some(document_cache) = super::document_cache() else { return };
         super::PREVIEW_STATE.with_borrow_mut(|state| {
             if state.workspace_edit_sent {
-                state.pending_history.push_back(false);
+                state.pending_history.push_back(PendingHistory::new(false));
                 return;
             }
-            let Some(edit) = state.undo_redo_stack.undo_stack.pop() else {
+            let Some(edit) = state.undo_redo_stack.undo_stack.last().cloned() else {
                 return;
             };
             let Some((reverse, file_hashes)) = prepare_history_edit(&document_cache, &edit) else {
+                #[cfg(feature = "system-testing")]
+                super::test_sync::effect("rejected");
                 state.undo_redo_stack.clear();
                 set_undo_redo_enabled(state);
                 return;
             };
-            state.undo_redo_stack.redo_stack.push(EditItem {
-                title: edit.title.clone(),
-                edit: reverse,
-                file_hashes,
-            });
-            state
-                .to_lsp
-                .borrow()
-                .as_ref()
-                .unwrap()
-                .send(&PreviewToLspMessage::SendWorkspaceEdit {
-                    label: Some(format!("Undo \"{}\"", edit.title)),
-                    edit: edit.edit,
-                })
-                .unwrap();
-            set_undo_redo_enabled(state);
-            state.workspace_edit_sent = true;
+            let replacement = EditItem { title: edit.title.clone(), edit: reverse, file_hashes };
+            super::dispatch_workspace_edit(
+                state,
+                format!("Undo \"{}\"", edit.title),
+                edit.edit.clone(),
+                PendingEdit::Undo { original: edit, replacement },
+            );
         })
     });
     api.on_redo(|| {
         let Some(document_cache) = super::document_cache() else { return };
         super::PREVIEW_STATE.with_borrow_mut(|state| {
             if state.workspace_edit_sent {
-                state.pending_history.push_back(true);
+                state.pending_history.push_back(PendingHistory::new(true));
                 return;
             }
-            let Some(edit) = state.undo_redo_stack.redo_stack.pop() else {
+            let Some(edit) = state.undo_redo_stack.redo_stack.last().cloned() else {
                 return;
             };
             let Some((reverse, file_hashes)) = prepare_history_edit(&document_cache, &edit) else {
+                #[cfg(feature = "system-testing")]
+                super::test_sync::effect("rejected");
                 state.undo_redo_stack.clear();
                 set_undo_redo_enabled(state);
                 return;
             };
-            state.undo_redo_stack.undo_stack.push(EditItem {
-                title: edit.title.clone(),
-                edit: reverse,
-                file_hashes,
-            });
-            state
-                .to_lsp
-                .borrow()
-                .as_ref()
-                .unwrap()
-                .send(&PreviewToLspMessage::SendWorkspaceEdit {
-                    label: Some(format!("Redo \"{}\"", edit.title)),
-                    edit: edit.edit,
-                })
-                .unwrap();
-            set_undo_redo_enabled(state);
-            state.workspace_edit_sent = true;
+            let replacement = EditItem { title: edit.title.clone(), edit: reverse, file_hashes };
+            super::dispatch_workspace_edit(
+                state,
+                format!("Redo \"{}\"", edit.title),
+                edit.edit.clone(),
+                PendingEdit::Redo { original: edit, replacement },
+            );
         })
     });
+}
+
+pub(super) fn commit_pending(state: &mut super::PreviewState) {
+    if let Some(pending) = state.pending_workspace_edit.take() {
+        state.undo_redo_stack.commit(pending.history);
+    }
+    set_undo_redo_enabled(state);
+}
+
+pub(super) fn discard_pending(state: &mut super::PreviewState, partial_write: bool) {
+    state.pending_workspace_edit.take();
+    if partial_write {
+        // Some files reached disk and others did not. The source and the
+        // cached document can no longer identify a reversible history state.
+        state.undo_redo_stack.clear();
+    }
+    set_undo_redo_enabled(state);
 }
 
 pub(super) fn apply_pending() {
@@ -171,11 +225,17 @@ pub(super) fn apply_pending() {
             Some((state.api.upgrade()?, state.pending_history.pop_front()?))
         });
         let Some((api, redo)) = next else { return };
-        if redo {
-            api.invoke_redo();
-        } else {
-            api.invoke_undo();
-        }
+        let invoke = || {
+            if redo.redo {
+                api.invoke_redo();
+            } else {
+                api.invoke_undo();
+            }
+        };
+        #[cfg(feature = "system-testing")]
+        redo.work.run(invoke);
+        #[cfg(not(feature = "system-testing"))]
+        invoke();
     }
 }
 

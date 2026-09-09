@@ -24,7 +24,7 @@ use i_slint_editor_preview::{
 };
 use i_slint_live_preview::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
-    VersionedUrl,
+    VersionedUrl, WorkspaceEditOutcome,
 };
 use lsp_types::Url;
 use slint::{LogicalPosition, LogicalSize, PlatformError, SharedString, ToSharedString};
@@ -75,8 +75,6 @@ pub fn initialize(
         preview_state.settings = settings;
     });
 
-    #[cfg(feature = "system-testing")]
-    test_sync::initialize();
     let settings = PREVIEW_STATE.with_borrow(|preview_state| preview_state.settings.clone());
     editor_ui.set_elements_pane_height(
         settings.elements_pane_height.map_or(0.0, |height| height as f32),
@@ -126,16 +124,6 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
             }
         }
         M::ForgetFile { url } => {
-            #[cfg(feature = "system-testing")]
-            {
-                test_sync::record_observed(&url, None);
-                test_sync::record_processed_with_inputs(
-                    &url,
-                    None,
-                    "load_error",
-                    &std::collections::HashMap::new(),
-                );
-            }
             delete_document(&url);
         }
         M::SetConfiguration { config } => {
@@ -143,6 +131,9 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         }
         M::SetUserSettings { name, contents } => {
             set_user_settings(name, contents);
+        }
+        M::WorkspaceEditResult { outcome } => {
+            workspace_edit_result(outcome);
         }
         M::ShowPreview(preview_component) => {
             tracing::debug!(
@@ -251,12 +242,21 @@ pub struct PreviewState {
     selected: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
     workspace_edit_sent: bool,
+    /// The filesystem side of the current workspace edit has completed, but
+    /// its preview installation may still be pending.
+    workspace_edit_installed: bool,
     known_components: Vec<ComponentInformation>,
     preview_loading_delay_timer: Option<slint::Timer>,
     initial_live_data: preview_data::PreviewDataMap,
     current_live_data: preview_data::PreviewDataMap,
     undo_redo_stack: undo_redo::UndoRedoStack,
-    pending_history: std::collections::VecDeque<bool>,
+    pending_history: std::collections::VecDeque<undo_redo::PendingHistory>,
+    pending_workspace_edit: Option<undo_redo::PendingWorkspaceEdit>,
+    preview_generation: u64,
+    #[cfg(feature = "system-testing")]
+    factory_lease: Option<Rc<RefCell<Option<test_sync::Work>>>>,
+    #[cfg(feature = "system-testing")]
+    sync_reload_work: Vec<test_sync::Work>,
     inspector_edit: Option<inspector::Edit>,
 
     source_code: SourceCodeCache,
@@ -316,6 +316,32 @@ pub(in crate::preview) fn set_file_tree_controller(
     });
 }
 thread_local! {pub static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
+
+fn preview_generation_is_current(generation: u64) -> bool {
+    PREVIEW_STATE.with_borrow(|state| state.preview_generation == generation)
+}
+
+fn retire_factory(state: &mut PreviewState) {
+    #[cfg(feature = "system-testing")]
+    if let Some(lease) = state.factory_lease.take() {
+        // The ComponentFactory may remain retained by a component container
+        // after the surface is removed. Emptying the lease here lets the
+        // operation settle even when that abandoned factory is never invoked.
+        lease.as_ref().borrow_mut().take();
+    }
+}
+
+/// Invalidate deferred component creation when the preview surface changes
+/// mode. A stale factory may still be retained by the declarative UI, so it
+/// must fail its generation check if it is invoked after the mode switch.
+pub(crate) fn invalidate_preview_generation() {
+    #[cfg(feature = "system-testing")]
+    test_sync::request_reload();
+    PREVIEW_STATE.with_borrow_mut(|state| {
+        state.preview_generation = state.preview_generation.wrapping_add(1);
+        retire_factory(state);
+    });
+}
 
 fn invalidate_contents(url: &lsp_types::Url) {
     let needs_reload = PREVIEW_STATE.with_borrow_mut(|preview_state| {
@@ -520,12 +546,6 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &VersionedUrl, content: String) {
-    #[cfg(feature = "system-testing")]
-    test_sync::record_observed(url.url(), Some(&content));
-    #[cfg(feature = "system-testing")]
-    if test_sync::should_hold_source(url.url(), &content) {
-        return;
-    }
     let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
             undo_redo::set_undo_redo_enabled(preview_state);
@@ -1722,11 +1742,49 @@ enum CompilationResult {
     NoChange,
 }
 
+fn dispatch_workspace_edit(
+    state: &mut PreviewState,
+    label: String,
+    edit: lsp_types::WorkspaceEdit,
+    history: undo_redo::PendingEdit,
+) -> bool {
+    if state.workspace_edit_sent {
+        #[cfg(feature = "system-testing")]
+        test_sync::effect("rejected");
+        return false;
+    }
+    let Some(to_lsp) = state.to_lsp.borrow().as_ref().cloned() else {
+        #[cfg(feature = "system-testing")]
+        test_sync::effect("rejected");
+        return false;
+    };
+
+    state.pending_workspace_edit = Some(undo_redo::PendingWorkspaceEdit { history });
+    state.workspace_edit_sent = true;
+    state.workspace_edit_installed = false;
+    if let Err(error) = to_lsp.send(&PreviewToLspMessage::SendWorkspaceEdit {
+        label: Some(label.clone()),
+        edit,
+    }) {
+        tracing::error!("Failed to send workspace edit '{}': {error}", label);
+        state.pending_workspace_edit.take();
+        state.workspace_edit_sent = false;
+        #[cfg(feature = "system-testing")]
+        test_sync::effect("failed");
+        return false;
+    }
+    true
+}
+
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
     let Some(document_cache) = document_cache() else {
+        #[cfg(feature = "system-testing")]
+        test_sync::effect("rejected");
         return false;
     };
     let Ok(result) = text_edit::apply_workspace_edit(&document_cache, &edit) else {
+        #[cfg(feature = "system-testing")]
+        test_sync::effect("rejected");
         return false;
     };
     let file_hashes = undo_redo::compute_file_hashes(&result);
@@ -1735,28 +1793,66 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
         let test_result = drop_location::edited_text_compiles(&document_cache, result);
         match test_result {
             CompilationResult::ChangeCompiles => {}
-            CompilationResult::ChangeFails => return false,
+            CompilationResult::ChangeFails => {
+                #[cfg(feature = "system-testing")]
+                test_sync::effect("rejected");
+                return false;
+            }
             CompilationResult::NoChange => return true,
         }
     }
 
     let reverse_edit = text_edit::reversed_edit(&document_cache, &edit);
+    let history = undo_redo::PendingEdit::New(reverse_edit.map(|reverse_edit| {
+        undo_redo::EditItem { title: label.clone(), edit: reverse_edit, file_hashes }
+    }));
 
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if std::mem::replace(&mut preview_state.workspace_edit_sent, true) {
-            return false;
-        }
-        preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
-        undo_redo::set_undo_redo_enabled(preview_state);
-        preview_state
-            .to_lsp
-            .borrow()
-            .as_ref()
-            .unwrap()
-            .send(&PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit })
-            .unwrap();
-        true
+        dispatch_workspace_edit(preview_state, label, edit, history)
     })
+}
+
+fn workspace_edit_result(outcome: WorkspaceEditOutcome) {
+    let (needs_recovery, release_pending) = PREVIEW_STATE.with_borrow_mut(|state| {
+        if !state.workspace_edit_sent && state.pending_workspace_edit.is_none() {
+            // A delayed acknowledgement from a previous edit cannot release
+            // a newer edit's lease.
+            return (false, false);
+        }
+        match outcome {
+            WorkspaceEditOutcome::Applied { .. } => {
+                undo_redo::commit_pending(state);
+                // The filesystem acknowledgement and preview installation are
+                // independent. Release queued history only after both have
+                // reached their terminal state.
+                if state.workspace_edit_installed {
+                    state.workspace_edit_installed = false;
+                    state.workspace_edit_sent = false;
+                    (false, true)
+                } else {
+                    (false, false)
+                }
+            }
+            WorkspaceEditOutcome::Rejected => {
+                undo_redo::discard_pending(state, false);
+                state.workspace_edit_sent = false;
+                state.workspace_edit_installed = false;
+                (true, true)
+            }
+            WorkspaceEditOutcome::Failed { written, .. } => {
+                undo_redo::discard_pending(state, written != 0);
+                state.workspace_edit_sent = false;
+                state.workspace_edit_installed = false;
+                (true, true)
+            }
+        }
+    });
+    if needs_recovery {
+        inspector::invalidate();
+    }
+    if needs_recovery || release_pending {
+        undo_redo::apply_pending();
+    }
 }
 
 fn change_style() {
@@ -1990,21 +2086,24 @@ async fn reload_timer_function() {
     let (selected, notify_editor) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         let notify_editor = preview_state.notify_editor_about_selection_after_update;
         preview_state.notify_editor_about_selection_after_update = false;
-        (preview_state.selected.take(), notify_editor)
+        (preview_state.selected.clone(), notify_editor)
     });
 
+    #[cfg(feature = "system-testing")]
+    let mut completion_work = Vec::new();
     loop {
-        let Some((preview_component, config, behavior)) =
+        let Some((preview_component, config, behavior, generation)) =
             PREVIEW_STATE.with_borrow_mut(|preview_state| {
                 let behavior = preview_state.current_load_behavior.take()?;
                 let preview_component = preview_state.current_component()?;
+                let generation = preview_state.preview_generation;
 
                 assert_eq!(preview_state.loading_state, PreviewFutureState::PreLoading);
 
                 preview_state.loading_state = PreviewFutureState::Loading;
                 preview_state.dependencies.clear();
 
-                Some((preview_component, preview_state.config.clone(), behavior))
+                Some((preview_component, preview_state.config.clone(), behavior, generation))
             })
         else {
             return;
@@ -2013,7 +2112,19 @@ async fn reload_timer_function() {
         // the ComboBox is updated to the resolved style once the build finishes.
         let style = config.style.clone();
 
-        match reload_preview_impl(preview_component, behavior, style, config).await {
+        #[cfg(feature = "system-testing")]
+        let work = PREVIEW_STATE
+            .with_borrow_mut(|s| test_sync::Work::combine(std::mem::take(&mut s.sync_reload_work)));
+        #[cfg(feature = "system-testing")]
+        let result = work
+            .during(reload_preview_impl(preview_component, behavior, style, config, generation))
+            .await;
+        #[cfg(not(feature = "system-testing"))]
+        let result =
+            reload_preview_impl(preview_component, behavior, style, config, generation).await;
+        #[cfg(feature = "system-testing")]
+        completion_work.push(work);
+        match result {
             Ok(()) => {}
             Err(e) => {
                 tracing::debug!("Preview reload failed: {}", e);
@@ -2042,38 +2153,50 @@ async fn reload_timer_function() {
         };
     }
 
-    if let Some(selection) = selected {
-        element_selection::restore_selection(selection.clone(), SelectionNotification::Never);
+    let restore = || {
+        if let Some(selection) = selected {
+            element_selection::restore_selection(selection.clone(), SelectionNotification::Never);
 
-        if notify_editor
-            && let Some(component_instance) = component_instance()
-            && let Some((element, debug_index)) = component_instance
-                .element_node_at_source_code_position(&selection.path, selection.offset.into())
-                .first()
-        {
-            let Some(element_node) = ElementRcNode::new(element.clone(), *debug_index) else {
-                return;
-            };
-            let format = PREVIEW_STATE.with_borrow(|ps| ps.format());
-            let (path, pos) = element_node.with_element_node(|node| {
-                let sf = &node.source_file;
-                (
-                    sf.path().to_owned(),
-                    util::text_size_to_lsp_position(sf, selection.offset, format),
+            if notify_editor
+                && let Some(component_instance) = component_instance()
+                && let Some((element, debug_index)) = component_instance
+                    .element_node_at_source_code_position(&selection.path, selection.offset.into())
+                    .first()
+            {
+                let Some(element_node) = ElementRcNode::new(element.clone(), *debug_index) else {
+                    return;
+                };
+                let format = PREVIEW_STATE.with_borrow(|ps| ps.format());
+                let (path, pos) = element_node.with_element_node(|node| {
+                    let sf = &node.source_file;
+                    (
+                        sf.path().to_owned(),
+                        util::text_size_to_lsp_position(sf, selection.offset, format),
+                    )
+                });
+                let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
+                lsp.ask_editor_to_show_document(
+                    &path.to_string_lossy(),
+                    lsp_types::Range::new(pos, pos),
+                    false,
                 )
-            });
-            let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-            lsp.ask_editor_to_show_document(
-                &path.to_string_lossy(),
-                lsp_types::Range::new(pos, pos),
-                false,
-            )
-            .ok();
+                .ok();
+            }
         }
-    }
+    };
+    #[cfg(feature = "system-testing")]
+    test_sync::Work::combine(completion_work).run(restore);
+    #[cfg(not(feature = "system-testing"))]
+    restore();
 }
 
 pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
+    #[cfg(feature = "system-testing")]
+    {
+        test_sync::request_reload();
+        let work = test_sync::Work::capture("preview debounce");
+        PREVIEW_STATE.with_borrow_mut(|s| s.sync_reload_work.push(work));
+    }
     tracing::debug!(
         "Preview: load url={}, component={:?}, behavior={:?}",
         preview_component.url,
@@ -2082,6 +2205,8 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
     );
 
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        preview_state.preview_generation = preview_state.preview_generation.wrapping_add(1);
+        retire_factory(preview_state);
         match behavior {
             LoadBehavior::Reload => {}
             LoadBehavior::Load
@@ -2188,6 +2313,7 @@ async fn reload_preview_impl(
     behavior: LoadBehavior,
     style: String,
     config: PreviewConfig,
+    generation: u64,
 ) -> Result<(), PlatformError> {
     start_parsing();
 
@@ -2201,7 +2327,10 @@ async fn reload_preview_impl(
     }
 
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
-    let (version, source) = get_url_from_cache(&component.url).unwrap_or_else(|err| {
+    let input = get_url_from_cache(&component.url);
+    #[cfg(feature = "system-testing")]
+    let missing_input = input.is_err();
+    let (version, source) = input.unwrap_or_else(|err| {
         tracing::debug!("Preview: Failed to load source for url={}, error={}", component.url, err);
         Default::default()
     });
@@ -2213,7 +2342,14 @@ async fn reload_preview_impl(
     };
 
     #[cfg(feature = "system-testing")]
-    let source_for_sync = source.clone();
+    let attempt = test_sync::begin_attempt(&component.url, component.component.clone());
+    #[cfg(feature = "system-testing")]
+    test_sync::read_input(
+        attempt,
+        &component.url,
+        version,
+        (!missing_input).then_some(source.as_str()),
+    );
     let (diagnostics, compiled, open_import_callback, source_file_versions) = parse_source(
         config,
         path,
@@ -2227,7 +2363,16 @@ async fn reload_preview_impl(
                 let path = PathBuf::from(&path);
                 // Always return Some to stop the compiler from trying to load itself...
                 // All loading is done by the LSP for us!
-                Some(get_path_from_cache(&path))
+                let result = get_path_from_cache(&path);
+                #[cfg(feature = "system-testing")]
+                if let Ok(url) = Url::from_file_path(&path) {
+                    let (version, content) = match &result {
+                        Ok((v, c)) => (*v, Some(c.as_str())),
+                        Err(_) => (None, None),
+                    };
+                    test_sync::read_input(attempt, &url, version, content);
+                }
+                Some(result)
             })
         },
     )
@@ -2251,11 +2396,16 @@ async fn reload_preview_impl(
     );
 
     #[cfg(feature = "system-testing")]
-    let attempt = test_sync::record_processed_with_inputs(
-        &component.url,
-        Some(&source_for_sync),
-        if compiled.is_some() { "compiled" } else { "compile_error" },
-        &source_file_versions.borrow(),
+    test_sync::processed(
+        attempt,
+        if missing_input {
+            "load_error"
+        } else if compiled.is_some() {
+            "compiled"
+        } else {
+            "compile_error"
+        },
+        diagnostics.iter().map(ToString::to_string).collect(),
     );
 
     let lsp = PREVIEW_STATE.with_borrow_mut(|preview_state| {
@@ -2270,18 +2420,42 @@ async fn reload_preview_impl(
     let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
     lsp.notify_diagnostics(diags).unwrap();
 
+    #[cfg(feature = "system-testing")]
+    {
+        let work = test_sync::Work::capture("preview installation");
+        test_sync::publish(&component.url, attempt, move || {
+            work.run(|| {
+                if !test_sync::current_attempt(attempt) {
+                    test_sync::processed(attempt, "superseded", Vec::new());
+                    return;
+                }
+                if !preview_generation_is_current(generation) {
+                    test_sync::processed(attempt, "superseded", Vec::new());
+                    return;
+                }
+                if let Err(error) = update_preview_area(
+                    compiled,
+                    behavior,
+                    open_import_callback,
+                    source_file_versions,
+                    format,
+                    generation,
+                    Some(attempt),
+                ) {
+                    tracing::error!("Preview installation failed: {error}");
+                    test_sync::effect("failed");
+                }
+            })
+        });
+    }
+    #[cfg(not(feature = "system-testing"))]
     update_preview_area(
         compiled,
         behavior,
         open_import_callback,
         source_file_versions,
         format,
-        #[cfg(feature = "system-testing")]
-        Some(attempt),
-        #[cfg(feature = "system-testing")]
-        Some((component.url.clone(), source_for_sync.clone())),
-        #[cfg(not(feature = "system-testing"))]
-        None,
+        generation,
     )?;
 
     if let Some(loaded_component_name) = loaded_component_name {
@@ -2305,13 +2479,20 @@ async fn reload_preview_impl(
 }
 
 /// This sets up the preview area to show the ComponentInstance
+#[cfg(feature = "system-testing")]
+type FactoryLease = Rc<RefCell<Option<test_sync::Work>>>;
+#[cfg(not(feature = "system-testing"))]
+type FactoryLease = ();
+
 fn set_preview_factory(
     editor_ui: &ui::EditorUi,
     api: &ui::Api<'_>,
     compiled: ComponentDefinition,
     callback: Box<dyn Fn(ComponentInstance)>,
     behavior: LoadBehavior,
-) {
+    generation: u64,
+    #[cfg(feature = "system-testing")] attempt: Option<u64>,
+) -> FactoryLease {
     // Ensure that any popups are closed as they are related to the old factory
     i_slint_core::window::WindowInner::from_pub(editor_ui.window()).close_all_popups();
 
@@ -2355,16 +2536,46 @@ fn set_preview_factory(
             });
         })));
 
+    #[cfg(feature = "system-testing")]
+    let lease = Rc::new(RefCell::new(Some(test_sync::Work::capture("component factory"))));
+    #[cfg(feature = "system-testing")]
+    let factory_lease = lease.clone();
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
+        #[cfg(feature = "system-testing")]
+        let work = factory_lease.as_ref().borrow_mut().take().unwrap_or_default();
+        #[cfg(feature = "system-testing")]
+        return work.run(|| {
+            if !preview_generation_is_current(generation)
+                || !attempt.is_none_or(test_sync::current_attempt)
+            {
+                if let Some(attempt) = attempt {
+                    test_sync::processed(attempt, "superseded", Vec::new());
+                }
+                return None;
+            }
+            let instance = compiled.create_embedded(ctx).unwrap();
+            callback(instance.clone_strong());
+            Some(instance)
+        });
+        #[cfg(not(feature = "system-testing"))]
+        if !preview_generation_is_current(generation) {
+            return None;
+        }
+        #[cfg(not(feature = "system-testing"))]
         let instance = compiled.create_embedded(ctx).unwrap();
 
+        #[cfg(not(feature = "system-testing"))]
         callback(instance.clone_strong());
-
+        #[cfg(not(feature = "system-testing"))]
         Some(instance)
     });
 
     api.set_preview_area(factory);
     api.set_resize_to_preferred_size(behavior != LoadBehavior::Reload);
+    #[cfg(feature = "system-testing")]
+    return lease;
+    #[cfg(not(feature = "system-testing"))]
+    ()
 }
 
 /// Push the remote connection's state to the Remote Preview pane, which
@@ -2719,12 +2930,23 @@ fn update_preview_area(
     open_import_callback: Option<i_slint_editor_preview::document_cache::OpenImportCallback>,
     source_file_versions: Rc<RefCell<i_slint_editor_preview::document_cache::SourceFileVersionMap>>,
     format: i_slint_editor_preview::ByteFormat,
+    generation: u64,
     #[cfg(feature = "system-testing")] attempt: Option<u64>,
-    #[cfg(feature = "system-testing")] applied_source: Option<(lsp_types::Url, String)>,
-    #[cfg(not(feature = "system-testing"))] _attempt: Option<u64>,
 ) -> Result<(), PlatformError> {
+    if !preview_generation_is_current(generation) {
+        #[cfg(feature = "system-testing")]
+        if let Some(attempt) = attempt {
+            test_sync::processed(attempt, "superseded", Vec::new());
+        }
+        return Ok(());
+    }
+    let failed = compiled.is_none();
     let editor_ui = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
-        preview_state.workspace_edit_sent = false;
+        if failed {
+            undo_redo::discard_pending(preview_state, false);
+            preview_state.workspace_edit_sent = false;
+            preview_state.workspace_edit_installed = false;
+        }
 
         let editor_ui = preview_state.editor_ui.as_ref().unwrap();
         let api = preview_state.api.upgrade().unwrap();
@@ -2735,11 +2957,20 @@ fn update_preview_area(
             api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
             // Keep the inspector mounted until reselection, so edits retain keyboard focus.
 
-            set_preview_factory(
+            #[cfg(feature = "system-testing")]
+            let factory_lease = set_preview_factory(
                 editor_ui,
                 &api,
                 compiled,
                 Box::new(move |instance| {
+                    if !preview_generation_is_current(generation)
+                        || !attempt.is_none_or(test_sync::current_attempt)
+                    {
+                        if let Some(attempt) = attempt {
+                            test_sync::processed(attempt, "superseded", Vec::new());
+                        }
+                        return;
+                    }
                     if let Some(rtl) = instance.definition().raw_type_loader() {
                         shared_document_cache.replace(Some(Rc::new(
                             i_slint_editor_preview::DocumentCache::new_from_raw_parts(
@@ -2769,12 +3000,90 @@ fn update_preview_area(
 
                     shared_handle.replace(Some(instance));
                     previewed_component_changed();
+                    let release_pending = PREVIEW_STATE.with_borrow_mut(|state| {
+                        if state.pending_workspace_edit.is_some() {
+                            state.workspace_edit_installed = true;
+                            false
+                        } else {
+                            state.workspace_edit_installed = false;
+                            state.workspace_edit_sent = false;
+                            true
+                        }
+                    });
+                    inspector::invalidate();
+                    element_selection::reselect_element();
+                    if release_pending {
+                        undo_redo::apply_pending();
+                    }
                     #[cfg(feature = "system-testing")]
-                    if let Some((url, source)) = &applied_source {
-                        test_sync::record_applied_with_attempt(url, source, attempt);
+                    if let Some(attempt) = attempt {
+                        test_sync::applied(attempt);
                     }
                 }),
                 behavior,
+                generation,
+                attempt,
+            );
+            #[cfg(feature = "system-testing")]
+            {
+                preview_state.factory_lease = Some(factory_lease);
+            }
+            #[cfg(not(feature = "system-testing"))]
+            set_preview_factory(
+                editor_ui,
+                &api,
+                compiled,
+                Box::new(move |instance| {
+                    if !preview_generation_is_current(generation) {
+                        return;
+                    }
+                    if let Some(rtl) = instance.definition().raw_type_loader() {
+                        shared_document_cache.replace(Some(Rc::new(
+                            i_slint_editor_preview::DocumentCache::new_from_raw_parts(
+                                rtl,
+                                open_import_callback.clone(),
+                                source_file_versions.clone(),
+                                format,
+                            ),
+                        )));
+                    }
+
+                    // element_hash (and thus hook ids) change on every recompile, so drop stale overrides.
+                    (*shared_overrides).borrow_mut().clear();
+                    {
+                        let overrides = shared_overrides.clone();
+                        instance.set_debug_hook_callback(Some(Box::new(
+                            move |id: &str| -> Option<slint_interpreter::Value> {
+                                let mut m = (*overrides).borrow_mut();
+                                let p = m.entry(SmolStr::from(id)).or_insert_with(|| {
+                                    tracing::trace!("Inserting Property override: {id}");
+                                    Box::pin(i_slint_core::Property::new(None))
+                                });
+                                p.as_ref().get()
+                            },
+                        )));
+                    }
+
+                    shared_handle.replace(Some(instance));
+                    previewed_component_changed();
+                    let release_pending = PREVIEW_STATE.with_borrow_mut(|state| {
+                        if state.pending_workspace_edit.is_some() {
+                            state.workspace_edit_installed = true;
+                            false
+                        } else {
+                            state.workspace_edit_installed = false;
+                            state.workspace_edit_sent = false;
+                            true
+                        }
+                    });
+                    inspector::invalidate();
+                    element_selection::reselect_element();
+                    if release_pending {
+                        undo_redo::apply_pending();
+                    }
+                }),
+                behavior,
+                generation,
             );
         }
 
@@ -2794,9 +3103,11 @@ fn update_preview_area(
         Ok(())
     })?;
 
-    inspector::invalidate();
-    element_selection::reselect_element();
-    undo_redo::apply_pending();
+    if failed {
+        inspector::invalidate();
+        element_selection::reselect_element();
+        undo_redo::apply_pending();
+    }
     Ok(())
 }
 

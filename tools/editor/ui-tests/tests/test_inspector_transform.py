@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import math
-import time
 from pathlib import Path
 
 import pytest
 import slint_testing
+from canvas_interactions import oriented_selection_frame
 from editor_sync import current_editor_sync
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
@@ -123,8 +123,10 @@ def test_corner_edit_changes_only_one_property(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        action(window, "Separate corners")
-        snapshot.assert_unchanged()
+        with current_editor_sync.get().action() as separate:
+            action(window, "Separate corners")
+        separate.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
         edit_field(window, LABELS[index], "30.5")
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, LABELS[index], "30.5")
@@ -202,8 +204,10 @@ def test_invalid_transform_input_preserves_source(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        edit_field(window, label, value)
-        snapshot.assert_unchanged()
+        with current_editor_sync.get().action() as edit:
+            edit_field(window, label, value)
+        edit.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
 
 
 def point(knob, angle):
@@ -228,27 +232,30 @@ def test_knob_crosses_zero_with_transient_preview(
         knob = window_element_with_label(window, "Rotation knob")
         assert knob.size.width == 32 and knob.size.height == 32
         start, end = point(knob, 350), point(knob, 10)
-        window.dispatch_event(
-            slint_testing.PointerPressEvent(
-                start, slint_testing.PointerEventButton.Left
+        with current_editor_sync.get().action() as gesture:
+            window.dispatch_event(
+                slint_testing.PointerPressEvent(
+                    start, slint_testing.PointerEventButton.Left
+                )
             )
-        )
-        wait_for_field(window, "Rotation", "350")
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        wait_for_field(window, "Rotation", "370")
-        snapshot.assert_unchanged()
-        if cancel == "escape":
-            window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
-            window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
-        if cancel == "pointer":
-            window.dispatch_event(slint_testing.PointerExitedEvent())
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(
-                end, slint_testing.PointerEventButton.Left
+            wait_for_field(window, "Rotation", "350")
+            window.dispatch_event(slint_testing.PointerMoveEvent(end))
+            wait_for_field(window, "Rotation", "370")
+            snapshot.assert_unchanged_now()
+            if cancel == "escape":
+                window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
+                window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
+            if cancel == "pointer":
+                window.dispatch_event(slint_testing.PointerExitedEvent())
+            window.dispatch_event(
+                slint_testing.PointerReleaseEvent(
+                    end, slint_testing.PointerEventButton.Left
+                )
             )
-        )
         if cancel != "release":
-            snapshot.assert_unchanged()
+            gesture.wait_for_settled(outcome="canceled")
+            gesture.assert_no_source_writes()
+            snapshot.assert_unchanged_now()
             wait_for_field(window, "Rotation", "350")
         else:
             snapshot.wait_for_applied(
@@ -329,20 +336,23 @@ def test_selection_change_cancels_knob_drag(
         select_element(window, "Rectangle")
         knob = window_element_with_label(window, "Rotation knob")
         start, end = point(knob, 32), point(knob, 62)
-        window.dispatch_event(
-            slint_testing.PointerPressEvent(
-                start, slint_testing.PointerEventButton.Left
+        with current_editor_sync.get().action() as gesture:
+            window.dispatch_event(
+                slint_testing.PointerPressEvent(
+                    start, slint_testing.PointerEventButton.Left
+                )
             )
-        )
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        wait_for_field(window, "Rotation", "62")
-        select_element(window, "Text")
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(
-                end, slint_testing.PointerEventButton.Left
+            window.dispatch_event(slint_testing.PointerMoveEvent(end))
+            wait_for_field(window, "Rotation", "62")
+            select_element(window, "Text")
+            window.dispatch_event(
+                slint_testing.PointerReleaseEvent(
+                    end, slint_testing.PointerEventButton.Left
+                )
             )
-        )
-        snapshot.assert_unchanged()
+        gesture.wait_for_settled(outcome="canceled")
+        gesture.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
         select_element(window, "Rectangle")
         wait_for_field(window, "Rotation", "32")
 
@@ -364,24 +374,27 @@ def test_corner_slider_previews_then_commits_once(
             x=pos.x + 6 + (size.width - 12) / 4, y=pos.y + 12
         )
         end = slint_testing.LogicalPosition(x=pos.x + size.width - 6, y=pos.y + 12)
-        window.dispatch_event(
-            slint_testing.PointerPressEvent(
-                start, slint_testing.PointerEventButton.Left
+        with current_editor_sync.get().action() as gesture:
+            window.dispatch_event(
+                slint_testing.PointerPressEvent(
+                    start, slint_testing.PointerEventButton.Left
+                )
             )
-        )
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        wait_for_field(window, "All corner radii", "48")
-        snapshot.assert_unchanged()
-        if cancel:
-            window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
-            window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(
-                end, slint_testing.PointerEventButton.Left
+            window.dispatch_event(slint_testing.PointerMoveEvent(end))
+            wait_for_field(window, "All corner radii", "48")
+            snapshot.assert_unchanged_now()
+            if cancel:
+                window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
+                window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
+            window.dispatch_event(
+                slint_testing.PointerReleaseEvent(
+                    end, slint_testing.PointerEventButton.Left
+                )
             )
-        )
         if cancel:
-            snapshot.assert_unchanged()
+            gesture.wait_for_settled(outcome="canceled")
+            gesture.assert_no_source_writes()
+            snapshot.assert_unchanged_now()
             wait_for_field(window, "All corner radii", "12")
         else:
             expected = baseline
@@ -436,7 +449,7 @@ def test_knob_shift_drag_snaps_and_retains_keyboard_focus(
         window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
         wait_for_field(window, "Rotation", "45")
-        snapshot.assert_unchanged()
+        snapshot.assert_unchanged_now()
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(
                 end, slint_testing.PointerEventButton.Left
@@ -479,21 +492,17 @@ def test_source_reload_cancels_knob_gesture(
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
         wait_for_field(window, "Rotation", "62")
         updated = baseline.replace(b"32deg", b"17.5deg")
-        checkpoint = current_editor_sync.get().checkpoint()
-        (fixture_project / SOURCE).write_bytes(updated)
-        current_editor_sync.get().wait_for_processed(
-            fixture_project / SOURCE,
-            updated,
-            after=int(checkpoint["cursor"]),
-            outcome="compiled",
-        )
-        wait_for_field(window, "Rotation", "17.5")
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(
-                end, slint_testing.PointerEventButton.Left
+        sync = current_editor_sync.get()
+        with sync.action() as release:
+            (fixture_project / SOURCE).write_bytes(updated)
+            sync.wait_for_applied(fixture_project / SOURCE, updated)
+            wait_for_field(window, "Rotation", "17.5")
+            window.dispatch_event(
+                slint_testing.PointerReleaseEvent(
+                    end, slint_testing.PointerEventButton.Left
+                )
             )
-        )
-        current_editor_sync.get().checkpoint(timeout=1)
+        release.assert_no_source_writes()
         assert (fixture_project / SOURCE).read_bytes() == updated
 
 
@@ -565,13 +574,15 @@ def test_undo_while_dragging_cancels_release(
                 )
             )
         if history:
+            result = action_scope.wait_for_settled(outcome="completed")
+            assert result.data["operation_state"]["writes"] == 1
             sync.wait_for_source(
                 fixture_project / SOURCE,
                 baseline,
-                after=int(action_scope.checkpoint["cursor"]),
             )
         else:
-            action_scope.assert_no_source_writes(timeout=1)
+            action_scope.wait_for_settled(outcome="canceled")
+            action_scope.assert_no_source_writes()
         wait_for_field(window, "Rotation", "32")
 
 
@@ -641,19 +652,21 @@ def test_rotation_release_keeps_preview_until_reload(
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
         wait_for_field(window, "Rotation", "50")
-        snapshot.assert_unchanged()
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(
-                end, slint_testing.PointerEventButton.Left
-            )
-        )
-        deadline = time.monotonic() + 0.5
-        while time.monotonic() < deadline:
-            assert (
-                window_element_with_label(
-                    window, "Rotation", slint_testing.AccessibleRole.TextInput
-                ).accessible_value
-                == "50"
-            )
-            time.sleep(0.01)
+        snapshot.assert_unchanged_now()
+        sync = current_editor_sync.get()
+        with sync.gate("publication", fixture_project / SOURCE) as gate:
+            with sync.action() as release:
+                window.dispatch_event(
+                    slint_testing.PointerReleaseEvent(
+                        end, slint_testing.PointerEventButton.Left
+                    )
+                )
+            gate.wait_for_reached()
+            state = sync._request(mode="operation", operation=release.operation).data
+            assert not state["settled"]
+            wait_for_field(window, "Rotation", "50")
+            frame = oriented_selection_frame(window, "Rectangle")
+            assert frame is not None and frame[-1] == pytest.approx(50, abs=1)
+            assert state["operation_state"]["writes"] == 1
+        release.wait_for_settled(outcome="completed")
         snapshot.wait_for_applied(baseline.replace(b"32deg", b"50deg"), SOURCE)

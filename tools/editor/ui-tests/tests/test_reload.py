@@ -77,13 +77,12 @@ def test_rapid_root_writes_show_newest_revision(
         original = source_file.read_bytes()
         sync = current_editor_sync.get()
         checkpoint = sync.checkpoint()
-        sync.set_gate("source")
-        source_file.write_bytes(original.replace(b"Fixture text", b"Revision one"))
-        source_file.write_bytes(original.replace(b"Fixture text", b"Revision two"))
-        expected = original.replace(b"Fixture text", b"Newest revision")
-        source_file.write_bytes(expected)
-        sync.wait_for_gate("source", after=checkpoint.cursor)
-        sync.release_gate("source")
+        with sync.gate("source", source_file) as gate:
+            source_file.write_bytes(original.replace(b"Fixture text", b"Revision one"))
+            source_file.write_bytes(original.replace(b"Fixture text", b"Revision two"))
+            expected = original.replace(b"Fixture text", b"Newest revision")
+            source_file.write_bytes(expected)
+            gate.wait_for_reached()
         snapshot.wait_for_exact(expected)
         sync.wait_for_processed(
             source_file,

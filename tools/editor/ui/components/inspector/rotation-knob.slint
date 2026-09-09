@@ -100,6 +100,7 @@ export component InspectorRotationKnob inherits FocusScope {
                 root.accumulated = root.value;
                 root.last-angle = root.pointer-angle();
                 root.shift-pressed = event.modifiers.shift;
+                if !root.preview(root.value) { root.cancel(); }
             } else if event.kind == PointerEventKind.move && root.dragging {
                 root.update(root.shift-pressed || event.modifiers.shift);
             } else if event.kind == PointerEventKind.up && root.dragging {

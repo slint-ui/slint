@@ -12,6 +12,8 @@ const CORNERS: [&str; 4] = [
 
 pub(super) struct Edit {
     key: String,
+    #[cfg(feature = "system-testing")]
+    work: test_sync::Work,
     overrides: Vec<(SmolStr, Option<slint_interpreter::Value>)>,
 }
 
@@ -58,6 +60,12 @@ fn validate<'a>(
 pub(super) fn cancel() {
     PREVIEW_STATE.with_borrow_mut(|state| {
         if let Some(edit) = state.inspector_edit.take() {
+            #[cfg(feature = "system-testing")]
+            test_sync::Work::combine(vec![
+                edit.work.clone(),
+                test_sync::Work::capture("gesture cancellation"),
+            ])
+            .run(|| test_sync::effect("canceled"));
             let overrides = state.debug_hook_overrides.borrow();
             for (id, previous) in edit.overrides {
                 if let Some(property) = overrides.get(&id) {
@@ -65,6 +73,11 @@ pub(super) fn cancel() {
                 }
             }
         }
+        // A committed edit has already consumed its gesture record. If its
+        // filesystem write later fails, no record remains to restore these
+        // temporary values, so discard all inspector overrides at the same
+        // terminal boundary as cancellation.
+        (*state.debug_hook_overrides).borrow_mut().clear();
     });
     if let Some(instance) = component_instance() {
         instance.window().request_redraw();
@@ -85,9 +98,12 @@ pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool
     }
     PREVIEW_STATE.with_borrow_mut(|state| {
         let mut overrides = (*state.debug_hook_overrides).borrow_mut();
-        let edit = state
-            .inspector_edit
-            .get_or_insert_with(|| Edit { key: key.to_string(), overrides: Vec::new() });
+        let edit = state.inspector_edit.get_or_insert_with(|| Edit {
+            key: key.to_string(),
+            overrides: Vec::new(),
+            #[cfg(feature = "system-testing")]
+            work: test_sync::Work::capture("inspector gesture"),
+        });
         for id in ids {
             let property = overrides
                 .entry(id.clone())
@@ -105,7 +121,23 @@ pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool
 }
 
 pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool {
-    let Some((node, url, version, names)) = validate(&key, &name, value) else { return false };
+    #[cfg(feature = "system-testing")]
+    {
+        let gesture = PREVIEW_STATE
+            .with_borrow(|s| s.inspector_edit.as_ref().map(|e| e.work.clone()).unwrap_or_default());
+        test_sync::Work::combine(vec![gesture, test_sync::Work::capture("inspector commit")])
+            .run(|| commit_impl(key, name, value))
+    }
+    #[cfg(not(feature = "system-testing"))]
+    commit_impl(key, name, value)
+}
+
+fn commit_impl(key: SharedString, name: SharedString, value: f32) -> bool {
+    let Some((node, url, version, names)) = validate(&key, &name, value) else {
+        #[cfg(feature = "system-testing")]
+        test_sync::effect("rejected");
+        return false;
+    };
     let unit = if name == "transform-rotation" { "deg" } else { "px" };
     let changes = names
         .iter()

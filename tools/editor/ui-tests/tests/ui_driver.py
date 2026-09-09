@@ -5,7 +5,6 @@ import contextlib
 import hashlib
 import json
 import shutil
-import subprocess
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -32,8 +31,10 @@ def press_keys(window: slint_testing.Window, text: str) -> None:
 T = TypeVar("T")
 
 
-def wait_until(probe: Callable[[], T | None], timeout: float = 5) -> T:
-    deadline = time.monotonic() + timeout
+def wait_until(
+    probe: Callable[[], T | None], timeout: float = 5, *, deadline: float | None = None
+) -> T:
+    deadline = time.monotonic() + timeout if deadline is None else deadline
     while time.monotonic() < deadline:
         result = probe()
         if result is not None:
@@ -47,9 +48,7 @@ def wait_until(probe: Callable[[], T | None], timeout: float = 5) -> T:
 def first_window(
     application: slint_testing.Application,
 ) -> slint_testing.Window:
-    window = application.first_window
-    assert window is not None
-    return window
+    return wait_until(lambda: application.first_window, timeout=20)
 
 
 def elements_with_label(
@@ -63,6 +62,23 @@ def elements_with_label(
     return [
         element for element in query.find_all() if element.accessible_label == label
     ]
+
+
+def find_element_with_label(
+    root: slint_testing.Element,
+    label: str,
+    role: slint_testing.AccessibleRole | None = None,
+) -> slint_testing.Element | None:
+    matches = elements_with_label(root, label, role)
+    return matches[0] if len(matches) == 1 else None
+
+
+def find_window_element_with_label(
+    window: slint_testing.Window,
+    label: str,
+    role: slint_testing.AccessibleRole | None = None,
+) -> slint_testing.Element | None:
+    return find_element_with_label(window.root_element, label, role)
 
 
 def element_with_label(
@@ -109,7 +125,19 @@ def select_outline_row(
         window, row_label, slint_testing.AccessibleRole.ListItem
     )
     row.invoke_accessible_default_action()
-    return wait_until(lambda: row if row.accessible_item_selected else None)
+    return wait_until(
+        lambda: (
+            current
+            if (
+                current := find_window_element_with_label(
+                    window, row_label, slint_testing.AccessibleRole.ListItem
+                )
+            )
+            is not None
+            and current.accessible_item_selected
+            else None
+        )
+    )
 
 
 def select_fixture_element(window: slint_testing.Window, element_type: str) -> None:
@@ -132,30 +160,16 @@ def launch_editor(
         arguments.append(str(file))
     with TemporaryDirectory(prefix="slint-editor-sync-") as directory:
         run_directory = Path(directory)
-        pinned_binary = run_directory / "slint-editor"
-        shutil.copy2(binary, pinned_binary)
-        pinned_binary.chmod(0o755)
-        binary_hash = hashlib.sha256(pinned_binary.read_bytes()).hexdigest()
-        repository_root = Path(__file__).resolve().parents[4]
-        revision = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repository_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
+        binary_hash = hashlib.sha256(binary.read_bytes()).hexdigest()
         (run_directory / "client-info.json").write_text(
             json.dumps(
                 {
-                    "binary": str(pinned_binary),
+                    "binary": str(binary),
                     "sha256": binary_hash,
-                    "revision": revision,
-                    "features": "system-testing,editor-ci",
-                    "protocol": 2,
+                    "protocol": 3,
                 }
             )
         )
-        arguments[0] = str(pinned_binary)
         sync = EditorSync(run_directory)
         token = current_editor_sync.set(sync)
         try:
@@ -166,16 +180,24 @@ def launch_editor(
                 env=environment
                 | {
                     "SLINT_EDITOR_TEST_SYNC": directory,
-                    "SLINT_EDITOR_TEST_CONFIG_DIR": str(Path(directory) / "config"),
+                    "SLINT_EDITOR_TEST_CONFIG_DIR": environment.get(
+                        "SLINT_EDITOR_TEST_CONFIG_DIR", str(Path(directory) / "config")
+                    ),
                 },
                 launch_timeout=20,
             ) as application:
                 sync.process = application.process
-                sync._request(mode="handshake", timeout=20, handshake=True)
-                info = json.loads((run_directory / "client-info.json").read_text())
-                info.update({"session": sync.session, "protocol": 2})
-                (run_directory / "client-info.json").write_text(json.dumps(info))
                 try:
+                    handshake = sync._request(mode="handshake", timeout=20)
+                    info = json.loads((run_directory / "client-info.json").read_text())
+                    info.update(
+                        {
+                            "session": sync.session,
+                            "protocol": 3,
+                            "build": handshake.data["build"],
+                        }
+                    )
+                    (run_directory / "client-info.json").write_text(json.dumps(info))
                     yield application
                     report = current_report.get()
                     if report is not None and report.completed_stages == 0:

@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 import slint_testing
 from canvas_interactions import center
+from editor_sync import current_editor_sync
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
@@ -204,17 +205,19 @@ def test_outline_disclosure_collapses_and_expands_without_source_edit(
         editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
     ) as editor:
         window = first_window(editor)
-        outline_row(window, "container").invoke_accessible_expand_action()
-        wait_until(
-            lambda: (
-                True
-                if not elements_with_label(window.root_element, "child-a")
-                else None
+        with current_editor_sync.get().action() as input_action:
+            outline_row(window, "container").invoke_accessible_expand_action()
+            wait_until(
+                lambda: (
+                    True
+                    if not elements_with_label(window.root_element, "child-a")
+                    else None
+                )
             )
-        )
-        outline_row(window, "container").invoke_accessible_expand_action()
-        outline_row(window, "child-a")
-        snapshot.assert_unchanged()
+            outline_row(window, "container").invoke_accessible_expand_action()
+            outline_row(window, "child-a")
+        input_action.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
 
 
 @pytest.mark.parametrize(
@@ -240,22 +243,24 @@ def test_outline_keyboard_selection_synchronizes_editor(
         editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
     ) as editor:
         window = first_window(editor)
-        initial_row = outline_row(window, initial)
-        row = outline_row(window, target)
-        initial_row.single_click(slint_testing.PointerEventButton.Left)
-        assert initial_row.accessible_item_selected
-        assert not row.accessible_item_selected
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Tab))
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Tab))
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
-        wait_until(lambda: row if row.accessible_item_selected else None)
-        window_element_with_label(
-            window,
-            selection,
-            slint_testing.AccessibleRole.Region,
-        )
-        snapshot.assert_unchanged()
+        with current_editor_sync.get().action() as input_action:
+            initial_row = outline_row(window, initial)
+            row = outline_row(window, target)
+            initial_row.single_click(slint_testing.PointerEventButton.Left)
+            assert initial_row.accessible_item_selected
+            assert not row.accessible_item_selected
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Tab))
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Tab))
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
+            wait_until(lambda: row if row.accessible_item_selected else None)
+            window_element_with_label(
+                window,
+                selection,
+                slint_testing.AccessibleRole.Region,
+            )
+        input_action.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
 
 
 @pytest.mark.parametrize(
@@ -293,8 +298,10 @@ def test_illegal_outline_drops_do_not_change_source(
     with launch_editor(
         editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
     ) as editor:
-        drag_row(first_window(editor), source, target, location)
-        snapshot.assert_unchanged()
+        with current_editor_sync.get().action() as input_action:
+            drag_row(first_window(editor), source, target, location)
+        input_action.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
 
 
 def test_escape_cancels_outline_drag_without_source_edit(
@@ -307,25 +314,29 @@ def test_escape_cancels_outline_drag_without_source_edit(
         editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
     ) as editor:
         window = first_window(editor)
-        start = center(outline_row(window, "sibling-a"))
-        end = drop_position(window, "container", "onto")
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        window_element_with_label(
-            window, "Outline drag preview", slint_testing.AccessibleRole.Region
-        )
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-        wait_until(
-            lambda: (
-                True
-                if not elements_with_label(window.root_element, "Outline drag preview")
-                else None
+        with current_editor_sync.get().action() as input_action:
+            start = center(outline_row(window, "sibling-a"))
+            end = drop_position(window, "container", "onto")
+            button = slint_testing.PointerEventButton.Left
+            window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+            window.dispatch_event(slint_testing.PointerMoveEvent(end))
+            window_element_with_label(
+                window, "Outline drag preview", slint_testing.AccessibleRole.Region
             )
-        )
-        snapshot.assert_unchanged()
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
+            window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+            wait_until(
+                lambda: (
+                    True
+                    if not elements_with_label(
+                        window.root_element, "Outline drag preview"
+                    )
+                    else None
+                )
+            )
+        input_action.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
 
 
 def test_prohibited_layout_outline_drop_does_not_change_source(
@@ -337,5 +348,7 @@ def test_prohibited_layout_outline_drop_does_not_change_source(
     canvas_file = fixture_project / "CanvasCases.slint"
     with launch_editor(editor_binary, editor_environment, canvas_file) as editor:
         window = first_window(editor)
-        drag_row(window, "prohibited-layout", "<component-root>", "before")
-        snapshot.assert_unchanged()
+        with current_editor_sync.get().action() as input_action:
+            drag_row(window, "prohibited-layout", "<component-root>", "before")
+        input_action.assert_no_source_writes()
+        snapshot.assert_unchanged_now()

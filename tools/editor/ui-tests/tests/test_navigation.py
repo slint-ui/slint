@@ -4,6 +4,7 @@
 from pathlib import Path
 
 import slint_testing
+from editor_sync import current_editor_sync
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     PALETTE_KINDS,
@@ -26,14 +27,16 @@ def test_file_tree_opens_sibling_component(
         editor_binary, editor_environment, fixture_project / "Main.slint"
     ) as editor:
         window = first_window(editor)
-        file_row(
-            window, fixture_project / "Sibling.slint"
-        ).invoke_accessible_default_action()
-        window_element_with_label(
-            window, "sibling-rectangle", slint_testing.AccessibleRole.ListItem
-        )
-        assert not elements_with_label(window.root_element, "root-text")
-        snapshot.assert_unchanged()
+        with current_editor_sync.get().action() as input_action:
+            file_row(
+                window, fixture_project / "Sibling.slint"
+            ).invoke_accessible_default_action()
+            window_element_with_label(
+                window, "sibling-rectangle", slint_testing.AccessibleRole.ListItem
+            )
+            assert not elements_with_label(window.root_element, "root-text")
+        input_action.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
 
 
 def test_file_tree_folder_expand_and_collapse(
@@ -48,19 +51,21 @@ def test_file_tree_folder_expand_and_collapse(
         editor_binary, editor_environment, fixture_project / "Main.slint"
     ) as editor:
         window = first_window(editor)
-        folder = file_row(window, assets)
-        assert not elements_with_label(window.root_element, str(image))
-        folder.invoke_accessible_default_action()
-        file_row(window, image)
-        file_row(window, assets).invoke_accessible_default_action()
-        wait_until(
-            lambda: (
-                True
-                if not elements_with_label(window.root_element, str(image))
-                else None
+        with current_editor_sync.get().action() as input_action:
+            folder = file_row(window, assets)
+            assert not elements_with_label(window.root_element, str(image))
+            folder.invoke_accessible_default_action()
+            file_row(window, image)
+            file_row(window, assets).invoke_accessible_default_action()
+            wait_until(
+                lambda: (
+                    True
+                    if not elements_with_label(window.root_element, str(image))
+                    else None
+                )
             )
-        )
-        snapshot.assert_unchanged()
+        input_action.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
 
 
 def test_file_tree_switches_image_and_component_surfaces(
@@ -74,41 +79,45 @@ def test_file_tree_switches_image_and_component_surfaces(
     image = assets / "checker.svg"
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        window_element_with_label(
-            window, "Editor canvas", slint_testing.AccessibleRole.Main
-        )
-        file_row(window, assets).invoke_accessible_default_action()
-        file_row(window, image).invoke_accessible_default_action()
-        image_editor = window_element_with_label(
-            window, "Image asset editor", slint_testing.AccessibleRole.Main
-        )
-        assert image_editor.accessible_description == "assets/checker.svg"
-        window_element_with_label(
-            window, "Preview", slint_testing.AccessibleRole.Button
-        )
-        file_fields = elements_with_label(
-            image_editor, "File", slint_testing.AccessibleRole.Text
-        )
-        assert file_fields
-        assert {
-            field.accessible_value for field in file_fields if field.accessible_value
-        } == {"assets/checker.svg"}
-        wait_until(
-            lambda: (
-                True
-                if not elements_with_label(window.root_element, "Editor canvas")
-                else None
+        with current_editor_sync.get().action() as input_action:
+            window_element_with_label(
+                window, "Editor canvas", slint_testing.AccessibleRole.Main
             )
-        )
-        for kind in PALETTE_KINDS:
-            assert not window_element_with_label(
-                window, kind, slint_testing.AccessibleRole.ListItem
-            ).accessible_enabled
-        file_row(window, source_file).invoke_accessible_default_action()
-        window_element_with_label(
-            window, "Editor canvas", slint_testing.AccessibleRole.Main
-        )
-        window_element_with_label(
-            window, "Fixture text", slint_testing.AccessibleRole.Text
-        )
-        snapshot.assert_unchanged()
+            file_row(window, assets).invoke_accessible_default_action()
+            file_row(window, image).invoke_accessible_default_action()
+            image_editor = window_element_with_label(
+                window, "Image asset editor", slint_testing.AccessibleRole.Main
+            )
+            assert image_editor.accessible_description == "assets/checker.svg"
+            window_element_with_label(
+                window, "Preview", slint_testing.AccessibleRole.Button
+            )
+            file_fields = elements_with_label(
+                image_editor, "File", slint_testing.AccessibleRole.Text
+            )
+            assert file_fields
+            assert {
+                field.accessible_value
+                for field in file_fields
+                if field.accessible_value
+            } == {"assets/checker.svg"}
+            wait_until(
+                lambda: (
+                    True
+                    if not elements_with_label(window.root_element, "Editor canvas")
+                    else None
+                )
+            )
+            for kind in PALETTE_KINDS:
+                assert not window_element_with_label(
+                    window, kind, slint_testing.AccessibleRole.ListItem
+                ).accessible_enabled
+            file_row(window, source_file).invoke_accessible_default_action()
+            window_element_with_label(
+                window, "Editor canvas", slint_testing.AccessibleRole.Main
+            )
+            window_element_with_label(
+                window, "Fixture text", slint_testing.AccessibleRole.Text
+            )
+        input_action.assert_no_source_writes()
+        snapshot.assert_unchanged_now()

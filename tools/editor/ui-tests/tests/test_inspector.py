@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from editor_sync import current_editor_sync
 from inspector_interactions import FIELDS, edit_field, inspector_field, wait_for_field
 from source_snapshot import SourceSnapshot
 from ui_driver import (
@@ -106,7 +107,7 @@ def test_geometry_field_writes_exact_source(
         window = first_window(editor)
         select_element(window, "Rectangle")
         edit_field(window, label, value, slint_testing.AccessibleRole.TextInput)
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             replace_once(baseline, old, new), relative_path=INSPECTOR_SOURCE
         )
         wait_for_field(
@@ -156,7 +157,7 @@ def test_element_color_field_writes_exact_source(
         window = first_window(editor)
         select_element(window, kind)
         edit_field(window, label, value, slint_testing.AccessibleRole.TextInput)
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             replace_once(baseline, old, new), relative_path=INSPECTOR_SOURCE
         )
         assert_rendered_element(window, f"InspectorCases::inspect-{kind.lower()}")
@@ -228,7 +229,7 @@ def test_each_image_fit_value_writes_exact_source(
         window = first_window(editor)
         select_element(window, "Image")
         edit_field(window, "Image fit", fit, slint_testing.AccessibleRole.Combobox)
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             replace_once(
                 starting_source,
                 f"        image-fit: {initial};".encode(),
@@ -266,7 +267,7 @@ def test_each_horizontal_image_alignment_writes_exact_source(
             alignment,
             slint_testing.AccessibleRole.Combobox,
         )
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             replace_once(
                 starting_source,
                 f"        horizontal-alignment: {initial};".encode(),
@@ -304,7 +305,7 @@ def test_each_vertical_image_alignment_writes_exact_source(
             alignment,
             slint_testing.AccessibleRole.Combobox,
         )
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             replace_once(
                 starting_source,
                 f"        vertical-alignment: {initial};".encode(),
@@ -331,7 +332,7 @@ def test_image_source_writes_exact_source(
         edit_field(
             window, "Image source", value, slint_testing.AccessibleRole.TextInput
         )
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             replace_once(
                 baseline,
                 b'        source: @image-url("assets/checker.svg");',
@@ -357,7 +358,7 @@ def test_font_family_writes_exact_source(
         edit_field(
             window, "Font family", "Fira Sans", slint_testing.AccessibleRole.TextInput
         )
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             replace_once(
                 baseline,
                 b'        font-family: "Inter";',
@@ -392,7 +393,7 @@ def test_each_font_weight_writes_exact_source(
         window = first_window(editor)
         select_element(window, "Text")
         edit_field(window, "Font weight", weight, slint_testing.AccessibleRole.Combobox)
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             replace_once(
                 starting_source,
                 f"        font-weight: {initial};".encode(),
@@ -503,7 +504,7 @@ def test_numeric_and_expression_font_sizes_write_exact_source(
         window = first_window(editor)
         select_element(window, "Text")
         edit_field(window, "Font size", value, slint_testing.AccessibleRole.TextInput)
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             replace_once(
                 baseline,
                 b"        font-size: 20px;",
@@ -570,14 +571,16 @@ def test_invalid_text_content_does_not_change_source(
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        select_element(window, "Text")
-        edit_field(
-            window,
-            "Text content",
-            "unknown_identifier",
-            slint_testing.AccessibleRole.TextInput,
-        )
-        snapshot.assert_unchanged()
+        with current_editor_sync.get().action() as input_action:
+            select_element(window, "Text")
+            edit_field(
+                window,
+                "Text content",
+                "unknown_identifier",
+                slint_testing.AccessibleRole.TextInput,
+            )
+        input_action.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
         wait_for_field(
             window,
             "Text content",
@@ -686,7 +689,7 @@ def test_each_shadow_family_control_writes_exact_source(
                 slint_testing.AccessibleRole.TextInput,
             )
         edit_field(window, label, value)
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             shadow_expected(starting_source, family, control, value),
             relative_path=INSPECTOR_SOURCE,
         )
@@ -731,7 +734,7 @@ def test_shadow_control_boundary_writes_exact_source(
                 slint_testing.AccessibleRole.TextInput,
             )
         edit_field(window, label, value)
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             shadow_expected(starting_source, family, control, value),
             relative_path=INSPECTOR_SOURCE,
         )
@@ -782,12 +785,16 @@ def test_invalid_or_empty_inspector_edit_does_not_change_source(
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        select_element(window, kind)
-        role = slint_testing.AccessibleRole.Combobox if label == "Image fit" else None
-        field = inspector_field(window, label, role)
-        value_before = field.accessible_value
-        edit_field(window, label, value, role)
-        snapshot.assert_unchanged()
+        with current_editor_sync.get().action() as input_action:
+            select_element(window, kind)
+            role = (
+                slint_testing.AccessibleRole.Combobox if label == "Image fit" else None
+            )
+            field = inspector_field(window, label, role)
+            value_before = field.accessible_value
+            edit_field(window, label, value, role)
+        input_action.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
         wait_for_field(window, label, value_before, role)
         window_element_with_label(
             window, f"Selected {kind}", slint_testing.AccessibleRole.Region
@@ -804,14 +811,16 @@ def test_invalid_rectangle_color_does_not_change_source(
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        select_element(window, "Rectangle")
-        edit_field(
-            window,
-            "Rectangle background",
-            "not-a-color",
-            slint_testing.AccessibleRole.TextInput,
-        )
-        snapshot.assert_unchanged()
+        with current_editor_sync.get().action() as input_action:
+            select_element(window, "Rectangle")
+            edit_field(
+                window,
+                "Rectangle background",
+                "not-a-color",
+                slint_testing.AccessibleRole.TextInput,
+            )
+        input_action.assert_no_source_writes()
+        snapshot.assert_unchanged_now()
         wait_for_field(
             window,
             "Rectangle background",

@@ -18,7 +18,7 @@ use i_slint_editor_preview::{LspToPreviews, Result, document_cache::OpenImportCa
 use i_slint_live_preview::file_watcher::{FileWatcher, WatchEvent};
 use i_slint_live_preview::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewTarget, PreviewToLspMessage, SourceFileVersion,
-    VersionedUrl,
+    VersionedUrl, WorkspaceEditOutcome,
 };
 use lsp_types::{MessageType, Url};
 use slint::ComponentHandle;
@@ -57,6 +57,8 @@ fn main() -> Result<()> {
     #[cfg(target_os = "windows")]
     let _updater = windows::connect(&editor_ui);
 
+    #[cfg(feature = "system-testing")]
+    preview::test_sync::initialize();
     let settings = startup::load_settings();
     if let Some(file) = cli.file {
         let project = Project::from_file(file, cli.component)?;
@@ -103,7 +105,17 @@ struct EditorLspToPreview;
 impl editor_preview::LspToPreview for EditorLspToPreview {
     fn send(&self, message: &LspToPreviewMessage) {
         let message = message.clone();
+        #[cfg(feature = "system-testing")]
+        let work = preview::test_sync::Work::capture("UI message");
+        #[cfg(feature = "system-testing")]
+        let input = preview::test_sync::source_delivery(&message);
         if let Err(err) = slint::invoke_from_event_loop(move || {
+            #[cfg(feature = "system-testing")]
+            work.run(|| {
+                preview::test_sync::install_source(input);
+                preview::lsp_to_preview(message);
+            });
+            #[cfg(not(feature = "system-testing"))]
             preview::lsp_to_preview(message);
         }) {
             tracing::error!("Failed to queue message onto the event loop: {err}");
@@ -117,13 +129,23 @@ impl editor_preview::LspToPreview for EditorLspToPreview {
     }
 }
 
+struct PreviewMessage {
+    message: PreviewToLspMessage,
+    #[cfg(feature = "system-testing")]
+    work: preview::test_sync::Work,
+}
+
 struct EmbeddedPreviewToLsp {
-    sender: crossbeam_channel::Sender<PreviewToLspMessage>,
+    sender: crossbeam_channel::Sender<PreviewMessage>,
 }
 
 impl editor_preview::PreviewToLsp for EmbeddedPreviewToLsp {
     fn send(&self, message: &PreviewToLspMessage) -> editor_preview::Result<()> {
-        self.sender.send(message.clone())?;
+        self.sender.send(PreviewMessage {
+            message: message.clone(),
+            #[cfg(feature = "system-testing")]
+            work: preview::test_sync::Work::capture("LSP message"),
+        })?;
         Ok(())
     }
 }
@@ -166,10 +188,7 @@ fn start_editor_session(
     start_lsp_thread(from_preview, project);
 }
 
-fn start_lsp_thread(
-    from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
-    project: Project,
-) {
+fn start_lsp_thread(from_preview: crossbeam_channel::Receiver<PreviewMessage>, project: Project) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_io()
@@ -185,10 +204,10 @@ fn start_lsp_thread(
 }
 
 fn bridge_crossbeam_to_tokio(
-    from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
-) -> tokio::sync::mpsc::UnboundedReceiver<PreviewToLspMessage> {
+    from_preview: crossbeam_channel::Receiver<PreviewMessage>,
+) -> tokio::sync::mpsc::UnboundedReceiver<PreviewMessage> {
     let (from_preview_tx, from_preview_rx) =
-        tokio::sync::mpsc::unbounded_channel::<PreviewToLspMessage>();
+        tokio::sync::mpsc::unbounded_channel::<PreviewMessage>();
     std::thread::spawn(move || {
         while let Ok(msg) = from_preview.recv() {
             if from_preview_tx.send(msg).is_err() {
@@ -201,7 +220,7 @@ fn bridge_crossbeam_to_tokio(
 }
 
 async fn lsp_main(
-    from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
+    from_preview: crossbeam_channel::Receiver<PreviewMessage>,
     project: Project,
 ) -> Result<()> {
     use editor_preview::document_cache::CompilerConfiguration;
@@ -219,6 +238,8 @@ async fn lsp_main(
 
     // Wrap to_preview in Rc for sharing with the import callback and the session
     let to_preview = LspToPreviews::with_one(EditorLspToPreview);
+    #[cfg(feature = "system-testing")]
+    to_preview.set_source_observer(Rc::new(preview::test_sync::observed_read));
 
     let open_import_callback = {
         let to_preview = Rc::clone(&to_preview);
@@ -228,6 +249,11 @@ async fn lsp_main(
                 tracing::trace!("Importing file: {}", path);
                 let contents = std::fs::read(&path);
                 if let Ok(url) = Url::from_file_path(&path) {
+                    #[cfg(feature = "system-testing")]
+                    preview::test_sync::observed_read(
+                        &url,
+                        contents.as_ref().ok().and_then(|c| std::str::from_utf8(c).ok()),
+                    );
                     if let Ok(contents) = &contents {
                         to_preview.send(&LspToPreviewMessage::SetContents {
                             url: VersionedUrl::new(url, None),
@@ -276,6 +302,10 @@ async fn lsp_main(
 
     const RECOMPILE_DELAY: Duration = Duration::from_millis(50);
     let mut recompile_deadline = None;
+    #[cfg(feature = "system-testing")]
+    let mut pending_work = Vec::new();
+    #[cfg(feature = "system-testing")]
+    let mut held_events: Vec<(u64, WatchEvent)> = Vec::new();
     loop {
         if session.pending_recompile.is_empty() {
             recompile_deadline = None;
@@ -284,16 +314,38 @@ async fn lsp_main(
             recompile_deadline.get_or_insert_with(|| tokio::time::Instant::now() + RECOMPILE_DELAY);
         }
         tokio::select! {
+            _ = source_gate_changed() => {},
             watcher_event = file_watcher_rx.recv() => {
                 match watcher_event {
-                    Some(event) => trigger_editor_file_watcher(&mut session, event).await?,
+                    Some(event) => {
+                        #[cfg(feature = "system-testing")]
+                        {
+                            if let Ok(url) = Url::from_file_path(&event.path) {
+                                if let Some(gate) = preview::test_sync::hold_source(&url) {
+                                    held_events.push((gate, event));
+                                    continue;
+                                }
+                                let work = preview::test_sync::observed_write(&url);
+                                work.during(trigger_editor_file_watcher(&mut session, event)).await?;
+                                pending_work.push(work);
+                            }
+                        }
+                        #[cfg(not(feature = "system-testing"))]
+                        trigger_editor_file_watcher(&mut session, event).await?;
+                    },
                     None => break Err("File watcher channel closed".into()),
                 }
             }
             msg = from_preview_rx.recv() => {
                 match msg {
                     Some(msg) => {
-                        handle_preview_message(msg, &mut session, &project_root).await;
+                        #[cfg(feature = "system-testing")]
+                        {
+                            msg.work.during(handle_preview_message(msg.message, &mut session, &project_root)).await;
+                            pending_work.push(msg.work);
+                        }
+                        #[cfg(not(feature = "system-testing"))]
+                        handle_preview_message(msg.message, &mut session, &project_root).await;
                     }
                     None => {
                         tracing::debug!("Preview->LSP channel closed, exiting");
@@ -311,11 +363,38 @@ async fn lsp_main(
                 tracing::debug!("LSP recompiling");
                 let pending_recompile = std::mem::take(&mut session.pending_recompile);
 
+                #[cfg(feature = "system-testing")]
+                let work = preview::test_sync::Work::combine(std::mem::take(&mut pending_work));
                 for url in pending_recompile {
-                    if let Err(err) = session.reload_document(url).await {
+                    #[cfg(feature = "system-testing")]
+                    let result = work.during(session.reload_document(url)).await;
+                    #[cfg(not(feature = "system-testing"))]
+                    let result = session.reload_document(url).await;
+                    if let Err(err) = result {
                         tracing::error!("Failed document reload: {err}");
                     }
                 }
+            }
+        }
+
+        #[cfg(feature = "system-testing")]
+        {
+            let mut still_held = Vec::new();
+            for (gate, event) in held_events.drain(..) {
+                if preview::test_sync::gate_released(gate) {
+                    let work = Url::from_file_path(&event.path)
+                        .ok()
+                        .map(|url| preview::test_sync::observed_write(&url))
+                        .unwrap_or_default();
+                    work.during(trigger_editor_file_watcher(&mut session, event)).await?;
+                    pending_work.push(work);
+                } else {
+                    still_held.push((gate, event));
+                }
+            }
+            held_events = still_held;
+            if session.pending_recompile.is_empty() {
+                pending_work.clear();
             }
         }
 
@@ -326,6 +405,13 @@ async fn lsp_main(
             &mut watch_paths_revision,
         )?;
     }
+}
+
+async fn source_gate_changed() {
+    #[cfg(feature = "system-testing")]
+    preview::test_sync::gate_changed().await;
+    #[cfg(not(feature = "system-testing"))]
+    std::future::pending::<()>().await;
 }
 
 async fn trigger_editor_file_watcher(
@@ -408,7 +494,12 @@ async fn handle_preview_message(
             if let Err(error) =
                 i_slint_editor_preview::settings_store::save(TOOL_NAME, name, contents)
             {
+                #[cfg(feature = "system-testing")]
+                preview::test_sync::effect("failed");
                 tracing::warn!("Failed to save preview user settings: {error}");
+            } else {
+                #[cfg(feature = "system-testing")]
+                preview::test_sync::effect("completed");
             }
         }
         SendShowMessage { message } => {
@@ -442,7 +533,12 @@ async fn handle_preview_message(
             tracing::debug!("Ignoring message from preview: {msg:?}");
         }
         SendWorkspaceEdit { label, edit } => {
-            handle_workspace_edit(&session.document_cache, label.as_deref(), edit);
+            handle_workspace_edit(
+                &session.document_cache,
+                session.to_preview.as_ref(),
+                label.as_deref(),
+                edit,
+            );
         }
     }
 }
@@ -493,25 +589,45 @@ fn canonical_preview_component(
 
 fn handle_workspace_edit(
     document_cache: &editor_preview::DocumentCache,
+    to_preview: &impl editor_preview::LspToPreview,
     label: Option<&str>,
     edit: &lsp_types::WorkspaceEdit,
 ) {
     match editor_preview::editing::text_edit::apply_workspace_edit(document_cache, edit) {
-        Ok(edited_texts) => {
+        Ok(edited_texts) if edited_texts.is_empty() => {
             #[cfg(feature = "system-testing")]
-            let operation = crate::preview::test_sync::record_accepted_edit();
+            crate::preview::test_sync::effect("rejected");
+            to_preview.send(&LspToPreviewMessage::WorkspaceEditResult {
+                outcome: WorkspaceEditOutcome::Rejected,
+            });
+            tracing::warn!(
+                "Workspace edit '{}' did not address any loaded document",
+                label.unwrap_or("(unnamed)")
+            );
+        }
+        Ok(edited_texts) => {
+            let files = u32::try_from(edited_texts.len()).unwrap_or(u32::MAX);
+            #[cfg(feature = "system-testing")]
+            crate::preview::test_sync::accepted_edit();
+            let mut written = 0u32;
             for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
                 match editor_preview::uri_to_file(&url) {
                     Some(path) => {
                         if let Err(err) = std::fs::write(&path, &contents) {
+                            #[cfg(feature = "system-testing")]
+                            crate::preview::test_sync::effect("failed");
                             tracing::error!(
                                 "Failed to apply workspace edit '{}' to {}: {err}",
                                 label.unwrap_or("(unnamed)"),
                                 path.display()
                             );
                         } else {
+                            written += 1;
                             #[cfg(feature = "system-testing")]
-                            crate::preview::test_sync::record_write();
+                            {
+                                crate::preview::test_sync::written(&url);
+                                crate::preview::test_sync::expect_watch(&url);
+                            }
                         }
                     }
                     None => {
@@ -519,10 +635,21 @@ fn handle_workspace_edit(
                     }
                 }
             }
-            #[cfg(feature = "system-testing")]
-            crate::preview::test_sync::record_edit_completed(operation, "completed");
+            let outcome = if written == files {
+                WorkspaceEditOutcome::Applied { files }
+            } else {
+                #[cfg(feature = "system-testing")]
+                crate::preview::test_sync::effect("failed");
+                WorkspaceEditOutcome::Failed { files, written }
+            };
+            to_preview.send(&LspToPreviewMessage::WorkspaceEditResult { outcome });
         }
         Err(err) => {
+            #[cfg(feature = "system-testing")]
+            crate::preview::test_sync::effect("rejected");
+            to_preview.send(&LspToPreviewMessage::WorkspaceEditResult {
+                outcome: WorkspaceEditOutcome::Rejected,
+            });
             tracing::error!(
                 "Failed to compute workspace edit '{}': {err}",
                 label.unwrap_or("(unnamed)")

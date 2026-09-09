@@ -4,6 +4,7 @@
 use slint_build::CompilerConfiguration;
 
 fn main() {
+    record_test_build();
     // Safety: there are no other threads at this point
     unsafe {
         // Make the compiler handle ComponentContainer:
@@ -16,4 +17,27 @@ fn main() {
         CompilerConfiguration::new().with_debug_info(true),
     )
     .unwrap();
+}
+
+fn record_test_build() {
+    if std::env::var_os("CARGO_FEATURE_SYSTEM_TESTING").is_none() {
+        return;
+    }
+    let git = |args: &[&str]| {
+        std::process::Command::new("git").args(args).output().ok().filter(|o| o.status.success())
+    };
+    let revision = git(&["rev-parse", "HEAD"])
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_owned())
+        .unwrap_or_else(|| "unknown".into());
+    for reference in ["HEAD", "refs/heads"] {
+        if let Some(output) = git(&["rev-parse", "--git-path", reference]) {
+            println!("cargo:rerun-if-changed={}", String::from_utf8_lossy(&output.stdout).trim());
+        }
+    }
+    let mut features: Vec<_> = std::env::vars()
+        .filter_map(|(name, _)| name.strip_prefix("CARGO_FEATURE_").map(str::to_owned))
+        .collect();
+    features.sort();
+    println!("cargo:rustc-env=SLINT_EDITOR_BUILD_REVISION={revision}");
+    println!("cargo:rustc-env=SLINT_EDITOR_BUILD_FEATURES={}", features.join(","));
 }

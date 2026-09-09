@@ -7,6 +7,16 @@ use lsp_types::Url;
 
 use super::{PreviewTarget, VersionedUrl};
 
+/// The terminal result of applying a workspace edit in the local editor
+/// process. The result describes filesystem writes; it does not acknowledge
+/// preview installation, which follows through the normal reload path.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub enum WorkspaceEditOutcome {
+    Applied { files: u32 },
+    Rejected,
+    Failed { files: u32, written: u32 },
+}
+
 /// The Component to preview
 #[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct PreviewComponent {
@@ -51,6 +61,8 @@ pub enum LspToPreviewMessage {
         name: String,
         contents: String,
     },
+    /// Acknowledge the filesystem stage of a workspace edit.
+    WorkspaceEditResult { outcome: WorkspaceEditOutcome },
     ShowPreview(PreviewComponent),
     HighlightFromEditor {
         url: Option<Url>,

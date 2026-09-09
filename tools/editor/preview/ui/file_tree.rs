@@ -102,6 +102,7 @@ impl FileTreeController {
             api.set_image_nine_slice_right(0);
             api.set_image_nine_slice_bottom(0);
             api.set_image_nine_slice_left(0);
+            crate::preview::invalidate_preview_generation();
             api.set_editor_surface_mode(EditorSurfaceMode::Image);
         }
     }
@@ -168,6 +169,7 @@ pub(in crate::preview) fn open_project(
     if let Some(file_tree) = controller.borrow().as_ref() {
         file_tree.publish(project);
     }
+    crate::preview::invalidate_preview_generation();
     api.set_editor_surface_mode(EditorSurfaceMode::Component);
     api.set_startup_wizard_visible(false);
 }
@@ -187,6 +189,7 @@ pub(in crate::preview) fn open_preview(
     if selected && let Some(file_tree) = controller.borrow().as_ref() {
         file_tree.publish(project);
     }
+    crate::preview::invalidate_preview_generation();
     api.set_editor_surface_mode(EditorSurfaceMode::Component);
     api.set_startup_wizard_visible(false);
 }
