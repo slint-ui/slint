@@ -7858,6 +7858,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "slint-sc-coverage"
+version = "1.18.0"
+dependencies = [
+ "clap",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "slint-tr-extractor"
 version = "1.18.0"
 dependencies = [
