@@ -134,11 +134,13 @@ def manual_rotation_drag(
     snapshot: SourceSnapshot,
     *,
     crosses_zero: bool = False,
+    kind: str = "Text",
+    target_angle: int = 15,
 ) -> None:
     start = center(handle)
     end = slint_testing.LogicalPosition(x=start.x + dx, y=start.y + dy)
     button = slint_testing.PointerEventButton.Left
-    initial_frame = selection_frame(window, "Text")
+    initial_frame = selection_frame(window, kind)
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
     window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
     angles = [_rotation_tooltip_value(window)]
@@ -151,11 +153,11 @@ def manual_rotation_drag(
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(position))
         angles.append(_rotation_tooltip_value(window))
-        frames.append(selection_frame(window, "Text"))
+        frames.append(selection_frame(window, kind))
     snapshot.assert_unchanged_now()
 
     assert all(0 <= angle < 360 for angle in angles)
-    assert angles[-1] == 15 or crosses_zero
+    assert angles[-1] == target_angle or crosses_zero
     assert frames[-1] != initial_frame
     if crosses_zero:
         assert any(angle >= 345 for angle in angles)
@@ -168,8 +170,9 @@ def rotation_delta(
     window: slint_testing.Window,
     handle: slint_testing.Element,
     degrees: float,
+    kind: str = "Text",
 ) -> tuple[float, float]:
-    x, y, width, height = selection_frame(window, "Text")
+    x, y, width, height = selection_frame(window, kind)
     frame_center = slint_testing.LogicalPosition(
         x=x + width / 2,
         y=y + height / 2,
@@ -338,3 +341,57 @@ def manual_radius_drag(
     window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
     if shift:
         window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
+
+
+def radius_handle(window: slint_testing.Window, corner: str) -> slint_testing.Element:
+    selection = window_element_with_label(
+        window, "Selected Rectangle", slint_testing.AccessibleRole.Region
+    )
+    # A live reload can replace the frame while the pointer remains at the same logical
+    # position. Move away first so the real frame receives a fresh hover transition.
+    window.dispatch_event(
+        slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(x=1, y=1))
+    )
+    window.dispatch_event(slint_testing.PointerMoveEvent(center(selection)))
+    return window_element_with_label(window, f"Rectangle radius {corner}")
+
+
+OrientedFrame = tuple[float, float, float, float, float]
+
+
+def rotated_handle_center(
+    element: slint_testing.Element, angle: float = 0
+) -> tuple[float, float]:
+    midpoint = center(element)
+    size = element.size
+    radians = math.radians(angle)
+    return (
+        midpoint.x
+        + size.width / 2 * (math.cos(radians) - 1)
+        - size.height / 2 * math.sin(radians),
+        midpoint.y
+        + size.width / 2 * math.sin(radians)
+        + size.height / 2 * (math.cos(radians) - 1),
+    )
+
+
+def oriented_selection_frame(
+    window: slint_testing.Window, kind: str
+) -> OrientedFrame | None:
+    handles = []
+    for corner in ("top-left", "top-right", "bottom-right"):
+        matches = elements_with_label(window.root_element, f"{kind} resize {corner}")
+        if len(matches) != 1:
+            return None
+        handles.append(matches[0])
+    a, b, c = (rotated_handle_center(handle) for handle in handles)
+    angle = math.degrees(math.atan2(b[1] - a[1], b[0] - a[0]))
+    corrected_a = rotated_handle_center(handles[0], angle)
+    corrected_c = rotated_handle_center(handles[2], angle)
+    return (
+        (corrected_a[0] + corrected_c[0]) / 2,
+        (corrected_a[1] + corrected_c[1]) / 2,
+        math.dist(a, b),
+        math.dist(b, c),
+        angle,
+    )

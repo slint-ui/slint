@@ -16,6 +16,7 @@ from canvas_interactions import (
     manual_radius_drag,
     manual_rotation_drag,
     position_distance,
+    radius_handle,
     rotation_delta,
     same_state,
     selection_frame,
@@ -804,19 +805,6 @@ def outside_resize_values(
         x + width + OUTSIDE_ARTBOARD_DISTANCE,
         BOUNDS_HEIGHT + OUTSIDE_ARTBOARD_DISTANCE - y,
     )
-
-
-def radius_handle(window: slint_testing.Window, corner: str) -> slint_testing.Element:
-    selection = window_element_with_label(
-        window, "Selected Rectangle", slint_testing.AccessibleRole.Region
-    )
-    # A live reload can replace the frame while the pointer remains at the same logical
-    # position. Move away first so the real frame receives a fresh hover transition.
-    window.dispatch_event(
-        slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(x=1, y=1))
-    )
-    window.dispatch_event(slint_testing.PointerMoveEvent(center(selection)))
-    return window_element_with_label(window, f"Rectangle radius {corner}")
 
 
 def radius_handle_positions(

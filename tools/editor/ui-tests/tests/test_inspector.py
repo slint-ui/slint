@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from inspector_interactions import FIELDS, edit_field, inspector_field, wait_for_field
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    elements_with_label,
     first_window,
     launch_editor,
     select_outline_row,
@@ -32,55 +32,6 @@ def select_element(window: slint_testing.Window, kind: str) -> None:
     select_outline_row(window, ELEMENT_ROWS[kind])
     window_element_with_label(
         window, f"Selected {kind}", slint_testing.AccessibleRole.Region
-    )
-
-
-def inspector_field(
-    window: slint_testing.Window,
-    label: str,
-    role: slint_testing.AccessibleRole | None = None,
-) -> slint_testing.Element:
-    pane = window_element_with_label(
-        window, "Inspector and outline", slint_testing.AccessibleRole.Complementary
-    )
-    position = slint_testing.LogicalPosition(
-        x=pane.absolute_position.x + pane.size.width / 2,
-        y=pane.absolute_position.y + pane.size.height / 4,
-    )
-    for delta in [0, 10000, -180, -180, -180, -180, -180, -180]:
-        if delta:
-            window.dispatch_event(
-                slint_testing.PointerScrolledEvent(position, delta_x=0, delta_y=delta)
-            )
-        fields = elements_with_label(pane, label, role)
-        if len(fields) == 1:
-            return fields[0]
-    return window_element_with_label(window, label, role)
-
-
-def edit_field(
-    window: slint_testing.Window,
-    label: str,
-    value: str,
-    role: slint_testing.AccessibleRole | None = None,
-) -> None:
-    inspector_field(window, label, role).accessible_value = value
-
-
-def wait_for_field(
-    window: slint_testing.Window,
-    label: str,
-    value: str,
-    role: slint_testing.AccessibleRole | None = None,
-    timeout: float = 5,
-) -> None:
-    wait_until(
-        lambda: (
-            field
-            if (field := inspector_field(window, label, role)).accessible_value == value
-            else None
-        ),
-        timeout=timeout,
     )
 
 
@@ -126,11 +77,11 @@ def assert_rendered_element(window: slint_testing.Window, element_id: str) -> No
 @pytest.mark.parametrize(
     ("label", "value", "old", "new"),
     [
-        ("Position X", "44", b"        x: 32px;", b"        x: 44px;"),
-        ("Position Y", "48", b"        y: 32px;", b"        y: 48px;"),
-        ("Width", "176", b"        width: 160px;", b"        width: 176px;"),
+        (FIELDS["x"], "44", b"        x: 32px;", b"        x: 44px;"),
+        (FIELDS["y"], "48", b"        y: 32px;", b"        y: 48px;"),
+        (FIELDS["width"], "176", b"        width: 160px;", b"        width: 176px;"),
         (
-            "Height",
+            FIELDS["height"],
             "112",
             b"        width: 160px;\n        height: 96px;",
             b"        width: 160px;\n        height: 112px;",
@@ -799,15 +750,15 @@ def test_rectangle_effect_value_writes_exact_source(
 
 
 INVALID_EDITS = (
-    ("invalid-number", "Rectangle", "Position X", "invalid"),
-    ("empty-number", "Rectangle", "Position X", ""),
+    ("invalid-number", "Rectangle", FIELDS["x"], "invalid"),
+    ("empty-number", "Rectangle", FIELDS["x"], ""),
     ("empty-family", "Text", "Font family", ""),
     ("empty-fit", "Image", "Image fit", ""),
-    ("nonnumeric-y", "Rectangle", "Position Y", "invalid"),
-    ("zero-width", "Rectangle", "Width", "0"),
-    ("negative-width", "Rectangle", "Width", "-1"),
-    ("zero-height", "Rectangle", "Height", "0"),
-    ("negative-height", "Rectangle", "Height", "-1"),
+    ("nonnumeric-y", "Rectangle", FIELDS["y"], "invalid"),
+    ("zero-width", "Rectangle", FIELDS["width"], "0"),
+    ("negative-width", "Rectangle", FIELDS["width"], "-1"),
+    ("zero-height", "Rectangle", FIELDS["height"], "0"),
+    ("negative-height", "Rectangle", FIELDS["height"], "-1"),
 )
 
 

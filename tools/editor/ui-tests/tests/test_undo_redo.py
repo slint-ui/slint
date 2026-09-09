@@ -10,14 +10,23 @@ from pathlib import Path
 
 import pytest
 import slint_testing
-from canvas_interactions import center, manual_drag, manual_radius_drag
+from canvas_interactions import (
+    OrientedFrame,
+    manual_drag,
+    manual_radius_drag,
+    manual_rotation_drag,
+    oriented_selection_frame,
+    radius_handle,
+    rotated_handle_center,
+    rotation_delta,
+)
+from inspector_interactions import FIELDS, edit_field, wait_for_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
-from test_canvas import radius_handle
-from test_inspector import edit_field, wait_for_field
 from ui_driver import (
     first_window,
     launch_editor,
+    press_shortcut,
     select_fixture_element,
     wait_until,
     window_element_with_label,
@@ -37,48 +46,12 @@ CASES = [
     ("inspector-rotation", {"rotation": 15}),
     ("inspector-radius", {"radius": 20}),
 ]
-FIELDS = {
-    "x": "Position X",
-    "y": "Position Y",
-    "width": "Width",
-    "height": "Height",
-    "rotation": "Rotation",
-    "radius": "Corner radius",
-}
 
 
 def pause(case: str, stage: str) -> None:
     print(f"{case}: {stage}", flush=True)
     if os.environ.get("SLINT_UNDO_REDO_REPLAY") == "1":
         time.sleep(1)
-
-
-def point(
-    window: slint_testing.Window, label: str, angle: float = 0
-) -> tuple[float, float]:
-    element = window_element_with_label(window, label)
-    p, size = element.absolute_position, element.size
-    radians = math.radians(angle)
-    return (
-        p.x + size.width / 2 * math.cos(radians) - size.height / 2 * math.sin(radians),
-        p.y + size.width / 2 * math.sin(radians) + size.height / 2 * math.cos(radians),
-    )
-
-
-def frame(window: slint_testing.Window) -> tuple[float, ...]:
-    a = point(window, "Rectangle resize top-left")
-    b = point(window, "Rectangle resize top-right")
-    c = point(window, "Rectangle resize bottom-right")
-    angle = math.degrees(math.atan2(b[1] - a[1], b[0] - a[0]))
-    corrected_a = point(window, "Rectangle resize top-left", angle)
-    corrected_c = point(window, "Rectangle resize bottom-right", angle)
-    return (
-        (corrected_a[0] + corrected_c[0]) / 2,
-        (corrected_a[1] + corrected_c[1]) / 2,
-        math.dist(a, b),
-        math.dist(b, c),
-        angle,
-    )
 
 
 def assert_visual(
@@ -94,17 +67,23 @@ def assert_visual(
         values["height"],
         values["rotation"],
     )
-    try:
-        wait_until(
-            lambda: (
-                True
-                if all(abs(a - b) < 1.5 for a, b in zip(frame(window), expected))
-                else None
-            )
+    actual: OrientedFrame | None = None
+
+    def matches() -> bool | None:
+        nonlocal actual
+        actual = oriented_selection_frame(window, "Rectangle")
+        return (
+            True
+            if actual is not None
+            and all(abs(a - b) < 1.5 for a, b in zip(actual, expected))
+            else None
         )
+
+    try:
+        wait_until(matches)
     except AssertionError as error:
         raise AssertionError(
-            f"Expected frame {expected}, got {frame(window)}"
+            f"Expected frame {expected}, last observed {actual}"
         ) from error
     for name in ("x", "y", "width", "height"):
         wait_for_field(
@@ -118,8 +97,14 @@ def assert_visual(
     radius_handle(window, "top-left")
 
     def radius_matches() -> bool | None:
-        a = point(window, "Rectangle resize top-left", values["rotation"])
-        r = point(window, "Rectangle radius top-left", values["rotation"])
+        a = rotated_handle_center(
+            window_element_with_label(window, "Rectangle resize top-left"),
+            values["rotation"],
+        )
+        r = rotated_handle_center(
+            window_element_with_label(window, "Rectangle radius top-left"),
+            values["rotation"],
+        )
         angle = math.radians(values["rotation"])
         dx, dy = r[0] - a[0], r[1] - a[1]
         local = (
@@ -134,17 +119,11 @@ def assert_visual(
 
 
 def shortcut(window: slint_testing.Window, redo: bool) -> None:
-    modifier = keys.Control
-    modifiers = [modifier] + ([keys.Shift] if redo and sys.platform != "win32" else [])
-    for key in modifiers:
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
+    modifiers = [keys.Control] + (
+        [keys.Shift] if redo and sys.platform != "win32" else []
+    )
     key = "y" if redo and sys.platform == "win32" else "z"
-    try:
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
-    finally:
-        for key in reversed(modifiers):
-            window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
+    press_shortcut(window, *modifiers, key)
 
 
 def edit(
@@ -171,31 +150,18 @@ def edit(
         manual_drag(window, window_element_with_label(window, label), 24, 16, snapshot)
         return
     handle = window_element_with_label(window, "Rectangle rotate top-left")
-    start = center(handle)
-    cx, cy, *_ = frame(window)
-    angle = math.radians(15)
-    dx, dy = start.x - cx, start.y - cy
-    end = slint_testing.LogicalPosition(
-        x=cx + dx * math.cos(angle) - dy * math.sin(angle),
-        y=cy + dx * math.sin(angle) + dy * math.cos(angle),
+    target_angle = changes["rotation"]
+    dx, dy = rotation_delta(window, handle, target_angle, kind="Rectangle")
+    manual_rotation_drag(
+        window, handle, dx, dy, snapshot, kind="Rectangle", target_angle=target_angle
     )
-    button = slint_testing.PointerEventButton.Left
-    window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-    window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
-    window.dispatch_event(slint_testing.PointerMoveEvent(end))
-    wait_until(
-        lambda: (
-            True
-            if window_element_with_label(
-                window, "Rotation angle", slint_testing.AccessibleRole.Text
-            ).accessible_value
-            == "15"
-            else None
-        )
-    )
-    snapshot.assert_unchanged_now()
-    window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-    window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
+
+
+SKIPS = {
+    "handle-radius": "Requires a Rust corner-radius persistence fix",
+    "inspector-rotation": "No Rectangle rotation property editor is available",
+    "inspector-radius": "No Rectangle corner-radius property editor is available",
+}
 
 
 @pytest.mark.parametrize(
@@ -205,16 +171,9 @@ def edit(
             case,
             changes,
             id=case,
-            marks=pytest.mark.skip(reason=reason) if reason else (),
+            marks=pytest.mark.skip(reason=SKIPS[case]) if case in SKIPS else (),
         )
         for case, changes in CASES
-        for reason in [
-            {
-                "handle-radius": "Requires a Rust corner-radius persistence fix",
-                "inspector-rotation": "No Rectangle rotation property editor is available",
-                "inspector-radius": "No Rectangle corner-radius property editor is available",
-            }.get(case)
-        ]
     ],
 )
 def test_rectangle_undo_redo(
@@ -241,7 +200,9 @@ def test_rectangle_undo_redo(
         window = first_window(editor)
         try:
             select_fixture_element(window, "Rectangle")
-            cx, cy, *_ = frame(window)
+            cx, cy, *_ = wait_until(
+                lambda: oriented_selection_frame(window, "Rectangle")
+            )
             origin = (
                 cx - INITIAL["x"] - INITIAL["width"] / 2,
                 cy - INITIAL["y"] - INITIAL["height"] / 2,

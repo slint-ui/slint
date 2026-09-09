@@ -148,3 +148,14 @@ def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:
     return window_element_with_label(
         window, str(path), slint_testing.AccessibleRole.ListItem
     )
+
+
+def press_shortcut(window: slint_testing.Window, *keys: str) -> None:
+    pressed = []
+    try:
+        for key in keys:
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
+            pressed.append(key)
+    finally:
+        for key in reversed(pressed):
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))

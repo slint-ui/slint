@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from inspector_interactions import FIELDS
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
@@ -142,7 +143,7 @@ def test_stale_selection_commit_is_rejected(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_outline_row(window, "inspect-rectangle")
-        stage_field_text(window, "Position X", "99")
+        stage_field_text(window, FIELDS["x"], "99")
         snapshot.assert_unchanged_now()
         select_outline_row(window, "inspect-text")
         wait_until(
@@ -150,7 +151,7 @@ def test_stale_selection_commit_is_rejected(
                 field
                 if (
                     field := window_element_with_label(
-                        window, "Position X", slint_testing.AccessibleRole.TextInput
+                        window, FIELDS["x"], slint_testing.AccessibleRole.TextInput
                     )
                 ).accessible_value
                 == "224"
@@ -174,7 +175,7 @@ def test_stale_revision_commit_is_rejected(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_outline_row(window, "inspect-rectangle")
-        stage_field_text(window, "Position X", "99")
+        stage_field_text(window, FIELDS["x"], "99")
         snapshot.assert_unchanged_now()
         external = baseline.replace(b"        x: 32px;", b"        x: 36px;", 1)
         source_file.write_bytes(external)
@@ -184,7 +185,7 @@ def test_stale_revision_commit_is_rejected(
                 field
                 if (
                     field := window_element_with_label(
-                        window, "Position X", slint_testing.AccessibleRole.TextInput
+                        window, FIELDS["x"], slint_testing.AccessibleRole.TextInput
                     )
                 ).accessible_value
                 == "36"
