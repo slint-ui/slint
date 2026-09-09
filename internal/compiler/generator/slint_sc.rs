@@ -4,7 +4,7 @@
 //! Code generator for the Slint SC (safety-critical) runtime.
 
 use crate::CompilerConfiguration;
-use crate::diagnostics::{ByteFormat, Spanned};
+use crate::diagnostics::{ByteFormat, SourceLocation, Spanned};
 use crate::embedded_resources::{EmbeddedResources, EmbeddedResourcesIdx, EmbeddedResourcesKind};
 use crate::expression_tree::{
     BindingExpression, BuiltinFunction, Callable, Expression, ImageReference, Unit,
@@ -18,7 +18,7 @@ use crate::object_tree::{
 use itertools::Either;
 use proc_macro2::{Delimiter, Group, Ident, Spacing, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::rc::Rc;
@@ -32,9 +32,6 @@ struct Ctx<'a> {
     root: &'a ElementRc,
     images: &'a ImageTable<'a>,
     coverage: &'a Coverage,
-    /// The source binding being compiled and the ordinal of its next decision,
-    /// which locate a decision: sub-expressions have no span of their own.
-    decision: Option<(&'a BindingExpression, &'a Cell<usize>)>,
 }
 
 /// The coverage points of the generated code: elements, bindings, handlers,
@@ -48,9 +45,10 @@ struct Ctx<'a> {
 /// the code itself carries nothing.
 #[derive(Default)]
 struct Coverage {
-    /// The record of each point, `<kind>[ <decision> <outcome>] <span>
-    /// <path>` (the path last as it may hold spaces), by the id its span
-    /// names.
+    /// The record of each point, by the id its span names: `element <span>
+    /// <path>`, `binding|handler|call <name> <span> <path>`, or `branch
+    /// <operator> true|false <span> <path>`, the path last as it may hold
+    /// spaces. A decision's span is its operator's.
     records: RefCell<Vec<String>>,
 }
 
@@ -70,7 +68,7 @@ impl Coverage {
                         Type::Callback(_) => "handler",
                         _ => "binding",
                     };
-                    coverage.source_binding(&binding.borrow(), kind);
+                    coverage.source_binding(&binding.borrow(), kind, name);
                 }
             });
         }
@@ -79,8 +77,8 @@ impl Coverage {
 
     /// The span of a binding written in the source: a compiler pass's binding
     /// has no span, or a priority of zero.
-    fn source_binding(&self, binding: &BindingExpression, kind: &str) -> Option<Span> {
-        (binding.priority >= 1).then(|| self.point(kind, binding, "")).flatten()
+    fn source_binding(&self, binding: &BindingExpression, kind: &str, name: &str) -> Option<Span> {
+        (binding.priority >= 1).then(|| self.point(kind, binding, &format!(" {name}"))).flatten()
     }
 
     /// The span naming the point of the given kind at `location`, or `None`
@@ -311,7 +309,7 @@ pub fn generate(
             continue;
         }
         let root = &component.root_element;
-        let ctx = Ctx { root, images: &images, coverage: &coverage, decision: None };
+        let ctx = Ctx { root, images: &images, coverage: &coverage };
         let render_tree = emit_render(&ctx);
         let properties = declared_properties(&ctx);
         let name = format_ident!("{}", export_name.name.as_str());
@@ -507,7 +505,9 @@ fn declared_properties(ctx: &Ctx) -> Vec<DeclaredProperty> {
                 // A private bound property has no accessor and no field: its
                 // readers inline the binding.
                 Some(_) if !has_getter => return None,
-                Some(b) => PropertyKind::Binding(compile_binding(&b.borrow(), "binding", ctx)),
+                Some(b) => {
+                    PropertyKind::Binding(compile_binding(&b.borrow(), "binding", name, ctx))
+                }
                 None => PropertyKind::Stored(default_value(&decl.property_type)),
             };
             // A non-settable binding is never stored, so it needs no field.
@@ -718,7 +718,7 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
                 quote!((#base).#field)
             }
         },
-        Expression::BinaryExpression { lhs, rhs, op, .. } => {
+        Expression::BinaryExpression { lhs, rhs, op, source_location } => {
             let lhs = compile_expression(lhs, ctx);
             let rhs = compile_expression(rhs, ctx);
             // Arithmetic saturates at the `i32` bounds. `/` only comes from
@@ -732,8 +732,12 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
                 // `&&` is `'&'` and `||` is `'|'`: decisions, whose right
                 // operand runs or not depending on the left one, spelled out
                 // as an `if` so that each outcome is a block of its own.
-                '&' => compile_decision(lhs, rhs, quote!(false), outcomes(ctx)),
-                '|' => compile_decision(lhs, quote!(true), rhs, outcomes(ctx)),
+                '&' => {
+                    compile_decision(lhs, rhs, quote!(false), outcomes(source_location, "&&", ctx))
+                }
+                '|' => {
+                    compile_decision(lhs, quote!(true), rhs, outcomes(source_location, "||", ctx))
+                }
                 // Comparison produces a `bool`. `==` is `'='` and `!=` is `'!'`;
                 // `<=` is `'≤'` and `>=` is `'≥'`.
                 '=' => quote!((#lhs) == (#rhs)),
@@ -755,13 +759,11 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
                 _ => unreachable!(),
             }
         }
-        Expression::Condition { condition, true_expr, false_expr, .. } => {
+        Expression::Condition { condition, true_expr, false_expr, source_location } => {
             let condition = compile_expression(condition, ctx);
-            // The decision's outcomes come before the ones in its arms.
-            let outcomes = outcomes(ctx);
             let true_expr = compile_expression(true_expr, ctx);
             let false_expr = compile_expression(false_expr, ctx);
-            compile_decision(condition, true_expr, false_expr, outcomes)
+            compile_decision(condition, true_expr, false_expr, outcomes(source_location, "?", ctx))
         }
         // A property read that appears more than once is hoisted into a local
         // variable, so a code block evaluates it once and reads it back.
@@ -781,7 +783,7 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
         // The only call of the subset is a callback invocation from a handler.
         Expression::FunctionCall { function: Callable::Callback(nr), source_location, .. } => {
             let call = compile_callback_call(nr, ctx);
-            match ctx.coverage.point("call", source_location, "") {
+            match ctx.coverage.point("call", source_location, &format!(" {}", nr.name())) {
                 Some(span) => stamped(span, call),
                 None => call,
             }
@@ -793,31 +795,22 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
 
 /// Compile a binding's expression as its coverage point's block, when the
 /// binding was written in the source.
-fn compile_binding(binding: &BindingExpression, kind: &str, ctx: &Ctx) -> TokenStream {
-    if let Some(span) = ctx.coverage.source_binding(binding, kind) {
-        // A binding inlined into another has decisions of its own.
-        let ordinal = Cell::new(0);
-        let inner = Ctx { decision: Some((binding, &ordinal)), ..*ctx };
-        let expression = compile_expression(&binding.expression, &inner);
-        return stamped(span, expression);
+fn compile_binding(binding: &BindingExpression, kind: &str, name: &str, ctx: &Ctx) -> TokenStream {
+    let expression = compile_expression(&binding.expression, ctx);
+    match ctx.coverage.source_binding(binding, kind, name) {
+        Some(span) => stamped(span, expression),
+        None => expression,
     }
-    compile_expression(&binding.expression, ctx)
 }
 
-/// The spans naming the two outcomes of the next decision of the source
-/// binding being compiled; spans naming nothing in an expression a compiler
-/// pass synthesized.
-fn outcomes(ctx: &Ctx) -> (Span, Span) {
-    let Some((binding, ordinal)) = ctx.decision else {
-        return (Span::call_site(), Span::call_site());
-    };
+/// The spans naming the two outcomes of a decision, by its operator's
+/// location; spans naming nothing for a decision a compiler pass synthesized.
+fn outcomes(operator: &Option<SourceLocation>, op: &str, ctx: &Ctx) -> (Span, Span) {
     let point = |arm| {
-        let extra = format!(" {} {arm}", ordinal.get());
-        ctx.coverage.point("branch", binding, &extra).unwrap_or_else(Span::call_site)
+        let extra = format!(" {op} {arm}");
+        ctx.coverage.point("branch", operator, &extra).unwrap_or_else(Span::call_site)
     };
-    let spans = (point("true"), point("false"));
-    ordinal.set(ordinal.get() + 1);
-    spans
+    (point("true"), point("false"))
 }
 
 /// Compile a decision as an `if`, its arms the blocks of the two outcomes.
@@ -847,7 +840,7 @@ fn compile_callback_call(nr: &NamedReference, ctx: &Ctx) -> TokenStream {
     }
     match element.borrow().binding_cell_including_synthetic(nr.name()) {
         Some(handler) => {
-            let handler = compile_binding(&handler.borrow(), "handler", ctx);
+            let handler = compile_binding(&handler.borrow(), "handler", nr.name(), ctx);
             quote!(#handler;)
         }
         None => TokenStream::new(),
@@ -933,7 +926,7 @@ fn emit_render(ctx: &Ctx) -> TokenStream {
         let mut color = elem
             .borrow()
             .binding_cell_including_synthetic("background")
-            .map(|b| compile_binding(&b.borrow(), "binding", ctx));
+            .map(|b| compile_binding(&b.borrow(), "binding", "background", ctx));
         if Rc::ptr_eq(elem, ctx.root) {
             // The window background defaults to black, so that the whole frame
             // buffer is always painted
@@ -952,7 +945,7 @@ fn emit_render(ctx: &Ctx) -> TokenStream {
             .then(|| {
                 elem.borrow()
                     .binding_cell_including_synthetic("source")
-                    .map(|b| compile_binding(&b.borrow(), "binding", ctx))
+                    .map(|b| compile_binding(&b.borrow(), "binding", "source", ctx))
             })
             .flatten();
         let draw_image = source.map(|source| {
@@ -980,7 +973,7 @@ fn emit_hit_test(ctx: &Ctx, areas: &mut Vec<TokenStream>) -> TokenStream {
             areas.push(
                 elem.borrow()
                     .binding_cell_including_synthetic("clicked")
-                    .map(|handler| compile_binding(&handler.borrow(), "handler", ctx))
+                    .map(|handler| compile_binding(&handler.borrow(), "handler", "clicked", ctx))
                     .unwrap_or_default(),
             );
             let (w, h) = element_size(elem, ctx);
@@ -1022,12 +1015,12 @@ fn compile_property_reference(nr: &NamedReference, ctx: &Ctx) -> Option<TokenStr
                     let getter = rust_accessor_ident(nr.name(), AccessorKind::Getter);
                     quote!(self.#getter())
                 }
-                Some(b) => compile_binding(&b.borrow(), "binding", ctx),
+                Some(b) => compile_binding(&b.borrow(), "binding", nr.name(), ctx),
             });
         }
     }
     match element.borrow().binding_cell_including_synthetic(nr.name()) {
-        Some(b) => Some(compile_binding(&b.borrow(), "binding", ctx)),
+        Some(b) => Some(compile_binding(&b.borrow(), "binding", nr.name(), ctx)),
         None if is_root => match nr.name().as_str() {
             "width" => Some(quote!((self.window_size.width as i32))),
             "height" => Some(quote!((self.window_size.height as i32))),

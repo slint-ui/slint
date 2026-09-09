@@ -4,8 +4,8 @@
 //! Coverage points mapped to ranges of the generated code, counted by LLVM.
 //!
 //! The Slint SC compiler writes, next to the generated code, a map declaring
-//! its coverage points (`point <id> <kind>[ <decision> <outcome>] <span>
-//! <path>`) and the ranges of the code that are one (`range <start>-<end>
+//! its coverage points (`point <id> <record>`, the record as the generator
+//! writes it) and the ranges of the code that are one (`range <start>-<end>
 //! <id>`). LLVM measures the generated code like any other; the execution
 //! count of the code at a range is the point's hit count, and a point
 //! without a range was never reached.
@@ -159,23 +159,29 @@ pub fn parse_map(text: &str) -> Result<Map, String> {
     Ok(map)
 }
 
-/// A record is `<kind>[ <decision> <outcome>] <span> <path>`, the span as
+/// A record is `element <span> <path>`, `binding|handler|call <name> <span>
+/// <path>`, or `branch <operator> true|false <span> <path>`, the span as
 /// `line:column-line:column`.
 fn parse_record(record: &str) -> Option<Point> {
     let (kind, rest) = record.split_once(' ')?;
-    let (branch, rest) = match kind {
+    let (name, branch, rest) = match kind {
         "branch" => {
-            let (decision, rest) = rest.split_once(' ')?;
+            let (op, rest) = rest.split_once(' ')?;
             let (outcome, rest) = rest.split_once(' ')?;
-            (Some((decision.parse().ok()?, outcome == "true")), rest)
+            (None, Some((op.to_string(), outcome == "true")), rest)
         }
-        _ => (None, rest),
+        "element" => (None, None, rest),
+        _ => {
+            let (name, rest) = rest.split_once(' ')?;
+            (Some(name.to_string()), None, rest)
+        }
     };
     let (span, path) = rest.split_once(' ')?;
     let (start, _end) = span.split_once('-')?;
     let (line, column) = start.split_once(':')?;
     Some(Point {
         kind: kind.to_string(),
+        name,
         file: PathBuf::from(path),
         line: line.parse().ok()?,
         column: column.parse().ok()?,
@@ -270,10 +276,10 @@ mod tests {
         };
         format!(
             "slint-sc-source-map 1\n\
-             point 0 binding 13:30-13:42 /src/ternary.slint\n\
-             point 1 branch 0 true 13:30-13:42 /src/ternary.slint\n\
-             point 2 branch 0 false 13:30-13:42 /src/ternary.slint\n\
-             point 3 handler 20:5-21:6 /src/ternary.slint\n{}{}{}",
+             point 0 binding pick 13:30-13:42 /src/ternary.slint\n\
+             point 1 branch ? true 13:37-13:38 /src/ternary.slint\n\
+             point 2 branch ? false 13:37-13:38 /src/ternary.slint\n\
+             point 3 handler clicked 20:5-21:6 /src/ternary.slint\n{}{}{}",
             range("if", "} }", 0),
             range("{ 7i32", "7i32 }", 1),
             range("{ 3i32", "3i32 }", 2),
@@ -315,10 +321,10 @@ mod tests {
         assert_eq!(
             report.listing(Path::new("/src/ternary.slint")),
             [
-                "+ 13:30 binding",
-                "+ 13:30 branch 0 true",
-                "- 13:30 branch 0 false",
-                "- 20:5 handler"
+                "+ 13:30 binding pick",
+                "+ 13:37 branch ? true",
+                "- 13:37 branch ? false",
+                "- 20:5 handler clicked"
             ]
         );
         // Outside every function, and a range whose code LLVM never instantiated.
@@ -337,7 +343,7 @@ mod tests {
         let code = "fn h (x : bool) { if x { } else { } }";
         let (then_at, else_at) = (code.find("{ }").unwrap() + 1, code.rfind("{ }").unwrap() + 1);
         let map = format!(
-            "slint-sc-source-map 1\npoint 0 branch 0 true 5:1-5:9 /src/a.slint\npoint 1 branch 0 false 5:1-5:9 /src/a.slint\nrange 1:{then_at}-1:{} 0\nrange 1:{else_at}-1:{} 1\n",
+            "slint-sc-source-map 1\npoint 0 branch ? true 5:1-5:9 /src/a.slint\npoint 1 branch ? false 5:1-5:9 /src/a.slint\nrange 1:{then_at}-1:{} 0\nrange 1:{else_at}-1:{} 1\n",
             then_at + 3,
             else_at + 3,
         );
@@ -357,7 +363,7 @@ mod tests {
         assert_eq!(add(&map, file, &mut report).unwrap(), 2);
         assert_eq!(
             report.listing(Path::new("/src/a.slint")),
-            ["+ 5:1 branch 0 true", "- 5:1 branch 0 false"]
+            ["+ 5:1 branch ? true", "- 5:1 branch ? false"]
         );
     }
 
@@ -366,8 +372,10 @@ mod tests {
         let point = parse_record("element 7:36-7:43 /my dir/a.slint").unwrap();
         assert_eq!((point.kind.as_str(), point.line, point.column), ("element", 7, 36));
         assert_eq!(point.file, Path::new("/my dir/a.slint"));
-        let point = parse_record("branch 1 false 7:36-7:43 /a.slint").unwrap();
-        assert_eq!(point.branch, Some((1, false)));
+        let point = parse_record("branch && false 7:36-7:38 /a.slint").unwrap();
+        assert_eq!(point.branch, Some(("&&".into(), false)));
+        let point = parse_record("binding level 7:36-7:43 /a.slint").unwrap();
+        assert_eq!(point.name.as_deref(), Some("level"));
         assert!(parse_record("nonsense").is_none());
     }
 }

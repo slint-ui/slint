@@ -19,13 +19,27 @@ use std::path::{Path, PathBuf};
 pub struct Point {
     /// `element`, `binding`, `handler`, `call`, or `branch`.
     pub kind: String,
+    /// The property of a binding, the callback of a handler or a call.
+    pub name: Option<String>,
     pub file: PathBuf,
     /// 1-based.
     pub line: usize,
-    /// 1-based.
+    /// 1-based; a decision's is its operator's.
     pub column: usize,
-    /// The decision ordinal within the binding and the outcome, of a `branch` point.
-    pub branch: Option<(usize, bool)>,
+    /// The operator (`?`, `&&`, `||`) and the outcome, of a `branch` point.
+    pub branch: Option<(String, bool)>,
+}
+
+impl Point {
+    /// The point as the listing names it: `element`, `binding level`,
+    /// `branch ? true`.
+    fn label(&self) -> String {
+        match (&self.branch, &self.name) {
+            (Some((op, outcome)), _) => format!("branch {op} {}", ARMS[!*outcome as usize]),
+            (None, Some(name)) => format!("{} {name}", self.kind),
+            (None, None) => self.kind.clone(),
+        }
+    }
 }
 
 /// The coverage of every `.slint` file, by line.
@@ -38,11 +52,11 @@ pub struct Report {
 /// several points at its location, whose counts add up.
 #[derive(Default)]
 struct LineCoverage {
-    /// The hit count of each point, by column and kind.
+    /// The hit count of each point, by column and label.
     points: BTreeMap<(usize, String), u64>,
     /// The taken counts of the true and the false outcome of each decision,
-    /// by the column of the binding holding it and its ordinal.
-    branches: BTreeMap<(usize, usize), [u64; 2]>,
+    /// by the column of its operator, with the operator.
+    branches: BTreeMap<usize, (String, [u64; 2])>,
 }
 
 /// The outcomes, in the order lcov numbers the branches of a decision.
@@ -54,13 +68,12 @@ impl LineCoverage {
     }
 
     /// Every point and decision outcome on the line, by column, each with
-    /// whether it was reached: `element`, `branch 0 false`...
+    /// whether it was reached: `element`, `binding level`, `branch ? false`...
     fn entries(&self) -> Vec<(usize, String, bool)> {
         let points =
-            self.points.iter().map(|((column, kind), &count)| (*column, kind.clone(), count > 0));
-        let branches = self.branches.iter().flat_map(|(&(column, ordinal), arms)| {
-            (0..2)
-                .map(move |arm| (column, format!("branch {ordinal} {}", ARMS[arm]), arms[arm] > 0))
+            self.points.iter().map(|((column, label), &count)| (*column, label.clone(), count > 0));
+        let branches = self.branches.iter().flat_map(|(&column, (op, arms))| {
+            (0..2).map(move |arm| (column, format!("branch {op} {}", ARMS[arm]), arms[arm] > 0))
         });
         let mut entries: Vec<_> = points.chain(branches).collect();
         entries.sort_by_key(|entry| entry.0);
@@ -73,12 +86,13 @@ impl Report {
     pub fn add(&mut self, point: &Point, count: u64) {
         let file = self.files.entry(point.file.clone()).or_default();
         let line = file.entry(point.line).or_default();
-        match point.branch {
-            Some((ordinal, outcome)) => {
-                let arms = line.branches.entry((point.column, ordinal)).or_default();
-                arms[!outcome as usize] += count;
+        match &point.branch {
+            Some((op, outcome)) => {
+                let entry =
+                    line.branches.entry(point.column).or_insert_with(|| (op.clone(), [0; 2]));
+                entry.1[!*outcome as usize] += count;
             }
-            None => *line.points.entry((point.column, point.kind.clone())).or_default() += count,
+            None => *line.points.entry((point.column, point.label())).or_default() += count,
         }
     }
 
@@ -94,7 +108,7 @@ impl Report {
             let totals = Totals::of(lines);
             for (line, coverage) in lines {
                 // A block of lcov is a decision, numbered within its line.
-                for (block, arms) in coverage.branches.values().enumerate() {
+                for (block, (_, arms)) in coverage.branches.values().enumerate() {
                     for (arm, count) in arms.iter().enumerate() {
                         out.push_str(&format!("BRDA:{line},{block},{arm},{count}\n"));
                     }
@@ -199,7 +213,7 @@ struct Totals {
 
 impl Totals {
     fn of(lines: &BTreeMap<usize, LineCoverage>) -> Self {
-        let arms = || lines.values().flat_map(|l| l.branches.values().flatten());
+        let arms = || lines.values().flat_map(|l| l.branches.values().flat_map(|(_, arms)| arms));
         Self {
             lines_hit: lines.values().filter(|l| l.count() > 0).count(),
             branches: arms().count(),
@@ -217,27 +231,32 @@ fn display(path: &Path, base_dir: &Path) -> String {
 mod tests {
     use super::*;
 
-    fn point(
-        kind: &str,
-        file: &str,
-        line: usize,
-        column: usize,
-        branch: Option<(usize, bool)>,
-    ) -> Point {
-        Point { kind: kind.into(), file: file.into(), line, column, branch }
+    fn point(kind: &str, name: Option<&str>, line: usize, column: usize) -> Point {
+        Point {
+            kind: kind.into(),
+            name: name.map(String::from),
+            file: "/src/a.slint".into(),
+            line,
+            column,
+            branch: None,
+        }
+    }
+
+    fn branch(op: &str, outcome: bool, line: usize, column: usize) -> Point {
+        Point { branch: Some((op.into(), outcome)), ..point("branch", None, line, column) }
     }
 
     fn report() -> Report {
         let mut report = Report::default();
-        report.add(&point("element", "/src/a.slint", 7, 36, None), 3);
-        report.add(&point("binding", "/src/a.slint", 13, 30, None), 4);
-        report.add(&point("branch", "/src/a.slint", 13, 30, Some((0, true))), 4);
-        report.add(&point("branch", "/src/a.slint", 13, 30, Some((0, false))), 0);
+        report.add(&point("element", None, 7, 36), 3);
+        report.add(&point("binding", Some("pick"), 13, 30), 4);
+        report.add(&branch("?", true, 13, 37), 4);
+        report.add(&branch("?", false, 13, 37), 0);
         // Inlined twice, the counts add up.
-        report.add(&point("binding", "/src/a.slint", 13, 50, None), 1);
-        report.add(&point("binding", "/src/a.slint", 13, 50, None), 2);
-        report.add(&point("handler", "/src/a.slint", 20, 5, None), 0);
-        report.add(&point("element", "/src/lib/b.slint", 2, 1, None), 3);
+        report.add(&point("binding", Some("len"), 13, 50), 1);
+        report.add(&point("binding", Some("len"), 13, 50), 2);
+        report.add(&point("handler", Some("clicked"), 20, 5), 0);
+        report.add(&Point { file: "/src/lib/b.slint".into(), ..point("element", None, 2, 1) }, 3);
         report
     }
 
@@ -275,18 +294,19 @@ end_of_record
             listing,
             [
                 "+ 7:36 element",
-                "+ 13:30 binding",
-                "+ 13:30 branch 0 true",
-                "- 13:30 branch 0 false",
-                "+ 13:50 binding",
-                "- 20:5 handler",
+                "+ 13:30 binding pick",
+                "+ 13:37 branch ? true",
+                "- 13:37 branch ? false",
+                "+ 13:50 binding len",
+                "- 20:5 handler clicked",
                 "+ lib/b.slint:2:1 element",
             ]
         );
         assert!(check_listing(&listing.join("\n"), &listing).is_ok());
-        let differing = check_listing("+ 7:36 element\n+ 20:5 handler\n", &listing).unwrap_err();
-        assert!(differing.contains("expected, not measured: + 20:5 handler"));
-        assert!(differing.contains("measured, not expected: - 20:5 handler"));
+        let differing =
+            check_listing("+ 7:36 element\n+ 20:5 handler clicked\n", &listing).unwrap_err();
+        assert!(differing.contains("expected, not measured: + 20:5 handler clicked"));
+        assert!(differing.contains("measured, not expected: - 20:5 handler clicked"));
         assert!(differing.contains("```coverage\n+ 7:36 element\n"));
     }
 }

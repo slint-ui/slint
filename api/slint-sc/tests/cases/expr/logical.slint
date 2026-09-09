@@ -43,25 +43,25 @@ for (a, b) in [(false, false), (false, true), (true, false), (true, true)] {
 
 ```coverage
 - 7:36 element
-+ 11:31 binding
-+ 11:31 branch 0 true
-+ 11:31 branch 0 false
-+ 12:33 binding
-+ 12:33 branch 0 true
-+ 12:33 branch 0 false
-+ 14:32 binding
-+ 15:34 binding
-+ 15:34 branch 0 true
-+ 15:34 branch 0 false
-+ 16:35 binding
-+ 16:35 branch 0 true
-+ 16:35 branch 0 false
-+ 17:34 binding
-+ 17:34 branch 0 true
-+ 17:34 branch 0 false
-+ 17:34 branch 1 true
-+ 17:34 branch 1 false
-+ 17:34 branch 2 true
-+ 17:34 branch 2 false
++ 11:31 binding both
++ 11:33 branch && true
++ 11:33 branch && false
++ 12:33 binding either
++ 12:35 branch || true
++ 12:35 branch || false
++ 14:32 binding not-a
++ 15:34 binding neither
++ 15:37 branch && true
++ 15:37 branch && false
++ 16:35 binding not-both
++ 16:39 branch && true
++ 16:39 branch && false
++ 17:34 binding grouped
++ 17:37 branch || true
++ 17:37 branch || false
++ 17:43 branch && true
++ 17:43 branch && false
++ 17:50 branch && true
++ 17:50 branch && false
 ```
 */

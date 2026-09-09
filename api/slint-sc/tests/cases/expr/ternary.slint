@@ -49,21 +49,21 @@ for (a, b) in [(false, false), (false, true), (true, false), (true, true)] {
 
 ```coverage
 - 7:36 element
-+ 13:30 binding
-+ 13:30 branch 0 true
-+ 13:30 branch 0 false
-+ 15:32 binding
-+ 15:32 branch 0 true
-+ 15:32 branch 0 false
-+ 18:30 binding
-+ 18:30 branch 0 true
-+ 18:30 branch 0 false
-+ 18:30 branch 1 true
-+ 18:30 branch 1 false
-+ 20:30 binding
-+ 20:30 branch 0 true
-+ 20:30 branch 0 false
-+ 20:30 branch 1 true
-+ 20:30 branch 1 false
++ 13:30 binding pick
++ 13:32 branch ? true
++ 13:32 branch ? false
++ 15:32 binding len
++ 15:34 branch ? true
++ 15:34 branch ? false
++ 18:30 binding rank
++ 18:32 branch ? true
++ 18:32 branch ? false
++ 18:40 branch ? true
++ 18:40 branch ? false
++ 20:30 binding both
++ 20:33 branch && true
++ 20:33 branch && false
++ 20:39 branch ? true
++ 20:39 branch ? false
 ```
 */
