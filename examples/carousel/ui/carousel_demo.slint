@@ -19,6 +19,7 @@ export component MainWindow inherits Window {
     background: Theme.window-background;
     forward-focus: carousel;
     default-font-family: Theme.font-family;
+    icon: @image-url("../../../logo/slint-logo-small-light.png");
 
     carousel := Carousel {
         y: (root.height - self.height) / 2;
