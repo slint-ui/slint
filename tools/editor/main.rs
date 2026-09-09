@@ -507,6 +507,9 @@ fn handle_workspace_edit(
                                 label.unwrap_or("(unnamed)"),
                                 path.display()
                             );
+                        } else {
+                            #[cfg(feature = "system-testing")]
+                            crate::preview::test_sync::record_write();
                         }
                     }
                     None => {

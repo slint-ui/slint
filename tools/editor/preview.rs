@@ -56,7 +56,7 @@ mod properties;
 pub mod remote;
 pub(crate) mod settings;
 #[cfg(feature = "system-testing")]
-mod test_sync;
+pub(crate) mod test_sync;
 pub mod ui;
 mod undo_redo;
 
@@ -120,11 +120,15 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
     use LspToPreviewMessage as M;
     match message {
         M::InvalidateContents { url } => invalidate_contents(&url),
-        M::ForgetFile { url } => delete_document(&url),
         M::SetContents { url, contents } => {
             if let Ok(contents) = String::from_utf8(contents) {
                 set_contents(&url, contents);
             }
+        }
+        M::ForgetFile { url } => {
+            #[cfg(feature = "system-testing")]
+            test_sync::record_observed(&url, None);
+            delete_document(&url);
         }
         M::SetConfiguration { config } => {
             config_changed(config);
@@ -508,6 +512,8 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &VersionedUrl, content: String) {
+    #[cfg(feature = "system-testing")]
+    test_sync::record_observed(url.url(), Some(&content));
     let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
             undo_redo::set_undo_redo_enabled(preview_state);
@@ -2062,6 +2068,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
         preview_component.component,
         behavior
     );
+
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         match behavior {
             LoadBehavior::Reload => {}
@@ -2193,6 +2200,8 @@ async fn reload_preview_impl(
         i_slint_editor_preview::ByteFormat::Utf16
     };
 
+    #[cfg(feature = "system-testing")]
+    let source_for_sync = source.clone();
     let (diagnostics, compiled, open_import_callback, source_file_versions) = parse_source(
         config,
         path,
@@ -2227,6 +2236,13 @@ async fn reload_preview_impl(
         loaded_component_name,
         success,
         diagnostics.len()
+    );
+
+    #[cfg(feature = "system-testing")]
+    test_sync::record_processed(
+        &component.url,
+        &source_for_sync,
+        if compiled.is_some() { "compiled" } else { "compile_error" },
     );
 
     let lsp = PREVIEW_STATE.with_borrow_mut(|preview_state| {
@@ -2687,6 +2703,13 @@ fn update_preview_area(
         let shared_handle = preview_state.handle.clone();
         let shared_document_cache = preview_state.document_cache.clone();
         let shared_overrides = preview_state.debug_hook_overrides.clone();
+        #[cfg(feature = "system-testing")]
+        let applied_source = preview_state.current_component().and_then(|component| {
+            preview_state
+                .source_code
+                .get(&component.url)
+                .map(|entry| (component.url, entry.code.clone()))
+        });
 
         if let Some(compiled) = compiled {
             api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
@@ -2697,6 +2720,10 @@ fn update_preview_area(
                 &api,
                 compiled,
                 Box::new(move |instance| {
+                    #[cfg(feature = "system-testing")]
+                    if let Some((url, source)) = &applied_source {
+                        test_sync::record_applied(url, source);
+                    }
                     if let Some(rtl) = instance.definition().raw_type_loader() {
                         shared_document_cache.replace(Some(Rc::new(
                             i_slint_editor_preview::DocumentCache::new_from_raw_parts(
