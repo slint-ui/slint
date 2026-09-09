@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
-    BodyLabel, ComponentPaletteRow, EdgeDivider, EditorMetrics, MutedLabel, SectionTitle,
+    BodyLabel, ComponentPaletteRow, EdgeDivider, EditorMetrics, HorizontalResizeDivider,
+    MutedLabel, SectionTitle,
     PrimerTextInput, SidebarToggleButton, StudioTheme,
 } from "common.slint";
 import { Api, EditorSurfaceMode, ElementLibraryGroup, ElementLibraryEntry } from "../api.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
 import { Project } from "../project.slint";
 import { FileTreeView } from "file-tree-view.slint";
+import { ScrollView } from "std-widgets.slint";
 
 component ElementsUnavailableNotice inherits Rectangle {
     height: 82px;
@@ -200,42 +202,78 @@ component ElementPaletteRows inherits VerticalLayout {
     vertical-stretch: 1;
     in property <bool> enabled: true;
     in property <bool> drag-enabled: true;
+    in property <string> query: "";
     callback drag-started();
-    private property <string> query: Api.element-library-normalize-query(search.text);
     spacing: 0px;
 
-    search := PrimerTextInput {
-        placeholder: "Search elements…";
-        accessible-name: "Search elements";
-        background: StudioTheme.panel-subtle;
-    }
-
-    for group in Api.element-library: ElementPaletteGroup {
-        group: group;
-        query: root.query;
-        enabled: root.enabled;
-        drag-enabled: root.drag-enabled;
-        drag-started => { root.drag-started(); }
-    }
-
-    Rectangle {
+    ScrollView {
+        min-height: 0px;
         vertical-stretch: 1;
-        if Api.element-library.length > 0 && !Api.element-library-has-matches(Api.element-library, root.query): MutedLabel {
+        content-width: self.width;
+        content-height: max(palette.preferred-height, self.height);
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+
+        palette := VerticalLayout {
             width: parent.width;
-            height: parent.height;
-            text: "No Results";
-            horizontal-alignment: center;
-            vertical-alignment: center;
+            for group in Api.element-library: ElementPaletteGroup {
+                group: group;
+                query: root.query;
+                enabled: root.enabled;
+                drag-enabled: root.drag-enabled;
+                drag-started => { root.drag-started(); }
+            }
+
+            Rectangle {
+                min-height: 24px;
+                vertical-stretch: 1;
+                if Api.element-library.length > 0 && !Api.element-library-has-matches(Api.element-library, root.query): MutedLabel {
+                    width: parent.width;
+                    height: parent.height;
+                    text: "No Results";
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
         }
     }
 }
 
 export component LeftPane inherits Rectangle {
     in property <bool> can-collapse: false;
+    in property <length> elements-pane-height: 0px;
     callback drag-started();
     callback panes-collapsed();
+    callback elements-pane-resized(length);
+    callback elements-pane-reset();
 
     private property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
+    private property <length> default-elements-height: root.image-mode ? 540px : 360px;
+    private property <length> requested-elements-height: root.elements-pane-height > 0px
+        ? root.elements-pane-height
+        : root.default-elements-height;
+    private property <string> element-query: Api.element-library-normalize-query(search.text);
+    private property <length> elements-height: 0px;
+    private property <length> drag-start-height;
+
+    function clamp-elements-height(height: length) -> length {
+        return height.clamp(120px, max(120px, root.height - 250px));
+    }
+
+    init => {
+        root.elements-height = root.clamp-elements-height(root.requested-elements-height);
+    }
+
+    changed requested-elements-height => {
+        root.elements-height = root.clamp-elements-height(root.requested-elements-height);
+    }
+
+    changed image-mode => {
+        root.elements-height = root.clamp-elements-height(root.requested-elements-height);
+    }
+
+    changed height => {
+        root.elements-height = root.clamp-elements-height(root.requested-elements-height);
+    }
 
     width: EditorMetrics.left-pane-width;
     background: StudioTheme.panel-bg;
@@ -247,15 +285,20 @@ export component LeftPane inherits Rectangle {
     }
 
     VerticalLayout {
-        padding: 14px;
-        spacing: 12px;
+        height: 100%;
+        spacing: 0px;
 
         HorizontalLayout {
-            height: 34px;
+            height: 48px;
+            padding-top: 14px;
+            padding-left: 14px;
+            padding-right: 14px;
             spacing: 10px;
             cross-axis-alignment: center;
 
             if root.can-collapse: SidebarToggleButton {
+                accessible-role: AccessibleRole.button;
+                accessible-label: "Collapse sidebars";
                 clicked => {
                     root.panes-collapsed();
                 }
@@ -277,23 +320,65 @@ export component LeftPane inherits Rectangle {
             }
         }
 
-        SectionTitle { label: "FILES"; }
+        VerticalLayout {
+            padding: 14px;
+            padding-bottom: 0px;
+            SectionTitle { label: "FILES"; }
 
-        if Project.file-tree.length == 0: FilesUnavailableNotice { }
+            if Project.file-tree.length == 0: FilesUnavailableNotice { }
 
-        if Project.file-tree.length > 0: FileTreeView {
-            vertical-stretch: 1;
+            if Project.file-tree.length > 0: FileTreeView {
+                vertical-stretch: 1;
+            }
+        }
+
+        HorizontalResizeDivider {
+            resize-label: "Elements pane resize";
+            value: root.elements-height;
+            value-maximum: max(120px, root.height - 250px);
+            drag-started => {
+                root.drag-start-height = root.elements-height;
+            }
+            dragged(delta) => {
+                root.elements-height = root.clamp-elements-height(
+                    max(120px, root.drag-start-height - delta),
+                );
+            }
+            drag-finished(delta) => {
+                if delta != 0px {
+                    root.elements-pane-resized(root.clamp-elements-height(
+                        max(120px, root.drag-start-height - delta),
+                    ));
+                }
+            }
+            value-set(height) => {
+                let clamped-height = root.clamp-elements-height(max(120px, height));
+                root.elements-height = clamped-height;
+                root.elements-pane-resized(clamped-height);
+            }
+            reset-requested => {
+                root.elements-pane-reset();
+            }
         }
 
         VerticalLayout {
-            height: root.image-mode ? 540px : 360px;
+            height: root.elements-height;
             spacing: 8px;
+            padding: 14px;
 
             SectionTitle { label: "ELEMENTS"; }
+
+            search := PrimerTextInput {
+                placeholder: "Search elements…";
+                accessible-name: "Search elements";
+                background: StudioTheme.panel-subtle;
+            }
 
             if root.image-mode: ElementsUnavailableNotice { }
 
             ElementPaletteRows {
+                vertical-stretch: 1;
+                query: root.element-query;
                 enabled: !root.image-mode;
                 drag-enabled: Api.known-components.length > 0;
                 drag-started => { root.drag-started(); }

@@ -23,6 +23,8 @@ pub(crate) struct Project {
 #[serde(try_from = "VisualEditorSettingsSerde", into = "VisualEditorSettingsSerde")]
 pub(crate) struct VisualEditorSettings {
     recent_projects: Vec<Project>,
+    pub(crate) elements_pane_height: Option<i32>,
+    pub(crate) outline_pane_height: Option<i32>,
 }
 
 impl VisualEditorSettings {
@@ -119,6 +121,10 @@ struct VisualEditorSettingsSerde {
     version: u32,
     #[serde(default)]
     recent_projects: Vec<Project>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    elements_pane_height: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    outline_pane_height: Option<i32>,
 }
 
 impl TryFrom<VisualEditorSettingsSerde> for VisualEditorSettings {
@@ -134,15 +140,29 @@ impl TryFrom<VisualEditorSettingsSerde> for VisualEditorSettings {
         }
         let mut recent_projects = settings.recent_projects;
         recent_projects.truncate(MAX_RECENT_PROJECTS);
-        Ok(Self { recent_projects })
+        Ok(Self {
+            recent_projects,
+            elements_pane_height: positive_height(settings.elements_pane_height),
+            outline_pane_height: positive_height(settings.outline_pane_height),
+        })
     }
 }
 
 impl From<VisualEditorSettings> for VisualEditorSettingsSerde {
     fn from(value: VisualEditorSettings) -> Self {
-        let VisualEditorSettings { recent_projects } = value;
-        Self { version: VisualEditorSettings::CURRENT_VERSION, recent_projects }
+        let VisualEditorSettings { recent_projects, elements_pane_height, outline_pane_height } =
+            value;
+        Self {
+            version: VisualEditorSettings::CURRENT_VERSION,
+            recent_projects,
+            elements_pane_height: positive_height(elements_pane_height),
+            outline_pane_height: positive_height(outline_pane_height),
+        }
     }
+}
+
+fn positive_height(height: Option<i32>) -> Option<i32> {
+    height.filter(|height| *height > 0)
 }
 
 #[cfg(test)]
@@ -166,6 +186,8 @@ mod tests {
                 Url::parse("file:///project/main.slint").unwrap(),
                 "MainWindow",
             )],
+            elements_pane_height: None,
+            outline_pane_height: None,
         };
         let serialized = settings.serialize();
         let json: serde_json::Value = serde_json::from_str(&serialized).unwrap();
@@ -181,6 +203,31 @@ mod tests {
         assert!(
             VisualEditorSettings::deserialize(r#"{"version":2,"recent_projects":[]}"#).is_none()
         );
+    }
+
+    #[test]
+    fn pane_heights_round_trip_and_non_positive_values_are_unset() {
+        let settings = VisualEditorSettings {
+            recent_projects: Vec::new(),
+            elements_pane_height: Some(320),
+            outline_pane_height: Some(240),
+        };
+        let json = settings.serialize();
+        assert_eq!(VisualEditorSettings::deserialize(&json), Some(settings));
+        let unset = VisualEditorSettings::deserialize(
+            r#"{"version":1,"recent_projects":[],"elements_pane_height":0,"outline_pane_height":-1}"#,
+        )
+        .unwrap();
+        assert_eq!(unset.elements_pane_height, None);
+        assert_eq!(unset.outline_pane_height, None);
+    }
+
+    #[test]
+    fn older_settings_default_pane_heights() {
+        let settings =
+            VisualEditorSettings::deserialize(r#"{"version":1,"recent_projects":[]}"#).unwrap();
+        assert_eq!(settings.elements_pane_height, None);
+        assert_eq!(settings.outline_pane_height, None);
     }
 
     #[test]
@@ -225,6 +272,8 @@ mod tests {
                     "Missing",
                 ),
             ],
+            elements_pane_height: None,
+            outline_pane_height: None,
         };
 
         let visible = settings.visible_recent_projects();
