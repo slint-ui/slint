@@ -3,6 +3,8 @@
 
 import { InspectorTokens } from "tokens.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
+import { InspectorSolidColorPicker } from "solid-color-picker.slint";
+import { Api } from "../../api.slint";
 
 export component InspectorColorField inherits Rectangle {
     in property <string> accessible-name: "";
@@ -11,6 +13,7 @@ export component InspectorColorField inherits Rectangle {
     in property <bool> wide: false;
     in property <string> commit-key: "";
     callback accepted(string) -> bool;
+    private property <bool> picker-open: false;
 
     width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
     height: InspectorTokens.field-height;
@@ -49,5 +52,23 @@ export component InspectorColorField inherits Rectangle {
                 background: InspectorTokens.muted.with-alpha(0.35);
             }
         }
+
+        TouchArea {
+            width: 24px;
+            height: parent.height;
+            mouse-cursor: pointer;
+            clicked => { root.picker-open = true; }
+        }
+    }
+
+    InspectorSolidColorPicker {
+        value: Api.string-to-color(root.value);
+        open: root.picker-open;
+        accepted(color) => {
+            let accepted = root.accepted(Api.color-to-data(color).text);
+            if accepted { root.picker-open = false; }
+            return accepted;
+        }
+        closed => { root.picker-open = false; }
     }
 }
