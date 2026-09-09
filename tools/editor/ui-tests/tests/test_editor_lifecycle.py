@@ -14,15 +14,16 @@ from test_inspector_transform import (
     shortcut,
     wait_for_field,
 )
-from ui_driver import first_window, launch_editor, window_element_with_label
+from ui_driver import file_row, first_window, launch_editor, window_element_with_label
 
 
 def operation_state(action):
     return action.sync._request(mode="operation", operation=action.operation).data
 
 
+@pytest.mark.parametrize("stage", ["publication", "factory"])
 def test_publication_gate_holds_the_instance_and_supersedes_old_attempt(
-    editor_binary, editor_environment, fixture_project
+    editor_binary, editor_environment, fixture_project, stage
 ):
     baseline = prepare(fixture_project)
     source = fixture_project / SOURCE
@@ -34,7 +35,7 @@ def test_publication_gate_holds_the_instance_and_supersedes_old_attempt(
         sync = current_editor_sync.get()
         sync.wait_for_applied(source, baseline)
         checkpoint = sync.checkpoint()
-        with sync.gate("publication", source) as gate:
+        with sync.gate(stage, source) as gate:
             source.write_bytes(older)
             held = gate.wait_for_reached().data["gate_state"]["attempt"]
             sync.wait_for_processed(source, older, after=checkpoint, outcome="compiled")
@@ -399,3 +400,67 @@ def test_obsolete_acknowledgment_cannot_finish_newer_edit(
             assert result.data["operation_state"]["writes"] == 1
         obsolete.wait_for_settled(outcome="completed")
         sync.wait_for_applied(source, baseline)
+
+
+@pytest.mark.parametrize("acknowledged", [False, True])
+def test_retired_assigned_factory_resolves_edit_and_queued_history(
+    editor_binary, editor_environment, fixture_project, acknowledged
+):
+    baseline = prepare(fixture_project)
+    source = fixture_project / SOURCE
+    edited = baseline.replace(b"32deg", b"62deg")
+    with launch_editor(editor_binary, editor_environment, source) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        sync = current_editor_sync.get()
+        with sync.action() as seed:
+            edit_field(window, "Rotation", "42")
+        seed.wait_for_settled(outcome="completed")
+        checkpoint = sync.checkpoint()
+        with (
+            sync.gate("acknowledgment", source) as acknowledgment,
+            sync.gate("factory", source) as factory,
+        ):
+            with sync.action() as edit:
+                edit_field(window, "Rotation", "62")
+            edit_id = acknowledgment.wait_for_reached().data["gate_state"]["edit"]
+            attempt = factory.wait_for_reached().data["gate_state"]["attempt"]
+            state = operation_state(edit)
+            assert not state["settled"]
+            assert "component factory" in state["operation_state"]["pending"].values()
+            window_element_with_label(window, "Rotation knob").single_click(
+                slint_testing.PointerEventButton.Left
+            )
+            with sync.action() as undo:
+                shortcut(window)
+            assert (
+                "queued history"
+                in operation_state(undo)["operation_state"]["pending"].values()
+            )
+            if acknowledged:
+                acknowledgment.release()
+                assert wait_for_acknowledgment(sync, edit_id, checkpoint)["accepted"]
+            file_row(window, fixture_project / "assets").single_click(
+                slint_testing.PointerEventButton.Left
+            )
+            file_row(window, fixture_project / "assets/checker.svg").single_click(
+                slint_testing.PointerEventButton.Left
+            )
+            undo.wait_for_settled(outcome="canceled")
+            undo.assert_no_source_writes()
+            if not acknowledged:
+                assert not operation_state(edit)["settled"]
+                acknowledgment.release()
+                assert wait_for_acknowledgment(sync, edit_id, checkpoint)["accepted"]
+            result = edit.wait_for_settled(outcome="completed")
+            assert result.data["operation_state"]["writes"] == 1
+            assert source.read_bytes() == edited
+            file_row(window, source).single_click(slint_testing.PointerEventButton.Left)
+            sync.wait_for_applied(source, edited, after=checkpoint)
+        retired = sync.wait_for_processed(
+            source, edited, after=checkpoint, outcome="superseded"
+        )
+        assert retired.data["attempt"]["id"] == attempt
+        sync.wait_for_applied(source, edited)
+        select_element(window, "Rectangle")
+        wait_for_field(window, "Rotation", "62")

@@ -423,6 +423,15 @@ pub(crate) fn acknowledgment_received(id: u64, accepted: bool) {
     });
 }
 
+pub(crate) fn hold_factory(attempt: u64, callback: impl FnOnce() + 'static) -> bool {
+    let root = with_state(|s| s.attempts.get(&attempt).map(|a| a.root.clone())).flatten();
+    let Some(gate) = root.and_then(|url| claim_gate("factory", &url, Some(attempt))) else {
+        return false;
+    };
+    PUBLICATIONS.with_borrow_mut(|p| p.push((gate, Work::default(), Box::new(callback))));
+    true
+}
+
 pub(crate) fn publish(url: &Url, attempt: u64, callback: impl FnOnce() + 'static) {
     if let Some(gate) = claim_gate("publication", url, Some(attempt)) {
         PUBLICATIONS.with_borrow_mut(|p| {
@@ -582,7 +591,7 @@ fn answer(s: &mut Observer, r: &Request) -> Result<Value, String> {
         }
         "gate_open" => {
             let kind = r.kind.clone().ok_or("missing gate kind")?;
-            if kind != "source" && kind != "publication" && kind != "acknowledgment" {
+            if !matches!(kind.as_str(), "source" | "publication" | "acknowledgment" | "factory") {
                 return Err("unknown gate kind".into());
             }
             let url = r.url.clone().ok_or("missing gate URL")?;

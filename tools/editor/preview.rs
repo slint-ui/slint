@@ -2582,7 +2582,15 @@ fn set_preview_factory(
     let lease = Rc::new(RefCell::new(Some(test_sync::Work::capture("component factory"))));
     #[cfg(feature = "system-testing")]
     let factory_lease = lease.clone();
+    #[cfg(feature = "system-testing")]
+    let paused = Rc::new(std::cell::Cell::new(false));
+    #[cfg(feature = "system-testing")]
+    let factory_paused = paused.clone();
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
+        #[cfg(feature = "system-testing")]
+        if factory_paused.get() {
+            return None;
+        }
         #[cfg(feature = "system-testing")]
         let work = factory_lease.as_ref().borrow_mut().take().unwrap_or_default();
         #[cfg(feature = "system-testing")]
@@ -2610,7 +2618,26 @@ fn set_preview_factory(
         Some(instance)
     });
 
+    #[cfg(feature = "system-testing")]
+    let deferred_factory = factory.clone();
     api.set_preview_area(factory);
+    #[cfg(feature = "system-testing")]
+    if let Some(attempt) = attempt {
+        let weak_ui = editor_ui.as_weak();
+        let resume = paused.clone();
+        paused.set(test_sync::hold_factory(attempt, move || {
+            if !preview_generation_is_current(generation) {
+                test_sync::processed(attempt, "superseded", Vec::new());
+                return;
+            }
+            resume.set(false);
+            if let Some(editor_ui) = weak_ui.upgrade() {
+                let api = editor_ui.global::<ui::Api>();
+                api.set_preview_area(Default::default());
+                api.set_preview_area(deferred_factory);
+            }
+        }));
+    }
     api.set_resize_to_preferred_size(behavior != LoadBehavior::Reload);
     #[cfg(feature = "system-testing")]
     return lease;
