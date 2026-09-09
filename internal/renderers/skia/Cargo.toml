@@ -26,6 +26,7 @@ opengl = []
 # `vulkan-portability` is how wgpu compiles its Vulkan backend on Apple platforms (MoltenVK).
 # It feeds an apple-target-gated dependency of wgpu-core, so it's inert elsewhere.
 vulkan = [
+  "dep:ash",
   "skia-safe/vulkan",
   "wgpu-30",
   "wgpu-30/vulkan",
@@ -36,9 +37,9 @@ vulkan = [
 kms = ["softbuffer/kms"]
 # wgpu-{29,30} enables the wgpu surface module for internal use (e.g. linuxkms DRM rendering), as well as
 # the explicit graphics APIs: Direct3D 12 on Windows, Metal on Apple, Vulkan on apple and other unix
-wgpu-29 = ["i-slint-core/wgpu-29", "dep:wgpu-29", "dep:spin_on", "dep:ash", "dep:windows-core", "dep:wgpu-hal-29"]
+wgpu-29 = ["i-slint-core/wgpu-29", "dep:wgpu-29", "dep:spin_on", "dep:windows-core", "dep:wgpu-hal-29"]
 unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "wgpu-29"]
-wgpu-30 = ["i-slint-core/wgpu-30", "dep:wgpu-30", "dep:spin_on", "dep:ash", "dep:windows-core", "dep:wgpu-hal-30"]
+wgpu-30 = ["i-slint-core/wgpu-30", "dep:wgpu-30", "dep:spin_on", "dep:windows-core", "dep:wgpu-hal-30"]
 unstable-wgpu-30 = ["i-slint-core/unstable-wgpu-30", "wgpu-30"]
 default = ["softbuffer", "wgpu-30"]
 
@@ -61,11 +62,15 @@ skia-safe = { version = "0.153.3", features = ["gl"] }
 glow = { workspace = true }
 unicode-segmentation = { workspace = true }
 
-ash = { version = "^0.38.0", optional = true }
-
 wgpu-29 = { workspace = true, optional = true }
 wgpu-30 = { workspace = true, optional = true }
 spin_on = { version = "0.1", optional = true }
+
+[target.'cfg(all(target_family = "unix", not(target_vendor = "apple")))'.dependencies]
+ash = { version = "^0.38.0" }
+
+[target.'cfg(any(target_vendor = "apple", target_family = "windows"))'.dependencies]
+ash = { version = "^0.38.0", optional = true }
 
 [target.'cfg(any(not(target_vendor = "apple"), target_os = "macos"))'.dependencies]
 glutin = { workspace = true, default-features = false, features = ["egl", "wgl"] }
