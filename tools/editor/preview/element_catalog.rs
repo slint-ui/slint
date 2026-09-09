@@ -81,11 +81,15 @@ mod tests {
                 }
             }
         "#;
-        let result = spin_on::spin_on(Compiler::default().build_from_source(
+        let mut compiler = Compiler::default();
+        compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+        let result = spin_on::spin_on(compiler.build_from_source(
             source.into(),
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("ui/metadata-probe.slint"),
         ));
-        let definition = result.component("MetadataProbe").expect("metadata probe must compile");
+        let definition = result.component("MetadataProbe").unwrap_or_else(|| {
+            panic!("metadata probe must compile: {:?}", result.diagnostics().collect::<Vec<_>>())
+        });
         let instance = definition.create().unwrap();
         let enumeration = result
             .structs_and_enums(i_slint_core::InternalToken)
