@@ -14,3 +14,7 @@ The standard sets no percentage. 9.4.4 says only that coverage judged insufficie
 
 Slint SC holds the runtime at complete line, function, and region coverage, and the build fails below it.
 Whether MC/DC is needed on top of that is still open; see the TODO in [Verification](/qualification-plan/verification/).
+
+The `.slint` code of an application is measured as well, at the level of the language rather than of the generated code:
+which elements were drawn, which bindings were evaluated, and which outcomes of every `?:`, `&&` and `||` were taken.
+[Coverage of Slint Code](/qualification-plan/slint-coverage/) describes the measurement and how the tool that takes it is tested.

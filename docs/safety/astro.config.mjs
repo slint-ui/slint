@@ -139,6 +139,10 @@ export default defineConfig({
                                 slug: "qualification-plan/test-coverage",
                             },
                             {
+                                label: "Coverage of Slint Code",
+                                slug: "qualification-plan/slint-coverage",
+                            },
+                            {
                                 label: "Verification",
                                 slug: "qualification-plan/verification",
                             },
