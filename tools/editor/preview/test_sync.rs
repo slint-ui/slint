@@ -163,19 +163,15 @@ pub(super) fn initialize() {
         static TIMER: slint::Timer = slint::Timer::default();
     }
     TIMER.with(|timer| {
-        timer.start(
-            slint::TimerMode::Repeated,
-            std::time::Duration::from_millis(20),
-            move || {
-                let Ok(bytes) = std::fs::read(directory.join("request.json")) else { return };
-                let Ok(request) = serde_json::from_slice::<Request>(&bytes) else { return };
-                let response = response(&request);
-                let temporary = directory.join("response.tmp");
-                if std::fs::write(&temporary, response.to_string()).is_ok() {
-                    let _ = std::fs::rename(temporary, directory.join("response.json"));
-                }
-            },
-        );
+        timer.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(20), move || {
+            let Ok(bytes) = std::fs::read(directory.join("request.json")) else { return };
+            let Ok(request) = serde_json::from_slice::<Request>(&bytes) else { return };
+            let response = response(&request);
+            let temporary = directory.join("response.tmp");
+            if std::fs::write(&temporary, response.to_string()).is_ok() {
+                let _ = std::fs::rename(temporary, directory.join("response.json"));
+            }
+        });
     });
 }
 

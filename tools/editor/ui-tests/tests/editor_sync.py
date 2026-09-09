@@ -13,6 +13,7 @@ from pathlib import Path
 class EditorSync:
     directory: Path
     request_id: int = 0
+    session: str | None = None
 
     def _request(
         self,
@@ -53,6 +54,15 @@ class EditorSync:
                         raise AssertionError(
                             f"unsupported editor sync protocol: {last_response!r}"
                         )
+                    response_session = last_response.get("session")
+                    if response_session is not None:
+                        if self.session is None:
+                            self.session = response_session
+                        elif self.session != response_session:
+                            raise AssertionError(
+                                "editor sync session changed while waiting: "
+                                f"{self.session!r} -> {response_session!r}"
+                            )
                     if last_response.get("overflow"):
                         raise AssertionError(
                             f"editor sync event history overflowed after cursor {after}: {last_response!r}"
