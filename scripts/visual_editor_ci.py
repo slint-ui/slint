@@ -2,20 +2,22 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-"""Run UI tests alongside sequential Visual Editor Rust checks."""
+"""Run one Visual Editor CI suite and record its timings."""
 
+import argparse
 import hashlib
 import json
 import os
 import shutil
 import subprocess
-import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("suite", choices=["rust", "ui"])
+    suite = parser.parse_args().suite
     root = Path(__file__).resolve().parents[1]
     target = Path(os.environ.get("CARGO_TARGET_DIR", root / "target")).resolve()
     reports = root / "target" / "visual-editor-ci"
@@ -65,47 +67,40 @@ def main():
         return process.returncode
 
     try:
+        if suite == "rust":
+            lint_status = run(
+                "clippy",
+                ["cargo", "clippy", *common, "--all-targets", "--", "-D", "warnings"],
+            )
+            test_status = run("test", ["cargo", "test", *common])
+            return int(bool(lint_status or test_status))
         if run("build", ["cargo", "build", *common]):
             return 1
-        with tempfile.TemporaryDirectory(prefix="slint-editor-ci-") as directory:
-            binary = Path(directory) / "slint-editor"
-            shutil.copy2(target / "debug" / "slint-editor", binary)
-            with binary.open("rb") as file:
-                (reports / "binary-sha256.txt").write_text(
-                    hashlib.file_digest(file, "sha256").hexdigest() + "\n"
+        binary = target / "debug" / "slint-editor"
+        with binary.open("rb") as file:
+            (reports / "binary-sha256.txt").write_text(
+                hashlib.file_digest(file, "sha256").hexdigest() + "\n"
+            )
+        if os.environ.get("UI_TESTS", "true") != "true":
+            return 0
+        return int(
+            bool(
+                run(
+                    "ui",
+                    ["./run-tests.sh"],
+                    root / "tools/editor/ui-tests",
+                    os.environ
+                    | {
+                        "SLINT_BACKEND": "headless-skia",
+                        "SLINT_EDITOR_BINARY": str(binary),
+                    },
                 )
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                ui = None
-                if os.environ.get("UI_TESTS", "true") == "true":
-                    ui = executor.submit(
-                        run,
-                        "ui",
-                        ["./run-tests.sh"],
-                        root / "tools/editor/ui-tests",
-                        os.environ
-                        | {
-                            "SLINT_BACKEND": "headless-skia",
-                            "SLINT_EDITOR_BINARY": str(binary),
-                        },
-                    )
-                lint_status = run(
-                    "clippy",
-                    [
-                        "cargo",
-                        "clippy",
-                        *common,
-                        "--all-targets",
-                        "--",
-                        "-D",
-                        "warnings",
-                    ],
-                )
-                test_status = run("test", ["cargo", "test", *common])
-                ui_status = ui.result() if ui else 0
-        return int(bool(lint_status or test_status or ui_status))
+            )
+        )
     finally:
         elapsed = time.monotonic() - started
         metadata = {
+            "suite": suite,
             "seconds": elapsed,
             "phases": sorted(records, key=lambda r: r["start_seconds"]),
             "environment": {
@@ -123,7 +118,7 @@ def main():
         }
         (reports / "timings.json").write_text(json.dumps(metadata, indent=2) + "\n")
         summary = [
-            "## Visual Editor overlap experiment",
+            f"## Visual Editor {suite} suite",
             "",
             "| Phase | Start | Duration | Exit |",
             "| --- | ---: | ---: | ---: |",
@@ -132,7 +127,7 @@ def main():
             summary.append(
                 f"| {record['phase']} | {record['start_seconds']:.2f}s | {record['seconds']:.2f}s | {record['exit_code']} |"
             )
-        if os.environ.get("UI_TESTS", "true") != "true":
+        if suite == "ui" and os.environ.get("UI_TESTS", "true") != "true":
             summary.append("| UI tests | | Skipped: private dependency unavailable | |")
         summary.extend(["", f"Total check wall time: {elapsed:.2f}s", ""])
         (reports / "summary.md").write_text("\n".join(summary))
