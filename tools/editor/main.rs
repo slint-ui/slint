@@ -266,8 +266,7 @@ async fn lsp_main(
 
     let mut watch_paths_revision = None;
     let project_root = project.root;
-    open_project(&session, &project_root)?;
-    open_preview(&mut session, project.preview).await?;
+    open_initial_preview(&mut session, &mut file_watcher, &project_root, project.preview).await?;
     sync_file_watcher_if_needed(
         &mut file_watcher,
         &session,
@@ -275,13 +274,15 @@ async fn lsp_main(
         &mut watch_paths_revision,
     )?;
 
-    const RECOMPILE_IDLE_TIMEOUT: Duration = Duration::from_millis(50);
+    const RECOMPILE_DELAY: Duration = Duration::from_millis(50);
+    let mut recompile_deadline = None;
     loop {
-        let recompile_idle_timeout = if session.pending_recompile.is_empty() {
-            Duration::MAX
+        if session.pending_recompile.is_empty() {
+            recompile_deadline = None;
         } else {
-            RECOMPILE_IDLE_TIMEOUT
-        };
+            // Preview messages must not postpone a pending source update.
+            recompile_deadline.get_or_insert_with(|| tokio::time::Instant::now() + RECOMPILE_DELAY);
+        }
         tokio::select! {
             watcher_event = file_watcher_rx.recv() => {
                 match watcher_event {
@@ -300,7 +301,13 @@ async fn lsp_main(
                     }
                 }
             }
-            _ = tokio::time::sleep(recompile_idle_timeout) => {
+            _ = async {
+                match recompile_deadline {
+                    Some(deadline) => tokio::time::sleep_until(deadline).await,
+                    None => std::future::pending().await,
+                }
+            } => {
+                recompile_deadline = None;
                 tracing::debug!("LSP recompiling");
                 let pending_recompile = std::mem::take(&mut session.pending_recompile);
 
@@ -440,6 +447,20 @@ async fn handle_preview_message(
     }
 }
 
+async fn open_initial_preview(
+    session: &mut editor_preview::EditorSession,
+    watcher: &mut FileWatcher,
+    project_root: &Path,
+    component: PreviewComponent,
+) -> Result<()> {
+    watcher.update_watched_paths(
+        std::iter::once(project_root.to_path_buf())
+            .chain(editor_preview::uri_to_file(&component.url)),
+    )?;
+    open_project(session, project_root)?;
+    open_preview(session, component).await
+}
+
 async fn open_preview(
     session: &mut editor_preview::EditorSession,
     component: PreviewComponent,
@@ -500,5 +521,73 @@ fn handle_workspace_edit(
                 label.unwrap_or("(unnamed)")
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn initial_source_repair_is_watched_before_preview_is_published() {
+        const REPAIRED: &str = "export component Initial inherits Window { width: 320px; }";
+        struct RepairOnPreview(PathBuf);
+        impl editor_preview::LspToPreview for RepairOnPreview {
+            fn send(&self, message: &LspToPreviewMessage) {
+                if matches!(message, LspToPreviewMessage::ShowPreview(_)) {
+                    std::fs::write(&self.0, REPAIRED).unwrap();
+                }
+            }
+            fn preview_target(&self) -> PreviewTarget {
+                PreviewTarget::Dummy
+            }
+        }
+
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().canonicalize().unwrap();
+        let source = root.join("Initial.slint");
+        std::fs::write(&source, "export component Initial inherits Window { broken }").unwrap();
+        let url = Url::from_file_path(&source).unwrap();
+        let mut session = editor_preview::EditorSession {
+            document_cache: editor_preview::DocumentCache::new(Default::default()),
+            preview_config: Default::default(),
+            to_show: None,
+            open_urls: Default::default(),
+            to_preview: LspToPreviews::with_one(RepairOnPreview(source.clone())),
+            pending_recompile: Default::default(),
+        };
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut watcher = FileWatcher::start(
+            move |event| {
+                let _ = tx.send(event);
+            },
+            |_| {},
+        )
+        .unwrap();
+        spin_on::spin_on(open_initial_preview(
+            &mut session,
+            &mut watcher,
+            &root,
+            PreviewComponent { url: url.clone(), component: None },
+        ))
+        .unwrap();
+        sync_file_watcher_if_needed(&mut watcher, &session, &root, &mut None).unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            let event = rx
+                .recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()))
+                .expect(
+                    "repair made while publishing the initial preview must produce a watch event",
+                );
+            if event.path == source {
+                spin_on::spin_on(trigger_editor_file_watcher(&mut session, event)).unwrap();
+                break;
+            }
+        }
+        assert!(session.pending_recompile.remove(&url));
+        spin_on::spin_on(session.reload_document(url.clone())).unwrap();
+        let (_, node) =
+            session.document_cache.all_url_documents().find(|(u, _)| u == &url).unwrap();
+        assert_eq!(node.text().to_string(), REPAIRED);
     }
 }

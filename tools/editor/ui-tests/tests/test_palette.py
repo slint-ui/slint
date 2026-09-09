@@ -9,15 +9,18 @@ from canvas_interactions import center
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    PALETTE_KINDS,
     elements_with_label,
     first_window,
     launch_editor,
+    press_key,
+    press_keys,
+    select_fixture_element,
     wait_until,
     window_element_with_label,
 )
 
 GOLDENS = Path(__file__).resolve().parents[1] / "goldens"
-PALETTE_KINDS = ("Rectangle", "Text", "Image")
 
 
 def begin_palette_drag(
@@ -67,7 +70,6 @@ def canvas_drop_position(window: slint_testing.Window) -> slint_testing.LogicalP
 
 
 @pytest.mark.parametrize("kind", PALETTE_KINDS)
-@pytest.mark.skip(reason="Requires a Rust palette drop-with-geometry fix")
 def test_insert_palette_element_writes_exact_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -80,28 +82,29 @@ def test_insert_palette_element_writes_exact_source(
         window = first_window(editor)
         target = canvas_drop_position(window)
         snapshot.assert_unchanged_now()
-        row = window_element_with_label(
-            window, kind, slint_testing.AccessibleRole.ListItem
-        )
-        window.drag_and_drop(center(row), target)
+        begin_palette_drag(window, kind, target)
+        release_palette_drag(window, target)
         expected = (GOLDENS / f"Palette.insert-{kind.lower()}.slint").read_bytes()
         snapshot.wait_for_exact(expected, "Palette.slint")
         window_element_with_label(
             window, f"Selected {kind}", slint_testing.AccessibleRole.Region
         )
+        outline = window_element_with_label(
+            window, "Current file outline", slint_testing.AccessibleRole.List
+        )
         inserted = wait_until(
             lambda: next(
                 (
                     row
-                    for row in window.root_element.query_descendants()
+                    for row in outline.query_descendants()
                     .match_accessible_role(slint_testing.AccessibleRole.ListItem)
                     .find_all()
-                    if row.accessible_label == kind
+                    if row.accessible_label.strip() == kind
                 ),
                 None,
             )
         )
-        assert inserted.accessible_item_selected
+        wait_until(lambda: True if inserted.accessible_item_selected else None)
 
 
 @pytest.mark.parametrize("kind", PALETTE_KINDS)
@@ -145,8 +148,136 @@ def test_escape_cancels_palette_drag_without_source_edit(
         window_element_with_label(
             window, "Canvas drop marker", slint_testing.AccessibleRole.Region
         )
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
+        press_key(window, keys.Escape)
         release_palette_drag(window, target)
         assert not elements_with_label(window.root_element, "Canvas drop marker")
+        snapshot.assert_unchanged()
+
+
+def library_rows(window: slint_testing.Window) -> list[slint_testing.Element]:
+    pane = window_element_with_label(
+        window, "Project and elements", slint_testing.AccessibleRole.Navigation
+    )
+    rows = (
+        pane.query_descendants()
+        .match_accessible_role(slint_testing.AccessibleRole.ListItem)
+        .find_all()
+    )
+    return sorted(
+        [row for row in rows if row.accessible_label in PALETTE_KINDS],
+        key=lambda row: (row.absolute_position.y, row.absolute_position.x),
+    )
+
+
+def expect_library(window: slint_testing.Window, labels: list[str]) -> None:
+    wait_until(
+        lambda: (
+            True
+            if [row.accessible_label for row in library_rows(window)] == labels
+            else None
+        )
+    )
+
+
+def test_library_search_and_collapse(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Palette.slint"
+    ) as editor:
+        window = first_window(editor)
+        expect_library(window, ["Image", "Rectangle", "Text"])
+        heading = window_element_with_label(window, "ELEMENTS")
+        search = window_element_with_label(window, "Search elements")
+        heading_y = heading.absolute_position.y
+        search_y = search.absolute_position.y
+        rows = library_rows(window)
+        assert rows[0].absolute_position.y == rows[1].absolute_position.y
+        assert rows[2].absolute_position.y > rows[0].absolute_position.y
+        group = window_element_with_label(
+            window, "Visual", slint_testing.AccessibleRole.Button
+        )
+        group.invoke_accessible_default_action()
+        expect_library(window, [])
+        assert heading.absolute_position.y == heading_y
+        assert search.absolute_position.y == search_y
+        search = window_element_with_label(window, "Search elements")
+        for query, expected in [
+            ("  aG  ", ["Image"]),
+            ("T", ["Rectangle", "Text"]),
+            ("TouchArea", []),
+        ]:
+            search.accessible_value = query
+            expect_library(window, expected)
+            for header in elements_with_label(
+                window.root_element, "Visual", slint_testing.AccessibleRole.Button
+            ):
+                assert not header.accessible_enabled
+            assert heading.absolute_position.y == heading_y
+            assert search.absolute_position.y == search_y
+        window_element_with_label(window, "No Results")
+        assert not elements_with_label(
+            window.root_element, "Visual", slint_testing.AccessibleRole.Button
+        )
+        search.accessible_value = ""
+        expect_library(window, [])
+        assert heading.absolute_position.y == heading_y
+        assert search.absolute_position.y == search_y
+        group = window_element_with_label(
+            window, "Visual", slint_testing.AccessibleRole.Button
+        )
+        group.invoke_accessible_default_action()
+        expect_library(window, ["Image", "Rectangle", "Text"])
+        snapshot.assert_unchanged()
+
+
+def test_library_search_keyboard_does_not_delete_selection(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Main.slint"
+    ) as editor:
+        window = first_window(editor)
+        select_fixture_element(window, "Rectangle")
+        search = window_element_with_label(window, "Search elements")
+        search.single_click(slint_testing.PointerEventButton.Left)
+        press_keys(window, "Text")
+        expect_library(window, ["Text"])
+        for _ in range(5):
+            press_key(window, keys.Backspace)
+        expect_library(window, ["Image", "Rectangle", "Text"])
+        window_element_with_label(
+            window, "Selected Rectangle", slint_testing.AccessibleRole.Region
+        )
+        snapshot.assert_unchanged()
+
+
+@pytest.mark.parametrize(
+    "activation_key", [keys.Return, keys.Space], ids=["enter", "space"]
+)
+def test_group_header_keyboard_activation(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    activation_key: str,
+) -> None:
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Palette.slint"
+    ) as editor:
+        window = first_window(editor)
+        search = window_element_with_label(window, "Search elements")
+        search.single_click(slint_testing.PointerEventButton.Left)
+        press_key(window, keys.Tab)
+        press_key(window, activation_key)
+        expect_library(window, [])
+        window_element_with_label(window, "Visual", slint_testing.AccessibleRole.Button)
+        press_key(window, activation_key)
+        expect_library(window, list(PALETTE_KINDS))
         snapshot.assert_unchanged()

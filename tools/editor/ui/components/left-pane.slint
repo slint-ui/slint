@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
-    BodyLabel, ComponentPaletteRow, EdgeDivider, EditorMetrics, MutedLabel, PaletteComponentKind, SectionTitle,
-    SidebarToggleButton, StudioTheme,
+    BodyLabel, ComponentPaletteRow, EdgeDivider, EditorMetrics, MutedLabel, SectionTitle,
+    PrimerTextInput, SidebarToggleButton, StudioTheme,
 } from "common.slint";
-import { Api, EditorSurfaceMode } from "../api.slint";
+import { Api, EditorSurfaceMode, ElementLibraryGroup, ElementLibraryEntry } from "../api.slint";
+import { EditorTreeIcons } from "editor-tree-icons.slint";
 import { Project } from "../project.slint";
 import { FileTreeView } from "file-tree-view.slint";
 
@@ -116,38 +117,116 @@ component FilesUnavailableNotice inherits Rectangle {
     }
 }
 
-component ElementPaletteRows inherits VerticalLayout {
+component ElementPaletteGroup inherits VerticalLayout {
+    vertical-stretch: 0;
+    in property <ElementLibraryGroup> group;
+    in property <string> query;
     in property <bool> enabled: true;
     in property <bool> drag-enabled: true;
     callback drag-started();
 
-    spacing: 8px;
+    private property <bool> collapsed: false;
+    private property <bool> expanded: root.query != "" || !root.collapsed;
+    private property <[ElementLibraryEntry]> matches: Api.element-library-filter-entries(root.group.entries, root.query);
+    function toggle() {
+        if root.query == "" { root.collapsed = !root.collapsed; }
+    }
+    spacing: 0px;
 
-    ComponentPaletteRow {
+    if root.matches.length > 0: Rectangle {
+        height: 32px;
+        border-radius: 4px;
+        border-width: group-focus.has-focus ? 2px : 0px;
+        border-color: StudioTheme.accent-strong;
+        background: transparent;
+        accessible-role: AccessibleRole.button;
+        accessible-label: root.group.label;
+        accessible-expanded: root.expanded;
+        accessible-enabled: root.query == "";
+        accessible-action-default => { root.toggle(); }
+
+        group-focus := FocusScope {
+            enabled: root.query == "";
+            key-pressed(event) => {
+                if event.text == Key.Return || event.text == Key.Space {
+                    root.toggle();
+                    return accept;
+                }
+                return reject;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 6px;
+            padding-left: 2px;
+            cross-axis-alignment: center;
+            Image {
+                visible: root.query == "";
+                width: 12px;
+                height: 12px;
+                source: root.expanded ? EditorTreeIcons.chevron-down : EditorTreeIcons.chevron-right;
+                colorize: StudioTheme.muted;
+            }
+            MutedLabel { text: root.group.label; horizontal-stretch: 1; }
+        }
+        TouchArea {
+            enabled: root.query == "";
+            mouse-cursor: self.enabled ? pointer : default;
+            clicked => { group-focus.focus(); root.toggle(); }
+        }
+    }
+
+    if root.matches.length > 0 && root.expanded: VerticalLayout {
+        spacing: 0px;
+        for row in ceil(root.matches.length / 2): HorizontalLayout {
+            spacing: 4px;
+            for column in 2: Rectangle {
+                horizontal-stretch: 1;
+                height: 36px;
+                if row * 2 + column < root.matches.length: ComponentPaletteRow {
+                    width: parent.width;
+                    enabled: root.enabled;
+                    drag-enabled: root.drag-enabled;
+                    kind: root.matches[row * 2 + column].kind;
+                    label: root.matches[row * 2 + column].label;
+                    drag-started => { root.drag-started(); }
+                }
+            }
+        }
+    }
+}
+
+component ElementPaletteRows inherits VerticalLayout {
+    vertical-stretch: 1;
+    in property <bool> enabled: true;
+    in property <bool> drag-enabled: true;
+    callback drag-started();
+    private property <string> query: Api.element-library-normalize-query(search.text);
+    spacing: 0px;
+
+    search := PrimerTextInput {
+        placeholder: "Search elements…";
+        accessible-name: "Search elements";
+        background: StudioTheme.panel-subtle;
+    }
+
+    for group in Api.element-library: ElementPaletteGroup {
+        group: group;
+        query: root.query;
         enabled: root.enabled;
         drag-enabled: root.drag-enabled;
-        kind: PaletteComponentKind.rectangle;
-        label: "Rectangle";
-        detail: "Shape layer";
         drag-started => { root.drag-started(); }
     }
 
-    ComponentPaletteRow {
-        enabled: root.enabled;
-        drag-enabled: root.drag-enabled;
-        kind: PaletteComponentKind.text;
-        label: "Text";
-        detail: "Text layer";
-        drag-started => { root.drag-started(); }
-    }
-
-    ComponentPaletteRow {
-        enabled: root.enabled;
-        drag-enabled: root.drag-enabled;
-        kind: PaletteComponentKind.image;
-        label: "Image";
-        detail: "Image layer";
-        drag-started => { root.drag-started(); }
+    Rectangle {
+        vertical-stretch: 1;
+        if Api.element-library.length > 0 && !Api.element-library-has-matches(Api.element-library, root.query): MutedLabel {
+            width: parent.width;
+            height: parent.height;
+            text: "No Results";
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
     }
 }
 
@@ -207,6 +286,7 @@ export component LeftPane inherits Rectangle {
         }
 
         VerticalLayout {
+            height: root.image-mode ? 540px : 360px;
             spacing: 8px;
 
             SectionTitle { label: "ELEMENTS"; }

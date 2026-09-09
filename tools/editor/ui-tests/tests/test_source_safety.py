@@ -9,17 +9,14 @@ import slint_testing
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    file_row,
     first_window,
     launch_editor,
+    press_key,
     select_outline_row,
     wait_until,
     window_element_with_label,
 )
-
-
-def press_key(window: slint_testing.Window, key: str) -> None:
-    window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
-    window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
 
 
 def stage_field_text(
@@ -102,20 +99,17 @@ def test_imported_file_edit_targets_only_nested_source(
 
     with launch_editor(editor_binary, editor_environment, main_file) as editor:
         window = first_window(editor)
-        main_row = window_element_with_label(
-            window, str(main_file), slint_testing.AccessibleRole.ListItem
-        )
         wait_until(
-            lambda: current if (current := main_row).accessible_item_selected else None,
+            lambda: (
+                current
+                if (current := file_row(window, main_file)).accessible_item_selected
+                else None
+            ),
             timeout=15,
         )
         components = fixture_project / "components"
-        window_element_with_label(
-            window, str(components), slint_testing.AccessibleRole.ListItem
-        ).invoke_accessible_default_action()
-        window_element_with_label(
-            window, str(nested_file), slint_testing.AccessibleRole.ListItem
-        ).invoke_accessible_default_action()
+        file_row(window, components).invoke_accessible_default_action()
+        file_row(window, nested_file).invoke_accessible_default_action()
         window_element_with_label(
             window, "nested-text", slint_testing.AccessibleRole.ListItem, timeout=15
         ).invoke_accessible_default_action()

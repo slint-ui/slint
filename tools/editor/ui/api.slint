@@ -15,6 +15,18 @@ export enum PaletteComponentKind {
     image,
 }
 
+/// A palette item whose kind selects its icon and drag payload.
+export struct ElementLibraryEntry {
+    label: string,
+    kind: PaletteComponentKind,
+}
+
+/// A named palette group with entries sorted by label.
+export struct ElementLibraryGroup {
+    label: string,
+    entries: [ElementLibraryEntry],
+}
+
 // cSpell: ignore dataonly
 /// Basic information on a known component
 export struct ComponentItem {
@@ -419,6 +431,12 @@ export global Api {
     // ## Log Output
     in-out property <[LogMessage]> log-output;
     in-out property <bool> auto-clear-console: true;
+
+    // ## Element library
+    in property <[ElementLibraryGroup]> element-library;
+    pure callback element-library-has-matches(groups: [ElementLibraryGroup], query: string) -> bool;
+    pure callback element-library-normalize-query(query: string) -> string;
+    pure callback element-library-filter-entries(entries: [ElementLibraryEntry], query: string) -> [ElementLibraryEntry];
 
     // ## Drawing Area
     // Borders around things

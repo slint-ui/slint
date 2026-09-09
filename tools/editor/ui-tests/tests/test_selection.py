@@ -11,6 +11,7 @@ from ui_driver import (
     elements_with_label,
     first_window,
     launch_editor,
+    press_key,
     select_fixture_element,
     wait_until,
     window_element_with_label,
@@ -22,11 +23,6 @@ FOLLOWING_ELEMENT = {
     "Text": b"root-image",
     "Image": b"NestedCard",
 }
-
-
-def press_key(window: slint_testing.Window, key: str) -> None:
-    window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
-    window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
 
 
 def deletion_golden(element_type: str) -> bytes:
