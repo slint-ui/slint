@@ -924,6 +924,7 @@ fn disallow_non_member_content(
     };
     node.SubElement().for_each(|n| error_on(&n, "sub elements"));
     node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
+    node.ConditionalElement().for_each(|n| error_on(&n, "sub elements"));
     if let Some(n) = node.ChildrenPlaceholder() {
         error_on(&n, "sub elements");
     }

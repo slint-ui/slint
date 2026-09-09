@@ -12,6 +12,8 @@ export interface InvalidContent {
 //  >           <error{An interface cannot have sub elements}
     for x in 2: Text { }
 //  >                  <error{An interface cannot have sub elements}
+    if true: Text { }
+//  >               <error{An interface cannot have sub elements}
 
     animate i { duration: 100ms; }
 //  >                            <error{An interface cannot have animations}
