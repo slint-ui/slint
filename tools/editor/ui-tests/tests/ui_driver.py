@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TypeVar
 
 import slint_testing
+from ui_reporting import capture_failure, current_report, replay_stage
 
 PALETTE_KINDS = ("Image", "Rectangle", "Text", "TouchArea")
 
@@ -126,14 +127,23 @@ def launch_editor(
     with slint_testing.Application(
         arguments, env=environment, launch_timeout=20
     ) as application:
-        yield application
+        try:
+            yield application
+            report = current_report.get()
+            if report is not None and report.completed_stages == 0:
+                with replay_stage("completed"):
+                    pass
+        except Exception as error:
+            capture_failure(application, error)
+            raise
 
 
 def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:
     from canvas_interactions import center
 
     tree = window_element_with_label(window, "Files", slint_testing.AccessibleRole.Tree)
-    for delta in [0, 10000, -250, -250, -250, -250, -250, -250]:
+    scroll_step = max(1, min(250, tree.size.height / 2))
+    for delta in [0, 10000] + [-scroll_step] * 32:
         if delta:
             window.dispatch_event(
                 slint_testing.PointerScrolledEvent(
@@ -148,3 +158,14 @@ def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:
     return window_element_with_label(
         window, str(path), slint_testing.AccessibleRole.ListItem
     )
+
+
+def press_shortcut(window: slint_testing.Window, *keys: str) -> None:
+    pressed = []
+    try:
+        for key in keys:
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
+            pressed.append(key)
+    finally:
+        for key in reversed(pressed):
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))

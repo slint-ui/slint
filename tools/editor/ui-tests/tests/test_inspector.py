@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from inspector_interactions import FIELDS, edit_field, inspector_field, wait_for_field
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     first_window,
@@ -31,40 +32,6 @@ def select_element(window: slint_testing.Window, kind: str) -> None:
     select_outline_row(window, ELEMENT_ROWS[kind])
     window_element_with_label(
         window, f"Selected {kind}", slint_testing.AccessibleRole.Region
-    )
-
-
-def inspector_field(
-    window: slint_testing.Window,
-    label: str,
-    role: slint_testing.AccessibleRole | None = None,
-) -> slint_testing.Element:
-    return window_element_with_label(window, label, role)
-
-
-def edit_field(
-    window: slint_testing.Window,
-    label: str,
-    value: str,
-    role: slint_testing.AccessibleRole | None = None,
-) -> None:
-    inspector_field(window, label, role).accessible_value = value
-
-
-def wait_for_field(
-    window: slint_testing.Window,
-    label: str,
-    value: str,
-    role: slint_testing.AccessibleRole | None = None,
-    timeout: float = 5,
-) -> None:
-    wait_until(
-        lambda: (
-            field
-            if (field := inspector_field(window, label, role)).accessible_value == value
-            else None
-        ),
-        timeout=timeout,
     )
 
 
@@ -107,27 +74,14 @@ def assert_rendered_element(window: slint_testing.Window, element_id: str) -> No
     )
 
 
-def scroll_to_shadow_details(window: slint_testing.Window) -> None:
-    anchor = inspector_field(
-        window, "Shadow distance", slint_testing.AccessibleRole.Slider
-    )
-    position = slint_testing.LogicalPosition(
-        x=anchor.absolute_position.x + anchor.size.width / 2,
-        y=anchor.absolute_position.y + anchor.size.height / 2,
-    )
-    window.dispatch_event(
-        slint_testing.PointerScrolledEvent(position=position, delta_x=0, delta_y=-320)
-    )
-
-
 @pytest.mark.parametrize(
     ("label", "value", "old", "new"),
     [
-        ("Position X", "44", b"        x: 32px;", b"        x: 44px;"),
-        ("Position Y", "48", b"        y: 32px;", b"        y: 48px;"),
-        ("Width", "176", b"        width: 160px;", b"        width: 176px;"),
+        (FIELDS["x"], "44", b"        x: 32px;", b"        x: 44px;"),
+        (FIELDS["y"], "48", b"        y: 32px;", b"        y: 48px;"),
+        (FIELDS["width"], "176", b"        width: 160px;", b"        width: 176px;"),
         (
-            "Height",
+            FIELDS["height"],
             "112",
             b"        width: 160px;\n        height: 96px;",
             b"        width: 160px;\n        height: 112px;",
@@ -726,7 +680,6 @@ def test_each_shadow_family_control_writes_exact_source(
         window = first_window(editor)
         select_element(window, "Rectangle")
         if control in {"blur", "spread"}:
-            scroll_to_shadow_details(window)
             inspector_field(
                 window,
                 f"{label} value",
@@ -772,7 +725,6 @@ def test_shadow_control_boundary_writes_exact_source(
         window = first_window(editor)
         select_element(window, "Rectangle")
         if control in {"blur", "spread"}:
-            scroll_to_shadow_details(window)
             inspector_field(
                 window,
                 f"{label} value",
@@ -798,15 +750,15 @@ def test_rectangle_effect_value_writes_exact_source(
 
 
 INVALID_EDITS = (
-    ("invalid-number", "Rectangle", "Position X", "invalid"),
-    ("empty-number", "Rectangle", "Position X", ""),
+    ("invalid-number", "Rectangle", FIELDS["x"], "invalid"),
+    ("empty-number", "Rectangle", FIELDS["x"], ""),
     ("empty-family", "Text", "Font family", ""),
     ("empty-fit", "Image", "Image fit", ""),
-    ("nonnumeric-y", "Rectangle", "Position Y", "invalid"),
-    ("zero-width", "Rectangle", "Width", "0"),
-    ("negative-width", "Rectangle", "Width", "-1"),
-    ("zero-height", "Rectangle", "Height", "0"),
-    ("negative-height", "Rectangle", "Height", "-1"),
+    ("nonnumeric-y", "Rectangle", FIELDS["y"], "invalid"),
+    ("zero-width", "Rectangle", FIELDS["width"], "0"),
+    ("negative-width", "Rectangle", FIELDS["width"], "-1"),
+    ("zero-height", "Rectangle", FIELDS["height"], "0"),
+    ("negative-height", "Rectangle", FIELDS["height"], "-1"),
 )
 
 

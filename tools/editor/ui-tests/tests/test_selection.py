@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from inspector_interactions import FIELDS
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
@@ -48,13 +49,13 @@ def test_outline_selection_synchronizes_canvas_and_inspector(
         select_fixture_element(window, "Rectangle")
         assert (
             window_element_with_label(
-                window, "Position X", slint_testing.AccessibleRole.TextInput
+                window, FIELDS["x"], slint_testing.AccessibleRole.TextInput
             ).accessible_value
             == "40"
         )
         assert (
             window_element_with_label(
-                window, "Width", slint_testing.AccessibleRole.TextInput
+                window, FIELDS["width"], slint_testing.AccessibleRole.TextInput
             ).accessible_value
             == "180"
         )
@@ -98,7 +99,7 @@ def test_canvas_selection_synchronizes_outline_and_inspector(
         )
         assert (
             window_element_with_label(
-                window, "Position X", slint_testing.AccessibleRole.TextInput
+                window, FIELDS["x"], slint_testing.AccessibleRole.TextInput
             ).accessible_value
             == "180"
         )
@@ -194,7 +195,7 @@ def test_focused_inspector_field_consumes_delete_key(
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
         field = window_element_with_label(
-            window, "Position X", slint_testing.AccessibleRole.TextInput
+            window, FIELDS["x"], slint_testing.AccessibleRole.TextInput
         )
         target = slint_testing.LogicalPosition(
             x=field.absolute_position.x + field.size.width / 2,
