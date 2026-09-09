@@ -214,3 +214,44 @@ def test_rectangle_undo_redo(
                 shortcut(window, redo=name == "redo")
                 snapshot.wait_for_exact(content, SOURCE)
                 assert_visual(window, values, origin, case.endswith("radius"))
+
+
+@pytest.mark.parametrize("wait_for_reload", [False, True])
+def test_redo_after_external_edit_preserves_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    wait_for_reload: bool,
+) -> None:
+    source = fixture_project / SOURCE
+    baseline = source.read_bytes()
+    edited = baseline.replace(b"x: 80px;", b"x: 104px;", 1)
+    external = baseline.replace(b"x: 80px;", b"x: 900px;", 1)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        select_fixture_element(window, "Rectangle")
+        cx, cy, *_ = wait_until(lambda: oriented_selection_frame(window, "Rectangle"))
+        origin = (
+            cx - INITIAL["x"] - INITIAL["width"] / 2,
+            cy - INITIAL["y"] - INITIAL["height"] / 2,
+        )
+        edit_field(window, FIELDS["x"], "104", slint_testing.AccessibleRole.TextInput)
+        snapshot.wait_for_exact(edited, SOURCE)
+        assert_visual(window, INITIAL | {"x": 104}, origin, False)
+        select_fixture_element(window, "Rectangle")
+        shortcut(window, redo=False)
+        snapshot.wait_for_exact(baseline, SOURCE)
+        wait_for_field(
+            window, FIELDS["x"], "80", slint_testing.AccessibleRole.TextInput
+        )
+        select_fixture_element(window, "Rectangle")
+        source.write_bytes(external)
+        snapshot_after_external = SourceSnapshot.capture(fixture_project)
+        if wait_for_reload:
+            wait_for_field(
+                window, FIELDS["x"], "900", slint_testing.AccessibleRole.TextInput
+            )
+        shortcut(window, redo=True)
+        snapshot.wait_for_exact(external, SOURCE)
+        snapshot_after_external.assert_unchanged()

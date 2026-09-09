@@ -20,15 +20,30 @@ struct EditItem {
 pub fn compute_file_hashes(
     edits: &[i_slint_editor_preview::editing::text_edit::EditedText],
 ) -> FileHashes {
-    edits
-        .iter()
-        .map(|e| {
-            let mut hasher = std::hash::DefaultHasher::new();
-            e.contents.hash(&mut hasher);
-            let hash = hasher.finish();
-            (e.url.clone(), hash)
-        })
-        .collect()
+    edits.iter().map(|e| (e.url.clone(), content_hash(&e.contents))).collect()
+}
+
+fn content_hash(content: &str) -> u64 {
+    let mut hasher = std::hash::DefaultHasher::new();
+    content.hash(&mut hasher);
+    hasher.finish()
+}
+
+fn prepare_history_edit(
+    document_cache: &i_slint_editor_preview::DocumentCache,
+    item: &EditItem,
+) -> Option<(lsp_types::WorkspaceEdit, FileHashes)> {
+    for (url, expected) in &item.file_hashes {
+        let document = document_cache.get_document(url)?;
+        let cached = document.node.as_ref()?.source_file.source()?;
+        let disk = std::fs::read_to_string(url.to_file_path().ok()?).ok()?;
+        if content_hash(cached) != *expected || content_hash(&disk) != *expected {
+            return None;
+        }
+    }
+    let result = text_edit::apply_workspace_edit(document_cache, &item.edit).ok()?;
+    let reverse = text_edit::reversed_edit(document_cache, &item.edit)?;
+    Some((reverse, compute_file_hashes(&result)))
 }
 
 #[derive(Default)]
@@ -43,14 +58,6 @@ impl UndoRedoStack {
         self.undo_stack.clear();
         self.redo_stack.clear();
     }
-
-    /*/// Redo the last edit
-    pub fn redo(&mut self) -> Option<lsp_types::WorkspaceEdit> {
-        let item = self.redo_stack.pop()?;
-        let edit = item.edit.clone();
-        self.undo_stack.push(item);
-        Some(edit)
-    }*/
 
     pub fn push(
         &mut self,
@@ -69,17 +76,14 @@ impl UndoRedoStack {
         }
     }
 
-    /// When we get contents from the editor, we check that it matches the expected state of the top of the undo stack,
-    /// otherwise, we reset the stack.
     pub fn check_set_contents_valid(&mut self, url: &lsp_types::Url, content: &str) -> bool {
-        let Some(top) = self.undo_stack.last() else {
-            return true;
-        };
-        let ok = top.file_hashes.get(url).is_none_or(|hash| {
-            let mut hasher = std::hash::DefaultHasher::new();
-            content.hash(&mut hasher);
-            *hash == hasher.finish()
-        });
+        let expected = self
+            .undo_stack
+            .iter()
+            .rev()
+            .chain(self.redo_stack.iter().rev())
+            .find_map(|item| item.file_hashes.get(url));
+        let ok = expected.is_none_or(|hash| *hash == content_hash(content));
         if !ok {
             self.clear();
         }
@@ -97,13 +101,16 @@ pub fn setup(api: &ui::Api<'_>) {
             let Some(edit) = state.undo_redo_stack.undo_stack.pop() else {
                 return;
             };
-            if let Some(reverse) = text_edit::reversed_edit(&document_cache, &edit.edit) {
-                state.undo_redo_stack.redo_stack.push(EditItem {
-                    title: edit.title.clone(),
-                    edit: reverse,
-                    file_hashes: edit.file_hashes.clone(),
-                });
-            }
+            let Some((reverse, file_hashes)) = prepare_history_edit(&document_cache, &edit) else {
+                state.undo_redo_stack.clear();
+                set_undo_redo_enabled(state);
+                return;
+            };
+            state.undo_redo_stack.redo_stack.push(EditItem {
+                title: edit.title.clone(),
+                edit: reverse,
+                file_hashes,
+            });
             state
                 .to_lsp
                 .borrow()
@@ -127,13 +134,16 @@ pub fn setup(api: &ui::Api<'_>) {
             let Some(edit) = state.undo_redo_stack.redo_stack.pop() else {
                 return;
             };
-            if let Some(reverse) = text_edit::reversed_edit(&document_cache, &edit.edit) {
-                state.undo_redo_stack.undo_stack.push(EditItem {
-                    title: edit.title.clone(),
-                    edit: reverse,
-                    file_hashes: edit.file_hashes.clone(),
-                });
-            }
+            let Some((reverse, file_hashes)) = prepare_history_edit(&document_cache, &edit) else {
+                state.undo_redo_stack.clear();
+                set_undo_redo_enabled(state);
+                return;
+            };
+            state.undo_redo_stack.undo_stack.push(EditItem {
+                title: edit.title.clone(),
+                edit: reverse,
+                file_hashes,
+            });
             state
                 .to_lsp
                 .borrow()
@@ -154,5 +164,53 @@ pub fn set_undo_redo_enabled(state: &super::PreviewState) {
     if let Some(api) = state.api.upgrade() {
         api.set_undo_enabled(!state.undo_redo_stack.undo_stack.is_empty());
         api.set_redo_enabled(!state.undo_redo_stack.redo_stack.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn item(url: &lsp_types::Url, content: &str) -> EditItem {
+        EditItem {
+            title: "Edit".into(),
+            edit: Default::default(),
+            file_hashes: HashMap::from([(url.clone(), content_hash(content))]),
+        }
+    }
+
+    #[test]
+    fn external_change_invalidates_redo_without_undo() {
+        let url = lsp_types::Url::parse("file:///rectangle.slint").unwrap();
+        let mut stack = UndoRedoStack::default();
+        stack.redo_stack.push(item(&url, "x: 80px;"));
+        assert!(stack.check_set_contents_valid(&url, "x: 80px;"));
+        assert!(!stack.check_set_contents_valid(&url, "x: 900px;"));
+        assert!(stack.undo_stack.is_empty());
+        assert!(stack.redo_stack.is_empty());
+    }
+
+    #[test]
+    fn validates_each_file_in_history() {
+        let first = lsp_types::Url::parse("file:///first.slint").unwrap();
+        let second = lsp_types::Url::parse("file:///second.slint").unwrap();
+        let mut stack = UndoRedoStack::default();
+        stack.undo_stack.push(item(&first, "first edit"));
+        stack.undo_stack.push(item(&second, "second edit"));
+        assert!(stack.check_set_contents_valid(&first, "first edit"));
+        assert!(!stack.check_set_contents_valid(&first, "external edit"));
+        assert!(stack.undo_stack.is_empty());
+    }
+
+    #[test]
+    fn validates_nearest_redo_state_and_ignores_unrelated_files() {
+        let url = lsp_types::Url::parse("file:///rectangle.slint").unwrap();
+        let unrelated = lsp_types::Url::parse("file:///unrelated.slint").unwrap();
+        let mut stack = UndoRedoStack::default();
+        stack.redo_stack.push(item(&url, "x: 104px;"));
+        stack.redo_stack.push(item(&url, "x: 80px;"));
+        assert!(stack.check_set_contents_valid(&url, "x: 80px;"));
+        assert!(stack.check_set_contents_valid(&unrelated, "external edit"));
+        assert_eq!(stack.redo_stack.len(), 2);
     }
 }
