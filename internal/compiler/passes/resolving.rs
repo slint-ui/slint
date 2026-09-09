@@ -148,7 +148,11 @@ fn resolve_match_elements(
         );
         let case_type = match_element.subject.ty();
         if matches!(case_type, Type::Float32) && !match_element.cases.is_empty() {
-            diag.push_error("Values of type float cannot be matched".into(), &match_element.node);
+            let subject_text = match_element.node.Expression().text().to_string();
+            diag.push_error(
+                format!("Cannot match on '{}', which is of type {case_type}", subject_text.trim()),
+                &match_element.node.child_token(SyntaxKind::Identifier).unwrap(),
+            );
         }
         for case in &mut match_element.cases {
             resolve_expression(
@@ -258,7 +262,7 @@ impl std::hash::Hash for CaseValue {
         match self {
             // Normalize -0.0 to 0.0 so the hash agrees with `==`, which treats them as equal.
             CaseValue::Number(number, unit) => {
-                debug_assert_ne!(*number, f64::NAN);
+                debug_assert!(!number.is_nan());
                 (if *number == 0.0 { 0.0 } else { *number }).to_bits().hash(state);
                 unit.hash(state);
             }
@@ -275,8 +279,10 @@ fn check_duplicate_cases(
     values: &[Option<CaseValue>],
     diag: &mut BuildDiagnostics,
 ) {
-    // `CaseValue` has interior mutability
-    #[allow(clippy::mutable_key_type)]
+    #[allow(
+        clippy::mutable_key_type,
+        reason = "CaseValue's Enumeration variant has interior mutability, but Eq/Hash only use its Arc pointer and index, never the Enumeration's contents"
+    )]
     let mut seen = HashSet::with_capacity(values.len());
     for (case, value) in cases.iter().zip(values) {
         let Some(value) = value else {
@@ -308,8 +314,10 @@ fn check_exhaustiveness(
     if !matches!(match_element.wildcard, WildcardMatchCaseInfo::None) {
         return;
     }
-    // `CaseValue` has interior mutability
-    #[allow(clippy::mutable_key_type)]
+    #[allow(
+        clippy::mutable_key_type,
+        reason = "CaseValue's Enumeration variant has interior mutability, but Eq/Hash only use its Arc pointer and index, never the Enumeration's contents"
+    )]
     let mut covered: HashSet<&CaseValue> = HashSet::with_capacity(values.len());
     for value in values {
         let Some(value) = value else {
