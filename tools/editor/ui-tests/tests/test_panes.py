@@ -11,17 +11,29 @@ from ui_driver import first_window, launch_editor, wait_until, window_element_wi
 
 
 def wait_for_pane_settings(directory: Path, expected: dict[str, int | None]) -> None:
+    settings_path: Path | None = None
+    last_settings: dict | None = None
+
     def saved_heights() -> bool | None:
+        nonlocal settings_path, last_settings
         paths = list(directory.rglob("visual-editor-user-settings.json"))
         assert len(paths) <= 1, paths
         if not paths:
             return None
-        settings = json.loads(paths[0].read_text())
-        if all(settings.get(key) == value for key, value in expected.items()):
+        settings_path = paths[0]
+        last_settings = json.loads(settings_path.read_text())
+        if all(last_settings.get(key) == value for key, value in expected.items()):
             return True
         return None
 
-    wait_until(saved_heights)
+    try:
+        wait_until(saved_heights)
+    except AssertionError as error:
+        raise AssertionError(
+            f"Pane settings did not match {expected!r}; "
+            f"file: {settings_path or directory / '**/visual-editor-user-settings.json'}; "
+            f"last observed settings: {last_settings!r}"
+        ) from error
 
 
 def drag_vertically(
