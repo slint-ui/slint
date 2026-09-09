@@ -136,7 +136,7 @@ def test_component_palette_preserves_compact_row_layout(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         section = window_element_with_label(
-            window, "Elements", slint_testing.AccessibleRole.Text
+            window, "ELEMENTS", slint_testing.AccessibleRole.Text
         )
         search = window_element_with_label(window, "Search elements")
         group = window_element_with_label(

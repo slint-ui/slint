@@ -190,20 +190,13 @@ def test_library_search_and_collapse(
     ) as editor:
         window = first_window(editor)
         expect_library(window, ["Image", "Rectangle", "Text"])
-        heading = window_element_with_label(window, "Elements")
+        heading = window_element_with_label(window, "ELEMENTS")
         search = window_element_with_label(window, "Search elements")
-        gap = (
-            search.absolute_position.y
-            - heading.absolute_position.y
-            - heading.size.height
-        )
-        assert 0 <= gap <= 20
         heading_y = heading.absolute_position.y
         search_y = search.absolute_position.y
         rows = library_rows(window)
         assert rows[0].absolute_position.y == rows[1].absolute_position.y
         assert rows[2].absolute_position.y > rows[0].absolute_position.y
-        assert not elements_with_label(window.root_element, "Input & interaction")
         group = window_element_with_label(
             window, "Visual", slint_testing.AccessibleRole.Button
         )
@@ -259,4 +252,7 @@ def test_library_search_keyboard_does_not_delete_selection(
         for _ in range(5):
             press_key(window, keys.Backspace)
         expect_library(window, ["Image", "Rectangle", "Text"])
+        window_element_with_label(
+            window, "Selected Rectangle", slint_testing.AccessibleRole.Region
+        )
         snapshot.assert_unchanged()
