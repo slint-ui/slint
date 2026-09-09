@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Api } from "../../api.slint";
-import { StudioTheme } from "../common.slint";
+import { StudioTheme, EditorMetrics } from "../common.slint";
 import { InspectorTokens } from "tokens.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
@@ -18,6 +18,9 @@ export component InspectorSolidColorPicker inherits Rectangle {
     callback preview(string, color) -> bool;
     callback detached(string) -> bool;
     callback closed();
+    callback restore-focus();
+    in property <Point> anchor-position;
+    in property <length> anchor-width;
 
     private property <color> working-color: root.value;
     private property <float> hue: 0;
@@ -149,10 +152,11 @@ export component InspectorSolidColorPicker inherits Rectangle {
         picker-popup.show();
     }
 
-    function close-picker() {
+    function close-picker(return-focus: bool) {
         root.cancel-gesture();
         root.closed();
         picker-popup.close();
+        if return-focus { root.restore-focus(); }
     }
 
     changed value => {
@@ -164,7 +168,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
 
     changed session-key => {
         if root.open {
-            root.close-picker();
+            root.close-picker(false);
         }
     }
 
@@ -185,8 +189,11 @@ export component InspectorSolidColorPicker inherits Rectangle {
     }
 
     picker-popup := PopupWindow {
-        x: -308px;
-        y: root.height + 8px;
+        x: (root.anchor-position.x >= self.width + 16px
+            ? root.anchor-position.x - self.width - 8px
+            : root.anchor-position.x + root.anchor-width + 8px)
+            .clamp(8px, max(8px, EditorMetrics.window-width - self.width - 8px)) - root.absolute-position.x;
+        y: root.anchor-position.y.clamp(8px, max(8px, EditorMetrics.window-height - self.height - 8px)) - root.absolute-position.y;
         width: 300px;
         height: picker-layout.preferred-height;
         close-policy: close-on-click-outside;
@@ -207,7 +214,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         if root.dragging {
                             root.cancel-gesture();
                         } else {
-                            root.close-picker();
+                            root.close-picker(true);
                         }
                         return accept;
                     }
@@ -237,8 +244,8 @@ export component InspectorSolidColorPicker inherits Rectangle {
                                 height: parent.height;
                                 accessible-role: AccessibleRole.button;
                                 accessible-label: "Close color picker";
-                                clicked => { root.close-picker(); }
-                                accessible-action-default => { root.close-picker(); }
+                                clicked => { root.close-picker(true); }
+                                accessible-action-default => { root.close-picker(true); }
                                 Text {
                                     text: "Close";
                                     width: parent.width;

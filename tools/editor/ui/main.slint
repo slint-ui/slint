@@ -27,6 +27,13 @@ export component EditorUi inherits Window {
     background: StudioTheme.app-bg;
     default-font-family: "Inter";
 
+    init => {
+        EditorMetrics.window-width = root.width;
+        EditorMetrics.window-height = root.height;
+    }
+    changed width => { EditorMetrics.window-width = root.width; }
+    changed height => { EditorMetrics.window-height = root.height; }
+
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
     in property <length> elements-pane-height: 0px;
