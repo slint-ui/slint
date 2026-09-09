@@ -46,7 +46,7 @@ export component InspectorPane inherits Rectangle {
         : root.default-outline-height;
     private property <length> dragged-outline-height: 0px;
     property <length> outline-height: min(
-        root.dragged-outline-height > 0px ? root.dragged-outline-height : root.requested-outline-height,
+        max(120px, root.dragged-outline-height > 0px ? root.dragged-outline-height : root.requested-outline-height),
         max(120px, root.height - root.split-height - 120px),
     );
     property <length> inspector-height: root.height - root.split-height - root.outline-height;

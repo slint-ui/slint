@@ -35,6 +35,7 @@ def test_pane_sizes_persist_across_relaunch(
     tmp_path: Path,
 ) -> None:
     editor_environment["HOME"] = str(tmp_path / "home")
+    editor_environment["XDG_CONFIG_HOME"] = str(tmp_path / "config")
     source_file = fixture_project / "Main.slint"
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
@@ -79,6 +80,7 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
     tmp_path: Path,
 ) -> None:
     editor_environment["HOME"] = str(tmp_path / "home")
+    editor_environment["XDG_CONFIG_HOME"] = str(tmp_path / "config")
     with launch_editor(editor_binary, editor_environment, fixture_project / "Main.slint") as editor:
         window = first_window(editor)
         elements = window_element_with_label(window, "Elements pane resize")
@@ -119,11 +121,18 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
         assert float(outline.accessible_value.split()[0]) == default_outline
 
         search = window_element_with_label(window, "Search elements")
+        elements.accessible_value = "120"
+        assert float(elements.accessible_value.split()[0]) == 120
         search.accessible_value = "missing"
         no_results = window_element_with_label(window, "No Results")
-        assert no_results.size.height >= 82
+        assert no_results.size.height >= 24
         assert no_results.absolute_position.y >= search.absolute_position.y + search.size.height
         assert no_results.absolute_position.y + no_results.size.height <= window.size.height
+        pane = window_element_with_label(window, "Project and elements")
+        assert no_results.absolute_position.x + no_results.size.width <= (
+            pane.absolute_position.x + pane.size.width - 14
+        )
+        double_click(window, elements)
 
     with launch_editor(editor_binary, editor_environment, fixture_project / "Main.slint") as editor:
         window = first_window(editor)

@@ -151,9 +151,7 @@ export component HorizontalResizeDivider inherits FocusScope {
                 self.press-absolute-y = self.absolute-position.y + self.mouse-y;
                 root.drag-started();
             } else {
-                if self.mouse-y != 0px {
-                    root.drag-finished(self.absolute-position.y + self.mouse-y - self.press-absolute-y);
-                }
+                root.drag-finished(self.absolute-position.y + self.mouse-y - self.press-absolute-y);
                 root.clear-focus();
             }
         }

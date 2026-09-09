@@ -207,9 +207,11 @@ component ElementPaletteRows inherits VerticalLayout {
     spacing: 0px;
 
     ScrollView {
+        min-height: 0px;
         vertical-stretch: 1;
         content-width: self.width;
         content-height: max(palette.preferred-height, self.height);
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
         palette := VerticalLayout {
             width: parent.width;
@@ -222,7 +224,7 @@ component ElementPaletteRows inherits VerticalLayout {
             }
 
             Rectangle {
-                height: 82px;
+                min-height: 24px;
                 vertical-stretch: 1;
                 if Api.element-library.length > 0 && !Api.element-library-has-matches(Api.element-library, root.query): MutedLabel {
                     width: parent.width;
@@ -254,7 +256,7 @@ export component LeftPane inherits Rectangle {
     private property <length> drag-start-height;
 
     function clamp-elements-height(height: length) -> length {
-        return min(height, max(120px, root.height - 250px));
+        return height.clamp(120px, max(120px, root.height - 250px));
     }
 
     init => {
@@ -376,7 +378,6 @@ export component LeftPane inherits Rectangle {
 
             ElementPaletteRows {
                 vertical-stretch: 1;
-                width: parent.width;
                 query: root.element-query;
                 enabled: !root.image-mode;
                 drag-enabled: Api.known-components.length > 0;
