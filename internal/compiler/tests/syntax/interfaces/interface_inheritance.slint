@@ -125,5 +125,13 @@ export interface DeclaredLater { }
 export interface InstantiatesInterface {
     Base { }
 //  >      <error{An interface cannot have sub elements}
-//  >   <^error{Cannot create an instance of an interface; write 'implement Base <=> self;' to implement it}
+}
+
+// The instantiation hint stays suppressed at any depth inside the interface.
+export interface NestedInstantiation {
+    Rectangle {
+//  >error{An interface cannot have sub elements}
+        Base { }
+    }
+//  <error{An interface cannot have sub elements}
 }
