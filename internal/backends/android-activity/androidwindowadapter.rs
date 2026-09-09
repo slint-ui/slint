@@ -6,7 +6,8 @@
 use super::*;
 use crate::javahelper::{JavaHelper, print_jni_error};
 use android_activity::input::{
-    ButtonState, InputEvent, KeyAction, Keycode, MotionAction, MotionEvent,
+    ButtonState, InputEvent, KeyAction, KeyCharacterMap, KeyMapChar, Keycode, MotionAction,
+    MotionEvent,
 };
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::SharedString;
@@ -23,6 +24,7 @@ use i_slint_core::timers::{Timer, TimerMode};
 use i_slint_core::window::{InputMethodRequest, WindowInner};
 use i_slint_renderer_skia::{SkiaRenderer, SkiaSharedContext};
 use std::cell::Cell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -49,6 +51,13 @@ pub struct AndroidWindowAdapter {
 
     long_press: RefCell<Option<LongPressDetection>>,
     last_pressed_state: Cell<ButtonState>,
+
+    /// Cache of `KeyCharacterMap` per input device_id so we can translate physical
+    /// key codes + meta state into layout-correct Unicode characters.
+    key_character_maps: RefCell<HashMap<i32, KeyCharacterMap>>,
+    /// Pending dead-key accent from `KeyMapChar::CombiningAccent`, composed with
+    /// the next Unicode key.
+    pending_dead_key: Cell<Option<char>>,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -194,6 +203,8 @@ impl AndroidWindowAdapter {
             show_cursor_handles: Cell::new(false),
             long_press: RefCell::default(),
             last_pressed_state: Cell::new(ButtonState(0)),
+            key_character_maps: RefCell::new(HashMap::new()),
+            pending_dead_key: Cell::new(None),
         })
     }
 
@@ -282,7 +293,7 @@ impl AndroidWindowAdapter {
         loop {
             let mut result = Ok(());
             let read_input = iter.next(|event| match event {
-                InputEvent::KeyEvent(key_event) => match map_key_event(key_event) {
+                InputEvent::KeyEvent(key_event) => match self.map_key_event(key_event) {
                     Some(ev) => match self.window.dispatch_event_with_result(ev) {
                         Ok(WindowEventDispatchResult::Accepted) => InputStatus::Handled,
                         Ok(_) => InputStatus::Unhandled,
@@ -689,17 +700,90 @@ fn button_for_event(
     return PointerEventButton::Other;
 }
 
-fn map_key_event(key_event: &android_activity::input::KeyEvent) -> Option<WindowEvent> {
-    let text = map_key_code(key_event.key_code())?;
-    let repeat = key_event.repeat_count() > 0;
-    match key_event.action() {
-        KeyAction::Down if repeat => Some(WindowEvent::KeyPressRepeated { text }),
-        KeyAction::Down => Some(WindowEvent::KeyPressed { text }),
-        KeyAction::Up => Some(WindowEvent::KeyReleased { text }),
-        KeyAction::Multiple if repeat => Some(WindowEvent::KeyPressRepeated { text }),
-        KeyAction::Multiple => Some(WindowEvent::KeyPressed { text }),
-        _ => None,
+impl AndroidWindowAdapter {
+    fn map_key_event(&self, key_event: &android_activity::input::KeyEvent) -> Option<WindowEvent> {
+        let text = match self.layout_aware_text(key_event) {
+            LayoutKey::Text(t) => t,
+            // Dead-key press/release: the accent is stashed until the next key.
+            // Swallow the event so nothing gets typed in the meantime.
+            LayoutKey::Consumed => return None,
+            LayoutKey::Fallback => map_key_code(key_event.key_code())?,
+        };
+        let repeat = key_event.repeat_count() > 0;
+        match key_event.action() {
+            KeyAction::Down if repeat => Some(WindowEvent::KeyPressRepeated { text }),
+            KeyAction::Down => Some(WindowEvent::KeyPressed { text }),
+            KeyAction::Up => Some(WindowEvent::KeyReleased { text }),
+            KeyAction::Multiple if repeat => Some(WindowEvent::KeyPressRepeated { text }),
+            KeyAction::Multiple => Some(WindowEvent::KeyPressed { text }),
+            _ => None,
+        }
     }
+
+    /// Translate the key event into the Unicode character actually produced by the
+    /// device's keyboard layout, honoring the active meta state (Shift, AltGr, …)
+    /// and composing pending dead-key accents. Returns [`LayoutKey::Fallback`] for
+    /// keys that don't produce Unicode (arrows, function keys, modifiers, …), so
+    /// the caller can fall back to [`map_key_code`] for the special-key mapping.
+    fn layout_aware_text(&self, key_event: &android_activity::input::KeyEvent) -> LayoutKey {
+        let device_id = key_event.device_id();
+        // Virtual devices (soft keyboard, injected events) have device_id == 0
+        // and no character map — let the caller handle them via `map_key_code`.
+        if device_id == 0 {
+            return LayoutKey::Fallback;
+        }
+        let mut maps = self.key_character_maps.borrow_mut();
+        if !maps.contains_key(&device_id) {
+            match self.app.device_key_character_map(device_id) {
+                Ok(m) => {
+                    maps.insert(device_id, m);
+                }
+                Err(_) => return LayoutKey::Fallback,
+            }
+        }
+        let map = maps.get(&device_id).unwrap();
+        let is_down = matches!(key_event.action(), KeyAction::Down | KeyAction::Multiple);
+        match map.get(key_event.key_code(), key_event.meta_state()) {
+            Ok(KeyMapChar::Unicode(c)) => {
+                let composed = if let Some(accent) = self.pending_dead_key.get() {
+                    if is_down {
+                        self.pending_dead_key.set(None);
+                    }
+                    map.get_dead_char(accent, c).ok().flatten().unwrap_or(c)
+                } else {
+                    c
+                };
+                // Non-printable control chars (aside from Tab/CR/LF) are better
+                // handled through `map_key_code`, which turns e.g. Backspace into
+                // Key::Backspace rather than U+0008.
+                if composed.is_control() && !matches!(composed, '\t' | '\n' | '\r') {
+                    LayoutKey::Fallback
+                } else {
+                    LayoutKey::Text(SharedString::from(composed.to_string()))
+                }
+            }
+            Ok(KeyMapChar::CombiningAccent(a)) => {
+                if is_down {
+                    self.pending_dead_key.set(Some(a));
+                }
+                LayoutKey::Consumed
+            }
+            Ok(KeyMapChar::None) => LayoutKey::Fallback,
+            Err(_) => LayoutKey::Fallback,
+        }
+    }
+}
+
+/// Outcome of [`AndroidWindowAdapter::layout_aware_text`].
+enum LayoutKey {
+    /// The layout produced a Unicode character (possibly the result of composing
+    /// a pending dead-key accent with this key).
+    Text(SharedString),
+    /// The event was a dead-key press/release; the accent is being held for the
+    /// next key. No event should be dispatched.
+    Consumed,
+    /// The layout has no Unicode for this key; use [`map_key_code`] instead.
+    Fallback,
 }
 
 fn map_key_code(code: android_activity::input::Keycode) -> Option<SharedString> {
