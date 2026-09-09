@@ -621,6 +621,7 @@ SRCS
 SRGBA
 standardbutton
 standardlistview
+standardtableview
 startswith
 staticlib
 staticmethod
