@@ -173,8 +173,6 @@ export component EditorUi inherits Window {
 
                         if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
                             outline-pane-height: root.outline-pane-height;
-                            phone-background: StudioTheme.phone-bg;
-                            phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
                             element-information: Api.current-element;
                             inspector-scroll-y <=> root.inspector-scroll-y;
                             element-selected => { editor.focus(); }
