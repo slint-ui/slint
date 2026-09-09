@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Api, EditorSurfaceMode, ElementInformation, PropertyValueKind, SelectionRectangle } from "../api.slint";
-import { EdgeDivider, EditorMetrics, StudioTheme } from "common.slint";
+import { EdgeDivider, EditorMetrics, HorizontalResizeDivider, StudioTheme } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
 import { InspectorComboOption, InspectorTokens } from "inspector/tokens.slint";
 import { InspectorInfoIcon } from "inspector/info-icon.slint";
@@ -30,14 +30,31 @@ export component InspectorPane inherits Rectangle {
 
     callback element-selected();
     callback outline-drag-started();
+    callback outline-pane-resized(length);
+    callback outline-pane-reset();
 
     width: EditorMetrics.inspector-pane-width;
     background: InspectorTokens.panel-bg;
     accessible-role: AccessibleRole.complementary;
     accessible-label: "Inspector and outline";
     property <length> content-x: 1px;
-    property <length> split-height: 1px;
-    property <length> inspector-height: (root.height - root.split-height) / 2;
+    in property <length> outline-pane-height: 0px;
+    property <length> split-height: 6px;
+    property <length> default-outline-height: (root.height - root.split-height) / 2;
+    property <length> requested-outline-height: root.outline-pane-height > 0px
+        ? root.outline-pane-height
+        : root.default-outline-height;
+    private property <length> dragged-outline-height: 0px;
+    property <length> outline-height: min(
+        root.dragged-outline-height > 0px ? root.dragged-outline-height : root.requested-outline-height,
+        max(120px, root.height - root.split-height - 120px),
+    );
+    property <length> inspector-height: root.height - root.split-height - root.outline-height;
+    private property <length> drag-start-height;
+
+    changed outline-pane-height => {
+        root.dragged-outline-height = 0px;
+    }
     in-out property <length> inspector-scroll-y: 0px;
 
     property <[SelectionRectangle]> selection-rects: Api.selection.highlight-index >= 0
@@ -86,6 +103,10 @@ export component InspectorPane inherits Rectangle {
 
     function has-backend-rect() -> bool {
         return Api.selection.highlight-index >= 0 && root.selection-rects.length > Api.selection.highlight-index;
+    }
+
+    function clamp-outline-height(height: length) -> length {
+        return min(height, max(120px, root.height - root.split-height - 120px));
     }
 
     function is-rectangle-selection() -> bool {
@@ -670,7 +691,8 @@ export component InspectorPane inherits Rectangle {
                 }
 
                 if !root.image-mode && (root.is-root-selection() || root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
-                    title: "Appearance";
+                    title: "APPEARANCE";
+                    use-shared-title: true;
 
                     InspectorPropertyRow {
                         label: root.is-text-selection() ? "Color" : "Fill";
@@ -972,19 +994,44 @@ export component InspectorPane inherits Rectangle {
         }
     }
 
-    Rectangle {
+    HorizontalResizeDivider {
+        resize-label: "Outline pane resize";
+        value: root.outline-height;
+        value-maximum: max(120px, root.height - root.split-height - 120px);
         x: root.content-x;
         y: root.inspector-height;
         width: root.width - root.content-x;
         height: root.split-height;
-        background: InspectorTokens.divider;
+        drag-started => {
+            root.drag-start-height = root.outline-height;
+        }
+        dragged(delta) => {
+            root.dragged-outline-height = root.clamp-outline-height(
+                max(120px, root.drag-start-height - delta),
+            );
+        }
+        drag-finished(delta) => {
+            if delta != 0px {
+                root.outline-pane-resized(root.clamp-outline-height(
+                    max(120px, root.drag-start-height - delta),
+                ));
+            }
+        }
+        value-set(height) => {
+            let clamped-height = root.clamp-outline-height(max(120px, height));
+            root.dragged-outline-height = clamped-height;
+            root.outline-pane-resized(clamped-height);
+        }
+        reset-requested => {
+            root.outline-pane-reset();
+        }
     }
 
     OutlinePane {
         x: root.content-x;
         y: root.inspector-height + root.split-height;
         width: root.width - root.content-x;
-        height: root.height - self.y;
+        height: root.outline-height;
         element-selected => { root.element-selected(); }
         drag-started => { root.outline-drag-started(); }
     }
