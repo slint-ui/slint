@@ -9,11 +9,14 @@ import { InspectorTextFieldBase } from "text-field-base.slint";
 export component InspectorSolidColorPicker inherits Rectangle {
     in property <color> value;
     in property <string> expression: "";
+    in property <string> session-key: "";
+    in property <string> target-key: "";
     in property <bool> bound: false;
     in property <bool> unsupported: false;
     in property <bool> open: false;
-    callback accepted(color) -> bool;
-    callback detached() -> bool;
+    callback accepted(string, color) -> bool;
+    callback preview(string, color) -> bool;
+    callback detached(string) -> bool;
     callback closed();
 
     private property <color> working-color: root.value;
@@ -22,11 +25,14 @@ export component InspectorSolidColorPicker inherits Rectangle {
     private property <float> brightness: 0;
     private property <int> alpha: 255;
     private property <bool> dragging: false;
-    private property <bool> editing: false;
+    private property <bool> has-preview: false;
+    private property <string> gesture-key;
     private property <bool> is-detached: false;
     private property <color> original-color: root.value;
+    private property <bool> editable: root.open && !Api.inspector-color-refresh-pending && !root.unsupported && (!root.bound || root.is-detached);
+    private property <bool> popup-open: picker-popup.is-open;
 
-    function color-at(x: length, y: length) -> color {
+    function color-at() -> color {
         return hsv(root.hue, root.saturation, root.brightness, root.alpha / 255);
     }
 
@@ -43,50 +49,138 @@ export component InspectorSolidColorPicker inherits Rectangle {
 
     init => { root.update-color(root.value); }
 
-    function commit-color(c: color) -> bool {
-        if (root.bound && !root.is-detached) || root.unsupported {
+    function cancel-gesture() {
+        if root.dragging {
+            root.dragging = false;
+            if root.has-preview {
+                Api.inspector-cancel();
+                root.has-preview = false;
+            }
+            root.update-color(root.original-color);
+        }
+    }
+
+    function preview-color(c: color) -> bool {
+        if !root.editable {
             return false;
         }
-        if root.accepted(c) {
-            root.working-color = c;
+        root.update-color(c);
+        if root.preview(root.gesture-key, c) {
+            root.has-preview = true;
+            return true;
+        }
+        root.cancel-gesture();
+        return false;
+    }
+
+    function commit-color(key: string, c: color) -> bool {
+        if !root.editable {
+            return false;
+        }
+        if c == root.original-color {
+            return true;
+        }
+        if root.accepted(key, c) {
+            root.update-color(c);
+            root.original-color = c;
             Api.add-recent-color(c);
             return true;
         }
+        Api.inspector-cancel();
         root.update-color(root.original-color);
         return false;
     }
 
     function commit-text(text: string) -> bool {
-        if !Api.string-is-color(text) {
+        if !Api.string-is-color(text) || !root.editable {
             return false;
         }
-        let c = Api.string-to-color(text);
-        if (root.bound && !root.is-detached) || root.unsupported {
-            return false;
+        return root.commit-color(root.target-key, Api.string-to-color(text));
+    }
+
+    function begin-gesture() {
+        if root.editable {
+            root.gesture-key = root.target-key;
+            root.dragging = true;
+            root.has-preview = false;
+            root.original-color = root.working-color;
         }
-        return root.commit-color(c);
+    }
+
+    function finish-gesture() {
+        if !root.dragging {
+            return;
+        }
+        let c = root.working-color;
+        root.dragging = false;
+        if c == root.original-color {
+            if root.has-preview {
+                Api.inspector-cancel();
+                root.has-preview = false;
+            }
+            return;
+        }
+        root.commit-color(root.gesture-key, c);
+        root.has-preview = false;
+    }
+
+    function update-saturation-brightness(x: length, y: length, width: length, height: length) {
+        root.saturation = (x / max(1px, width)).clamp(0, 1);
+        root.brightness = (1 - y / max(1px, height)).clamp(0, 1);
+        root.preview-color(root.color-at());
+    }
+
+    function update-hue(x: length, width: length) {
+        root.hue = 360 * (x / max(1px, width)).clamp(0, 1);
+        root.preview-color(root.color-at());
+    }
+
+    function update-alpha(x: length, width: length) {
+        root.alpha = (255 * (x / max(1px, width)).clamp(0, 1)).round();
+        root.preview-color(root.color-at());
     }
 
     public function show-picker() {
         root.update-color(root.value);
         root.original-color = root.value;
+        root.dragging = false;
+        root.has-preview = false;
         root.is-detached = false;
         picker-popup.show();
     }
 
     function close-picker() {
-        if root.dragging {
-            root.dragging = false;
-            root.update-color(root.original-color);
-        }
+        root.cancel-gesture();
         root.closed();
+        picker-popup.close();
+    }
+
+    changed value => {
+        if !root.dragging && !Api.inspector-color-refresh-pending {
+            root.update-color(root.value);
+            root.original-color = root.value;
+        }
+    }
+
+    changed session-key => {
+        if root.open {
+            root.close-picker();
+        }
     }
 
     changed open => {
         if root.open {
             root.show-picker();
         } else {
+            root.cancel-gesture();
             picker-popup.close();
+        }
+    }
+
+    changed popup-open => {
+        if !root.popup-open && root.open {
+            root.cancel-gesture();
+            root.closed();
         }
     }
 
@@ -110,8 +204,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
                 key-pressed(event) => {
                     if event.text == Key.Escape {
                         if root.dragging {
-                            root.dragging = false;
-                            root.update-color(root.original-color);
+                            root.cancel-gesture();
                         } else {
                             root.close-picker();
                         }
@@ -171,7 +264,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
                             Text { text: "Detach"; width: parent.width; horizontal-alignment: center; vertical-alignment: center; color: InspectorTokens.text; font-size: 11px; }
                             TouchArea {
                                 clicked => {
-                                    if root.detached() { root.is-detached = true; }
+                                    if !Api.inspector-color-refresh-pending && root.detached(root.target-key) { root.is-detached = true; }
                                 }
                             }
                         }
@@ -195,23 +288,17 @@ export component InspectorSolidColorPicker inherits Rectangle {
                             border-color: InspectorTokens.divider;
                         }
                         TouchArea {
-                            moved => {
-                                if self.pressed {
-                                    root.dragging = true;
-                                    root.saturation = (self.mouse-x / self.width).clamp(0, 1);
-                                    root.brightness = (1 - self.mouse-y / self.height).clamp(0, 1);
-                                    root.working-color = root.color-at(self.mouse-x, self.mouse-y);
-                                }
-                            }
-                            changed pressed => {
-                                if self.pressed {
-                                    root.dragging = true;
-                                    root.saturation = (self.mouse-x / self.width).clamp(0, 1);
-                                    root.brightness = (1 - self.mouse-y / self.height).clamp(0, 1);
-                                    root.working-color = root.color-at(self.mouse-x, self.mouse-y);
-                                } else if root.dragging {
-                                    root.commit-color(root.working-color);
-                                    root.dragging = false;
+                            enabled: root.editable;
+                            pointer-event(event) => {
+                                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                                    root.begin-gesture();
+                                    root.update-saturation-brightness(self.mouse-x, self.mouse-y, self.width, self.height);
+                                } else if event.kind == PointerEventKind.move && root.dragging {
+                                    root.update-saturation-brightness(self.mouse-x, self.mouse-y, self.width, self.height);
+                                } else if event.kind == PointerEventKind.up && root.dragging {
+                                    root.finish-gesture();
+                                } else if event.kind == PointerEventKind.cancel {
+                                    root.cancel-gesture();
                                 }
                             }
                         }
@@ -235,20 +322,17 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         clip: true;
                         background: @linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
                         TouchArea {
-                            changed pressed => {
-                                if self.pressed {
-                                    root.dragging = true;
-                                    root.hue = 360 * (self.mouse-x / self.width).clamp(0, 1);
-                                    root.working-color = root.color-at(self.mouse-x, 0px);
-                                } else if root.dragging {
-                                    root.commit-color(root.working-color);
-                                    root.dragging = false;
-                                }
-                            }
-                            moved => {
-                                if self.pressed {
-                                    root.hue = 360 * (self.mouse-x / self.width).clamp(0, 1);
-                                    root.working-color = root.color-at(self.mouse-x, 0px);
+                            enabled: root.editable;
+                            pointer-event(event) => {
+                                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                                    root.begin-gesture();
+                                    root.update-hue(self.mouse-x, self.width);
+                                } else if event.kind == PointerEventKind.move && root.dragging {
+                                    root.update-hue(self.mouse-x, self.width);
+                                } else if event.kind == PointerEventKind.up && root.dragging {
+                                    root.finish-gesture();
+                                } else if event.kind == PointerEventKind.cancel {
+                                    root.cancel-gesture();
                                 }
                             }
                         }
@@ -289,20 +373,17 @@ export component InspectorSolidColorPicker inherits Rectangle {
                             }
                         }
                         TouchArea {
-                            changed pressed => {
-                                if self.pressed {
-                                    root.dragging = true;
-                                    root.alpha = (255 * (self.mouse-x / self.width).clamp(0, 1)).round();
-                                    root.working-color = root.color-at(self.mouse-x, 0px);
-                                } else if root.dragging {
-                                    root.commit-color(root.working-color);
-                                    root.dragging = false;
-                                }
-                            }
-                            moved => {
-                                if self.pressed {
-                                    root.alpha = (255 * (self.mouse-x / self.width).clamp(0, 1)).round();
-                                    root.working-color = root.color-at(self.mouse-x, 0px);
+                            enabled: root.editable;
+                            pointer-event(event) => {
+                                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                                    root.begin-gesture();
+                                    root.update-alpha(self.mouse-x, self.width);
+                                } else if event.kind == PointerEventKind.move && root.dragging {
+                                    root.update-alpha(self.mouse-x, self.width);
+                                } else if event.kind == PointerEventKind.up && root.dragging {
+                                    root.finish-gesture();
+                                } else if event.kind == PointerEventKind.cancel {
+                                    root.cancel-gesture();
                                 }
                             }
                         }
@@ -312,20 +393,21 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         height: 26px;
                         spacing: 8px;
                         InspectorTextFieldBase {
+                            enabled: root.editable;
                             value: Api.color-to-data(root.working-color).text;
-                            commit-key: Api.color-to-data(root.working-color).text;
+                            commit-key: root.session-key;
                             horizontal-stretch: 1;
                             accepted(text) => { return root.commit-text(text); }
                         }
                         InspectorTextFieldBase {
+                            enabled: root.editable;
                             width: 70px;
                             value: (root.alpha * 100 / 255).to-fixed(0);
-                            commit-key: (root.alpha * 100 / 255).to-fixed(0);
+                            commit-key: root.session-key;
                             accepted(text) => {
-                                if !text.is-float() { return false; }
+                                if !text.is-float() || !root.editable { return false; }
                                 root.alpha = (text.to-float().clamp(0, 100) * 255 / 100).round();
-                                root.update-color(root.color-at(0px, 0px));
-                                return root.commit-color(root.working-color);
+                                return root.commit-color(root.target-key, root.color-at());
                             }
                         }
                     }
@@ -341,7 +423,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
                             border-width: 1px;
                             border-color: InspectorTokens.divider;
                             background: recent;
-                            TouchArea { clicked => { root.update-color(recent); root.commit-color(recent); } }
+                            TouchArea { clicked => { root.commit-color(root.target-key, recent); } }
                         }
                     }
                 }

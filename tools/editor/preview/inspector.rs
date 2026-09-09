@@ -15,6 +15,71 @@ pub(super) struct Edit {
     overrides: Vec<(SmolStr, Option<slint_interpreter::Value>)>,
 }
 
+pub(super) struct ColorRefresh {
+    expected: text_edit::EditedText,
+    received: bool,
+}
+
+pub(super) fn color_contents_changed(url: &Url, content: &str) -> bool {
+    PREVIEW_STATE.with_borrow_mut(|state| {
+        let Some(refresh) = state.color_refresh.as_mut() else { return false };
+        if refresh.expected.url != *url || refresh.expected.contents != content {
+            return false;
+        }
+        refresh.received = true;
+        true
+    })
+}
+
+pub(super) fn dismiss_color() {
+    PREVIEW_STATE.with_borrow_mut(|state| {
+        state.color_refresh = None;
+        if let Some(api) = state.api.upgrade() {
+            api.set_inspector_color_refresh_pending(false);
+        }
+    });
+}
+
+pub(super) fn invalidate_color() {
+    dismiss_color();
+    PREVIEW_STATE.with_borrow(|state| {
+        if let Some(api) = state.api.upgrade() {
+            api.set_inspector_color_generation(
+                api.get_inspector_color_generation().wrapping_add(1),
+            );
+        }
+    });
+}
+
+pub(super) fn preserve_color_popup() -> bool {
+    PREVIEW_STATE
+        .with_borrow(|state| state.color_refresh.as_ref().is_some_and(|refresh| refresh.received))
+}
+
+pub(super) fn finish_refresh() {
+    let (pending, applied) = PREVIEW_STATE.with_borrow(|state| {
+        let Some(refresh) = state.color_refresh.as_ref() else { return (false, false) };
+        let applied = refresh.received
+            && document_cache_from(state)
+                .and_then(|cache| {
+                    cache
+                        .get_document(&refresh.expected.url)
+                        .and_then(|document| document.node.as_ref())
+                        .map(|node| node.text() == refresh.expected.contents.as_str())
+                })
+                .unwrap_or(false);
+        (true, applied)
+    });
+    if pending {
+        refresh();
+        if applied {
+            dismiss_color();
+        }
+    } else {
+        invalidate();
+    }
+}
+
 fn target(key: &str) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
     let selected = selected_element()?;
     let node = selected.as_element_node()?;
@@ -191,10 +256,31 @@ pub(super) fn commit_color(
             color.to_string(),
         )],
     );
-    let accepted = edit.is_some_and(|edit| send_workspace_edit("Editing color".into(), edit, true));
+    let Some(edit) = edit else {
+        cancel();
+        return false;
+    };
+    let expected = text_edit::apply_workspace_edit(&cache, &edit)
+        .ok()
+        .and_then(|mut documents| (documents.len() == 1).then(|| documents.remove(0)));
+    let Some(expected) = expected else {
+        cancel();
+        return false;
+    };
+    let accepted = send_workspace_edit("Editing color".into(), edit, true);
     if accepted {
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.inspector_edit.take();
+            let changed = state
+                .source_code
+                .get(&expected.url)
+                .is_none_or(|source| source.code != expected.contents);
+            if changed {
+                state.color_refresh = Some(ColorRefresh { expected, received: false });
+                if let Some(api) = state.api.upgrade() {
+                    api.set_inspector_color_refresh_pending(true);
+                }
+            }
         });
     } else {
         cancel();
@@ -267,6 +353,11 @@ pub(super) fn values(key: SharedString) -> slint::ModelRc<f32> {
 }
 
 pub(super) fn invalidate() {
+    invalidate_color();
+    refresh();
+}
+
+pub(super) fn refresh() {
     cancel();
     PREVIEW_STATE.with_borrow(|state| {
         if let Some(api) = state.api.upgrade() {

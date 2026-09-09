@@ -699,6 +699,9 @@ export global Api {
     callback reload-preview();
 
     in property <int> inspector-generation;
+    in property <int> inspector-color-generation;
+    in property <bool> inspector-color-refresh-pending;
+    callback inspector-color-dismissed();
     pure callback inspector-values(key: string) -> [float];
     callback inspector-preview(key: string, name: string, value: float) -> bool;
     callback inspector-commit(key: string, name: string, value: float) -> bool;

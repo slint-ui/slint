@@ -14,6 +14,10 @@ export component InspectorColorField inherits Rectangle {
     in property <string> commit-key: "";
     in property <color> effective-color: swatch;
     in property <bool> unsupported: false;
+    in property <string> preview-key: "";
+    in property <string> session-key: "";
+    in property <string> property-name: "";
+    in property <bool> is-brush: false;
     callback accepted(string) -> bool;
     private property <bool> picker-open: false;
 
@@ -72,13 +76,20 @@ export component InspectorColorField inherits Rectangle {
         bound: root.value != "" && !Api.string-is-color(root.value);
         unsupported: root.unsupported;
         open: root.picker-open;
-        accepted(color) => {
-            let accepted = root.accepted(Api.color-to-data(color).text);
-            return accepted;
+        session-key: root.session-key;
+        target-key: root.preview-key;
+        preview(key, color) => {
+            return Api.inspector-color-preview(key, root.property-name, color, root.is-brush);
         }
-        detached => {
-            return root.accepted(Api.color-to-data(root.effective-color).text);
+        accepted(key, color) => {
+            return Api.inspector-color-commit(key, root.property-name, color, root.is-brush);
         }
-        closed => { root.picker-open = false; }
+        detached(key) => {
+            return Api.inspector-color-commit(key, root.property-name, root.effective-color, root.is-brush);
+        }
+        closed => {
+            root.picker-open = false;
+            Api.inspector-color-dismissed();
+        }
     }
 }

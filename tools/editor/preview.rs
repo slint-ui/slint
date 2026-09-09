@@ -246,6 +246,7 @@ pub struct PreviewState {
     undo_redo_stack: undo_redo::UndoRedoStack,
     pending_history: std::collections::VecDeque<bool>,
     inspector_edit: Option<inspector::Edit>,
+    color_refresh: Option<inspector::ColorRefresh>,
 
     source_code: SourceCodeCache,
     resources: HashSet<Url>,
@@ -508,6 +509,7 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &VersionedUrl, content: String) {
+    let own_color_edit = inspector::color_contents_changed(url.url(), &content);
     let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
             undo_redo::set_undo_redo_enabled(preview_state);
@@ -531,10 +533,18 @@ fn set_contents(url: &VersionedUrl, content: String) {
         (reload, invalidate)
     });
     if invalidate {
-        inspector::invalidate();
+        if own_color_edit {
+            inspector::refresh();
+        } else {
+            inspector::invalidate();
+        }
     }
     if let Some(current) = reload {
-        load_preview(current, LoadBehavior::Reload);
+        if own_color_edit {
+            schedule_preview(current, LoadBehavior::Reload);
+        } else {
+            load_preview(current, LoadBehavior::Reload);
+        }
     }
 }
 
@@ -2056,6 +2066,11 @@ async fn reload_timer_function() {
 }
 
 pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
+    inspector::invalidate_color();
+    schedule_preview(preview_component, behavior);
+}
+
+fn schedule_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
     tracing::debug!(
         "Preview: load url={}, component={:?}, behavior={:?}",
         preview_component.url,
@@ -2271,8 +2286,9 @@ fn set_preview_factory(
     callback: Box<dyn Fn(ComponentInstance)>,
     behavior: LoadBehavior,
 ) {
-    // Ensure that any popups are closed as they are related to the old factory
-    i_slint_core::window::WindowInner::from_pub(editor_ui.window()).close_all_popups();
+    if !inspector::preserve_color_popup() {
+        i_slint_core::window::WindowInner::from_pub(editor_ui.window()).close_all_popups();
+    }
 
     let _ = i_slint_core::window::WindowInner::from_pub(editor_ui.window())
         .context()
@@ -2679,6 +2695,7 @@ fn update_preview_area(
     source_file_versions: Rc<RefCell<i_slint_editor_preview::document_cache::SourceFileVersionMap>>,
     format: i_slint_editor_preview::ByteFormat,
 ) -> Result<(), PlatformError> {
+    let compiled_successfully = compiled.is_some();
     let editor_ui = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
 
@@ -2747,7 +2764,11 @@ fn update_preview_area(
         Ok(())
     })?;
 
-    inspector::invalidate();
+    if compiled_successfully {
+        inspector::finish_refresh();
+    } else {
+        inspector::invalidate();
+    }
     element_selection::reselect_element();
     undo_redo::apply_pending();
     Ok(())
