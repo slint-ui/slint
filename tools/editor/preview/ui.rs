@@ -199,6 +199,8 @@ pub fn initialize_editor(
     api.on_inspector_preview(super::inspector::preview);
     api.on_inspector_commit(super::inspector::commit);
     api.on_inspector_cancel(super::inspector::cancel);
+    api.on_inspector_color_preview(super::inspector::preview_color);
+    api.on_inspector_color_commit(super::inspector::commit_color);
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
@@ -619,12 +621,14 @@ fn map_value_and_type(
         color: slint::Color,
         kind: PropertyValueKind,
         code: SharedString,
+        value_resolved: bool,
     ) {
         let color_string = brushes::color_to_string(color);
         mapping.headers.push(mapping.name_prefix.clone());
         mapping.current_values.push(PropertyValue {
             value_kind: kind,
             kind,
+            value_resolved,
             display_string: color_string.clone(),
             brush_kind: BrushKind::Solid,
             value_brush: slint::Brush::SolidColor(color),
@@ -804,20 +808,26 @@ fn map_value_and_type(
                 get_value::<slint::Color>(value),
                 PropertyValueKind::Color,
                 get_code(value),
+                value.is_some(),
             );
         }
         Type::Brush => {
             let brush = get_value::<slint::Brush>(value);
             match brush {
-                slint::Brush::SolidColor(c) => {
-                    map_color(mapping, c, PropertyValueKind::Brush, get_code(value))
-                }
+                slint::Brush::SolidColor(c) => map_color(
+                    mapping,
+                    c,
+                    PropertyValueKind::Brush,
+                    get_code(value),
+                    value.is_some(),
+                ),
                 slint::Brush::LinearGradient(lg) => {
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(PropertyValue {
                         display_string: SharedString::from("Linear Gradient"),
                         kind: PropertyValueKind::Brush,
                         value_kind: PropertyValueKind::Brush,
+                        value_resolved: value.is_some(),
                         brush_kind: BrushKind::Linear,
                         value_float: lg.angle(),
                         value_brush: slint::Brush::LinearGradient(lg.clone()),
@@ -838,6 +848,7 @@ fn map_value_and_type(
                         display_string: SharedString::from("Radial Gradient"),
                         kind: PropertyValueKind::Brush,
                         value_kind: PropertyValueKind::Brush,
+                        value_resolved: value.is_some(),
                         brush_kind: BrushKind::Radial,
                         value_brush: slint::Brush::RadialGradient(rg.clone()),
                         gradient_stops: Rc::new(VecModel::from(
@@ -857,6 +868,7 @@ fn map_value_and_type(
                         display_string: SharedString::from("Conic Gradient"),
                         kind: PropertyValueKind::Brush,
                         value_kind: PropertyValueKind::Brush,
+                        value_resolved: value.is_some(),
                         brush_kind: BrushKind::Conic,
                         value_brush: slint::Brush::ConicGradient(cg.clone()),
                         gradient_stops: Rc::new(VecModel::from(
@@ -876,6 +888,7 @@ fn map_value_and_type(
                         display_string: SharedString::from("Unknown Brush"),
                         kind: PropertyValueKind::Code,
                         value_kind: PropertyValueKind::Code,
+                        value_resolved: false,
                         value_string: SharedString::from("???"),
                         accessor_path: mapping.name_prefix.clone(),
                         code: get_code(value),

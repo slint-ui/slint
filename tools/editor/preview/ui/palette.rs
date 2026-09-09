@@ -184,7 +184,9 @@ pub fn evaluate_property(
             crate::preview::eval::fully_eval_expression_tree_expression(element, window_adapter)
         });
 
-    ui::map_value_and_type_to_property_value(ty, &value, "")
+    let mut property = ui::map_value_and_type_to_property_value(ty, &value, "");
+    property.value_resolved = value.is_some();
+    property
 }
 
 fn handle_type(

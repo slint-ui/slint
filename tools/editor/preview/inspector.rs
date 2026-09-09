@@ -32,6 +32,12 @@ fn target(key: &str) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
     (key == expected).then_some((node, url, version))
 }
 
+fn color_target(key: &str, property_name: &str) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
+    let suffix = format!(":{property_name}");
+    let base_key = key.strip_suffix(&suffix)?;
+    target(base_key)
+}
+
 fn names(name: &str) -> Option<Vec<&str>> {
     match name {
         "all-corners" => Some(CORNERS.to_vec()),
@@ -102,6 +108,98 @@ pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool
         instance.window().request_redraw();
     }
     true
+}
+
+pub(super) fn preview_color(
+    key: SharedString,
+    name: SharedString,
+    value: slint::Color,
+    is_brush: bool,
+) -> bool {
+    let Some((node, _, _)) = color_target(&key, &name) else {
+        cancel();
+        return false;
+    };
+    let hash = node.with_element_debug(|debug| debug.element_hash);
+    let id = i_slint_compiler::passes::property_id(hash, &SmolStr::from(name.as_str()));
+    if PREVIEW_STATE.with_borrow(|state| {
+        state.inspector_edit.as_ref().is_some_and(|edit| edit.key != key.as_str())
+    }) {
+        cancel();
+    }
+    // The interpreter represents both `color` and `brush` values as a Brush. The
+    // `From<Color>` conversion is the canonical representation for Color, while
+    // the explicit Brush form is used for a Brush-typed property.
+    let value = if is_brush {
+        slint_interpreter::Value::Brush(slint::Brush::SolidColor(value))
+    } else {
+        slint_interpreter::Value::from(value)
+    };
+    PREVIEW_STATE.with_borrow_mut(|state| {
+        let mut overrides = (*state.debug_hook_overrides).borrow_mut();
+        let edit = state
+            .inspector_edit
+            .get_or_insert_with(|| Edit { key: key.to_string(), overrides: Vec::new() });
+        let property = overrides
+            .entry(id.clone())
+            .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)));
+        if !edit.overrides.iter().any(|(saved, _)| saved == &id) {
+            edit.overrides.push((id, property.as_ref().get()));
+        }
+        property.as_ref().set(Some(value));
+    });
+    if let Some(instance) = component_instance() {
+        instance.window().request_redraw();
+    }
+    true
+}
+
+pub(super) fn commit_color(
+    key: SharedString,
+    name: SharedString,
+    value: slint::Color,
+    _is_brush: bool,
+) -> bool {
+    let Some((node, url, version)) = color_target(&key, &name) else {
+        cancel();
+        return false;
+    };
+    let color = if value.alpha() == 255 {
+        slint::format!("#{:02x}{:02x}{:02x}", value.red(), value.green(), value.blue())
+    } else {
+        slint::format!(
+            "#{:02x}{:02x}{:02x}{:02x}",
+            value.red(),
+            value.green(),
+            value.blue(),
+            value.alpha()
+        )
+    };
+    let Some(cache) = document_cache() else {
+        cancel();
+        return false;
+    };
+    let (_, offset) = node.path_and_offset();
+    let edit = properties::update_element_properties(
+        &cache,
+        i_slint_editor_preview::editing::VersionedPosition::new(
+            VersionedUrl::new(url, version),
+            offset,
+        ),
+        vec![i_slint_editor_preview::editing::PropertyChange::new(
+            name.as_str(),
+            color.to_string(),
+        )],
+    );
+    let accepted = edit.is_some_and(|edit| send_workspace_edit("Editing color".into(), edit, true));
+    if accepted {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.inspector_edit.take();
+        });
+    } else {
+        cancel();
+    }
+    accepted
 }
 
 pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool {
