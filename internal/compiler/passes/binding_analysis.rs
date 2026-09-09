@@ -166,6 +166,17 @@ impl From<NamedReference> for PropertyPath {
     }
 }
 
+/// Depth at which the walk gives up rather than overflow the stack. A chain of
+/// that many dependent properties is legal and reaches it, so giving up is not
+/// an error: the walk returns the conservative answer, which costs the property
+/// its `is_const` and leaves loops through it to the runtime check in
+/// `Property::get`.
+///
+/// Not higher because the frames are large: 1024 of them overflow a small
+/// thread stack such as the 512 KiB pool of the rust test driver
+/// (`tests/driver/rust/build.rs`).
+const MAX_ANALYSIS_DEPTH: usize = 256;
+
 struct AnalysisContext<'a> {
     visited: HashSet<PropertyPath>,
     /// The stack of properties that depends on each other
@@ -399,6 +410,14 @@ fn analyze_binding(
             }
         }
         return depends_on_external;
+    }
+
+    if context.currently_analyzing.len() >= MAX_ANALYSIS_DEPTH {
+        // `PropertyPath::relative` can grow the element prefix of a path that
+        // denotes a property it has already reached, so `currently_analyzing`
+        // never recognizes it and the walk does not terminate (#13275).
+        // Before `visited`, so a shallower path still analyzes the property.
+        return DependsOnExternal(true);
     }
 
     let element_borrow = element.borrow();
