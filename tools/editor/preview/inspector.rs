@@ -110,7 +110,7 @@ pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool 
     let changes = names
         .iter()
         .map(|name| {
-            i_slint_editor_preview::editing::PropertyChange::new(*name, format!("{value}{unit}"))
+            i_slint_editor_preview::editing::PropertyChange::new(name, format!("{value}{unit}"))
         })
         .collect::<Vec<_>>();
     let Some(cache) = document_cache() else {
