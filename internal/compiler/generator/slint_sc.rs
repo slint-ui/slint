@@ -46,10 +46,11 @@ struct Ctx<'a> {
 /// the code itself carries nothing.
 #[derive(Default)]
 struct Coverage {
-    /// The record of each point, by the id its span names: `element <span>
-    /// <path>`, `binding|handler|call <name> <span> <path>`, or `branch
-    /// <operator> true|false <span> <path>`, the path last as it may hold
-    /// spaces. A decision's span is its operator's.
+    /// The record of each point, by the id its span names: `element <type>
+    /// <span> <path>`, `binding|handler|call <name> <span> <path>`, or
+    /// `branch <operator> true|false <span> <path>`, the path last as it may
+    /// hold spaces. An element's type and span are the type name it is
+    /// written with, a decision's span is its operator's.
     records: RefCell<Vec<String>>,
 }
 
@@ -62,7 +63,7 @@ impl Coverage {
         for component in doc.exported_roots() {
             crate::object_tree::recurse_elem(&component.root_element, &(), &mut |elem, _| {
                 let elem = elem.borrow();
-                coverage.point("element", &*elem, "");
+                coverage.point("element", &*elem, &format!(" {}", element_type(&elem)));
                 for (name, binding) in elem.real_bindings() {
                     let ty = elem.lookup_property(name, PropertyLookupMode::InternalName);
                     let kind = match ty.property_type {
@@ -131,6 +132,16 @@ impl Coverage {
             map.push_str(&format!("range 1:{start}-1:{end} {id}\n"));
         }
         (printer.code, map)
+    }
+}
+
+/// The type name an element is written with, `Lamp` for `Lamp { ... }` and
+/// for `Led as Lamp`.
+fn element_type(elem: &crate::object_tree::Element) -> String {
+    let written = elem.debug.first().and_then(|d| d.node.QualifiedName());
+    match written {
+        Some(name) => name.text().to_string().trim().to_string(),
+        None => elem.base_type.to_string(),
     }
 }
 
@@ -936,7 +947,8 @@ fn is_image_item(elem: &ElementRc) -> bool {
 /// image, so there is nothing to scale or clip to.
 fn emit_render(ctx: &Ctx) -> TokenStream {
     emit_tree(ctx.root, ctx, &mut |elem| {
-        let reached = ctx.coverage.point("element", &*elem.borrow(), "");
+        let element_type = format!(" {}", element_type(&elem.borrow()));
+        let reached = ctx.coverage.point("element", &*elem.borrow(), &element_type);
         let mut color = elem
             .borrow()
             .binding_cell_including_synthetic("background")

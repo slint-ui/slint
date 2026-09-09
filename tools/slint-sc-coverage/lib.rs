@@ -248,7 +248,7 @@ mod tests {
 
     fn report() -> Report {
         let mut report = Report::default();
-        report.add(&point("element", None, 7, 36), 3);
+        report.add(&point("element", Some("Window"), 7, 36), 3);
         report.add(&point("binding", Some("pick"), 13, 30), 4);
         report.add(&branch("?", true, 13, 37), 4);
         report.add(&branch("?", false, 13, 37), 0);
@@ -256,7 +256,10 @@ mod tests {
         report.add(&point("binding", Some("len"), 13, 50), 1);
         report.add(&point("binding", Some("len"), 13, 50), 2);
         report.add(&point("handler", Some("clicked"), 20, 5), 0);
-        report.add(&Point { file: "/src/lib/b.slint".into(), ..point("element", None, 2, 1) }, 3);
+        report.add(
+            &Point { file: "/src/lib/b.slint".into(), ..point("element", Some("Led"), 2, 1) },
+            3,
+        );
         report
     }
 
@@ -293,20 +296,20 @@ end_of_record
         assert_eq!(
             listing,
             [
-                "+ 7:36 element",
+                "+ 7:36 element Window",
                 "+ 13:30 binding pick",
                 "+ 13:37 branch ? true",
                 "- 13:37 branch ? false",
                 "+ 13:50 binding len",
                 "- 20:5 handler clicked",
-                "+ lib/b.slint:2:1 element",
+                "+ lib/b.slint:2:1 element Led",
             ]
         );
         assert!(check_listing(&listing.join("\n"), &listing).is_ok());
         let differing =
-            check_listing("+ 7:36 element\n+ 20:5 handler clicked\n", &listing).unwrap_err();
+            check_listing("+ 7:36 element Window\n+ 20:5 handler clicked\n", &listing).unwrap_err();
         assert!(differing.contains("expected, not measured: + 20:5 handler clicked"));
         assert!(differing.contains("measured, not expected: - 20:5 handler clicked"));
-        assert!(differing.contains("```coverage\n+ 7:36 element\n"));
+        assert!(differing.contains("```coverage\n+ 7:36 element Window\n"));
     }
 }

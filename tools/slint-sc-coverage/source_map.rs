@@ -170,7 +170,6 @@ fn parse_record(record: &str) -> Option<Point> {
             let (outcome, rest) = rest.split_once(' ')?;
             (None, Some((op.to_string(), outcome == "true")), rest)
         }
-        "element" => (None, None, rest),
         _ => {
             let (name, rest) = rest.split_once(' ')?;
             (Some(name.to_string()), None, rest)
@@ -369,8 +368,9 @@ mod tests {
 
     #[test]
     fn record_with_spaces_in_path() {
-        let point = parse_record("element 7:36-7:43 /my dir/a.slint").unwrap();
+        let point = parse_record("element Window 7:36-7:43 /my dir/a.slint").unwrap();
         assert_eq!((point.kind.as_str(), point.line, point.column), ("element", 7, 36));
+        assert_eq!(point.name.as_deref(), Some("Window"));
         assert_eq!(point.file, Path::new("/my dir/a.slint"));
         let point = parse_record("branch && false 7:36-7:38 /a.slint").unwrap();
         assert_eq!(point.branch, Some(("&&".into(), false)));
