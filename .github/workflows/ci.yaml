@@ -73,8 +73,8 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   components: clippy
-                  key: x-visual-editor-v1
-                  save_if: ${{ github.ref == 'refs/heads/master' }}
+                  key: x-visual-editor-v1-${{ matrix.suite }}
+                  save_if: ${{ github.ref == 'refs/heads/master' || github.head_ref == 'nigel/visual-editor-ci-overlap-experiment' }}
             - uses: actions/setup-python@v7
               with:
                   python-version: '3.11'
