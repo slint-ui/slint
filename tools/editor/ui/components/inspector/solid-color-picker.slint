@@ -49,10 +49,14 @@ export component InspectorSolidColorPicker inherits Rectangle {
         return true;
     }
 
+    public function show-picker() {
+        root.update-color(root.value);
+        picker-popup.show();
+    }
+
     changed open => {
         if root.open {
-            root.update-color(root.value);
-            picker-popup.show();
+            root.show-picker();
         } else {
             picker-popup.close();
         }
@@ -127,13 +131,14 @@ export component InspectorSolidColorPicker inherits Rectangle {
                                 }
                             }
                             changed pressed => {
-                                root.dragging = self.pressed;
                                 if self.pressed {
+                                    root.dragging = true;
                                     root.saturation = (self.mouse-x / self.width).clamp(0, 1);
                                     root.brightness = (1 - self.mouse-y / self.height).clamp(0, 1);
                                     root.working-color = root.color-at(self.mouse-x, self.mouse-y);
                                 } else if root.dragging {
                                     root.commit-color(root.working-color);
+                                    root.dragging = false;
                                 }
                             }
                         }
@@ -159,10 +164,12 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         TouchArea {
                             changed pressed => {
                                 if self.pressed {
+                                    root.dragging = true;
                                     root.hue = 360 * (self.mouse-x / self.width).clamp(0, 1);
                                     root.working-color = root.color-at(self.mouse-x, 0px);
                                 } else if root.dragging {
                                     root.commit-color(root.working-color);
+                                    root.dragging = false;
                                 }
                             }
                             moved => {
@@ -192,10 +199,12 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         TouchArea {
                             changed pressed => {
                                 if self.pressed {
+                                    root.dragging = true;
                                     root.alpha = (255 * (self.mouse-x / self.width).clamp(0, 1)).round();
                                     root.working-color = root.color-at(self.mouse-x, 0px);
                                 } else if root.dragging {
                                     root.commit-color(root.working-color);
+                                    root.dragging = false;
                                 }
                             }
                             moved => {
@@ -210,7 +219,6 @@ export component InspectorSolidColorPicker inherits Rectangle {
                     HorizontalLayout {
                         height: 26px;
                         spacing: 8px;
-                        Text { text: "#"; color: InspectorTokens.muted; vertical-alignment: center; }
                         InspectorTextFieldBase {
                             value: Api.color-to-data(root.working-color).text;
                             commit-key: Api.color-to-data(root.working-color).text;

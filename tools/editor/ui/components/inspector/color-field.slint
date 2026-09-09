@@ -57,11 +57,14 @@ export component InspectorColorField inherits Rectangle {
             width: 24px;
             height: parent.height;
             mouse-cursor: pointer;
-            clicked => { root.picker-open = true; }
+            clicked => {
+                root.picker-open = true;
+                picker.show-picker();
+            }
         }
     }
 
-    InspectorSolidColorPicker {
+    picker := InspectorSolidColorPicker {
         value: Api.string-to-color(root.value);
         open: root.picker-open;
         accepted(color) => {
