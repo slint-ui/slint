@@ -12,7 +12,7 @@ from tempfile import TemporaryDirectory
 from typing import TypeVar
 
 import slint_testing
-from editor_sync import EditorSync, current_editor_sync
+from editor_sync import PROTOCOL_VERSION, EditorSync, current_editor_sync
 from ui_reporting import capture_failure, current_report, replay_stage
 
 PALETTE_KINDS = ("Image", "Rectangle", "Text", "TouchArea")
@@ -166,7 +166,7 @@ def launch_editor(
                 {
                     "binary": str(binary),
                     "sha256": binary_hash,
-                    "protocol": 3,
+                    "protocol": PROTOCOL_VERSION,
                 }
             )
         )
@@ -193,7 +193,7 @@ def launch_editor(
                     info.update(
                         {
                             "session": sync.session,
-                            "protocol": 3,
+                            "protocol": PROTOCOL_VERSION,
                             "build": handshake.data["build"],
                         }
                     )

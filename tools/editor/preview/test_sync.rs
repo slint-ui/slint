@@ -55,6 +55,7 @@ struct Operation {
     pending: BTreeMap<u64, String>,
     accepted_edits: u64,
     writes: u64,
+    mutations: u64,
     effects: Vec<String>,
 }
 impl Operation {
@@ -99,9 +100,11 @@ struct Observer {
     operations: BTreeMap<u64, Operation>,
     capturing: Option<u64>,
     gates: BTreeMap<u64, Gate>,
+    write_faults: BTreeMap<Url, crate::source_write::WriteFault>,
     replies: BTreeMap<u64, (Value, Value)>,
     retired_request_through: u64,
     writes: u64,
+    mutations: u64,
     accepted_edits: u64,
 }
 impl Observer {
@@ -253,6 +256,21 @@ pub(crate) fn accepted_edit() {
         s.event(json!({"kind":"accepted_edit"}));
     });
 }
+pub(crate) fn take_write_fault(url: &Url) -> Option<crate::source_write::WriteFault> {
+    with_state(|s| s.write_faults.remove(url)).flatten()
+}
+
+pub(crate) fn mutated(url: &Url) {
+    let ids = operations();
+    with_state(|s| {
+        s.mutations += 1;
+        for id in &ids {
+            s.operations.get_mut(id).unwrap().mutations += 1;
+        }
+        s.event(json!({"kind":"mutation", "url":url, "operations":ids}));
+    });
+}
+
 pub(crate) fn written(url: &Url) {
     let ids = operations();
     with_state(|s| {
@@ -475,6 +493,7 @@ struct Request {
     operation: Option<u64>,
     gate: Option<u64>,
     edit: Option<u64>,
+    fault: Option<crate::source_write::WriteFault>,
     kind: Option<String>,
     url: Option<Url>,
 }
@@ -589,6 +608,17 @@ fn answer(s: &mut Observer, r: &Request) -> Result<Value, String> {
             });
             result["attempt"] = json!(found);
         }
+        "write_fault" => {
+            let url = r.url.clone().ok_or("missing fault URL")?;
+            let fault = r.fault.ok_or("missing write fault")?;
+            if s.write_faults.contains_key(&url) {
+                return Err("overlapping write fault".into());
+            }
+            s.write_faults.insert(url, fault);
+        }
+        "clear_write_fault" => {
+            s.write_faults.remove(&r.url.clone().ok_or("missing fault URL")?);
+        }
         "gate_open" => {
             let kind = r.kind.clone().ok_or("missing gate kind")?;
             if !matches!(kind.as_str(), "source" | "publication" | "acknowledgment" | "factory") {
@@ -641,7 +671,14 @@ fn respond_in(s: &mut Observer, raw: Value) -> Value {
     }
     let immutable = matches!(
         request.mode.as_str(),
-        "handshake" | "checkpoint" | "begin" | "seal" | "gate_open" | "gate_release"
+        "handshake"
+            | "checkpoint"
+            | "begin"
+            | "seal"
+            | "gate_open"
+            | "gate_release"
+            | "write_fault"
+            | "clear_write_fault"
     );
     if let Some((previous, result)) = s.replies.get(&request.id) {
         return if previous == &raw {
@@ -660,6 +697,7 @@ fn respond_in(s: &mut Observer, raw: Value) -> Value {
     result["cursor"] = s.cursor.into();
     result["writes"] = s.writes.into();
     result["accepted_edits"] = s.accepted_edits.into();
+    result["mutations"] = s.mutations.into();
     result["installed"] = json!(s.installed.and_then(|(id, _)| s.attempts.get(&id)));
     result["operations"] =
         json!(s.operations.iter().filter(|(_, op)| !op.settled()).collect::<BTreeMap<_, _>>());

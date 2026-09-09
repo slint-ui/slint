@@ -196,11 +196,11 @@ pub(super) fn commit_pending(state: &mut super::PreviewState) {
     set_undo_redo_enabled(state);
 }
 
-pub(super) fn discard_pending(state: &mut super::PreviewState, partial_write: bool) {
+pub(super) fn discard_pending(state: &mut super::PreviewState, may_have_changed: bool) {
     state.pending_workspace_edit.take();
-    if partial_write {
-        // Some files reached disk and others did not. The source and the
-        // cached document can no longer identify a reversible history state.
+    if may_have_changed {
+        // A failed write may leave partial source, so the cached document
+        // can no longer identify a reversible history state.
         state.undo_redo_stack.clear();
     }
     set_undo_redo_enabled(state);

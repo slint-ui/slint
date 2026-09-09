@@ -26,6 +26,7 @@ use slint::ComponentHandle;
 #[cfg(target_os = "linux")]
 mod flatpak;
 mod preview;
+mod source_write;
 #[cfg(target_os = "macos")]
 mod sparkle;
 mod startup;
@@ -155,20 +156,29 @@ async fn handle_local_message(
 ) {
     if let (Some(id), PreviewToLspMessage::SendWorkspaceEdit { label, edit }) = (edit_id, &message)
     {
-        #[cfg(feature = "system-testing")]
         let urls: Vec<_> = editor_preview::editing::text_edit::EditIterator::new(edit)
             .map(|(document, _)| document.uri)
             .collect();
         let outcome = handle_workspace_edit(&session.document_cache, label.as_deref(), edit);
         #[cfg(feature = "system-testing")]
+        let acknowledgment_urls = urls.clone();
+        #[cfg(feature = "system-testing")]
         let work = preview::test_sync::Work::capture("edit acknowledgment");
         if let Err(error) = slint::invoke_from_event_loop(move || {
             #[cfg(feature = "system-testing")]
-            work.run(|| preview::test_sync::acknowledge(&urls, id, outcome));
+            work.run(|| preview::test_sync::acknowledge(&acknowledgment_urls, id, outcome));
             #[cfg(not(feature = "system-testing"))]
             preview::workspace_edit_result(id, outcome);
         }) {
             tracing::error!("Failed to queue edit acknowledgment: {error}");
+        }
+        if matches!(outcome, preview::WorkspaceEditOutcome::Failed { may_have_changed: true }) {
+            for url in &urls {
+                if let Err(error) = session.reload_document(url.clone()).await {
+                    tracing::error!("Failed to reload source after a write failure: {error}");
+                }
+            }
+            session.send_files_to_preview(&urls, |_| true);
         }
     } else {
         handle_preview_message(message, session, project_root).await;
@@ -639,44 +649,7 @@ fn handle_workspace_edit(
             );
             preview::WorkspaceEditOutcome::Rejected
         }
-        Ok(edited_texts) => {
-            let files = u32::try_from(edited_texts.len()).unwrap_or(u32::MAX);
-            #[cfg(feature = "system-testing")]
-            crate::preview::test_sync::accepted_edit();
-            let mut written = 0u32;
-            for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
-                match editor_preview::uri_to_file(&url) {
-                    Some(path) => {
-                        if let Err(err) = std::fs::write(&path, &contents) {
-                            #[cfg(feature = "system-testing")]
-                            crate::preview::test_sync::effect("failed");
-                            tracing::error!(
-                                "Failed to apply workspace edit '{}' to {}: {err}",
-                                label.unwrap_or("(unnamed)"),
-                                path.display()
-                            );
-                        } else {
-                            written += 1;
-                            #[cfg(feature = "system-testing")]
-                            {
-                                crate::preview::test_sync::written(&url);
-                                crate::preview::test_sync::expect_watch(&url);
-                            }
-                        }
-                    }
-                    None => {
-                        tracing::warn!("Cannot apply workspace edit to non-file URL: {url}");
-                    }
-                }
-            }
-            if written == files {
-                preview::WorkspaceEditOutcome::Applied
-            } else {
-                #[cfg(feature = "system-testing")]
-                crate::preview::test_sync::effect("failed");
-                preview::WorkspaceEditOutcome::Failed
-            }
-        }
+        Ok(edited_texts) => persist_workspace_edit(edited_texts, label),
         Err(err) => {
             #[cfg(feature = "system-testing")]
             crate::preview::test_sync::effect("rejected");
@@ -689,9 +662,99 @@ fn handle_workspace_edit(
     }
 }
 
+fn persist_workspace_edit(
+    edited_texts: Vec<editor_preview::editing::text_edit::EditedText>,
+    label: Option<&str>,
+) -> preview::WorkspaceEditOutcome {
+    let files = u32::try_from(edited_texts.len()).unwrap_or(u32::MAX);
+    #[cfg(feature = "system-testing")]
+    crate::preview::test_sync::accepted_edit();
+    let mut written = 0u32;
+    let mut may_have_changed = false;
+    for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
+        match editor_preview::uri_to_file(&url) {
+            Some(path) => {
+                let result = source_write::write_source(
+                    &path,
+                    contents.as_bytes(),
+                    #[cfg(any(test, feature = "system-testing"))]
+                    {
+                        #[cfg(feature = "system-testing")]
+                        {
+                            crate::preview::test_sync::take_write_fault(&url)
+                        }
+                        #[cfg(not(feature = "system-testing"))]
+                        {
+                            None
+                        }
+                    },
+                );
+                let mutated = result.as_ref().err().is_none_or(|error| error.may_have_changed);
+                may_have_changed |= mutated;
+                #[cfg(feature = "system-testing")]
+                if mutated {
+                    crate::preview::test_sync::mutated(&url);
+                }
+                if let Err(failure) = result {
+                    let err = failure.error;
+                    #[cfg(feature = "system-testing")]
+                    crate::preview::test_sync::effect("failed");
+                    tracing::error!(
+                        "Failed to apply workspace edit '{}' to {}: {err}",
+                        label.unwrap_or("(unnamed)"),
+                        path.display()
+                    );
+                } else {
+                    written += 1;
+                    #[cfg(feature = "system-testing")]
+                    {
+                        crate::preview::test_sync::written(&url);
+                        crate::preview::test_sync::expect_watch(&url);
+                    }
+                }
+            }
+            None => {
+                tracing::warn!("Cannot apply workspace edit to non-file URL: {url}");
+            }
+        }
+    }
+    if written == files {
+        preview::WorkspaceEditOutcome::Applied
+    } else {
+        #[cfg(feature = "system-testing")]
+        crate::preview::test_sync::effect("failed");
+        preview::WorkspaceEditOutcome::Failed { may_have_changed }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn workspace_failure_keeps_earlier_file_mutation() {
+        let directory = tempfile::tempdir().unwrap();
+        let first = directory.path().join("First.slint");
+        let blocked = directory.path().join("Blocked.slint");
+        std::fs::write(&first, "original").unwrap();
+        std::fs::create_dir(&blocked).unwrap();
+        let edit = |path: &Path| editor_preview::editing::text_edit::EditedText {
+            url: Url::from_file_path(path).unwrap(),
+            contents: "updated".into(),
+        };
+        let outcome = persist_workspace_edit(vec![edit(&blocked)], None);
+        assert!(matches!(
+            outcome,
+            preview::WorkspaceEditOutcome::Failed { may_have_changed: false }
+        ));
+        let outcome = persist_workspace_edit(vec![edit(&first), edit(&blocked)], None);
+        assert!(matches!(
+            outcome,
+            preview::WorkspaceEditOutcome::Failed { may_have_changed: true }
+        ));
+        assert_eq!(std::fs::read_to_string(first).unwrap(), "updated");
+        assert!(blocked.is_dir());
+    }
 
     #[test]
     fn initial_source_repair_is_watched_before_preview_is_published() {

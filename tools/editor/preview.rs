@@ -1834,7 +1834,7 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
 pub(crate) enum WorkspaceEditOutcome {
     Applied,
     Rejected,
-    Failed,
+    Failed { may_have_changed: bool },
 }
 
 pub(crate) fn workspace_edit_result(id: u64, outcome: WorkspaceEditOutcome) {
@@ -1868,8 +1868,8 @@ pub(crate) fn workspace_edit_result(id: u64, outcome: WorkspaceEditOutcome) {
                 state.workspace_edit_sent = false;
                 (true, true)
             }
-            WorkspaceEditOutcome::Failed => {
-                undo_redo::discard_pending(state, true);
+            WorkspaceEditOutcome::Failed { may_have_changed } => {
+                undo_redo::discard_pending(state, may_have_changed);
                 state.workspace_edit_installation = None;
                 state.workspace_edit_sent = false;
                 (true, true)
@@ -3226,7 +3226,7 @@ mod tests {
         for outcome in [
             WorkspaceEditOutcome::Applied,
             WorkspaceEditOutcome::Rejected,
-            WorkspaceEditOutcome::Failed,
+            WorkspaceEditOutcome::Failed { may_have_changed: true },
         ] {
             workspace_edit_result(41, outcome);
             PREVIEW_STATE.with_borrow(|state| {

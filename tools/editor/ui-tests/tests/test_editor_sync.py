@@ -5,7 +5,13 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from editor_sync import PROTOCOL_VERSION, EditorSync, SyncCheckpoint
+from editor_sync import (
+    PROTOCOL_VERSION,
+    EditorAction,
+    EditorSync,
+    SyncCheckpoint,
+    SyncResult,
+)
 
 
 def reply(request_id=1, **changes):
@@ -128,3 +134,22 @@ def test_gate_released_when_test_fails(tmp_path, monkeypatch):
         raise ValueError("assertion failed")
     assert [r["mode"] for r in requests] == ["gate_open", "gate_release"]
     assert requests[-1]["gate"] == 8
+
+
+@pytest.mark.parametrize(
+    "state,message",
+    [
+        ({"writes": 1, "mutations": 1, "accepted_edits": 1}, "wrote source"),
+        ({"writes": 0, "mutations": 1, "accepted_edits": 1}, "may have changed source"),
+        ({"writes": 0, "mutations": 0, "accepted_edits": 1}, "accepted an edit"),
+    ],
+)
+def test_no_write_assertion_rejects_each_mutation_evidence(
+    tmp_path, monkeypatch, state, message
+):
+    action = EditorAction(EditorSync(tmp_path), 1, 5, sealed=True)
+    monkeypatch.setattr(
+        action, "wait_for_settled", lambda: SyncResult({"operation_state": state})
+    )
+    with pytest.raises(AssertionError, match=message):
+        action.assert_no_source_writes()

@@ -464,3 +464,63 @@ def test_retired_assigned_factory_resolves_edit_and_queued_history(
         sync.wait_for_applied(source, edited)
         select_element(window, "Rectangle")
         wait_for_field(window, "Rotation", "62")
+
+
+@pytest.mark.parametrize(
+    "fault,mutations,prefix",
+    [
+        ("before_open", 0, None),
+        ("after_truncate", 1, 0),
+        ({"after_bytes": 5}, 1, 5),
+    ],
+)
+def test_write_failure_reports_mutation_and_reconciles_history(
+    editor_binary, editor_environment, fixture_project, fault, mutations, prefix
+):
+    baseline = prepare(fixture_project)
+    source = fixture_project / SOURCE
+    seeded = baseline.replace(b"32deg", b"42deg")
+    expected = seeded if prefix is None else seeded[:prefix]
+    with launch_editor(editor_binary, editor_environment, source) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        sync = current_editor_sync.get()
+        with sync.action() as seed:
+            edit_field(window, "Rotation", "42")
+        seed.wait_for_settled(outcome="completed")
+        checkpoint = sync.checkpoint()
+        sync._request(mode="write_fault", url=source, fault=fault)
+        try:
+            with sync.action() as edit:
+                edit_field(window, "Rotation", "62")
+            result = edit.wait_for_settled(outcome="failed")
+        finally:
+            sync._request(mode="clear_write_fault", url=source)
+        state = result.data["operation_state"]
+        assert state["accepted_edits"] == 1
+        assert state["writes"] == 0
+        assert state["mutations"] == mutations
+        assert source.read_bytes() == expected
+        if mutations:
+            sync.wait_for_processed(
+                source, expected, after=checkpoint, outcome="compile_error"
+            )
+        window_element_with_label(window, "Rotation knob").single_click(
+            slint_testing.PointerEventButton.Left
+        )
+        with sync.action() as undo:
+            shortcut(window)
+        if mutations:
+            undo.wait_for_settled(outcome="noop")
+            undo.assert_no_source_writes()
+            assert source.read_bytes() == expected
+            source.write_bytes(seeded)
+            sync.wait_for_applied(source, seeded)
+        else:
+            undo.wait_for_settled(outcome="completed")
+            sync.wait_for_applied(source, baseline)
+        select_element(window, "Rectangle")
+        with sync.action() as next_edit:
+            edit_field(window, "Rotation", "77")
+        next_edit.wait_for_settled(outcome="completed")
+        sync.wait_for_applied(source, baseline.replace(b"32deg", b"77deg"))

@@ -65,7 +65,7 @@ write and use the revision-specific API:
 checkpoint = current_editor_sync.get().checkpoint()
 source.write_bytes(broken)
 current_editor_sync.get().wait_for_processed(
-    source, broken, after=checkpoint["cursor"], outcome="compile_error"
+    source, broken, after=checkpoint, outcome="compile_error"
 )
 ```
 
@@ -82,48 +82,113 @@ starts a reload. The editor process uses `SLINT_EDITOR_TEST_CONFIG_DIR` for a
 private settings store and records a copied binary, source revision, build
 features, and handshake in the test artifacts.
 
-Source and publication gates are available for tests that deliberately overlap
-an edit with another operation:
+Protocol version 4 also provides scoped scheduling gates. Use the context manager
+so a failed assertion releases the gate:
 
 ```python
-sync.set_gate("source")
-source.write_bytes(expected)
-sync.wait_for_gate("source", after=checkpoint.cursor)
-sync.release_gate("source")
+sync = current_editor_sync.get()
+with sync.gate("publication", source) as gate:
+    with sync.action() as edit:
+        perform_input()
+    gate.wait_for_reached()
+    # Inspect the held stage without treating it as a completed edit.
+edit.wait_for_settled(outcome="completed")
 ```
 
-Always release a gate in a `finally` block in a test that can fail while it is
-held. Gates are test-only and disabled unless the observer is opted in.
+The `source` gate holds normal external-source processing. The `publication`
+gate holds a compiled preview before factory assignment. The `factory` gate
+holds creation after assignment, before invoking the component factory. Its
+existing causal lease ends on installation or retirement; releasing a retired
+factory cannot install it. The `acknowledgment` gate holds the real local edit
+response and exposes its edit ID. Only a matching response and an installation
+containing that edit's input revisions can complete a pending edit. Installation
+abandonment cancels queued history and allows an acknowledged edit to settle.
+
+To prove that pointer-down owns work, leave the action context before checking
+its pending state. An unsealed action is pending even without a gesture token.
+After cancellation, await the canceled action and assert zero writes. Dispatch
+a late release in a separate action and check it independently:
+
+```python
+with sync.action() as gesture:
+    pointer_down()
+# The operation is now sealed; its pending work must contain the gesture.
+cancel_gesture()
+gesture.wait_for_settled(outcome="canceled")
+gesture.assert_no_source_writes()
+with sync.action() as release:
+    pointer_up()
+release.assert_no_source_writes()
+snapshot.assert_unchanged_now()
+```
+
+Operations record accepted edits, completed writes, and possible file mutations
+separately. Failure opening an existing file has no mutation; attempted creation or
+truncation is conservatively a possible mutation even if the final bytes match.
+`assert_no_source_writes()` rejects any of these counters, including a completed
+write later undone. A successful edit followed by undo therefore records two
+writes even when disk content returns to the baseline.
+
+The private `write_fault` request accepts `before_open`, `after_truncate`, or
+`{"after_bytes": 5}` with a source URL. It is consumed by that file's next write.
+Always send `clear_write_fault` in `finally` to remove an unconsumed fault.
+Truncation and partial-write faults modify the real fixture file. Failure before
+mutation preserves history; possible mutation invalidates history and rereads
+source through the editor session. This is failure recovery, not a reload
+triggered by a synchronization wait. Workspace writes are not transactional
+across files; earlier successful writes remain when a later file fails.
 
 ### Audit disposition
 
 | Finding | Disposition | Current state |
 | --- | --- | --- |
-| F01 | fixed | Broken-source test waits for its exact compile error. |
-| F02 | fixed | Repair waits for the broken phase before writing the repair. |
-| F03 | defer | Root recovery remains explicitly skipped pending watcher repair. |
-| F04 | fixed | Missing imports record a missing observation and load-error attempt before restoration. |
-| F05 | partial | External revision is processed before gesture release; terminal no-write proof remains local. |
-| F06 | partial | Undo/release uses revision and write counters; full queued-history gate remains. |
-| F07 | partial | Publication gate control is exposed; rotation-specific migration remains. |
-| F08 | partial | Newest revision waits on processing and application; older-attempt scheduling gate remains. |
-| F09 | fixed | Source snapshot uses a synchronous mutation boundary instead of a timer. |
-| F10 | defer | Existing-element rendering callers need applied-generation migration. |
-| F11 | defer | Negative-observation callers require per-action terminal outcomes. |
-| F12 | defer | Redo overlap needs an external-observation gate. |
-| F13 | defer | Palette publication overlap needs a preview gate. |
-| F14 | defer | Nested UI probes still need a shared deadline and nonblocking variants. |
-| F15 | defer | First-window startup should use a bounded readiness condition. |
-| F16 | fixed | Revision-specific observer protocol covers observed, processed, and applied events. |
-| F17 | fixed | A copied executable is hashed and recorded before launch, with revision and feature metadata. |
-| F18 | partial | Sync waits are generation-aware; remaining UI callers still need migration. |
-| F19 | fixed | Each editor process has a private settings directory. |
-| F20 | fixed | Initial broken-source recovery acknowledges the startup compile error before repair. |
-| F21 | partial | Exact applied waits replace byte-change probes where migrated; remaining canvas callers need migration. |
+| F01 | fixed | Broken-source tests acknowledge the exact failed revision before checking the retained preview. |
+| F02 | fixed | Repair follows acknowledgment of the broken phase. |
+| F03 | deferred | Deleted-root recovery remains skipped; no watcher repair is included. |
+| F04 | fixed | Missing imports have an observed missing input and terminal failure before restoration. |
+| F05 | fixed | Source changes cancel the active gesture; cancellation and late release have terminal no-write checks. |
+| F06 | fixed | Undo during dragging and queued undo during pending publication have separate controlled tests. |
+| F07 | fixed | Rotation release holds publication and inspects the retained oriented canvas frame before installation. No claim is made about every intermediate rendered frame. |
+| F08 | fixed | Burst writes remain a coalescing test; separate publication and factory gates prove obsolete attempts cannot replace a newer instance. |
+| F09 | fixed | Snapshot helper tests use a controlled polling callback instead of a thread timer. |
+| F10 | fixed | Inspector rendering consumers await applied source before checking the element. |
+| F11 | partial | Cancellation and rejection tests use terminal operation counters. Remaining navigation and held-gesture `assert_unchanged_now()` calls are point-in-time disk assertions, not settlement guarantees. |
+| F12 | fixed | Redo has distinct held-source and already-applied external-edit variants. |
+| F13 | fixed | Image switching covers held publication; lifecycle tests additionally cover an assigned factory with acknowledgment before and after abandonment. |
+| F14 | partial | Lookups without waits and deadline-aware polling exist. These do not make every multi-probe UI read an atomic snapshot. |
+| F15 | fixed | First-window acquisition uses a bounded condition wait; lifecycle requests also check process exit. |
+| F16 | fixed | Session, cursor, actual attempt inputs, installed identity, edit IDs, and causal leases distinguish the milestones. |
+| F17 | fixed | Each worker uses a copied binary with checksum, build revision, features, and required protocol handshake. Shell live preview is disabled. |
+| F18 | partial | Handles are reacquired at migrated replacement boundaries. Direct multi-property reads still require a test-controlled stable boundary. |
+| F19 | fixed | Every process gets a private settings directory and pinned defaults. |
+| F20 | fixed | Initial broken-source recovery acknowledges the startup failure before repair. |
+| F21 | fixed | Palette edits use operation completion before capturing source; overlap variants deliberately retain their gates. |
 
-The remaining deferred cases require controlled source and preview publication
-gates. They must not be “fixed” by increasing a timeout or adding a silence
-window.
+Disk-only `wait_for_exact()` and held-gesture `assert_unchanged_now()` checks are
+intentional where that is the test contract. Neither proves future inactivity.
+The observer covers work caused by the specified operation, not unrelated
+future filesystem events. A coalesced revision that the editor never reads has
+no invented attempt. History and event retention are bounded; an expired cursor
+fails explicitly. Fault injection exercises controlled stages, not every
+platform-specific filesystem error or crash durability.
+
+### Validate lifecycle changes
+
+Run helper tests before application tests:
+
+```sh
+uv run pytest tests/test_editor_sync.py tests/test_source_snapshot.py
+uv run ruff check tests
+uv run ruff format --check tests
+uv run ty check tests
+```
+
+Run the affected lifecycle, transform, and history tests with `-n 1` and `-n 4`
+against the same preserved binary using `SLINT_EDITOR_BINARY`. Run the complete
+headless suite with `-n 3`. Keep replay pauses at zero. Failure artifacts include
+source differences, screenshots, observer state, and `trace.jsonl` beside the
+binary metadata. These scenarios require actual reached gates; repeated timing
+runs alone are not evidence of the intended ordering.
 
 ## Watch the Tests on a Desktop
 

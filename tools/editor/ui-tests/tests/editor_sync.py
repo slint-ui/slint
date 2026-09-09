@@ -89,6 +89,7 @@ class EditorSync:
         operation: int | None = None,
         gate: int | None = None,
         edit: int | None = None,
+        fault: str | dict[str, int] | None = None,
         kind: str | None = None,
         url: Path | None = None,
     ) -> SyncResult:
@@ -114,6 +115,7 @@ class EditorSync:
             "operation": operation,
             "gate": gate,
             "edit": edit,
+            "fault": fault,
             "kind": kind,
             "url": None if url is None else url.resolve().as_uri(),
         }
@@ -255,6 +257,7 @@ class EditorAction:
         result = self.wait_for_settled()
         state = result.data["operation_state"]
         assert state["writes"] == 0, f"action wrote source: {state!r}"
+        assert state["mutations"] == 0, f"action may have changed source: {state!r}"
         assert state["accepted_edits"] == 0, f"action accepted an edit: {state!r}"
 
 
