@@ -8,8 +8,9 @@ export enum CanvasCorner {
     bottom-left,
 }
 
-export enum PaletteComponentKind {
+export enum ElementKind {
     none,
+    component,
     rectangle,
     text,
     image,
@@ -19,7 +20,7 @@ export enum PaletteComponentKind {
 /// A palette item whose kind selects its icon and drag payload.
 export struct ElementLibraryEntry {
     label: string,
-    kind: PaletteComponentKind,
+    kind: ElementKind,
 }
 
 /// A named palette group with entries sorted by label.
@@ -340,13 +341,7 @@ export struct LogMessage {
     level: LogMessageLevel,
 }
 
-export enum OutlineNodeIconKind {
-    default,
-    rectangle,
-    image,
-    text,
-    touch-area,
-}
+
 
 /// A node in the outline tree
 export struct OutlineTreeNode {
@@ -354,7 +349,7 @@ export struct OutlineTreeNode {
     has-children: bool,
     is-expanded: bool,
     is-last-child: bool,
-    icon-kind: OutlineNodeIconKind,
+    icon-kind: ElementKind,
     element-type: string,
     element-id: string,
     uri: string,
@@ -448,7 +443,7 @@ export global Api {
     // The actual preview
     in-out property <component-factory> preview-area;
 
-    pure callback new-component-data-for-kind(kind: PaletteComponentKind) -> data-transfer;
+    pure callback new-component-data-for-kind(kind: ElementKind) -> data-transfer;
     pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
 
     // set to true to resize

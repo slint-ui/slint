@@ -6,7 +6,7 @@ import "./assets/Inter-VariableFont.ttf";
 import { Api, EditorSurfaceMode, Hover } from "api.slint";
 import { Project } from "project.slint";
 import { StartupWizard } from "startup-wizard.slint";
-import { AppState, PaletteComponentKind, SidebarToggleButton, StudioTheme } from "components/common.slint";
+import { AppState, ElementKind, SidebarToggleButton, StudioTheme } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { EditorTopBar } from "components/top-bar.slint";
@@ -121,7 +121,7 @@ export component EditorUi inherits Window {
 
             DropArea {
                 can-drop(event) => {
-                    if AppState.palette-drag-kind != PaletteComponentKind.none {
+                    if AppState.palette-drag-kind != ElementKind.none {
                         AppState.update-palette-drag(AppState.palette-drag-kind, { x: event.position.x + self.absolute-position.x, y: event.position.y + self.absolute-position.y });
                     }
                     return DragAction.none;

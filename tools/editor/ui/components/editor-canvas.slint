@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Api, DropMark } from "../api.slint";
-import { AppState, EditorCursors, EditorMetrics, PaletteComponentKind, StudioTheme } from "common.slint";
+import { AppState, EditorCursors, EditorMetrics, ElementKind, StudioTheme } from "common.slint";
 import { CanvasInteractionLayer } from "canvas-interaction-layer.slint";
 
 component PhoneChrome inherits Rectangle {
@@ -94,7 +94,7 @@ export component EditorCanvas inherits Rectangle {
                     if AppState.palette-drag-cancelled {
                         return DragAction.none;
                     }
-                    if AppState.palette-drag-kind != PaletteComponentKind.none {
+                    if AppState.palette-drag-kind != ElementKind.none {
                         AppState.update-palette-drag(
                             AppState.palette-drag-kind,
                             {
@@ -108,7 +108,7 @@ export component EditorCanvas inherits Rectangle {
                         ? DragAction.copy : DragAction.none;
                 }
                 dropped(event) => {
-                    if AppState.palette-drag-kind != PaletteComponentKind.none {
+                    if AppState.palette-drag-kind != ElementKind.none {
                         let size = AppState.palette-drag-size;
                         Api.drop-with-geometry(
                             event.data,

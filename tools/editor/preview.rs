@@ -41,6 +41,7 @@ use std::rc::Rc;
 use i_slint_editor_preview::wasm_prelude::*;
 
 mod drop_location;
+mod element_catalog;
 mod element_selection;
 pub mod eval;
 mod ext;
@@ -967,36 +968,14 @@ enum DragItem {
     /// An existing element instance to be moved.
     MoveElementInstance { uri: SharedString, offset: u32 },
     /// A new component from the palette to be instantiated.
-    NewComponent { kind: PaletteComponent },
+    NewComponent { kind: ui::ElementKind },
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
-enum PaletteComponent {
-    Rectangle,
-    Text,
-    Image,
-    TouchArea,
-}
-
-impl PaletteComponent {
-    fn from_ui(kind: ui::PaletteComponentKind) -> Option<Self> {
-        match kind {
-            ui::PaletteComponentKind::Rectangle => Some(Self::Rectangle),
-            ui::PaletteComponentKind::Text => Some(Self::Text),
-            ui::PaletteComponentKind::Image => Some(Self::Image),
-            ui::PaletteComponentKind::TouchArea => Some(Self::TouchArea),
-            ui::PaletteComponentKind::None => None,
-        }
+fn new_component_data_for_kind(kind: ui::ElementKind) -> DataTransfer {
+    if element_catalog::primitive(kind).is_none() {
+        return Default::default();
     }
-
-    fn name(self) -> &'static str {
-        match self {
-            Self::Rectangle => "Rectangle",
-            Self::Text => "Text",
-            Self::Image => "Image",
-            Self::TouchArea => "TouchArea",
-        }
-    }
+    DragItem::NewComponent { kind }.into()
 }
 
 /// Tried to convert a [`DataTransfer`] to a `DragItem`, but the data transfer's user data
@@ -1052,12 +1031,13 @@ fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) ->
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
-fn palette_component(kind: PaletteComponent) -> Option<ComponentInformation> {
+fn palette_component(kind: ui::ElementKind) -> Option<ComponentInformation> {
+    let primitive = element_catalog::primitive(kind)?;
     PREVIEW_STATE.with_borrow(|preview_state| {
         preview_state
             .known_components
             .iter()
-            .find(|component| component.name == kind.name() && component.is_builtin)
+            .find(|component| component.name == primitive.type_name && component.is_builtin)
             .cloned()
     })
 }

@@ -3,36 +3,25 @@
 
 use slint::{Model, ModelExt, ModelRc, SharedString};
 
-use super::{Api, ElementLibraryEntry, ElementLibraryGroup, PaletteComponentKind};
+use super::{Api, ElementLibraryEntry, ElementLibraryGroup};
 
 fn catalog() -> ModelRc<ElementLibraryGroup> {
-    let groups = [
-        (
-            "Visual",
-            vec![
-                ElementLibraryEntry {
-                    label: "Rectangle".into(),
-                    kind: PaletteComponentKind::Rectangle,
-                },
-                ElementLibraryEntry { label: "Text".into(), kind: PaletteComponentKind::Text },
-                ElementLibraryEntry { label: "Image".into(), kind: PaletteComponentKind::Image },
-            ],
-        ),
-        (
-            "Input & interaction",
-            vec![ElementLibraryEntry {
-                label: "TouchArea".into(),
-                kind: PaletteComponentKind::TouchArea,
-            }],
-        ),
-    ];
+    use super::super::element_catalog::{GROUPS, PRIMITIVES};
     ModelRc::new(slint::VecModel::from(
-        groups
-            .into_iter()
-            .map(|(label, mut entries)| {
+        GROUPS
+            .iter()
+            .map(|group| {
+                let mut entries: Vec<_> = PRIMITIVES
+                    .iter()
+                    .filter(|entry| entry.group == *group)
+                    .map(|entry| ElementLibraryEntry {
+                        label: entry.type_name.into(),
+                        kind: entry.kind,
+                    })
+                    .collect();
                 entries.sort_by(|a, b| a.label.cmp(&b.label));
                 ElementLibraryGroup {
-                    label: label.into(),
+                    label: group.label().into(),
                     entries: ModelRc::new(slint::VecModel::from(entries)),
                 }
             })
@@ -69,6 +58,7 @@ pub(super) fn setup(api: &Api<'_>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::preview::ui::ElementKind;
 
     #[test]
     fn library_is_alphabetical_and_search_preserves_order() {
@@ -93,7 +83,7 @@ mod tests {
         }
         let interaction = groups.row_data(1).unwrap();
         assert_eq!(interaction.label, "Input & interaction");
-        assert_eq!(interaction.entries.row_data(0).unwrap().kind, PaletteComponentKind::TouchArea);
+        assert_eq!(interaction.entries.row_data(0).unwrap().kind, ElementKind::TouchArea);
         for (query, expected) in [
             ("", vec!["TouchArea"]),
             ("  ", vec!["TouchArea"]),
@@ -127,12 +117,11 @@ mod tests {
     fn filtered_entries_follow_catalog_changes() {
         let entries = std::rc::Rc::new(slint::VecModel::from(vec![ElementLibraryEntry {
             label: "Rectangle".into(),
-            kind: PaletteComponentKind::Rectangle,
+            kind: ElementKind::Rectangle,
         }]));
         let filtered = filter(entries.clone().into(), "text".into());
         assert_eq!(filtered.row_count(), 0);
-        entries
-            .push(ElementLibraryEntry { label: "Text".into(), kind: PaletteComponentKind::Text });
+        entries.push(ElementLibraryEntry { label: "Text".into(), kind: ElementKind::Text });
         assert_eq!(filtered.row_data(0).unwrap().label, "Text");
         entries.remove(1);
         assert_eq!(filtered.row_count(), 0);
