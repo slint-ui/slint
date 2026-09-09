@@ -27,6 +27,20 @@ export component EditorUi inherits Window {
     background: StudioTheme.app-bg;
     default-font-family: "Inter";
 
+    property <bool> sidebars-collapsed: false;
+    property <length> inspector-scroll-y: 0px;
+
+    function open-startup-wizard() {
+        Api.open-startup-wizard();
+    }
+
+    function close-startup-wizard() {
+        Api.close-startup-wizard();
+    }
+
+    function open-project() {
+        root.close-startup-wizard();
+    }
     MenuBar {
         Menu {
             title: @tr("Edit");
@@ -45,20 +59,6 @@ export component EditorUi inherits Window {
         }
     }
 
-    property <bool> sidebars-collapsed: false;
-    property <length> inspector-scroll-y: 0px;
-
-    function open-startup-wizard() {
-        Api.open-startup-wizard();
-    }
-
-    function close-startup-wizard() {
-        Api.close-startup-wizard();
-    }
-
-    function open-project() {
-        root.close-startup-wizard();
-    }
     Rectangle {
         y: 0;
         height: EditorMetrics.top-bar-height;
