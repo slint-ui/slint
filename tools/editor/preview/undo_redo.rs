@@ -108,11 +108,6 @@ pub(super) enum PendingEdit {
     Redo { replacement: EditItem },
 }
 
-pub(super) struct PendingWorkspaceEdit {
-    pub(super) id: u64,
-    pub(super) history: PendingEdit,
-}
-
 pub(super) struct PendingHistory {
     redo: bool,
     #[cfg(feature = "system-testing")]
@@ -132,7 +127,7 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_undo(|| {
         let Some(document_cache) = super::document_cache() else { return };
         super::PREVIEW_STATE.with_borrow_mut(|state| {
-            if state.workspace_edit_sent {
+            if state.pending_edit.is_some() {
                 state.pending_history.push_back(PendingHistory::new(false));
                 return;
             }
@@ -161,7 +156,7 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_redo(|| {
         let Some(document_cache) = super::document_cache() else { return };
         super::PREVIEW_STATE.with_borrow_mut(|state| {
-            if state.workspace_edit_sent {
+            if state.pending_edit.is_some() {
                 state.pending_history.push_back(PendingHistory::new(true));
                 return;
             }
@@ -190,14 +185,14 @@ pub fn setup(api: &ui::Api<'_>) {
 }
 
 pub(super) fn commit_pending(state: &mut super::PreviewState) {
-    if let Some(pending) = state.pending_workspace_edit.take() {
-        state.undo_redo_stack.commit(pending.history);
+    if let Some(history) = state.pending_edit.as_mut().and_then(|edit| edit.acknowledge()) {
+        state.undo_redo_stack.commit(history);
     }
     set_undo_redo_enabled(state);
 }
 
 pub(super) fn discard_pending(state: &mut super::PreviewState, may_have_changed: bool) {
-    state.pending_workspace_edit.take();
+    state.pending_edit.take();
     if may_have_changed {
         // A failed write may leave partial source, so the cached document
         // can no longer identify a reversible history state.
@@ -216,7 +211,7 @@ pub(super) fn cancel_pending(state: &mut super::PreviewState) {
 pub(super) fn apply_pending() {
     loop {
         let next = super::PREVIEW_STATE.with_borrow_mut(|state| {
-            if state.workspace_edit_sent {
+            if state.pending_edit.is_some() {
                 return None;
             }
             Some((state.api.upgrade()?, state.pending_history.pop_front()?))

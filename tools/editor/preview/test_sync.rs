@@ -617,8 +617,7 @@ fn answer(s: &mut Observer, r: &Request) -> Result<Value, String> {
                     })
                 });
             ready &= super::PREVIEW_STATE.with_borrow(|p| {
-                !p.workspace_edit_sent
-                    && p.pending_workspace_edit.is_none()
+                p.pending_edit.is_none()
                     && p.pending_history.is_empty()
                     && matches!(p.loading_state, super::PreviewFutureState::Pending)
             });

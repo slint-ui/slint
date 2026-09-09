@@ -239,18 +239,16 @@ pub struct PreviewState {
     >,
     selected: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
-    workspace_edit_sent: bool,
     pub(crate) edit_sender: Option<crossbeam_channel::Sender<crate::PreviewMessage>>,
     next_edit_id: u64,
     compilation_sequence: u64,
-    workspace_edit_installation: Option<edit_installation::PendingInstallation>,
+    pending_edit: Option<edit_installation::PendingWorkspaceEdit>,
     known_components: Vec<ComponentInformation>,
     preview_loading_delay_timer: Option<slint::Timer>,
     initial_live_data: preview_data::PreviewDataMap,
     current_live_data: preview_data::PreviewDataMap,
     undo_redo_stack: undo_redo::UndoRedoStack,
     pending_history: std::collections::VecDeque<undo_redo::PendingHistory>,
-    pending_workspace_edit: Option<undo_redo::PendingWorkspaceEdit>,
     preview_generation: u64,
     #[cfg(feature = "system-testing")]
     factory_lease: Option<Rc<RefCell<Option<test_sync::Work>>>>,
@@ -335,11 +333,10 @@ fn retire_factory(_state: &mut PreviewState, _transfer_to_reload: bool) {
 }
 
 fn abandon_pending_installation(state: &mut PreviewState) {
-    if let Some(edit) = state.workspace_edit_installation.as_mut() {
+    if let Some(edit) = state.pending_edit.as_mut() {
         edit.abandon();
-        if state.pending_workspace_edit.is_none() {
-            state.workspace_edit_installation = None;
-            state.workspace_edit_sent = false;
+        if edit.is_finished() {
+            state.pending_edit = None;
         }
     }
     undo_redo::cancel_pending(state);
@@ -564,11 +561,10 @@ fn apply_live_preview_data() {
 
 fn set_contents(url: &VersionedUrl, content: String) {
     let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        let own_pending_contents = preview_state.pending_workspace_edit.is_some()
-            && preview_state
-                .workspace_edit_installation
-                .as_ref()
-                .is_some_and(|edit| edit.expects(url.url(), &content));
+        let own_pending_contents = preview_state
+            .pending_edit
+            .as_ref()
+            .is_some_and(|edit| edit.expects(url.url(), &content));
         if !own_pending_contents
             && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
         {
@@ -1773,7 +1769,7 @@ fn dispatch_workspace_edit(
     history: undo_redo::PendingEdit,
     expected: std::collections::HashMap<Url, String>,
 ) -> bool {
-    if state.workspace_edit_sent {
+    if state.pending_edit.is_some() {
         #[cfg(feature = "system-testing")]
         test_sync::effect(test_sync::Outcome::Rejected);
         return false;
@@ -1784,17 +1780,17 @@ fn dispatch_workspace_edit(
         return false;
     };
 
-    state.workspace_edit_installation =
-        Some(edit_installation::PendingInstallation::new(state.compilation_sequence, expected));
     state.next_edit_id += 1;
     let id = state.next_edit_id;
-    state.pending_workspace_edit = Some(undo_redo::PendingWorkspaceEdit { id, history });
-    state.workspace_edit_sent = true;
+    state.pending_edit = Some(edit_installation::PendingWorkspaceEdit::new(
+        id,
+        state.compilation_sequence,
+        expected,
+        history,
+    ));
     if let Err(error) = sender.send(crate::PreviewMessage::edit(id, label.clone(), edit)) {
         tracing::error!("Failed to send workspace edit '{}': {error}", label);
-        state.pending_workspace_edit.take();
-        state.workspace_edit_installation = None;
-        state.workspace_edit_sent = false;
+        state.pending_edit = None;
         #[cfg(feature = "system-testing")]
         test_sync::effect(test_sync::Outcome::Failed);
         return false;
@@ -1847,21 +1843,23 @@ pub(crate) enum WorkspaceEditOutcome {
 }
 
 fn finish_pending_installation(state: &mut PreviewState) -> bool {
-    let Some(edit) = state.workspace_edit_installation.as_ref() else { return false };
+    let Some(edit) = state.pending_edit.as_ref() else { return false };
     if edit.is_superseded() {
         undo_redo::discard_pending(state, true);
         undo_redo::cancel_pending(state);
-    } else if state.pending_workspace_edit.is_some() || !edit.is_finished() {
+    } else if !edit.is_finished() {
         return false;
     }
-    state.workspace_edit_installation = None;
-    state.workspace_edit_sent = false;
+    state.pending_edit = None;
     true
 }
 
 pub(crate) fn workspace_edit_result(id: u64, outcome: WorkspaceEditOutcome) {
     let matches = PREVIEW_STATE.with_borrow(|state| {
-        state.pending_workspace_edit.as_ref().is_some_and(|edit| edit.id == id)
+        state
+            .pending_edit
+            .as_ref()
+            .is_some_and(|edit| edit.id == id && edit.awaiting_acknowledgment())
     });
     #[cfg(feature = "system-testing")]
     test_sync::acknowledgment_received(id, matches);
@@ -1870,22 +1868,15 @@ pub(crate) fn workspace_edit_result(id: u64, outcome: WorkspaceEditOutcome) {
     }
     let (needs_recovery, release_pending) = PREVIEW_STATE.with_borrow_mut(|state| match outcome {
         WorkspaceEditOutcome::Applied => {
-            if let Some(edit) = state.workspace_edit_installation.as_mut() {
-                edit.acknowledge();
-            }
             undo_redo::commit_pending(state);
             (false, finish_pending_installation(state))
         }
         WorkspaceEditOutcome::Rejected => {
             undo_redo::discard_pending(state, false);
-            state.workspace_edit_installation = None;
-            state.workspace_edit_sent = false;
             (true, true)
         }
         WorkspaceEditOutcome::Failed { may_have_changed } => {
             undo_redo::discard_pending(state, may_have_changed);
-            state.workspace_edit_installation = None;
-            state.workspace_edit_sent = false;
             (true, true)
         }
     });
@@ -2904,7 +2895,7 @@ fn set_selected_element(
                     ));
                 }
             } else if !notify_editor_about_selection_after_update
-                && !preview_state.workspace_edit_sent
+                && preview_state.pending_edit.is_none()
             {
                 api.set_current_element(Default::default());
                 api.set_properties(Default::default());
@@ -3033,8 +3024,6 @@ fn update_preview_area(
     let editor_ui = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         if failed {
             undo_redo::discard_pending(preview_state, false);
-            preview_state.workspace_edit_sent = false;
-            preview_state.workspace_edit_installation = None;
         }
 
         let editor_ui = preview_state.editor_ui.as_ref().unwrap();
@@ -3091,7 +3080,7 @@ fn update_preview_area(
                         shared_handle.replace(Some(instance));
                         previewed_component_changed();
                         let release_pending = PREVIEW_STATE.with_borrow_mut(|state| {
-                            if let Some(edit) = state.workspace_edit_installation.as_mut() {
+                            if let Some(edit) = state.pending_edit.as_mut() {
                                 edit.observe(&installation);
                             }
                             finish_pending_installation(state)
@@ -3235,11 +3224,12 @@ mod tests {
     #[test]
     fn stale_acknowledgment_cannot_finish_another_edit() {
         PREVIEW_STATE.with_borrow_mut(|state| {
-            state.workspace_edit_sent = true;
-            state.pending_workspace_edit = Some(undo_redo::PendingWorkspaceEdit {
-                id: 42,
-                history: undo_redo::PendingEdit::New(None),
-            });
+            state.pending_edit = Some(edit_installation::PendingWorkspaceEdit::new(
+                42,
+                0,
+                Default::default(),
+                undo_redo::PendingEdit::New(None),
+            ));
         });
         for outcome in [
             WorkspaceEditOutcome::Applied,
@@ -3248,8 +3238,8 @@ mod tests {
         ] {
             workspace_edit_result(41, outcome);
             PREVIEW_STATE.with_borrow(|state| {
-                assert!(state.workspace_edit_sent);
-                assert_eq!(state.pending_workspace_edit.as_ref().unwrap().id, 42);
+                assert!(state.pending_edit.is_some());
+                assert_eq!(state.pending_edit.as_ref().unwrap().id, 42);
             });
         }
         PREVIEW_STATE.with_borrow_mut(|state| *state = PreviewState::default());
