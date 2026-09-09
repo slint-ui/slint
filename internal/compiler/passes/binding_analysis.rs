@@ -166,6 +166,12 @@ impl From<NamedReference> for PropertyPath {
     }
 }
 
+/// Depth at which the walk reports an error rather than overflow the stack.
+/// An unoptimized build overflows an 8 MiB stack around 415 levels,
+/// and a smaller stack, such as a spawned thread's, overflows before the cap.
+/// The deepest UI in this repository reaches 70.
+const MAX_ANALYSIS_DEPTH: usize = 256;
+
 struct AnalysisContext<'a> {
     visited: HashSet<PropertyPath>,
     /// The stack of properties that depends on each other
@@ -174,6 +180,8 @@ struct AnalysisContext<'a> {
     /// And we should issue a warning if that's part of a loop instead of an error
     window_layout_property: Option<PropertyPath>,
     error_on_binding_loop_with_window_layout: bool,
+    /// Set once `MAX_ANALYSIS_DEPTH` was reported, so a document yields one error
+    depth_limit_reported: bool,
     global_analysis: &'a mut GlobalAnalysis,
 }
 
@@ -189,6 +197,7 @@ fn perform_binding_analysis(
         visited: HashSet::new(),
         currently_analyzing: Default::default(),
         window_layout_property: None,
+        depth_limit_reported: false,
         global_analysis,
     };
     doc.visit_all_used_components(|component| {
@@ -399,6 +408,28 @@ fn analyze_binding(
             }
         }
         return depends_on_external;
+    }
+
+    if context.currently_analyzing.len() >= MAX_ANALYSIS_DEPTH {
+        // `PropertyPath::relative` can grow the element prefix of a path that
+        // denotes a property it has already reached, so `currently_analyzing`
+        // never recognizes it and the walk does not terminate (#13275).
+        if !std::mem::replace(&mut context.depth_limit_reported, true) {
+            let e = element.borrow();
+            let span = e
+                .binding_cell_including_synthetic(name)
+                .unwrap()
+                .borrow()
+                .span
+                .clone()
+                .unwrap_or_else(|| e.to_source_location());
+            diag.push_error(
+                format!("The dependency chain of property '{name}' is deeper than {MAX_ANALYSIS_DEPTH}; simplify the bindings, or report a compiler bug"),
+                &span,
+            );
+        }
+        // Before `visited`, so a shallower path still analyzes the property.
+        return DependsOnExternal(true);
     }
 
     let element_borrow = element.borrow();
