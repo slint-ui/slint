@@ -498,6 +498,8 @@ fn handle_workspace_edit(
 ) {
     match editor_preview::editing::text_edit::apply_workspace_edit(document_cache, edit) {
         Ok(edited_texts) => {
+            #[cfg(feature = "system-testing")]
+            let operation = crate::preview::test_sync::record_accepted_edit();
             for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
                 match editor_preview::uri_to_file(&url) {
                     Some(path) => {
@@ -517,6 +519,8 @@ fn handle_workspace_edit(
                     }
                 }
             }
+            #[cfg(feature = "system-testing")]
+            crate::preview::test_sync::record_edit_completed(operation, "completed");
         }
         Err(err) => {
             tracing::error!(

@@ -267,12 +267,16 @@ def test_deleted_import_recovers_without_relaunch(
     imported_file = fixture_project / "components" / "Nested.slint"
     baseline = imported_file.read_bytes()
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        sync = current_editor_sync.get()
         window = first_window(editor)
         window_element_with_label(
             window, "Imported component", slint_testing.AccessibleRole.Text
         )
+        checkpoint = sync.checkpoint()
         imported_file.unlink()
-        time.sleep(0.25)
+        sync.wait_for_processed(
+            imported_file, None, after=checkpoint.cursor, outcome="load_error"
+        )
         window_element_with_label(
             window, "Imported component", slint_testing.AccessibleRole.Text
         )
@@ -303,6 +307,9 @@ def test_initial_broken_source_recovers_without_relaunch(
     )
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
+        sync = current_editor_sync.get()
+        initial_broken = source_file.read_bytes()
+        sync.wait_for_processed(source_file, initial_broken, outcome="compile_error")
         assert editor.process.poll() is None
         source_file.write_bytes(repaired)
         window_element_with_label(

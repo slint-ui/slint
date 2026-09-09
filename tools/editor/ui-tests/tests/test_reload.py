@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 import slint_testing
-from source_snapshot import SourceSnapshot
 from editor_sync import current_editor_sync
+from source_snapshot import SourceSnapshot
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -75,21 +75,23 @@ def test_rapid_root_writes_show_newest_revision(
         )
         handle, size = window.handle, window.size
         original = source_file.read_bytes()
-        checkpoint = current_editor_sync.get().checkpoint()
+        sync = current_editor_sync.get()
+        checkpoint = sync.checkpoint()
+        sync.set_gate("source")
         source_file.write_bytes(original.replace(b"Fixture text", b"Revision one"))
         source_file.write_bytes(original.replace(b"Fixture text", b"Revision two"))
         expected = original.replace(b"Fixture text", b"Newest revision")
         source_file.write_bytes(expected)
+        sync.wait_for_gate("source", after=checkpoint.cursor)
+        sync.release_gate("source")
         snapshot.wait_for_exact(expected)
-        current_editor_sync.get().wait_for_processed(
+        sync.wait_for_processed(
             source_file,
             expected,
             after=int(checkpoint["cursor"]),
             outcome="compiled",
         )
-        current_editor_sync.get().wait_for_source(
-            source_file, expected, after=int(checkpoint["cursor"])
-        )
+        sync.wait_for_source(source_file, expected, after=int(checkpoint["cursor"]))
         window_element_with_label(
             window, "Newest revision", slint_testing.AccessibleRole.Text, timeout=15
         )

@@ -127,7 +127,15 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         }
         M::ForgetFile { url } => {
             #[cfg(feature = "system-testing")]
-            test_sync::record_observed(&url, None);
+            {
+                test_sync::record_observed(&url, None);
+                test_sync::record_processed_with_inputs(
+                    &url,
+                    None,
+                    "load_error",
+                    &std::collections::HashMap::new(),
+                );
+            }
             delete_document(&url);
         }
         M::SetConfiguration { config } => {
@@ -514,6 +522,10 @@ fn apply_live_preview_data() {
 fn set_contents(url: &VersionedUrl, content: String) {
     #[cfg(feature = "system-testing")]
     test_sync::record_observed(url.url(), Some(&content));
+    #[cfg(feature = "system-testing")]
+    if test_sync::should_hold_source(url.url(), &content) {
+        return;
+    }
     let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
             undo_redo::set_undo_redo_enabled(preview_state);
@@ -2239,10 +2251,11 @@ async fn reload_preview_impl(
     );
 
     #[cfg(feature = "system-testing")]
-    test_sync::record_processed(
+    let attempt = test_sync::record_processed_with_inputs(
         &component.url,
-        &source_for_sync,
+        Some(&source_for_sync),
         if compiled.is_some() { "compiled" } else { "compile_error" },
+        &source_file_versions.borrow(),
     );
 
     let lsp = PREVIEW_STATE.with_borrow_mut(|preview_state| {
@@ -2257,7 +2270,19 @@ async fn reload_preview_impl(
     let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
     lsp.notify_diagnostics(diags).unwrap();
 
-    update_preview_area(compiled, behavior, open_import_callback, source_file_versions, format)?;
+    update_preview_area(
+        compiled,
+        behavior,
+        open_import_callback,
+        source_file_versions,
+        format,
+        #[cfg(feature = "system-testing")]
+        Some(attempt),
+        #[cfg(feature = "system-testing")]
+        Some((component.url.clone(), source_for_sync.clone())),
+        #[cfg(not(feature = "system-testing"))]
+        None,
+    )?;
 
     if let Some(loaded_component_name) = loaded_component_name {
         let current_preview_loaded = PREVIEW_STATE.with_borrow_mut(|preview_state| {
@@ -2694,6 +2719,9 @@ fn update_preview_area(
     open_import_callback: Option<i_slint_editor_preview::document_cache::OpenImportCallback>,
     source_file_versions: Rc<RefCell<i_slint_editor_preview::document_cache::SourceFileVersionMap>>,
     format: i_slint_editor_preview::ByteFormat,
+    #[cfg(feature = "system-testing")] attempt: Option<u64>,
+    #[cfg(feature = "system-testing")] applied_source: Option<(lsp_types::Url, String)>,
+    #[cfg(not(feature = "system-testing"))] _attempt: Option<u64>,
 ) -> Result<(), PlatformError> {
     let editor_ui = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
@@ -2703,14 +2731,6 @@ fn update_preview_area(
         let shared_handle = preview_state.handle.clone();
         let shared_document_cache = preview_state.document_cache.clone();
         let shared_overrides = preview_state.debug_hook_overrides.clone();
-        #[cfg(feature = "system-testing")]
-        let applied_source = preview_state.current_component().and_then(|component| {
-            preview_state
-                .source_code
-                .get(&component.url)
-                .map(|entry| (component.url, entry.code.clone()))
-        });
-
         if let Some(compiled) = compiled {
             api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
             // Keep the inspector mounted until reselection, so edits retain keyboard focus.
@@ -2720,10 +2740,6 @@ fn update_preview_area(
                 &api,
                 compiled,
                 Box::new(move |instance| {
-                    #[cfg(feature = "system-testing")]
-                    if let Some((url, source)) = &applied_source {
-                        test_sync::record_applied(url, source);
-                    }
                     if let Some(rtl) = instance.definition().raw_type_loader() {
                         shared_document_cache.replace(Some(Rc::new(
                             i_slint_editor_preview::DocumentCache::new_from_raw_parts(
@@ -2753,6 +2769,10 @@ fn update_preview_area(
 
                     shared_handle.replace(Some(instance));
                     previewed_component_changed();
+                    #[cfg(feature = "system-testing")]
+                    if let Some((url, source)) = &applied_source {
+                        test_sync::record_applied_with_attempt(url, source, attempt);
+                    }
                 }),
                 behavior,
             );

@@ -4,6 +4,8 @@
 import contextlib
 import hashlib
 import json
+import shutil
+import subprocess
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -129,9 +131,36 @@ def launch_editor(
     if file is not None:
         arguments.append(str(file))
     with TemporaryDirectory(prefix="slint-editor-sync-") as directory:
-        sync = EditorSync(Path(directory))
+        run_directory = Path(directory)
+        pinned_binary = run_directory / "slint-editor"
+        shutil.copy2(binary, pinned_binary)
+        pinned_binary.chmod(0o755)
+        binary_hash = hashlib.sha256(pinned_binary.read_bytes()).hexdigest()
+        repository_root = Path(__file__).resolve().parents[4]
+        revision = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        (run_directory / "client-info.json").write_text(
+            json.dumps(
+                {
+                    "binary": str(pinned_binary),
+                    "sha256": binary_hash,
+                    "revision": revision,
+                    "features": "system-testing,editor-ci",
+                    "protocol": 2,
+                }
+            )
+        )
+        arguments[0] = str(pinned_binary)
+        sync = EditorSync(run_directory)
         token = current_editor_sync.set(sync)
         try:
+            environment = dict(environment)
+            environment.pop("SLINT_LIVE_PREVIEW", None)
             with slint_testing.Application(
                 arguments,
                 env=environment
@@ -141,15 +170,11 @@ def launch_editor(
                 },
                 launch_timeout=20,
             ) as application:
-                (Path(directory) / "client-info.json").write_text(
-                    json.dumps(
-                        {
-                            "binary": str(binary),
-                            "sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
-                            "protocol": 2,
-                        }
-                    )
-                )
+                sync.process = application.process
+                sync._request(mode="handshake", timeout=20, handshake=True)
+                info = json.loads((run_directory / "client-info.json").read_text())
+                info.update({"session": sync.session, "protocol": 2})
+                (run_directory / "client-info.json").write_text(json.dumps(info))
                 try:
                     yield application
                     report = current_report.get()
@@ -158,6 +183,11 @@ def launch_editor(
                             pass
                 except Exception as error:
                     capture_failure(application, error)
+                    report = current_report.get()
+                    if report is not None:
+                        artifact_dir = report.artifacts / "editor-sync"
+                        shutil.copytree(run_directory, artifact_dir, dirs_exist_ok=True)
+                        error.add_note(f"Editor sync trace: {artifact_dir}")
                     raise
 
         finally:

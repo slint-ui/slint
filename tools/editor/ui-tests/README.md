@@ -52,6 +52,8 @@ normal source path read a revision (or observed a missing file), `processed`
 means that exact input finished with `compiled`, `compile_error`, or another
 terminal outcome, `applied` means a successful component instance was installed,
 and `settled` covers the causal work for an action, including queued history.
+These waits are scoped to the checkpoint or operation supplied by the test;
+they do not infer completion from a quiet event loop.
 Do not use an installed-source wait to prove that a failed source was processed.
 
 Use `snapshot.wait_for_applied(expected, relative_path)` before an action that
@@ -77,8 +79,21 @@ The protocol has a session identity, version, monotonic event cursor, and a
 bounded event history. A stale cursor or history overflow fails the wait with a
 diagnostic instead of silently accepting an old event. The request path never
 starts a reload. The editor process uses `SLINT_EDITOR_TEST_CONFIG_DIR` for a
-private settings store and records the binary hash in its temporary sync
-directory.
+private settings store and records a copied binary, source revision, build
+features, and handshake in the test artifacts.
+
+Source and publication gates are available for tests that deliberately overlap
+an edit with another operation:
+
+```python
+sync.set_gate("source")
+source.write_bytes(expected)
+sync.wait_for_gate("source", after=checkpoint.cursor)
+sync.release_gate("source")
+```
+
+Always release a gate in a `finally` block in a test that can fail while it is
+held. Gates are test-only and disabled unless the observer is opted in.
 
 ### Audit disposition
 
@@ -87,12 +102,12 @@ directory.
 | F01 | fixed | Broken-source test waits for its exact compile error. |
 | F02 | fixed | Repair waits for the broken phase before writing the repair. |
 | F03 | defer | Root recovery remains explicitly skipped pending watcher repair. |
-| F04 | defer | Import recovery still needs missing-input lifecycle coverage. |
+| F04 | fixed | Missing imports record a missing observation and load-error attempt before restoration. |
 | F05 | partial | External revision is processed before gesture release; terminal no-write proof remains local. |
 | F06 | partial | Undo/release uses revision and write counters; full queued-history gate remains. |
-| F07 | defer | Rotation publication gate is not yet exposed. |
+| F07 | partial | Publication gate control is exposed; rotation-specific migration remains. |
 | F08 | partial | Newest revision waits on processing and application; older-attempt scheduling gate remains. |
-| F09 | fixed | Source snapshot uses an explicit thread handshake instead of a timer. |
+| F09 | fixed | Source snapshot uses a synchronous mutation boundary instead of a timer. |
 | F10 | defer | Existing-element rendering callers need applied-generation migration. |
 | F11 | defer | Negative-observation callers require per-action terminal outcomes. |
 | F12 | defer | Redo overlap needs an external-observation gate. |
@@ -100,10 +115,10 @@ directory.
 | F14 | defer | Nested UI probes still need a shared deadline and nonblocking variants. |
 | F15 | defer | First-window startup should use a bounded readiness condition. |
 | F16 | fixed | Revision-specific observer protocol covers observed, processed, and applied events. |
-| F17 | partial | Binary identity is recorded; CI artifact pinning remains external to the fixture. |
-| F18 | defer | Reload-sensitive handles still need generation-aware reacquisition. |
+| F17 | fixed | A copied executable is hashed and recorded before launch, with revision and feature metadata. |
+| F18 | partial | Sync waits are generation-aware; remaining UI callers still need migration. |
 | F19 | fixed | Each editor process has a private settings directory. |
-| F20 | defer | Initial failure occurs before the test checkpoint and needs startup lifecycle access. |
+| F20 | fixed | Initial broken-source recovery acknowledges the startup compile error before repair. |
 | F21 | partial | Exact applied waits replace byte-change probes where migrated; remaining canvas callers need migration. |
 
 The remaining deferred cases require controlled source and preview publication
