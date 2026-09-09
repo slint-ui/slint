@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, EditorSurfaceMode, ElementInformation, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { Api, BrushKind, EditorSurfaceMode, ElementInformation, PropertyValueKind, SelectionRectangle } from "../api.slint";
 import { EdgeDivider, EditorMetrics, HorizontalResizeDivider, StudioTheme } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
 import { InspectorComboOption, InspectorTokens } from "inspector/tokens.slint";
@@ -248,6 +248,14 @@ export component InspectorPane inherits Rectangle {
             return property.display-string;
         }
         return property.code;
+    }
+
+    function property-is-solid(property-name: string) -> bool {
+        let property = Api.current-property-value-data(property-name);
+        return property.code == ""
+            || property.kind == PropertyValueKind.color
+            || property.value-kind == PropertyValueKind.color
+            || property.brush-kind == BrushKind.solid;
     }
 
     function property-length-label(property-name: string, fallback: string) -> string {
@@ -701,6 +709,7 @@ export component InspectorPane inherits Rectangle {
                             accessible-name: "Root background";
                             value: root.phone-background-label;
                             swatch: root.phone-background;
+                            effective-color: root.phone-background;
                             commit-key: root.field-key("background");
                             width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
                             accepted(text) => {
@@ -712,6 +721,8 @@ export component InspectorPane inherits Rectangle {
                             accessible-name: "Rectangle background";
                             value: root.rectangle-background-code();
                             swatch: root.rectangle-background-swatch();
+                            effective-color: root.rectangle-background-swatch();
+                            unsupported: !root.property-is-solid("background");
                             commit-key: root.field-key("background");
                             width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
                             accepted(text) => {
@@ -723,6 +734,8 @@ export component InspectorPane inherits Rectangle {
                             accessible-name: "Text color";
                             value: root.text-color-code();
                             swatch: root.text-color-swatch();
+                            effective-color: root.text-color-swatch();
+                            unsupported: !root.property-is-solid("color");
                             commit-key: root.field-key("color");
                             width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
                             accepted(text) => {
@@ -797,6 +810,8 @@ export component InspectorPane inherits Rectangle {
                                     accessible-name: "Shadow color";
                                     value: root.shadow-color-code();
                                     swatch: root.shadow-color-swatch();
+                                    effective-color: root.shadow-color-swatch();
+                                    unsupported: !root.property-is-solid(root.current-shadow-prefix() + "color");
                                     commit-key: root.field-key(root.current-shadow-prefix() + "color");
                                     accepted(text) => {
                                         return root.commit-code(root.current-shadow-prefix() + "color", text);

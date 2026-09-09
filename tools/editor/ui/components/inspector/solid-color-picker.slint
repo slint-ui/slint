@@ -8,8 +8,12 @@ import { InspectorTextFieldBase } from "text-field-base.slint";
 
 export component InspectorSolidColorPicker inherits Rectangle {
     in property <color> value;
+    in property <string> expression: "";
+    in property <bool> bound: false;
+    in property <bool> unsupported: false;
     in property <bool> open: false;
     callback accepted(color) -> bool;
+    callback detached() -> bool;
     callback closed();
 
     private property <color> working-color: root.value;
@@ -19,6 +23,8 @@ export component InspectorSolidColorPicker inherits Rectangle {
     private property <int> alpha: (root.working-color.alpha * 255).round();
     private property <bool> dragging: false;
     private property <bool> editing: false;
+    private property <bool> is-detached: false;
+    private property <color> original-color: root.value;
 
     function color-at(x: length, y: length) -> color {
         return hsv(root.hue, root.saturation, root.brightness, root.alpha / 255);
@@ -32,11 +38,17 @@ export component InspectorSolidColorPicker inherits Rectangle {
         root.alpha = (c.alpha * 255).round();
     }
 
-    function commit-color(c: color) {
+    function commit-color(c: color) -> bool {
+        if (root.bound && !root.is-detached) || root.unsupported {
+            return false;
+        }
         if root.accepted(c) {
             root.working-color = c;
             Api.add-recent-color(c);
+            return true;
         }
+        root.update-color(root.original-color);
+        return false;
     }
 
     function commit-text(text: string) -> bool {
@@ -44,14 +56,25 @@ export component InspectorSolidColorPicker inherits Rectangle {
             return false;
         }
         let c = Api.string-to-color(text);
-        root.update-color(c);
-        root.commit-color(c);
-        return true;
+        if (root.bound && !root.is-detached) || root.unsupported {
+            return false;
+        }
+        return root.commit-color(c);
     }
 
     public function show-picker() {
         root.update-color(root.value);
+        root.original-color = root.value;
+        root.is-detached = false;
         picker-popup.show();
+    }
+
+    function close-picker() {
+        if root.dragging {
+            root.dragging = false;
+            root.update-color(root.original-color);
+        }
+        root.closed();
     }
 
     changed open => {
@@ -63,11 +86,12 @@ export component InspectorSolidColorPicker inherits Rectangle {
     }
 
     picker-popup := PopupWindow {
-        x: 0px;
+        x: -308px;
         y: 0px;
         width: 300px;
         height: 408px;
         close-policy: close-on-click-outside;
+        forward-focus: picker-focus;
         Rectangle {
             background: InspectorTokens.panel-bg;
             border-width: 1px;
@@ -77,7 +101,19 @@ export component InspectorSolidColorPicker inherits Rectangle {
             drop-shadow-blur: 18px;
             drop-shadow-offset-y: 7px;
 
-            FocusScope {
+            picker-focus := FocusScope {
+                key-pressed(event) => {
+                    if event.text == Key.Escape {
+                        if root.dragging {
+                            root.dragging = false;
+                            root.update-color(root.original-color);
+                        } else {
+                            root.close-picker();
+                        }
+                        return accept;
+                    }
+                    return reject;
+                }
                 VerticalLayout {
                     padding: 12px;
                     spacing: 9px;
@@ -92,19 +128,51 @@ export component InspectorSolidColorPicker inherits Rectangle {
                             vertical-alignment: center;
                         }
                         Rectangle { horizontal-stretch: 1; }
-                        Text {
-                            text: "Close";
-                            color: InspectorTokens.muted;
-                            font-size: 11px;
-                            vertical-alignment: center;
-                        }
-                        TouchArea {
+                        Rectangle {
                             width: 42px;
-                            clicked => { root.closed(); }
+                            height: 22px;
+                            accessible-role: AccessibleRole.button;
+                            accessible-label: "Close color picker";
+                            Text {
+                                text: "Close";
+                                width: parent.width;
+                                color: InspectorTokens.muted;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                                horizontal-alignment: right;
+                            }
+                            TouchArea {
+                                clicked => { root.close-picker(); }
+                            }
                         }
                     }
 
-                    Rectangle {
+                    if root.unsupported: VerticalLayout {
+                        spacing: 5px;
+                        Text { text: root.expression; color: InspectorTokens.text; font-size: 12px; overflow: elide; }
+                        Text { text: "This picker edits solid colors only."; color: InspectorTokens.muted; font-size: 11px; }
+                    }
+
+                    if root.bound && !root.unsupported: HorizontalLayout {
+                        height: 26px;
+                        Text { text: root.expression; color: InspectorTokens.muted; font-size: 11px; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
+                        Rectangle {
+                            width: 58px;
+                            height: 24px;
+                            background: InspectorTokens.field-bg;
+                            border-radius: InspectorTokens.field-radius;
+                            accessible-role: AccessibleRole.button;
+                            accessible-label: "Detach color binding";
+                            Text { text: "Detach"; width: parent.width; horizontal-alignment: center; vertical-alignment: center; color: InspectorTokens.text; font-size: 11px; }
+                            TouchArea {
+                                clicked => {
+                                    if root.detached() { root.is-detached = true; }
+                                }
+                            }
+                        }
+                    }
+
+                    if !root.unsupported: Rectangle {
                         height: 170px;
                         border-radius: 5px;
                         clip: true;
@@ -156,7 +224,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         }
                     }
 
-                    Rectangle {
+                    if !root.unsupported: Rectangle {
                         height: 16px;
                         border-radius: 8px;
                         clip: true;
@@ -191,11 +259,30 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         }
                     }
 
-                    Rectangle {
+                    if !root.unsupported: Rectangle {
                         height: 16px;
                         border-radius: 8px;
                         clip: true;
-                        background: @linear-gradient(90deg, transparent, root.working-color);
+                        background: @linear-gradient(90deg, transparent, hsv(root.hue, root.saturation, root.brightness, 1));
+                        Rectangle {
+                            width: 100%;
+                            height: 100%;
+                            background: #d7d7d7;
+                            for row in 4: Rectangle {
+                                x: 4px;
+                                y: row * 4px;
+                                width: 4px;
+                                height: 4px;
+                                background: #ffffff;
+                            }
+                            for col in 75: Rectangle {
+                                x: col * 8px;
+                                y: 0px;
+                                width: 4px;
+                                height: 4px;
+                                background: #ffffff;
+                            }
+                        }
                         TouchArea {
                             changed pressed => {
                                 if self.pressed {
@@ -216,7 +303,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         }
                     }
 
-                    HorizontalLayout {
+                    if !root.unsupported: HorizontalLayout {
                         height: 26px;
                         spacing: 8px;
                         InspectorTextFieldBase {
@@ -227,20 +314,19 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         }
                         InspectorTextFieldBase {
                             width: 70px;
-                            value: root.alpha.to-fixed(0);
-                            commit-key: root.alpha.to-fixed(0);
+                            value: (root.alpha * 100 / 255).to-fixed(0);
+                            commit-key: (root.alpha * 100 / 255).to-fixed(0);
                             accepted(text) => {
                                 if !text.is-float() { return false; }
-                                root.alpha = text.to-float().clamp(0, 255).round();
+                                root.alpha = (text.to-float().clamp(0, 100) * 255 / 100).round();
                                 root.update-color(root.color-at(0px, 0px));
-                                root.commit-color(root.working-color);
-                                return true;
+                                return root.commit-color(root.working-color);
                             }
                         }
                     }
 
-                    Text { text: "Recent colors"; color: InspectorTokens.muted; font-size: 11px; font-weight: 600; }
-                    HorizontalLayout {
+                    if !root.unsupported: Text { text: "Recent colors"; color: InspectorTokens.muted; font-size: 11px; font-weight: 600; }
+                    if !root.unsupported: HorizontalLayout {
                         height: 26px;
                         spacing: 6px;
                         for recent in Api.recent-colors: Rectangle {

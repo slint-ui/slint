@@ -12,6 +12,8 @@ export component InspectorColorField inherits Rectangle {
     in property <color> swatch;
     in property <bool> wide: false;
     in property <string> commit-key: "";
+    in property <color> effective-color: swatch;
+    in property <bool> unsupported: false;
     callback accepted(string) -> bool;
     private property <bool> picker-open: false;
 
@@ -65,12 +67,17 @@ export component InspectorColorField inherits Rectangle {
     }
 
     picker := InspectorSolidColorPicker {
-        value: Api.string-to-color(root.value);
+        value: root.effective-color;
+        expression: root.value;
+        bound: root.value != "" && !Api.string-is-color(root.value);
+        unsupported: root.unsupported;
         open: root.picker-open;
         accepted(color) => {
             let accepted = root.accepted(Api.color-to-data(color).text);
-            if accepted { root.picker-open = false; }
             return accepted;
+        }
+        detached => {
+            return root.accepted(Api.color-to-data(root.effective-color).text);
         }
         closed => { root.picker-open = false; }
     }
