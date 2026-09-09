@@ -1,10 +1,28 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use ash::vk::Handle;
+use crate::vulkan_handle;
 use skia_safe::gpu::vk;
 
 use wgpu_29 as wgpu;
+
+// Raw values of the Vulkan handles behind wgpu-hal's objects, for Skia's `vk` API. The
+// parameter types pin which `ash::vk` handle each accessor returns; see `vulkan_handle`.
+fn vk_instance(device: &wgpu::hal::vulkan::Device) -> u64 {
+    unsafe { vulkan_handle::dispatchable(device.shared_instance().raw_instance().handle()) }
+}
+fn vk_physical_device(device: &wgpu::hal::vulkan::Device) -> u64 {
+    unsafe { vulkan_handle::dispatchable(device.raw_physical_device()) }
+}
+fn vk_device(device: &wgpu::hal::vulkan::Device) -> u64 {
+    unsafe { vulkan_handle::dispatchable(device.raw_device().handle()) }
+}
+fn vk_queue(queue: &wgpu::hal::vulkan::Queue) -> u64 {
+    unsafe { vulkan_handle::dispatchable(queue.as_raw()) }
+}
+fn vk_image(texture: &wgpu::hal::vulkan::Texture) -> u64 {
+    unsafe { vulkan_handle::non_dispatchable(texture.raw_handle()) }
+}
 
 fn vk_format_and_color_type(
     format: wgpu::TextureFormat,
@@ -77,7 +95,7 @@ pub unsafe fn make_vulkan_surface(
     // into Skia's internal BackendRenderTarget via wrap_vulkan_texture.
     unsafe {
         let vulkan_texture = texture.as_hal::<wgpu::wgc::api::Vulkan>()?;
-        let vk_image_raw = vulkan_texture.raw_handle().as_raw();
+        let vk_image_raw = vk_image(&vulkan_texture);
         let size = texture.size();
         let (vk_format, color_type) = vk_format_and_color_type(texture.format())?;
         wrap_vulkan_texture(
@@ -154,7 +172,7 @@ pub unsafe fn import_vulkan_texture(
         };
 
         let texture_info = &skia_safe::gpu::vk::ImageInfo::new(
-            vulkan_texture.unwrap().raw_handle().as_raw() as _,
+            vk_image(&vulkan_texture.unwrap()) as _,
             alloc,
             skia_safe::gpu::vk::ImageTiling::OPTIMAL,
             skia_safe::gpu::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
@@ -195,18 +213,28 @@ pub unsafe fn make_vulkan_context(
         let vulkan_device = device.as_hal::<wgpu::wgc::api::Vulkan>()?;
         let vulkan_queue = queue.as_hal::<wgpu::wgc::api::Vulkan>()?;
 
-        let vulkan_queue_raw = vulkan_queue.as_raw();
+        let shared_instance = vulkan_device.shared_instance();
 
+        // Skia only asks about the instance and device handed to it below, or about the loader
+        // itself with a null instance. wgpu-hal has those handles in typed form, so use them
+        // rather than rebuilding them from the raw values Skia passes back.
         let get_proc = |of| {
             let result = match of {
-                skia_safe::gpu::vk::GetProcOf::Instance(instance, name) => vulkan_device
-                    .shared_instance()
-                    .entry()
-                    .get_instance_proc_addr(ash::vk::Instance::from_raw(instance as _), name),
-                skia_safe::gpu::vk::GetProcOf::Device(device, name) => vulkan_device
-                    .shared_instance()
-                    .raw_instance()
-                    .get_device_proc_addr(ash::vk::Device::from_raw(device as _), name),
+                skia_safe::gpu::vk::GetProcOf::Instance(instance, name) => {
+                    let instance_handle = if instance.is_null() {
+                        Default::default() // VK_NULL_HANDLE
+                    } else {
+                        let handle = shared_instance.raw_instance().handle();
+                        debug_assert_eq!(instance as u64, vk_instance(&vulkan_device));
+                        handle
+                    };
+                    shared_instance.entry().get_instance_proc_addr(instance_handle, name)
+                }
+                skia_safe::gpu::vk::GetProcOf::Device(device, name) => {
+                    let device_handle = vulkan_device.raw_device().handle();
+                    debug_assert_eq!(device as u64, vk_device(&vulkan_device));
+                    shared_instance.raw_instance().get_device_proc_addr(device_handle, name)
+                }
             };
 
             match result {
@@ -222,16 +250,16 @@ pub unsafe fn make_vulkan_context(
         // considers unsupported: without `VK_KHR_swapchain` in this list it refuses to wrap an
         // image that's in `PRESENT_SRC_KHR` layout, which is how wgpu hands out swapchain
         // images. Hand it what wgpu actually enabled, no more.
-        let instance_extensions = cstr_names(vulkan_device.shared_instance().extensions());
+        let instance_extensions = cstr_names(shared_instance.extensions());
         let device_extensions = cstr_names(vulkan_device.enabled_device_extensions());
 
         // WGPU 29 is locked to vulkan 1.3 and skia assumes the highest vulkan API version of the
         // physical device is chosen, causing it to ask for unsupported features/functions.
         let backend = vk::BackendContext::new_builder(
-            vulkan_device.shared_instance().raw_instance().handle().as_raw() as _,
-            vulkan_device.raw_physical_device().as_raw() as _,
-            vulkan_device.raw_device().handle().as_raw() as _,
-            (vulkan_queue_raw.as_raw() as _, vulkan_device.queue_family_index() as _),
+            vk_instance(&vulkan_device) as _,
+            vk_physical_device(&vulkan_device) as _,
+            vk_device(&vulkan_device) as _,
+            (vk_queue(&vulkan_queue) as _, vulkan_device.queue_family_index() as _),
             &get_proc,
             Some(vk::Version::new(1, 3, 0)),
         )
