@@ -18,6 +18,7 @@ use crate::object_tree::{
 use itertools::Either;
 use proc_macro2::{Delimiter, Group, Ident, Spacing, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -68,7 +69,7 @@ impl Coverage {
                         Type::Callback(_) => "handler",
                         _ => "binding",
                     };
-                    coverage.source_binding(&binding.borrow(), kind, name);
+                    coverage.source_binding(&binding.borrow(), kind, &source_name(&elem, name));
                 }
             });
         }
@@ -76,9 +77,13 @@ impl Coverage {
     }
 
     /// The span of a binding written in the source: a compiler pass's binding
-    /// has no span, or a priority of zero.
+    /// has no span or a priority of zero, and a default the compiler supplies
+    /// the maximum priority.
     fn source_binding(&self, binding: &BindingExpression, kind: &str, name: &str) -> Option<Span> {
-        (binding.priority >= 1).then(|| self.point(kind, binding, &format!(" {name}"))).flatten()
+        (1..i32::MAX)
+            .contains(&binding.priority)
+            .then(|| self.point(kind, binding, &format!(" {name}")))
+            .flatten()
     }
 
     /// The span naming the point of the given kind at `location`, or `None`
@@ -127,6 +132,13 @@ impl Coverage {
         }
         (printer.code, map)
     }
+}
+
+/// The name of a property as the source writes it: `move_declarations` hoists
+/// a declaration onto the root element under a name of its own making.
+fn source_name(elem: &crate::object_tree::Element, name: &SmolStr) -> SmolStr {
+    let moved_from = elem.property_declarations.get(name).and_then(|d| d.moved_from.clone());
+    moved_from.unwrap_or_else(|| name.clone())
 }
 
 /// A span naming point `id`: the span of a token parsed from the text
@@ -549,7 +561,7 @@ fn property_field(name: &str) -> Ident {
 /// `move_declarations` hoists the declarations of every other element onto it,
 /// under a name of its own making.
 fn is_own_declaration(decl: &PropertyDeclaration) -> bool {
-    decl.node.is_some() && !decl.moved_to_root
+    decl.node.is_some() && decl.moved_from.is_none()
 }
 
 /// Whether `root`, the root element of the component being generated, declares
@@ -783,7 +795,8 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
         // The only call of the subset is a callback invocation from a handler.
         Expression::FunctionCall { function: Callable::Callback(nr), source_location, .. } => {
             let call = compile_callback_call(nr, ctx);
-            match ctx.coverage.point("call", source_location, &format!(" {}", nr.name())) {
+            let name = source_name(&nr.element().borrow(), nr.name());
+            match ctx.coverage.point("call", source_location, &format!(" {name}")) {
                 Some(span) => stamped(span, call),
                 None => call,
             }
@@ -840,7 +853,8 @@ fn compile_callback_call(nr: &NamedReference, ctx: &Ctx) -> TokenStream {
     }
     match element.borrow().binding_cell_including_synthetic(nr.name()) {
         Some(handler) => {
-            let handler = compile_binding(&handler.borrow(), "handler", nr.name(), ctx);
+            let name = source_name(&element.borrow(), nr.name());
+            let handler = compile_binding(&handler.borrow(), "handler", &name, ctx);
             quote!(#handler;)
         }
         None => TokenStream::new(),
@@ -1015,12 +1029,20 @@ fn compile_property_reference(nr: &NamedReference, ctx: &Ctx) -> Option<TokenStr
                     let getter = rust_accessor_ident(nr.name(), AccessorKind::Getter);
                     quote!(self.#getter())
                 }
-                Some(b) => compile_binding(&b.borrow(), "binding", nr.name(), ctx),
+                Some(b) => compile_binding(
+                    &b.borrow(),
+                    "binding",
+                    &source_name(&root_borrowed, nr.name()),
+                    ctx,
+                ),
             });
         }
     }
     match element.borrow().binding_cell_including_synthetic(nr.name()) {
-        Some(b) => Some(compile_binding(&b.borrow(), "binding", nr.name(), ctx)),
+        Some(b) => {
+            let name = source_name(&element.borrow(), nr.name());
+            Some(compile_binding(&b.borrow(), "binding", &name, ctx))
+        }
         None if is_root => match nr.name().as_str() {
             "width" => Some(quote!((self.window_size.width as i32))),
             "height" => Some(quote!((self.window_size.height as i32))),

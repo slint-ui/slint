@@ -783,11 +783,12 @@ pub struct PropertyDeclaration {
     pub shadowed_name: Option<SmolStr>,
     /// Declared `@shadowable`, so an inheriting component may shadow it.
     pub shadowable: bool,
-    /// Whether the move_declarations pass hoisted this declaration onto the root
-    /// element from another element of the component, under a name of its own
-    /// making. What the component itself declares, in the source or through the
-    /// component it inherits from, keeps this false.
-    pub moved_to_root: bool,
+    /// The name the declaration had on the element it was moved from, when the
+    /// move_declarations pass hoisted it onto the root element from another
+    /// element of the component, under a name of its own making. What the
+    /// component itself declares, in the source or through the component it
+    /// inherits from, keeps this `None`.
+    pub moved_from: Option<SmolStr>,
     /// Some if the property was declared with `@deprecated`. The string is the hint shown after
     /// "The property 'xxx' has been deprecated." in the warning: either derived from the two-way
     /// binding target, or the custom message given as argument to `@deprecated("...")`.

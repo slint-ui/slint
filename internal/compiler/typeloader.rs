@@ -548,7 +548,7 @@ impl Snapshotter {
                     pure: v.pure,
                     shadowed_name: v.shadowed_name.clone(),
                     shadowable: v.shadowable,
-                    moved_to_root: v.moved_to_root,
+                    moved_from: v.moved_from.clone(),
                     deprecated: v.deprecated.clone(),
                 };
                 (k.clone(), decl)
