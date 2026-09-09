@@ -1775,12 +1775,12 @@ fn dispatch_workspace_edit(
 ) -> bool {
     if state.workspace_edit_sent {
         #[cfg(feature = "system-testing")]
-        test_sync::effect("rejected");
+        test_sync::effect(test_sync::Outcome::Rejected);
         return false;
     }
     let Some(sender) = state.edit_sender.as_ref() else {
         #[cfg(feature = "system-testing")]
-        test_sync::effect("rejected");
+        test_sync::effect(test_sync::Outcome::Rejected);
         return false;
     };
 
@@ -1796,7 +1796,7 @@ fn dispatch_workspace_edit(
         state.workspace_edit_installation = None;
         state.workspace_edit_sent = false;
         #[cfg(feature = "system-testing")]
-        test_sync::effect("failed");
+        test_sync::effect(test_sync::Outcome::Failed);
         return false;
     }
     true
@@ -1805,12 +1805,12 @@ fn dispatch_workspace_edit(
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
     let Some(document_cache) = document_cache() else {
         #[cfg(feature = "system-testing")]
-        test_sync::effect("rejected");
+        test_sync::effect(test_sync::Outcome::Rejected);
         return false;
     };
     let Ok(result) = text_edit::apply_workspace_edit(&document_cache, &edit) else {
         #[cfg(feature = "system-testing")]
-        test_sync::effect("rejected");
+        test_sync::effect(test_sync::Outcome::Rejected);
         return false;
     };
     let file_hashes = undo_redo::compute_file_hashes(&result);
@@ -1822,7 +1822,7 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
             CompilationResult::ChangeCompiles => {}
             CompilationResult::ChangeFails => {
                 #[cfg(feature = "system-testing")]
-                test_sync::effect("rejected");
+                test_sync::effect(test_sync::Outcome::Rejected);
                 return false;
             }
             CompilationResult::NoChange => return true,
@@ -2503,7 +2503,7 @@ async fn reload_preview_impl(
                     Some(attempt),
                 ) {
                     tracing::error!("Preview installation failed: {error}");
-                    test_sync::effect("failed");
+                    test_sync::effect(test_sync::Outcome::Failed);
                 }
             })
         });

@@ -67,7 +67,7 @@ pub(super) fn cancel() {
                 edit.work.clone(),
                 test_sync::Work::capture("gesture cancellation"),
             ])
-            .run(|| test_sync::effect("canceled"));
+            .run(|| test_sync::effect(test_sync::Outcome::Canceled));
             let overrides = state.debug_hook_overrides.borrow();
             for (id, previous) in edit.overrides {
                 if let Some(property) = overrides.get(&id) {
@@ -143,7 +143,7 @@ pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool 
 fn commit_impl(key: SharedString, name: SharedString, value: f32) -> bool {
     let Some((node, url, version, names)) = validate(&key, &name, value) else {
         #[cfg(feature = "system-testing")]
-        test_sync::effect("rejected");
+        test_sync::effect(test_sync::Outcome::Rejected);
         return false;
     };
     let unit = if name == "transform-rotation" { "deg" } else { "px" };

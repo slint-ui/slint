@@ -143,7 +143,7 @@ pub fn setup(api: &ui::Api<'_>) {
                 prepare_history_edit(&document_cache, &edit)
             else {
                 #[cfg(feature = "system-testing")]
-                super::test_sync::effect("rejected");
+                super::test_sync::effect(super::test_sync::Outcome::Rejected);
                 state.undo_redo_stack.clear();
                 set_undo_redo_enabled(state);
                 return;
@@ -172,7 +172,7 @@ pub fn setup(api: &ui::Api<'_>) {
                 prepare_history_edit(&document_cache, &edit)
             else {
                 #[cfg(feature = "system-testing")]
-                super::test_sync::effect("rejected");
+                super::test_sync::effect(super::test_sync::Outcome::Rejected);
                 state.undo_redo_stack.clear();
                 set_undo_redo_enabled(state);
                 return;
@@ -209,7 +209,7 @@ pub(super) fn discard_pending(state: &mut super::PreviewState, may_have_changed:
 pub(super) fn cancel_pending(state: &mut super::PreviewState) {
     for _history in state.pending_history.drain(..) {
         #[cfg(feature = "system-testing")]
-        _history.work.run(|| super::test_sync::effect("canceled"));
+        _history.work.run(|| super::test_sync::effect(super::test_sync::Outcome::Canceled));
     }
 }
 

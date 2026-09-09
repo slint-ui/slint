@@ -49,6 +49,16 @@ struct Attempt {
     diagnostics: Vec<String>,
     processed_cursor: u64,
 }
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum Outcome {
+    #[default]
+    Noop,
+    Canceled,
+    Rejected,
+    Completed,
+    Failed,
+}
 #[derive(Default, Serialize)]
 struct Operation {
     sealed: bool,
@@ -56,22 +66,19 @@ struct Operation {
     accepted_edits: u64,
     writes: u64,
     mutations: u64,
-    effects: Vec<String>,
+    outcome: Outcome,
 }
 impl Operation {
     fn outcome(&self) -> &str {
-        if self.effects.iter().any(|s| s == "failed") {
-            "failed"
-        } else if self.accepted_edits > 0 || self.effects.iter().any(|s| s == "completed") {
-            "completed"
-        } else if self.effects.iter().any(|s| s == "rejected") {
-            "rejected"
-        } else if self.effects.iter().any(|s| s == "canceled") {
-            "canceled"
-        } else {
-            "noop"
+        match self.outcome {
+            Outcome::Noop => "noop",
+            Outcome::Canceled => "canceled",
+            Outcome::Rejected => "rejected",
+            Outcome::Completed => "completed",
+            Outcome::Failed => "failed",
         }
     }
+
     fn settled(&self) -> bool {
         self.sealed && self.pending.is_empty()
     }
@@ -102,8 +109,7 @@ struct Observer {
     capturing: Option<u64>,
     gates: BTreeMap<u64, Gate>,
     write_faults: BTreeMap<Url, crate::source_write::WriteFault>,
-    replies: BTreeMap<u64, (Value, Value)>,
-    retired_request_through: u64,
+    request: Option<(u64, Value, Option<Value>)>,
     writes: u64,
     mutations: u64,
     accepted_edits: u64,
@@ -132,11 +138,6 @@ impl Observer {
             .collect();
         for id in finished.iter().take(finished.len().saturating_sub(MAX_COMPLETED)) {
             self.attempts.remove(id);
-        }
-        while self.replies.len() > MAX_COMPLETED {
-            if let Some((id, _)) = self.replies.pop_first() {
-                self.retired_request_through = self.retired_request_through.max(id);
-            }
         }
     }
 
@@ -238,11 +239,12 @@ impl Work {
     }
 }
 
-pub(crate) fn effect(outcome: &str) {
+pub(crate) fn effect(outcome: Outcome) {
     let ids = operations();
     with_state(|s| {
         for id in ids {
-            s.operations.get_mut(&id).unwrap().effects.push(outcome.into());
+            let op = s.operations.get_mut(&id).unwrap();
+            op.outcome = op.outcome.max(outcome);
             s.event(json!({"kind":"effect", "operation":id, "outcome":outcome}));
         }
     });
@@ -252,7 +254,9 @@ pub(crate) fn accepted_edit() {
     with_state(|s| {
         s.accepted_edits += 1;
         for id in ids {
-            s.operations.get_mut(&id).unwrap().accepted_edits += 1;
+            let op = s.operations.get_mut(&id).unwrap();
+            op.accepted_edits += 1;
+            op.outcome = op.outcome.max(Outcome::Completed);
         }
         s.event(json!({"kind":"accepted_edit"}));
     });
@@ -678,9 +682,6 @@ fn respond_in(s: &mut Observer, raw: Value) -> Value {
     let Ok(request) = serde_json::from_value::<Request>(raw.clone()) else {
         return json!({"id":id,"error":"malformed request"});
     };
-    if request.id <= s.retired_request_through {
-        return json!({"id":id,"error":"request history expired"});
-    }
     let immutable = matches!(
         request.mode.as_str(),
         "handshake"
@@ -692,12 +693,18 @@ fn respond_in(s: &mut Observer, raw: Value) -> Value {
             | "write_fault"
             | "clear_write_fault"
     );
-    if let Some((previous, result)) = s.replies.get(&request.id) {
-        return if previous == &raw {
-            result.clone()
-        } else {
-            json!({"id":id,"error":"request ID reused"})
-        };
+    if let Some((previous_id, previous, response)) = &s.request {
+        if request.id < *previous_id {
+            return json!({"id":id,"error":"stale request ID"});
+        }
+        if request.id == *previous_id {
+            if previous != &raw {
+                return json!({"id":id,"error":"request ID reused"});
+            }
+            if let Some(response) = response {
+                return response.clone();
+            }
+        }
     }
     let mut result = match answer(s, &request) {
         Ok(v) => v,
@@ -721,9 +728,7 @@ fn respond_in(s: &mut Observer, raw: Value) -> Value {
             .filter(|e| e["cursor"].as_u64().unwrap() > request.after)
             .collect::<Vec<_>>()
     );
-    if immutable {
-        s.replies.insert(request.id, (raw, result.clone()));
-    }
+    s.request = Some((request.id, raw, immutable.then(|| result.clone())));
     s.prune();
     result
 }
@@ -807,16 +812,25 @@ mod tests {
     }
 
     #[test]
-    fn expired_control_requests_cannot_run_again() {
+    fn older_requests_cannot_run_again() {
         let mut state = observer();
-        for id in 1..=(MAX_COMPLETED as u64 + 1) {
-            respond_in(&mut state, request(id, "checkpoint"));
-        }
-        assert_eq!(state.replies.len(), MAX_COMPLETED);
-        assert_eq!(
-            respond_in(&mut state, request(1, "checkpoint"))["error"],
-            "request history expired"
-        );
+        respond_in(&mut state, request(1, "checkpoint"));
+        respond_in(&mut state, request(2, "checkpoint"));
+        assert_eq!(respond_in(&mut state, request(1, "begin"))["error"], "stale request ID");
+        assert!(state.operations.is_empty());
+    }
+
+    #[test]
+    fn observational_requests_recheck_state_but_cannot_change_payload() {
+        let mut state = observer();
+        state.operations.insert(7, Operation::default());
+        let mut query = request(1, "settled");
+        query["operation"] = 7.into();
+        assert_eq!(respond_in(&mut state, query.clone())["ready"], false);
+        state.operations.get_mut(&7).unwrap().sealed = true;
+        assert_eq!(respond_in(&mut state, query.clone())["ready"], true);
+        query["operation"] = 8.into();
+        assert_eq!(respond_in(&mut state, query)["error"], "request ID reused");
     }
 
     #[test]
@@ -837,6 +851,24 @@ mod tests {
     }
 
     #[test]
+    fn accumulated_outcomes_preserve_precedence_in_both_orders() {
+        use Outcome::*;
+        let outcomes = [Noop, Canceled, Rejected, Completed, Failed];
+        for (index, outcome) in outcomes.iter().enumerate() {
+            let expected = ["noop", "canceled", "rejected", "completed", "failed"][index];
+            for previous in &outcomes[..=index] {
+                for pair in [[*previous, *outcome], [*outcome, *previous]] {
+                    let mut operation = Operation::default();
+                    for effect in pair {
+                        operation.outcome = operation.outcome.max(effect);
+                    }
+                    assert_eq!(operation.outcome(), expected);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn settlement_cannot_manufacture_a_canceled_result() {
         let mut state = observer();
         let id = respond_in(&mut state, request(1, "begin"))["operation"].clone();
@@ -847,7 +879,7 @@ mod tests {
         wait["operation"] = id.clone();
         wait["outcome"] = "canceled".into();
         assert!(respond_in(&mut state, wait)["error"].as_str().unwrap().contains("got noop"));
-        assert!(state.operations[&id.as_u64().unwrap()].effects.is_empty());
+        assert_eq!(state.operations[&id.as_u64().unwrap()].outcome(), "noop");
     }
 
     #[test]

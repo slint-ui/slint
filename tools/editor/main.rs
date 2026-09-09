@@ -547,11 +547,11 @@ async fn handle_preview_message(
                 i_slint_editor_preview::settings_store::save(TOOL_NAME, name, contents)
             {
                 #[cfg(feature = "system-testing")]
-                preview::test_sync::effect("failed");
+                preview::test_sync::effect(preview::test_sync::Outcome::Failed);
                 tracing::warn!("Failed to save preview user settings: {error}");
             } else {
                 #[cfg(feature = "system-testing")]
-                preview::test_sync::effect("completed");
+                preview::test_sync::effect(preview::test_sync::Outcome::Completed);
             }
         }
         SendShowMessage { message } => {
@@ -642,7 +642,7 @@ fn handle_workspace_edit(
     match editor_preview::editing::text_edit::apply_workspace_edit(document_cache, edit) {
         Ok(edited_texts) if edited_texts.is_empty() => {
             #[cfg(feature = "system-testing")]
-            crate::preview::test_sync::effect("rejected");
+            crate::preview::test_sync::effect(preview::test_sync::Outcome::Rejected);
             tracing::warn!(
                 "Workspace edit '{}' did not address any loaded document",
                 label.unwrap_or("(unnamed)")
@@ -652,7 +652,7 @@ fn handle_workspace_edit(
         Ok(edited_texts) => persist_workspace_edit(edited_texts, label),
         Err(err) => {
             #[cfg(feature = "system-testing")]
-            crate::preview::test_sync::effect("rejected");
+            crate::preview::test_sync::effect(preview::test_sync::Outcome::Rejected);
             tracing::error!(
                 "Failed to compute workspace edit '{}': {err}",
                 label.unwrap_or("(unnamed)")
@@ -698,7 +698,7 @@ fn persist_workspace_edit(
                 if let Err(failure) = result {
                     let err = failure.error;
                     #[cfg(feature = "system-testing")]
-                    crate::preview::test_sync::effect("failed");
+                    crate::preview::test_sync::effect(preview::test_sync::Outcome::Failed);
                     tracing::error!(
                         "Failed to apply workspace edit '{}' to {}: {err}",
                         label.unwrap_or("(unnamed)"),
@@ -722,7 +722,7 @@ fn persist_workspace_edit(
         preview::WorkspaceEditOutcome::Applied
     } else {
         #[cfg(feature = "system-testing")]
-        crate::preview::test_sync::effect("failed");
+        crate::preview::test_sync::effect(preview::test_sync::Outcome::Failed);
         preview::WorkspaceEditOutcome::Failed { may_have_changed }
     }
 }
