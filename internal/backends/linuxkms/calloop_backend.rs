@@ -124,7 +124,7 @@ fn drm_lease_fd_from_env() -> Result<Option<OwnedFd>, String> {
 
 // Ask the AGL drm-lease-manager for the lease named by SLINT_DRM_LEASE_NAME.
 // Ok(None) when the variable is unset.
-#[cfg(feature = "libdlmclient")]
+#[cfg(have_libdlmclient)]
 fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
     use std::os::fd::FromRawFd;
 
@@ -159,11 +159,11 @@ fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
     Ok(Some(unsafe { OwnedFd::from_raw_fd(raw) }))
 }
 
-#[cfg(not(feature = "libdlmclient"))]
+#[cfg(not(have_libdlmclient))]
 fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
     match std::env::var("SLINT_DRM_LEASE_NAME") {
         Ok(name) => Err(format!(
-            "SLINT_DRM_LEASE_NAME is set to {name:?} but this build has no drm-lease-manager support, enable the backend-linuxkms-libdlmclient feature"
+            "SLINT_DRM_LEASE_NAME is set to {name:?} but this build has no drm-lease-manager support: enable the backend-linuxkms-libdlmclient feature and have libdlmclient installed when building"
         )),
         Err(_) => Ok(None),
     }

@@ -191,7 +191,8 @@ Alternatively, the backend can obtain the lease directly from the
 [AGL drm-lease-manager](https://github.com/AGLExport/drm-lease-manager) instead of receiving a file
 descriptor. This needs the manager's client library, `libdlmclient`: enable the
 `backend-linuxkms-libdlmclient` Cargo feature (`SLINT_FEATURE_BACKEND_LINUXKMS_LIBDLMCLIENT` in
-CMake), which links it via pkg-config. Set the `SLINT_DRM_LEASE_NAME` environment variable to the
+CMake), which links it via pkg-config. If pkg-config can't find the library, the build prints a
+warning and the feature does nothing. Set the `SLINT_DRM_LEASE_NAME` environment variable to the
 lease name managed by the daemon (for example `card0-HDMI-A-1`); the backend then requests that
 lease and renders on it. `SLINT_DRM_LEASE_FD` takes precedence if both are set.
 

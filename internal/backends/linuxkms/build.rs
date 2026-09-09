@@ -39,10 +39,18 @@ fn main() {
         ) },
     }
 
-    if std::env::var_os("CARGO_FEATURE_LIBDLMCLIENT").is_some() {
-        // libdlmclient.pc ships with the AGL drm-lease-manager
-        pkg_config::probe_library("libdlmclient").unwrap_or_else(|e| {
-            panic!("the libdlmclient feature needs the drm-lease-manager client library: {e}")
-        });
+    // Like the Qt backend, a missing library is a warning, not an error, so that
+    // --all-features builds work everywhere. libdlmclient.pc ships with the AGL
+    // drm-lease-manager.
+    println!("cargo:rustc-check-cfg=cfg(have_libdlmclient)");
+    if std::env::var_os("CARGO_FEATURE_LIBDLMCLIENT").is_some()
+        && std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux")
+    {
+        match pkg_config::probe_library("libdlmclient") {
+            Ok(_) => println!("cargo:rustc-cfg=have_libdlmclient"),
+            Err(_) => println!(
+                "cargo:warning=pkg-config can't find libdlmclient, so the LinuxKMS backend won't be able to obtain DRM leases from the drm-lease-manager. Point PKG_CONFIG_PATH at the directory of libdlmclient.pc"
+            ),
+        }
     }
 }
