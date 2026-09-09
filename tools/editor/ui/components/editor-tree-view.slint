@@ -5,7 +5,7 @@ import {
     DropLocation,
     OutlineTreeNode,
 } from "../api.slint";
-import { AppState } from "common.slint";
+import { AppState, StudioTheme } from "common.slint";
 import { ElementVisuals } from "element-presentation.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
 import { EditorTreeTokens } from "editor-tree-tokens.slint";
@@ -140,6 +140,15 @@ component EditorTreeRow {
                         : root.row-has-hover
                         ? EditorTreeTokens.row-bg-hover
                         : transparent;
+                }
+
+                if root.current && StudioTheme.dark: Rectangle {
+                    x: row-highlight.x;
+                    y: (parent.height - self.height) / 2;
+                    width: EditorTreeTokens.current-indicator-width;
+                    height: EditorTreeTokens.current-indicator-height;
+                    border-radius: self.width / 2;
+                    background: EditorTreeTokens.accent;
                 }
 
                 row-drag := DragArea {
