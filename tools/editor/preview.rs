@@ -215,6 +215,7 @@ pub struct PreviewState {
     initial_live_data: preview_data::PreviewDataMap,
     current_live_data: preview_data::PreviewDataMap,
     undo_redo_stack: undo_redo::UndoRedoStack,
+    pending_history: std::collections::VecDeque<bool>,
     inspector_edit: Option<inspector::Edit>,
 
     source_code: SourceCodeCache,
@@ -2689,6 +2690,7 @@ fn update_preview_area(
 
     inspector::invalidate();
     element_selection::reselect_element();
+    undo_redo::apply_pending();
     Ok(())
 }
 
