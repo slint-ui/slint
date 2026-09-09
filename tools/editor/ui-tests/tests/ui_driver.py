@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import contextlib
+import hashlib
+import json
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -132,9 +134,22 @@ def launch_editor(
         try:
             with slint_testing.Application(
                 arguments,
-                env=environment | {"SLINT_EDITOR_TEST_SYNC": directory},
+                env=environment
+                | {
+                    "SLINT_EDITOR_TEST_SYNC": directory,
+                    "SLINT_EDITOR_TEST_CONFIG_DIR": str(Path(directory) / "config"),
+                },
                 launch_timeout=20,
             ) as application:
+                (Path(directory) / "client-info.json").write_text(
+                    json.dumps(
+                        {
+                            "binary": str(binary),
+                            "sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
+                            "protocol": 2,
+                        }
+                    )
+                )
                 try:
                     yield application
                     report = current_report.get()

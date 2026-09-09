@@ -31,6 +31,9 @@ pub fn save(tool_name: &str, name: &str, contents: &str) -> crate::Result<()> {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn settings_path(tool_name: &str, name: &str) -> Option<PathBuf> {
+    if let Some(config_dir) = std::env::var_os("SLINT_EDITOR_TEST_CONFIG_DIR") {
+        return settings_path_from_config_dir(&PathBuf::from(config_dir), name);
+    }
     let application = if cfg!(target_os = "linux") { "slint" } else { tool_name };
     let project_dirs = directories::ProjectDirs::from("dev", "Slint", application)?;
     let mut config_dir = project_dirs.config_dir().to_owned();

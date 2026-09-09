@@ -36,6 +36,8 @@ def editor_environment() -> dict[str, str]:
             ),
             "SLINT_EMIT_DEBUG_INFO": "1",
             "SLINT_ENABLE_EXPERIMENTAL_FEATURES": "1",
+            "SLINT_SCALE_FACTOR": "1",
+            "SLINT_STYLE": "fluent",
         }
     )
     return environment
