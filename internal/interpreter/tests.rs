@@ -847,3 +847,166 @@ fn accent_color_reachable_from_global() {
     let after = instance.get_property("accent").unwrap();
     assert_ne!(before, after, "accent-background should follow the system accent color");
 }
+
+/// The address of the compilation unit's sub component storage. It survives the
+/// unit being moved out of its `Rc`, and changes when the unit is copied.
+fn unit_storage(result: &crate::CompilationResult) -> usize {
+    result
+        .components
+        .values()
+        .next()
+        .expect("needs a component")
+        .inner
+        .compilation_unit
+        .sub_components
+        .raw
+        .as_ptr() as usize
+}
+
+/// The point of `into_send`: compile on a worker thread, instantiate on this one.
+#[test]
+fn compilation_result_moves_to_the_instantiating_thread() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{CompilationResult, Compiler, Value};
+
+    let code = r#"
+        export component App inherits Window {
+            in-out property <int> counter: 40;
+            out property <int> doubled: root.counter * 2;
+            public function bump() { root.counter += 1; }
+        }
+    "#;
+
+    // The compiler is not Send either, so the worker builds its own.
+    let (sent, storage_on_the_worker) = std::thread::spawn(move || {
+        let compiler = Compiler::default();
+        let result = poll_ready(compiler.build_from_source(code.into(), Default::default()));
+        let storage = unit_storage(&result);
+        (result.into_send(), storage)
+    })
+    .join()
+    .expect("compile worker panicked");
+    assert!(!sent.has_errors(), "{:?}", sent.diagnostics().collect::<Vec<_>>());
+
+    let result = CompilationResult::from(sent);
+    assert_eq!(
+        unit_storage(&result),
+        storage_on_the_worker,
+        "the unit was copied out of its Rc instead of moved"
+    );
+    let definition = result.component("App").unwrap();
+    let instance = definition.create().unwrap();
+    assert_eq!(instance.get_property("doubled").unwrap(), Value::Number(80.));
+
+    // Not just readable: the item tree built from the moved unit is live.
+    instance.invoke("bump", &[]).unwrap();
+    assert_eq!(instance.get_property("doubled").unwrap(), Value::Number(82.));
+
+    // The unit is shared, not copied per component, so it still feeds a second
+    // independent instance.
+    let other = definition.create().unwrap();
+    other.set_property("counter", Value::Number(1.)).unwrap();
+    assert_eq!(other.get_property("doubled").unwrap(), Value::Number(2.));
+    assert_eq!(instance.get_property("doubled").unwrap(), Value::Number(82.));
+}
+
+/// Every component of the result survives the round trip, resolved to the one
+/// it was compiled from rather than to a same-named component of another.
+#[test]
+fn every_component_survives_the_round_trip() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{CompilationResult, Compiler, Value};
+
+    let compiler = Compiler::default();
+    let result = poll_ready(
+        compiler.build_from_source(
+            r#"
+            export component First inherits Window { out property <int> v: 1; }
+            export component Second inherits Window { out property <int> v: 2; }
+            export component Third inherits Window { out property <int> v: 3; }
+        "#
+            .into(),
+            Default::default(),
+        ),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let before: Vec<String> = {
+        let mut n: Vec<String> = result.component_names().map(String::from).collect();
+        n.sort();
+        n
+    };
+
+    let result = CompilationResult::from(result.into_send());
+    let mut after: Vec<String> = result.component_names().map(String::from).collect();
+    after.sort();
+    assert_eq!(before, after);
+    for (name, expected) in [("First", 1.), ("Second", 2.), ("Third", 3.)] {
+        let instance = result.component(name).unwrap().create().unwrap();
+        assert_eq!(instance.get_property("v").unwrap(), Value::Number(expected), "{name}");
+    }
+}
+
+/// A failed compilation carries its diagnostics across, and no component.
+#[test]
+fn a_failed_compilation_survives_the_round_trip() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{CompilationResult, Compiler};
+
+    let compiler = Compiler::default();
+    let result = poll_ready(
+        compiler
+            .build_from_source("export component App inherits { oops".into(), Default::default()),
+    );
+    assert!(result.has_errors());
+    let expected = result.diagnostics().count();
+
+    let sent = result.into_send();
+    assert!(sent.has_errors());
+    let result = CompilationResult::from(sent);
+    assert!(result.has_errors());
+    assert_eq!(result.diagnostics().count(), expected);
+    assert_eq!(result.components().count(), 0);
+}
+
+/// `into_send` takes the unit out of its `Rc` when nothing else holds it, and
+/// copies it when something does. Exercise the copy: keep a definition alive
+/// across the call, and check both it and the round-tripped result still work.
+#[test]
+fn a_definition_kept_alive_across_into_send_still_works() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{CompilationResult, Compiler, Value};
+
+    let compiler = Compiler::default();
+    let result = poll_ready(compiler.build_from_source(
+        "export component App inherits Window { in-out property <int> v: 7; }".into(),
+        Default::default(),
+    ));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+
+    let kept = result.component("App").unwrap();
+    let before = unit_storage(&result);
+    let round_tripped = CompilationResult::from(result.into_send());
+    assert_ne!(
+        unit_storage(&round_tripped),
+        before,
+        "the kept definition still holds the unit, so it had to be copied"
+    );
+
+    let from_kept = kept.create().unwrap();
+    let from_sent = round_tripped.component("App").unwrap().create().unwrap();
+    from_kept.set_property("v", Value::Number(1.)).unwrap();
+    from_sent.set_property("v", Value::Number(2.)).unwrap();
+    assert_eq!(from_kept.get_property("v").unwrap(), Value::Number(1.));
+    assert_eq!(from_sent.get_property("v").unwrap(), Value::Number(2.));
+}
+
+/// Poll a future that is expected to be immediately ready. The compiler is only
+/// asynchronous when an async file loader is set, which these tests don't use.
+fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
+    let mut future = core::pin::pin!(future);
+    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+    match std::future::Future::poll(future.as_mut(), &mut cx) {
+        std::task::Poll::Ready(result) => result,
+        std::task::Poll::Pending => unreachable!("Compiler returned Pending"),
+    }
+}
