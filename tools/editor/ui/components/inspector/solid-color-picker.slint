@@ -20,7 +20,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
     private property <float> hue: root.working-color.to-hsv().hue;
     private property <float> saturation: root.working-color.to-hsv().saturation;
     private property <float> brightness: root.working-color.to-hsv().value;
-    private property <int> alpha: (root.working-color.alpha * 255).round();
+    private property <int> alpha: root.working-color.alpha;
     private property <bool> dragging: false;
     private property <bool> editing: false;
     private property <bool> is-detached: false;
@@ -35,7 +35,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
         root.hue = c.to-hsv().hue;
         root.saturation = c.to-hsv().saturation;
         root.brightness = c.to-hsv().value;
-        root.alpha = (c.alpha * 255).round();
+        root.alpha = c.alpha;
     }
 
     function commit-color(c: color) -> bool {
