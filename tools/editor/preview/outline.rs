@@ -160,7 +160,9 @@ impl Tree for OutlineModel {
                             base.text()
                         ),
                     };
-                    let icon_kind = icon_kind_for_type(base_type.as_deref().unwrap_or_default());
+                    let icon_kind = super::element_catalog::kind_for_type(
+                        base_type.as_deref().unwrap_or_default(),
+                    );
                     let data = create_node(&elem, 0, name, Default::default(), icon_kind);
                     (elem, data)
                 });
@@ -194,7 +196,7 @@ impl Tree for OutlineModel {
                             .child_text(parser::SyntaxKind::Identifier)
                             .map(|x| x.to_shared_string())
                             .unwrap_or_default();
-                        let icon_kind = icon_kind_for_type(base.as_str());
+                        let icon_kind = super::element_catalog::kind_for_type(base.as_str());
                         let node = create_node(&elem, indent_level, base, id, icon_kind);
                         Some((elem, node))
                     })
@@ -235,7 +237,7 @@ fn create_node(
     indent_level: i32,
     element_type: SharedString,
     element_id: SharedString,
-    icon_kind: ui::OutlineNodeIconKind,
+    icon_kind: ui::ElementKind,
 ) -> ui::OutlineTreeNode {
     ui::OutlineTreeNode {
         has_children: element
@@ -253,16 +255,6 @@ fn create_node(
             .to_shared_string(),
         offset: usize::from(element.text_range().start()) as i32,
         is_last_child: true,
-    }
-}
-
-fn icon_kind_for_type(element_type: &str) -> ui::OutlineNodeIconKind {
-    match element_type.trim() {
-        "Rectangle" => ui::OutlineNodeIconKind::Rectangle,
-        "Image" => ui::OutlineNodeIconKind::Image,
-        "Text" => ui::OutlineNodeIconKind::Text,
-        "TouchArea" => ui::OutlineNodeIconKind::TouchArea,
-        _ => ui::OutlineNodeIconKind::Default,
     }
 }
 

@@ -3,10 +3,10 @@
 
 import {
     DropLocation,
-    OutlineNodeIconKind,
     OutlineTreeNode,
 } from "../api.slint";
 import { AppState } from "common.slint";
+import { ElementVisuals } from "element-presentation.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
 import { EditorTreeTokens } from "editor-tree-tokens.slint";
 import { ListView } from "std-widgets.slint";
@@ -36,15 +36,7 @@ component EditorTreeRow {
     property <length> row-chrome-inset: EditorTreeTokens.disclosure-hit-size;
     property <DropLocation> active-drop-location: DropLocation.onto;
     property <bool> drop-allowed: false;
-    property <image> row-icon: node.icon-kind == OutlineNodeIconKind.rectangle
-        ? EditorTreeIcons.rectangle
-        : node.icon-kind == OutlineNodeIconKind.image
-        ? EditorTreeIcons.image
-        : node.icon-kind == OutlineNodeIconKind.text
-        ? EditorTreeIcons.text
-        : node.icon-kind == OutlineNodeIconKind.touch-area
-        ? EditorTreeIcons.touch-area
-        : EditorTreeIcons.default-item;
+    property <image> row-icon: ElementVisuals.for-kind(node.icon-kind).icon;
 
     vertical-stretch: 0;
     horizontal-stretch: 1;

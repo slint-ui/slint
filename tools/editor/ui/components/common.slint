@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette } from "std-widgets.slint";
-import { EditorTreeIcons } from "editor-tree-icons.slint";
-import { Api, CanvasCorner, PaletteComponentKind } from "../api.slint";
+import { ElementVisuals } from "element-presentation.slint";
+import { Api, CanvasCorner, ElementKind } from "../api.slint";
 
-export { CanvasCorner, PaletteComponentKind }
+export { CanvasCorner, ElementKind }
 
 export global StudioTheme {
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
@@ -216,7 +216,7 @@ export component PrimerNavRow inherits Rectangle {
 }
 
 export component ComponentPaletteRow inherits Rectangle {
-    in property <PaletteComponentKind> kind;
+    in property <ElementKind> kind;
     in property <string> label;
     in property <bool> enabled: true;
     in property <bool> drag-enabled: true;
@@ -252,10 +252,7 @@ export component ComponentPaletteRow inherits Rectangle {
         Image {
             width: 18px;
             height: 18px;
-            source: root.kind == PaletteComponentKind.image ? EditorTreeIcons.image
-                : root.kind == PaletteComponentKind.rectangle ? EditorTreeIcons.rectangle
-                : root.kind == PaletteComponentKind.touch-area ? EditorTreeIcons.touch-area
-                : EditorTreeIcons.text;
+            source: ElementVisuals.for-kind(root.kind).icon;
             colorize: root.active ? StudioTheme.accent-strong : StudioTheme.text;
             opacity: root.active ? 1 : 0.5;
         }
@@ -292,9 +289,9 @@ export component ComponentPaletteRow inherits Rectangle {
 }
 
 export global AppState {
-    in-out property <PaletteComponentKind> palette-drag-kind: PaletteComponentKind.none;
+    in-out property <ElementKind> palette-drag-kind: ElementKind.none;
     in-out property <Point> palette-drag-preview-position: { x: 0px, y: 0px };
-    in-out property <Size> palette-drag-size: { width: 96px, height: 48px };
+    in-out property <Size> palette-drag-size: ElementVisuals.for-kind(ElementKind.none).preview-size;
     in-out property <bool> palette-drag-cancelled: false;
     in-out property <bool> outline-drag-active: false;
     in-out property <bool> outline-drag-cancelled: false;
@@ -304,26 +301,13 @@ export global AppState {
     in-out property <Size> outline-drag-preview-size: { width: 216px, height: 32px };
 
     public pure function has-active-drag() -> bool {
-        return self.palette-drag-kind != PaletteComponentKind.none || self.outline-drag-active;
+        return self.palette-drag-kind != ElementKind.none || self.outline-drag-active;
     }
 
-    pure function palette-drag-size-for-kind(kind: PaletteComponentKind) -> Size {
-        if kind == PaletteComponentKind.rectangle {
-            return { width: 160px, height: 64px };
-        }
-        if kind == PaletteComponentKind.image || kind == PaletteComponentKind.touch-area {
-            return { width: 160px, height: 96px };
-        }
-        if kind == PaletteComponentKind.text {
-            return { width: 220px, height: 40px };
-        }
-        return { width: 96px, height: 48px };
-    }
-
-    public function update-palette-drag(kind: PaletteComponentKind, window-position: Point) {
+    public function update-palette-drag(kind: ElementKind, window-position: Point) {
         if !self.palette-drag-cancelled {
             self.palette-drag-kind = kind;
-            self.palette-drag-size = self.palette-drag-size-for-kind(kind);
+            self.palette-drag-size = ElementVisuals.for-kind(kind).preview-size;
             self.palette-drag-preview-position = {
                 x: window-position.x - self.palette-drag-size.width / 2,
                 y: window-position.y - self.palette-drag-size.height / 2,
@@ -332,14 +316,14 @@ export global AppState {
     }
 
     public function finish-palette-drag() {
-        self.palette-drag-kind = PaletteComponentKind.none;
+        self.palette-drag-kind = ElementKind.none;
         self.palette-drag-cancelled = false;
     }
 
     public function cancel-palette-drag() {
-        if self.palette-drag-kind != PaletteComponentKind.none {
+        if self.palette-drag-kind != ElementKind.none {
             self.palette-drag-cancelled = true;
-            self.palette-drag-kind = PaletteComponentKind.none;
+            self.palette-drag-kind = ElementKind.none;
         }
     }
 
