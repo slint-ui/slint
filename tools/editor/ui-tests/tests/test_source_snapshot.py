@@ -18,7 +18,9 @@ def test_source_snapshot_accepts_exact_edit(fixture_project: Path) -> None:
     snapshot.wait_for_exact(expected, timeout=0.1)
 
 
-def test_source_snapshot_rejects_unexpected_edit(fixture_project: Path) -> None:
+def test_source_snapshot_rejects_unexpected_edit(
+    fixture_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
     main_file = fixture_project / "Main.slint"
     original = main_file.read_bytes()
@@ -30,13 +32,30 @@ def test_source_snapshot_rejects_unexpected_edit(fixture_project: Path) -> None:
 
     main_file.write_bytes(original)
     delayed_snapshot = SourceSnapshot.capture(fixture_project)
-    delayed_write = threading.Timer(0.03, main_file.write_bytes, args=(changed,))
+    allow_write = threading.Event()
+
+    def write_after_handshake() -> None:
+        allow_write.wait(timeout=5)
+        main_file.write_bytes(changed)
+
+    delayed_write = threading.Thread(target=write_after_handshake)
     delayed_write.start()
+    original_sleep = __import__("source_snapshot").time.sleep
+    sleep_calls = 0
+
+    def release_after_first_observation(seconds: float) -> None:
+        nonlocal sleep_calls
+        sleep_calls += 1
+        if sleep_calls == 1:
+            allow_write.set()
+        original_sleep(0)
+
+    monkeypatch.setattr("source_snapshot.time.sleep", release_after_first_observation)
     try:
         with pytest.raises(AssertionError):
             delayed_snapshot.assert_unchanged(quiescence=0.2)
     finally:
-        delayed_write.cancel()
+        allow_write.set()
         delayed_write.join()
 
     message = exact_source_mismatch(

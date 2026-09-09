@@ -1,12 +1,12 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import time
 from pathlib import Path
 
 import pytest
 import slint_testing
 from source_snapshot import SourceSnapshot
+from editor_sync import current_editor_sync
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -75,20 +75,27 @@ def test_rapid_root_writes_show_newest_revision(
         )
         handle, size = window.handle, window.size
         original = source_file.read_bytes()
+        checkpoint = current_editor_sync.get().checkpoint()
         source_file.write_bytes(original.replace(b"Fixture text", b"Revision one"))
         source_file.write_bytes(original.replace(b"Fixture text", b"Revision two"))
         expected = original.replace(b"Fixture text", b"Newest revision")
         source_file.write_bytes(expected)
         snapshot.wait_for_exact(expected)
+        current_editor_sync.get().wait_for_processed(
+            source_file,
+            expected,
+            after=int(checkpoint["cursor"]),
+            outcome="compiled",
+        )
+        current_editor_sync.get().wait_for_source(
+            source_file, expected, after=int(checkpoint["cursor"])
+        )
         window_element_with_label(
             window, "Newest revision", slint_testing.AccessibleRole.Text, timeout=15
         )
-        deadline = time.monotonic() + 0.25
-        while time.monotonic() < deadline:
-            assert source_file.read_bytes() == expected
-            assert not elements_with_label(window.root_element, "Revision one")
-            assert not elements_with_label(window.root_element, "Revision two")
-            time.sleep(0.02)
+        assert source_file.read_bytes() == expected
+        assert not elements_with_label(window.root_element, "Revision one")
+        assert not elements_with_label(window.root_element, "Revision two")
         assert_editor_stable(editor, window, handle, size)
 
 
