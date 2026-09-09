@@ -7,6 +7,7 @@ import json
 import shutil
 import time
 from collections.abc import Callable, Iterator
+from functools import cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TypeVar
@@ -149,6 +150,12 @@ def select_fixture_element(window: slint_testing.Window, element_type: str) -> N
     )
 
 
+@cache
+def binary_checksum(binary: Path) -> str:
+    with binary.open("rb") as file:
+        return hashlib.file_digest(file, "sha256").hexdigest()
+
+
 @contextlib.contextmanager
 def launch_editor(
     binary: Path,
@@ -160,7 +167,7 @@ def launch_editor(
         arguments.append(str(file))
     with TemporaryDirectory(prefix="slint-editor-sync-") as directory:
         run_directory = Path(directory)
-        binary_hash = hashlib.sha256(binary.read_bytes()).hexdigest()
+        binary_hash = binary_checksum(binary)
         (run_directory / "client-info.json").write_text(
             json.dumps(
                 {
