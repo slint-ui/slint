@@ -555,7 +555,14 @@ fn apply_live_preview_data() {
 
 fn set_contents(url: &VersionedUrl, content: String) {
     let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
+        let own_pending_contents = preview_state.pending_workspace_edit.is_some()
+            && preview_state
+                .workspace_edit_installation
+                .as_ref()
+                .is_some_and(|edit| edit.expects(url.url(), &content));
+        if !own_pending_contents
+            && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
+        {
             undo_redo::set_undo_redo_enabled(preview_state);
         }
         let old = preview_state.source_code.insert(
@@ -1831,10 +1838,15 @@ pub(crate) enum WorkspaceEditOutcome {
 }
 
 pub(crate) fn workspace_edit_result(id: u64, outcome: WorkspaceEditOutcome) {
+    let matches = PREVIEW_STATE.with_borrow(|state| {
+        state.pending_workspace_edit.as_ref().is_some_and(|edit| edit.id == id)
+    });
+    #[cfg(feature = "system-testing")]
+    test_sync::acknowledgment_received(id, matches);
+    if !matches {
+        return;
+    }
     let (needs_recovery, release_pending) = PREVIEW_STATE.with_borrow_mut(|state| {
-        if state.pending_workspace_edit.as_ref().is_none_or(|edit| edit.id != id) {
-            return (false, false);
-        }
         match outcome {
             WorkspaceEditOutcome::Applied => {
                 undo_redo::commit_pending(state);

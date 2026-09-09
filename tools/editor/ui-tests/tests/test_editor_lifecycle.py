@@ -286,3 +286,116 @@ def test_unrelated_installation_cannot_release_pending_edit_history(
         undo.wait_for_settled(outcome="completed")
         sync.wait_for_applied(source, baseline)
         assert source.read_bytes() == baseline
+
+
+def wait_for_acknowledgment(sync, edit_id, checkpoint):
+    return sync._request(
+        mode="acknowledgment", edit=edit_id, after=checkpoint.cursor
+    ).data["acknowledgment"]
+
+
+@pytest.mark.parametrize("first", ["acknowledgment", "publication"])
+def test_edit_waits_for_both_matching_milestones(
+    editor_binary, editor_environment, fixture_project, first
+):
+    baseline = prepare(fixture_project)
+    source = fixture_project / SOURCE
+    seeded = baseline.replace(b"32deg", b"42deg")
+    with launch_editor(editor_binary, editor_environment, source) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        sync = current_editor_sync.get()
+        with sync.action() as seed:
+            edit_field(window, "Rotation", "42")
+        seed.wait_for_settled(outcome="completed")
+        sync.wait_for_applied(source, seeded)
+        checkpoint = sync.checkpoint()
+        with (
+            sync.gate("acknowledgment", source) as acknowledgment,
+            sync.gate("publication", source) as publication,
+        ):
+            with sync.action() as edit:
+                edit_field(window, "Rotation", "62")
+            edit_id = acknowledgment.wait_for_reached().data["gate_state"]["edit"]
+            publication.wait_for_reached()
+            window_element_with_label(window, "Rotation knob").single_click(
+                slint_testing.PointerEventButton.Left
+            )
+            with sync.action() as undo:
+                shortcut(window)
+            assert (
+                "queued history"
+                in operation_state(undo)["operation_state"]["pending"].values()
+            )
+            if first == "acknowledgment":
+                acknowledgment.release()
+                assert wait_for_acknowledgment(sync, edit_id, checkpoint)["accepted"]
+                remaining = "publication gate"
+            else:
+                publication.release()
+                wait_for_field(window, "Rotation", "62")
+                remaining = "acknowledgment gate"
+            assert (
+                remaining
+                in operation_state(edit)["operation_state"]["pending"].values()
+            )
+            assert (
+                "queued history"
+                in operation_state(undo)["operation_state"]["pending"].values()
+            )
+            assert operation_state(undo)["operation_state"]["writes"] == 0
+        edit.wait_for_settled(outcome="completed")
+        result = undo.wait_for_settled(outcome="completed")
+        assert result.data["operation_state"]["writes"] == 1
+        sync.wait_for_applied(source, seeded)
+        assert source.read_bytes() == seeded
+
+
+def test_obsolete_acknowledgment_cannot_finish_newer_edit(
+    editor_binary, editor_environment, fixture_project
+):
+    baseline = prepare(fixture_project)
+    source = fixture_project / SOURCE
+    with launch_editor(editor_binary, editor_environment, source) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        sync = current_editor_sync.get()
+        with sync.gate("acknowledgment", source) as acknowledgment:
+            with sync.action() as obsolete:
+                edit_field(window, "Rotation", "62")
+            obsolete_id = acknowledgment.wait_for_reached().data["gate_state"]["edit"]
+            wait_for_field(window, "Rotation", "62")
+            checkpoint = sync.checkpoint()
+            broken = b"export component Broken inherits Window { invalid syntax }"
+            source.write_bytes(broken)
+            sync.wait_for_processed(
+                source, broken, after=checkpoint, outcome="compile_error"
+            )
+            source.write_bytes(baseline)
+            sync.wait_for_applied(source, baseline)
+            select_element(window, "Rectangle")
+            with sync.gate("publication", source) as publication:
+                with sync.action() as current:
+                    edit_field(window, "Rotation", "77")
+                publication.wait_for_reached()
+                window_element_with_label(window, "Rotation knob").single_click(
+                    slint_testing.PointerEventButton.Left
+                )
+                with sync.action() as undo:
+                    shortcut(window)
+                checkpoint = sync.checkpoint()
+                acknowledgment.release()
+                assert not wait_for_acknowledgment(sync, obsolete_id, checkpoint)[
+                    "accepted"
+                ]
+                assert not operation_state(current)["settled"]
+                assert (
+                    "queued history"
+                    in operation_state(undo)["operation_state"]["pending"].values()
+                )
+                assert operation_state(undo)["operation_state"]["writes"] == 0
+            current.wait_for_settled(outcome="completed")
+            result = undo.wait_for_settled(outcome="completed")
+            assert result.data["operation_state"]["writes"] == 1
+        obsolete.wait_for_settled(outcome="completed")
+        sync.wait_for_applied(source, baseline)

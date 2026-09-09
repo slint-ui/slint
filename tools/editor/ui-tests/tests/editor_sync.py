@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
-PROTOCOL_VERSION = 3
+PROTOCOL_VERSION = 4
 
 
 class Process(Protocol):
@@ -88,6 +88,7 @@ class EditorSync:
         outcome: str | None = None,
         operation: int | None = None,
         gate: int | None = None,
+        edit: int | None = None,
         kind: str | None = None,
         url: Path | None = None,
     ) -> SyncResult:
@@ -112,6 +113,7 @@ class EditorSync:
             "outcome": outcome,
             "operation": operation,
             "gate": gate,
+            "edit": edit,
             "kind": kind,
             "url": None if url is None else url.resolve().as_uri(),
         }

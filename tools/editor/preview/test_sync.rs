@@ -14,7 +14,7 @@ use lsp_types::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-pub(crate) const PROTOCOL_VERSION: u32 = 3;
+pub(crate) const PROTOCOL_VERSION: u32 = 4;
 const MAX_EVENTS: usize = 512;
 const MAX_COMPLETED: usize = 128;
 
@@ -82,6 +82,7 @@ struct Gate {
     after: u64,
     reached: Option<u64>,
     attempt: Option<u64>,
+    edit: Option<u64>,
     released: bool,
 }
 #[derive(Default)]
@@ -377,9 +378,10 @@ fn claim_gate(kind: &str, url: &Url, attempt: Option<u64>) -> Option<u64> {
                 && &g.url == url
                 && (kind == "source"
                     || (g.reached.is_none()
-                        && attempt
-                            .and_then(|id| s.attempts.get(&id))
-                            .is_some_and(|a| a.started_cursor > g.after))))
+                        && (kind == "acknowledgment"
+                            || attempt
+                                .and_then(|id| s.attempts.get(&id))
+                                .is_some_and(|a| a.started_cursor > g.after)))))
             .then_some(*id)
         })?;
         if s.gates[&id].reached.is_none() {
@@ -402,6 +404,25 @@ pub(crate) fn gate_released(id: u64) -> bool {
 pub(crate) async fn gate_changed() {
     GATE_CHANGED.notified().await;
 }
+pub(crate) fn acknowledge(urls: &[Url], id: u64, outcome: super::WorkspaceEditOutcome) {
+    let gate = urls.iter().find_map(|url| claim_gate("acknowledgment", url, None));
+    let callback = move || super::workspace_edit_result(id, outcome);
+    if let Some(gate) = gate {
+        with_state(|s| s.gates.get_mut(&gate).unwrap().edit = Some(id));
+        PUBLICATIONS.with_borrow_mut(|p| {
+            p.push((gate, Work::capture("acknowledgment gate"), Box::new(callback)))
+        });
+    } else {
+        callback();
+    }
+}
+
+pub(crate) fn acknowledgment_received(id: u64, accepted: bool) {
+    with_state(|s| {
+        s.event(json!({"kind":"acknowledgment", "edit":id, "accepted":accepted}));
+    });
+}
+
 pub(crate) fn publish(url: &Url, attempt: u64, callback: impl FnOnce() + 'static) {
     if let Some(gate) = claim_gate("publication", url, Some(attempt)) {
         PUBLICATIONS.with_borrow_mut(|p| {
@@ -444,6 +465,7 @@ struct Request {
     outcome: Option<String>,
     operation: Option<u64>,
     gate: Option<u64>,
+    edit: Option<u64>,
     kind: Option<String>,
     url: Option<Url>,
 }
@@ -457,7 +479,7 @@ fn answer(s: &mut Observer, r: &Request) -> Result<Value, String> {
     if r.after > s.cursor {
         return Err("future cursor".into());
     }
-    if matches!(r.mode.as_str(), "observed" | "processed" | "events")
+    if matches!(r.mode.as_str(), "observed" | "processed" | "events" | "acknowledgment")
         && r.after < s.discarded_through
     {
         return Err("event history overflow".into());
@@ -501,6 +523,16 @@ fn answer(s: &mut Observer, r: &Request) -> Result<Value, String> {
                     op.outcome()
                 ));
             }
+        }
+        "acknowledgment" => {
+            let id = r.edit.ok_or("missing edit ID")?;
+            let found = s.events.iter().rev().find(|event| {
+                event["kind"] == "acknowledgment"
+                    && event["edit"] == id
+                    && event["cursor"].as_u64().is_some_and(|cursor| cursor > r.after)
+            });
+            ready = found.is_some();
+            result["acknowledgment"] = json!(found);
         }
         "observed" => {
             let found = s.events.iter().rev().find(|e| {
@@ -550,7 +582,7 @@ fn answer(s: &mut Observer, r: &Request) -> Result<Value, String> {
         }
         "gate_open" => {
             let kind = r.kind.clone().ok_or("missing gate kind")?;
-            if kind != "source" && kind != "publication" {
+            if kind != "source" && kind != "publication" && kind != "acknowledgment" {
                 return Err("unknown gate kind".into());
             }
             let url = r.url.clone().ok_or("missing gate URL")?;
@@ -560,7 +592,15 @@ fn answer(s: &mut Observer, r: &Request) -> Result<Value, String> {
             let id = s.id();
             s.gates.insert(
                 id,
-                Gate { kind, url, after: s.cursor, reached: None, attempt: None, released: false },
+                Gate {
+                    kind,
+                    url,
+                    after: s.cursor,
+                    reached: None,
+                    attempt: None,
+                    edit: None,
+                    released: false,
+                },
             );
             result["gate"] = id.into();
         }

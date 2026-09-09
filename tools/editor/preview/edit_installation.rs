@@ -21,6 +21,10 @@ impl PendingInstallation {
         Self { after, expected, installed: None, abandoned: false }
     }
 
+    pub fn expects(&self, url: &lsp_types::Url, content: &str) -> bool {
+        self.expected.get(url).is_some_and(|expected| expected == content)
+    }
+
     pub fn observe(&mut self, compilation: &CompilationSnapshot) -> bool {
         let matches = !self.abandoned
             && compilation.id > self.after

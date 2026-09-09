@@ -155,12 +155,16 @@ async fn handle_local_message(
 ) {
     if let (Some(id), PreviewToLspMessage::SendWorkspaceEdit { label, edit }) = (edit_id, &message)
     {
+        #[cfg(feature = "system-testing")]
+        let urls: Vec<_> = editor_preview::editing::text_edit::EditIterator::new(edit)
+            .map(|(document, _)| document.uri)
+            .collect();
         let outcome = handle_workspace_edit(&session.document_cache, label.as_deref(), edit);
         #[cfg(feature = "system-testing")]
         let work = preview::test_sync::Work::capture("edit acknowledgment");
         if let Err(error) = slint::invoke_from_event_loop(move || {
             #[cfg(feature = "system-testing")]
-            work.run(|| preview::workspace_edit_result(id, outcome));
+            work.run(|| preview::test_sync::acknowledge(&urls, id, outcome));
             #[cfg(not(feature = "system-testing"))]
             preview::workspace_edit_result(id, outcome);
         }) {
