@@ -42,6 +42,7 @@ pub fn lower_macro(
             }
             Expression::Condition {
                 condition: Expression::BinaryExpression {
+                    source_location: None,
                     lhs: x.maybe_convert_to(Type::Float32, &arg_node, diag, symbol_counters).into(),
                     rhs: Expression::NumberLiteral(0., Unit::None).into(),
                     op: '<',
@@ -49,6 +50,7 @@ pub fn lower_macro(
                 .into(),
                 true_expr: Expression::NumberLiteral(-1., Unit::None).into(),
                 false_expr: Expression::NumberLiteral(1., Unit::None).into(),
+                source_location: None,
             }
         }
         BuiltinMacroFunction::Debug => debug_macro(n, sub_expr.collect(), diag, symbol_counters),
@@ -347,6 +349,7 @@ fn rgb_macro(
                         )),
                         rhs: Box::new(Expression::NumberLiteral(255., Unit::None)),
                         op: '*',
+                        source_location: None,
                     }
                 } else {
                     expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
@@ -389,6 +392,7 @@ fn hsv_macro(
                     lhs: Box::new(expr),
                     rhs: Box::new(Expression::NumberLiteral(1., Unit::Deg)),
                     op: '/',
+                    source_location: None,
                 }
             } else {
                 expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
@@ -428,6 +432,7 @@ fn oklch_macro(
                     lhs: Box::new(expr),
                     rhs: Box::new(Expression::NumberLiteral(0.004, Unit::None)),
                     op: '*',
+                    source_location: None,
                 }
             // For hue (index 2), convert angle to degrees
             } else if i == 2 && expr.ty() == Type::Angle {
@@ -435,6 +440,7 @@ fn oklch_macro(
                     lhs: Box::new(expr),
                     rhs: Box::new(Expression::NumberLiteral(1., Unit::Deg)),
                     op: '/',
+                    source_location: None,
                 }
             } else {
                 expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
@@ -466,10 +472,12 @@ fn debug_macro(
                 lhs: Box::new(string),
                 op: '+',
                 rhs: Box::new(Expression::BinaryExpression {
+                    source_location: None,
                     lhs: Box::new(Expression::StringLiteral(" ".into())),
                     op: '+',
                     rhs: Box::new(val),
                 }),
+                source_location: None,
             },
         });
     }
@@ -602,6 +610,7 @@ fn array_index_of_macro(
                 ty: element_type,
             }),
             op: '=',
+            source_location: None,
         }),
     };
 
@@ -673,11 +682,13 @@ fn to_debug_string(
             rhs: Box::new(Expression::StringLiteral(
                 Type::UnitProduct(ty.as_unit_product().unwrap()).to_smolstr(),
             )),
+            source_location: None,
         },
         Type::Bool => Expression::Condition {
             condition: Box::new(expr),
             true_expr: Box::new(Expression::StringLiteral("true".into())),
             false_expr: Box::new(Expression::StringLiteral("false".into())),
+            source_location: None,
         },
         Type::Struct(s) => {
             let local_object = symbol_counters.generate_name("debug_struct");
@@ -704,6 +715,7 @@ fn to_debug_string(
                     lhs: Box::new(Expression::StringLiteral(field_name)),
                     op: '+',
                     rhs: Box::new(value),
+                    source_location: None,
                 };
                 string = Some(match string {
                     None => field,
@@ -711,6 +723,7 @@ fn to_debug_string(
                         lhs: Box::new(x),
                         op: '+',
                         rhs: Box::new(field),
+                        source_location: None,
                     },
                 });
             }
@@ -719,6 +732,7 @@ fn to_debug_string(
                 Some(string) => Expression::CodeBlock(vec![
                     Expression::StoreLocalVariable { name: local_object, value: Box::new(expr) },
                     Expression::BinaryExpression {
+                        source_location: None,
                         lhs: Box::new(string),
                         op: '+',
                         rhs: Box::new(Expression::StringLiteral(" }".into())),

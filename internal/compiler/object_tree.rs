@@ -985,6 +985,7 @@ impl TransitionPropertyAnimation {
                 }),
                 rhs: Box::new(Expression::NumberLiteral(self.state_id as _, Unit::None)),
                 op: '=',
+                source_location: None,
             },
             TransitionDirection::Out => Expression::BinaryExpression {
                 lhs: Box::new(Expression::StructFieldAccess {
@@ -993,9 +994,11 @@ impl TransitionPropertyAnimation {
                 }),
                 rhs: Box::new(Expression::NumberLiteral(self.state_id as _, Unit::None)),
                 op: '=',
+                source_location: None,
             },
             TransitionDirection::InOut => Expression::BinaryExpression {
                 lhs: Box::new(Expression::BinaryExpression {
+                    source_location: None,
                     lhs: Box::new(Expression::StructFieldAccess {
                         base: Box::new(state.clone()),
                         name: "current-state".into(),
@@ -1004,6 +1007,7 @@ impl TransitionPropertyAnimation {
                     op: '=',
                 }),
                 rhs: Box::new(Expression::BinaryExpression {
+                    source_location: None,
                     lhs: Box::new(Expression::StructFieldAccess {
                         base: Box::new(state),
                         name: "previous-state".into(),
@@ -1012,6 +1016,7 @@ impl TransitionPropertyAnimation {
                     op: '=',
                 }),
                 op: '|',
+                source_location: None,
             },
         }
     }
@@ -1531,6 +1536,7 @@ impl MatchElementInfo {
             lhs: Box::new(self.subject.clone()),
             rhs: Box::new(value.clone()),
             op,
+            source_location: None,
         };
         let show_when = |element: &ElementRc, condition| {
             element.borrow_mut().repeated = Some(RepeatedElementInfo {
@@ -1556,6 +1562,7 @@ impl MatchElementInfo {
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                     op: '&',
+                    source_location: None,
                 })
                 .unwrap_or(Expression::BoolLiteral(true));
             show_when(wildcard, condition);

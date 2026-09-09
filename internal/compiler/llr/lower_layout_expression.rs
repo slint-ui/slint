@@ -2046,6 +2046,7 @@ fn subtract_padding(
             lhs: Box::new(expr),
             rhs: Box::new(Expression::PropertyReference(p.clone())),
             op: '-',
+            source_location: None,
         };
     }
     expr

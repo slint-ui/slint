@@ -285,6 +285,7 @@ fn gen_layout_info_prop(
                 lhs: Box::new(std::mem::take(&mut expr_h)),
                 rhs: Box::new(h),
                 op: '+',
+                source_location: None,
             };
         }
         if let Some(v) = child_info.1 {
@@ -292,6 +293,7 @@ fn gen_layout_info_prop(
                 lhs: Box::new(std::mem::take(&mut expr_v)),
                 rhs: Box::new(v),
                 op: '+',
+                source_location: None,
             };
         }
     }
@@ -448,6 +450,7 @@ fn fix_percent_size(
                         SmolStr::new_static(property),
                     ))),
                     op: '*',
+                    source_location: None,
                 };
 
                 // 100% of the outer size of the flickable does not mean the flickable is
@@ -552,6 +555,7 @@ fn make_default_aspect_ratio_preserving_binding(
                 format_smolstr!("source-clip-{given_size_property}"),
             ))),
             op: '/',
+            source_location: None,
         }
     } else {
         let implicit_size_var = Box::new(Expression::ReadLocalVariable {
@@ -581,6 +585,7 @@ fn make_default_aspect_ratio_preserving_binding(
                     name: given_size_property.clone(),
                 }),
                 op: '/',
+                source_location: None,
             },
         ])
     };
@@ -588,6 +593,7 @@ fn make_default_aspect_ratio_preserving_binding(
         lhs: Box::new(ratio),
         rhs: Expression::PropertyReference(NamedReference::new(elem, given_size_property)).into(),
         op: '*',
+        source_location: None,
     };
 
     let binding_expr = binding;
@@ -609,6 +615,7 @@ fn maybe_center_in_parent(
         lhs: Expression::PropertyReference(NamedReference::new(parent, size_prop.clone())).into(),
         op: '-',
         rhs: Expression::PropertyReference(NamedReference::new(elem, size_prop)).into(),
+        source_location: None,
     };
 
     let pos_prop = SmolStr::new_static(pos_prop);
@@ -616,6 +623,7 @@ fn maybe_center_in_parent(
         lhs: diff.into(),
         op: '/',
         rhs: Expression::NumberLiteral(2., Unit::None).into(),
+        source_location: None,
     });
 }
 
@@ -634,6 +642,7 @@ fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Rc<BuiltinElement>) {
         let x = NamedReference::new(elem, SmolStr::new_static("source-clip-x"));
         let y = NamedReference::new(elem, SmolStr::new_static("source-clip-y"));
         let make_expr = |dim: &str, prop: NamedReference| Expression::BinaryExpression {
+            source_location: None,
             lhs: Box::new(Expression::StructFieldAccess {
                 base: Box::new(Expression::FunctionCall {
                     function: BuiltinFunction::ImageSize.into(),

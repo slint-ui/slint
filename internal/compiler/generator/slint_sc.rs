@@ -510,7 +510,7 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
                 quote!((#base).#field)
             }
         },
-        Expression::BinaryExpression { lhs, rhs, op } => {
+        Expression::BinaryExpression { lhs, rhs, op, .. } => {
             let lhs = compile_expression(lhs, ctx);
             let rhs = compile_expression(rhs, ctx);
             // Arithmetic saturates at the `i32` bounds. `/` only comes from
@@ -545,7 +545,7 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
                 _ => unreachable!(),
             }
         }
-        Expression::Condition { condition, true_expr, false_expr } => {
+        Expression::Condition { condition, true_expr, false_expr, .. } => {
             let condition = compile_expression(condition, ctx);
             let true_expr = compile_expression(true_expr, ctx);
             let false_expr = compile_expression(false_expr, ctx);
