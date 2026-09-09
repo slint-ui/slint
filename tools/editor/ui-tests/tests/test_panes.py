@@ -1,12 +1,39 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import json
 from pathlib import Path
 
 import pytest
 import slint_testing
 from canvas_interactions import center
-from ui_driver import first_window, launch_editor, window_element_with_label
+from ui_driver import first_window, launch_editor, wait_until, window_element_with_label
+
+
+def wait_for_pane_settings(directory: Path, expected: dict[str, int | None]) -> None:
+    settings_path: Path | None = None
+    last_settings: dict | None = None
+
+    def saved_heights() -> bool | None:
+        nonlocal settings_path, last_settings
+        paths = list(directory.rglob("visual-editor-user-settings.json"))
+        assert len(paths) <= 1, paths
+        if not paths:
+            return None
+        settings_path = paths[0]
+        last_settings = json.loads(settings_path.read_text())
+        if all(last_settings.get(key) == value for key, value in expected.items()):
+            return True
+        return None
+
+    try:
+        wait_until(saved_heights)
+    except AssertionError as error:
+        raise AssertionError(
+            f"Pane settings did not match {expected!r}; "
+            f"file: {settings_path or directory / '**/visual-editor-user-settings.json'}; "
+            f"last observed settings: {last_settings!r}"
+        ) from error
 
 
 def drag_vertically(
@@ -64,6 +91,8 @@ def test_pane_sizes_persist_across_relaunch(
 
         saved_elements_y = elements_divider.absolute_position.y
         saved_outline_y = outline_divider.absolute_position.y
+        saved_elements_height = int(elements_divider.accessible_value.split()[0])
+        saved_outline_height = int(outline_divider.accessible_value.split()[0])
 
         window_element_with_label(
             window, "Collapse sidebars"
@@ -78,6 +107,13 @@ def test_pane_sizes_persist_across_relaunch(
         )
         assert outline_divider.absolute_position.y == pytest.approx(
             saved_outline_y, abs=1
+        )
+        wait_for_pane_settings(
+            tmp_path,
+            {
+                "elements_pane_height": saved_elements_height,
+                "outline_pane_height": saved_outline_height,
+            },
         )
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
@@ -156,6 +192,7 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
         search = window_element_with_label(window, "Search elements")
         elements.accessible_value = "120"
         assert float(elements.accessible_value.split()[0]) == 120
+        wait_for_pane_settings(tmp_path, {"elements_pane_height": 120})
         search.accessible_value = "missing"
         no_results = window_element_with_label(window, "No Results")
         assert no_results.size.height >= 24
@@ -172,6 +209,9 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
             pane.absolute_position.x + pane.size.width - 14
         )
         double_click(window, elements)
+
+        assert float(elements.accessible_value.split()[0]) == default_elements
+        wait_for_pane_settings(tmp_path, {"elements_pane_height": None})
 
     with launch_editor(
         editor_binary, editor_environment, fixture_project / "Main.slint"
