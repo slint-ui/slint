@@ -127,7 +127,7 @@ component ElementPaletteGroup inherits VerticalLayout {
 
     private property <bool> collapsed: false;
     private property <bool> expanded: root.query != "" || !root.collapsed;
-    private property <[ElementLibraryEntry]> matches: Api.filter-library-elements(root.group.entries, root.query);
+    private property <[ElementLibraryEntry]> matches: Api.element-library-filter-entries(root.group.entries, root.query);
     function toggle() {
         if root.query == "" { root.collapsed = !root.collapsed; }
     }
@@ -188,7 +188,7 @@ component ElementPaletteRows inherits VerticalLayout {
     in property <bool> enabled: true;
     in property <bool> drag-enabled: true;
     callback drag-started();
-    private property <string> query: Api.normalize-element-search(search.text);
+    private property <string> query: Api.element-library-normalize-query(search.text);
     spacing: 0px;
 
     search := PrimerTextInput {

@@ -33,13 +33,15 @@ fn filter(
     ModelRc::new(entries.filter(move |entry| matches_query(entry, &query)))
 }
 
+fn has_matches(groups: ModelRc<ElementLibraryGroup>, query: SharedString) -> bool {
+    groups.iter().any(|group| group.entries.iter().any(|entry| matches_query(&entry, &query)))
+}
+
 pub(super) fn setup(api: &Api<'_>) {
     api.set_element_library(catalog());
-    api.on_normalize_element_search(normalize_query);
-    api.on_filter_library_elements(filter);
-    api.on_element_library_has_matches(|groups, query| {
-        groups.iter().any(|group| group.entries.iter().any(|entry| matches_query(&entry, &query)))
-    });
+    api.on_element_library_normalize_query(normalize_query);
+    api.on_element_library_filter_entries(filter);
+    api.on_element_library_has_matches(has_matches);
 }
 
 #[cfg(test)]
@@ -67,6 +69,17 @@ mod tests {
                 "query: {query:?}"
             );
         }
+    }
+
+    #[test]
+    fn library_has_matches_in_any_group() {
+        let groups = ModelRc::new(slint::VecModel::from(vec![
+            ElementLibraryGroup { label: "Empty".into(), entries: ModelRc::default() },
+            catalog().row_data(0).unwrap(),
+        ]));
+        assert!(has_matches(groups.clone(), normalize_query("  tEx  ".into())));
+        assert!(!has_matches(groups, normalize_query("missing".into())));
+        assert!(!has_matches(ModelRc::default(), "".into()));
     }
 
     #[test]

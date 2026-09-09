@@ -15,11 +15,13 @@ export enum PaletteComponentKind {
     image,
 }
 
+/// A palette item whose kind selects its icon and drag payload.
 export struct ElementLibraryEntry {
     label: string,
     kind: PaletteComponentKind,
 }
 
+/// A named palette group with entries sorted by label.
 export struct ElementLibraryGroup {
     label: string,
     entries: [ElementLibraryEntry],
@@ -430,6 +432,12 @@ export global Api {
     in-out property <[LogMessage]> log-output;
     in-out property <bool> auto-clear-console: true;
 
+    // ## Element library
+    in property <[ElementLibraryGroup]> element-library;
+    pure callback element-library-has-matches(groups: [ElementLibraryGroup], query: string) -> bool;
+    pure callback element-library-normalize-query(query: string) -> string;
+    pure callback element-library-filter-entries(entries: [ElementLibraryEntry], query: string) -> [ElementLibraryEntry];
+
     // ## Drawing Area
     // Borders around things
     pure callback highlight-positions(source-uri: string, offset: int) -> [SelectionRectangle];
@@ -437,11 +445,6 @@ export global Api {
     in-out property <DropMark> drop-mark;
     // The actual preview
     in-out property <component-factory> preview-area;
-
-    in property <[ElementLibraryGroup]> element-library;
-    pure callback element-library-has-matches([ElementLibraryGroup], string) -> bool;
-    pure callback normalize-element-search(string) -> string;
-    pure callback filter-library-elements([ElementLibraryEntry], string) -> [ElementLibraryEntry];
 
     pure callback new-component-data-for-kind(kind: PaletteComponentKind) -> data-transfer;
     pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
