@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ButtonInterface } from "../common/std-widget-interfaces.slint";
+import { ButtonInterface, StandardButtonInterface } from "../common/std-widget-interfaces.slint";
 
 export component Button {
     implement ButtonInterface <=> native;
@@ -31,6 +31,8 @@ export component Button {
 }
 
 export component StandardButton {
+    implement StandardButtonInterface <=> self;
+
     in property <StandardButtonKind> kind <=> native.standard-button-kind;
     in property <bool> enabled <=> native.enabled;
     in property <bool> primary <=> native.primary;
