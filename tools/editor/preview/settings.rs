@@ -206,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn pane_heights_round_trip_and_nonpositive_values_are_unset() {
+    fn pane_heights_round_trip_and_non_positive_values_are_unset() {
         let settings = VisualEditorSettings {
             recent_projects: Vec::new(),
             elements_pane_height: Some(320),
