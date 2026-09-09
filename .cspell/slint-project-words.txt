@@ -620,6 +620,7 @@ srcroot
 SRCS
 SRGBA
 standardbutton
+standardlistview
 startswith
 staticlib
 staticmethod
