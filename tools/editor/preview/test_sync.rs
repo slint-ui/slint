@@ -810,6 +810,7 @@ mod tests {
         assert_eq!(respond_in(&mut state, query)["error"], "unknown or expired operation");
     }
 
+    // cspell:ignore nocapture
     #[test]
     fn installation_errors_are_fatal_with_or_without_a_publication_gate() {
         const CHILD: &str = "SLINT_TEST_INSTALLATION_FAILURE";

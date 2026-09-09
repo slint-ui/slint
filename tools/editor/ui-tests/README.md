@@ -82,6 +82,15 @@ starts a reload. The editor process uses `SLINT_EDITOR_TEST_CONFIG_DIR` for a
 private settings store and records a copied binary, source revision, build
 features, and handshake in the test artifacts.
 
+The transport has one current request.
+Repeated control requests return the same response; observational requests recheck the current state.
+Older IDs and changed payloads reusing an ID fail explicitly.
+Only the current control response is cached; lifecycle event retention remains bounded separately.
+
+Resolve controls before opening an action, and check completed UI state after sealing and settlement.
+Keep intermediate probes inside held gestures when they assert transient behavior.
+Lifecycle tests share setup through a context manager so failures still capture screenshots and observer traces.
+
 Protocol version 4 also provides scoped scheduling gates. Use the context manager
 so a failed assertion releases the gate:
 
@@ -104,6 +113,11 @@ response and exposes its edit ID. Only a matching response and an installation
 containing that edit's input revisions can complete a pending edit. Installation
 abandonment cancels queued history and allows an acknowledged edit to settle. Ordinary source supersession is terminal only after a later instance is installed and, after the write acknowledgment, its edited-file inputs match current disk. This also covers watcher coalescing that skips the written revision. The disk comparison runs at edit completion, like history validation; test waits do not trigger a reload. Supersession cancels queued history and discards history based on the replaced source.
 
+One pending-edit record owns the edit ID, expected inputs, unacknowledged history, and installation stage.
+Acknowledgment consumes the pending history exactly once; the record remains until installation completes or is abandoned.
+Production and testing invoke the same installation operation.
+A publication gate only defers execution; installation errors use the production exit policy in either path.
+
 The observer keeps the last successful attempt for diagnostics separately from whether an instance is mounted. Image-mode switches and factory callbacks that return no component clear mounted state. Applied waits require a mounted instance, including while an external reload is held at the factory gate.
 
 To prove that pointer-down owns work, leave the action context before checking
@@ -125,7 +139,9 @@ snapshot.assert_unchanged_now()
 ```
 
 Operations record accepted edits, completed writes, and possible file mutations
-separately. Failure opening an existing file has no mutation; attempted creation or
+separately.
+A compact outcome accumulator preserves failure, completion, rejection, cancellation, and no-op precedence.
+Individual effects remain in the diagnostic event history. Failure opening an existing file has no mutation; attempted creation or
 truncation is conservatively a possible mutation even if the final bytes match.
 `assert_no_source_writes()` rejects any of these counters, including a completed
 write later undone. A successful edit followed by undo therefore records two
@@ -149,12 +165,12 @@ across files; earlier successful writes remain when a later file fails.
 | F03 | deferred | Deleted-root recovery remains skipped; no watcher repair is included. |
 | F04 | fixed | Missing imports have an observed missing input and terminal failure before restoration. |
 | F05 | fixed | Source changes cancel the active gesture; cancellation and late release have terminal no-write checks. |
-| F06 | fixed | Undo during dragging and queued undo during pending publication have separate controlled tests. |
+| F06 | fixed | Undo during dragging and queued undo during pending publication have separate controlled tests; sealed gestures cover pointer-down and movement. |
 | F07 | fixed | Rotation release holds publication and inspects the retained oriented canvas frame before installation. No claim is made about every intermediate rendered frame. |
 | F08 | fixed | Burst writes remain a coalescing test; separate publication and factory gates prove obsolete attempts cannot replace a newer instance. |
 | F09 | fixed | Snapshot helper tests use a controlled polling callback instead of a thread timer. |
 | F10 | fixed | Inspector rendering consumers await applied source before checking the element. |
-| F11 | partial | Cancellation and rejection tests use terminal operation counters. Remaining navigation and held-gesture `assert_unchanged_now()` calls are point-in-time disk assertions, not settlement guarantees. |
+| F11 | partial | Cancellation and rejection tests use terminal operation counters with input-scoped actions. Remaining navigation and held-gesture `assert_unchanged_now()` calls are point-in-time disk assertions, not settlement guarantees. |
 | F12 | fixed | Redo has distinct held-source and already-applied external-edit variants. |
 | F13 | fixed | Image switching covers held publication; lifecycle tests additionally cover an assigned factory with acknowledgment before and after abandonment. |
 | F14 | partial | Lookups without waits and deadline-aware polling exist. These do not make every multi-probe UI read an atomic snapshot. |
