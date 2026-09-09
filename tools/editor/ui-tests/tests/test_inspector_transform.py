@@ -73,8 +73,6 @@ def action(window, label):
 
 
 def shortcut(window, redo=False):
-    # Source writes precede the replacement preview that re-enables undo/redo.
-    time.sleep(0.5)
     window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Control))
     if redo:
         window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
@@ -100,13 +98,13 @@ def test_rotation_numeric_exact_source_and_undo(
         window = first_window(app)
         select_element(window, "Rectangle")
         edit_field(window, "Rotation", value)
-        snapshot.wait_for_exact(expected, relative_path=SOURCE)
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, "Rotation", value)
         shortcut(window)
-        snapshot.wait_for_exact(baseline, relative_path=SOURCE)
+        snapshot.wait_for_applied(baseline, relative_path=SOURCE)
         wait_for_field(window, "Rotation", "32")
         shortcut(window, redo=True)
-        snapshot.wait_for_exact(expected, relative_path=SOURCE)
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
 
 
 @pytest.mark.parametrize("index", range(4))
@@ -127,7 +125,7 @@ def test_corner_edit_changes_only_one_property(
         action(window, "Separate corners")
         snapshot.assert_unchanged()
         edit_field(window, LABELS[index], "30.5")
-        snapshot.wait_for_exact(expected, relative_path=SOURCE)
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, LABELS[index], "30.5")
 
 
@@ -152,13 +150,13 @@ def test_link_uses_top_left_and_one_undo_restores_expressions(
         select_element(window, "Rectangle")
         wait_for_field(window, LABELS[0], "8")
         action(window, "All corners")
-        snapshot.wait_for_exact(expected, relative_path=SOURCE)
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, "All corner radii", "8")
         shortcut(window)
-        snapshot.wait_for_exact(baseline, relative_path=SOURCE)
+        snapshot.wait_for_applied(baseline, relative_path=SOURCE)
         wait_for_field(window, LABELS[1], "16")
         shortcut(window, redo=True)
-        snapshot.wait_for_exact(expected, relative_path=SOURCE)
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
 
 
 @pytest.mark.parametrize("value", ["0", "30.5", "120"])
@@ -178,10 +176,10 @@ def test_shared_corner_value_is_atomic_and_not_clamped(
         window = first_window(app)
         select_element(window, "Rectangle")
         edit_field(window, "All corner radii", value)
-        snapshot.wait_for_exact(expected, relative_path=SOURCE)
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, "All corner radii", value)
         shortcut(window)
-        snapshot.wait_for_exact(baseline, relative_path=SOURCE)
+        snapshot.wait_for_applied(baseline, relative_path=SOURCE)
 
 
 @pytest.mark.parametrize(
@@ -252,11 +250,11 @@ def test_knob_crosses_zero_with_transient_preview(
             snapshot.assert_unchanged()
             wait_for_field(window, "Rotation", "350")
         else:
-            snapshot.wait_for_exact(
+            snapshot.wait_for_applied(
                 baseline.replace(b"350deg", b"370deg"), relative_path=SOURCE
             )
             shortcut(window)
-            snapshot.wait_for_exact(baseline, relative_path=SOURCE)
+            snapshot.wait_for_applied(baseline, relative_path=SOURCE)
 
 
 def test_rotation_under_rotated_parent_is_parent_relative(
@@ -279,7 +277,7 @@ def test_rotation_under_rotated_parent_is_parent_relative(
         select_element(window, "Rectangle")
         wait_for_field(window, "Rotation", "20")
         edit_field(window, "Rotation", "22.5")
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             baseline.replace(b"20deg", b"22.5deg"), relative_path=SOURCE
         )
 
@@ -313,7 +311,7 @@ def test_knob_keyboard_step(
         window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.UpArrow))
         if shift:
             window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             baseline.replace(b"32deg", f"{expected}deg".encode()), relative_path=SOURCE
         )
 
@@ -390,10 +388,10 @@ def test_corner_slider_previews_then_commits_once(
                 expected = expected.replace(
                     f"{name}: 12px".encode(), f"{name}: 48px".encode()
                 )
-            snapshot.wait_for_exact(expected, relative_path=SOURCE)
+            snapshot.wait_for_applied(expected, relative_path=SOURCE)
             wait_for_field(window, "All corner radii", "48")
             shortcut(window)
-            snapshot.wait_for_exact(baseline, relative_path=SOURCE)
+            snapshot.wait_for_applied(baseline, relative_path=SOURCE)
 
 
 @pytest.mark.parametrize("radius", ["0", "30.5"])
@@ -444,22 +442,21 @@ def test_knob_shift_drag_snaps_and_retains_keyboard_focus(
             )
         )
         window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             baseline.replace(b"32deg", b"45deg"), relative_path=SOURCE
         )
         wait_for_field(window, "Rotation", "45")
-        time.sleep(0.5)
         window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.UpArrow))
         window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.UpArrow))
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             baseline.replace(b"32deg", b"46deg"), relative_path=SOURCE
         )
         shortcut(window)
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             baseline.replace(b"32deg", b"45deg"), relative_path=SOURCE
         )
         shortcut(window)
-        snapshot.wait_for_exact(baseline, relative_path=SOURCE)
+        snapshot.wait_for_applied(baseline, relative_path=SOURCE)
 
 
 def test_source_reload_cancels_knob_gesture(
@@ -507,7 +504,7 @@ def test_text_input_undo_does_not_revert_document(
         window = first_window(app)
         select_element(window, "Rectangle")
         edit_field(window, "Rotation", "40")
-        snapshot.wait_for_exact(expected, relative_path=SOURCE)
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, "Rotation", "40")
         field = window_element_with_label(
             window, label, slint_testing.AccessibleRole.TextInput
@@ -519,10 +516,10 @@ def test_text_input_undo_does_not_revert_document(
         wait_for_field(window, label, text)
         shortcut(window)
         assert field.accessible_value != text
-        snapshot.wait_for_exact(expected, relative_path=SOURCE)
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
         shortcut(window, redo=True)
         wait_for_field(window, label, text)
-        snapshot.wait_for_exact(expected, relative_path=SOURCE)
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
 
 
 @pytest.mark.parametrize("history", [False, True])
@@ -538,7 +535,7 @@ def test_undo_while_dragging_cancels_release(
         select_element(window, "Rectangle")
         if history:
             edit_field(window, "Rotation", "42")
-            snapshot.wait_for_exact(
+            snapshot.wait_for_applied(
                 baseline.replace(b"32deg", b"42deg"), relative_path=SOURCE
             )
             wait_for_field(window, "Rotation", "42")
@@ -558,7 +555,7 @@ def test_undo_while_dragging_cancels_release(
             )
         )
         time.sleep(0.3)
-        snapshot.wait_for_exact(baseline, relative_path=SOURCE)
+        snapshot.wait_for_applied(baseline, relative_path=SOURCE)
         wait_for_field(window, "Rotation", "32")
 
 
@@ -575,9 +572,8 @@ def test_separate_corners_survive_rotation_edit(
         action(window, "Separate corners")
         wait_for_field(window, LABELS[0], "12")
         edit_field(window, "Rotation", "47.5")
-        snapshot.wait_for_exact(baseline.replace(b"32deg", b"47.5deg"), SOURCE)
+        snapshot.wait_for_applied(baseline.replace(b"32deg", b"47.5deg"), SOURCE)
         wait_for_field(window, "Rotation", "47.5")
-        time.sleep(0.5)
         for label in LABELS:
             wait_for_field(window, label, "12")
 
@@ -644,4 +640,4 @@ def test_rotation_release_keeps_preview_until_reload(
                 == "50"
             )
             time.sleep(0.01)
-        snapshot.wait_for_exact(baseline.replace(b"32deg", b"50deg"), SOURCE)
+        snapshot.wait_for_applied(baseline.replace(b"32deg", b"50deg"), SOURCE)

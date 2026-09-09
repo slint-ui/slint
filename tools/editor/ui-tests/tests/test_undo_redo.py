@@ -202,7 +202,7 @@ def test_rectangle_undo_redo(
             snapshot.assert_unchanged_now()
         with replay_stage("initial edit"):
             edit(window, case, changes, snapshot)
-            snapshot.wait_for_exact(expected, SOURCE)
+            snapshot.wait_for_applied(expected, SOURCE)
             assert_visual(window, INITIAL | changes, origin, case.endswith("radius"))
         for name, content, values in [
             ("undo", baseline, INITIAL),
@@ -212,7 +212,7 @@ def test_rectangle_undo_redo(
                 if case.startswith("inspector-"):
                     select_fixture_element(window, "Rectangle")
                 shortcut(window, redo=name == "redo")
-                snapshot.wait_for_exact(content, SOURCE)
+                snapshot.wait_for_applied(content, SOURCE)
                 assert_visual(window, values, origin, case.endswith("radius"))
 
 
@@ -237,11 +237,11 @@ def test_redo_after_external_edit_preserves_source(
             cy - INITIAL["y"] - INITIAL["height"] / 2,
         )
         edit_field(window, FIELDS["x"], "104", slint_testing.AccessibleRole.TextInput)
-        snapshot.wait_for_exact(edited, SOURCE)
+        snapshot.wait_for_applied(edited, SOURCE)
         assert_visual(window, INITIAL | {"x": 104}, origin, False)
         select_fixture_element(window, "Rectangle")
         shortcut(window, redo=False)
-        snapshot.wait_for_exact(baseline, SOURCE)
+        snapshot.wait_for_applied(baseline, SOURCE)
         wait_for_field(
             window, FIELDS["x"], "80", slint_testing.AccessibleRole.TextInput
         )
@@ -253,5 +253,5 @@ def test_redo_after_external_edit_preserves_source(
                 window, FIELDS["x"], "900", slint_testing.AccessibleRole.TextInput
             )
         shortcut(window, redo=True)
-        snapshot.wait_for_exact(external, SOURCE)
+        snapshot.wait_for_applied(external, SOURCE)
         snapshot_after_external.assert_unchanged()

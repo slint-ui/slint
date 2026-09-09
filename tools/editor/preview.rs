@@ -54,6 +54,8 @@ mod properties;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
 pub(crate) mod settings;
+#[cfg(feature = "system-testing")]
+mod test_sync;
 pub mod ui;
 mod undo_redo;
 
@@ -71,6 +73,9 @@ pub fn initialize(
         preview_state.editor_ui = Some(editor_ui.clone_strong());
         preview_state.settings = settings;
     });
+
+    #[cfg(feature = "system-testing")]
+    test_sync::initialize();
 
     to_lsp
         .send_telemetry(&mut [(
