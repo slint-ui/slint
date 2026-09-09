@@ -3,7 +3,7 @@
 
 import { ListItem, ScrollView } from "std-widgets-impl.slint";
 
-import { ListViewInterface } from "std-widget-interfaces.slint";
+import { ListViewInterface, StandardListViewInterface } from "std-widget-interfaces.slint";
 
 export component ListView inherits ScrollView {
     implement ListViewInterface <=> self;
@@ -164,6 +164,8 @@ component StandardListViewBase inherits ListView {
 }
 
 export component StandardListView inherits StandardListViewBase {
+    implement StandardListViewInterface <=> self;
+
     forward-focus: i-focus-scope;
 
     i-focus-scope := FocusScope {
