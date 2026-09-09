@@ -2285,8 +2285,9 @@ fn set_preview_factory(
     compiled: ComponentDefinition,
     callback: Box<dyn Fn(ComponentInstance)>,
     behavior: LoadBehavior,
+    preserve_color_popup: bool,
 ) {
-    if !inspector::preserve_color_popup() {
+    if !preserve_color_popup {
         i_slint_core::window::WindowInner::from_pub(editor_ui.window()).close_all_popups();
     }
 
@@ -2696,6 +2697,7 @@ fn update_preview_area(
     format: i_slint_editor_preview::ByteFormat,
 ) -> Result<(), PlatformError> {
     let compiled_successfully = compiled.is_some();
+    let preserve_color_popup = inspector::preserve_color_popup();
     let editor_ui = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
 
@@ -2745,6 +2747,7 @@ fn update_preview_area(
                     previewed_component_changed();
                 }),
                 behavior,
+                preserve_color_popup,
             );
         }
 
