@@ -35,7 +35,7 @@ jobs:
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))))
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions:
       # Read-only on the tree: Claude reviews diffs and comments written by
       # anyone, so treat all of it as untrusted input. Raise to write only if
@@ -124,6 +124,16 @@ jobs:
           # 'git log' and 'git diff master...HEAD' find nothing.
           fetch-depth: 1
 
+      - uses: ./.github/actions/install-linux-dependencies
+        if: steps.check.outputs.has_token == 'true'
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.check.outputs.has_token == 'true'
+        with:
+          # rust-cache keys on the job by default, which would never hit the
+          # caches the CI jobs write. Give these runs one slot of their own.
+          shared-key: claude
+
       - uses: anthropics/claude-code-action@v1
         if: steps.check.outputs.has_token == 'true'
         with:
@@ -134,3 +144,4 @@ jobs:
           # review that hits the cap stops unfinished, so keep it generous.
           claude_args: |
             --max-turns 40
+            --allowedTools "Bash(cargo:*)"
