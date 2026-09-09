@@ -96,12 +96,15 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
                     };
                     return;
                 }
-                // Builtin height-for-width: replace the default -1 with
-                // the cross-axis size. The second arg is the
+                // Builtin height-for-width: replace the unconstrained argument
+                // with the cross-axis size. The second arg is the
                 // `cross_axis_constraint` of `ImplicitLayoutInfo`.
                 if target.borrow().is_builtin_height_for_width() {
                     debug_assert!(arguments.len() >= 2);
                     if let Some(second) = arguments.get_mut(1) {
+                        // The binding analysis reads the same argument to tell
+                        // whether the item reads its own width.
+                        debug_assert!(is_unconstrained_layout_info_arg(second));
                         *second = width_param.clone();
                     }
                 }
