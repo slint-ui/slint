@@ -102,7 +102,9 @@ existing causal lease ends on installation or retirement; releasing a retired
 factory cannot install it. The `acknowledgment` gate holds the real local edit
 response and exposes its edit ID. Only a matching response and an installation
 containing that edit's input revisions can complete a pending edit. Installation
-abandonment cancels queued history and allows an acknowledged edit to settle.
+abandonment cancels queued history and allows an acknowledged edit to settle. Ordinary source supersession is terminal only after a later instance is installed and, after the write acknowledgment, its edited-file inputs match current disk. This also covers watcher coalescing that skips the written revision. The disk comparison runs at edit completion, like history validation; test waits do not trigger a reload. Supersession cancels queued history and discards history based on the replaced source.
+
+The observer keeps the last successful attempt for diagnostics separately from whether an instance is mounted. Image-mode switches and factory callbacks that return no component clear mounted state. Applied waits require a mounted instance, including while an external reload is held at the factory gate.
 
 To prove that pointer-down owns work, leave the action context before checking
 its pending state. An unsealed action is pending even without a gesture token.
@@ -158,7 +160,7 @@ across files; earlier successful writes remain when a later file fails.
 | F14 | partial | Lookups without waits and deadline-aware polling exist. These do not make every multi-probe UI read an atomic snapshot. |
 | F15 | fixed | First-window acquisition uses a bounded condition wait; lifecycle requests also check process exit. |
 | F16 | fixed | Session, cursor, actual attempt inputs, installed identity, edit IDs, and causal leases distinguish the milestones. |
-| F17 | fixed | Each worker uses a copied binary with checksum, build revision, features, and required protocol handshake. Shell live preview is disabled. |
+| F17 | fixed | Each worker uses a copied binary with a streamed checksum cached for that immutable path, build revision, features, and required protocol handshake. Shell live preview is disabled. |
 | F18 | partial | Handles are reacquired at migrated replacement boundaries. Direct multi-property reads still require a test-controlled stable boundary. |
 | F19 | fixed | Every process gets a private settings directory and pinned defaults. |
 | F20 | fixed | Initial broken-source recovery acknowledges the startup failure before repair. |

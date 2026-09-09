@@ -12,30 +12,57 @@ pub(super) struct CompilationSnapshot {
 pub(super) struct PendingInstallation {
     after: u64,
     expected: HashMap<lsp_types::Url, String>,
-    installed: Option<u64>,
+    installed: Option<CompilationSnapshot>,
+    acknowledged: bool,
     abandoned: bool,
 }
 
 impl PendingInstallation {
     pub fn new(after: u64, expected: HashMap<lsp_types::Url, String>) -> Self {
-        Self { after, expected, installed: None, abandoned: false }
+        Self { after, expected, installed: None, acknowledged: false, abandoned: false }
     }
 
     pub fn expects(&self, url: &lsp_types::Url, content: &str) -> bool {
         self.expected.get(url).is_some_and(|expected| expected == content)
     }
 
+    pub fn acknowledge(&mut self) {
+        self.acknowledged = true;
+    }
+
     pub fn observe(&mut self, compilation: &CompilationSnapshot) -> bool {
-        let matches = !self.abandoned
-            && compilation.id > self.after
-            && !self.expected.is_empty()
-            && self
+        self.installed = Some(CompilationSnapshot {
+            id: compilation.id,
+            inputs: self
                 .expected
-                .iter()
-                .all(|(url, contents)| compilation.inputs.get(url) == Some(contents));
-        // A later unrelated installation must not leave an earlier match valid.
-        self.installed = matches.then_some(compilation.id);
-        matches
+                .keys()
+                .filter_map(|url| {
+                    compilation.inputs.get(url).map(|content| (url.clone(), content.clone()))
+                })
+                .collect(),
+        });
+        self.is_installed()
+    }
+
+    pub fn is_superseded(&self) -> bool {
+        let Some(installed) = &self.installed else { return false };
+        // Coalescing can skip the edited revision entirely. Only retire that edit
+        // after its write succeeded and the mounted inputs match current disk.
+        // An older compilation or a stale cache alone is not evidence of replacement.
+        self.acknowledged
+            && !self.abandoned
+            && installed.id > self.after
+            && !self.is_installed()
+            && !self.expected.is_empty()
+            && self.expected.keys().all(|url| {
+                installed.inputs.get(url).is_some_and(|content| {
+                    url.to_file_path()
+                        .ok()
+                        .and_then(|path| std::fs::read_to_string(path).ok())
+                        .as_ref()
+                        == Some(content)
+                })
+            })
     }
 
     pub fn abandon(&mut self) {
@@ -48,7 +75,15 @@ impl PendingInstallation {
     }
 
     pub fn is_installed(&self) -> bool {
-        self.installed.is_some()
+        !self.abandoned
+            && !self.expected.is_empty()
+            && self.installed.as_ref().is_some_and(|installed| {
+                installed.id > self.after
+                    && self
+                        .expected
+                        .iter()
+                        .all(|(url, content)| installed.inputs.get(url) == Some(content))
+            })
     }
 }
 
@@ -61,6 +96,30 @@ mod tests {
             .iter()
             .map(|(path, content)| (format!("file:///{path}").parse().unwrap(), (*content).into()))
             .collect()
+    }
+
+    #[test]
+    fn supersession_requires_successful_write_and_current_installed_source() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("Main.slint");
+        let url = lsp_types::Url::from_file_path(&path).unwrap();
+        let mut edit = PendingInstallation::new(1, HashMap::from([(url.clone(), "edit".into())]));
+        let snapshot = |id| CompilationSnapshot {
+            id,
+            inputs: HashMap::from([(url.clone(), "external".into())]),
+        };
+        std::fs::write(&path, "external").unwrap();
+        edit.observe(&snapshot(2));
+        assert!(!edit.is_superseded());
+        edit.acknowledge();
+        assert!(edit.is_superseded());
+        edit.observe(&snapshot(1));
+        assert!(!edit.is_superseded());
+        edit.observe(&snapshot(2));
+        std::fs::write(&path, "edit").unwrap();
+        assert!(!edit.is_superseded());
+        std::fs::remove_file(&path).unwrap();
+        assert!(!edit.is_superseded());
     }
 
     #[test]

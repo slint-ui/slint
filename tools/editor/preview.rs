@@ -321,14 +321,28 @@ fn preview_generation_is_current(generation: u64) -> bool {
     PREVIEW_STATE.with_borrow(|state| state.preview_generation == generation)
 }
 
-fn retire_factory(_state: &mut PreviewState) {
+fn retire_factory(_state: &mut PreviewState, _transfer_to_reload: bool) {
     #[cfg(feature = "system-testing")]
     if let Some(lease) = _state.factory_lease.take() {
-        // The ComponentFactory may remain retained by a component container
-        // after the surface is removed. Emptying the lease here lets the
-        // operation settle even when that abandoned factory is never invoked.
-        lease.as_ref().borrow_mut().take();
+        // A container can retain a retired factory without invoking it again.
+        // Transfer its work to a replacement reload, or release it on unmount.
+        if let Some(work) = lease.as_ref().borrow_mut().take()
+            && _transfer_to_reload
+        {
+            _state.sync_reload_work.push(work);
+        }
     }
+}
+
+fn abandon_pending_installation(state: &mut PreviewState) {
+    if let Some(edit) = state.workspace_edit_installation.as_mut() {
+        edit.abandon();
+        if state.pending_workspace_edit.is_none() {
+            state.workspace_edit_installation = None;
+            state.workspace_edit_sent = false;
+        }
+    }
+    undo_redo::cancel_pending(state);
 }
 
 /// Invalidate deferred component creation when the preview surface changes
@@ -337,15 +351,10 @@ fn retire_factory(_state: &mut PreviewState) {
 pub(crate) fn invalidate_preview_generation() {
     PREVIEW_STATE.with_borrow_mut(|state| {
         state.preview_generation = state.preview_generation.wrapping_add(1);
-        retire_factory(state);
-        if let Some(edit) = state.workspace_edit_installation.as_mut() {
-            edit.abandon();
-            if state.pending_workspace_edit.is_none() {
-                state.workspace_edit_installation = None;
-                state.workspace_edit_sent = false;
-            }
-        }
-        undo_redo::cancel_pending(state);
+        retire_factory(state, false);
+        abandon_pending_installation(state);
+        #[cfg(feature = "system-testing")]
+        test_sync::unmounted(None);
     });
     inspector::restore_committed();
     inspector::invalidate();
@@ -1837,6 +1846,19 @@ pub(crate) enum WorkspaceEditOutcome {
     Failed { may_have_changed: bool },
 }
 
+fn finish_pending_installation(state: &mut PreviewState) -> bool {
+    let Some(edit) = state.workspace_edit_installation.as_ref() else { return false };
+    if edit.is_superseded() {
+        undo_redo::discard_pending(state, true);
+        undo_redo::cancel_pending(state);
+    } else if state.pending_workspace_edit.is_some() || !edit.is_finished() {
+        return false;
+    }
+    state.workspace_edit_installation = None;
+    state.workspace_edit_sent = false;
+    true
+}
+
 pub(crate) fn workspace_edit_result(id: u64, outcome: WorkspaceEditOutcome) {
     let matches = PREVIEW_STATE.with_borrow(|state| {
         state.pending_workspace_edit.as_ref().is_some_and(|edit| edit.id == id)
@@ -1846,34 +1868,25 @@ pub(crate) fn workspace_edit_result(id: u64, outcome: WorkspaceEditOutcome) {
     if !matches {
         return;
     }
-    let (needs_recovery, release_pending) = PREVIEW_STATE.with_borrow_mut(|state| {
-        match outcome {
-            WorkspaceEditOutcome::Applied => {
-                undo_redo::commit_pending(state);
-                // The filesystem acknowledgement and preview installation are
-                // independent. Release queued history only after both have
-                // reached their terminal state.
-                if state.workspace_edit_installation.as_ref().is_some_and(|edit| edit.is_finished())
-                {
-                    state.workspace_edit_installation = None;
-                    state.workspace_edit_sent = false;
-                    (false, true)
-                } else {
-                    (false, false)
-                }
+    let (needs_recovery, release_pending) = PREVIEW_STATE.with_borrow_mut(|state| match outcome {
+        WorkspaceEditOutcome::Applied => {
+            if let Some(edit) = state.workspace_edit_installation.as_mut() {
+                edit.acknowledge();
             }
-            WorkspaceEditOutcome::Rejected => {
-                undo_redo::discard_pending(state, false);
-                state.workspace_edit_installation = None;
-                state.workspace_edit_sent = false;
-                (true, true)
-            }
-            WorkspaceEditOutcome::Failed { may_have_changed } => {
-                undo_redo::discard_pending(state, may_have_changed);
-                state.workspace_edit_installation = None;
-                state.workspace_edit_sent = false;
-                (true, true)
-            }
+            undo_redo::commit_pending(state);
+            (false, finish_pending_installation(state))
+        }
+        WorkspaceEditOutcome::Rejected => {
+            undo_redo::discard_pending(state, false);
+            state.workspace_edit_installation = None;
+            state.workspace_edit_sent = false;
+            (true, true)
+        }
+        WorkspaceEditOutcome::Failed { may_have_changed } => {
+            undo_redo::discard_pending(state, may_have_changed);
+            state.workspace_edit_installation = None;
+            state.workspace_edit_sent = false;
+            (true, true)
         }
     });
     if needs_recovery {
@@ -2235,12 +2248,18 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
 
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         preview_state.preview_generation = preview_state.preview_generation.wrapping_add(1);
-        retire_factory(preview_state);
+        retire_factory(preview_state, true);
         match behavior {
             LoadBehavior::Reload => {}
             LoadBehavior::Load
             | LoadBehavior::LoadWithoutLiveData
             | LoadBehavior::BringWindowToFront => {
+                if preview_state.current_component().is_some_and(|current| {
+                    current.url != preview_component.url
+                        || current.component != preview_component.component
+                }) {
+                    abandon_pending_installation(preview_state);
+                }
                 preview_state.set_current_component(preview_component)
             }
         }
@@ -2586,16 +2605,19 @@ fn set_preview_factory(
     let paused = Rc::new(std::cell::Cell::new(false));
     #[cfg(feature = "system-testing")]
     let factory_paused = paused.clone();
-    let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
+    let create_factory = move |ctx: FactoryContext| {
         #[cfg(feature = "system-testing")]
         if factory_paused.get() {
+            test_sync::unmounted(attempt);
             return None;
         }
         #[cfg(feature = "system-testing")]
         let work = factory_lease.as_ref().borrow_mut().take().unwrap_or_default();
-        #[cfg(feature = "system-testing")]
-        return work.run(|| {
+        let create = || {
             if !preview_generation_is_current(generation) {
+                #[cfg(feature = "system-testing")]
+                test_sync::unmounted(attempt);
+                #[cfg(feature = "system-testing")]
                 if let Some(attempt) = attempt {
                     test_sync::processed(attempt, "superseded", Vec::new());
                 }
@@ -2604,22 +2626,20 @@ fn set_preview_factory(
             let instance = compiled.create_embedded(ctx).unwrap();
             callback(instance.clone_strong());
             Some(instance)
-        });
+        };
+        #[cfg(feature = "system-testing")]
+        return work.run(create);
         #[cfg(not(feature = "system-testing"))]
-        if !preview_generation_is_current(generation) {
-            return None;
-        }
-        #[cfg(not(feature = "system-testing"))]
-        let instance = compiled.create_embedded(ctx).unwrap();
-
-        #[cfg(not(feature = "system-testing"))]
-        callback(instance.clone_strong());
-        #[cfg(not(feature = "system-testing"))]
-        Some(instance)
-    });
-
+        create()
+    };
     #[cfg(feature = "system-testing")]
-    let deferred_factory = factory.clone();
+    let create_factory = Rc::new(create_factory);
+    #[cfg(feature = "system-testing")]
+    let deferred_create = create_factory.clone();
+    #[cfg(feature = "system-testing")]
+    let factory = slint::ComponentFactory::new(move |ctx| create_factory(ctx));
+    #[cfg(not(feature = "system-testing"))]
+    let factory = slint::ComponentFactory::new(create_factory);
     api.set_preview_area(factory);
     #[cfg(feature = "system-testing")]
     if let Some(attempt) = attempt {
@@ -2633,8 +2653,9 @@ fn set_preview_factory(
             resume.set(false);
             if let Some(editor_ui) = weak_ui.upgrade() {
                 let api = editor_ui.global::<ui::Api>();
-                api.set_preview_area(Default::default());
-                api.set_preview_area(deferred_factory);
+                api.set_preview_area(slint::ComponentFactory::new(move |ctx| deferred_create(ctx)));
+                i_slint_core::window::WindowInner::from_pub(editor_ui.window())
+                    .ensure_tree_instantiated();
             }
         }));
     }
@@ -3025,81 +3046,78 @@ fn update_preview_area(
             api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
             // Keep the inspector mounted until reselection, so edits retain keyboard focus.
 
-            let _factory_lease = set_preview_factory(
-                editor_ui,
-                &api,
-                compiled,
-                Box::new(move |instance| {
-                    if !preview_generation_is_current(generation) {
+            let set_factory = || {
+                set_preview_factory(
+                    editor_ui,
+                    &api,
+                    compiled,
+                    Box::new(move |instance| {
+                        if !preview_generation_is_current(generation) {
+                            #[cfg(feature = "system-testing")]
+                            if let Some(attempt) = attempt {
+                                test_sync::processed(attempt, "superseded", Vec::new());
+                            }
+                            return;
+                        }
+                        if let Some(rtl) = instance.definition().raw_type_loader() {
+                            shared_document_cache.replace(Some(Rc::new(
+                                i_slint_editor_preview::DocumentCache::new_from_raw_parts(
+                                    rtl,
+                                    open_import_callback.clone(),
+                                    source_file_versions.clone(),
+                                    format,
+                                ),
+                            )));
+                        }
+
+                        // element_hash (and thus hook ids) change on every recompile, so drop stale overrides.
+                        (*shared_overrides).borrow_mut().clear();
+                        {
+                            let overrides = shared_overrides.clone();
+                            instance.set_debug_hook_callback(Some(Box::new(
+                                move |id: &str| -> Option<slint_interpreter::Value> {
+                                    let mut m = (*overrides).borrow_mut();
+                                    let p = m.entry(SmolStr::from(id)).or_insert_with(|| {
+                                        tracing::trace!("Inserting Property override: {id}");
+                                        Box::pin(i_slint_core::Property::new(None))
+                                    });
+                                    p.as_ref().get()
+                                },
+                            )));
+                        }
+
+                        PREVIEW_STATE
+                            .with_borrow_mut(|state| state.committed_inspector_overrides.clear());
+                        shared_handle.replace(Some(instance));
+                        previewed_component_changed();
+                        let release_pending = PREVIEW_STATE.with_borrow_mut(|state| {
+                            if let Some(edit) = state.workspace_edit_installation.as_mut() {
+                                edit.observe(&installation);
+                            }
+                            finish_pending_installation(state)
+                        });
+                        inspector::invalidate();
+                        element_selection::reselect_element();
+                        if release_pending {
+                            undo_redo::apply_pending();
+                        }
                         #[cfg(feature = "system-testing")]
                         if let Some(attempt) = attempt {
-                            test_sync::processed(attempt, "superseded", Vec::new());
+                            test_sync::applied(attempt);
                         }
-                        return;
-                    }
-                    if let Some(rtl) = instance.definition().raw_type_loader() {
-                        shared_document_cache.replace(Some(Rc::new(
-                            i_slint_editor_preview::DocumentCache::new_from_raw_parts(
-                                rtl,
-                                open_import_callback.clone(),
-                                source_file_versions.clone(),
-                                format,
-                            ),
-                        )));
-                    }
-
-                    // element_hash (and thus hook ids) change on every recompile, so drop stale overrides.
-                    (*shared_overrides).borrow_mut().clear();
-                    {
-                        let overrides = shared_overrides.clone();
-                        instance.set_debug_hook_callback(Some(Box::new(
-                            move |id: &str| -> Option<slint_interpreter::Value> {
-                                let mut m = (*overrides).borrow_mut();
-                                let p = m.entry(SmolStr::from(id)).or_insert_with(|| {
-                                    tracing::trace!("Inserting Property override: {id}");
-                                    Box::pin(i_slint_core::Property::new(None))
-                                });
-                                p.as_ref().get()
-                            },
-                        )));
-                    }
-
-                    PREVIEW_STATE
-                        .with_borrow_mut(|state| state.committed_inspector_overrides.clear());
-                    shared_handle.replace(Some(instance));
-                    previewed_component_changed();
-                    let release_pending = PREVIEW_STATE.with_borrow_mut(|state| {
-                        let matches = state
-                            .workspace_edit_installation
-                            .as_mut()
-                            .is_some_and(|edit| edit.observe(&installation));
-                        if matches && state.pending_workspace_edit.is_none() {
-                            state.workspace_edit_installation = None;
-                            state.workspace_edit_sent = false;
-                            true
-                        } else {
-                            false
-                        }
-                    });
-                    inspector::invalidate();
-                    element_selection::reselect_element();
-                    if release_pending {
-                        undo_redo::apply_pending();
-                    }
+                    }),
+                    behavior,
+                    generation,
                     #[cfg(feature = "system-testing")]
-                    if let Some(attempt) = attempt {
-                        test_sync::applied(attempt);
-                    }
-                }),
-                behavior,
-                generation,
-                #[cfg(feature = "system-testing")]
-                attempt,
-            );
+                    attempt,
+                )
+            };
             #[cfg(feature = "system-testing")]
             {
-                preview_state.factory_lease = Some(_factory_lease);
+                preview_state.factory_lease = Some(set_factory());
             }
+            #[cfg(not(feature = "system-testing"))]
+            set_factory();
         }
 
         editor_ui.clone_strong()

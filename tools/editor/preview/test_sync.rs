@@ -97,6 +97,7 @@ struct Observer {
     inputs: BTreeMap<Url, Input>,
     attempts: BTreeMap<u64, Attempt>,
     installed: Option<(u64, u64)>,
+    mounted: bool,
     operations: BTreeMap<u64, Operation>,
     capturing: Option<u64>,
     gates: BTreeMap<u64, Gate>,
@@ -381,10 +382,20 @@ pub(crate) fn processed(attempt: u64, outcome: &str, diagnostics: Vec<String>) {
         }
     });
 }
+pub(crate) fn unmounted(attempt: Option<u64>) {
+    with_state(|s| {
+        if s.mounted && attempt.is_none_or(|a| s.installed.is_none_or(|(id, _)| id <= a)) {
+            s.mounted = false;
+            s.event(json!({"kind":"unmounted"}));
+        }
+    });
+}
+
 pub(crate) fn applied(attempt: u64) {
     with_state(|s| {
         let cursor = s.event(json!({"kind":"applied", "attempt":attempt}));
         s.installed = Some((attempt, cursor));
+        s.mounted = true;
     });
 }
 
@@ -592,14 +603,15 @@ fn answer(s: &mut Observer, r: &Request) -> Result<Value, String> {
             let found = s.installed.and_then(|(id, cursor)| {
                 (cursor > r.after || r.after == 0).then(|| s.attempts.get(&id)).flatten()
             });
-            ready = found.is_some_and(|a| {
-                r.sources.iter().all(|(url, c)| {
-                    a.inputs.get(url).is_some_and(|i| {
-                        i.content == identity(c.as_deref())
-                            && (r.after == 0 || i.observation > r.after)
+            ready = s.mounted
+                && found.is_some_and(|a| {
+                    r.sources.iter().all(|(url, c)| {
+                        a.inputs.get(url).is_some_and(|i| {
+                            i.content == identity(c.as_deref())
+                                && (r.after == 0 || i.observation > r.after)
+                        })
                     })
-                })
-            });
+                });
             ready &= super::PREVIEW_STATE.with_borrow(|p| {
                 !p.workspace_edit_sent
                     && p.pending_workspace_edit.is_none()
@@ -698,6 +710,7 @@ fn respond_in(s: &mut Observer, raw: Value) -> Value {
     result["writes"] = s.writes.into();
     result["accepted_edits"] = s.accepted_edits.into();
     result["mutations"] = s.mutations.into();
+    result["mounted"] = json!(s.mounted);
     result["installed"] = json!(s.installed.and_then(|(id, _)| s.attempts.get(&id)));
     result["operations"] =
         json!(s.operations.iter().filter(|(_, op)| !op.settled()).collect::<BTreeMap<_, _>>());
@@ -933,6 +946,21 @@ mod tests {
         assert_eq!(respond_in(&mut state, wait.clone())["ready"], false);
         state.attempts.insert(2, attempt(2, 11, 12, Some("A"), "compiled"));
         assert_eq!(respond_in(&mut state, wait)["attempt"]["id"], 2);
+    }
+
+    #[test]
+    fn applied_requires_a_mounted_instance_but_retains_diagnostics() {
+        let mut state = observer();
+        state.cursor = 3;
+        state.attempts.insert(1, attempt(1, 1, 2, Some("A"), "compiled"));
+        state.installed = Some((1, 3));
+        let mut wait = request(1, "applied");
+        wait["sources"] = json!({"file:///Main.slint":"A"});
+        let result = respond_in(&mut state, wait.clone());
+        assert_eq!(result["ready"], false);
+        assert_eq!(result["installed"]["id"], 1);
+        state.mounted = true;
+        assert_eq!(respond_in(&mut state, wait)["ready"], true);
     }
 
     #[test]

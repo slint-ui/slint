@@ -524,3 +524,167 @@ def test_write_failure_reports_mutation_and_reconciles_history(
             edit_field(window, "Rotation", "77")
         next_edit.wait_for_settled(outcome="completed")
         sync.wait_for_applied(source, baseline.replace(b"32deg", b"77deg"))
+
+
+@pytest.mark.parametrize("acknowledged", [False, True])
+@pytest.mark.parametrize("replacement", ["source", "component"])
+@pytest.mark.parametrize("stage", ["factory", "publication"])
+def test_newer_preview_resolves_pending_edit(
+    editor_binary, editor_environment, fixture_project, acknowledged, replacement, stage
+):
+    baseline = prepare(fixture_project)
+    source = fixture_project / SOURCE
+    edited = baseline.replace(b"32deg", b"62deg")
+    newer = baseline.replace(b"32deg", b"77deg")
+    with launch_editor(editor_binary, editor_environment, source) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        sync = current_editor_sync.get()
+        with sync.action() as seed:
+            edit_field(window, "Rotation", "42")
+        seed.wait_for_settled(outcome="completed")
+        checkpoint = sync.checkpoint()
+        with (
+            sync.gate("acknowledgment", source) as ack,
+            sync.gate(stage, source) as factory,
+        ):
+            with sync.action() as edit:
+                edit_field(window, "Rotation", "62")
+            edit_id = ack.wait_for_reached().data["gate_state"]["edit"]
+            factory.wait_for_reached()
+            window_element_with_label(window, "Rotation knob").single_click(
+                slint_testing.PointerEventButton.Left
+            )
+            with sync.action() as undo:
+                shortcut(window)
+            assert (
+                "queued history"
+                in operation_state(undo)["operation_state"]["pending"].values()
+            )
+            if acknowledged:
+                ack.release()
+                assert wait_for_acknowledgment(sync, edit_id, checkpoint)["accepted"]
+            if replacement == "source":
+                source.write_bytes(newer)
+                wait_for_field(window, "Rotation", "77")
+            else:
+                other = fixture_project / "Main.slint"
+                file_row(window, other).single_click(
+                    slint_testing.PointerEventButton.Left
+                )
+            if replacement == "source" and not acknowledged:
+                ack.release()
+            undo.wait_for_settled(outcome="canceled")
+            undo.assert_no_source_writes()
+            if not acknowledged:
+                ack.release()
+            factory.release()
+            edit.wait_for_settled(outcome="completed")
+            if replacement == "component":
+                sync.wait_for_applied(other, other.read_bytes())
+                file_row(window, source).single_click(
+                    slint_testing.PointerEventButton.Left
+                )
+                newer = edited
+            sync.wait_for_applied(source, newer)
+        select_element(window, "Rectangle")
+        with sync.action() as next_edit:
+            edit_field(window, "Rotation", "88")
+        next_edit.wait_for_settled(outcome="completed")
+        window_element_with_label(window, "Rotation knob").single_click(
+            slint_testing.PointerEventButton.Left
+        )
+        with sync.action() as next_undo:
+            shortcut(window)
+        result = next_undo.wait_for_settled(outcome="completed")
+        assert result.data["operation_state"]["writes"] == 1
+        sync.wait_for_applied(source, newer)
+
+
+def test_image_surface_clears_mounted_preview_but_keeps_last_success(
+    editor_binary, editor_environment, fixture_project
+):
+    baseline = prepare(fixture_project)
+    source = fixture_project / SOURCE
+    with launch_editor(editor_binary, editor_environment, source) as app:
+        window = first_window(app)
+        sync = current_editor_sync.get()
+        sync.wait_for_applied(source, baseline)
+        before = sync._request(mode="checkpoint").data
+        assert before["mounted"]
+        file_row(window, fixture_project / "assets").single_click(
+            slint_testing.PointerEventButton.Left
+        )
+        file_row(window, fixture_project / "assets/checker.svg").single_click(
+            slint_testing.PointerEventButton.Left
+        )
+        after = sync._request(mode="checkpoint").data
+        assert not after["mounted"]
+        assert after["installed"]["id"] == before["installed"]["id"]
+        file_row(window, source).single_click(slint_testing.PointerEventButton.Left)
+        sync.wait_for_applied(source, baseline)
+        assert sync._request(mode="checkpoint").data["mounted"]
+
+
+@pytest.mark.parametrize("acknowledged", [False, True])
+def test_coalesced_edit_resolves_without_compiling_its_written_revision(
+    editor_binary, editor_environment, fixture_project, acknowledged
+):
+    baseline = prepare(fixture_project)
+    source = fixture_project / SOURCE
+    newer = baseline.replace(b"32deg", b"77deg")
+    with launch_editor(editor_binary, editor_environment, source) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        sync = current_editor_sync.get()
+        checkpoint = sync.checkpoint()
+        with (
+            sync.gate("source", source) as processing,
+            sync.gate("acknowledgment", source) as ack,
+        ):
+            with sync.action() as edit:
+                edit_field(window, "Rotation", "62")
+            processing.wait_for_reached()
+            edit_id = ack.wait_for_reached().data["gate_state"]["edit"]
+            if acknowledged:
+                ack.release()
+                assert wait_for_acknowledgment(sync, edit_id, checkpoint)["accepted"]
+            source.write_bytes(newer)
+            processing.release()
+            wait_for_field(window, "Rotation", "77")
+            ack.release()
+            edit.wait_for_settled(outcome="completed")
+        sync.wait_for_applied(source, newer)
+        with sync.action() as next_edit:
+            edit_field(window, "Rotation", "88")
+        next_edit.wait_for_settled(outcome="completed")
+        window_element_with_label(window, "Rotation knob").single_click(
+            slint_testing.PointerEventButton.Left
+        )
+        with sync.action() as undo:
+            shortcut(window)
+        result = undo.wait_for_settled(outcome="completed")
+        assert result.data["operation_state"]["writes"] == 1
+        sync.wait_for_applied(source, newer)
+
+
+def test_paused_factory_clears_mounted_identity(
+    editor_binary, editor_environment, fixture_project
+):
+    baseline = prepare(fixture_project)
+    source = fixture_project / SOURCE
+    newer = baseline.replace(b"32deg", b"77deg")
+    with launch_editor(editor_binary, editor_environment, source) as app:
+        window = first_window(app)
+        sync = current_editor_sync.get()
+        sync.wait_for_applied(source, baseline)
+        before = sync._request(mode="checkpoint").data
+        with sync.gate("factory", source) as factory:
+            source.write_bytes(newer)
+            factory.wait_for_reached()
+            window.grab_window_as_png()
+            held = sync._request(mode="checkpoint").data
+            assert not held["mounted"]
+            assert held["installed"]["id"] == before["installed"]["id"]
+        sync.wait_for_applied(source, newer)
+        assert sync._request(mode="checkpoint").data["mounted"]
