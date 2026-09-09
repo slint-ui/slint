@@ -4,13 +4,15 @@
 import { AppState, PaletteComponentKind, StudioTheme } from "common.slint";
 import { EditorTreeTokens } from "editor-tree-tokens.slint";
 
-component PaletteImageDragPreview inherits Rectangle {
-    border-radius: 16px;
+component PalettePlaceholderDragPreview inherits Rectangle {
+    in property <bool> show-thumbnail: true;
+    in property <length> corner-radius;
+    border-radius: root.corner-radius;
     background: StudioTheme.object-subtle;
     border-width: 1px;
     border-color: StudioTheme.object-border;
 
-    Rectangle {
+    if root.show-thumbnail: Rectangle {
         width: 48px;
         height: 36px;
         border-radius: 6px;
@@ -54,6 +56,7 @@ export component DragPreview inherits Rectangle {
         : AppState.palette-drag-preview-position.y;
     border-radius: AppState.outline-drag-active
         ? EditorTreeTokens.row-radius
+        : AppState.palette-drag-kind == PaletteComponentKind.touch-area ? 0px
         : AppState.palette-drag-kind == PaletteComponentKind.image ? 16px : 8px;
     background: transparent;
     opacity: AppState.outline-drag-active ? 0.5 : 1;
@@ -64,6 +67,7 @@ export component DragPreview inherits Rectangle {
     accessible-label: AppState.palette-drag-kind == PaletteComponentKind.rectangle ? "Rectangle drag preview"
         : AppState.palette-drag-kind == PaletteComponentKind.text ? "Text drag preview"
         : AppState.palette-drag-kind == PaletteComponentKind.image ? "Image drag preview"
+        : AppState.palette-drag-kind == PaletteComponentKind.touch-area ? "TouchArea drag preview"
         : "Outline drag preview";
 
     if AppState.outline-drag-active: Rectangle {
@@ -114,5 +118,8 @@ export component DragPreview inherits Rectangle {
         vertical-alignment: center;
     }
 
-    if !AppState.outline-drag-active && AppState.palette-drag-kind == PaletteComponentKind.image: PaletteImageDragPreview { }
+    if !AppState.outline-drag-active && (AppState.palette-drag-kind == PaletteComponentKind.image || AppState.palette-drag-kind == PaletteComponentKind.touch-area): PalettePlaceholderDragPreview {
+        corner-radius: root.border-radius;
+        show-thumbnail: AppState.palette-drag-kind == PaletteComponentKind.image;
+    }
 }

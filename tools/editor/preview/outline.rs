@@ -261,6 +261,7 @@ fn icon_kind_for_type(element_type: &str) -> ui::OutlineNodeIconKind {
         "Rectangle" => ui::OutlineNodeIconKind::Rectangle,
         "Image" => ui::OutlineNodeIconKind::Image,
         "Text" => ui::OutlineNodeIconKind::Text,
+        "TouchArea" => ui::OutlineNodeIconKind::TouchArea,
         _ => ui::OutlineNodeIconKind::Default,
     }
 }

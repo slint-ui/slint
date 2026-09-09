@@ -254,6 +254,7 @@ export component ComponentPaletteRow inherits Rectangle {
             height: 18px;
             source: root.kind == PaletteComponentKind.image ? EditorTreeIcons.image
                 : root.kind == PaletteComponentKind.rectangle ? EditorTreeIcons.rectangle
+                : root.kind == PaletteComponentKind.touch-area ? EditorTreeIcons.touch-area
                 : EditorTreeIcons.text;
             colorize: root.active ? StudioTheme.accent-strong : StudioTheme.text;
             opacity: root.active ? 1 : 0.5;
@@ -310,7 +311,7 @@ export global AppState {
         if kind == PaletteComponentKind.rectangle {
             return { width: 160px, height: 64px };
         }
-        if kind == PaletteComponentKind.image {
+        if kind == PaletteComponentKind.image || kind == PaletteComponentKind.touch-area {
             return { width: 160px, height: 96px };
         }
         if kind == PaletteComponentKind.text {

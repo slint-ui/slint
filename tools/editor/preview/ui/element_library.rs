@@ -6,16 +6,38 @@ use slint::{Model, ModelExt, ModelRc, SharedString};
 use super::{Api, ElementLibraryEntry, ElementLibraryGroup, PaletteComponentKind};
 
 fn catalog() -> ModelRc<ElementLibraryGroup> {
-    let mut entries = [
-        ElementLibraryEntry { label: "Rectangle".into(), kind: PaletteComponentKind::Rectangle },
-        ElementLibraryEntry { label: "Text".into(), kind: PaletteComponentKind::Text },
-        ElementLibraryEntry { label: "Image".into(), kind: PaletteComponentKind::Image },
+    let groups = [
+        (
+            "Visual",
+            vec![
+                ElementLibraryEntry {
+                    label: "Rectangle".into(),
+                    kind: PaletteComponentKind::Rectangle,
+                },
+                ElementLibraryEntry { label: "Text".into(), kind: PaletteComponentKind::Text },
+                ElementLibraryEntry { label: "Image".into(), kind: PaletteComponentKind::Image },
+            ],
+        ),
+        (
+            "Input & interaction",
+            vec![ElementLibraryEntry {
+                label: "TouchArea".into(),
+                kind: PaletteComponentKind::TouchArea,
+            }],
+        ),
     ];
-    entries.sort_by(|a, b| a.label.cmp(&b.label));
-    ModelRc::new(slint::VecModel::from(vec![ElementLibraryGroup {
-        label: "Visual".into(),
-        entries: ModelRc::new(slint::VecModel::from(Vec::from(entries))),
-    }]))
+    ModelRc::new(slint::VecModel::from(
+        groups
+            .into_iter()
+            .map(|(label, mut entries)| {
+                entries.sort_by(|a, b| a.label.cmp(&b.label));
+                ElementLibraryGroup {
+                    label: label.into(),
+                    entries: ModelRc::new(slint::VecModel::from(entries)),
+                }
+            })
+            .collect::<Vec<_>>(),
+    ))
 }
 
 fn normalize_query(query: SharedString) -> SharedString {
@@ -49,9 +71,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn visual_library_is_alphabetical_and_search_preserves_order() {
+    fn library_is_alphabetical_and_search_preserves_order() {
         let groups = catalog();
-        assert_eq!(groups.row_count(), 1);
+        assert_eq!(groups.row_count(), 2);
         let group = groups.row_data(0).unwrap();
         assert_eq!(group.label, "Visual");
         for (query, expected) in [
@@ -67,6 +89,25 @@ mod tests {
                 result.iter().map(|entry| entry.label.to_string()).collect::<Vec<_>>(),
                 expected,
                 "query: {query:?}"
+            );
+        }
+        let interaction = groups.row_data(1).unwrap();
+        assert_eq!(interaction.label, "Input & interaction");
+        assert_eq!(interaction.entries.row_data(0).unwrap().kind, PaletteComponentKind::TouchArea);
+        for (query, expected) in [
+            ("", vec!["TouchArea"]),
+            ("  ", vec!["TouchArea"]),
+            (" tOuCh ", vec!["TouchArea"]),
+            ("AREA", vec!["TouchArea"]),
+            ("image", vec![]),
+            ("missing", vec![]),
+        ] {
+            assert_eq!(
+                filter(interaction.entries.clone(), normalize_query(query.into()))
+                    .iter()
+                    .map(|entry| entry.label.to_string())
+                    .collect::<Vec<_>>(),
+                expected
             );
         }
     }
