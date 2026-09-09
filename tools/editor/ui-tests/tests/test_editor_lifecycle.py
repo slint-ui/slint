@@ -155,8 +155,9 @@ def test_active_gesture_has_terminal_cancellation_and_release_cannot_write(
         assert source.read_bytes() == baseline
 
 
-def test_pointer_down_without_movement_is_canceled_by_escape(
-    editor_binary, editor_environment, fixture_project
+@pytest.mark.parametrize("cancel", ["escape", "selection", "source"])
+def test_sealed_pointer_down_stays_pending_until_cancellation(
+    editor_binary, editor_environment, fixture_project, cancel
 ):
     baseline = prepare(fixture_project)
     source = fixture_project / SOURCE
@@ -165,25 +166,37 @@ def test_pointer_down_without_movement_is_canceled_by_escape(
         select_element(window, "Rectangle")
         sync = current_editor_sync.get()
         sync.wait_for_applied(source, baseline)
-        knob = window_element_with_label(window, "Rotation knob")
-        position = point(knob, 32)
+        position = point(window_element_with_label(window, "Rotation knob"), 32)
         with sync.action() as gesture:
             window.dispatch_event(
                 slint_testing.PointerPressEvent(
                     position, slint_testing.PointerEventButton.Left
                 )
             )
-            state = operation_state(gesture)
-            assert not state["settled"]
-            window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
-            window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
+        state = operation_state(gesture)
+        assert state["operation_state"]["sealed"]
+        assert not state["settled"]
+        assert "inspector gesture" in state["operation_state"]["pending"].values()
+        with sync.action() as cancellation:
+            if cancel == "escape":
+                window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
+                window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
+            elif cancel == "selection":
+                select_element(window, "Text")
+            else:
+                baseline = baseline.replace(b"32deg", b"17deg")
+                source.write_bytes(baseline)
+                sync.wait_for_applied(source, baseline)
+        gesture.wait_for_settled(outcome="canceled")
+        gesture.assert_no_source_writes()
+        cancellation.assert_no_source_writes()
+        with sync.action() as release:
             window.dispatch_event(
                 slint_testing.PointerReleaseEvent(
                     position, slint_testing.PointerEventButton.Left
                 )
             )
-        gesture.wait_for_settled(outcome="canceled")
-        gesture.assert_no_source_writes()
+        release.assert_no_source_writes()
         assert source.read_bytes() == baseline
 
 
