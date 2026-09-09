@@ -1097,6 +1097,97 @@ async fn build_compilation_result(
     }
 }
 
+/// A [`CompilationResult`] that can be sent to another thread.
+///
+/// A `CompilationResult` is not `Send`: it shares its compilation unit between
+/// its components with an `Rc`. Convert one with
+/// [`CompilationResult::into_send()`], move it to the thread that will
+/// instantiate the components, and convert it back with `From`. That way a
+/// component can be compiled on a worker thread and instantiated on the thread
+/// running the event loop.
+///
+/// ```rust
+/// # i_slint_backend_testing::init_no_event_loop();
+/// let source = "export component App inherits Window { out property <int> v: 42; }".into();
+/// let sent = std::thread::spawn(move || {
+///     let compiler = slint_interpreter::Compiler::default();
+///     spin_on::spin_on(compiler.build_from_source(source, Default::default())).into_send()
+/// })
+/// .join()
+/// .unwrap();
+/// let result = slint_interpreter::CompilationResult::from(sent);
+/// let instance = result.component("App").unwrap().create().unwrap();
+/// # assert_eq!(instance.get_property("v").unwrap(), slint_interpreter::Value::Number(42.));
+/// ```
+pub struct CompilationResultSend {
+    /// `None` when the compilation produced no component.
+    compilation_unit: Option<i_slint_compiler::llr::CompilationUnit>,
+    /// The index of each component within the unit, by name.
+    components: HashMap<String, usize>,
+    diagnostics: Vec<Diagnostic>,
+    #[cfg(feature = "internal")]
+    watch_paths: Vec<PathBuf>,
+    #[cfg(feature = "internal")]
+    structs_and_enums: Vec<LangType>,
+}
+
+const _: () = {
+    const fn assert_send<T: Send>() {}
+    assert_send::<CompilationResultSend>();
+};
+
+impl CompilationResultSend {
+    /// Returns true if the compilation failed.
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| d.level() == DiagnosticLevel::Error)
+    }
+
+    /// The diagnostics (errors and warnings) the compilation produced.
+    pub fn diagnostics(&self) -> impl Iterator<Item = Diagnostic> + '_ {
+        self.diagnostics.iter().cloned()
+    }
+
+    /// Print the diagnostics to stderr, in the same style as rustc errors.
+    #[cfg(feature = "display-diagnostics")]
+    pub fn print_diagnostics(&self) {
+        print_diagnostics(&self.diagnostics)
+    }
+}
+
+impl From<CompilationResultSend> for CompilationResult {
+    fn from(sent: CompilationResultSend) -> Self {
+        let CompilationResultSend {
+            compilation_unit,
+            components,
+            diagnostics,
+            #[cfg(feature = "internal")]
+            watch_paths,
+            #[cfg(feature = "internal")]
+            structs_and_enums,
+        } = sent;
+        let compilation_unit = compilation_unit.map(std::rc::Rc::new);
+        let components = components
+            .into_iter()
+            .filter_map(|(name, public_index)| {
+                let inner = std::rc::Rc::new(crate::component::ComponentDefinitionInner {
+                    compilation_unit: compilation_unit.clone()?,
+                    public_index,
+                    type_loaders: Default::default(),
+                });
+                Some((name, ComponentDefinition { inner }))
+            })
+            .collect();
+        Self {
+            components,
+            diagnostics,
+            #[cfg(feature = "internal")]
+            watch_paths,
+            #[cfg(feature = "internal")]
+            structs_and_enums,
+        }
+    }
+}
+
 /// The result of a compilation
 ///
 /// If [`Self::has_errors()`] is true, then the compilation failed.
@@ -1149,6 +1240,47 @@ impl CompilationResult {
     /// Returns an iterator over the compiled components.
     pub fn components(&self) -> impl Iterator<Item = ComponentDefinition> + '_ {
         self.components.values().cloned()
+    }
+
+    /// Consume the result so that it can be sent to another thread.
+    pub fn into_send(self) -> CompilationResultSend {
+        let Self {
+            components,
+            diagnostics,
+            #[cfg(feature = "internal")]
+            watch_paths,
+            #[cfg(feature = "internal")]
+            structs_and_enums,
+        } = self;
+
+        // Every definition of one result was built from the same unit.
+        let mut unit = None::<std::rc::Rc<i_slint_compiler::llr::CompilationUnit>>;
+        let components = components
+            .into_iter()
+            .map(|(name, definition)| {
+                let public_index = definition.inner.public_index;
+                match &unit {
+                    Some(u) => {
+                        debug_assert!(std::rc::Rc::ptr_eq(u, &definition.inner.compilation_unit))
+                    }
+                    None => unit = Some(definition.inner.compilation_unit.clone()),
+                }
+                (name, public_index)
+            })
+            .collect();
+        // The definitions are dropped by now, so the unit is only cloned when
+        // the caller kept one of them, or an instance, alive.
+        let compilation_unit = unit.map(std::rc::Rc::unwrap_or_clone);
+
+        CompilationResultSend {
+            compilation_unit,
+            components,
+            diagnostics,
+            #[cfg(feature = "internal")]
+            watch_paths,
+            #[cfg(feature = "internal")]
+            structs_and_enums,
+        }
     }
 
     /// Returns the names of the components that were compiled.
