@@ -206,13 +206,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function field-key(property-name: string) -> string {
-        return root.element-information.source-uri
-            + ":"
-            + root.element-information.source-version
-            + ":"
-            + root.element-information.offset
-            + ":"
-            + property-name;
+        return root.inspector-key + ":" + property-name;
     }
 
     function property-brush(property-name: string, fallback: brush) -> brush {

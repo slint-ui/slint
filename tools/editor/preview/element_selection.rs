@@ -158,7 +158,10 @@ struct HighlightPositionsModel {
 
 impl HighlightPositionsModel {
     fn new(component_instance: ComponentInstance, path: PathBuf, offset: u32) -> Rc<Self> {
-        let model = Rc::new(Self { rows: Default::default(), change_tracker: Default::default() });
+        let rows = i_slint_core::properties::evaluate_no_tracking(|| {
+            selection_rectangles(&component_instance, &path, offset)
+        });
+        let model = Rc::new(Self { rows: rows.into(), change_tracker: Default::default() });
         let model_weak = Rc::downgrade(&model);
         let component_instance = component_instance.as_weak();
         model.change_tracker.init_delayed(
@@ -233,6 +236,12 @@ pub fn highlight_positions(
     source_uri: slint::SharedString,
     offset: i32,
 ) -> slint::ModelRc<ui::SelectionRectangle> {
+    // The model holds a preview instance, so bindings must recreate it after a reload.
+    super::PREVIEW_STATE.with_borrow(|state| {
+        if let Some(api) = state.api.upgrade() {
+            api.get_inspector_generation();
+        }
+    });
     let Some(component_instance) = super::component_instance() else {
         return Default::default();
     };
