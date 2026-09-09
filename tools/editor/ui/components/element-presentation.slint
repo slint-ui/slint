@@ -12,6 +12,7 @@ export struct ElementPresentation {
     drag-label: string,
 }
 
+// Primitive identity and grouping are defined in preview/element_catalog.rs.
 export global ElementVisuals {
     public pure function for-kind(kind: ElementKind) -> ElementPresentation {
         if kind == ElementKind.rectangle {
@@ -55,7 +56,7 @@ export global ElementVisuals {
             preview-size: { width: 96px, height: 48px },
             corner-radius: 8px,
             show-thumbnail: false,
-            drag-label: "Outline drag preview",
+            drag-label: "",
         };
     }
 }

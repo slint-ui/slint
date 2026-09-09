@@ -66,7 +66,7 @@ export component DragPreview inherits Rectangle {
     drop-shadow-offset-y: 8px;
     drop-shadow-color: StudioTheme.dark ? #00000055 : #33415535;
     accessible-role: AccessibleRole.region;
-    accessible-label: root.presentation.drag-label;
+    accessible-label: AppState.outline-drag-active ? "Outline drag preview" : root.presentation.drag-label;
 
     if AppState.outline-drag-active: Rectangle {
         border-radius: EditorTreeTokens.row-radius;
