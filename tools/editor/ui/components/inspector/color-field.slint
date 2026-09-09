@@ -92,7 +92,7 @@ export component InspectorColorField inherits Rectangle {
     picker := InspectorSolidColorPicker {
         value: root.effective-color;
         expression: root.value;
-        bound: root.value != "" && !Api.string-is-color(root.value);
+        bound: root.value != "" && !Api.string-is-color(root.value) && !Api.is-css-color(root.value);
         unsupported: root.unsupported;
         open: root.picker-open;
         anchor-position: swatch-focus.absolute-position;

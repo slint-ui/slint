@@ -46,7 +46,7 @@ fn prepare_history_edit(
     Some((reverse, compute_file_hashes(&result)))
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct UndoRedoStack {
     undo_stack: Vec<EditItem>,
     redo_stack: Vec<EditItem>,

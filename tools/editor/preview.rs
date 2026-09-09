@@ -1714,6 +1714,11 @@ enum CompilationResult {
     NoChange,
 }
 
+pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
+    let _ =
+        slint::invoke_from_event_loop(move || inspector::workspace_edit_finished(edit, applied));
+}
+
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
     let Some(document_cache) = document_cache() else {
         return false;

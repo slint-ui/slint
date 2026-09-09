@@ -62,6 +62,7 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
+pub(super) use brushes::color_to_string;
 mod element_library;
 pub(super) mod file_tree;
 pub mod log_messages;
@@ -494,7 +495,7 @@ fn unit_model(units: &[expression_tree::WrittenUnit]) -> ModelRc<SharedString> {
 }
 
 fn is_equal_value(c: &PropertyValue, n: &PropertyValue) -> bool {
-    c.code == n.code
+    c.code == n.code && c.value_resolved == n.value_resolved && c.value_brush == n.value_brush
 }
 
 fn is_equal_property(c: &PropertyInformation, n: &PropertyInformation) -> bool {
@@ -1163,8 +1164,13 @@ fn current_property_value_data(
     api: &Api<'_>,
     property_name: SharedString,
 ) -> Option<PropertyValue> {
-    for group in api.get_properties().iter() {
-        for property in group.properties.iter() {
+    let groups = api.get_properties();
+    groups.model_tracker().track_row_count_changes();
+    for (group_index, group) in groups.iter().enumerate() {
+        groups.model_tracker().track_row_data_changes(group_index);
+        group.properties.model_tracker().track_row_count_changes();
+        for (property_index, property) in group.properties.iter().enumerate() {
+            group.properties.model_tracker().track_row_data_changes(property_index);
             if property.name == property_name {
                 return Some(property.value);
             }

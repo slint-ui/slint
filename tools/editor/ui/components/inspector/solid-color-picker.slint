@@ -86,7 +86,6 @@ export component InspectorSolidColorPicker inherits Rectangle {
         if root.accepted(key, c) {
             root.update-color(c);
             root.original-color = c;
-            Api.add-recent-color(c);
             return true;
         }
         Api.inspector-cancel();
