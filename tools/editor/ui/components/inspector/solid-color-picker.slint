@@ -17,10 +17,10 @@ export component InspectorSolidColorPicker inherits Rectangle {
     callback closed();
 
     private property <color> working-color: root.value;
-    private property <float> hue: root.working-color.to-hsv().hue;
-    private property <float> saturation: root.working-color.to-hsv().saturation;
-    private property <float> brightness: root.working-color.to-hsv().value;
-    private property <int> alpha: root.working-color.alpha;
+    private property <float> hue: 0;
+    private property <float> saturation: 0;
+    private property <float> brightness: 0;
+    private property <int> alpha: 255;
     private property <bool> dragging: false;
     private property <bool> editing: false;
     private property <bool> is-detached: false;
@@ -31,12 +31,17 @@ export component InspectorSolidColorPicker inherits Rectangle {
     }
 
     function update-color(c: color) {
+        // RGB cannot retain the selected hue at zero saturation or brightness.
+        if c != hsv(root.hue, root.saturation, root.brightness, root.alpha / 255) {
+            root.hue = c.to-hsv().hue;
+            root.saturation = c.to-hsv().saturation;
+            root.brightness = c.to-hsv().value;
+        }
         root.working-color = c;
-        root.hue = c.to-hsv().hue;
-        root.saturation = c.to-hsv().saturation;
-        root.brightness = c.to-hsv().value;
         root.alpha = c.alpha;
     }
+
+    init => { root.update-color(root.value); }
 
     function commit-color(c: color) -> bool {
         if (root.bound && !root.is-detached) || root.unsupported {
