@@ -41,6 +41,7 @@ use std::rc::Rc;
 use i_slint_editor_preview::wasm_prelude::*;
 
 mod drop_location;
+mod edit_installation;
 mod element_catalog;
 mod element_selection;
 pub mod eval;
@@ -242,9 +243,8 @@ pub struct PreviewState {
     selected: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
     workspace_edit_sent: bool,
-    /// The filesystem side of the current workspace edit has completed, but
-    /// its preview installation may still be pending.
-    workspace_edit_installed: bool,
+    compilation_sequence: u64,
+    workspace_edit_installation: Option<edit_installation::PendingInstallation>,
     known_components: Vec<ComponentInformation>,
     preview_loading_delay_timer: Option<slint::Timer>,
     initial_live_data: preview_data::PreviewDataMap,
@@ -577,23 +577,23 @@ fn set_contents(url: &VersionedUrl, content: String) {
 }
 
 fn apply_project_to_file_tree(root: &Url) {
-    PREVIEW_STATE.with_borrow(|preview_state| {
-        let Some(editor_ui) = preview_state.editor_ui.as_ref() else { return };
-        let Some(controller) = preview_state.file_tree_controller.as_ref() else { return };
-        let api = editor_ui.global::<ui::Api>();
-        let project = editor_ui.global::<ui::Project>();
-        ui::file_tree::open_project(controller, root, &api, &project);
+    let handles = PREVIEW_STATE.with_borrow(|state| {
+        Some((state.editor_ui.as_ref()?.clone_strong(), state.file_tree_controller.clone()?))
     });
+    let Some((editor_ui, controller)) = handles else { return };
+    let api = editor_ui.global::<ui::Api>();
+    let project = editor_ui.global::<ui::Project>();
+    ui::file_tree::open_project(&controller, root, &api, &project);
 }
 
 fn apply_preview_to_file_tree(component: &PreviewComponent) {
-    PREVIEW_STATE.with_borrow(|preview_state| {
-        let Some(editor_ui) = preview_state.editor_ui.as_ref() else { return };
-        let Some(controller) = preview_state.file_tree_controller.as_ref() else { return };
-        let api = editor_ui.global::<ui::Api>();
-        let project = editor_ui.global::<ui::Project>();
-        ui::file_tree::open_preview(controller, component, &api, &project);
+    let handles = PREVIEW_STATE.with_borrow(|state| {
+        Some((state.editor_ui.as_ref()?.clone_strong(), state.file_tree_controller.clone()?))
     });
+    let Some((editor_ui, controller)) = handles else { return };
+    let api = editor_ui.global::<ui::Api>();
+    let project = editor_ui.global::<ui::Project>();
+    ui::file_tree::open_preview(&controller, component, &api, &project);
 }
 
 fn preview_component(path: &Path, component: Option<String>) -> Option<PreviewComponent> {
@@ -1759,15 +1759,28 @@ fn dispatch_workspace_edit(
         return false;
     };
 
+    let expected = state
+        .document_cache
+        .borrow()
+        .as_ref()
+        .and_then(|cache| text_edit::apply_workspace_edit(cache, &edit).ok());
+    let Some(expected) = expected else {
+        #[cfg(feature = "system-testing")]
+        test_sync::effect("rejected");
+        return false;
+    };
+    state.workspace_edit_installation = Some(edit_installation::PendingInstallation::new(
+        state.compilation_sequence,
+        expected.into_iter().map(|e| (e.url, e.contents)).collect(),
+    ));
     state.pending_workspace_edit = Some(undo_redo::PendingWorkspaceEdit { history });
     state.workspace_edit_sent = true;
-    state.workspace_edit_installed = false;
-    if let Err(error) = to_lsp.send(&PreviewToLspMessage::SendWorkspaceEdit {
-        label: Some(label.clone()),
-        edit,
-    }) {
+    if let Err(error) =
+        to_lsp.send(&PreviewToLspMessage::SendWorkspaceEdit { label: Some(label.clone()), edit })
+    {
         tracing::error!("Failed to send workspace edit '{}': {error}", label);
         state.pending_workspace_edit.take();
+        state.workspace_edit_installation = None;
         state.workspace_edit_sent = false;
         #[cfg(feature = "system-testing")]
         test_sync::effect("failed");
@@ -1825,8 +1838,12 @@ fn workspace_edit_result(outcome: WorkspaceEditOutcome) {
                 // The filesystem acknowledgement and preview installation are
                 // independent. Release queued history only after both have
                 // reached their terminal state.
-                if state.workspace_edit_installed {
-                    state.workspace_edit_installed = false;
+                if state
+                    .workspace_edit_installation
+                    .as_ref()
+                    .is_some_and(|edit| edit.is_installed())
+                {
+                    state.workspace_edit_installation = None;
                     state.workspace_edit_sent = false;
                     (false, true)
                 } else {
@@ -1835,14 +1852,14 @@ fn workspace_edit_result(outcome: WorkspaceEditOutcome) {
             }
             WorkspaceEditOutcome::Rejected => {
                 undo_redo::discard_pending(state, false);
+                state.workspace_edit_installation = None;
                 state.workspace_edit_sent = false;
-                state.workspace_edit_installed = false;
                 (true, true)
             }
             WorkspaceEditOutcome::Failed { written, .. } => {
                 undo_redo::discard_pending(state, written != 0);
+                state.workspace_edit_installation = None;
                 state.workspace_edit_sent = false;
-                state.workspace_edit_installed = false;
                 (true, true)
             }
         }
@@ -2092,8 +2109,8 @@ async fn reload_timer_function() {
     #[cfg(feature = "system-testing")]
     let mut completion_work = Vec::new();
     loop {
-        let Some((preview_component, config, behavior, generation)) =
-            PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        let Some((preview_component, config, behavior, generation)) = PREVIEW_STATE
+            .with_borrow_mut(|preview_state| {
                 let behavior = preview_state.current_load_behavior.take()?;
                 let preview_component = preview_state.current_component()?;
                 let generation = preview_state.preview_generation;
@@ -2315,6 +2332,11 @@ async fn reload_preview_impl(
     config: PreviewConfig,
     generation: u64,
 ) -> Result<(), PlatformError> {
+    let compilation = PREVIEW_STATE.with_borrow_mut(|state| {
+        state.compilation_sequence += 1;
+        state.compilation_sequence
+    });
+    let compilation_inputs = Rc::new(RefCell::new(std::collections::HashMap::new()));
     start_parsing();
 
     if let Some(component_instance) = component_instance() {
@@ -2350,6 +2372,8 @@ async fn reload_preview_impl(
         version,
         (!missing_input).then_some(source.as_str()),
     );
+    compilation_inputs.as_ref().borrow_mut().insert(component.url.clone(), source.clone());
+    let import_inputs = compilation_inputs.clone();
     let (diagnostics, compiled, open_import_callback, source_file_versions) = parse_source(
         config,
         path,
@@ -2359,11 +2383,15 @@ async fn reload_preview_impl(
         component.component.clone(),
         move |path| {
             let path = path.to_owned();
+            let import_inputs = import_inputs.clone();
             Box::pin(async move {
                 let path = PathBuf::from(&path);
                 // Always return Some to stop the compiler from trying to load itself...
                 // All loading is done by the LSP for us!
                 let result = get_path_from_cache(&path);
+                if let (Ok(url), Ok((_, content))) = (Url::from_file_path(&path), &result) {
+                    import_inputs.as_ref().borrow_mut().insert(url, content.clone());
+                }
                 #[cfg(feature = "system-testing")]
                 if let Ok(url) = Url::from_file_path(&path) {
                     let (version, content) = match &result {
@@ -2378,6 +2406,10 @@ async fn reload_preview_impl(
     )
     .await;
 
+    let installation = edit_installation::CompilationSnapshot {
+        id: compilation,
+        inputs: compilation_inputs.as_ref().borrow().clone(),
+    };
     let success = compiled.is_some();
     let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
 
@@ -2440,6 +2472,7 @@ async fn reload_preview_impl(
                     source_file_versions,
                     format,
                     generation,
+                    installation,
                     Some(attempt),
                 ) {
                     tracing::error!("Preview installation failed: {error}");
@@ -2456,6 +2489,7 @@ async fn reload_preview_impl(
         source_file_versions,
         format,
         generation,
+        installation,
     )?;
 
     if let Some(loaded_component_name) = loaded_component_name {
@@ -2931,6 +2965,7 @@ fn update_preview_area(
     source_file_versions: Rc<RefCell<i_slint_editor_preview::document_cache::SourceFileVersionMap>>,
     format: i_slint_editor_preview::ByteFormat,
     generation: u64,
+    installation: edit_installation::CompilationSnapshot,
     #[cfg(feature = "system-testing")] attempt: Option<u64>,
 ) -> Result<(), PlatformError> {
     if !preview_generation_is_current(generation) {
@@ -2945,7 +2980,7 @@ fn update_preview_area(
         if failed {
             undo_redo::discard_pending(preview_state, false);
             preview_state.workspace_edit_sent = false;
-            preview_state.workspace_edit_installed = false;
+            preview_state.workspace_edit_installation = None;
         }
 
         let editor_ui = preview_state.editor_ui.as_ref().unwrap();
@@ -3001,13 +3036,16 @@ fn update_preview_area(
                     shared_handle.replace(Some(instance));
                     previewed_component_changed();
                     let release_pending = PREVIEW_STATE.with_borrow_mut(|state| {
-                        if state.pending_workspace_edit.is_some() {
-                            state.workspace_edit_installed = true;
-                            false
-                        } else {
-                            state.workspace_edit_installed = false;
+                        let matches = state
+                            .workspace_edit_installation
+                            .as_mut()
+                            .is_some_and(|edit| edit.observe(&installation));
+                        if matches && state.pending_workspace_edit.is_none() {
+                            state.workspace_edit_installation = None;
                             state.workspace_edit_sent = false;
                             true
+                        } else {
+                            false
                         }
                     });
                     inspector::invalidate();
@@ -3067,13 +3105,16 @@ fn update_preview_area(
                     shared_handle.replace(Some(instance));
                     previewed_component_changed();
                     let release_pending = PREVIEW_STATE.with_borrow_mut(|state| {
-                        if state.pending_workspace_edit.is_some() {
-                            state.workspace_edit_installed = true;
-                            false
-                        } else {
-                            state.workspace_edit_installed = false;
+                        let matches = state
+                            .workspace_edit_installation
+                            .as_mut()
+                            .is_some_and(|edit| edit.observe(&installation));
+                        if matches && state.pending_workspace_edit.is_none() {
+                            state.workspace_edit_installation = None;
                             state.workspace_edit_sent = false;
                             true
+                        } else {
+                            false
                         }
                     });
                     inspector::invalidate();

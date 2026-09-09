@@ -589,7 +589,7 @@ fn canonical_preview_component(
 
 fn handle_workspace_edit(
     document_cache: &editor_preview::DocumentCache,
-    to_preview: &impl editor_preview::LspToPreview,
+    to_preview: &editor_preview::LspToPreviews,
     label: Option<&str>,
     edit: &lsp_types::WorkspaceEdit,
 ) {

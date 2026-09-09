@@ -237,3 +237,39 @@ def test_same_content_and_return_to_original_have_new_observations(
         sync.wait_for_processed(source, baseline, after=checkpoint, outcome="compiled")
         sync.wait_for_applied(source, baseline, after=checkpoint)
         wait_for_field(window, "Rotation", "32")
+
+
+def test_unrelated_installation_cannot_release_pending_edit_history(
+    editor_binary, editor_environment, fixture_project
+):
+    baseline = prepare(fixture_project)
+    source = fixture_project / SOURCE
+    older = baseline.replace(b"32deg", b"45deg")
+    edited = baseline.replace(b"32deg", b"62deg")
+    with launch_editor(editor_binary, editor_environment, source) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        sync = current_editor_sync.get()
+        sync.wait_for_applied(source, baseline)
+        with sync.gate("publication", source) as publication:
+            source.write_bytes(older)
+            publication.wait_for_reached()
+            with sync.gate("source", source) as processing:
+                with sync.action() as edit:
+                    edit_field(window, "Rotation", "62")
+                processing.wait_for_reached()
+                assert source.read_bytes() == edited
+                publication.release()
+                wait_for_field(window, "Rotation", "45")
+                window_element_with_label(window, "Rotation knob").single_click(
+                    slint_testing.PointerEventButton.Left
+                )
+                with sync.action() as undo:
+                    shortcut(window)
+                state = operation_state(undo)
+                assert "queued history" in state["operation_state"]["pending"].values()
+                assert state["operation_state"]["writes"] == 0
+        edit.wait_for_settled(outcome="completed")
+        undo.wait_for_settled(outcome="completed")
+        sync.wait_for_applied(source, baseline)
+        assert source.read_bytes() == baseline
