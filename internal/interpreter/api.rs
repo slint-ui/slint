@@ -1123,7 +1123,7 @@ pub struct CompilationResultSend {
     /// `None` when the compilation produced no component.
     compilation_unit: Option<i_slint_compiler::llr::CompilationUnit>,
     /// The index of each component within the unit, by name.
-    components: HashMap<String, usize>,
+    components: HashMap<String, i_slint_compiler::llr::PublicComponentIdx>,
     diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
     watch_paths: Vec<PathBuf>,
