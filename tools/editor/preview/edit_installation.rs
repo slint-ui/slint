@@ -15,17 +15,12 @@ enum Installation {
     Abandoned,
 }
 
-enum Acknowledgment {
-    Pending(super::undo_redo::PendingEdit),
-    Applied,
-}
-
 pub(super) struct PendingWorkspaceEdit {
     pub id: u64,
     after: u64,
     expected: HashMap<lsp_types::Url, String>,
     installation: Installation,
-    acknowledgment: Acknowledgment,
+    unacknowledged_history: Option<super::undo_redo::PendingEdit>,
 }
 
 impl PendingWorkspaceEdit {
@@ -40,7 +35,7 @@ impl PendingWorkspaceEdit {
             after,
             expected,
             installation: Installation::Waiting,
-            acknowledgment: Acknowledgment::Pending(history),
+            unacknowledged_history: Some(history),
         }
     }
 
@@ -50,14 +45,11 @@ impl PendingWorkspaceEdit {
     }
 
     pub fn awaiting_acknowledgment(&self) -> bool {
-        matches!(self.acknowledgment, Acknowledgment::Pending(_))
+        self.unacknowledged_history.is_some()
     }
 
     pub fn acknowledge(&mut self) -> Option<super::undo_redo::PendingEdit> {
-        match std::mem::replace(&mut self.acknowledgment, Acknowledgment::Applied) {
-            Acknowledgment::Pending(history) => Some(history),
-            Acknowledgment::Applied => None,
-        }
+        self.unacknowledged_history.take()
     }
 
     pub fn observe(&mut self, compilation: &CompilationSnapshot) -> bool {
