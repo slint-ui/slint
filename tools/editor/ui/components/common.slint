@@ -34,6 +34,7 @@ export global EditorIcons {
 }
 
 export global EditorCursors {
+    pure callback rotation-image(angle) -> image;
     out property <MouseCursor> canvas-default: MouseCursor.custom(
         @image-url("../assets/cursors/default-32.png"),
         14,
@@ -54,7 +55,6 @@ export global EditorMetrics {
     out property <length> phone-outer-padding: 1px;
     out property <length> selection-handle-size: 12px;
     out property <length> rotation-zone-size: 22px;
-    out property <length> rotation-zone-gap: 4px;
     out property <length> radius-handle-size: 10px;
     out property <length> radius-handle-inset: 10px;
 }

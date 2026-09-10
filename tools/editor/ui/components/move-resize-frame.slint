@@ -67,8 +67,10 @@ export component MoveResizeFrame inherits Rectangle {
         return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-right;
     }
 
-    pure function rotation-cursor-is-forward-diagonal(corner: CanvasCorner) -> bool {
-        return corner == CanvasCorner.top-right || corner == CanvasCorner.bottom-left;
+    pure function rotation-cursor-angle(corner: CanvasCorner) -> angle {
+        return root.rotation + (corner == CanvasCorner.top-left ? -45deg
+            : corner == CanvasCorner.top-right ? 45deg
+            : corner == CanvasCorner.bottom-right ? 135deg : -135deg);
     }
 
     pure function resize-handle-x(corner: CanvasCorner) -> length {
@@ -85,14 +87,14 @@ export component MoveResizeFrame inherits Rectangle {
 
     pure function rotation-zone-x(corner: CanvasCorner) -> length {
         return root.corner-on-left(corner)
-            ? -EditorMetrics.selection-handle-size / 2 - EditorMetrics.rotation-zone-gap - EditorMetrics.rotation-zone-size
-            : root.width + EditorMetrics.selection-handle-size / 2 + EditorMetrics.rotation-zone-gap;
+            ? EditorMetrics.selection-handle-size / 2 - EditorMetrics.rotation-zone-size
+            : root.width - EditorMetrics.selection-handle-size / 2;
     }
 
     pure function rotation-zone-y(corner: CanvasCorner) -> length {
         return root.corner-on-top(corner)
-            ? -EditorMetrics.selection-handle-size / 2 - EditorMetrics.rotation-zone-gap - EditorMetrics.rotation-zone-size
-            : root.height + EditorMetrics.selection-handle-size / 2 + EditorMetrics.rotation-zone-gap;
+            ? EditorMetrics.selection-handle-size / 2 - EditorMetrics.rotation-zone-size
+            : root.height - EditorMetrics.selection-handle-size / 2;
     }
 
     pure function local-point-to-parent-at(point: Point, origin: Point, size: Size, rotation: angle) -> Point {
@@ -325,7 +327,7 @@ export component MoveResizeFrame inherits Rectangle {
                 width: EditorMetrics.rotation-zone-size;
                 height: EditorMetrics.rotation-zone-size;
                 TouchArea {
-                    mouse-cursor: root.rotation-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
+                    mouse-cursor: MouseCursor.custom(EditorCursors.rotation-image(root.rotation-cursor-angle(corner)), 12, 12);
                     accessible-role: AccessibleRole.button;
                     accessible-label: root.accessible-prefix + " rotate " + root.corner-name(corner);
                     accessible-enabled: root.show-rotation-handles;
