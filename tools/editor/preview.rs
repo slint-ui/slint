@@ -535,18 +535,10 @@ fn set_contents(url: &VersionedUrl, content: String) {
         (reload, invalidate)
     });
     if invalidate {
-        if own_color_edit {
-            inspector::refresh();
-        } else {
-            inspector::invalidate();
-        }
+        inspector::invalidate();
     }
     if let Some(current) = reload {
-        if own_color_edit {
-            schedule_preview(current, LoadBehavior::Reload);
-        } else {
-            load_preview(current, LoadBehavior::Reload);
-        }
+        load_preview(current, LoadBehavior::Reload);
     }
 }
 
@@ -2127,10 +2119,6 @@ async fn reload_timer_function() {
 
 pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
     inspector::invalidate_color();
-    schedule_preview(preview_component, behavior);
-}
-
-fn schedule_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
     tracing::debug!(
         "Preview: load url={}, component={:?}, behavior={:?}",
         preview_component.url,
