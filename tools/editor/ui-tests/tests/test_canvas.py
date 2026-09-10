@@ -413,7 +413,7 @@ def test_hover_outside_selected_element_can_select_and_drag_child(
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
 
 
-def test_selected_element_does_not_get_a_duplicate_hover_outline(
+def test_selected_element_shows_hover_outline(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
@@ -426,7 +426,8 @@ def test_selected_element_does_not_get_a_duplicate_hover_outline(
         window.dispatch_event(
             slint_testing.PointerMoveEvent(center(fixture_element(window, "Text")))
         )
-        assert not elements_with_label(window.root_element, "Hovered Text")
+        window_element_with_label(window, "Hovered Text")
+        window_element_with_label(window, "Selected Text")
         snapshot.assert_unchanged()
 
 

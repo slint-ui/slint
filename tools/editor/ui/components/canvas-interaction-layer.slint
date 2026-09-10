@@ -194,8 +194,9 @@ component HoverCanvasFrame inherits MoveResizeFrame {
 
     private property <Point> geometry-drag-position;
 
-    visible: Hover.element.valid && !Hover.element.is-selected;
+    visible: Hover.element.valid;
     enabled: root.visible
+        && !Hover.element.is-selected
         && !Hover.element.is-over-selected-element
         && (!root.gesture-active || root.move-pressed);
     x: root.geometry.x;

@@ -20,7 +20,9 @@ from ui_driver import (
 
 
 @pytest.mark.parametrize("angle", [0, 30])
-@pytest.mark.parametrize("selected", [False, True])
+@pytest.mark.parametrize(
+    "selected, hovered", [(False, True), (True, False), (True, True)]
+)
 def test_canvas_outline_preserves_item_border(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -28,6 +30,7 @@ def test_canvas_outline_preserves_item_border(
     tmp_path: Path,
     angle: int,
     selected: bool,
+    hovered: bool,
 ) -> None:
     source = fixture_project / "Main.slint"
     source.write_text(
@@ -58,8 +61,8 @@ def test_canvas_outline_preserves_item_border(
         window.dispatch_event(
             slint_testing.PointerMoveEvent(
                 slint_testing.LogicalPosition(
-                    x=artboard.absolute_position.x + 150,
-                    y=artboard.absolute_position.y + 150,
+                    x=artboard.absolute_position.x + (150 if hovered else -20),
+                    y=artboard.absolute_position.y + (150 if hovered else -20),
                 )
             )
         )
@@ -67,7 +70,9 @@ def test_canvas_outline_preserves_item_border(
         frame = window_element_with_label(window, label)
         assert frame.size.width == pytest.approx(100)
         assert frame.size.height == pytest.approx(100)
-        if selected:
+        if hovered:
+            window_element_with_label(window, "Hovered Rectangle")
+        else:
             assert not elements_with_label(window.root_element, "Hovered Rectangle")
         png = window.grab_window_as_png()
         (tmp_path / "outline.png").write_bytes(png)
@@ -109,12 +114,12 @@ def test_canvas_outline_preserves_item_border(
 
             assert min(edge_pixel(-4)) > 240
             if angle == 0:
-                width = 1 if selected else 2
+                width = 2 if hovered else 1
                 assert min(edge_pixel(-width - 0.5)) > 240
                 for distance in [-i - 0.5 for i in range(width)]:
                     red, green, blue = edge_pixel(distance)
                     assert red < 130 and green > 100 and blue > 220
-            red, green, blue = edge_pixel(-0.5 if selected else -1)
+            red, green, blue = edge_pixel(-1 if hovered else -0.5)
             assert blue > red + 60 and blue > green
             assert max(edge_pixel(1.5)) < 30
             assert min(edge_pixel(5)) > 240
