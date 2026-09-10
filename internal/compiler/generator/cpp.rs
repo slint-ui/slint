@@ -4576,7 +4576,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let value_e = compile_expression(value, ctx);
             format!("{slice_name}[{index}] = {value_e}")
         }
-        Expression::BinaryExpression { lhs, rhs, op, .. } => {
+        Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs_str = compile_expression(lhs, ctx);
             let rhs_str = compile_expression(rhs, ctx);
 
@@ -4616,7 +4616,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
             None => resource_ref.to_string(),
         },
-        Expression::Condition { condition, true_expr, false_expr, .. } => {
+        Expression::Condition { condition, true_expr, false_expr } => {
             let ty = expr.ty(ctx);
             let cond_code = compile_expression(condition, ctx);
             let cond_code = remove_parentheses(&cond_code);

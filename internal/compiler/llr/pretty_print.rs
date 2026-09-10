@@ -536,7 +536,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::SliceIndexAssignment { slice_name, index, value } => {
                 write!(f, "{}[{}] = {}", slice_name, index, e(value))
             }
-            Expression::BinaryExpression { lhs, rhs, op, .. } => {
+            Expression::BinaryExpression { lhs, rhs, op } => {
                 write!(f, "({} {} {})", e(lhs), op, e(rhs))
             }
             Expression::UnaryOp { sub, op } => write!(f, "{}{}", op, e(sub)),
@@ -547,7 +547,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 }
                 Ok(())
             }
-            Expression::Condition { condition, true_expr, false_expr, .. } => {
+            Expression::Condition { condition, true_expr, false_expr } => {
                 write!(f, "({} ? {} : {})", e(condition), e(true_expr), e(false_expr))
             }
             Expression::Array { values, .. } => {

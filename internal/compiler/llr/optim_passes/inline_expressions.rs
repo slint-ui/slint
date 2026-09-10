@@ -52,7 +52,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
             resource_ref: ImageReference::EmbeddedTexture { .. }, ..
         } => 1,
         Expression::ImageReference { .. } => return isize::MAX,
-        Expression::Condition { condition, true_expr, false_expr, .. } => {
+        Expression::Condition { condition, true_expr, false_expr } => {
             return expression_cost(condition, ctx)
                 .saturating_add(
                     expression_cost(true_expr, ctx).max(expression_cost(false_expr, ctx)),
