@@ -10,6 +10,7 @@ export component InspectorRotationKnob inherits FocusScope {
     in property <angle> angle-offset: 0deg;
     in property <string> commit-key;
     out property <float> visual-value: root.dragging ? root.drag-value : root.value;
+    callback started();
     callback preview(float) -> bool;
     callback accepted(float) -> bool;
     callback canceled();
@@ -94,6 +95,7 @@ export component InspectorRotationKnob inherits FocusScope {
         pointer-event(event) => {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                 root.focus();
+                root.started();
                 root.dragging = true;
                 root.drag-value = root.value;
                 root.initial-value = root.value;

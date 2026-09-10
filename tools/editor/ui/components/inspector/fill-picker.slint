@@ -1,13 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, FillData } from "../../api.slint";
+import { Api, FillData, BrushKind } from "../../api.slint";
 import { StudioTheme, EditorMetrics } from "../common.slint";
 import { InspectorTokens } from "tokens.slint";
 import { InspectorColorControls } from "color-controls.slint";
 
-export component InspectorSolidColorPicker inherits Rectangle {
+import { InspectorGradientGeometry } from "gradient-geometry.slint";
+import { InspectorSegment } from "segment.slint";
+
+export component InspectorFillPicker inherits Rectangle {
     in property <FillData> value;
+    in property <bool> allow-gradient;
+    in property <float> target-width;
+    in property <float> target-height;
+    private property <FillData> linear-fill;
+    private property <FillData> radial-fill;
+    private property <FillData> conic-fill;
+    private property <BrushKind> last-gradient: BrushKind.linear;
     in property <string> expression: "";
     in property <string> session-key: "";
     in property <string> target-key: "";
@@ -21,6 +31,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
     in property <Point> anchor-position;
     in property <length> anchor-width;
 
+    private property <FillData> draft;
     private property <FillData> working-fill: root.value;
     private property <color> working-color: root.working-fill.color;
     private property <bool> has-preview: false;
@@ -31,23 +42,48 @@ export component InspectorSolidColorPicker inherits Rectangle {
     private property <bool> editable: root.open && !Api.inspector-color-refresh-pending && !root.unsupported && (!root.bound || root.detach-requested);
     private property <bool> popup-open: picker-popup.is-open;
 
-    function preview-color(c: color) -> bool {
-        if !root.session-active || !root.editable {
-            return false;
-        }
-        root.working-fill.color = c;
-        if root.preview(root.active-target, root.working-fill) {
+    function preview-fill(fill: FillData) -> bool {
+        if !root.session-active || !root.editable { return false; }
+        if root.preview(root.active-target, fill) {
             root.has-preview = true;
-            root.working-color = c;
+            root.working-fill = fill;
+            if fill.kind == BrushKind.linear { root.linear-fill = fill; }
+            if fill.kind == BrushKind.radial { root.radial-fill = fill; }
+            if fill.kind == BrushKind.conic { root.conic-fill = fill; }
             return true;
         }
         root.close-picker(false, false);
         return false;
     }
+    function preview-color(c: color) -> bool {
+        root.draft = root.working-fill;
+        root.draft.color = c;
+        return root.preview-fill(root.draft);
+    }
+    function select-kind(kind: BrushKind) -> bool {
+        root.draft = root.working-fill;
+        if kind == BrushKind.solid { root.draft.color = root.working-color; root.draft.kind = kind; }
+        else {
+            root.draft = kind == BrushKind.linear ? root.linear-fill : kind == BrushKind.radial ? root.radial-fill : root.conic-fill;
+            root.draft.stops = Api.clone-gradient-stops(root.working-fill.stops.length >= 2 ? root.working-fill.stops : [{color: root.working-color, position: 0}, {color: root.working-color, position: 1}]);
+            root.draft.kind = kind;
+            root.last-gradient = kind;
+        }
+        return root.preview-fill(root.draft);
+    }
 
     function show-picker() {
         root.working-fill = root.value;
         root.original-fill = root.value;
+        root.original-fill.stops = Api.clone-gradient-stops(root.value.stops);
+        root.working-fill.stops = Api.clone-gradient-stops(root.value.stops);
+        root.linear-fill = {kind: BrushKind.linear, angle: 90};
+        root.radial-fill = {kind: BrushKind.radial};
+        root.conic-fill = {kind: BrushKind.conic};
+        root.last-gradient = root.value.kind == BrushKind.solid ? BrushKind.linear : root.value.kind;
+        if root.value.kind == BrushKind.linear { root.linear-fill = root.working-fill; }
+        if root.value.kind == BrushKind.radial { root.radial-fill = root.working-fill; }
+        if root.value.kind == BrushKind.conic { root.conic-fill = root.working-fill; }
         root.active-target = root.target-key;
         root.has-preview = false;
         root.detach-requested = false;
@@ -169,7 +205,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
                             overflow: elide;
                         }
                         Text {
-                            text: "This expression cannot be edited as a solid color.";
+                            text: "This expression cannot be edited as a fill.";
                             color: InspectorTokens.muted;
                             font-size: 11px;
                             wrap: word-wrap;
@@ -217,7 +253,21 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         }
                     }
 
-                    if !root.unsupported: InspectorColorControls {
+                    if root.allow-gradient && root.editable: HorizontalLayout {
+                        spacing: 4px;
+                        InspectorSegment { kind: "text"; label: "Solid"; selected: root.working-fill.kind == BrushKind.solid; clicked => { root.select-kind(BrushKind.solid); } }
+                        InspectorSegment { kind: "text"; label: "Gradient"; selected: root.working-fill.kind != BrushKind.solid; clicked => { root.select-kind(root.last-gradient); } }
+                    }
+                    if root.editable && root.working-fill.kind != BrushKind.solid: InspectorGradientGeometry {
+                        value: root.working-fill;
+                        target-width: root.target-width;
+                        target-height: root.target-height;
+                        session-key: root.session-key;
+                        preview(fill) => { return root.preview-fill(fill); }
+                        type-selected(kind) => { return root.select-kind(kind); }
+                    }
+
+                    if !root.unsupported && root.working-fill.kind == BrushKind.solid: InspectorColorControls {
                         value: root.working-color;
                         editable: root.editable;
                         session-key: root.session-key;
