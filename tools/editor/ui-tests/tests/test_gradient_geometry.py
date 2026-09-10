@@ -368,3 +368,48 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
         assert float(picker_field(window, "Gradient center Y").accessible_value) == 60
         click_picker_button(window, "Edit stop 2 color")
         assert picker_field(window, "Hex color").accessible_value == "#12345680"
+
+
+def test_recent_gradient_resets_custom_geometry_initialization(
+    editor_binary, editor_environment, tmp_path
+):
+    from source_snapshot import SourceSnapshot
+
+    file = gradient_document(tmp_path, "@radial-gradient(circle, red 0%, blue 100%)")
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "fill")
+        open_gradient(window)
+        click_picker_button(window, "Add gradient stop")
+        click_picker_button(window, "Close Custom")
+        saved = wait_until(
+            lambda: (
+                file.read_bytes()
+                if file.read_bytes() != original.sources[Path(file.name)]
+                else None
+            )
+        )
+        original.wait_for_applied(saved, file.name)
+        select_outline_row(window, "fill")
+        open_gradient(window)
+        set_picker_mode(window, "Gradient center", "Custom")
+        picker_field(window, "Gradient center X").accessible_value = "37"
+        set_picker_mode(window, "Gradient radius mode", "Custom")
+        picker_field(window, "Gradient radius").accessible_value = "95"
+        recent = [
+            element
+            for element in window.root_element.query_descendants()
+            .match_accessible_role(slint_testing.AccessibleRole.Button)
+            .find_all()
+            if element.accessible_label.startswith("Recent fill @radial-gradient")
+        ]
+        assert len(recent) == 1
+        recent[0].invoke_accessible_default_action()
+        set_picker_mode(window, "Gradient center", "Custom")
+        set_picker_mode(window, "Gradient radius mode", "Custom")
+        assert float(picker_field(window, "Gradient center X").accessible_value) == 200
+        assert float(picker_field(window, "Gradient center Y").accessible_value) == 200
+        assert float(
+            picker_field(window, "Gradient radius").accessible_value
+        ) == pytest.approx(282.8)

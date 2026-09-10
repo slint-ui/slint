@@ -131,6 +131,12 @@ export component InspectorFillPicker inherits Rectangle {
     }
 
     function select-recent(fill: FillData) {
+        if fill.kind == BrushKind.radial {
+            root.radial-center-initialized = fill.custom-center;
+            root.radius-initialized = fill.custom-radius;
+        } else if fill.kind == BrushKind.conic {
+            root.conic-center-initialized = fill.custom-center;
+        }
         root.stop-panel-open = false;
         root.selected-stop = 0;
         root.draft = fill;
