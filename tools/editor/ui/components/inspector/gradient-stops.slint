@@ -7,6 +7,8 @@ import { InspectorSegment } from "segment.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { ScrollView } from "std-widgets.slint";
 
+import { GradientStopMarker } from "../../../../lsp/ui/components/widgets/gradient-stop-marker.slint";
+
 export component InspectorGradientStops inherits Rectangle {
     in property <FillData> value;
     in property <string> session-key;
@@ -51,7 +53,7 @@ export component InspectorGradientStops inherits Rectangle {
     layout := VerticalLayout {
         spacing: 6px;
         ramp := FocusScope {
-            height: 44px;
+            height: 58px;
             key-pressed(event) => {
                 if event.text == Key.LeftArrow || event.text == Key.RightArrow {
                     let step = (event.modifiers.shift ? 10 : 1) / root.units;
@@ -69,8 +71,8 @@ export component InspectorGradientStops inherits Rectangle {
                 return reject;
             }
             Rectangle {
-                x: 8px;
-                width: parent.width - 16px;
+                x: 12px;
+                width: parent.width - 24px;
                 y: 4px;
                 height: 24px;
                 border-radius: 4px;
@@ -78,15 +80,12 @@ export component InspectorGradientStops inherits Rectangle {
                 border-width: ramp.has-focus ? 1px : 0px;
                 border-color: InspectorTokens.accent;
             }
-            for stop[index] in root.value.stops: Rectangle {
-                x: stop.position.clamp(0, 1) * (parent.width - 16px);
-                y: 24px;
-                width: 16px;
-                height: 18px;
-                border-radius: 3px;
-                background: stop.color;
-                border-width: 2px;
-                border-color: index == root.selected-index ? InspectorTokens.accent : InspectorTokens.panel-bg;
+            for stop[index] in root.value.stops: GradientStopMarker {
+                x: stop.position.clamp(0, 1) * (parent.width - 24px);
+                y: 28px;
+                stop-color: stop.color;
+                active: index == root.selected-index;
+                z: self.active ? 1 : 0;
                 accessible-role: AccessibleRole.slider;
                 accessible-label: "Gradient stop " + (index + 1);
                 accessible-value: (stop.position * root.units).to-fixed(1);
@@ -100,13 +99,13 @@ export component InspectorGradientStops inherits Rectangle {
             TouchArea {
                 mouse-cursor: pointer;
                 pointer-event(event) => {
-                    let position = ((self.mouse-x - 8px) / max(1px, self.width - 16px)).clamp(0, 1);
+                    let position = ((self.mouse-x - 12px) / max(1px, self.width - 24px)).clamp(0, 1);
                     if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                         ramp.focus();
                         root.gesture-value = root.value;
                         root.gesture-value.stops = Api.clone-gradient-stops(root.value.stops);
                         let index = Api.nearest-gradient-stop(root.value.stops, position);
-                        if index >= 0 && abs(root.value.stops[index].position - position) * (self.width - 16px) <= 10px {
+                        if index >= 0 && abs(root.value.stops[index].position - position) * (self.width - 24px) <= 10px {
                             root.selected-index = index;
                         } else { root.add-stop(position); }
                         root.dragging = true;
