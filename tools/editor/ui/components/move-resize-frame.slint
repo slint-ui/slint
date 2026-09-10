@@ -408,6 +408,10 @@ export component MoveResizeFrame inherits Rectangle {
 
                     TouchArea {
                         enabled: root.enabled;
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        width: EditorMetrics.selection-handle-touch-size;
+                        height: EditorMetrics.selection-handle-touch-size;
                         mouse-cursor: !root.resizable ? default : root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
                         accessible-role: AccessibleRole.button;
                         accessible-label: root.accessible-prefix + " resize " + root.corner-name(corner);
@@ -425,7 +429,7 @@ export component MoveResizeFrame inherits Rectangle {
                         changed pressed => {
                             if self.pressed && root.resizable {
                                 let pointer = root.local-point-to-parent(root.child-local-point(
-                                    { x: parent.x, y: parent.y },
+                                    { x: parent.x + self.x, y: parent.y + self.y },
                                     { x: self.mouse-x, y: self.mouse-y },
                                 ));
 
@@ -458,7 +462,7 @@ export component MoveResizeFrame inherits Rectangle {
                                 return;
                             }
                             let pointer = root.local-point-to-parent(root.child-local-point(
-                                { x: parent.x, y: parent.y },
+                                { x: parent.x + self.x, y: parent.y + self.y },
                                 { x: self.mouse-x, y: self.mouse-y },
                             ));
                             let delta = {

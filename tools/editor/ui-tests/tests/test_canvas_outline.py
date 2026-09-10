@@ -70,6 +70,16 @@ def test_canvas_outline_preserves_item_border(
         frame = window_element_with_label(window, label)
         assert frame.size.width == pytest.approx(100)
         assert frame.size.height == pytest.approx(100)
+        if selected and angle == 0:
+            handle = window_element_with_label(window, "Rectangle resize top-left")
+            assert handle.size.width == pytest.approx(12)
+            assert handle.size.height == pytest.approx(12)
+            assert handle.absolute_position.x + 6 == pytest.approx(
+                frame.absolute_position.x
+            )
+            assert handle.absolute_position.y + 6 == pytest.approx(
+                frame.absolute_position.y
+            )
         if hovered:
             window_element_with_label(window, "Hovered Rectangle")
         else:
