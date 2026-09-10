@@ -147,10 +147,10 @@ fn eval_expression(
         }
         Expression::Condition { true_expr, false_expr, condition } => {
             let condition = eval_expression(condition, local_context, None);
-            if condition.try_into().unwrap_or(true) {
-                eval_expression(true_expr, local_context, field_filter)
-            } else {
-                eval_expression(false_expr, local_context, field_filter)
+            match condition {
+                Value::Bool(true) => eval_expression(true_expr, local_context, field_filter),
+                Value::Bool(false) => eval_expression(false_expr, local_context, field_filter),
+                _ => Value::Void,
             }
         }
         Expression::Array { values, .. } => {
@@ -308,8 +308,7 @@ fn eval_expression(
 /// This has no access to any runtime information, so the evaluation is an approximation to the
 /// real value only.
 ///
-/// E.g. It will always evaluate the `true` branch of any condition and takes other shortcuts as well.
-/// It might also just fail to evaluate entirely, returning `None` in that case.
+/// Expressions that depend on unavailable runtime values can fail to evaluate and return `None`.
 ///
 /// The purpose of this function is to be able to show some not totally useless representation of
 /// property values in the UI.

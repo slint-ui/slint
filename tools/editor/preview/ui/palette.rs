@@ -177,14 +177,29 @@ pub fn evaluate_property(
     ty: &langtype::Type,
     window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> ui::PropertyValue {
+    let unfilled_rectangle = {
+        let element = element.borrow();
+        property_name == "background"
+            && default_value.is_none()
+            && matches!(&element.base_type, langtype::ElementType::Builtin(b) if b.name == "Rectangle")
+            && element.binding_cell_including_synthetic(property_name).is_none()
+    };
     let value = find_binding_expression(element, property_name)
         .or(default_value.clone())
+        .or_else(|| {
+            unfilled_rectangle.then(|| expression_tree::Expression::default_value_for_type(ty))
+        })
         .as_ref()
         .and_then(|element| {
             crate::preview::eval::fully_eval_expression_tree_expression(element, window_adapter)
         });
 
-    ui::map_value_and_type_to_property_value(ty, &value, "")
+    let mut property = ui::map_value_and_type_to_property_value(ty, &value, "");
+    property.value_resolved = value.is_some();
+    if unfilled_rectangle {
+        property.code = Default::default();
+    }
+    property
 }
 
 fn handle_type(
@@ -386,7 +401,8 @@ export component Main { }
         compare(&result[3], "Test.color1", 0xff, 0x00, 0xff);
         compare(&result[4], "Test.color2", 0x22, 0xff, 0xff);
         compare(&result[5], "Test.color3", 0x33, 0xff, 0xff);
-        compare(&result[6], "Test.color5", 0x11, 0xff, 0xff);
+        assert_eq!(result[6].name, "Test.color5");
+        assert!(!result[6].value.value_resolved);
         compare(&result[7], "Test.color6", 0x77, 0x88, 0x99);
         assert_eq!(result[8].name, "Test.struct.x"); // not a color
         compare(&result[9], "Test.struct.y", 0x77, 0x88, 0x99);
@@ -468,7 +484,8 @@ export component Main { }
         );
         compare_brush(&result[4], "Test.brush2", &linear_gradient);
         compare_brush(&result[5], "Test.brush3", &radial_gradient);
-        compare_brush(&result[6], "Test.brush5", &solid_color);
+        assert_eq!(result[6].name, "Test.brush5");
+        assert!(!result[6].value.value_resolved);
         compare_brush(&result[7], "Test.brush6", &solid_color);
     }
 
@@ -545,9 +562,14 @@ export component Main { }
         compare(&result[4], "Test._1.color2", 0x22, 0x22, 0x22);
         compare(&result[5], "Test._1.color3", 0x33, 0x33, 0x33);
 
-        compare(&result[6], "Test.palette.color1", 0x11, 0xff, 0xff);
-        compare(&result[7], "Test.palette.color2", 0x22, 0xff, 0xff);
-        compare(&result[8], "Test.palette.color3", 0x33, 0xff, 0xff);
+        for (entry, name) in result[6..].iter().zip([
+            "Test.palette.color1",
+            "Test.palette.color2",
+            "Test.palette.color3",
+        ]) {
+            assert_eq!(entry.name, name);
+            assert!(!entry.value.value_resolved);
+        }
     }
 
     #[test]

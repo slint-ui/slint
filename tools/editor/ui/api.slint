@@ -230,6 +230,7 @@ export struct GradientStop {
 /// Data about the property value for use in "simple" mode
 export struct PropertyValue {
     display-string: string, // ALWAYS, its a string description of what is there
+    value-resolved: bool, // Whether value-brush/value-* came from a successful evaluation
     value-bool: bool, // boolean
     is-translatable: bool, // string
     kind: PropertyValueKind, // Defines what to display this as
@@ -698,10 +699,14 @@ export global Api {
     callback reload-preview();
 
     in property <int> inspector-generation;
+    in property <int> inspector-color-generation;
+    in property <bool> inspector-color-refresh-pending;
     pure callback inspector-values(key: string) -> [float];
     callback inspector-preview(key: string, name: string, value: float) -> bool;
     callback inspector-commit(key: string, name: string, value: float) -> bool;
     callback inspector-cancel();
+    callback inspector-color-preview(key: string, name: string, value: color) -> bool;
+    callback inspector-color-commit(key: string, name: string, value: color) -> bool;
 
     // ## Property Editor
     pure callback test-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;

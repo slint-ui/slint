@@ -442,7 +442,8 @@ async fn handle_preview_message(
             tracing::debug!("Ignoring message from preview: {msg:?}");
         }
         SendWorkspaceEdit { label, edit } => {
-            handle_workspace_edit(&session.document_cache, label.as_deref(), edit);
+            let applied = handle_workspace_edit(&session.document_cache, label.as_deref(), edit);
+            preview::workspace_edit_finished(edit.clone(), applied);
         }
     }
 }
@@ -495,13 +496,15 @@ fn handle_workspace_edit(
     document_cache: &editor_preview::DocumentCache,
     label: Option<&str>,
     edit: &lsp_types::WorkspaceEdit,
-) {
+) -> bool {
     match editor_preview::editing::text_edit::apply_workspace_edit(document_cache, edit) {
         Ok(edited_texts) => {
+            let mut applied = true;
             for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
                 match editor_preview::uri_to_file(&url) {
                     Some(path) => {
                         if let Err(err) = std::fs::write(&path, &contents) {
+                            applied = false;
                             tracing::error!(
                                 "Failed to apply workspace edit '{}' to {}: {err}",
                                 label.unwrap_or("(unnamed)"),
@@ -510,16 +513,19 @@ fn handle_workspace_edit(
                         }
                     }
                     None => {
+                        applied = false;
                         tracing::warn!("Cannot apply workspace edit to non-file URL: {url}");
                     }
                 }
             }
+            applied
         }
         Err(err) => {
             tracing::error!(
                 "Failed to compute workspace edit '{}': {err}",
                 label.unwrap_or("(unnamed)")
             );
+            false
         }
     }
 }

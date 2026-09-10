@@ -27,6 +27,13 @@ export component EditorUi inherits Window {
     background: StudioTheme.app-bg;
     default-font-family: "Inter";
 
+    init => {
+        EditorMetrics.window-width = root.width;
+        EditorMetrics.window-height = root.height;
+    }
+    changed width => { EditorMetrics.window-width = root.width; }
+    changed height => { EditorMetrics.window-height = root.height; }
+
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
     in property <length> elements-pane-height: 0px;
@@ -50,6 +57,7 @@ export component EditorUi inherits Window {
     function apply-history(redo: bool) {
         Api.inspector-cancel();
         Api.inspector-generation += 1;
+        Api.inspector-color-generation += 1;
         if redo {
             if Api.redo-enabled { Api.redo(); }
         } else {
@@ -173,8 +181,6 @@ export component EditorUi inherits Window {
 
                         if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
                             outline-pane-height: root.outline-pane-height;
-                            phone-background: StudioTheme.phone-bg;
-                            phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
                             element-information: Api.current-element;
                             inspector-scroll-y <=> root.inspector-scroll-y;
                             element-selected => { editor.focus(); }

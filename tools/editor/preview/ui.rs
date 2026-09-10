@@ -62,6 +62,7 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
+pub(super) use brushes::color_to_string;
 mod element_library;
 pub(super) mod file_tree;
 pub mod log_messages;
@@ -199,6 +200,8 @@ pub fn initialize_editor(
     api.on_inspector_preview(super::inspector::preview);
     api.on_inspector_commit(super::inspector::commit);
     api.on_inspector_cancel(super::inspector::cancel);
+    api.on_inspector_color_preview(super::inspector::preview_color);
+    api.on_inspector_color_commit(super::inspector::commit_color);
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
@@ -491,7 +494,7 @@ fn unit_model(units: &[expression_tree::WrittenUnit]) -> ModelRc<SharedString> {
 }
 
 fn is_equal_value(c: &PropertyValue, n: &PropertyValue) -> bool {
-    c.code == n.code
+    c.code == n.code && c.value_resolved == n.value_resolved && c.value_brush == n.value_brush
 }
 
 fn is_equal_property(c: &PropertyInformation, n: &PropertyInformation) -> bool {
@@ -619,12 +622,14 @@ fn map_value_and_type(
         color: slint::Color,
         kind: PropertyValueKind,
         code: SharedString,
+        value_resolved: bool,
     ) {
         let color_string = brushes::color_to_string(color);
         mapping.headers.push(mapping.name_prefix.clone());
         mapping.current_values.push(PropertyValue {
             value_kind: kind,
             kind,
+            value_resolved,
             display_string: color_string.clone(),
             brush_kind: BrushKind::Solid,
             value_brush: slint::Brush::SolidColor(color),
@@ -804,20 +809,26 @@ fn map_value_and_type(
                 get_value::<slint::Color>(value),
                 PropertyValueKind::Color,
                 get_code(value),
+                value.is_some(),
             );
         }
         Type::Brush => {
             let brush = get_value::<slint::Brush>(value);
             match brush {
-                slint::Brush::SolidColor(c) => {
-                    map_color(mapping, c, PropertyValueKind::Brush, get_code(value))
-                }
+                slint::Brush::SolidColor(c) => map_color(
+                    mapping,
+                    c,
+                    PropertyValueKind::Brush,
+                    get_code(value),
+                    value.is_some(),
+                ),
                 slint::Brush::LinearGradient(lg) => {
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(PropertyValue {
                         display_string: SharedString::from("Linear Gradient"),
                         kind: PropertyValueKind::Brush,
                         value_kind: PropertyValueKind::Brush,
+                        value_resolved: value.is_some(),
                         brush_kind: BrushKind::Linear,
                         value_float: lg.angle(),
                         value_brush: slint::Brush::LinearGradient(lg.clone()),
@@ -838,6 +849,7 @@ fn map_value_and_type(
                         display_string: SharedString::from("Radial Gradient"),
                         kind: PropertyValueKind::Brush,
                         value_kind: PropertyValueKind::Brush,
+                        value_resolved: value.is_some(),
                         brush_kind: BrushKind::Radial,
                         value_brush: slint::Brush::RadialGradient(rg.clone()),
                         gradient_stops: Rc::new(VecModel::from(
@@ -857,6 +869,7 @@ fn map_value_and_type(
                         display_string: SharedString::from("Conic Gradient"),
                         kind: PropertyValueKind::Brush,
                         value_kind: PropertyValueKind::Brush,
+                        value_resolved: value.is_some(),
                         brush_kind: BrushKind::Conic,
                         value_brush: slint::Brush::ConicGradient(cg.clone()),
                         gradient_stops: Rc::new(VecModel::from(
@@ -876,6 +889,7 @@ fn map_value_and_type(
                         display_string: SharedString::from("Unknown Brush"),
                         kind: PropertyValueKind::Code,
                         value_kind: PropertyValueKind::Code,
+                        value_resolved: false,
                         value_string: SharedString::from("???"),
                         accessor_path: mapping.name_prefix.clone(),
                         code: get_code(value),
@@ -1149,8 +1163,13 @@ fn current_property_value_data(
     api: &Api<'_>,
     property_name: SharedString,
 ) -> Option<PropertyValue> {
-    for group in api.get_properties().iter() {
-        for property in group.properties.iter() {
+    let groups = api.get_properties();
+    groups.model_tracker().track_row_count_changes();
+    for (group_index, group) in groups.iter().enumerate() {
+        groups.model_tracker().track_row_data_changes(group_index);
+        group.properties.model_tracker().track_row_count_changes();
+        for (property_index, property) in group.properties.iter().enumerate() {
+            group.properties.model_tracker().track_row_data_changes(property_index);
             if property.name == property_name {
                 return Some(property.value);
             }
