@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from slint_testing import keys
 from ui_driver import (
     first_window,
     launch_editor,
@@ -80,3 +81,80 @@ def test_custom_gradient_geometry_uses_layout_size(
         )
         if kind == "radial":
             assert "circle 282.842" in source_file.read_text()
+
+
+def picker_field(window, label, role=slint_testing.AccessibleRole.TextInput):
+    return window_element_with_label(window, label, role)
+
+
+def set_picker_mode(window, label, value):
+    picker_field(
+        window, label, slint_testing.AccessibleRole.Combobox
+    ).accessible_value = value
+
+
+def open_gradient(window):
+    picker_field(
+        window, "Rectangle background color picker", slint_testing.AccessibleRole.Button
+    ).invoke_accessible_default_action()
+
+
+def gradient_document(directory, expression):
+    file = directory / "Gradient.slint"
+    file.write_text(f"""export component Gradient inherits Window {{
+    width: 400px;
+    height: 400px;
+    VerticalLayout {{
+        fill := Rectangle {{ background: {expression}; }}
+    }}
+}}
+""")
+    return file
+
+
+@pytest.mark.parametrize("loaded_custom", [False, True])
+def test_custom_geometry_survives_mode_changes(
+    editor_binary, editor_environment, tmp_path, loaded_custom
+):
+    from ui_driver import press_key
+    from source_snapshot import SourceSnapshot
+
+    expression = (
+        "@radial-gradient(circle 95px at 37px 61px, red 0%, blue 100%)"
+        if loaded_custom
+        else "@radial-gradient(circle, red 0%, blue 100%)"
+    )
+    file = gradient_document(tmp_path, expression)
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "fill")
+        open_gradient(window)
+        if not loaded_custom:
+            set_picker_mode(window, "Gradient center", "Custom")
+            picker_field(window, "Gradient center X").accessible_value = "37"
+            picker_field(window, "Gradient center Y").accessible_value = "61"
+            set_picker_mode(window, "Gradient radius mode", "Custom")
+            picker_field(window, "Gradient radius").accessible_value = "95"
+        set_picker_mode(window, "Gradient center", "Automatic")
+        set_picker_mode(window, "Gradient radius mode", "Automatic")
+        set_picker_mode(window, "Gradient type", "Conic")
+        set_picker_mode(window, "Gradient center", "Custom")
+        picker_field(window, "Gradient center X").accessible_value = "83"
+        picker_field(window, "Gradient center Y").accessible_value = "109"
+        set_picker_mode(window, "Gradient center", "Automatic")
+        set_picker_mode(window, "Gradient type", "Radial")
+        set_picker_mode(window, "Gradient center", "Custom")
+        set_picker_mode(window, "Gradient radius mode", "Custom")
+        for label, expected in [
+            ("Gradient center X", 37),
+            ("Gradient center Y", 61),
+            ("Gradient radius", 95),
+        ]:
+            assert float(picker_field(window, label).accessible_value) == expected
+        set_picker_mode(window, "Gradient type", "Conic")
+        set_picker_mode(window, "Gradient center", "Custom")
+        assert float(picker_field(window, "Gradient center X").accessible_value) == 83
+        assert float(picker_field(window, "Gradient center Y").accessible_value) == 109
+        press_key(window, keys.Escape)
+        original.assert_unchanged()

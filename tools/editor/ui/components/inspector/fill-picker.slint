@@ -21,6 +21,9 @@ export component InspectorFillPicker inherits Rectangle {
     private property <FillData> linear-fill;
     private property <FillData> radial-fill;
     private property <FillData> conic-fill;
+    private property <bool> radial-center-initialized;
+    private property <bool> conic-center-initialized;
+    private property <bool> radius-initialized;
     private property <BrushKind> last-gradient: BrushKind.linear;
     in property <string> expression: "";
     in property <string> session-key: "";
@@ -54,6 +57,13 @@ export component InspectorFillPicker inherits Rectangle {
     function preview-fill(fill: FillData) -> bool {
         if !root.session-active || !root.editable { return false; }
         if root.preview(root.active-target, fill) {
+            if fill.kind == BrushKind.radial {
+                root.radial-center-initialized = root.radial-center-initialized || fill.custom-center;
+                root.radius-initialized = root.radius-initialized || fill.custom-radius;
+            }
+            if fill.kind == BrushKind.conic {
+                root.conic-center-initialized = root.conic-center-initialized || fill.custom-center;
+            }
             root.has-preview = true;
             root.working-fill = fill;
             if fill.kind == BrushKind.linear { root.linear-fill = fill; }
@@ -86,6 +96,27 @@ export component InspectorFillPicker inherits Rectangle {
         return root.preview-fill(root.draft);
     }
 
+    function set-custom-center(custom: bool) -> bool {
+        root.draft = root.working-fill;
+        root.draft.custom-center = custom;
+        let initialized = root.draft.kind == BrushKind.radial
+            ? root.radial-center-initialized : root.conic-center-initialized;
+        if custom && !initialized {
+            root.draft.center-x = root.target-width / 2;
+            root.draft.center-y = root.target-height / 2;
+        }
+        return root.preview-fill(root.draft);
+    }
+
+    function set-custom-radius(custom: bool) -> bool {
+        root.draft = root.working-fill;
+        root.draft.custom-radius = custom;
+        if custom && !root.radius-initialized {
+            root.draft.radius = max(1, sqrt(root.target-width * root.target-width + root.target-height * root.target-height) / 2);
+        }
+        return root.preview-fill(root.draft);
+    }
+
     function select-recent(fill: FillData) {
         root.stop-panel-open = false;
         root.selected-stop = 0;
@@ -102,6 +133,9 @@ export component InspectorFillPicker inherits Rectangle {
         root.original-fill = root.value;
         root.original-fill.stops = Api.clone-gradient-stops(root.value.stops);
         root.working-fill.stops = Api.clone-gradient-stops(root.value.stops);
+        root.radial-center-initialized = root.value.kind == BrushKind.radial && root.value.custom-center;
+        root.conic-center-initialized = root.value.kind == BrushKind.conic && root.value.custom-center;
+        root.radius-initialized = root.value.kind == BrushKind.radial && root.value.custom-radius;
         root.linear-fill = {kind: BrushKind.linear, angle: 90};
         root.radial-fill = {kind: BrushKind.radial};
         root.conic-fill = {kind: BrushKind.conic};
@@ -198,10 +232,10 @@ export component InspectorFillPicker inherits Rectangle {
                         }
                         if root.editable && root.working-fill.kind != BrushKind.solid: InspectorGradientGeometry {
                             value: root.working-fill;
-                            target-width: root.target-width;
-                            target-height: root.target-height;
                             session-key: root.session-key;
                             preview(fill) => { return root.preview-fill(fill); }
+                            center-mode-selected(custom) => { return root.set-custom-center(custom); }
+                            radius-mode-selected(custom) => { return root.set-custom-radius(custom); }
                             type-selected(kind) => { return root.select-kind(kind); }
                         }
 

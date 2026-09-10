@@ -10,10 +10,10 @@ import { InspectorTextFieldBase } from "text-field-base.slint";
 export component InspectorGradientGeometry inherits Rectangle {
     in property <FillData> value;
     in property <string> session-key;
-    in property <float> target-width;
-    in property <float> target-height;
     callback preview(FillData) -> bool;
     callback type-selected(BrushKind) -> bool;
+    callback center-mode-selected(bool) -> bool;
+    callback radius-mode-selected(bool) -> bool;
     private property <FillData> draft;
     private property <FillData> gesture-value;
     height: layout.preferred-height;
@@ -66,12 +66,7 @@ export component InspectorGradientGeometry inherits Rectangle {
                 value: root.value.custom-center ? "Custom" : "Automatic";
                 selected-index: root.value.custom-center ? 1 : 0;
                 options: [{ label: "Automatic", value: "Automatic" }, { label: "Custom", value: "Custom" }];
-                accepted(text) => {
-                    root.draft = root.value;
-                    root.draft.custom-center = text == "Custom";
-                    if root.draft.custom-center { root.draft.center-x = root.target-width / 2; root.draft.center-y = root.target-height / 2; }
-                    return root.preview(root.draft);
-                }
+                accepted(text) => { return root.center-mode-selected(text == "Custom"); }
             }
         }
         if root.value.kind != BrushKind.linear && root.value.custom-center: HorizontalLayout {
@@ -101,12 +96,7 @@ export component InspectorGradientGeometry inherits Rectangle {
                 value: root.value.custom-radius ? "Custom" : "Automatic";
                 selected-index: root.value.custom-radius ? 1 : 0;
                 options: [{ label: "Automatic", value: "Automatic" }, { label: "Custom", value: "Custom" }];
-                accepted(text) => {
-                    root.draft = root.value;
-                    root.draft.custom-radius = text == "Custom";
-                    if root.draft.custom-radius { root.draft.radius = max(1, sqrt(root.target-width * root.target-width + root.target-height * root.target-height) / 2); }
-                    return root.preview(root.draft);
-                }
+                accepted(text) => { return root.radius-mode-selected(text == "Custom"); }
             }
         }
         if root.value.kind == BrushKind.radial && root.value.custom-radius: HorizontalLayout {
