@@ -24,4 +24,5 @@
 
 - [Development workflow](docs/development.md): setup, checks, and commit conventions.
 - [Build prerequisites](docs/building.md).
+- [Testing](docs/testing.md): test drivers, syntax tests, screenshots.
 - Read the relevant guide in `docs/development/` when working on its subsystem.
