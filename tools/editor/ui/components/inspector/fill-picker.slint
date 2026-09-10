@@ -110,7 +110,7 @@ export component InspectorFillPicker inherits Rectangle {
                             }
                         }
 
-                        if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid && !FillSession.linear-active: InspectorGradientStops {
+                        if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid: InspectorGradientStops {
                             value: FillSession.working-fill;
                             selected-index <=> FillSession.selected-stop;
                             focus-generation: FillSession.focus-stop-generation;
@@ -122,7 +122,7 @@ export component InspectorFillPicker inherits Rectangle {
                                 return FillSession.preview-fill(fill);
                             }
                         }
-                        if !FillSession.unsupported && (FillSession.working-fill.kind == BrushKind.solid || FillSession.linear-active): InspectorColorControls {
+                        if !FillSession.unsupported && FillSession.working-fill.kind == BrushKind.solid: InspectorColorControls {
                             field-height: 170px;
                             value: FillSession.working-color;
                             editable: FillSession.editable;
@@ -142,7 +142,7 @@ export component InspectorFillPicker inherits Rectangle {
                         }
                     }
                     stop-panel := InspectorPickerPanel {
-                        visible: FillSession.stop-panel-open && !FillSession.linear-active;
+                        visible: FillSession.stop-panel-open;
                         x: FillSession.stacked || FillSession.stop-on-left ? 0px : 308px;
                         y: FillSession.stacked ? main-panel.height + 8px : 0px;
                         title: "Stop color";

@@ -215,7 +215,7 @@ def test_stop_precision_survives_save_and_reopen(
         if kind != "linear":
             picker_field(window, "Stop 2 position").accessible_value = "33.333333"
         if kind == "linear":
-            click_picker_button(window, "Gradient stop 1")
+            click_picker_button(window, "Edit stop 1 color")
             picker_field(window, "Hex color").accessible_value = "#ff0100"
         elif kind == "radial":
             set_picker_mode(window, "Gradient center", "Custom")
@@ -227,6 +227,7 @@ def test_stop_precision_survives_save_and_reopen(
         select_outline_row(window, "fill")
         open_gradient(window)
         if kind == "linear":
+            click_picker_button(window, "Edit stop 1 color")
             picker_field(window, "Hex color").accessible_value = "#ff0200"
         elif kind == "radial":
             picker_field(window, "Gradient center X").accessible_value = "201"
@@ -274,12 +275,16 @@ def test_stop_interactions_preserve_color_identity(
         for _ in range(2):
             gesture(window, insertion, insertion)
         control(window, "Gradient stop 4")
+        click_picker_button(window, "Edit stop 2 color")
         assert picker_field(window, "Hex color").accessible_value == "#aa0055c0"
         picker_field(window, "Hex color").accessible_value = "#00ff00b0"
+        click_picker_button(window, "Close Stop color")
         original.assert_unchanged_now()
         start = center(control(window, "Gradient stop 2"))
         gesture(window, start, shifted(start, x=(right.x - left.x) * 0.5))
+        click_picker_button(window, "Edit stop 2 color")
         assert picker_field(window, "Hex color").accessible_value == "#00ff00b0"
+        click_picker_button(window, "Close Stop color")
         click_picker_button(window, "Gradient stop 1")
         press_key(window, keys.Delete)
         click_picker_button(window, "Gradient stop 3")
@@ -295,7 +300,7 @@ def test_stop_interactions_preserve_color_identity(
         assert b"#0000ff80 50%, #00ff00b0 75%" in saved
         select_outline_row(window, "fill")
         open_gradient(window)
-        click_picker_button(window, "Gradient stop 2")
+        click_picker_button(window, "Edit stop 2 color")
         assert picker_field(window, "Hex color").accessible_value == "#00ff00b0"
 
 

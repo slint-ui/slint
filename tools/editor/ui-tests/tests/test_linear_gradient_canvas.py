@@ -95,12 +95,11 @@ def test_stop_drag_crosses_neighbours_without_losing_capture(
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         for dx in (30, 70, 100, 130, 70, -50, -120, 20):
             window.dispatch_event(slint_testing.PointerMoveEvent(destination(dx)))
-            assert (
+            assert float(
                 control(
-                    window, "Hex color", slint_testing.AccessibleRole.TextInput
+                    window, "Gradient stop 2", slint_testing.AccessibleRole.Slider
                 ).accessible_value
-                == "#264052"
-            )
+            ) == pytest.approx(55 + dx / 2)
             actual = center(control(window, "Gradient stop 2"), rotation)
             assert actual.x == pytest.approx(destination(dx).x, abs=0.001)
             assert actual.y == pytest.approx(destination(dx).y, abs=0.001)
@@ -128,12 +127,33 @@ def test_linear_canvas_activation_and_colour(
         assert end.x - start.x == pytest.approx(200)
         assert end.y == pytest.approx(start.y)
         assert not elements_with_label(window.root_element, "Gradient angle degrees")
-        assert not elements_with_label(window.root_element, "Add gradient stop")
+        control(window, "Add gradient stop")
+        control(window, "Gradient stop 2", slint_testing.AccessibleRole.Slider)
+        assert not elements_with_label(window.root_element, "Hex color")
         assert not elements_with_label(window.root_element, "Close Stop color")
-        click(window, "Gradient stop 2")
+        click(window, "Edit stop 2 color")
+        control(window, "Close Stop color")
         hex_field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
         assert hex_field.accessible_value == "#264052"
+        click(window, "Gradient stop 1")
+        assert hex_field.accessible_value == "#568fb8"
+        click(window, "Gradient stop 2")
+        assert hex_field.accessible_value == "#264052"
         hex_field.accessible_value = "#12ab3480"
+        click(window, "Close Stop color")
+        control(
+            window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
+        ).accessible_value = "70"
+        assert center(control(window, "Gradient stop 2")).x == pytest.approx(
+            start.x + 140
+        )
+        click(window, "Gradient stop 2")
+        press_key(window, keys.RightArrow)
+        assert float(
+            control(
+                window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+        ) == pytest.approx(71)
         original.assert_unchanged_now()
         click(window, "Solid")
         assert not elements_with_label(window.root_element, "Gradient start")
@@ -159,7 +179,7 @@ def test_linear_endpoint_drag_and_session_history(
         assert center(control(window, "Gradient start")).x == pytest.approx(
             start.x + 40
         )
-        control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
+        control(window, "Add gradient stop")
         original.assert_unchanged_now()
         click(window, "Close Custom")
         saved = wait_until(
@@ -307,6 +327,7 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
     with launch_editor(editor_binary, editor_environment, scene) as editor:
         window = first_window(editor)
         open_linear(window)
+        click(window, "Edit stop 1 color")
         control(
             window, "Hex color", slint_testing.AccessibleRole.TextInput
         ).accessible_value = "#123456"
@@ -334,6 +355,7 @@ def test_linear_external_edit_cancels_stale_draft(
     with launch_editor(editor_binary, editor_environment, scene) as editor:
         window = first_window(editor)
         open_linear(window)
+        click(window, "Edit stop 1 color")
         control(
             window, "Hex color", slint_testing.AccessibleRole.TextInput
         ).accessible_value = "#123456"
@@ -344,6 +366,7 @@ def test_linear_external_edit_cancels_stale_draft(
         assert not elements_with_label(window.root_element, "Close Custom")
         assert scene.read_text() == external
         open_linear(window)
+        click(window, "Edit stop 1 color")
         assert (
             control(
                 window, "Hex color", slint_testing.AccessibleRole.TextInput
