@@ -260,7 +260,7 @@ export component EditorUi inherits Window {
                 Api.dismiss-fill-picker({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y }, event.button);
             }
         }
-        if FillSession.canvas-active: GradientOverlay {
+        if FillSession.canvas-active && !FillSession.conic-active: GradientOverlay {
             x: FillSession.canvas-origin.x - fill-layer.absolute-position.x;
             y: FillSession.canvas-origin.y - fill-layer.absolute-position.y;
             width: FillSession.canvas-size.width;

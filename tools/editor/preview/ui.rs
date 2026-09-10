@@ -1667,7 +1667,7 @@ mod tests {
     }
 
     #[test]
-    fn radial_fill_overlay_requires_an_editable_rectangle_session() {
+    fn circular_fill_overlay_requires_an_editable_rectangle_session() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
@@ -1695,7 +1695,25 @@ mod tests {
             kind: super::BrushKind::Conic,
             ..Default::default()
         });
-        assert!(!session.get_canvas_active());
+        assert!(session.get_conic_active());
+        assert!(session.get_canvas_active());
+        assert!(!session.get_radial_active());
+        session.set_open(false);
+        assert!(!session.get_conic_active());
+        session.set_open(true);
+        api.set_inspector_fill_refresh_pending(true);
+        assert!(!session.get_conic_active());
+        api.set_inspector_fill_refresh_pending(false);
+        let mut element = api.get_current_element();
+        element.type_name = "Text".into();
+        api.set_current_element(element.clone());
+        assert!(!session.get_conic_active());
+        element.type_name = "Rectangle".into();
+        api.set_current_element(element);
+        assert!(session.get_conic_active());
+        session.set_canvas_target(false);
+        assert!(!session.get_conic_active());
+        session.set_canvas_target(true);
         session.set_working_fill(super::FillData {
             kind: super::BrushKind::Radial,
             ..Default::default()

@@ -48,7 +48,8 @@ export global FillSession {
         && Api.selection.highlight-index >= 0;
     out property <bool> linear-active: canvas-editable && working-fill.kind == BrushKind.linear;
     out property <bool> radial-active: canvas-editable && working-fill.kind == BrushKind.radial;
-    out property <bool> canvas-active: linear-active || radial-active;
+    out property <bool> conic-active: canvas-editable && working-fill.kind == BrushKind.conic;
+    out property <bool> canvas-active: linear-active || radial-active || conic-active;
 
     in-out property <LinearGradientAxis> axis;
     in-out property <angle> radial-direction: 35deg;
