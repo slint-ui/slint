@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Api, Hover, SelectionRectangle } from "../api.slint";
-import { EditorCursors, StudioTheme } from "common.slint";
+import { EditorAngles, EditorCursors, StudioTheme } from "common.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
@@ -173,10 +173,7 @@ component SelectedCanvasFrame inherits Rectangle {
     }
 
     if frame.rotation-tooltip-visible: CanvasValueTooltip {
-        private property <angle> normalized-angle: {
-            let normalized = frame.rotation-tooltip-value.mod(360deg);
-            normalized < 0deg ? normalized + 360deg : normalized
-        };
+        private property <angle> normalized-angle: EditorAngles.normalize((frame.rotation-tooltip-value / 1deg).round() * 1deg);
         label: "Rotation";
         value: "\{(self.normalized-angle / 1deg).round()}";
         suffix: "°";

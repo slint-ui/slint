@@ -42,6 +42,13 @@ export global EditorCursors {
     );
 }
 
+export global EditorAngles {
+    public pure function normalize(value: angle) -> angle {
+        let normalized = value.mod(360deg);
+        return normalized < 0deg ? normalized + 360deg : normalized;
+    }
+}
+
 export global EditorMetrics {
     in-out property <length> window-width;
     in-out property <length> window-height;
