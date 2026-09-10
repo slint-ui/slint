@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, BrushKind, EditorSurfaceMode, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { Api, EditorSurfaceMode, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
 import { EdgeDivider, EditorAngles, EditorMetrics, HorizontalResizeDivider, StudioTheme } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
 import { InspectorComboOption, InspectorTokens } from "inspector/tokens.slint";
@@ -250,20 +250,6 @@ export component InspectorPane inherits Rectangle {
             return property.display-string;
         }
         return property.code;
-    }
-
-    function property-is-solid(property-name: string) -> bool {
-        let property = Api.current-property-value-data(property-name);
-        return property.value-resolved
-            && (property.kind == PropertyValueKind.color
-                || property.value-kind == PropertyValueKind.color
-                || ((property.kind == PropertyValueKind.brush || property.value-kind == PropertyValueKind.brush)
-                    && property.brush-kind == BrushKind.solid));
-    }
-
-    function property-effective-color(property-name: string) -> color {
-        let property = Api.current-property-value-data(property-name);
-        return root.property-is-solid(property-name) ? property.value-brush : transparent;
     }
 
     function property-length-label(property-name: string, fallback: string) -> string {
@@ -712,8 +698,6 @@ export component InspectorPane inherits Rectangle {
                             accessible-name: "Root background";
                             value: Api.current-property-value("background", "");
                             swatch: background-value.value-resolved ? background-value.value-brush : transparent;
-                            unsupported: !background-value.value-resolved || background-value.brush-kind != BrushKind.solid;
-                            effective-color: self.unsupported ? transparent : background-value.value-brush;
                             commit-key: root.field-key("background");
                             preview-key: root.field-key("background");
                             session-key: root.color-session-key("background");
@@ -728,8 +712,6 @@ export component InspectorPane inherits Rectangle {
                             accessible-name: "Rectangle background";
                             value: root.rectangle-background-code();
                             swatch: root.rectangle-background-swatch();
-                            effective-color: root.property-effective-color("background");
-                            unsupported: !root.property-is-solid("background");
                             commit-key: root.field-key("background");
                             preview-key: root.field-key("background");
                             session-key: root.color-session-key("background");
@@ -744,8 +726,6 @@ export component InspectorPane inherits Rectangle {
                             accessible-name: "Text color";
                             value: root.text-color-code();
                             swatch: root.text-color-swatch();
-                            effective-color: root.property-effective-color("color");
-                            unsupported: !root.property-is-solid("color");
                             commit-key: root.field-key("color");
                             preview-key: root.field-key("color");
                             session-key: root.color-session-key("color");
@@ -823,8 +803,6 @@ export component InspectorPane inherits Rectangle {
                                     accessible-name: "Shadow color";
                                     value: root.shadow-color-code();
                                     swatch: root.shadow-color-swatch();
-                                    effective-color: root.property-effective-color(root.current-shadow-prefix() + "color");
-                                    unsupported: !root.property-is-solid(root.current-shadow-prefix() + "color");
                                     commit-key: root.field-key(root.current-shadow-prefix() + "color");
                                     preview-key: root.field-key(root.current-shadow-prefix() + "color");
                                     session-key: root.color-session-key(root.current-shadow-prefix() + "color");

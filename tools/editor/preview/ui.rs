@@ -68,7 +68,7 @@ pub(super) mod file_tree;
 pub mod log_messages;
 pub mod palette;
 mod property_view;
-mod recent_colors;
+mod recent_fills;
 pub mod search_model;
 
 slint::include_modules!();
@@ -266,7 +266,7 @@ pub fn initialize_editor(
     palette::setup(&api);
     let file_tree_controller = file_tree::setup(&api, api_weak.clone(), &project, project_weak);
     preview::set_file_tree_controller(file_tree_controller);
-    recent_colors::setup(&api, api_weak.clone());
+    recent_fills::setup(&api, api_weak.clone());
     super::outline::setup(&api, api_weak.clone());
     super::undo_redo::setup(&api);
 

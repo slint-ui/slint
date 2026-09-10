@@ -52,6 +52,7 @@ component ColorSlider inherits Rectangle {
 
 export component InspectorColorControls inherits Rectangle {
     in property <color> value;
+    in property <length> field-height: 170px;
     in property <bool> editable;
     in property <string> session-key;
     callback preview(color) -> bool;
@@ -125,7 +126,7 @@ export component InspectorColorControls inherits Rectangle {
         spacing: 12px;
         alignment: start;
         Rectangle {
-            height: 170px;
+            height: root.field-height;
            Rectangle {
                 border-radius: 5px;
                 clip: true;

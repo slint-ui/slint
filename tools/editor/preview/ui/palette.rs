@@ -184,14 +184,13 @@ pub fn evaluate_property(
             && matches!(&element.base_type, langtype::ElementType::Builtin(b) if b.name == "Rectangle")
             && element.binding_cell_including_synthetic(property_name).is_none()
     };
-    let expression = find_binding_expression(element, property_name)
-        .or(default_value.clone())
-        .or_else(|| {
+    let expression =
+        find_binding_expression(element, property_name).or(default_value.clone()).or_else(|| {
             unfilled_rectangle.then(|| expression_tree::Expression::default_value_for_type(ty))
         });
     let value = expression.as_ref().and_then(|element| {
-            crate::preview::eval::fully_eval_expression_tree_expression(element, window_adapter)
-        });
+        crate::preview::eval::fully_eval_expression_tree_expression(element, window_adapter)
+    });
 
     let mut property = ui::map_value_and_type_to_property_value(ty, &value, "");
     property.value_resolved = value.is_some();
@@ -199,14 +198,21 @@ pub fn evaluate_property(
         property.fill = ui::brushes::fill_from_brush(property.value_brush.clone());
         if let Some(expression) = &expression {
             expression.visit_recursive(&mut |e| {
-                if matches!(e, expression_tree::Expression::PropertyReference(_)
-                    | expression_tree::Expression::FunctionCall { .. }
-                    | expression_tree::Expression::Condition { .. }) {
+                if matches!(
+                    e,
+                    expression_tree::Expression::PropertyReference(_)
+                        | expression_tree::Expression::FunctionCall { .. }
+                        | expression_tree::Expression::Condition { .. }
+                ) {
                     property.fill_bound = true;
                 }
             });
             if property.value_resolved {
-                if let Some(fill) = ui::brushes::fill_from_expression(expression, property.value_brush.clone(), window_adapter) {
+                if let Some(fill) = ui::brushes::fill_from_expression(
+                    expression,
+                    property.value_brush.clone(),
+                    window_adapter,
+                ) {
                     property.fill = fill;
                 } else {
                     property.value_resolved = false;

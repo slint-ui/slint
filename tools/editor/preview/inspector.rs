@@ -77,7 +77,7 @@ pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: b
     let Some((api, color)) = result else { return };
     if applied {
         if let Some(api) = api {
-            if color.kind == ui::BrushKind::Solid { api.invoke_add_recent_color(color.color); }
+            api.invoke_add_recent_fill(color);
         }
     } else {
         cancel();
@@ -222,14 +222,27 @@ pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool
     preview_value(key, node, &names, slint_interpreter::Value::Number(value as f64))
 }
 
-fn fill_value(node: &ElementRcNode, name: &str, fill: &ui::FillData) -> Option<slint_interpreter::Value> {
-    use i_slint_compiler::langtype::{Type, PropertyLookupMode};
-    if !fill.angle.is_finite() || !fill.center_x.is_finite() || !fill.center_y.is_finite()
-        || !fill.radius.is_finite() || (fill.custom_radius && fill.radius <= 0.)
-        || fill.stops.iter().any(|s| !s.position.is_finite()) {
+fn fill_value(
+    node: &ElementRcNode,
+    name: &str,
+    fill: &ui::FillData,
+) -> Option<slint_interpreter::Value> {
+    use i_slint_compiler::langtype::{PropertyLookupMode, Type};
+    if !fill.angle.is_finite()
+        || !fill.center_x.is_finite()
+        || !fill.center_y.is_finite()
+        || !fill.radius.is_finite()
+        || (fill.custom_radius && fill.radius <= 0.)
+        || fill.stops.iter().any(|s| !s.position.is_finite())
+    {
         return None;
     }
-    match node.as_element().borrow().lookup_property(name, PropertyLookupMode::ComponentLocal).property_type {
+    match node
+        .as_element()
+        .borrow()
+        .lookup_property(name, PropertyLookupMode::ComponentLocal)
+        .property_type
+    {
         Type::Color if fill.kind == ui::BrushKind::Solid => Some(fill.color.into()),
         Type::Brush => Some(ui::fill_brush(fill.clone()).into()),
         _ => None,
@@ -241,7 +254,10 @@ pub(super) fn preview_color(key: SharedString, name: SharedString, value: ui::Fi
         cancel();
         return false;
     };
-    let Some(value) = fill_value(&node, &name, &value) else { cancel(); return false; };
+    let Some(value) = fill_value(&node, &name, &value) else {
+        cancel();
+        return false;
+    };
     preview_value(key, node, &[name.as_str()], value)
 }
 
@@ -268,7 +284,10 @@ pub(super) fn commit_color(key: SharedString, name: SharedString, value: ui::Fil
         cancel();
         return false;
     };
-    if fill_value(&node, &name, &value).is_none() { cancel(); return false; }
+    if fill_value(&node, &name, &value).is_none() {
+        cancel();
+        return false;
+    }
     let color = ui::fill_expression(value.clone());
     let edit = property_edit(
         node,

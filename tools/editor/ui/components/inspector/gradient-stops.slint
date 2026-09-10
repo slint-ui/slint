@@ -11,6 +11,8 @@ export component InspectorGradientStops inherits Rectangle {
     in property <FillData> value;
     in property <string> session-key;
     in-out property <int> selected-index;
+    callback edit-color();
+    in property <int> focus-generation;
     callback preview(FillData) -> bool;
     private property <FillData> draft;
     private property <FillData> gesture-value;
@@ -59,6 +61,8 @@ export component InspectorGradientStops inherits Rectangle {
                 return reject;
             }
             Rectangle {
+                x: 8px;
+                width: parent.width - 16px;
                 y: 4px;
                 height: 24px;
                 border-radius: 4px;
@@ -131,7 +135,6 @@ export component InspectorGradientStops inherits Rectangle {
                     background: index == root.selected-index ? InspectorTokens.accent.with-alpha(0.14) : transparent;
                     HorizontalLayout {
                         spacing: 6px;
-                        alignment: start;
                         InspectorTextFieldBase {
                             width: 66px;
                             accessible-name: "Stop " + (index + 1) + " position";
@@ -146,9 +149,11 @@ export component InspectorGradientStops inherits Rectangle {
                         }
                         Rectangle {
                             horizontal-stretch: 1;
-                            FocusScope {
+                            color-focus := FocusScope {
+                                property <int> focus-generation: root.focus-generation;
+                                changed focus-generation => { if root.selected-index == index { self.focus(); } }
                                 key-pressed(event) => {
-                                    if event.text == Key.Return || event.text == Key.Space { root.selected-index = index; return accept; }
+                                    if event.text == Key.Return || event.text == Key.Space { root.selected-index = index; root.edit-color(); return accept; }
                                     return reject;
                                 }
                                 HorizontalLayout {
@@ -156,7 +161,7 @@ export component InspectorGradientStops inherits Rectangle {
                                     Rectangle { width: 14px; height: 14px; background: stop.color; border-radius: 3px; }
                                     Text { text: Api.color-to-data(stop.color).short-text; color: InspectorTokens.text; font-size: 11px; vertical-alignment: center; }
                                 }
-                                TouchArea { accessible-role: button; accessible-label: "Edit stop " + (index + 1) + " color"; clicked => { parent.focus(); root.selected-index = index; } accessible-action-default => { root.selected-index = index; } }
+                                TouchArea { accessible-role: button; accessible-label: "Edit stop " + (index + 1) + " color"; clicked => { parent.focus(); root.selected-index = index; root.edit-color(); } accessible-action-default => { root.selected-index = index; root.edit-color(); } }
                             }
                         }
                         Text { width: 48px; text: (stop.color.alpha * 100 / 255).to-fixed(0) + "%"; color: InspectorTokens.text; font-size: 11px; vertical-alignment: center; }

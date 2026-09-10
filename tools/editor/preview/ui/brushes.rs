@@ -14,9 +14,15 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_fill_from_brush(fill_from_brush);
     api.on_fill_brush(fill_brush);
     api.on_fill_expression(fill_expression);
-    api.on_nearest_gradient_stop(|stops, position| stops.iter().enumerate()
-        .min_by(|(_, a), (_, b)| (a.position - position).abs().total_cmp(&(b.position - position).abs()))
-        .map_or(-1, |(index, _)| index as i32));
+    api.on_nearest_gradient_stop(|stops, position| {
+        stops
+            .iter()
+            .enumerate()
+            .min_by(|(_, a), (_, b)| {
+                (a.position - position).abs().total_cmp(&(b.position - position).abs())
+            })
+            .map_or(-1, |(index, _)| index as i32)
+    });
     api.on_gradient_stop_gap(|stops| {
         let mut positions = vec![0., 1.];
         positions.extend(stops.iter().map(|s| s.position.clamp(0., 1.)));
@@ -24,7 +30,9 @@ pub fn setup(api: &ui::Api<'_>) {
         let mut best = (0., 0.5);
         for pair in positions.windows(2) {
             let gap = pair[1] - pair[0];
-            if gap > best.0 { best = (gap, (pair[0] + pair[1]) / 2.); }
+            if gap > best.0 {
+                best = (gap, (pair[0] + pair[1]) / 2.);
+            }
         }
         best.1
     });
@@ -178,7 +186,10 @@ pub fn create_brush(
 pub fn fill_from_brush(brush: slint::Brush) -> ui::FillData {
     let mut fill = ui::FillData::default();
     let stops: Vec<_> = match brush {
-        slint::Brush::SolidColor(color) => { fill.color = color; Vec::new() }
+        slint::Brush::SolidColor(color) => {
+            fill.color = color;
+            Vec::new()
+        }
         slint::Brush::LinearGradient(g) => {
             fill.kind = ui::BrushKind::Linear;
             fill.angle = g.angle();
@@ -202,9 +213,13 @@ pub fn fill_from_brush(brush: slint::Brush) -> ui::FillData {
         }
         _ => Vec::new(),
     };
-    fill.stops = Rc::new(VecModel::from(stops.into_iter().map(|s| ui::GradientStop {
-        color: s.color, position: s.position,
-    }).collect::<Vec<_>>())).into();
+    fill.stops = Rc::new(VecModel::from(
+        stops
+            .into_iter()
+            .map(|s| ui::GradientStop { color: s.color, position: s.position })
+            .collect::<Vec<_>>(),
+    ))
+    .into();
     fill
 }
 
@@ -213,8 +228,8 @@ pub fn fill_from_expression(
     brush: slint::Brush,
     window: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> Option<ui::FillData> {
-    use i_slint_compiler::expression_tree::Expression;
     use crate::preview::eval::fully_eval_expression_tree_expression as eval;
+    use i_slint_compiler::expression_tree::Expression;
     if let Expression::Cast { from, .. } = expression {
         return fill_from_expression(from, brush, window);
     }
@@ -225,13 +240,17 @@ pub fn fill_from_expression(
     };
     let (stops, angle, center, radius) = match expression {
         Expression::LinearGradient { angle, stops } => (stops, Some(&**angle), None, None),
-        Expression::RadialGradient { stops, center, radius } =>
-            (stops, None, center.as_ref(), radius.as_deref()),
-        Expression::ConicGradient { from_angle, stops, center } =>
-            (stops, Some(&**from_angle), center.as_ref(), None),
+        Expression::RadialGradient { stops, center, radius } => {
+            (stops, None, center.as_ref(), radius.as_deref())
+        }
+        Expression::ConicGradient { from_angle, stops, center } => {
+            (stops, Some(&**from_angle), center.as_ref(), None)
+        }
         _ => return Some(fill),
     };
-    if let Some(angle) = angle { fill.angle = number(angle)?; }
+    if let Some(angle) = angle {
+        fill.angle = number(angle)?;
+    }
     if let Some((x, y)) = center {
         fill.custom_center = true;
         fill.center_x = number(x)?;
@@ -241,9 +260,15 @@ pub fn fill_from_expression(
         fill.custom_radius = true;
         fill.radius = number(radius)?;
     }
-    let stops = stops.iter().map(|(color, position)| Some(ui::GradientStop {
-        color: eval(color, window)?.try_into().ok()?, position: number(position)?,
-    })).collect::<Option<Vec<_>>>()?;
+    let stops = stops
+        .iter()
+        .map(|(color, position)| {
+            Some(ui::GradientStop {
+                color: eval(color, window)?.try_into().ok()?,
+                position: number(position)?,
+            })
+        })
+        .collect::<Option<Vec<_>>>()?;
     fill.stops = Rc::new(VecModel::from(stops)).into();
     Some(fill)
 }
@@ -252,12 +277,18 @@ pub fn fill_brush(fill: ui::FillData) -> slint::Brush {
     let brush = create_brush(fill.kind, fill.angle, fill.color, fill.stops);
     match brush {
         slint::Brush::RadialGradient(mut g) => {
-            if fill.custom_center { g = g.with_center(fill.center_x, fill.center_y); }
-            if fill.custom_radius { g = g.with_radius(fill.radius); }
+            if fill.custom_center {
+                g = g.with_center(fill.center_x, fill.center_y);
+            }
+            if fill.custom_radius {
+                g = g.with_radius(fill.radius);
+            }
             slint::Brush::RadialGradient(g)
         }
         slint::Brush::ConicGradient(mut g) => {
-            if fill.custom_center { g = g.with_center(fill.center_x, fill.center_y); }
+            if fill.custom_center {
+                g = g.with_center(fill.center_x, fill.center_y);
+            }
             slint::Brush::ConicGradient(g)
         }
         brush => brush,
@@ -270,15 +301,28 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
     }
     let center = if fill.custom_center {
         format!(" at {}px {}px", fill.center_x, fill.center_y)
-    } else { String::new() };
+    } else {
+        String::new()
+    };
     let stops = sorted_gradient_stops(fill.stops);
     if fill.kind == ui::BrushKind::Radial {
         let radius = if fill.custom_radius { format!(" {}px", fill.radius) } else { String::new() };
-        slint::format!("@radial-gradient(circle{radius}{center}{})", stops.iter()
-            .map(|s| format!(", {} {}%", color_to_string(s.color), s.position * 100.)).join(""))
+        slint::format!(
+            "@radial-gradient(circle{radius}{center}{})",
+            stops
+                .iter()
+                .map(|s| format!(", {} {}%", color_to_string(s.color), s.position * 100.))
+                .join("")
+        )
     } else {
-        slint::format!("@conic-gradient(from {}deg{center}, {})", fill.angle,
-            stops.iter().map(|s| format!("{} {}deg", color_to_string(s.color), s.position * 360.)).join(", "))
+        slint::format!(
+            "@conic-gradient(from {}deg{center}, {})",
+            fill.angle,
+            stops
+                .iter()
+                .map(|s| format!("{} {}deg", color_to_string(s.color), s.position * 360.))
+                .join(", ")
+        )
     }
 }
 

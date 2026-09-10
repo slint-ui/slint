@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Api, FillData, BrushKind } from "../../api.slint";
-import { StudioTheme, EditorMetrics } from "../common.slint";
+import { EditorMetrics } from "../common.slint";
 import { InspectorTokens } from "tokens.slint";
 import { InspectorColorControls } from "color-controls.slint";
 
 import { InspectorGradientGeometry } from "gradient-geometry.slint";
 import { InspectorGradientStops } from "gradient-stops.slint";
+import { ScrollView } from "std-widgets.slint";
+import { InspectorPickerPanel } from "picker-panel.slint";
 import { InspectorSegment } from "segment.slint";
 
 export component InspectorFillPicker inherits Rectangle {
@@ -32,9 +34,16 @@ export component InspectorFillPicker inherits Rectangle {
     in property <Point> anchor-position;
     in property <length> anchor-width;
 
+    private property <[FillData]> recent-fills: Api.filter-recent-fills(Api.recent-fills, root.allow-gradient);
     private property <FillData> draft;
     private property <FillData> working-fill: root.value;
     private property <int> selected-stop;
+    private property <bool> stop-panel-open;
+    private property <length> main-x: (root.anchor-position.x >= 316px ? root.anchor-position.x - 308px : root.anchor-position.x + root.anchor-width + 8px).clamp(8px, max(8px, EditorMetrics.window-width - 308px));
+    private property <bool> stop-on-left: root.main-x >= 316px;
+    private property <bool> stacked: root.stop-panel-open && !root.stop-on-left && root.main-x + 608px > EditorMetrics.window-width - 8px;
+    private property <int> focus-stop-generation;
+
     private property <color> working-color: root.working-fill.kind == BrushKind.solid ? root.working-fill.color : root.working-fill.stops[root.selected-stop].color;
     private property <bool> has-preview: false;
     private property <string> active-target;
@@ -67,6 +76,7 @@ export component InspectorFillPicker inherits Rectangle {
         return root.preview-fill(root.draft);
     }
     function select-kind(kind: BrushKind) -> bool {
+        if kind == BrushKind.solid { root.stop-panel-open = false; }
         root.draft = root.working-fill;
         if kind == BrushKind.solid { root.draft.color = root.working-color; root.draft.kind = kind; }
         else {
@@ -78,7 +88,17 @@ export component InspectorFillPicker inherits Rectangle {
         return root.preview-fill(root.draft);
     }
 
+    function select-recent(fill: FillData) {
+        root.stop-panel-open = false;
+        root.selected-stop = 0;
+        root.draft = fill;
+        root.draft.stops = Api.clone-gradient-stops(fill.stops);
+        root.last-gradient = fill.kind == BrushKind.solid ? root.last-gradient : fill.kind;
+        root.preview-fill(root.draft);
+    }
+
     function show-picker() {
+        root.stop-panel-open = false;
         root.selected-stop = 0;
         root.working-fill = root.value;
         root.original-fill = root.value;
@@ -101,6 +121,7 @@ export component InspectorFillPicker inherits Rectangle {
     function close-picker(accept: bool, return-focus: bool) {
         if !root.session-active { return; }
         root.session-active = false;
+        root.stop-panel-open = false;
         let changed = Api.fill-brush(root.working-fill) != Api.fill-brush(root.original-fill) || root.detach-requested;
         if !accept || !changed || !root.accepted(root.active-target, root.working-fill) {
             if root.has-preview { Api.inspector-cancel(); }
@@ -135,74 +156,28 @@ export component InspectorFillPicker inherits Rectangle {
     }
 
     picker-popup := PopupWindow {
-        x: (root.anchor-position.x >= self.width + 16px
-            ? root.anchor-position.x - self.width - 8px
-            : root.anchor-position.x + root.anchor-width + 8px)
-            .clamp(8px, max(8px, EditorMetrics.window-width - self.width - 8px)) - root.absolute-position.x;
+        width: root.stop-panel-open && !root.stacked ? 608px : 300px;
+        x: root.main-x - (root.stop-panel-open && root.stop-on-left && !root.stacked ? 308px : 0px) - root.absolute-position.x;
         y: root.anchor-position.y.clamp(8px, max(8px, EditorMetrics.window-height - self.height - 8px)) - root.absolute-position.y;
-        width: 300px;
-        height: picker-layout.preferred-height;
+        height: min(group-content.height, max(200px, EditorMetrics.window-height - 16px));
         close-policy: close-on-click-outside;
         forward-focus: picker-focus;
-
-        Rectangle {
-            background: InspectorTokens.panel-bg;
-            border-width: 1px;
-            border-color: InspectorTokens.divider;
-            border-radius: 8px;
-            drop-shadow-color: StudioTheme.dark ? #00000080 : #64748b35;
-            drop-shadow-blur: 18px;
-            drop-shadow-offset-y: 7px;
-
-            picker-focus := FocusScope {
-                capture-key-pressed(event) => {
-                    if event.text == Key.Escape {
-                        root.close-picker(false, true);
-                        return accept;
-                    }
-                    return reject;
-                }
-
-                picker-layout := VerticalLayout {
-                    padding: 12px;
-                    spacing: 12px;
-                    alignment: start;
-
-                    HorizontalLayout {
-                        height: 22px;
-                        Text {
-                            text: "Custom";
-                            color: InspectorTokens.text;
-                            font-size: 13px;
-                            font-weight: 700;
-                            vertical-alignment: center;
-                        }
-                        Rectangle { horizontal-stretch: 1; }
-                        Rectangle {
-                            width: 48px;
-                            height: 22px;
-                            TouchArea {
-                                width: parent.width;
-                                height: parent.height;
-                                accessible-role: AccessibleRole.button;
-                                accessible-label: "Close color picker";
-                                clicked => { root.close-picker(true, true); }
-                                accessible-action-default => { root.close-picker(true, true); }
-                                Text {
-                                    text: "Close";
-                                    width: parent.width;
-                                    height: parent.height;
-                                    color: InspectorTokens.muted;
-                                    font-size: 11px;
-                                    vertical-alignment: center;
-                                    horizontal-alignment: right;
-                                }
-                            }
-                        }
-                    }
-
-                    Rectangle { height: 1px; background: InspectorTokens.divider; }
-
+        picker-focus := FocusScope {
+            capture-key-pressed(event) => {
+                if event.text == Key.Escape { root.close-picker(false, true); return accept; }
+                return reject;
+            }
+            ScrollView {
+                content-width: self.visible-width;
+                content-height: group-content.height;
+                group-content := Rectangle {
+                    width: parent.visible-width;
+                    height: root.stacked ? main-panel.height + 8px + (root.stop-panel-open ? stop-panel.height : 0px) : max(main-panel.height, root.stop-panel-open ? stop-panel.height : 0px);
+                    TouchArea { clicked => { root.close-picker(true, true); } }
+                    main-panel := InspectorPickerPanel {
+                        x: root.stop-panel-open && root.stop-on-left && !root.stacked ? 308px : 0px;
+                        title: "Custom";
+                        closed => { root.close-picker(true, true); }
                     if root.unsupported: VerticalLayout {
                         spacing: 5px;
                         Text {
@@ -277,15 +252,13 @@ export component InspectorFillPicker inherits Rectangle {
                     if root.editable && root.working-fill.kind != BrushKind.solid: InspectorGradientStops {
                         value: root.working-fill;
                         selected-index <=> root.selected-stop;
+                        focus-generation: root.focus-stop-generation;
+                        edit-color => { root.stop-panel-open = true; }
                         session-key: root.session-key;
                         preview(fill) => { return root.preview-fill(fill); }
                     }
-                    if root.editable && root.working-fill.kind != BrushKind.solid: Text {
-                        text: "Stop " + (root.selected-stop + 1);
-                        color: InspectorTokens.muted;
-                        font-size: 11px;
-                    }
-                    if !root.unsupported: InspectorColorControls {
+                    if !root.unsupported && root.working-fill.kind == BrushKind.solid: InspectorColorControls {
+                        field-height: 170px;
                         value: root.working-color;
                         editable: root.editable;
                         session-key: root.session-key + ":" + root.selected-stop;
@@ -293,45 +266,100 @@ export component InspectorFillPicker inherits Rectangle {
                     }
 
                     if !root.unsupported: Text {
-                        text: "Recent colors";
+                        text: "Recent fills";
                         color: InspectorTokens.muted;
                         font-size: 11px;
                         font-weight: 600;
                     }
-                    if !root.unsupported && Api.recent-colors.length == 0: Text {
-                        text: "No recent colors";
+                    if !root.unsupported && root.recent-fills.length == 0: Text {
+                        text: "No recent fills";
                         color: InspectorTokens.muted;
                         font-size: 11px;
                     }
-                    if !root.unsupported && Api.recent-colors.length > 0: HorizontalLayout {
+                    if !root.unsupported && root.recent-fills.length > 0: HorizontalLayout {
                         height: 22px;
                         spacing: 6px;
                         alignment: start;
-                        for recent in Api.recent-colors: Rectangle {
+                        for recent in root.recent-fills: Rectangle {
                             width: 22px;
                             height: 22px;
                             border-radius: 3px;
                             border-width: 1px;
                             border-color: InspectorTokens.divider;
-                            background: recent;
+                            background: Api.fill-brush(recent);
                             TouchArea {
                                 width: parent.width;
                                 height: parent.height;
                                 enabled: root.editable;
                                 accessible-role: AccessibleRole.button;
-                                accessible-label: "Recent color " + Api.color-to-data(recent).text;
+                                accessible-label: "Recent fill " + Api.fill-expression(recent);
                                 clicked => {
                                     if self.enabled {
-                                        root.preview-color(recent);
+                                        root.select-recent(recent);
                                     }
                                 }
                                 accessible-action-default => {
                                     if self.enabled {
-                                        root.preview-color(recent);
+                                        root.select-recent(recent);
                                     }
                                 }
                             }
                         }
+                    }
+                    }
+                    stop-panel := InspectorPickerPanel {
+                        visible: root.stop-panel-open;
+                        x: root.stacked || root.stop-on-left ? 0px : 308px;
+                        y: root.stacked ? main-panel.height + 8px : 0px;
+                        title: "Stop color";
+                        closed => { root.stop-panel-open = false; root.focus-stop-generation += 1; }
+                        InspectorColorControls {
+                            value: root.working-color;
+                            editable: root.editable && root.stop-panel-open;
+                            session-key: root.session-key + ":" + root.selected-stop + ":" + (root.stop-panel-open ? "open" : "closed");
+                            preview(c) => { return root.preview-color(c); }
+                        }
+                    if !root.unsupported: Text {
+                        text: "Recent fills";
+                        color: InspectorTokens.muted;
+                        font-size: 11px;
+                        font-weight: 600;
+                    }
+                    if !root.unsupported && Api.filter-recent-fills(Api.recent-fills, false).length == 0: Text {
+                        text: "No recent fills";
+                        color: InspectorTokens.muted;
+                        font-size: 11px;
+                    }
+                    if !root.unsupported && Api.filter-recent-fills(Api.recent-fills, false).length > 0: HorizontalLayout {
+                        height: 22px;
+                        spacing: 6px;
+                        alignment: start;
+                        for recent in Api.filter-recent-fills(Api.recent-fills, false): Rectangle {
+                            width: 22px;
+                            height: 22px;
+                            border-radius: 3px;
+                            border-width: 1px;
+                            border-color: InspectorTokens.divider;
+                            background: Api.fill-brush(recent);
+                            TouchArea {
+                                width: parent.width;
+                                height: parent.height;
+                                enabled: root.editable;
+                                accessible-role: AccessibleRole.button;
+                                accessible-label: "Recent fill " + Api.fill-expression(recent);
+                                clicked => {
+                                    if self.enabled {
+                                        root.preview-color(recent.color);
+                                    }
+                                }
+                                accessible-action-default => {
+                                    if self.enabled {
+                                        root.preview-color(recent.color);
+                                    }
+                                }
+                            }
+                        }
+                    }
                     }
                 }
             }

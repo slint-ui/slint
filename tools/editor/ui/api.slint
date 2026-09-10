@@ -466,7 +466,7 @@ export global Api {
 
     // ## Palette data:
     in-out property <[PaletteEntry]> palettes;
-    in-out property <[color]> recent-colors;
+    in-out property <[FillData]> recent-fills;
 
     // ## Property Editor
     in-out property <ElementInformation> current-element;
@@ -765,7 +765,8 @@ export global Api {
 
     // Palettes:
     pure callback filter-palettes(palettes: [PaletteEntry], pattern: string) -> [PaletteEntry];
-    callback add-recent-color(color);
+    callback add-recent-fill(FillData);
+    pure callback filter-recent-fills(fills: [FillData], allow-gradient: bool) -> [FillData];
     pure callback is-css-color(code: string) -> bool;
 
     // ## Console / LogMessages
