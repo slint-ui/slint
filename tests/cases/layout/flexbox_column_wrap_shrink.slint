@@ -1,0 +1,84 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A column flex that is not given the width of the columns its height forces
+// solves again without wrapping, so its content overflows downward rather than
+// sideways (see flexbox_column_wrap_width.slint). That second solve must not
+// compress the items to fit the height instead: items that *can* shrink, one
+// with a preferred height above its minimum, would otherwise be squeezed into
+// the height that made the flex wrap in the first place, and nothing would
+// overflow at all.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 220px;
+
+    Text { x: 8px; y: 4px; width: 284px; font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "Four boxes that may shrink to nothing but prefer 30px, in a 40px-wide, 70px-tall column flex. Each keeps its 30px and the last two hang below the flex (magenta outline), rather than all four being squeezed into 70px."; }
+
+    f := FlexboxLayout {
+        x: 20px; y: 60px; width: 40px; height: 70px;
+        flex-direction: column; flex-wrap: wrap; spacing: 0px; padding: 0px;
+        cross-axis-line-alignment: start;
+        b1 := Rectangle { width: 40px; min-height: 0px; preferred-height: 30px;
+            background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+        Rectangle { width: 40px; min-height: 0px; preferred-height: 30px;
+            background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+        b3 := Rectangle { width: 40px; min-height: 0px; preferred-height: 30px;
+            background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+        b4 := Rectangle { width: 40px; min-height: 0px; preferred-height: 30px;
+            background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+    }
+    Rectangle { x: f.x; y: f.y; width: f.width; height: f.height;
+        border-color: #f0f; border-width: 1px; }
+
+    // A lone box never wrapped, however far it overflows sideways, so it keeps
+    // the shrinking `wrap` gives it: the re-solve must not turn that off just
+    // because the box is wider than the flex.
+    lone := FlexboxLayout {
+        x: 150px; y: 60px; width: 40px; height: 70px;
+        flex-direction: column; flex-wrap: wrap; spacing: 0px; padding: 0px;
+        cross-axis-line-alignment: start;
+        l1 := Rectangle { width: 80px; min-height: 0px; preferred-height: 400px;
+            background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+    }
+    Rectangle { x: lone.x; y: lone.y; width: lone.width; height: lone.height;
+        border-color: #f0f; border-width: 1px; }
+
+    // Each box keeps its preferred height, and they stack past the flex.
+    out property <bool> keeps-height: b1.height == 30px;
+    out property <bool> overflows-down: b3.y == 60px && b4.y == 90px;
+    out property <bool> one-column: b3.x == 0px && b4.x == 0px;
+
+    out property <bool> lone-still-shrinks: l1.height == 70px && l1.x == 0px;
+
+    out property <bool> test: keeps-height && overflows-down && one-column
+        && lone-still-shrinks;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_keeps_height(), "the non-wrapping re-solve must not shrink the items");
+assert!(instance.get_overflows_down(), "the content must overflow below the flex");
+assert!(instance.get_one_column(), "and stay in one column");
+assert!(instance.get_lone_still_shrinks(), "a lone item never wrapped, so it keeps shrinking");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_keeps_height());
+assert(instance.get_overflows_down());
+assert(instance.get_one_column());
+assert(instance.get_lone_still_shrinks());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.keeps_height);
+assert(instance.overflows_down);
+assert(instance.one_column);
+assert(instance.lone_still_shrinks);
+```
+*/

@@ -1,0 +1,72 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A column flex given less width than the columns its height forces does not
+// wrap into them: it keeps one column and the content overflows downward (see
+// flexbox_column_wrap_width.slint). `wrap-reverse` is the exception, and this
+// pins it. It anchors its lines at the cross end, which a non-wrapping solve
+// does not, and the container's own height drives the wrapping, so neither
+// re-solving without wrapping nor an unbounded available height can stop it
+// without moving the content to the other side. It keeps wrapping past its
+// width instead, which is what it did before that rule existed.
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 200px;
+
+    Text { x: 8px; y: 4px; width: 384px; font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "Both flexes are 50px wide and 70px tall, holding 4 boxes of 40x30. Left, flex-wrap: wrap — one column, boxes 3-4 below it. Right, flex-wrap: wrap-reverse — anchored to the right edge, and the second column still spills out to the left."; }
+
+    plain := FlexboxLayout {
+        x: 40px; y: 60px; width: 50px; height: 70px;
+        flex-direction: column; flex-wrap: wrap;
+        spacing: 0px; padding: 0px; cross-axis-line-alignment: start;
+        p1 := Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+        Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+        p3 := Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+        Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+    }
+    Rectangle { x: plain.x; y: plain.y; width: plain.width; height: plain.height;
+        border-color: #f0f; border-width: 1px; }
+
+    rev := FlexboxLayout {
+        x: 240px; y: 60px; width: 50px; height: 70px;
+        flex-direction: column; flex-wrap: wrap-reverse;
+        spacing: 0px; padding: 0px; cross-axis-line-alignment: start;
+        r1 := Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+        Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+        r3 := Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+        Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+    }
+    Rectangle { x: rev.x; y: rev.y; width: rev.width; height: rev.height;
+        border-color: #f0f; border-width: 1px; }
+
+    // wrap: one column at the cross start, box 3 stacked below the flex.
+    out property <bool> wrap-ok: p1.x == 0px && p3.x == 0px && p3.y == 60px;
+    // wrap-reverse: the first column at the cross end, the second past the
+    // left edge. Anchoring must not flip to the cross start.
+    out property <bool> wrap-reverse-ok: r1.x == 10px && r3.x == -30px && r3.y == 0px;
+
+    out property <bool> test: wrap-ok && wrap-reverse-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_wrap_ok(), "a wrapping column must keep one column and overflow downward");
+assert!(instance.get_wrap_reverse_ok(), "wrap-reverse must keep its cross-end anchoring");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_wrap_ok());
+assert(instance.get_wrap_reverse_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.wrap_ok);
+assert(instance.wrap_reverse_ok);
+```
+*/

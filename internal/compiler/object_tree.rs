@@ -1243,16 +1243,30 @@ pub struct Element {
     /// so the main-axis cache stays independent of it.
     pub parent_box_layout_orientation: Option<Orientation>,
     /// The property pointing to the layout info. `(horizontal, vertical)`
+    ///
+    /// Query it through `Element::effective_layout_info_prop`: the horizontal one
+    /// it returns may be `layout_info_h_at_own_height`
+    /// instead of `.0`. Use the field itself to copy, move, or write through it,
+    /// where the element's own property is the one meant.
     pub layout_info_prop: Option<(NamedReference, NamedReference)>,
     /// `pure function layoutinfo-v-with-constraint(width: length) -> LayoutInfo`
     /// synthesized for elements whose vertical layout info depends on
     /// their width — lets the parent supply the width and avoid the
     /// recursion that would happen via the descendants' width property.
     pub layout_info_v_with_constraint: Option<NamedReference>,
-    /// Mirror of `layout_info_v_with_constraint` for the horizontal axis.
-    /// Synthesized on flex elements whose horizontal layout info would
-    /// otherwise read their own height (column-direction or unknown).
-    pub layout_info_h_with_constraint: Option<NamedReference>,
+    /// `layoutinfo-h-at-own-height`, the horizontal layout info of a column
+    /// direction `FlexboxLayout` computed at its own height instead of an
+    /// unbounded one, so a wrapping column counts the columns that fit. Only
+    /// read where the height is settled by the source: see
+    /// `Element::height_is_literal` and `Element::effective_layout_info_prop`.
+    pub layout_info_h_at_own_height: Option<NamedReference>,
+    /// Whether the effective `height` binding, on the element or a base, is a
+    /// length literal that is not a percentage. Such a height can be read while
+    /// computing the element's own horizontal layout info without closing a
+    /// binding loop. `lower_layouts` computes it once with
+    /// `Element::compute_height_is_literal`, which says why the rule is that
+    /// narrow, while the bindings are still where the source put them.
+    pub height_is_literal: bool,
     /// Whether we have `preferred-{width,height}: 100%`
     pub default_fill_parent: (bool, bool),
 
@@ -3368,11 +3382,24 @@ impl Element {
         }
     }
 
-    pub fn layout_info_prop(&self, orientation: Orientation) -> Option<&NamedReference> {
-        self.layout_info_prop.as_ref().map(|prop| match orientation {
-            Orientation::Horizontal => &prop.0,
-            Orientation::Vertical => &prop.1,
-        })
+    /// The property holding the layout info for that orientation. For the
+    /// horizontal info of a column flex whose height is settled by the source
+    /// (see [`Self::height_is_literal`]), that is `layout_info_h_at_own_height`;
+    /// never on the root of a component with instances, which decide for themselves.
+    pub(crate) fn effective_layout_info_prop(
+        &self,
+        orientation: Orientation,
+    ) -> Option<&NamedReference> {
+        let prop = self.layout_info_prop.as_ref()?;
+        match orientation {
+            Orientation::Horizontal => Some(
+                self.layout_info_h_at_own_height
+                    .as_ref()
+                    .filter(|_| self.height_is_literal)
+                    .unwrap_or(&prop.0),
+            ),
+            Orientation::Vertical => Some(&prop.1),
+        }
     }
 
     /// Whether this element is a *builtin* whose vertical layout info
@@ -3432,44 +3459,10 @@ impl Element {
         false
     }
 
-    /// Whether [`Self::inherited_layout_info_h_with_constraint`] would return
-    /// `Some`, without cloning the `NamedReference`.
-    pub fn has_inherited_layout_info_h_with_constraint(&self) -> bool {
-        if self.layout_info_h_with_constraint.is_some() {
-            return true;
-        }
-        let mut base = self.base_type.clone();
-        while let ElementType::Component(base_comp) = base {
-            let root = base_comp.root_element.borrow();
-            if root.layout_info_h_with_constraint.is_some() {
-                return true;
-            }
-            base = root.base_type.clone();
-        }
-        false
-    }
-
-    /// Mirror of [`Self::inherited_layout_info_v_with_constraint`] for the
-    /// horizontal axis.
-    pub fn inherited_layout_info_h_with_constraint(&self) -> Option<NamedReference> {
-        if let Some(nr) = &self.layout_info_h_with_constraint {
-            return Some(nr.clone());
-        }
-        let mut base = self.base_type.clone();
-        while let ElementType::Component(base_comp) = base {
-            let root = base_comp.root_element.borrow();
-            if let Some(nr) = &root.layout_info_h_with_constraint {
-                return Some(nr.clone());
-            }
-            base = root.base_type.clone();
-        }
-        None
-    }
-
     /// Whether this element's `layoutinfo-{orientation}` already incorporates its
     /// own explicit min/max/preferred/stretch constraints. True for elements with
     /// a `layoutinfo-*` property (layouts, sub-components) or an inherited
-    /// `layoutinfo-*-with-constraint` function (a component forwarding a
+    /// `layoutinfo-v-with-constraint` function (a component forwarding a
     /// height-for-width layout).
     ///
     /// A parent layout must then NOT re-apply the cell's explicit constraints on
@@ -3477,11 +3470,9 @@ impl Element {
     /// unconstrained can reintroduce a height-for-width binding loop. Only native
     /// items (no `layoutinfo-*`) need their constraints applied separately.
     pub fn layout_info_includes_own_constraints(&self, orientation: Orientation) -> bool {
-        self.layout_info_prop(orientation).is_some()
-            || match orientation {
-                Orientation::Vertical => self.has_inherited_layout_info_v_with_constraint(),
-                Orientation::Horizontal => self.has_inherited_layout_info_h_with_constraint(),
-            }
+        self.effective_layout_info_prop(orientation).is_some()
+            || (orientation == Orientation::Vertical
+                && self.has_inherited_layout_info_v_with_constraint())
     }
 
     /// Returns the element's name as specified in the markup, not normalized.
@@ -3512,6 +3503,49 @@ impl Element {
                 binding.has_binding() && (!need_explicit || binding.priority > 0)
             })
         })
+    }
+
+    /// The layout info property of the base component's root that an instance
+    /// reads. For the horizontal one, that is `layoutinfo-h-at-own-height` when
+    /// `height_settled`, the instance's [`Self::height_is_literal`], which the
+    /// root itself cannot know.
+    pub(crate) fn base_layout_info_prop(
+        &self,
+        orientation: Orientation,
+        height_settled: bool,
+    ) -> Option<NamedReference> {
+        let ElementType::Component(base) = &self.base_type else { return None };
+        let root = base.root_element.borrow();
+        root.layout_info_h_at_own_height
+            .clone()
+            .filter(|_| orientation == Orientation::Horizontal && height_settled)
+            .or_else(|| root.effective_layout_info_prop(orientation).cloned())
+    }
+
+    /// Compute [`Self::height_is_literal`] for `elem`: whether its effective
+    /// `height` binding is a length literal that is not a percentage.
+    ///
+    /// The effective binding is the one [`crate::layout::find_binding`] finds,
+    /// the same walk that sets `LayoutConstraints::fixed_height`, so the two
+    /// cannot disagree about which binding a height has. Why only a literal
+    /// counts is in `docs/development/layout-system.md`, under "Width down,
+    /// height up".
+    pub(crate) fn compute_height_is_literal(elem: &ElementRc) -> bool {
+        // The root of a component that is used elsewhere cannot answer for
+        // itself: every instance may override the height, and each is asked
+        // separately (see [`Element::base_layout_info_prop`]).
+        let overridable_root = elem.borrow().enclosing_component.upgrade().is_some_and(|c| {
+            Rc::ptr_eq(&c.root_element, elem)
+                && c.used.get()
+                && c.parent_element.borrow().upgrade().is_none()
+        });
+        if overridable_root {
+            return false;
+        }
+        crate::layout::find_binding(elem, "height", |b, _, _| {
+            matches!(b.value_expression(), Expression::NumberLiteral(_, unit) if *unit != Unit::Percent)
+        })
+        .unwrap_or(false)
     }
 
     /// Returns true if the property is set by a binding or an assignment expression
@@ -4476,11 +4510,11 @@ fn visit_all_named_references_in_element_dyn(
         vis(nr);
     }
     elem.borrow_mut().layout_info_v_with_constraint = constrained_v;
-    let mut constrained_h = std::mem::take(&mut elem.borrow_mut().layout_info_h_with_constraint);
-    if let Some(nr) = constrained_h.as_mut() {
+    let mut at_own_height = std::mem::take(&mut elem.borrow_mut().layout_info_h_at_own_height);
+    if let Some(nr) = at_own_height.as_mut() {
         vis(nr);
     }
-    elem.borrow_mut().layout_info_h_with_constraint = constrained_h;
+    elem.borrow_mut().layout_info_h_at_own_height = at_own_height;
     let mut debug = std::mem::take(&mut elem.borrow_mut().debug);
     for d in debug.iter_mut() {
         if let Some(l) = d.layout.as_mut() {
@@ -4940,38 +4974,29 @@ impl std::iter::IntoIterator for Exports {
     }
 }
 
-/// Re-declare the constrained layout-info functions on an injected wrapper, forwarding
-/// to the element that carries them.
+/// Re-declare the constrained layout-info function on an injected wrapper, forwarding
+/// to the element that carries it.
 ///
-/// `inherited_layout_info_*_with_constraint` walks the base-type chain, but the element
-/// declaring those functions is now the wrapper's *child*, so without this the wrapper
-/// reports "not height-for-width / width-for-height" and the layout falls back to reading
-/// the cell's own width/height — which the parent layout is still computing (binding loop).
+/// `inherited_layout_info_v_with_constraint` walks the base-type chain, but the element
+/// declaring the function is now the wrapper's *child*, so without this the wrapper
+/// reports "not height-for-width" and the layout falls back to reading
+/// the cell's own width — which the parent layout is still computing (binding loop).
 ///
 /// The function must be re-declared rather than the `NamedReference` copied: callers
 /// assert it points at the component's root element, which the wrapper now is.
 fn forward_layout_info_with_constraint(new_root: &ElementRc, old_root: &ElementRc) {
-    let span = old_root.borrow().to_source_location();
-    let forward_to = |nr: NamedReference| Expression::FunctionCall {
-        function: Callable::Function(NamedReference::new(old_root, nr.name().clone())),
-        arguments: vec![Expression::FunctionParameterReference {
-            index: 0,
-            ty: Type::LogicalLength,
-        }],
-        source_location: None,
-    };
     if let Some(nr) = old_root.borrow().inherited_layout_info_v_with_constraint() {
         crate::passes::lower_layout::synthesize_layoutinfo_v_with_constraint_on(
             new_root,
-            span.clone(),
-            forward_to(nr),
-        );
-    }
-    if let Some(nr) = old_root.borrow().inherited_layout_info_h_with_constraint() {
-        crate::passes::lower_layout::synthesize_layoutinfo_h_with_constraint_on(
-            new_root,
-            span,
-            forward_to(nr),
+            old_root.borrow().to_source_location(),
+            Expression::FunctionCall {
+                function: Callable::Function(NamedReference::new(old_root, nr.name().clone())),
+                arguments: vec![Expression::FunctionParameterReference {
+                    index: 0,
+                    ty: Type::LogicalLength,
+                }],
+                source_location: None,
+            },
         );
     }
 }
@@ -5027,7 +5052,15 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
             );
         }
     }
-    let layout_info_prop = old_root.borrow().layout_info_prop.clone().or_else(|| {
+    // Resolved through the accessor: the wrapper has no height binding of its
+    // own, so it must inherit the choice the wrapped flex made.
+    let layout_info_prop = {
+        let old = old_root.borrow();
+        old.effective_layout_info_prop(Orientation::Horizontal)
+            .cloned()
+            .zip(old.effective_layout_info_prop(Orientation::Vertical).cloned())
+    }
+    .or_else(|| {
         // generate the layout_info_prop that forward to the implicit layout for that item
         let li_v = crate::layout::create_new_prop(
             &new_root,

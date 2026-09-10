@@ -102,12 +102,6 @@ pub fn count_property_use(root: &CompilationUnit) {
         if let Some(e) = &sc.layout_info_v_at_cross_width_for_repeated {
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }
-        if let Some(e) = &sc.layout_info_h_constrained_for_repeated {
-            e.borrow().visit_property_references(ctx, &mut visit_property);
-        }
-        if let Some(e) = &sc.layout_info_h_at_cross_height_for_repeated {
-            e.borrow().visit_property_references(ctx, &mut visit_property);
-        }
         if let Some(e) = &sc.grid_row_child_cross_width {
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }

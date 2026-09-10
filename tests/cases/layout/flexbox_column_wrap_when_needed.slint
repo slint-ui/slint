@@ -4,9 +4,12 @@
 // A column FlexboxLayout that is a child of a HorizontalLayout with a
 // non-stretch cross-axis-alignment (start) must wrap into extra columns only
 // when there isn't enough height. With room it stays a single natural-height
-// column. Its reported width must match the columns it lays out, so it never
-// overlaps a sibling. Fixed-size Rectangles keep the geometry deterministic
-// across backends (no fonts).
+// column, and reports that column's width, so it never overlaps a sibling.
+// Without room it cannot wrap either: the layout measures it at an unbounded
+// height (see flexbox_column_wrap_width.slint) and gives it one column's
+// width, and a column flex never wraps into columns wider than its width. The
+// third item overflows below the flex instead. Fixed-size Rectangles keep the
+// geometry deterministic across backends (no fonts).
 //
 // unwrapped single-line height = 40 + 5 + 40 + 5 + 40 = 130px.
 //
@@ -17,9 +20,8 @@
 // unwrapped single-line width = 40 + 5 + 40 + 5 + 40 = 130px, row height 50px.
 //
 // Visual aids: the magenta outline is each flex's reported box; the sibling is
-// translucent orange. Before the fix the flex reserved less than it drew, so
-// items spilled past the outline into the sibling; now the outline hugs the
-// items and stops before the sibling.
+// translucent orange. The outline hugs the items and stops before the sibling,
+// except in the short column case, where the third item spills below it.
 //
 // The third column repeats the no-wrap cases with a repeater among the cells:
 // the natural single-line size is then computed from runtime cell arrays
@@ -80,7 +82,7 @@ export component TestCase inherits Window {
         }
     }
 
-    // --- Short: 90px only fits two items -> the third wraps to a 2nd column ---
+    // --- Short: 90px only fits two items -> the third overflows below ---
     shortFlexBg := Rectangle {
         x: 0; y: 340px; width: 400px; height: 90px;
         border-color: gray;
@@ -210,10 +212,12 @@ export component TestCase inherits Window {
     // The sibling sits to the right of the flex, no overlap.
     out property <bool> tall_no_overlap: tallSibling.x >= tallFlex.x + tallFlex.width;
 
-    // Short: the third item wrapped into a second column, so the flex is wider
-    // than a single column.
-    out property <bool> short_wraps: s3.x > s1.x && shortFlex.width > 50px;
-    out property <bool> short_no_overlap: shortSibling.x >= shortFlex.x + shortFlex.width;
+    // Short: the flex is reported one column wide and does not wrap, so the
+    // third item stacks below the second, past the flex's height, and the
+    // sibling is placed right after the column.
+    out property <bool> short_overflows_down: s3.x == s1.x && s3.y >= shortFlex.height
+        && shortFlex.width == 50px;
+    out property <bool> short_sibling_after_column: shortSibling.x == shortFlex.x + shortFlex.width + 10px;
 
     // Rotated: wide row forms a single row (same y, increasing x) and the flex
     // stays one row tall.
@@ -237,7 +241,7 @@ export component TestCase inherits Window {
     out property <bool> rep_wide_natural: repWideFlex.height == 50px && repWideFlex.width == 130px;
     out property <bool> rep_wide_no_overlap: repWideSibling.y >= repWideFlex.y + repWideFlex.height;
 
-    out property <bool> test: tall_single_column && tall_no_overlap && short_wraps && short_no_overlap
+    out property <bool> test: tall_single_column && tall_no_overlap && short_overflows_down && short_sibling_after_column
         && wide_single_row && wide_no_overlap && narrow_wraps && narrow_no_overlap
         && rep_tall_natural && rep_tall_no_overlap && rep_wide_natural && rep_wide_no_overlap;
 }
@@ -247,8 +251,8 @@ export component TestCase inherits Window {
 auto handle = TestCase::create();
 assert(handle->get_tall_single_column());
 assert(handle->get_tall_no_overlap());
-assert(handle->get_short_wraps());
-assert(handle->get_short_no_overlap());
+assert(handle->get_short_overflows_down());
+assert(handle->get_short_sibling_after_column());
 assert(handle->get_wide_single_row());
 assert(handle->get_wide_no_overlap());
 assert(handle->get_narrow_wraps());
@@ -264,8 +268,8 @@ assert(handle->get_test());
 let instance = TestCase::new().unwrap();
 assert!(instance.get_tall_single_column(), "tall column flex must not wrap");
 assert!(instance.get_tall_no_overlap(), "tall flex overlaps its sibling");
-assert!(instance.get_short_wraps(), "short column flex must wrap into a 2nd column");
-assert!(instance.get_short_no_overlap(), "short flex overlaps its sibling");
+assert!(instance.get_short_overflows_down(), "short column flex must overflow below, not wrap into a 2nd column");
+assert!(instance.get_short_sibling_after_column(), "short flex sibling not placed after the reported column");
 assert!(instance.get_wide_single_row(), "wide row flex must not wrap");
 assert!(instance.get_wide_no_overlap(), "wide flex overlaps its sibling");
 assert!(instance.get_narrow_wraps(), "narrow row flex must wrap into a 2nd row");
@@ -281,8 +285,8 @@ assert!(instance.get_test());
 var instance = new slint.TestCase();
 assert(instance.tall_single_column);
 assert(instance.tall_no_overlap);
-assert(instance.short_wraps);
-assert(instance.short_no_overlap);
+assert(instance.short_overflows_down);
+assert(instance.short_sibling_after_column);
 assert(instance.wide_single_row);
 assert(instance.wide_no_overlap);
 assert(instance.narrow_wraps);

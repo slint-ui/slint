@@ -1221,21 +1221,38 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
         }
     }
 
+    /// Measure the instance at the width a box layout lays it out at.
+    /// For a flexbox cell the stored expression was built without re-applying
+    /// inherited constraints (see
+    /// `get_layout_info_v_at_cross_width_for_repeated`), so fall back to the
+    /// plain info like the generated Rust and C++ code do.
     fn layout_item_info_at_cross_width(
         self: Pin<&Self>,
         cross_width: f32,
     ) -> i_slint_core::layout::LayoutItemInfo {
-        self.box_layout_item_info_at_cross(i_slint_core::items::Orientation::Vertical, cross_width)
-    }
-
-    fn layout_item_info_at_cross_height(
-        self: Pin<&Self>,
-        cross_height: f32,
-    ) -> i_slint_core::layout::LayoutItemInfo {
-        self.box_layout_item_info_at_cross(
-            i_slint_core::items::Orientation::Horizontal,
-            cross_height,
-        )
+        use i_slint_compiler::llr::lower_layout_expression::CROSS_WIDTH_LOCAL;
+        let orientation = i_slint_core::items::Orientation::Vertical;
+        let cu = self.root_sub_component.compilation_unit.clone();
+        let sc = &cu.sub_components[self.root_sub_component.sub_component_idx];
+        let Some(expr) = sc
+            .layout_info_v_at_cross_width_for_repeated
+            .as_ref()
+            .filter(|_| sc.flexbox_layout_item_info_for_repeated.is_none())
+        else {
+            return self.layout_item_info(orientation, None);
+        };
+        let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
+        ctx.locals.insert(CROSS_WIDTH_LOCAL.into(), crate::Value::Number(cross_width as f64));
+        let constraint =
+            crate::eval::eval_expression(&mut ctx, &expr.borrow()).try_into().unwrap_or_default();
+        // The per-item fields are the same as in `layout_item_info`, which is
+        // not called here: it measures the constraint through `layout_info`,
+        // which is what this accessor exists to avoid.
+        i_slint_core::layout::LayoutItemInfo {
+            constraint,
+            cross_axis_self_alignment: repeated_align_self(sc, &mut ctx, orientation),
+            layout_order: repeated_layout_order(sc, &mut ctx, orientation),
+        }
     }
 
     fn flexbox_layout_item_info(
@@ -1269,19 +1286,6 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
                     .unwrap_or_default();
                 return info;
             }
-            // Mirror for the other axis: a width-for-height instance (e.g. a
-            // wrapping column FlexboxLayout) must not read self.height. Use the
-            // constrained horizontal info (computed at an unbounded height).
-            if matches!(orientation, i_slint_core::items::Orientation::Horizontal)
-                && child_index.is_none()
-                && let Some(h_expr) = &sc.layout_info_h_constrained_for_repeated
-            {
-                let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
-                info.constraint = crate::eval::eval_expression(&mut ctx, &h_expr.borrow())
-                    .try_into()
-                    .unwrap_or_default();
-                return info;
-            }
             // The expression leaves the constraint unset; fill it with the
             // layout item's real constraint.
             info.constraint = self.layout_item_info(orientation, child_index).constraint;
@@ -1293,53 +1297,6 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
 }
 
 impl Instance {
-    /// Shared body of the box-layout `layout_item_info_at_cross_width` /
-    /// `_at_cross_height` accessors: measure the instance at the cross size a
-    /// box layout lays it out at. The `cross-axis-self-alignment` only
-    /// matters on the cross-axis pass, so it stays `Auto` here.
-    /// For a flexbox cell the stored expression was built without re-applying
-    /// inherited constraints (see
-    /// `get_layout_info_v_at_cross_width_for_repeated`), so fall back to the
-    /// plain info like the generated Rust and C++ code do.
-    fn box_layout_item_info_at_cross(
-        self: Pin<&Self>,
-        orientation: i_slint_core::items::Orientation,
-        cross_size: f32,
-    ) -> i_slint_core::layout::LayoutItemInfo {
-        use i_slint_compiler::llr::lower_layout_expression::{
-            CROSS_HEIGHT_LOCAL, CROSS_WIDTH_LOCAL,
-        };
-        let cu = self.root_sub_component.compilation_unit.clone();
-        let sc = &cu.sub_components[self.root_sub_component.sub_component_idx];
-        let (expr, local) = match orientation {
-            i_slint_core::items::Orientation::Vertical => {
-                (sc.layout_info_v_at_cross_width_for_repeated.as_ref(), CROSS_WIDTH_LOCAL)
-            }
-            i_slint_core::items::Orientation::Horizontal => {
-                (sc.layout_info_h_at_cross_height_for_repeated.as_ref(), CROSS_HEIGHT_LOCAL)
-            }
-        };
-        let Some(expr) = expr.filter(|_| sc.flexbox_layout_item_info_for_repeated.is_none()) else {
-            return i_slint_core::model::RepeatedItemTree::layout_item_info(
-                self,
-                orientation,
-                None,
-            );
-        };
-        let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
-        ctx.locals.insert(local.into(), crate::Value::Number(cross_size as f64));
-        let constraint =
-            crate::eval::eval_expression(&mut ctx, &expr.borrow()).try_into().unwrap_or_default();
-        // The per-item fields are the same as in `layout_item_info`, which is
-        // not called here: it measures the constraint through `layout_info`,
-        // which is what this accessor exists to avoid.
-        i_slint_core::layout::LayoutItemInfo {
-            constraint,
-            cross_axis_self_alignment: repeated_align_self(sc, &mut ctx, orientation),
-            layout_order: repeated_layout_order(sc, &mut ctx, orientation),
-        }
-    }
-
     /// Vertical flexbox info for a repeated instance measured at the container
     /// cross width instead of its own preferred width, so a height-for-width
     /// cell wraps to the same height as an equivalent static cell.
@@ -1360,32 +1317,6 @@ impl Instance {
                 crate::Value::Number(cross_width as f64),
             );
             info.constraint = crate::eval::eval_expression(&mut ctx, &v_expr.borrow())
-                .try_into()
-                .unwrap_or_default();
-        }
-        info
-    }
-
-    /// Horizontal flexbox info for a repeated instance measured at the assigned
-    /// cross height, so a width-for-height cell resolves to the same width as
-    /// an equivalent static cell.
-    pub fn flexbox_layout_item_info_at_cross_height(
-        self: Pin<&Self>,
-        cross_height: f32,
-    ) -> i_slint_core::layout::FlexboxLayoutItemInfo {
-        use i_slint_core::items::Orientation;
-        use i_slint_core::model::RepeatedItemTree;
-        let mut info =
-            RepeatedItemTree::flexbox_layout_item_info(self, Orientation::Horizontal, None);
-        let cu = self.root_sub_component.compilation_unit.clone();
-        let sc = &cu.sub_components[self.root_sub_component.sub_component_idx];
-        if let Some(h_expr) = &sc.layout_info_h_at_cross_height_for_repeated {
-            let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
-            ctx.locals.insert(
-                i_slint_compiler::llr::lower_layout_expression::CROSS_HEIGHT_LOCAL.into(),
-                crate::Value::Number(cross_height as f64),
-            );
-            info.constraint = crate::eval::eval_expression(&mut ctx, &h_expr.borrow())
                 .try_into()
                 .unwrap_or_default();
         }

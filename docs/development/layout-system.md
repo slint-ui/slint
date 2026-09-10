@@ -288,37 +288,31 @@ Other passes hand static cells an explicit constraint.
 A repeated cell cannot read its own width that way: the layout asks the whole
 instance for its layout-info, and the instance goes through
 `layoutinfo-v-with-constraint` rather than reading `self.width` (see
-`synthesize_layoutinfo_v_with_constraint`), so it is measured at a fixed cross
-size — the instance's preferred width for the vertical info, an unbounded height
-for the horizontal one. The layout therefore passes the real size in, through
-the accessors on `RepeatedItemTree`:
+`synthesize_layoutinfo_v_with_constraint`), so it is measured at a fixed width,
+its preferred one. The layout therefore passes the real width in, through the
+accessors on `RepeatedItemTree`:
 
 | Accessor | Backed by | Supplied by |
 |---|---|---|
 | `layout_item_info_at_cross_width(w)` | `SubComponent::layout_info_v_at_cross_width_for_repeated` | any vertical pass at a known width: `VerticalLayout` main pass, `HorizontalLayout` ortho pass, GridLayout vertical pass |
-| `layout_item_info_at_cross_height(h)` | `SubComponent::layout_info_h_at_cross_height_for_repeated` | any horizontal pass at a known height: `HorizontalLayout` main pass, `VerticalLayout` ortho pass |
-| `flexbox_layout_item_info_at_cross_width(w)` / `_height(h)` | the same two expressions | FlexboxLayout solve |
+| `flexbox_layout_item_info_at_cross_width(w)` | the same expression | FlexboxLayout solve |
 
-Which accessor is used depends on the orientation being computed, not on the box
-layout's own direction: a `VerticalLayout` calls
-`layout_item_info_at_cross_width` from its main pass and
-`layout_item_info_at_cross_height` from its ortho pass, a `HorizontalLayout` the
-other way around. GridLayout appears in the first row only. It solves horizontal
-first, so measuring a cell at a solved height would make the horizontal solve
-read the vertical cache, which the end of this section explains it must not.
+Which pass calls the accessor depends on the orientation being computed, not on
+the box layout's own direction: a `VerticalLayout` calls it from its main pass,
+a `HorizontalLayout` from its ortho pass.
 
-The `SubComponent` fields are in `internal/compiler/llr/item_tree.rs`; the
-generators emit the accessors in `internal/compiler/generator/rust.rs` and
-`generator/cpp.rs`, and the interpreter mirrors them in
+The `SubComponent` field is in `internal/compiler/llr/item_tree.rs`; the
+generators emit the accessor in `internal/compiler/generator/rust.rs` and
+`generator/cpp.rs`, and the interpreter mirrors it in
 `internal/interpreter/eval_layout.rs` and `instance.rs`.
 
-Where the size comes from differs per layout kind:
+Where the width comes from differs per layout kind:
 
-- **Box layout, main pass** forwards one size for all cells (the layout's cross
-  content size), in `Expression::WithLayoutItemInfo::repeated_cross_size`.
-- **Box layout, ortho pass** has no single size to forward:
+- **`VerticalLayout`, main pass** forwards one width for all cells (the
+  layout's content width), in `Expression::WithLayoutItemInfo::repeated_cross_size`.
+- **`HorizontalLayout`, ortho pass** has no single width to forward:
   `Expression::BoxLayoutInfoOrthoWithMeasure` solves the main axis first, then
-  measures each instance at its *own* solved main size, as a
+  measures each instance at its *own* solved width, as a
   `BoxMeasureCell::Repeated`. `repeated_cross_size` is `None` here.
 - **GridLayout** has one width per column, so it reads each cell's own slot out
   of `layout-cache-h`: `LayoutRepeatedElement::cross_width`
@@ -337,17 +331,55 @@ Where the size comes from differs per layout kind:
   (`SolveFlexboxLayoutWithMeasure`, `FlexboxLayoutInfoCrossAxisWithMeasure`),
   which re-measures at the size taffy actually assigns.
 
-Reading the horizontal cache from the vertical pass is only sound while the
-horizontal solve does not read back into the vertical cache. A *repeated*
-width-for-height cell breaks that: the grid measures it through its plain
-`layout_info_h`, which pulls the instance's own height, and that height comes
-from the grid's vertical cache. `mark_grid_h_solve_reads_v_cache` sets
-`GridLayoutCell::h_solve_reads_v_cache` on every cell of such a grid, and the
-vertical pass then falls back to the instance's plain layout-info instead of
-closing a binding loop. Static cells are safe: on the grid solve
-`cell_layout_info` passes no cross size, so a cell with
-`layoutinfo-h-with-constraint` is measured at an unbounded height and one
-without it never reads its own height.
+## Width down, height up
+
+Sizes flow one way: a layout settles widths first, and heights are then
+computed from those widths. Everything height-for-width (a wrapped `Text`, an
+`Image` keeping its aspect ratio, a wrapping row `FlexboxLayout`) fits that
+order, and it is what makes the cross-size forwarding above sound: reading the
+horizontal cache from a vertical pass is fine as long as no horizontal solve
+reads back into a vertical cache.
+
+Nothing is width-for-height. The one element whose width would depend on its
+height, a wrapping column `FlexboxLayout`, is measured at an unbounded height
+instead: `compute_flexbox_layout_info_for_direction` passes `f32::MAX` as the constraint of
+its `layoutinfo-h`, so it reports a single column, like a CSS column flex
+container with an auto height. Reading its real height there would close a loop
+whenever a parent computes that height from this very width.
+Its solve wraps only into columns that fit the width it was given, and
+otherwise does not wrap (`solve_flexbox_layout`), so the content overflows
+downward like a wrapped `Text` given too little height, never sideways into a
+sibling. That re-solve also pins a single line that is wider than the flex,
+which `cross-axis-line-alignment: center` or `end` would otherwise place at a
+negative `x`. `wrap-reverse` is left out of it: it anchors its lines at the
+cross end, which a non-wrapping solve does not, so it keeps wrapping past its
+width (`flexbox_column_wrap_reverse_overflow.slint`).
+
+A height given as a length literal is different. It sets
+`LayoutConstraints::fixed_height`, and a cell with a fixed height gets no
+`height_reference` (`LayoutItem::rect`), so no parent layout writes its cache
+into it. Reading it cannot cycle.
+`lower_flexbox_layout` therefore also emits `layoutinfo-h-at-own-height`, the
+same info computed at `self.height`. The unused one of the two is dropped by
+`remove_unused`. Two readers hand it out when `Element::height_from_source`
+holds: `Element::effective_layout_info_prop` for the element itself, and
+`implicit_layout_info_call` for an instance of a component whose root is the
+flex, which sets the height outside the component. `lower_layouts` computes
+that flag once, before later passes move bindings around.
+
+The rule is deliberately narrow, and this is where it is argued;
+`Element::compute_height_from_source` points here rather than repeating it.
+A `px` literal is the only expression
+known at that point to be free of a layout: `Expression::is_constant` still reads a
+layout-assigned property as constant, since the analysis that would say
+otherwise runs later. Anything else — a percentage, `parent.height`, an
+element that merely fills a sized parent — reports one column. Widening it
+would mean predicting what `default_geometry`, `lower_layout` and
+`fix_percent_size` each do later. Predict one of them wrongly and the rule
+accepts a height a layout still assigns, which is a binding loop at compile
+time. The root of a component used elsewhere answers no on its own, since each
+instance may override the height and is asked separately.
+`tests/cases/layout/flexbox_column_wrap_width.slint` pins both behaviors.
 
 ## Common Modification Patterns
 

@@ -1,0 +1,108 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An instance overrides the bindings of its base, so a height the base sets
+// counts only for instances that keep it (see flexbox_column_wrap_width.slint).
+// Each case below overrides it with the height of a Rectangle a VerticalLayout
+// assigns, beside a wrapped Text: reading that height would loop through the
+// row's width. The flex must measure as one column, and compile.
+
+component WrapCol inherits FlexboxLayout {
+    flex-direction: column;
+    flex-wrap: wrap;
+    spacing: 0px;
+    padding: 0px;
+    cross-axis-line-alignment: start;
+    Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+}
+
+// The base sets the height.
+component FixedCol inherits WrapCol {
+    height: 70px;
+}
+
+// The base reads a property the instance sets.
+component PropCol inherits WrapCol {
+    in property <length> h: 70px;
+    height: h;
+}
+
+// A descendant reads the base root's height.
+component Card inherits Rectangle {
+    height: 70px;
+    inner := WrapCol { height: 100%; }
+    out property <length> inner-width: inner.preferred-width;
+}
+
+export component TestCase inherits Window {
+    width: 750px;
+    height: 200px;
+
+    Text { x: 8px; y: 4px; width: 734px; font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "Each column flex gets a height its base sets, overridden where it is used with the height of a Rectangle a VerticalLayout assigns. It reports one column and does not wrap, so the boxes stack below it."; }
+
+    Text { x: 0; y: 40px; font-size: 10px; color: #555555; text: "A: base height overridden"; }
+    HorizontalLayout {
+        x: 0; y: 60px; width: 240px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        VerticalLayout {
+            padding: 0px; spacing: 0px;
+            Text { text: "some words that wrap"; wrap: word-wrap; }
+            Rectangle { fixedCol := FixedCol { height: 100%; } }
+        }
+    }
+
+    Text { x: 250px; y: 40px; font-size: 10px; color: #555555; text: "B: base property overridden"; }
+    HorizontalLayout {
+        x: 250px; y: 60px; width: 240px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        VerticalLayout {
+            padding: 0px; spacing: 0px;
+            Text { text: "some words that wrap"; wrap: word-wrap; }
+            propParent := Rectangle { propCol := PropCol { h: propParent.height; } }
+        }
+    }
+
+    Text { x: 500px; y: 40px; font-size: 10px; color: #555555; text: "C: base root height overridden"; }
+    HorizontalLayout {
+        x: 500px; y: 60px; width: 240px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        VerticalLayout {
+            padding: 0px; spacing: 0px;
+            Text { text: "some words that wrap"; wrap: word-wrap; }
+            Rectangle { card := Card { height: 100%; } }
+        }
+    }
+
+    out property <bool> base-ok: fixedCol.preferred-width == 40px;
+    out property <bool> property-ok: propCol.preferred-width == 40px;
+    out property <bool> descendant-ok: card.inner-width == 40px;
+    out property <bool> test: base-ok && property-ok && descendant-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_base_ok(), "an overridden base height must measure as one column");
+assert!(instance.get_property_ok(), "an overridden base property must measure as one column");
+assert!(instance.get_descendant_ok(), "an overridden base root height must measure as one column");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_base_ok());
+assert(instance.get_property_ok());
+assert(instance.get_descendant_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.base_ok);
+assert(instance.property_ok);
+assert(instance.descendant_ok);
+```
+*/

@@ -198,9 +198,10 @@ fn gen_layout_info_prop(
         })
         .filter_map(|c| {
             gen_layout_info_prop(c, diag, symbol_counters);
-            c.borrow()
-                .layout_info_prop
-                .clone()
+            let cb = c.borrow();
+            cb.effective_layout_info_prop(Orientation::Horizontal)
+                .cloned()
+                .zip(cb.effective_layout_info_prop(Orientation::Vertical).cloned())
                 .map(|(h, v)| {
                     (Some(Expression::PropertyReference(h)), Some(Expression::PropertyReference(v)))
                 })

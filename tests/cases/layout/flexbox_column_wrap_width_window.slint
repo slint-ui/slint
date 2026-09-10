@@ -1,0 +1,61 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A column flex counts the columns that fit its height only for a height given
+// as a length literal (see flexbox_column_wrap_width.slint). Filling a sized
+// parent is not enough, however fixed that parent is: the flex has no height of
+// its own, so it reports one column. The window below is 70px tall and each
+// flex ends up 70px tall, yet both report 40px, not the 80px of two columns.
+//
+// The rule stops at the element, deliberately. Reaching further would mean
+// predicting what later passes give an element with no height binding.
+
+component WrapCol inherits FlexboxLayout {
+    flex-direction: column;
+    flex-wrap: wrap;
+    spacing: 0px;
+    padding: 0px;
+    cross-axis-line-alignment: start;
+    Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 70px;
+
+    // A: fills the window, which has a literal height. Still one column.
+    bare := WrapCol { x: 0; width: 80px; }
+    Rectangle { x: bare.preferred-width; width: 5px; background: #5b8db8; }
+
+    // B: 100% of a Rectangle that fills the window. Also one column.
+    Rectangle { x: 150px; width: 80px; pct := WrapCol { height: 100%; } }
+    Rectangle { x: 150px + pct.preferred-width; width: 5px; background: #5b8db8; }
+
+    out property <bool> bare-ok: bare.preferred-width == 40px && bare.height == 70px;
+    out property <bool> percent-ok: pct.preferred-width == 40px && pct.height == 70px;
+    out property <bool> test: bare-ok && percent-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_bare_ok(), "a flex with no height of its own must report one column");
+assert!(instance.get_percent_ok(), "100% of a filled parent must report one column");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_bare_ok());
+assert(instance.get_percent_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.bare_ok);
+assert(instance.percent_ok);
+```
+*/

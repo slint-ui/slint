@@ -24,30 +24,19 @@ pub enum ArrayOutput {
 pub use crate::expression_tree::MouseCursorInner;
 
 /// One cell of a generated flexbox measure callback: how to re-measure it at a
-/// taffy-assigned size. See [`Expression::SolveFlexboxLayoutWithMeasure`].
-#[derive(Debug, Clone)]
-pub struct FlexboxMeasureCell {
-    pub kind: FlexboxMeasureCellKind,
-    /// The cell is width-for-height only: a probe with neither dimension known
-    /// measures its horizontal axis at the default height (any other cell
-    /// measures its vertical axis at the default width), keeping the probe
-    /// result self-consistent (see `FlexboxMeasureFn` in i-slint-core).
-    pub w4h_only: bool,
-}
-
+/// taffy-assigned width. See [`Expression::SolveFlexboxLayoutWithMeasure`].
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
-pub enum FlexboxMeasureCellKind {
-    /// A static cell, with its `LayoutInfo`-typed expressions reading the
-    /// `measure_known_h` / `measure_known_w` locals as their cross-axis
-    /// constraint.
-    Static { h_info: Expression, v_info: Expression },
+pub enum FlexboxMeasureCell {
+    /// A static height-for-width cell, with its vertical `LayoutInfo`-typed
+    /// expression reading the `measure_known_w` local as its width constraint.
+    Static { v_info: Expression },
     /// A repeater: its instances are only known at run time, so the generated
     /// callback queries the instance directly.
     Repeated(LayoutRepeatedElement),
-    /// A cell whose layout info does not depend on the perpendicular axis (no
-    /// constrained layout-info function): the sizes pre-resolved from the cell
-    /// arrays are already correct, so no measure arm is generated.
+    /// A cell whose height does not depend on its width: the sizes
+    /// pre-resolved from the cell arrays are already correct, so no measure
+    /// arm is generated.
     Fixed,
 }
 
@@ -56,14 +45,13 @@ pub enum FlexboxMeasureCellKind {
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 pub enum BoxMeasureCell {
-    /// A static cell: its cross-axis `LayoutInfo` expression. A
-    /// height-for-width (resp. width-for-height) cell reads the
-    /// `measure_known_w` (resp. `measure_known_h`) local as its cross-axis
-    /// constraint; any other cell just doesn't read it.
+    /// A static cell: its vertical `LayoutInfo` expression. A height-for-width
+    /// cell reads the `measure_known_w` local as its width constraint; any
+    /// other cell just doesn't read it.
     Static { info: Expression },
     /// A repeater: its instances are only known at run time, so the generated
-    /// code queries each instance's `layout_item_info_at_cross_width` /
-    /// `_at_cross_height` at its solved main-axis size.
+    /// code queries each instance's `layout_item_info_at_cross_width` at its
+    /// solved width.
     Repeated(LayoutRepeatedElement),
 }
 
@@ -276,13 +264,13 @@ pub enum Expression {
         /// Either an expression of type LayoutItemInfo, or information about the repeater
         elements: Vec<Either<Expression, LayoutRepeatedElement>>,
         orientation: Orientation,
-        /// Cross-axis size of the box layout on its main-axis pass: passed to
-        /// each repeated cell's `layout_item_info_at_cross_width` /
-        /// `_at_cross_height` so a height-for-width instance wraps to the real
-        /// width instead of its preferred width. `None` on the cross-axis pass
-        /// (and for grids). Only the plain column-repeater code path forwards
-        /// it — box layout repeaters are always step-1 column repeaters (no
-        /// `row_child_templates`); the generators assert this.
+        /// Content width of a vertical box layout on its main-axis pass:
+        /// passed to each repeated cell's `layout_item_info_at_cross_width` so
+        /// a height-for-width instance wraps to the real width instead of its
+        /// preferred width. `None` on a horizontal layout's main pass, on the
+        /// cross-axis pass, and for grids. Only the plain column-repeater code
+        /// path forwards it — box layout repeaters are always step-1 column
+        /// repeaters (no `row_child_templates`); the generators assert this.
         repeated_cross_size: Option<Box<Expression>>,
         sub_expression: Box<Expression>,
     },
@@ -313,18 +301,15 @@ pub enum Expression {
         sub_expression: Box<Expression>,
     },
     /// Calls `solve_flexbox_layout_with_measure` with a generated measure
-    /// callback so the cross-axis size of height-for-width cells is recomputed
-    /// at the width/height taffy actually assigns (rather than the cell's
-    /// preferred size). `data` is the `FlexboxLayoutData`. For each static cell,
-    /// `measure_cells[i]` carries `(h_info_given_known_h, v_info_given_known_w)`,
-    /// each a `LayoutInfo`-typed expression that reads
-    /// `ReadLocalVariable("measure_known_w" / "measure_known_h")` (a `Float32`)
-    /// as its cross-axis constraint. A repeater cell is measured by calling
-    /// the matching cross-axis accessor
-    /// (`flexbox_layout_item_info_at_cross_width` or `_at_cross_height`) on the
-    /// instance taffy asks for; the callback maps taffy's flat cell index to it
-    /// with a runtime cursor, since a repeater expands to a runtime number of
-    /// cells.
+    /// callback so the height of height-for-width cells is recomputed at the
+    /// width taffy actually assigns (rather than the cell's preferred width).
+    /// `data` is the `FlexboxLayoutData`. For each static height-for-width
+    /// cell, `measure_cells[i]` carries its vertical `LayoutInfo`-typed
+    /// expression, which reads `ReadLocalVariable("measure_known_w")` (a
+    /// `Float32`) as its width constraint. A repeater cell is measured by
+    /// calling `flexbox_layout_item_info_at_cross_width` on the instance taffy
+    /// asks for; the callback maps taffy's flat cell index to it with a
+    /// runtime cursor, since a repeater expands to a runtime number of cells.
     SolveFlexboxLayoutWithMeasure {
         /// The `FlexboxLayoutData` (built inline with the cell arrays, so its
         /// temporaries live for the duration of the solve call).
@@ -332,21 +317,17 @@ pub enum Expression {
         repeater_indices: Box<Expression>,
         measure_cells: Vec<FlexboxMeasureCell>,
     },
-    /// Cross-axis info of a box layout at a known main-axis size: solves the
-    /// main axis at that size, then folds the cells' cross-axis infos with
-    /// `box_layout_info_ortho`, measuring each height-for-width (resp.
-    /// width-for-height) cell at its solved main size — the box layout
-    /// counterpart of [`Self::FlexboxLayoutInfoCrossAxisWithMeasure`].
+    /// Vertical info of a horizontal box layout at a known width: solves the
+    /// main axis at that width, then folds the cells' vertical infos with
+    /// `box_layout_info_ortho`, measuring each height-for-width cell at its
+    /// solved width — the box layout counterpart of
+    /// [`Self::FlexboxLayoutInfoCrossAxisWithMeasure`].
     BoxLayoutInfoOrthoWithMeasure {
         /// The `BoxLayoutData` for the main-axis solve; its `size` is the
-        /// known cross-axis size of the info being computed.
+        /// known width of the info being computed.
         solve_data: Box<Expression>,
-        /// The cross-axis `Padding` for the fold.
+        /// The vertical `Padding` for the fold.
         padding_ortho: Box<Expression>,
-        /// The axis of the computed info: `Vertical` for a horizontal layout's
-        /// vertical info at a known width (cells measure height at their
-        /// solved width), `Horizontal` for the mirror.
-        orientation: Orientation,
         measure_cells: Vec<BoxMeasureCell>,
     },
     /// Calls `flexbox_layout_info_cross_axis_with_measure` with the same
@@ -725,26 +706,19 @@ macro_rules! visit_impl {
                 $visitor(data);
                 $visitor(repeater_indices);
                 measure_cells.$iter().for_each(|x| match x {
-                    FlexboxMeasureCell {
-                        kind: FlexboxMeasureCellKind::Static { h_info, v_info },
-                        ..
-                    } => {
-                        $visitor(h_info);
-                        $visitor(v_info);
-                    }
-                    FlexboxMeasureCell { kind: FlexboxMeasureCellKind::Repeated(r), .. } => {
+                    FlexboxMeasureCell::Static { v_info } => $visitor(v_info),
+                    FlexboxMeasureCell::Repeated(r) => {
                         if let Some(w) = r.cross_width.$as_ref() {
                             $visitor(w);
                         }
                     }
-                    FlexboxMeasureCell { kind: FlexboxMeasureCellKind::Fixed, .. } => {}
+                    FlexboxMeasureCell::Fixed => {}
                 });
             }
             Expression::BoxLayoutInfoOrthoWithMeasure {
                 solve_data,
                 padding_ortho,
                 measure_cells,
-                ..
             } => {
                 $visitor(solve_data);
                 $visitor(padding_ortho);
@@ -760,12 +734,7 @@ macro_rules! visit_impl {
             Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } => {
                 arguments.$iter().for_each(&mut $visitor);
                 measure_cells.$iter().for_each(|x| {
-                    if let FlexboxMeasureCell {
-                        kind: FlexboxMeasureCellKind::Static { h_info, v_info },
-                        ..
-                    } = x
-                    {
-                        $visitor(h_info);
+                    if let FlexboxMeasureCell::Static { v_info } = x {
                         $visitor(v_info);
                     }
                 });
