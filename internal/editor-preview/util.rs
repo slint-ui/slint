@@ -180,6 +180,36 @@ struct ExpressionContextInfo {
     binding_expr: Option<(SyntaxNode, SyntaxNode)>,
 }
 
+/// Resolve the model expression of every `for` and `if` element in `scope`.
+///
+/// The compiler skips its passes on a document that has errors, which is what a document being
+/// edited usually looks like. Without this, the loop variable has no type.
+fn resolve_repeater_models(scope: &[object_tree::ElementRc], tr: &TypeRegister) {
+    let mut build_diagnostics = Default::default();
+    for (i, elem) in scope.iter().enumerate() {
+        object_tree::visit_repeater_model_expression(elem, |expr, _, property_type| {
+            let node = match expr.ignore_debug_hooks() {
+                Expression::Uncompiled(node) => syntax_nodes::Expression::from(node.clone()),
+                _ => return,
+            };
+            let ty = property_type();
+            let mut ctx = LookupCtx::empty_context(
+                tr,
+                &mut build_diagnostics,
+                i_slint_compiler::symbol_counters::SymbolCounters::shared(),
+            );
+            ctx.component_scope = &scope[..i];
+            ctx.property_type = ty.clone();
+            let new_expr = Expression::from_expression_node(node.clone(), &mut ctx)
+                .maybe_convert_to(ty, &node, ctx.diag, &ctx.symbol_counters);
+            match expr {
+                Expression::DebugHook { expression, .. } => **expression = new_expr,
+                _ => *expr = new_expr,
+            }
+        });
+    }
+}
+
 /// Run the function with the LookupCtx associated with the token
 pub fn with_lookup_ctx<R>(
     document_cache: &crate::DocumentCache,
@@ -253,6 +283,8 @@ pub fn with_lookup_ctx<R>(
             .iter()
             .find_map(|(p, t)| if p.as_str() == prop_name { Some(t.clone()) } else { None })
     }
+
+    resolve_repeater_models(&scope, tr);
 
     let mut build_diagnostics = Default::default();
     let mut lookup_context = LookupCtx::empty_context(
