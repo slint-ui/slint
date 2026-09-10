@@ -15,11 +15,13 @@ from ui_driver import (
     first_window,
     launch_editor,
     select_outline_row,
+    wait_until,
     window_element_with_label,
 )
 
 
 @pytest.mark.parametrize("angle", [0, 30])
+@pytest.mark.parametrize("radius", [0, 20])
 @pytest.mark.parametrize(
     "selected, hovered", [(False, True), (True, False), (True, True)]
 )
@@ -31,6 +33,7 @@ def test_canvas_outline_preserves_item_border(
     angle: int,
     selected: bool,
     hovered: bool,
+    radius: int,
 ) -> None:
     source = fixture_project / "Main.slint"
     source.write_text(
@@ -46,6 +49,7 @@ def test_canvas_outline_preserves_item_border(
         background: white;
         border-width: 3px;
         border-color: black;
+        border-radius: {radius}px;
         transform-rotation: {angle}deg;
     }}
 }}
@@ -133,4 +137,65 @@ def test_canvas_outline_preserves_item_border(
             assert blue > red + 60 and blue > green
             assert max(edge_pixel(1.5)) < 30
             assert min(edge_pixel(5)) > 240
+        if hovered and radius and not selected:
+            assert min(pixel(-1, -1)) > 240
+            arc = radius - (radius + 1) / math.sqrt(2)
+            red, green, blue = pixel(arc, arc)
+            assert blue > red + 60 and blue > green
+        if selected and hovered and angle == 0:
+            assert min(pixel(-2, -2)) > 240
         snapshot.assert_unchanged()
+
+
+@pytest.mark.parametrize(
+    "tool", ["resize top-left", "rotate top-left", "radius top-left", "move handle"]
+)
+def test_selected_hover_hides_for_manipulation(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    tool: str,
+) -> None:
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Main.slint"
+    ) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "root-rectangle")
+        frame = window_element_with_label(window, "Selected Rectangle")
+        inside = slint_testing.LogicalPosition(
+            x=frame.absolute_position.x + 40,
+            y=frame.absolute_position.y + 60,
+        )
+        window.dispatch_event(slint_testing.PointerMoveEvent(inside))
+        window_element_with_label(window, "Hovered Rectangle")
+        handle = window_element_with_label(window, "Rectangle " + tool)
+        target = (
+            inside
+            if tool == "move handle"
+            else slint_testing.LogicalPosition(
+                x=handle.absolute_position.x + handle.size.width / 2,
+                y=handle.absolute_position.y + handle.size.height / 2,
+            )
+        )
+        window.dispatch_event(slint_testing.PointerMoveEvent(target))
+        if tool == "move handle":
+            window.dispatch_event(
+                slint_testing.PointerPressEvent(
+                    target, slint_testing.PointerEventButton.Left
+                )
+            )
+        wait_until(
+            lambda: (
+                True
+                if not elements_with_label(window.root_element, "Hovered Rectangle")
+                else None
+            )
+        )
+        if tool == "move handle":
+            window.dispatch_event(
+                slint_testing.PointerReleaseEvent(
+                    target, slint_testing.PointerEventButton.Left
+                )
+            )
+        window.dispatch_event(slint_testing.PointerMoveEvent(inside))
+        window_element_with_label(window, "Hovered Rectangle")

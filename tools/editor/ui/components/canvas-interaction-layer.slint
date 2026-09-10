@@ -122,6 +122,8 @@ component SelectedCanvasFrame inherits Rectangle {
             root.pending-rotation = rotation;
             Api.override-selected-element-rotation(rotation);
         }
+        control-hovered => { Hover.element = {}; }
+        move-press-started(position) => { Hover.element = {}; }
         interaction-started => {
             root.rotation-active = false;
             root.radius-drag-active = false;
@@ -183,6 +185,7 @@ component SelectedCanvasFrame inherits Rectangle {
 }
 
 component HoverCanvasFrame inherits MoveResizeFrame {
+    show-outline: false;
     outline-width: EditorMetrics.hover-outline-width;
     in property <SelectionRectangle> geometry;
     in property <bool> gesture-active;
@@ -307,7 +310,28 @@ export component CanvasInteractionLayer inherits Rectangle {
         }
     }
 
-    // Selected frames precede hover frames so an enabled hover frame receives input.
+    for geometry in Hover.element.geometry: Rectangle {
+        x: geometry.x;
+        y: geometry.y;
+        width: geometry.width;
+        height: geometry.height;
+        transform-origin: { x: self.width / 2, y: self.height / 2 };
+        transform-rotation: geometry.angle;
+        visible: Hover.element.valid && !root.hover-selection-active;
+        Rectangle {
+            x: -EditorMetrics.hover-outline-width;
+            y: -EditorMetrics.hover-outline-width;
+            width: parent.width + 2 * EditorMetrics.hover-outline-width;
+            height: parent.height + 2 * EditorMetrics.hover-outline-width;
+            border-width: EditorMetrics.hover-outline-width;
+            border-color: StudioTheme.accent-strong;
+            border-top-left-radius: geometry.top-left-radius > 0px ? geometry.top-left-radius + self.border-width : 0px;
+            border-top-right-radius: geometry.top-right-radius > 0px ? geometry.top-right-radius + self.border-width : 0px;
+            border-bottom-left-radius: geometry.bottom-left-radius > 0px ? geometry.bottom-left-radius + self.border-width : 0px;
+            border-bottom-right-radius: geometry.bottom-right-radius > 0px ? geometry.bottom-right-radius + self.border-width : 0px;
+        }
+    }
+
     for selection[idx] in root.selections: SelectedCanvasFrame {
         selection: selection;
         primary: idx == Api.selection.highlight-index;
