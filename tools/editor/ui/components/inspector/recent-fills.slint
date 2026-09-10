@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, FillData } from "../../api.slint";
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorRecentFills inherits Rectangle {
+    in property <bool> allow-gradient;
+    in property <bool> editable;
+    callback chosen(FillData);
+    private property <[FillData]> fills: Api.filter-recent-fills(Api.recent-fills, root.allow-gradient);
+    height: layout.preferred-height;
+    layout := VerticalLayout {
+        spacing: 8px;
+        Text { text: "Recent fills"; color: InspectorTokens.muted; font-size: 11px; font-weight: 600; }
+        if root.fills.length == 0: Text { text: "No recent fills"; color: InspectorTokens.muted; font-size: 11px; }
+        if root.fills.length > 0: HorizontalLayout {
+            spacing: 6px;
+            alignment: start;
+            for fill in root.fills: FocusScope {
+                width: 22px;
+                height: 22px;
+                key-pressed(event) => {
+                    if root.editable && (event.text == Key.Return || event.text == Key.Space) {
+                        root.chosen(fill);
+                        return accept;
+                    }
+                    return reject;
+                }
+                Rectangle {
+                    border-radius: 3px;
+                    border-width: 1px;
+                    border-color: parent.has-focus ? InspectorTokens.accent : InspectorTokens.divider;
+                    background: Api.fill-brush(fill);
+                }
+                TouchArea {
+                    enabled: root.editable;
+                    accessible-role: button;
+                    accessible-label: "Recent fill " + Api.fill-expression(fill);
+                    clicked => { parent.focus(); root.chosen(fill); }
+                    accessible-action-default => { if root.editable { root.chosen(fill); } }
+                }
+            }
+        }
+    }
+}

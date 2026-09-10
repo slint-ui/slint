@@ -17,7 +17,7 @@ import { EditorMetrics } from "components/common.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export { Api, Hover, Project }
-export { EditorCursors } from "components/common.slint";
+export { EditorCursors, EditorMetrics } from "components/common.slint";
 
 export component EditorUi inherits Window {
     preferred-width: 1360px;
@@ -58,7 +58,7 @@ export component EditorUi inherits Window {
     function apply-history(redo: bool) {
         Api.inspector-cancel();
         Api.inspector-generation += 1;
-        Api.inspector-color-generation += 1;
+        Api.inspector-fill-generation += 1;
         if redo {
             if Api.redo-enabled { Api.redo(); }
         } else {

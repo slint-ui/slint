@@ -1,0 +1,151 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { FillData, BrushKind } from "../../api.slint";
+import { InspectorTokens } from "tokens.slint";
+import { InspectorComboBox } from "combo-box.slint";
+import { InspectorRotationKnob } from "rotation-knob.slint";
+import { InspectorTextFieldBase } from "text-field-base.slint";
+
+export component InspectorGradientGeometry inherits Rectangle {
+    in property <FillData> value;
+    in property <string> session-key;
+    callback preview(FillData) -> bool;
+    callback type-selected(BrushKind) -> bool;
+    callback center-mode-selected(bool) -> bool;
+    callback radius-mode-selected(bool) -> bool;
+    private property <FillData> draft;
+    private property <FillData> gesture-value;
+    height: layout.preferred-height;
+
+    function set-angle(angle: float) -> bool {
+        root.draft = root.value;
+        root.draft.angle = angle;
+        return root.preview(root.draft);
+    }
+
+    layout := VerticalLayout {
+        spacing: 8px;
+        HorizontalLayout {
+            spacing: 8px;
+            InspectorComboBox {
+                accessible-name: "Gradient type";
+                horizontal-stretch: 1;
+                value: root.value.kind == BrushKind.linear ? "Linear" : root.value.kind == BrushKind.radial ? "Radial" : "Conic";
+                selected-index: root.value.kind == BrushKind.linear ? 0 : root.value.kind == BrushKind.radial ? 1 : 2;
+                options: [
+                { label: "Linear", value: "Linear" },
+                { label: "Radial", value: "Radial" },
+                { label: "Conic", value: "Conic" },
+                ];
+                accepted(text) => {
+                    return root.type-selected(text == "Linear" ? BrushKind.linear : text == "Radial" ? BrushKind.radial : BrushKind.conic);
+                }
+            }
+            if root.value.kind != BrushKind.radial: InspectorRotationKnob {
+                accessible-name: "Gradient angle";
+                value: root.value.angle;
+                commit-key: root.session-key;
+                started => {
+                    root.gesture-value = root.value;
+                }
+                preview(angle) => {
+                    return root.set-angle(angle);
+                }
+                accepted(angle) => {
+                    return root.set-angle(angle);
+                }
+                canceled => {
+                    root.preview(root.gesture-value);
+                }
+            }
+            if root.value.kind != BrushKind.radial: InspectorTextFieldBase {
+                accessible-name: "Gradient angle degrees";
+                width: 62px;
+                value: root.value.angle.to-fixed(1);
+                commit-key: root.session-key;
+                accepted(text) => {
+                    return text.is-float() && root.set-angle(text.to-float());
+                }
+            }
+        }
+        if root.value.kind != BrushKind.linear: HorizontalLayout {
+            spacing: 8px;
+            Text { text: "Center"; color: InspectorTokens.muted; font-size: 11px; vertical-alignment: center; width: 58px; }
+            InspectorComboBox {
+                accessible-name: "Gradient center";
+                horizontal-stretch: 1;
+                value: root.value.custom-center ? "Custom" : "Automatic";
+                selected-index: root.value.custom-center ? 1 : 0;
+                options: [{ label: "Automatic", value: "Automatic" }, { label: "Custom", value: "Custom" }];
+                accepted(text) => {
+                    return root.center-mode-selected(text == "Custom");
+                }
+            }
+        }
+        if root.value.kind != BrushKind.linear && root.value.custom-center: HorizontalLayout {
+            spacing: 8px;
+            Text { text: "X / Y px"; color: InspectorTokens.muted; font-size: 11px; vertical-alignment: center; width: 58px; }
+            InspectorTextFieldBase {
+                accessible-name: "Gradient center X";
+                horizontal-stretch: 1;
+                value: root.value.center-x.to-fixed(1);
+                commit-key: root.session-key;
+                accepted(text) => {
+                    if !text.is-float() {
+                        return false;
+                    }
+                    root.draft = root.value;
+                    root.draft.center-x = text.to-float();
+                    return root.preview(root.draft);
+                }
+            }
+            InspectorTextFieldBase {
+                accessible-name: "Gradient center Y";
+                horizontal-stretch: 1;
+                value: root.value.center-y.to-fixed(1);
+                commit-key: root.session-key;
+                accepted(text) => {
+                    if !text.is-float() {
+                        return false;
+                    }
+                    root.draft = root.value;
+                    root.draft.center-y = text.to-float();
+                    return root.preview(root.draft);
+                }
+            }
+        }
+        if root.value.kind == BrushKind.radial: HorizontalLayout {
+            spacing: 8px;
+            Text { text: "Radius"; color: InspectorTokens.muted; font-size: 11px; vertical-alignment: center; width: 58px; }
+            InspectorComboBox {
+                accessible-name: "Gradient radius mode";
+                horizontal-stretch: 1;
+                value: root.value.custom-radius ? "Custom" : "Automatic";
+                selected-index: root.value.custom-radius ? 1 : 0;
+                options: [{ label: "Automatic", value: "Automatic" }, { label: "Custom", value: "Custom" }];
+                accepted(text) => {
+                    return root.radius-mode-selected(text == "Custom");
+                }
+            }
+        }
+        if root.value.kind == BrushKind.radial && root.value.custom-radius: HorizontalLayout {
+            spacing: 8px;
+            Text { text: "px"; color: InspectorTokens.muted; font-size: 11px; vertical-alignment: center; width: 58px; }
+            InspectorTextFieldBase {
+                accessible-name: "Gradient radius";
+                horizontal-stretch: 1;
+                value: root.value.radius.to-fixed(1);
+                commit-key: root.session-key;
+                accepted(text) => {
+                    if !text.is-float() || text.to-float() <= 0 {
+                        return false;
+                    }
+                    root.draft = root.value;
+                    root.draft.radius = text.to-float();
+                    return root.preview(root.draft);
+                }
+            }
+        }
+    }
+}

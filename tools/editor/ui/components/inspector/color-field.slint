@@ -3,21 +3,24 @@
 
 import { InspectorTokens } from "tokens.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
-import { InspectorSolidColorPicker } from "solid-color-picker.slint";
-import { Api } from "../../api.slint";
+import { InspectorFillPicker } from "fill-picker.slint";
+import { Api, PropertyValue, PropertyValueKind } from "../../api.slint";
 
 export component InspectorColorField inherits Rectangle {
     in property <string> accessible-name: "";
     in property <string> value;
     in property <brush> swatch;
+    in property <Size> target-size: {
+        width: Api.current-property-value-data("width").value-float * 1px,
+        height: Api.current-property-value-data("height").value-float * 1px,
+    };
     in property <bool> wide: false;
     in property <string> commit-key: "";
-    in property <color> effective-color: swatch;
-    in property <bool> unsupported: false;
     in property <string> preview-key: "";
     in property <string> session-key: "";
     in property <string> property-name: "";
     callback accepted(string) -> bool;
+    private property <PropertyValue> property-data: Api.current-property-value-data(root.property-name);
     private property <bool> picker-open: false;
 
     width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
@@ -88,22 +91,24 @@ export component InspectorColorField inherits Rectangle {
         }
     }
 
-    picker := InspectorSolidColorPicker {
-        value: root.effective-color;
+    picker := InspectorFillPicker {
+        value: root.property-data.fill;
+        allow-gradient: root.property-data.kind == PropertyValueKind.brush || root.property-data.value-kind == PropertyValueKind.brush;
+        target-width: root.target-size.width / 1px;
+        target-height: root.target-size.height / 1px;
         expression: root.value;
-        bound: root.value != "" && !Api.string-is-color(root.value) && !Api.is-css-color(root.value);
-        unsupported: root.unsupported;
+        unsupported: !root.property-data.value-resolved;
         open: root.picker-open;
         anchor-position: swatch-focus.absolute-position;
         anchor-width: swatch-focus.width;
         restore-focus => { swatch-focus.focus(); }
         session-key: root.session-key;
         target-key: root.preview-key;
-        preview(key, color) => {
-            return Api.inspector-color-preview(key, root.property-name, color);
+        preview(key, fill) => {
+            return Api.inspector-fill-preview(key, root.property-name, fill);
         }
-        accepted(key, color) => {
-            return Api.inspector-color-commit(key, root.property-name, color);
+        accepted(key, fill) => {
+            return Api.inspector-fill-commit(key, root.property-name, fill);
         }
         closed => {
             root.picker-open = false;

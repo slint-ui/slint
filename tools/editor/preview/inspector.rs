@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::*;
+use slint::Model as _;
 
 const CORNERS: [&str; 4] = [
     "border-top-left-radius",
@@ -15,17 +16,17 @@ pub(super) struct Edit {
     overrides: Vec<(SmolStr, Option<slint_interpreter::Value>)>,
 }
 
-pub(super) struct ColorRefresh {
+pub(super) struct FillRefresh {
     pub(super) expected: text_edit::EditedText,
     pub(super) submitted_edit: lsp_types::WorkspaceEdit,
-    pub(super) color: slint::Color,
+    pub(super) fill: ui::FillData,
     pub(super) undo: Option<undo_redo::EditItem>,
 }
 
-pub(super) fn color_contents_changed(url: &Url, content: &str) -> bool {
+pub(super) fn fill_contents_changed(url: &Url, content: &str) -> bool {
     PREVIEW_STATE.with_borrow_mut(|state| {
         let changed = state.source_code.get(url).is_none_or(|source| source.code != content);
-        let Some(refresh) = state.color_refresh.as_mut() else { return false };
+        let Some(refresh) = state.fill_refresh.as_mut() else { return false };
         if refresh.expected.url != *url {
             return false;
         }
@@ -39,30 +40,30 @@ pub(super) fn color_contents_changed(url: &Url, content: &str) -> bool {
     })
 }
 
-fn clear_color_refresh() {
+fn clear_fill_refresh() {
     let api = PREVIEW_STATE.with_borrow_mut(|state| {
-        state.color_refresh = None;
+        state.fill_refresh = None;
         state.api.upgrade()
     });
     if let Some(api) = api {
-        api.set_inspector_color_refresh_pending(false);
+        api.set_inspector_fill_refresh_pending(false);
     }
 }
 
-pub(super) fn invalidate_color() {
+pub(super) fn invalidate_fill() {
     let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
     if let Some(api) = api {
-        api.set_inspector_color_generation(api.get_inspector_color_generation().wrapping_add(1));
+        api.set_inspector_fill_generation(api.get_inspector_fill_generation().wrapping_add(1));
     }
 }
 
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
     let result = PREVIEW_STATE.with_borrow_mut(|state| {
-        let refresh = state.color_refresh.as_mut()?;
+        let refresh = state.fill_refresh.as_mut()?;
         if refresh.submitted_edit != edit {
             return None;
         }
-        let color = refresh.color;
+        let fill = refresh.fill.clone();
         if !applied {
             state.workspace_edit_sent = false;
         } else {
@@ -71,18 +72,18 @@ pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: b
             }
             state.inspector_edit.take();
         }
-        Some((state.api.upgrade(), color))
+        Some((state.api.upgrade(), fill))
     });
-    let Some((api, color)) = result else { return };
+    let Some((api, fill)) = result else { return };
     if applied {
         if let Some(api) = api {
-            api.invoke_add_recent_color(color);
+            api.invoke_add_recent_fill(fill);
         }
     } else {
         cancel();
-        invalidate_color();
+        invalidate_fill();
     }
-    clear_color_refresh();
+    clear_fill_refresh();
     PREVIEW_STATE.with_borrow(undo_redo::set_undo_redo_enabled);
     undo_redo::apply_pending();
 }
@@ -133,7 +134,7 @@ fn target_with_root(
     (key == expected).then_some((node, url, version))
 }
 
-fn color_target(key: &str, property_name: &str) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
+fn fill_target(key: &str, property_name: &str) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
     let suffix = format!(":{property_name}");
     let base_key = key.strip_suffix(&suffix)?;
     let allow_root_background = property_name == "background";
@@ -221,12 +222,42 @@ pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool
     preview_value(key, node, &names, slint_interpreter::Value::Number(value as f64))
 }
 
-pub(super) fn preview_color(key: SharedString, name: SharedString, value: slint::Color) -> bool {
-    let Some((node, _, _)) = color_target(&key, &name) else {
+fn fill_value(
+    node: &ElementRcNode,
+    name: &str,
+    fill: &ui::FillData,
+) -> Option<slint_interpreter::Value> {
+    use i_slint_compiler::langtype::{PropertyLookupMode, Type};
+    if !fill.angle.is_finite()
+        || !fill.center_x.is_finite()
+        || !fill.center_y.is_finite()
+        || !fill.radius.is_finite()
+        || (fill.custom_radius && fill.radius <= 0.)
+        || fill.stops.iter().any(|s| !s.position.is_finite())
+    {
+        return None;
+    }
+    match node
+        .as_element()
+        .borrow()
+        .lookup_property(name, PropertyLookupMode::ComponentLocal)
+        .property_type
+    {
+        Type::Color if fill.kind == ui::BrushKind::Solid => Some(fill.color.into()),
+        Type::Brush => Some(ui::fill_brush(fill.clone()).into()),
+        _ => None,
+    }
+}
+
+pub(super) fn preview_fill(key: SharedString, name: SharedString, value: ui::FillData) -> bool {
+    let Some((node, _, _)) = fill_target(&key, &name) else {
         cancel();
         return false;
     };
-    let value = slint_interpreter::Value::from(value);
+    let Some(value) = fill_value(&node, &name, &value) else {
+        cancel();
+        return false;
+    };
     preview_value(key, node, &[name.as_str()], value)
 }
 
@@ -248,26 +279,27 @@ fn property_edit(
     )
 }
 
-pub(super) fn commit_color(key: SharedString, name: SharedString, value: slint::Color) -> bool {
-    let Some((node, url, version)) = color_target(&key, &name) else {
+pub(super) fn commit_fill(key: SharedString, name: SharedString, value: ui::FillData) -> bool {
+    let Some((node, url, version)) = fill_target(&key, &name) else {
         cancel();
         return false;
     };
-    let color = ui::color_to_string(value);
+    if fill_value(&node, &name, &value).is_none() {
+        cancel();
+        return false;
+    }
+    let fill = ui::fill_expression(value.clone());
     let edit = property_edit(
         node,
         url,
         version,
-        vec![i_slint_editor_preview::editing::PropertyChange::new(
-            name.as_str(),
-            color.to_string(),
-        )],
+        vec![i_slint_editor_preview::editing::PropertyChange::new(name.as_str(), fill.to_string())],
     );
     let Some(edit) = edit else {
         cancel();
         return false;
     };
-    let accepted = submit_workspace_edit("Editing color".into(), edit, true, Some(value));
+    let accepted = submit_workspace_edit("Editing fill".into(), edit, true, Some(value));
     if !accepted {
         cancel();
     }
@@ -327,7 +359,7 @@ pub(super) fn values(key: SharedString) -> slint::ModelRc<f32> {
 }
 
 pub(super) fn invalidate() {
-    invalidate_color();
+    invalidate_fill();
     refresh();
 }
 

@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { StudioTheme } from "../common.slint";
+import { InspectorTokens } from "tokens.slint";
+import { InspectorSegment } from "segment.slint";
+
+export component InspectorPickerPanel inherits Rectangle {
+    in property <string> title;
+    callback closed();
+    width: 300px;
+    preferred-height: layout.preferred-height;
+    height: self.preferred-height;
+    background: InspectorTokens.panel-bg;
+    border-width: 1px;
+    border-color: InspectorTokens.divider;
+    border-radius: 8px;
+    drop-shadow-color: StudioTheme.dark ? #00000080 : #64748b35;
+    drop-shadow-blur: 18px;
+    drop-shadow-offset-y: 7px;
+    TouchArea { }
+    layout := VerticalLayout {
+        padding: 12px;
+        spacing: 12px;
+        alignment: start;
+        HorizontalLayout {
+            height: 24px;
+            Text { text: root.title; color: InspectorTokens.text; font-size: 13px; font-weight: 700; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            InspectorSegment { kind: "text"; label: "Close"; width: 48px; horizontal-stretch: 0; accessible-label: "Close " + root.title; clicked => { root.closed(); } }
+        }
+        Rectangle { height: 1px; background: InspectorTokens.divider; }
+        @children
+    }
+}

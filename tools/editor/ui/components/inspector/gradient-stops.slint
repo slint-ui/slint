@@ -1,0 +1,229 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, FillData, BrushKind } from "../../api.slint";
+import { InspectorTokens } from "tokens.slint";
+import { InspectorSegment } from "segment.slint";
+import { InspectorTextFieldBase } from "text-field-base.slint";
+import { ScrollView } from "std-widgets.slint";
+
+export component InspectorGradientStops inherits Rectangle {
+    in property <FillData> value;
+    in property <string> session-key;
+    in-out property <int> selected-index;
+    callback edit-color();
+    in property <int> focus-generation;
+    callback preview(FillData) -> bool;
+    private property <FillData> draft;
+    private property <FillData> gesture-value;
+    private property <bool> dragging;
+    private property <float> units: root.value.kind == BrushKind.conic ? 360 : 100;
+    private property <string> suffix: root.value.kind == BrushKind.conic ? "°" : "%";
+    preferred-height: layout.preferred-height;
+    min-height: layout.min-height;
+    changed session-key => {
+        root.dragging = false;
+    }
+
+    function move-stop(position: float) -> bool {
+        root.draft = root.value;
+        root.draft.stops = Api.clone-gradient-stops(root.value.stops);
+        root.selected-index = Api.move-gradient-stop(root.draft.stops, root.selected-index, position);
+        return root.preview(root.draft);
+    }
+    function add-stop(position: float) {
+        root.draft = root.value;
+        root.draft.stops = Api.clone-gradient-stops(root.value.stops);
+        root.selected-index = Api.add-gradient-stop(root.draft.stops, Api.sample-fill-stop(root.draft, position));
+        root.preview(root.draft);
+    }
+    function remove-stop(index: int) {
+        if root.value.stops.length <= 2 {
+            return;
+        }
+        root.draft = root.value;
+        root.draft.stops = Api.clone-gradient-stops(root.value.stops);
+        Api.remove-gradient-stop(root.draft.stops, index);
+        root.selected-index = min(root.selected-index > index ? root.selected-index - 1 : root.selected-index, root.draft.stops.length - 1);
+        root.preview(root.draft);
+    }
+
+    layout := VerticalLayout {
+        spacing: 6px;
+        ramp := FocusScope {
+            height: 44px;
+            key-pressed(event) => {
+                if event.text == Key.LeftArrow || event.text == Key.RightArrow {
+                    let step = (event.modifiers.shift ? 10 : 1) / root.units;
+                    root.move-stop((root.value.stops[root.selected-index].position + (event.text == Key.LeftArrow ? -step : step)).clamp(0, 1));
+                    return accept;
+                }
+                if event.text == Key.UpArrow || event.text == Key.DownArrow {
+                    root.selected-index = (root.selected-index + (event.text == Key.UpArrow ? -1 : 1)).clamp(0, root.value.stops.length - 1);
+                    return accept;
+                }
+                if event.text == Key.Delete || event.text == Key.Backspace {
+                    root.remove-stop(root.selected-index);
+                    return accept;
+                }
+                return reject;
+            }
+            Rectangle {
+                x: 8px;
+                width: parent.width - 16px;
+                y: 4px;
+                height: 24px;
+                border-radius: 4px;
+                background: Api.create-brush(BrushKind.linear, 90, transparent, root.value.stops);
+                border-width: ramp.has-focus ? 1px : 0px;
+                border-color: InspectorTokens.accent;
+            }
+            for stop[index] in root.value.stops: Rectangle {
+                x: stop.position.clamp(0, 1) * (parent.width - 16px);
+                y: 24px;
+                width: 16px;
+                height: 18px;
+                border-radius: 3px;
+                background: stop.color;
+                border-width: 2px;
+                border-color: index == root.selected-index ? InspectorTokens.accent : InspectorTokens.panel-bg;
+                accessible-role: AccessibleRole.slider;
+                accessible-label: "Gradient stop " + (index + 1);
+                accessible-value: (stop.position * root.units).to-fixed(1);
+                accessible-action-set-value(text) => {
+                    if text.is-float() {
+                        root.selected-index = index;
+                        root.move-stop(text.to-float() / root.units);
+                    }
+                }
+            }
+            TouchArea {
+                mouse-cursor: pointer;
+                pointer-event(event) => {
+                    let position = ((self.mouse-x - 8px) / max(1px, self.width - 16px)).clamp(0, 1);
+                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                        ramp.focus();
+                        root.gesture-value = root.value;
+                        root.gesture-value.stops = Api.clone-gradient-stops(root.value.stops);
+                        let index = Api.nearest-gradient-stop(root.value.stops, position);
+                        if index >= 0 && abs(root.value.stops[index].position - position) * (self.width - 16px) <= 10px {
+                            root.selected-index = index;
+                        } else { root.add-stop(position); }
+                        root.dragging = true;
+                    } else if event.kind == PointerEventKind.move && root.dragging {
+                        root.move-stop(position);
+                    } else if event.kind == PointerEventKind.up {
+                        root.dragging = false;
+                    } else if event.kind == PointerEventKind.cancel && root.dragging {
+                        root.dragging = false;
+                        root.selected-index = min(root.selected-index, root.gesture-value.stops.length - 1);
+                        root.preview(root.gesture-value);
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            Text { text: "Stops"; color: InspectorTokens.text; font-size: 12px; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            InspectorSegment {
+                kind: "text";
+                label: "+";
+                width: 24px;
+                horizontal-stretch: 0;
+                accessible-label: "Add gradient stop";
+                clicked => {
+                    root.add-stop(Api.gradient-stop-gap(root.value.stops));
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            Text { text: "Position " + root.suffix; width: 66px; color: InspectorTokens.muted; font-size: 11px; }
+            Text { text: "Color"; horizontal-stretch: 1; color: InspectorTokens.muted; font-size: 11px; }
+            Text { text: "Opacity"; width: 48px; color: InspectorTokens.muted; font-size: 11px; }
+            Rectangle { width: 24px; }
+        }
+        ScrollView {
+            preferred-height: rows.preferred-height;
+            min-height: 28px;
+            max-height: self.preferred-height;
+            content-height: rows.preferred-height;
+            content-width: self.visible-width;
+            rows := VerticalLayout {
+                spacing: 2px;
+                for stop[index] in root.value.stops: Rectangle {
+                    height: 28px;
+                    border-radius: 4px;
+                    background: index == root.selected-index ? InspectorTokens.accent.with-alpha(0.14) : transparent;
+                    HorizontalLayout {
+                        spacing: 6px;
+                        InspectorTextFieldBase {
+                            width: 66px;
+                            accessible-name: "Stop " + (index + 1) + " position";
+                            value: (stop.position * root.units).to-fixed(1);
+                            commit-key: root.session-key;
+                            accepted(text) => {
+                                let number = text;
+                                if !number.is-float() {
+                                    return false;
+                                }
+                                root.selected-index = index;
+                                return root.move-stop(number.to-float() / root.units);
+                            }
+                        }
+                        Rectangle {
+                            horizontal-stretch: 1;
+                            color-focus := FocusScope {
+                                property <int> focus-generation: root.focus-generation;
+                                changed focus-generation => {
+                                    if root.selected-index == index {
+                                        self.focus();
+                                    }
+                                }
+                                key-pressed(event) => {
+                                    if event.text == Key.Return || event.text == Key.Space {
+                                        root.selected-index = index;
+                                        root.edit-color();
+                                        return accept;
+                                    }
+                                    return reject;
+                                }
+                                HorizontalLayout {
+                                    spacing: 5px;
+                                    cross-axis-alignment: center;
+                                    Rectangle { width: 14px; height: 14px; background: stop.color; border-radius: 3px; }
+                                    Text { text: Api.color-to-data(stop.color).short-text; color: InspectorTokens.text; font-size: 11px; vertical-alignment: center; }
+                                }
+                                TouchArea {
+                                    accessible-role: button;
+                                    accessible-label: "Edit stop " + (index + 1) + " color";
+                                    clicked => {
+                                        parent.focus();
+                                        root.selected-index = index;
+                                        root.edit-color();
+                                    }
+                                    accessible-action-default => {
+                                        root.selected-index = index;
+                                        root.edit-color();
+                                    }
+                                }
+                            }
+                        }
+                        Text { width: 48px; text: (stop.color.alpha * 100 / 255).to-fixed(0) + "%"; color: InspectorTokens.text; font-size: 11px; vertical-alignment: center; }
+                        if root.value.stops.length > 2: InspectorSegment {
+                            width: 24px;
+                            horizontal-stretch: 0;
+                            kind: "text";
+                            label: "−";
+                            accessible-label: "Remove stop " + (index + 1);
+                            clicked => {
+                                root.remove-stop(index);
+                            }
+                        }
+                        if root.value.stops.length <= 2: Rectangle { width: 24px; }
+                    }
+                }
+            }
+        }
+    }
+}

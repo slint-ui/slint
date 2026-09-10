@@ -62,13 +62,13 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
-pub(super) use brushes::color_to_string;
+pub(super) use brushes::{fill_brush, fill_expression};
 mod element_library;
 pub(super) mod file_tree;
 pub mod log_messages;
 pub mod palette;
 mod property_view;
-mod recent_colors;
+mod recent_fills;
 pub mod search_model;
 
 slint::include_modules!();
@@ -217,8 +217,8 @@ pub fn initialize_editor(
     api.on_inspector_preview(super::inspector::preview);
     api.on_inspector_commit(super::inspector::commit);
     api.on_inspector_cancel(super::inspector::cancel);
-    api.on_inspector_color_preview(super::inspector::preview_color);
-    api.on_inspector_color_commit(super::inspector::commit_color);
+    api.on_inspector_fill_preview(super::inspector::preview_fill);
+    api.on_inspector_fill_commit(super::inspector::commit_fill);
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
@@ -266,7 +266,7 @@ pub fn initialize_editor(
     palette::setup(&api);
     let file_tree_controller = file_tree::setup(&api, api_weak.clone(), &project, project_weak);
     preview::set_file_tree_controller(file_tree_controller);
-    recent_colors::setup(&api, api_weak.clone());
+    recent_fills::setup(&api, api_weak.clone());
     super::outline::setup(&api, api_weak.clone());
     super::undo_redo::setup(&api);
 

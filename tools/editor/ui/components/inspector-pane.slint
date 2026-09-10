@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, BrushKind, EditorSurfaceMode, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { Api, EditorSurfaceMode, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
 import { EdgeDivider, EditorAngles, EditorMetrics, HorizontalResizeDivider, StudioTheme } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
 import { InspectorComboOption, InspectorTokens } from "inspector/tokens.slint";
@@ -229,8 +229,8 @@ export component InspectorPane inherits Rectangle {
         return root.inspector-key + ":" + property-name;
     }
 
-    function color-session-key(property-name: string) -> string {
-        return root.selection-key + ":" + Api.inspector-color-generation + ":" + property-name;
+    function fill-session-key(property-name: string) -> string {
+        return root.selection-key + ":" + Api.inspector-fill-generation + ":" + property-name;
     }
 
     function property-brush(property-name: string) -> brush {
@@ -250,20 +250,6 @@ export component InspectorPane inherits Rectangle {
             return property.display-string;
         }
         return property.code;
-    }
-
-    function property-is-solid(property-name: string) -> bool {
-        let property = Api.current-property-value-data(property-name);
-        return property.value-resolved
-            && (property.kind == PropertyValueKind.color
-                || property.value-kind == PropertyValueKind.color
-                || ((property.kind == PropertyValueKind.brush || property.value-kind == PropertyValueKind.brush)
-                    && property.brush-kind == BrushKind.solid));
-    }
-
-    function property-effective-color(property-name: string) -> color {
-        let property = Api.current-property-value-data(property-name);
-        return root.property-is-solid(property-name) ? property.value-brush : transparent;
     }
 
     function property-length-label(property-name: string, fallback: string) -> string {
@@ -712,11 +698,9 @@ export component InspectorPane inherits Rectangle {
                             accessible-name: "Root background";
                             value: Api.current-property-value("background", "");
                             swatch: background-value.value-resolved ? background-value.value-brush : transparent;
-                            unsupported: !background-value.value-resolved || background-value.brush-kind != BrushKind.solid;
-                            effective-color: self.unsupported ? transparent : background-value.value-brush;
                             commit-key: root.field-key("background");
                             preview-key: root.field-key("background");
-                            session-key: root.color-session-key("background");
+                            session-key: root.fill-session-key("background");
                             property-name: "background";
                             width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
                             accepted(text) => {
@@ -726,13 +710,12 @@ export component InspectorPane inherits Rectangle {
 
                         if root.is-rectangle-selection(): InspectorColorField {
                             accessible-name: "Rectangle background";
+                            target-size: { width: root.selected-width(), height: root.selected-height() };
                             value: root.rectangle-background-code();
                             swatch: root.rectangle-background-swatch();
-                            effective-color: root.property-effective-color("background");
-                            unsupported: !root.property-is-solid("background");
                             commit-key: root.field-key("background");
                             preview-key: root.field-key("background");
-                            session-key: root.color-session-key("background");
+                            session-key: root.fill-session-key("background");
                             property-name: "background";
                             width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
                             accepted(text) => {
@@ -742,13 +725,12 @@ export component InspectorPane inherits Rectangle {
 
                         if root.is-text-selection(): InspectorColorField {
                             accessible-name: "Text color";
+                            target-size: { width: root.selected-width(), height: root.selected-height() };
                             value: root.text-color-code();
                             swatch: root.text-color-swatch();
-                            effective-color: root.property-effective-color("color");
-                            unsupported: !root.property-is-solid("color");
                             commit-key: root.field-key("color");
                             preview-key: root.field-key("color");
-                            session-key: root.color-session-key("color");
+                            session-key: root.fill-session-key("color");
                             property-name: "color";
                             width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
                             accepted(text) => {
@@ -821,13 +803,12 @@ export component InspectorPane inherits Rectangle {
 
                                 InspectorColorField {
                                     accessible-name: "Shadow color";
+                                    target-size: { width: root.selected-width(), height: root.selected-height() };
                                     value: root.shadow-color-code();
                                     swatch: root.shadow-color-swatch();
-                                    effective-color: root.property-effective-color(root.current-shadow-prefix() + "color");
-                                    unsupported: !root.property-is-solid(root.current-shadow-prefix() + "color");
                                     commit-key: root.field-key(root.current-shadow-prefix() + "color");
                                     preview-key: root.field-key(root.current-shadow-prefix() + "color");
-                                    session-key: root.color-session-key(root.current-shadow-prefix() + "color");
+                                    session-key: root.fill-session-key(root.current-shadow-prefix() + "color");
                                     property-name: root.current-shadow-prefix() + "color";
                                     accepted(text) => {
                                         return root.commit-code(root.current-shadow-prefix() + "color", text);
