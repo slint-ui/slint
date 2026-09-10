@@ -93,51 +93,6 @@ pub fn string_to_color(text: &str) -> Option<slint::Color> {
     i_slint_common::color_parsing::parse_color_literal(text).map(slint::Color::from_argb_encoded)
 }
 
-fn as_slint_brush(
-    kind: ui::BrushKind,
-    angle: f32,
-    color: slint::Color,
-    stops: slint::ModelRc<ui::GradientStop>,
-) -> slint::SharedString {
-    fn stops_as_string(stops: slint::ModelRc<ui::GradientStop>) -> String {
-        let stops = sorted_gradient_stops(stops);
-
-        let mut result = String::new();
-        for s in stops {
-            result += &format!(", {} {:.2}%", color_to_string(s.color), s.position * 100.0);
-        }
-        result
-    }
-
-    match kind {
-        ui::BrushKind::Solid => color_to_string(color),
-        ui::BrushKind::Linear => {
-            slint::format!("@linear-gradient({angle}deg{})", stops_as_string(stops))
-        }
-        ui::BrushKind::Radial => {
-            slint::format!("@radial-gradient(circle{})", stops_as_string(stops))
-        }
-        ui::BrushKind::Conic => {
-            let stops = sorted_gradient_stops(stops);
-            let angle = angle.rem_euclid(360.0);
-            let prefix = if angle.abs() > f32::EPSILON {
-                slint::format!("from {}deg, ", angle)
-            } else {
-                slint::SharedString::new()
-            };
-
-            slint::format!(
-                "@conic-gradient({}{})",
-                prefix,
-                stops
-                    .iter()
-                    .map(|s| format!("{} {}deg", color_to_string(s.color), s.position * 360.0))
-                    .join(", ")
-            )
-        }
-    }
-}
-
 fn sorted_gradient_stops(
     stops: slint::ModelRc<ui::GradientStop>,
 ) -> Vec<i_slint_core::graphics::GradientStop> {
@@ -285,15 +240,25 @@ pub fn fill_brush(fill: ui::FillData) -> slint::Brush {
 }
 
 pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
-    if matches!(fill.kind, ui::BrushKind::Solid | ui::BrushKind::Linear) {
-        return as_slint_brush(fill.kind, fill.angle, fill.color, fill.stops);
+    if fill.kind == ui::BrushKind::Solid {
+        return color_to_string(fill.color);
+    }
+    let stops = sorted_gradient_stops(fill.stops);
+    if fill.kind == ui::BrushKind::Linear {
+        return slint::format!(
+            "@linear-gradient({}deg{})",
+            fill.angle,
+            stops
+                .iter()
+                .map(|s| format!(", {} {:.2}%", color_to_string(s.color), s.position * 100.))
+                .join("")
+        );
     }
     let center = if fill.custom_center {
         format!(" at {}px {}px", fill.center_x, fill.center_y)
     } else {
         String::new()
     };
-    let stops = sorted_gradient_stops(fill.stops);
     if fill.kind == ui::BrushKind::Radial {
         let radius = if fill.custom_radius { format!(" {}px", fill.radius) } else { String::new() };
         slint::format!(
