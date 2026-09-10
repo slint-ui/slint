@@ -294,7 +294,7 @@ export component CanvasInteractionLayer inherits Rectangle {
     callback real-element-selected();
 
     function update-hover(position: Point) {
-        if FillSession.linear-active || root.hover-selection-active || selection-area.pressed {
+        if FillSession.canvas-active || root.hover-selection-active || selection-area.pressed {
             return;
         }
         Hover.element = Hover.element-at(position.x, position.y, false);
@@ -323,13 +323,13 @@ export component CanvasInteractionLayer inherits Rectangle {
         selection: selection;
         primary: idx == Api.selection.highlight-index;
         shift-pressed: root.shift-pressed;
-        interaction-disabled: root.hover-selection-active || FillSession.linear-active;
+        interaction-disabled: root.hover-selection-active || FillSession.canvas-active;
         pointer-hovered(position) => {
             root.update-hover(position);
         }
     }
 
-    for geometry in (FillSession.linear-active ? [] : Hover.element.geometry): HoverCanvasFrame {
+    for geometry in (FillSession.canvas-active ? [] : Hover.element.geometry): HoverCanvasFrame {
         geometry: geometry;
         gesture-active: root.hover-selection-active;
         selection-area-has-hover: selection-area.has-hover;

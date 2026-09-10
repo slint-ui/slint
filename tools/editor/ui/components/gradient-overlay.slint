@@ -64,9 +64,10 @@ component GradientHandle inherits FocusScope {
     }
 }
 
-export component LinearGradientOverlay inherits FocusScope {
+export component GradientOverlay inherits FocusScope {
     in property <SelectionRectangle> selection;
     private property <LinearGradientAxis> axis: FillSession.axis;
+    private property <bool> radial: FillSession.radial-active;
     private property <Point> start: root.to-canvas(root.axis.start);
     private property <Point> end: root.to-canvas(root.axis.end);
     private property <length> dx: root.end.x - root.start.x;
@@ -119,8 +120,7 @@ export component LinearGradientOverlay inherits FocusScope {
         root.original-axis = root.axis;
         root.original-fill = FillSession.working-fill;
         root.original-fill.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
-        root.original-stop = Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.target-size,
-            FillSession.working-fill.stops[FillSession.selected-stop].position);
+        root.original-stop = FillSession.stop-point(FillSession.working-fill.stops[FillSession.selected-stop].position);
         root.dragging = true;
     }
     function drag(p: Point) {
@@ -133,7 +133,7 @@ export component LinearGradientOverlay inherits FocusScope {
         }
         let next = {
             start: root.drag-kind == 1 ? root.original-axis.start : { x: root.original-axis.start.x + delta.x, y: root.original-axis.start.y + delta.y },
-            end: root.drag-kind == 0 ? root.original-axis.end : { x: root.original-axis.end.x + delta.x, y: root.original-axis.end.y + delta.y },
+            end: root.drag-kind == 0 && !root.radial ? root.original-axis.end : { x: root.original-axis.end.x + delta.x, y: root.original-axis.end.y + delta.y },
         };
         FillSession.move-axis(root.original-fill, root.original-axis, next);
     }
@@ -148,8 +148,7 @@ export component LinearGradientOverlay inherits FocusScope {
         let step = event.modifiers.shift ? 10 : 1;
         if kind == 3 {
             let amount = (event.text == Key.LeftArrow || event.text == Key.DownArrow ? -step : step) / 100;
-            let p = Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.target-size,
-                FillSession.working-fill.stops[FillSession.selected-stop].position);
+            let p = FillSession.stop-point(FillSession.working-fill.stops[FillSession.selected-stop].position);
             FillSession.move-stop({
                 x: p.x + amount * (root.axis.end.x - root.axis.start.x),
                 y: p.y + amount * (root.axis.end.y - root.axis.start.y),
@@ -162,7 +161,7 @@ export component LinearGradientOverlay inherits FocusScope {
             };
             let next = {
                 start: kind == 0 ? { x: root.axis.start.x + delta.x, y: root.axis.start.y + delta.y } : root.axis.start,
-                end: kind == 1 ? { x: root.axis.end.x + delta.x, y: root.axis.end.y + delta.y } : root.axis.end,
+                end: kind == 1 || root.radial ? { x: root.axis.end.x + delta.x, y: root.axis.end.y + delta.y } : root.axis.end,
             };
             FillSession.move-axis(FillSession.working-fill, root.axis, next);
         }
@@ -178,6 +177,7 @@ export component LinearGradientOverlay inherits FocusScope {
                 root.dragging = false;
                 FillSession.preview-fill(root.original-fill);
                 FillSession.axis = root.original-axis;
+                if root.radial { FillSession.radial-direction = atan2((root.axis.end.y - root.axis.start.y) / 1px, (root.axis.end.x - root.axis.start.x) / 1px); }
                 FillSession.selected-stop = root.original-selected;
             } else {
                 FillSession.close-picker(false, true);
@@ -187,6 +187,15 @@ export component LinearGradientOverlay inherits FocusScope {
         return reject;
     }
 
+    if root.radial: Rectangle {
+        x: root.start.x - root.axis-length;
+        y: root.start.y - root.axis-length;
+        width: root.axis-length * 2;
+        height: self.width;
+        border-radius: self.width / 2;
+        border-width: 1px;
+        border-color: #ffffff90;
+    }
     group := Rectangle {
         x: root.start.x;
         y: root.start.y;
@@ -231,7 +240,7 @@ export component LinearGradientOverlay inherits FocusScope {
             y: -self.height / 2;
             endpoint: true;
             color: white;
-            label: endpoint == 0 ? "Gradient start" : "Gradient end";
+            label: root.radial ? (endpoint == 0 ? "Gradient center handle" : "Gradient radius handle") : (endpoint == 0 ? "Gradient start" : "Gradient end");
             window-point(p) => { return group.window-point({ x: self.x + p.x, y: self.y + p.y }); }
             keyboard(event) => { return root.handle-key(endpoint, event); }
             started(p) => { root.begin(endpoint, p); }
@@ -239,8 +248,7 @@ export component LinearGradientOverlay inherits FocusScope {
             finished => { root.dragging = false; }
         }
         for index in root.handles: GradientHandle {
-            private property <Point> canonical: Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.target-size,
-                FillSession.working-fill.stops[index].position);
+            private property <Point> canonical: FillSession.stop-point(FillSession.working-fill.stops[index].position);
             private property <float> relative: ((self.canonical.x - root.axis.start.x) * (root.axis.end.x - root.axis.start.x)
                 + (self.canonical.y - root.axis.start.y) * (root.axis.end.y - root.axis.start.y))
                 / max(1px * 1px, (root.axis.end.x - root.axis.start.x) * (root.axis.end.x - root.axis.start.x)

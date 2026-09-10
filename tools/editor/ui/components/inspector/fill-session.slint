@@ -51,6 +51,7 @@ export global FillSession {
     out property <bool> canvas-active: linear-active || radial-active;
 
     in-out property <LinearGradientAxis> axis;
+    in-out property <angle> radial-direction: 35deg;
     in-out property <Point> canvas-origin;
     in-out property <Size> canvas-size;
     in-out property <SelectionRectangle> selection;
@@ -63,27 +64,45 @@ export global FillSession {
     }
 
     public function reset-axis() {
-        FillSession.axis = Api.linear-gradient-axis(FillSession.working-fill, FillSession.target-size);
+        FillSession.axis = FillSession.working-fill.kind == BrushKind.radial
+            ? Api.radial-gradient-axis(FillSession.working-fill, FillSession.target-size, FillSession.radial-direction / 1deg)
+            : Api.linear-gradient-axis(FillSession.working-fill, FillSession.target-size);
     }
     public function move-axis(fill: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) {
         let dx = (next.end.x - next.start.x) / 1px;
         let dy = (next.end.y - next.start.y) / 1px;
         if dx * dx + dy * dy < 1 { return; }
-        if FillSession.preview-fill(Api.remap-linear-gradient(fill, FillSession.target-size, previous, next)) {
+        let updated = fill.kind == BrushKind.radial
+            ? Api.remap-radial-gradient(fill, previous, next)
+            : Api.remap-linear-gradient(fill, FillSession.target-size, previous, next);
+        if FillSession.preview-fill(updated) {
+            if fill.kind == BrushKind.radial {
+                FillSession.radial-direction = atan2(dy, dx);
+            }
             FillSession.axis = next;
         }
     }
+    public pure function stop-point(position: float) -> Point {
+        return FillSession.working-fill.kind == BrushKind.radial
+            ? Api.gradient-axis-point(FillSession.axis, position)
+            : Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.target-size, position);
+    }
+    public pure function stop-position(point: Point) -> float {
+        return FillSession.working-fill.kind == BrushKind.radial
+            ? Api.gradient-axis-position(FillSession.axis, point)
+            : Api.linear-gradient-position(FillSession.working-fill.angle, FillSession.target-size, point);
+    }
     public function add-stop(point: Point) {
-        if !FillSession.linear-active { return; }
+        if !FillSession.canvas-active { return; }
         FillSession.draft = FillSession.working-fill;
         FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
-        let position = Api.linear-gradient-position(FillSession.draft.angle, FillSession.target-size, point);
+        let position = FillSession.stop-position(point);
         FillSession.selected-stop = Api.add-gradient-stop(FillSession.draft.stops, Api.sample-fill-stop(FillSession.draft, position));
         FillSession.preview-fill(FillSession.draft);
         FillSession.focus-stop-generation += 1;
     }
     public function remove-stop() {
-        if !FillSession.linear-active || FillSession.working-fill.stops.length <= 2 { return; }
+        if !FillSession.canvas-active || FillSession.working-fill.stops.length <= 2 { return; }
         FillSession.draft = FillSession.working-fill;
         FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
         let position = FillSession.draft.stops[FillSession.selected-stop].position;
@@ -105,7 +124,7 @@ export global FillSession {
         FillSession.draft = FillSession.working-fill;
         FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
         FillSession.draft.stops[FillSession.selected-stop].position =
-            Api.linear-gradient-position(FillSession.draft.angle, FillSession.target-size, point);
+            FillSession.stop-position(point);
         FillSession.preview-fill(FillSession.draft);
     }
 
@@ -148,7 +167,7 @@ export global FillSession {
         return FillSession.preview-fill(FillSession.draft);
     }
     public function select-kind(kind: BrushKind) -> bool {
-        if kind == BrushKind.solid || kind == BrushKind.linear {
+        if kind == BrushKind.solid || kind == BrushKind.linear || kind == BrushKind.radial {
             FillSession.stop-panel-open = false;
         }
         FillSession.draft = FillSession.working-fill;
@@ -165,7 +184,7 @@ export global FillSession {
             }
         }
         let accepted = FillSession.preview-fill(FillSession.draft);
-        if accepted && kind == BrushKind.linear { FillSession.reset-axis(); }
+        if accepted && (kind == BrushKind.linear || kind == BrushKind.radial) { FillSession.reset-axis(); }
         return accepted;
     }
 
@@ -207,6 +226,7 @@ export global FillSession {
     }
 
     public function show-picker() {
+        FillSession.radial-direction = 35deg;
         FillSession.stop-panel-open = false;
         FillSession.selected-stop = 0;
         FillSession.working-fill = FillSession.value;
