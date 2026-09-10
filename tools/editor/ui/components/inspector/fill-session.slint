@@ -70,6 +70,33 @@ export global FillSession {
             FillSession.axis = next;
         }
     }
+    public function add-stop(point: Point) {
+        if !FillSession.linear-active { return; }
+        FillSession.draft = FillSession.working-fill;
+        FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
+        let position = Api.linear-gradient-position(FillSession.draft.angle, FillSession.target-size, point);
+        FillSession.selected-stop = Api.add-gradient-stop(FillSession.draft.stops, Api.sample-fill-stop(FillSession.draft, position));
+        FillSession.preview-fill(FillSession.draft);
+        FillSession.focus-stop-generation += 1;
+    }
+    public function remove-stop() {
+        if !FillSession.linear-active || FillSession.working-fill.stops.length <= 2 { return; }
+        FillSession.draft = FillSession.working-fill;
+        FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
+        Api.remove-gradient-stop(FillSession.draft.stops, FillSession.selected-stop);
+        FillSession.selected-stop = min(FillSession.selected-stop, FillSession.draft.stops.length - 1);
+        FillSession.preview-fill(FillSession.draft);
+        FillSession.focus-stop-generation += 1;
+    }
+    public function apply-history(redo: bool) {
+        FillSession.close-picker(false, false);
+        Api.inspector-cancel();
+        Api.inspector-generation += 1;
+        Api.inspector-fill-generation += 1;
+        if redo { if Api.redo-enabled { Api.redo(); } }
+        else { if Api.undo-enabled { Api.undo(); } }
+    }
+
     public function move-stop(point: Point) {
         FillSession.draft = FillSession.working-fill;
         FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);

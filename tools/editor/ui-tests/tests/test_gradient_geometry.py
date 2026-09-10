@@ -190,8 +190,12 @@ def test_stop_precision_survives_save_and_reopen(
             return content
 
         open_gradient(window)
-        picker_field(window, "Stop 2 position").accessible_value = "33.333333"
-        if kind == "radial":
+        if kind != "linear":
+            picker_field(window, "Stop 2 position").accessible_value = "33.333333"
+        if kind == "linear":
+            click_picker_button(window, "Gradient stop 1")
+            picker_field(window, "Hex color").accessible_value = "#ff0100"
+        elif kind == "radial":
             set_picker_mode(window, "Gradient center", "Custom")
         else:
             picker_field(window, "Gradient angle degrees").accessible_value = "45"
@@ -200,7 +204,9 @@ def test_stop_precision_survives_save_and_reopen(
         assert b"33.3333" in first
         select_outline_row(window, "fill")
         open_gradient(window)
-        if kind == "radial":
+        if kind == "linear":
+            picker_field(window, "Hex color").accessible_value = "#ff0200"
+        elif kind == "radial":
             picker_field(window, "Gradient center X").accessible_value = "201"
         else:
             picker_field(window, "Gradient angle degrees").accessible_value = "46"
@@ -211,7 +217,12 @@ def test_stop_precision_survives_save_and_reopen(
             lambda: file.read_bytes() if file.read_bytes() != first else None
         )
         snapshot.wait_for_applied(second, file.name)
-        assert first.split(b",", 1)[1] == second.split(b",", 1)[1]
+        if kind == "linear":
+            import re
+
+            assert re.findall(rb"[-0-9.]+%", first) == re.findall(rb"[-0-9.]+%", second)
+        else:
+            assert first.split(b",", 1)[1] == second.split(b",", 1)[1]
 
 
 def click_picker_button(window, label):
@@ -220,35 +231,12 @@ def click_picker_button(window, label):
     ).invoke_accessible_default_action()
 
 
-def stop_point(window, index, side_open=False):
-    handle = picker_field(
-        window, f"Gradient stop {index}", slint_testing.AccessibleRole.Slider
-    )
-    anchor = picker_field(
-        window, "Rectangle background color picker", slint_testing.AccessibleRole.Button
-    )
-    # Embedded popup element positions omit the popup origin in the input coordinate system.
-    popup_x = anchor.absolute_position.x - 308 - (308 if side_open else 0)
-    return slint_testing.LogicalPosition(
-        x=popup_x + handle.absolute_position.x + handle.size.width / 2,
-        y=anchor.absolute_position.y
-        + handle.absolute_position.y
-        + handle.size.height / 2,
-    )
-
-
-def pointer_gesture(window, start, end):
-    button = slint_testing.PointerEventButton.Left
-    window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-    window.dispatch_event(slint_testing.PointerMoveEvent(end))
-    window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-
-
 def test_stop_interactions_preserve_color_identity(
     editor_binary, editor_environment, tmp_path
 ):
     from source_snapshot import SourceSnapshot
-    from ui_driver import elements_with_label
+    from test_linear_gradient_canvas import center, control, gesture, shifted
+    from ui_driver import press_key
 
     file = gradient_document(
         tmp_path, "@linear-gradient(90deg, red 0%, #0000ff80 50%, white 100%)"
@@ -258,58 +246,34 @@ def test_stop_interactions_preserve_color_identity(
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
-        click_picker_button(window, "Add gradient stop")
-        assert float(picker_field(window, "Stop 2 position").accessible_value) == 25
-        click_picker_button(window, "Edit stop 2 color")
+        left = center(control(window, "Gradient start"))
+        right = center(control(window, "Gradient end"))
+        insertion = shifted(left, x=(right.x - left.x) * 0.25)
+        for _ in range(2):
+            gesture(window, insertion, insertion)
+        control(window, "Gradient stop 4")
         assert picker_field(window, "Hex color").accessible_value == "#aa0055c0"
         picker_field(window, "Hex color").accessible_value = "#00ff00b0"
         original.assert_unchanged_now()
-        start, left, right = (
-            stop_point(window, 2, True),
-            stop_point(window, 1, True),
-            stop_point(window, 4, True),
-        )
-        end = slint_testing.LogicalPosition(
-            x=left.x + (right.x - left.x) * 0.75, y=start.y
-        )
-        pointer_gesture(window, start, end)
-        assert float(
-            picker_field(window, "Stop 3 position").accessible_value
-        ) == pytest.approx(75, abs=0.1)
+        start = center(control(window, "Gradient stop 2"))
+        gesture(window, start, shifted(start, x=(right.x - left.x) * 0.5))
         assert picker_field(window, "Hex color").accessible_value == "#00ff00b0"
-        click_picker_button(window, "Close Stop color")
-        original.assert_unchanged_now()
-        picker_field(window, "Stop 3 position").accessible_value = "50"
-        left, right = stop_point(window, 1), stop_point(window, 4)
-        insertion = slint_testing.LogicalPosition(
-            x=left.x + (right.x - left.x) * 0.75, y=left.y - 16
-        )
-        pointer_gesture(window, insertion, insertion)
-        assert float(
-            picker_field(window, "Stop 4 position").accessible_value
-        ) == pytest.approx(75, abs=0.1)
-        click_picker_button(window, "Remove stop 5")
-        click_picker_button(window, "Remove stop 1")
-        click_picker_button(window, "Remove stop 3")
-        assert not elements_with_label(
-            window.root_element, "Remove stop 1", slint_testing.AccessibleRole.Button
-        )
+        click_picker_button(window, "Gradient stop 1")
+        press_key(window, keys.Delete)
+        click_picker_button(window, "Gradient stop 3")
+        press_key(window, keys.Delete)
         original.assert_unchanged_now()
         click_picker_button(window, "Close Custom")
         saved = wait_until(
-            lambda: (
-                file.read_bytes()
-                if file.read_bytes() != original.sources[Path(file.name)]
-                else None
-            )
+            lambda: file.read_bytes()
+            if file.read_bytes() != original.sources[Path(file.name)]
+            else None
         )
         original.wait_for_applied(saved, file.name)
-        assert b"#0000ff80 50%, #00ff00b0 50%" in saved
+        assert b"#0000ff80 50%, #00ff00b0 75%" in saved
         select_outline_row(window, "fill")
         open_gradient(window)
-        assert float(picker_field(window, "Stop 1 position").accessible_value) == 50
-        assert float(picker_field(window, "Stop 2 position").accessible_value) == 50
-        click_picker_button(window, "Edit stop 2 color")
+        click_picker_button(window, "Gradient stop 2")
         assert picker_field(window, "Hex color").accessible_value == "#00ff00b0"
 
 

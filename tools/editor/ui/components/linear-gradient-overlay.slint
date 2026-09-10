@@ -10,6 +10,8 @@ component GradientHandle inherits FocusScope {
     in property <color> color;
     in property <bool> selected;
     in property <bool> endpoint;
+    in property <int> focus-generation;
+    changed focus-generation => { if root.selected { root.focus(); } }
     callback started(Point);
     callback dragged(Point);
     callback finished();
@@ -77,6 +79,17 @@ export component LinearGradientOverlay inherits FocusScope {
     private property <LinearGradientAxis> original-axis;
     private property <FillData> original-fill;
     private property <Point> original-stop;
+    private property <int> original-selected;
+    private property <int> focus-request: FillSession.focus-stop-generation;
+    private property <int> focus-epoch;
+    changed focus-request => { focus-timer.start(); }
+    focus-timer := Timer {
+        interval: 0ms;
+        triggered => {
+            self.stop();
+            root.focus-epoch += 1;
+        }
+    }
 
     pure function to-canvas(p: Point) -> Point {
         let cx = root.selection.width / 2;
@@ -96,6 +109,7 @@ export component LinearGradientOverlay inherits FocusScope {
     }
     function begin(kind: int, p: Point) {
         root.drag-kind = kind;
+        root.original-selected = FillSession.selected-stop;
         root.press = root.to-local(p);
         root.original-axis = root.axis;
         root.original-fill = FillSession.working-fill;
@@ -118,12 +132,48 @@ export component LinearGradientOverlay inherits FocusScope {
         };
         FillSession.move-axis(root.original-fill, root.original-axis, next);
     }
+    function handle-key(kind: int, event: KeyEvent) -> EventResult {
+        if kind == 3 && (event.text == Key.Delete || event.text == Key.Backspace) {
+            FillSession.remove-stop();
+            return accept;
+        }
+        if event.text != Key.LeftArrow && event.text != Key.RightArrow && event.text != Key.UpArrow && event.text != Key.DownArrow {
+            return reject;
+        }
+        let step = event.modifiers.shift ? 10 : 1;
+        if kind == 3 {
+            let amount = (event.text == Key.LeftArrow || event.text == Key.DownArrow ? -step : step) / 100;
+            let p = Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.target-size,
+                FillSession.working-fill.stops[FillSession.selected-stop].position);
+            FillSession.move-stop({
+                x: p.x + amount * (root.axis.end.x - root.axis.start.x),
+                y: p.y + amount * (root.axis.end.y - root.axis.start.y),
+            });
+            FillSession.focus-stop-generation += 1;
+        } else {
+            let delta = {
+                x: (event.text == Key.LeftArrow ? -step : event.text == Key.RightArrow ? step : 0) * 1px,
+                y: (event.text == Key.UpArrow ? -step : event.text == Key.DownArrow ? step : 0) * 1px,
+            };
+            let next = {
+                start: kind == 0 ? { x: root.axis.start.x + delta.x, y: root.axis.start.y + delta.y } : root.axis.start,
+                end: kind == 1 ? { x: root.axis.end.x + delta.x, y: root.axis.end.y + delta.y } : root.axis.end,
+            };
+            FillSession.move-axis(FillSession.working-fill, root.axis, next);
+        }
+        return accept;
+    }
     key-pressed(event) => {
+        if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z") {
+            FillSession.apply-history(event.modifiers.shift);
+            return accept;
+        }
         if event.text == Key.Escape {
             if root.dragging {
                 root.dragging = false;
                 FillSession.preview-fill(root.original-fill);
                 FillSession.axis = root.original-axis;
+                FillSession.selected-stop = root.original-selected;
             } else {
                 FillSession.close-picker(false, true);
             }
@@ -161,6 +211,7 @@ export component LinearGradientOverlay inherits FocusScope {
                 else { root.dragging = false; }
             }
             moved => { if self.pressed { root.drag(self.pointer()); } }
+            double-clicked => { FillSession.add-stop(root.to-local(self.pointer())); }
         }
     }
     for endpoint in 2: GradientHandle {
@@ -169,6 +220,7 @@ export component LinearGradientOverlay inherits FocusScope {
         endpoint: true;
         color: white;
         label: endpoint == 0 ? "Gradient start" : "Gradient end";
+        keyboard(event) => { return root.handle-key(endpoint, event); }
         started(p) => { root.begin(endpoint, p); }
         dragged(p) => { root.drag(p); }
         finished => { root.dragging = false; }
@@ -192,6 +244,8 @@ export component LinearGradientOverlay inherits FocusScope {
         color: stop.color;
         selected: index == FillSession.selected-stop;
         label: "Gradient stop " + (index + 1);
+        focus-generation: root.focus-epoch;
+        keyboard(event) => { return root.handle-key(3, event); }
         focused => { FillSession.selected-stop = index; }
         started(p) => { root.begin(3, p); }
         dragged(p) => { root.drag(p); }

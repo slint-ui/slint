@@ -25,6 +25,10 @@ export component InspectorFillPicker inherits Rectangle {
 
         picker-focus := FocusScope {
             capture-key-pressed(event) => {
+                if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z") {
+                    FillSession.apply-history(event.modifiers.shift);
+                    return accept;
+                }
                 if event.text == Key.Escape {
                     FillSession.close-picker(false, true);
                     return accept;

@@ -60,14 +60,7 @@ export component EditorUi inherits Window {
         root.close-startup-wizard();
     }
     function apply-history(redo: bool) {
-        Api.inspector-cancel();
-        Api.inspector-generation += 1;
-        Api.inspector-fill-generation += 1;
-        if redo {
-            if Api.redo-enabled { Api.redo(); }
-        } else {
-            if Api.undo-enabled { Api.undo(); }
-        }
+        FillSession.apply-history(redo);
     }
 
     MenuBar {
