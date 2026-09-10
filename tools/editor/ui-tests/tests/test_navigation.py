@@ -11,6 +11,7 @@ from ui_driver import (
     file_row,
     first_window,
     launch_editor,
+    palette_row,
     wait_until,
     window_element_with_label,
 )
@@ -101,9 +102,7 @@ def test_file_tree_switches_image_and_component_surfaces(
             )
         )
         for kind in PALETTE_KINDS:
-            assert not window_element_with_label(
-                window, kind, slint_testing.AccessibleRole.ListItem
-            ).accessible_enabled
+            assert not palette_row(window, kind).accessible_enabled
         file_row(window, source_file).invoke_accessible_default_action()
         window_element_with_label(
             window, "Editor canvas", slint_testing.AccessibleRole.Main

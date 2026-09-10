@@ -401,8 +401,8 @@ export component MoveResizeFrame inherits Rectangle {
                     visible: root.show-resize-handles;
 
                     TouchArea {
-                        enabled: root.resizable;
-                        mouse-cursor: root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
+                        enabled: root.enabled;
+                        mouse-cursor: !root.resizable ? default : root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
                         accessible-role: AccessibleRole.button;
                         accessible-label: root.accessible-prefix + " resize " + root.corner-name(corner);
                         accessible-enabled: root.resizable;
@@ -417,7 +417,7 @@ export component MoveResizeFrame inherits Rectangle {
                         }
 
                         changed pressed => {
-                            if self.pressed {
+                            if self.pressed && root.resizable {
                                 let pointer = root.local-point-to-parent(root.child-local-point(
                                     { x: parent.x, y: parent.y },
                                     { x: self.mouse-x, y: self.mouse-y },

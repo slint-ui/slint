@@ -126,6 +126,15 @@ def _rotation_tooltip_value(window: slint_testing.Window) -> int:
     return int(tooltip.accessible_value)
 
 
+def rotation_start(handle: slint_testing.Element) -> slint_testing.LogicalPosition:
+    position = center(handle)
+    corner = handle.accessible_label.rsplit(" ", 1)[-1]
+    return slint_testing.LogicalPosition(
+        x=position.x + handle.size.width / 4 * (-1 if "left" in corner else 1),
+        y=position.y + handle.size.height / 4 * (-1 if "top" in corner else 1),
+    )
+
+
 def manual_rotation_drag(
     window: slint_testing.Window,
     handle: slint_testing.Element,
@@ -137,7 +146,7 @@ def manual_rotation_drag(
     kind: str = "Text",
     target_angle: int = 15,
 ) -> None:
-    start = center(handle)
+    start = rotation_start(handle)
     end = slint_testing.LogicalPosition(x=start.x + dx, y=start.y + dy)
     button = slint_testing.PointerEventButton.Left
     initial_frame = selection_frame(window, kind)
@@ -177,7 +186,7 @@ def rotation_delta(
         x=x + width / 2,
         y=y + height / 2,
     )
-    start = center(handle)
+    start = rotation_start(handle)
     radians = math.radians(degrees)
     cosine = math.cos(radians)
     sine = math.sin(radians)

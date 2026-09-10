@@ -171,6 +171,25 @@ def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:
     )
 
 
+def palette_row(window: slint_testing.Window, kind: str) -> slint_testing.Element:
+    from canvas_interactions import center
+
+    pane = window_element_with_label(window, "Element library")
+    top = pane.absolute_position.y
+    bottom = top + pane.size.height
+    position = slint_testing.LogicalPosition(x=center(pane).x, y=(top + bottom) / 2)
+    step = max(1, (bottom - top) / 2)
+    for delta in [0, 10000] + [-step] * 16:
+        if delta:
+            window.dispatch_event(
+                slint_testing.PointerScrolledEvent(position, delta_x=0, delta_y=delta)
+            )
+        rows = elements_with_label(pane, kind, slint_testing.AccessibleRole.ListItem)
+        if len(rows) == 1 and top < center(rows[0]).y < bottom:
+            return rows[0]
+    raise AssertionError(f"No visible palette row for {kind!r}")
+
+
 def press_shortcut(window: slint_testing.Window, *keys: str) -> None:
     pressed = []
     try:
