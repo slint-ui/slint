@@ -43,9 +43,12 @@ export global FillSession {
     in-out property <string> property-name;
     in-out property <bool> canvas-target;
     in-out property <int> focus-generation;
-    out property <bool> linear-active: open && editable && session-active && canvas-target
-        && working-fill.kind == BrushKind.linear && Api.current-element.type-name == "Rectangle"
+    private property <bool> canvas-editable: open && editable && session-active && canvas-target
+        && Api.current-element.type-name == "Rectangle"
         && Api.selection.highlight-index >= 0;
+    out property <bool> linear-active: canvas-editable && working-fill.kind == BrushKind.linear;
+    out property <bool> radial-active: canvas-editable && working-fill.kind == BrushKind.radial;
+    out property <bool> canvas-active: linear-active || radial-active;
 
     in-out property <LinearGradientAxis> axis;
     in-out property <Point> canvas-origin;
