@@ -408,6 +408,9 @@ pub struct WinitWindowAdapter {
     /// Indicate whether we've ever received a resize event from winit after showing the window.
     pending_resize_event_after_show: Cell<bool>,
 
+    /// Whether the current winit window has presented a frame.
+    first_frame_presented: Cell<bool>,
+
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 
@@ -481,6 +484,7 @@ impl WinitWindowAdapter {
             physical_size_before_scale_factor: Cell::new(None),
             has_explicit_size: Default::default(),
             pending_resize_event_after_show: Default::default(),
+            first_frame_presented: Default::default(),
             renderer,
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
@@ -603,6 +607,7 @@ impl WinitWindowAdapter {
 
         let winit_window =
             self.renderer.resume(active_event_loop, window_attributes, self.self_weak.clone())?;
+        self.first_frame_presented.set(false);
 
         // Push the host shell's color scheme and accent color to the SlintContext.
         // With `xdg_desktop_settings` the backend-wide portal watcher (spawned in
@@ -838,7 +843,9 @@ impl WinitWindowAdapter {
         }
 
         let renderer = self.renderer();
-        if !matches!(renderer.render(self.window())?, DrawOutcome::Success) {
+        if matches!(renderer.render(self.window())?, DrawOutcome::Success) {
+            self.first_frame_presented.set(true);
+        } else {
             // Frame was skipped (e.g. surface occluded). pending_redraw was already
             // cleared above, so re-arm it so we try again.
             self.request_redraw();
@@ -1640,9 +1647,7 @@ impl WinitWindowAdapter {
             // Pre-render the first frame before mapping the window to avoid a flash of
             // uninitialized VRAM on X11 (no background_pixmap). Skipped on Wayland, where
             // rendering before the initial configure makes the compositor mis-size the window.
-            if matches!(visibility, WindowVisibility::ShownFirstTime)
-                && !self.shared_backend_data.is_wayland
-            {
+            if !self.first_frame_presented.get() && !self.shared_backend_data.is_wayland {
                 let _ = self.draw();
             }
 
