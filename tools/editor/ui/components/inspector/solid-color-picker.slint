@@ -30,9 +30,8 @@ export component InspectorSolidColorPicker inherits Rectangle {
     private property <bool> dragging: false;
     private property <bool> has-preview: false;
     private property <string> gesture-key;
-    private property <bool> is-detached: false;
     private property <color> original-color: root.value;
-    private property <bool> editable: root.open && !Api.inspector-color-refresh-pending && !root.unsupported && (!root.bound || root.is-detached);
+    private property <bool> editable: root.open && !Api.inspector-color-refresh-pending && !root.unsupported && !root.bound;
     private property <bool> popup-open: picker-popup.is-open;
 
     function color-at() -> color {
@@ -146,7 +145,6 @@ export component InspectorSolidColorPicker inherits Rectangle {
         root.original-color = root.value;
         root.dragging = false;
         root.has-preview = false;
-        root.is-detached = false;
         picker-popup.show();
     }
 
@@ -295,26 +293,21 @@ export component InspectorSolidColorPicker inherits Rectangle {
                                 height: parent.height;
                                 accessible-role: AccessibleRole.button;
                                 accessible-label: "Detach color binding";
-                                enabled: root.bound && !root.is-detached && !Api.inspector-color-refresh-pending;
-                                clicked => {
+                                enabled: root.bound && !Api.inspector-color-refresh-pending;
+                                function detach-binding() {
                                     if self.enabled && root.detached(root.target-key) {
-                                        root.is-detached = true;
                                         root.original-color = root.working-color;
                                     }
                                 }
-                                accessible-action-default => {
-                                    if self.enabled && root.detached(root.target-key) {
-                                        root.is-detached = true;
-                                        root.original-color = root.working-color;
-                                    }
-                                }
+                                clicked => { self.detach-binding(); }
+                                accessible-action-default => { self.detach-binding(); }
                                 Text {
                                     text: "Detach";
                                     width: parent.width;
                                     height: parent.height;
                                     horizontal-alignment: center;
                                     vertical-alignment: center;
-                                    color: root.is-detached ? InspectorTokens.text : InspectorTokens.muted;
+                                    color: InspectorTokens.muted;
                                     font-size: 11px;
                                 }
                             }
