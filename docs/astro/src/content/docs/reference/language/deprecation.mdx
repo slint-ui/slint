@@ -29,7 +29,7 @@ and the compiled result is the same as without the annotation.
 `@deprecated` precedes the declaration, ahead of any visibility or purity modifier,
 and takes the message in parentheses:
 
-```slint no-test
+```slint
 @deprecated("Compute it from 'new-prop' instead") in-out property <int> older-prop: 42;
 @deprecated("Use 'new-callback' instead") callback old-callback();
 @deprecated("Use 'new-function' instead") public pure function old-function() -> int { 1 }
