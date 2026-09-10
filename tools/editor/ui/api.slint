@@ -741,6 +741,10 @@ export global Api {
     pure callback fill-brush(value: FillData) -> brush;
     pure callback fill-expression(value: FillData) -> string;
     pure callback linear-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
+    pure callback radial-gradient-axis(value: FillData, size: Size, direction: float) -> LinearGradientAxis;
+    pure callback remap-radial-gradient(value: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
+    pure callback gradient-axis-point(axis: LinearGradientAxis, position: float) -> Point;
+    pure callback gradient-axis-position(axis: LinearGradientAxis, point: Point) -> float;
     pure callback linear-gradient-point(angle: float, size: Size, position: float) -> Point;
     pure callback linear-gradient-position(angle: float, size: Size, point: Point) -> float;
     pure callback remap-linear-gradient(value: FillData, size: Size, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
