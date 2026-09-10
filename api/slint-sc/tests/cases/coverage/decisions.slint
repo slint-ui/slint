@@ -12,9 +12,10 @@ export component TestCase inherits Window {
     // Only the true arm of the first decision, both of the nested one.
     out property <int> nested: a ? (b ? 1 : 2) : 3;
 //#c                           ^+^+-  ^++
-    // `a` is always true: `b` is always evaluated.
-    out property <bool> both: a && b;
-//#c                          ^+^+-
+    // `a` is always true: `b` is always evaluated. The comment is wider in
+    // bytes than in characters, and the carets sit under the operators still.
+    out property <bool> both: /* «b» */ a && b;
+//#c                                    ^+^+-
     // `a` is always true: `b` is never evaluated.
     out property <bool> either: a || b;
 //#c                            ^+^+-

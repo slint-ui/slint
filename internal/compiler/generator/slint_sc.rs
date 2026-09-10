@@ -111,10 +111,10 @@ impl Coverage {
         if !span.is_valid() {
             return None;
         }
-        let (start_line, start_column) = source_file.line_column(span.offset, ByteFormat::Utf8);
-        let (end_line, end_column) =
-            source_file.line_column(span.offset + span.length, ByteFormat::Utf8);
-        let path = std::path::absolute(source_file.path()).unwrap_or_default();
+        let (start_line, start_column) = char_position(source_file, span.offset);
+        let (end_line, end_column) = char_position(source_file, span.offset + span.length);
+        let path = std::path::absolute(source_file.path())
+            .unwrap_or_else(|_| source_file.path().to_path_buf());
         let record = format!(
             "{kind} {name} {start_line}:{start_column}-{end_line}:{end_column} {}",
             path.display()
@@ -153,6 +153,17 @@ impl Coverage {
         }
         (printer.code, map)
     }
+}
+
+/// The line and column of an offset, both 1-based, the column in characters
+/// like the columns of the ranges.
+fn char_position(source_file: &crate::diagnostics::SourceFile, offset: usize) -> (usize, usize) {
+    let (line, byte_column) = source_file.line_column(offset, ByteFormat::Utf8);
+    let column = match source_file.source() {
+        Some(source) => source[offset + 1 - byte_column..offset].chars().count() + 1,
+        None => byte_column,
+    };
+    (line, column)
 }
 
 /// The type name an element is written with, `Lamp` for `Lamp { ... }` and
