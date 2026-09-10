@@ -58,7 +58,6 @@ export component EditorUi inherits Window {
         Api.inspector-cancel();
         Api.inspector-generation += 1;
         Api.inspector-color-generation += 1;
-        Api.inspector-color-dismissed();
         if redo {
             if Api.redo-enabled { Api.redo(); }
         } else {

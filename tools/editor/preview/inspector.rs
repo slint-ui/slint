@@ -16,32 +16,27 @@ pub(super) struct Edit {
 }
 
 pub(super) struct ColorRefresh {
-    expected: text_edit::EditedText,
-    received: bool,
-    preserve_popup: bool,
-    write_completed: bool,
-    submitted_edit: lsp_types::WorkspaceEdit,
-    color: slint::Color,
-    previous_history: undo_redo::UndoRedoStack,
+    pub(super) expected: text_edit::EditedText,
+    pub(super) submitted_edit: lsp_types::WorkspaceEdit,
+    pub(super) color: slint::Color,
+    pub(super) undo: Option<undo_redo::EditItem>,
 }
 
 pub(super) fn color_contents_changed(url: &Url, content: &str) -> bool {
     PREVIEW_STATE.with_borrow_mut(|state| {
+        let changed = state.source_code.get(url).is_none_or(|source| source.code != content);
         let Some(refresh) = state.color_refresh.as_mut() else { return false };
-        if refresh.expected.url != *url || refresh.expected.contents != content {
+        if refresh.expected.url != *url {
             return false;
         }
-        refresh.received = true;
+        if refresh.expected.contents != content {
+            if changed {
+                refresh.undo = None;
+            }
+            return false;
+        }
         true
     })
-}
-
-pub(super) fn dismiss_color() {
-    PREVIEW_STATE.with_borrow_mut(|state| {
-        if let Some(refresh) = state.color_refresh.as_mut() {
-            refresh.preserve_popup = false;
-        }
-    });
 }
 
 fn clear_color_refresh() {
@@ -55,20 +50,10 @@ fn clear_color_refresh() {
 }
 
 pub(super) fn invalidate_color() {
-    dismiss_color();
     let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
     if let Some(api) = api {
         api.set_inspector_color_generation(api.get_inspector_color_generation().wrapping_add(1));
     }
-}
-
-pub(super) fn preserve_color_popup() -> bool {
-    PREVIEW_STATE.with_borrow(|state| {
-        state
-            .color_refresh
-            .as_ref()
-            .is_some_and(|refresh| refresh.received && refresh.preserve_popup)
-    })
 }
 
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
@@ -78,60 +63,28 @@ pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: b
             return None;
         }
         let color = refresh.color;
-        refresh.write_completed = true;
-        let preserve_popup = refresh.preserve_popup;
         if !applied {
-            let mut previous = refresh.previous_history.clone();
-            for (url, source) in &state.source_code {
-                previous.check_set_contents_valid(url, &source.code);
-            }
-            state.undo_redo_stack = previous;
             state.workspace_edit_sent = false;
         } else {
+            if let Some(undo) = refresh.undo.take() {
+                state.undo_redo_stack.push_item(undo);
+            }
             state.inspector_edit.take();
         }
-        Some((state.api.upgrade(), color, preserve_popup))
+        Some((state.api.upgrade(), color))
     });
-    let Some((api, color, preserve_popup)) = result else { return };
+    let Some((api, color)) = result else { return };
     if applied {
         if let Some(api) = api {
             api.invoke_add_recent_color(color);
         }
-        if !preserve_popup {
-            clear_color_refresh();
-        }
     } else {
         cancel();
-        clear_color_refresh();
         invalidate_color();
-        PREVIEW_STATE.with_borrow(undo_redo::set_undo_redo_enabled);
-        undo_redo::apply_pending();
     }
-}
-
-pub(super) fn finish_refresh() {
-    let (pending, applied, write_completed) = PREVIEW_STATE.with_borrow(|state| {
-        let Some(refresh) = state.color_refresh.as_ref() else { return (false, false, false) };
-        let applied = refresh.received
-            && document_cache_from(state)
-                .and_then(|cache| {
-                    cache
-                        .get_document(&refresh.expected.url)
-                        .and_then(|document| document.node.as_ref())
-                        .map(|node| node.text() == refresh.expected.contents.as_str())
-                })
-                .unwrap_or(false);
-        (true, applied, refresh.write_completed)
-    });
-    if pending && applied {
-        refresh();
-        clear_color_refresh();
-    } else if pending && !write_completed {
-        refresh();
-    } else {
-        clear_color_refresh();
-        invalidate();
-    }
+    clear_color_refresh();
+    PREVIEW_STATE.with_borrow(undo_redo::set_undo_redo_enabled);
+    undo_redo::apply_pending();
 }
 
 fn target(key: &str) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
@@ -299,10 +252,6 @@ pub(super) fn commit_color(key: SharedString, name: SharedString, value: slint::
         return false;
     };
     let color = ui::color_to_string(value);
-    let Some(cache) = document_cache() else {
-        cancel();
-        return false;
-    };
     let edit = property_edit(
         node,
         url,
@@ -316,39 +265,8 @@ pub(super) fn commit_color(key: SharedString, name: SharedString, value: slint::
         cancel();
         return false;
     };
-    let expected = text_edit::apply_workspace_edit(&cache, &edit)
-        .ok()
-        .and_then(|mut documents| (documents.len() == 1).then(|| documents.remove(0)));
-    let Some(expected) = expected else {
-        cancel();
-        return false;
-    };
-    let changed = PREVIEW_STATE.with_borrow(|state| {
-        state.source_code.get(&expected.url).is_none_or(|source| source.code != expected.contents)
-    });
-    if !changed {
-        cancel();
-        return true;
-    }
-    let previous_history = PREVIEW_STATE.with_borrow(|state| state.undo_redo_stack.clone());
-    let accepted = send_workspace_edit("Editing color".into(), edit.clone(), true);
-    if accepted {
-        let api = PREVIEW_STATE.with_borrow_mut(|state| {
-            state.color_refresh = Some(ColorRefresh {
-                expected,
-                received: false,
-                preserve_popup: true,
-                write_completed: false,
-                submitted_edit: edit,
-                color: value,
-                previous_history,
-            });
-            state.api.upgrade()
-        });
-        if let Some(api) = api {
-            api.set_inspector_color_refresh_pending(true);
-        }
-    } else {
+    let accepted = submit_workspace_edit("Editing color".into(), edit, true, Some(value));
+    if !accepted {
         cancel();
     }
     accepted

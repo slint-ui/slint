@@ -105,12 +105,8 @@ export component InspectorColorField inherits Rectangle {
         accepted(key, color) => {
             return Api.inspector-color-commit(key, root.property-name, color);
         }
-        detached(key) => {
-            return Api.inspector-color-commit(key, root.property-name, root.effective-color);
-        }
         closed => {
             root.picker-open = false;
-            Api.inspector-color-dismissed();
         }
     }
 }

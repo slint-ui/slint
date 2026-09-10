@@ -7,6 +7,7 @@ export component InspectorTextFieldBase inherits Rectangle {
     in property <string> accessible-name: "";
     in property <string> value;
     in property <bool> enabled: true;
+    in property <bool> live-edit: false;
     in property <length> field-padding-left: 8px;
     in property <length> field-padding-right: 7px;
     in property <length> content-spacing: 5px;
@@ -83,7 +84,10 @@ export component InspectorTextFieldBase inherits Rectangle {
                 selection-background-color: InspectorTokens.accent.with-alpha(0.28);
                 text-cursor-width: 1px;
 
-                edited => { root.edited = true; }
+                edited => {
+                    root.edited = true;
+                    if root.live-edit { root.accept-input(self.text); }
+                }
 
                 accepted => {
                     if !root.accept-input(self.text) {

@@ -10,11 +10,10 @@ use std::collections::HashMap;
 
 type FileHashes = HashMap<lsp_types::Url, u64>;
 
-#[derive(Clone)]
-struct EditItem {
-    title: String,
-    edit: lsp_types::WorkspaceEdit,
-    file_hashes: FileHashes,
+pub(super) struct EditItem {
+    pub(super) title: String,
+    pub(super) edit: lsp_types::WorkspaceEdit,
+    pub(super) file_hashes: FileHashes,
 }
 
 pub fn compute_file_hashes(
@@ -46,7 +45,7 @@ fn prepare_history_edit(
     Some((reverse, compute_file_hashes(&result)))
 }
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub struct UndoRedoStack {
     undo_stack: Vec<EditItem>,
     redo_stack: Vec<EditItem>,
@@ -67,13 +66,17 @@ impl UndoRedoStack {
     ) {
         match reverse_edit {
             Some(edit) => {
-                self.undo_stack.push(EditItem { title, edit, file_hashes });
-                self.redo_stack.clear();
+                self.push_item(EditItem { title, edit, file_hashes });
             }
             None => {
                 self.clear();
             }
         }
+    }
+
+    pub(super) fn push_item(&mut self, item: EditItem) {
+        self.undo_stack.push(item);
+        self.redo_stack.clear();
     }
 
     pub fn check_set_contents_valid(&mut self, url: &lsp_types::Url, content: &str) -> bool {
@@ -95,7 +98,7 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_undo(|| {
         let Some(document_cache) = super::document_cache() else { return };
         super::PREVIEW_STATE.with_borrow_mut(|state| {
-            if state.workspace_edit_sent {
+            if edit_pending(state) {
                 state.pending_history.push_back(false);
                 return;
             }
@@ -129,7 +132,7 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_redo(|| {
         let Some(document_cache) = super::document_cache() else { return };
         super::PREVIEW_STATE.with_borrow_mut(|state| {
-            if state.workspace_edit_sent {
+            if edit_pending(state) {
                 state.pending_history.push_back(true);
                 return;
             }
@@ -162,10 +165,14 @@ pub fn setup(api: &ui::Api<'_>) {
     });
 }
 
+pub(super) fn edit_pending(state: &super::PreviewState) -> bool {
+    state.workspace_edit_sent || state.color_refresh.is_some()
+}
+
 pub(super) fn apply_pending() {
     loop {
         let next = super::PREVIEW_STATE.with_borrow_mut(|state| {
-            if state.workspace_edit_sent {
+            if edit_pending(state) {
                 return None;
             }
             Some((state.api.upgrade()?, state.pending_history.pop_front()?))

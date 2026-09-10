@@ -511,7 +511,9 @@ fn apply_live_preview_data() {
 fn set_contents(url: &VersionedUrl, content: String) {
     let own_color_edit = inspector::color_contents_changed(url.url(), &content);
     let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
+        if !own_color_edit
+            && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
+        {
             undo_redo::set_undo_redo_enabled(preview_state);
         }
         let old = preview_state.source_code.insert(
@@ -1720,11 +1722,42 @@ pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: b
 }
 
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
+    submit_workspace_edit(label, edit, test_edit, None)
+}
+
+fn submit_workspace_edit(
+    label: String,
+    edit: lsp_types::WorkspaceEdit,
+    test_edit: bool,
+    color: Option<slint::Color>,
+) -> bool {
     let Some(document_cache) = document_cache() else {
         return false;
     };
     let Ok(result) = text_edit::apply_workspace_edit(&document_cache, &edit) else {
         return false;
+    };
+    let color_refresh = if let Some(color) = color {
+        let [expected] = result.as_slice() else { return false };
+        let unchanged = PREVIEW_STATE.with_borrow(|state| {
+            state
+                .source_code
+                .get(&expected.url)
+                .is_some_and(|source| source.code == expected.contents)
+        });
+        if unchanged {
+            inspector::cancel();
+            return true;
+        }
+        Some((
+            color,
+            text_edit::EditedText {
+                url: expected.url.clone(),
+                contents: expected.contents.clone(),
+            },
+        ))
+    } else {
+        None
     };
     let file_hashes = undo_redo::compute_file_hashes(&result);
 
@@ -1739,11 +1772,26 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
 
     let reverse_edit = text_edit::reversed_edit(&document_cache, &edit);
 
-    PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if std::mem::replace(&mut preview_state.workspace_edit_sent, true) {
+    let accepted = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        if undo_redo::edit_pending(preview_state) {
             return false;
         }
-        preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
+        if let Some((color, expected)) = color_refresh {
+            let Some(reverse) = reverse_edit else { return false };
+            preview_state.color_refresh = Some(inspector::ColorRefresh {
+                expected,
+                submitted_edit: edit.clone(),
+                color,
+                undo: Some(undo_redo::EditItem {
+                    title: label.clone(),
+                    edit: reverse,
+                    file_hashes,
+                }),
+            });
+        } else {
+            preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
+        }
+        preview_state.workspace_edit_sent = true;
         undo_redo::set_undo_redo_enabled(preview_state);
         preview_state
             .to_lsp
@@ -1753,7 +1801,14 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
             .send(&PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit })
             .unwrap();
         true
-    })
+    });
+    if accepted && color.is_some() {
+        let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
+        if let Some(api) = api {
+            api.set_inspector_color_refresh_pending(true);
+        }
+    }
+    accepted
 }
 
 fn change_style() {
@@ -2290,11 +2345,8 @@ fn set_preview_factory(
     compiled: ComponentDefinition,
     callback: Box<dyn Fn(ComponentInstance)>,
     behavior: LoadBehavior,
-    preserve_color_popup: bool,
 ) {
-    if !preserve_color_popup {
-        i_slint_core::window::WindowInner::from_pub(editor_ui.window()).close_all_popups();
-    }
+    i_slint_core::window::WindowInner::from_pub(editor_ui.window()).close_all_popups();
 
     let _ = i_slint_core::window::WindowInner::from_pub(editor_ui.window())
         .context()
@@ -2701,8 +2753,6 @@ fn update_preview_area(
     source_file_versions: Rc<RefCell<i_slint_editor_preview::document_cache::SourceFileVersionMap>>,
     format: i_slint_editor_preview::ByteFormat,
 ) -> Result<(), PlatformError> {
-    let compiled_successfully = compiled.is_some();
-    let preserve_color_popup = inspector::preserve_color_popup();
     let editor_ui = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
 
@@ -2752,7 +2802,6 @@ fn update_preview_area(
                     previewed_component_changed();
                 }),
                 behavior,
-                preserve_color_popup,
             );
         }
 
@@ -2772,11 +2821,7 @@ fn update_preview_area(
         Ok(())
     })?;
 
-    if compiled_successfully {
-        inspector::finish_refresh();
-    } else {
-        inspector::invalidate();
-    }
+    inspector::invalidate();
     element_selection::reselect_element();
     undo_redo::apply_pending();
     Ok(())

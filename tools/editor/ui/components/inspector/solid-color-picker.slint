@@ -61,7 +61,6 @@ export component InspectorSolidColorPicker inherits Rectangle {
     in property <bool> open: false;
     callback accepted(string, color) -> bool;
     callback preview(string, color) -> bool;
-    callback detached(string) -> bool;
     callback closed();
     callback restore-focus();
     in property <Point> anchor-position;
@@ -74,9 +73,12 @@ export component InspectorSolidColorPicker inherits Rectangle {
     private property <int> alpha: 255;
     private property <bool> dragging: false;
     private property <bool> has-preview: false;
-    private property <string> gesture-key;
+    private property <string> active-target;
+    private property <bool> session-active: false;
+    private property <bool> detach-requested: false;
+    private property <color> gesture-color;
     private property <color> original-color: root.value;
-    private property <bool> editable: root.open && !Api.inspector-color-refresh-pending && !root.unsupported && !root.bound;
+    private property <bool> editable: root.open && !Api.inspector-color-refresh-pending && !root.unsupported && (!root.bound || root.detach-requested);
     private property <bool> popup-open: picker-popup.is-open;
 
     function color-at() -> color {
@@ -99,74 +101,36 @@ export component InspectorSolidColorPicker inherits Rectangle {
     function cancel-gesture() {
         if root.dragging {
             root.dragging = false;
-            if root.has-preview {
-                Api.inspector-cancel();
-                root.has-preview = false;
-            }
-            root.update-color(root.original-color);
+            root.preview-color(root.gesture-color);
         }
     }
 
-    function preview-color(c: color) {
-        if !root.editable {
-            return;
-        }
-        root.update-color(c);
-        if root.preview(root.gesture-key, c) {
-            root.has-preview = true;
-            return;
-        }
-        root.cancel-gesture();
-    }
-
-    function commit-color(key: string, c: color) -> bool {
-        if !root.editable {
+    function preview-color(c: color) -> bool {
+        if !root.session-active || !root.editable {
             return false;
         }
-        if c == root.original-color {
-            return true;
-        }
-        if root.accepted(key, c) {
+        if root.preview(root.active-target, c) {
+            root.has-preview = true;
             root.update-color(c);
-            root.original-color = c;
             return true;
         }
-        Api.inspector-cancel();
-        root.update-color(root.original-color);
+        root.close-picker(false, false);
         return false;
     }
 
     function commit-text(text: string) -> bool {
-        if !Api.string-is-color(text) || !root.editable {
-            return false;
-        }
-        return root.commit-color(root.target-key, Api.string-to-color(text));
+        return Api.string-is-color(text) && root.preview-color(Api.string-to-color(text));
     }
 
     function begin-gesture() {
         if root.editable {
-            root.gesture-key = root.target-key;
             root.dragging = true;
-            root.has-preview = false;
-            root.original-color = root.working-color;
+            root.gesture-color = root.working-color;
         }
     }
 
     function finish-gesture() {
-        if !root.dragging {
-            return;
-        }
-        let c = root.working-color;
         root.dragging = false;
-        if c == root.original-color {
-            if root.has-preview {
-                Api.inspector-cancel();
-                root.has-preview = false;
-            }
-            return;
-        }
-        root.commit-color(root.gesture-key, c);
-        root.has-preview = false;
     }
 
     function update-saturation-brightness(x: length, y: length, width: length, height: length) {
@@ -178,44 +142,48 @@ export component InspectorSolidColorPicker inherits Rectangle {
     function show-picker() {
         root.update-color(root.value);
         root.original-color = root.value;
+        root.active-target = root.target-key;
         root.dragging = false;
         root.has-preview = false;
+        root.detach-requested = false;
+        root.session-active = true;
         picker-popup.show();
     }
 
-    function close-picker(return-focus: bool) {
-        root.cancel-gesture();
+    function close-picker(accept: bool, return-focus: bool) {
+        if !root.session-active { return; }
+        root.session-active = false;
+        root.dragging = false;
+        let changed = root.working-color != root.original-color || root.detach-requested;
+        if !accept || !changed || !root.accepted(root.active-target, root.working-color) {
+            if root.has-preview { Api.inspector-cancel(); }
+            root.update-color(root.original-color);
+        }
+        root.has-preview = false;
         root.closed();
         picker-popup.close();
         if return-focus { root.restore-focus(); }
     }
 
     changed value => {
-        if !root.dragging && !Api.inspector-color-refresh-pending {
-            root.update-color(root.value);
-            root.original-color = root.value;
-        }
+        if !root.session-active { root.update-color(root.value); }
     }
 
     changed session-key => {
-        if root.open {
-            root.close-picker(false);
-        }
+        root.close-picker(false, false);
     }
 
     changed open => {
         if root.open {
             root.show-picker();
         } else {
-            root.cancel-gesture();
-            picker-popup.close();
+            root.close-picker(false, false);
         }
     }
 
     changed popup-open => {
         if !root.popup-open && root.open {
-            root.cancel-gesture();
-            root.closed();
+            root.close-picker(root.active-target == root.target-key, false);
         }
     }
 
@@ -240,13 +208,9 @@ export component InspectorSolidColorPicker inherits Rectangle {
             drop-shadow-offset-y: 7px;
 
             picker-focus := FocusScope {
-                key-pressed(event) => {
+                capture-key-pressed(event) => {
                     if event.text == Key.Escape {
-                        if root.dragging {
-                            root.cancel-gesture();
-                        } else {
-                            root.close-picker(true);
-                        }
+                        root.close-picker(false, true);
                         return accept;
                     }
                     return reject;
@@ -275,8 +239,8 @@ export component InspectorSolidColorPicker inherits Rectangle {
                                 height: parent.height;
                                 accessible-role: AccessibleRole.button;
                                 accessible-label: "Close color picker";
-                                clicked => { root.close-picker(true); }
-                                accessible-action-default => { root.close-picker(true); }
+                                clicked => { root.close-picker(true, true); }
+                                accessible-action-default => { root.close-picker(true, true); }
                                 Text {
                                     text: "Close";
                                     width: parent.width;
@@ -308,7 +272,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         }
                     }
 
-                    if root.bound && !root.unsupported: HorizontalLayout {
+                    if root.bound && !root.detach-requested && !root.unsupported: HorizontalLayout {
                         height: 26px;
                         Text {
                             text: root.expression;
@@ -330,8 +294,8 @@ export component InspectorSolidColorPicker inherits Rectangle {
                                 accessible-label: "Detach color binding";
                                 enabled: root.bound && !Api.inspector-color-refresh-pending;
                                 function detach-binding() {
-                                    if self.enabled && root.detached(root.target-key) {
-                                        root.original-color = root.working-color;
+                                    if self.enabled {
+                                        root.detach-requested = true;
                                     }
                                 }
                                 clicked => { self.detach-binding(); }
@@ -444,6 +408,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         spacing: 8px;
                         InspectorTextFieldBase {
                             accessible-name: "Hex color";
+                            live-edit: true;
                             enabled: root.editable;
                             value: Api.color-to-data(root.working-color).text;
                             commit-key: root.session-key;
@@ -455,6 +420,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
                             spacing: 2px;
                             InspectorTextFieldBase {
                                 accessible-name: "Opacity percentage";
+                                live-edit: true;
                                 enabled: root.editable;
                                 width: 58px;
                                 value: (root.alpha * 100 / 255).to-fixed(0);
@@ -464,7 +430,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
                                         return false;
                                     }
                                     root.alpha = (text.to-float().clamp(0, 100) * 255 / 100).round();
-                                    return root.commit-color(root.target-key, root.color-at());
+                                    return root.preview-color(root.color-at());
                                 }
                             }
                             Text {
@@ -506,12 +472,12 @@ export component InspectorSolidColorPicker inherits Rectangle {
                                 accessible-label: "Recent color " + Api.color-to-data(recent).text;
                                 clicked => {
                                     if self.enabled {
-                                        root.commit-color(root.target-key, recent);
+                                        root.preview-color(recent);
                                     }
                                 }
                                 accessible-action-default => {
                                     if self.enabled {
-                                        root.commit-color(root.target-key, recent);
+                                        root.preview-color(recent);
                                     }
                                 }
                             }
