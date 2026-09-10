@@ -217,8 +217,8 @@ pub fn initialize_editor(
     api.on_inspector_preview(super::inspector::preview);
     api.on_inspector_commit(super::inspector::commit);
     api.on_inspector_cancel(super::inspector::cancel);
-    api.on_inspector_color_preview(super::inspector::preview_color);
-    api.on_inspector_color_commit(super::inspector::commit_color);
+    api.on_inspector_fill_preview(super::inspector::preview_fill);
+    api.on_inspector_fill_commit(super::inspector::commit_fill);
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);

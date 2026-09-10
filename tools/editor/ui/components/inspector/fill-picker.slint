@@ -51,7 +51,7 @@ export component InspectorFillPicker inherits Rectangle {
     private property <string> active-target;
     private property <bool> session-active: false;
     private property <FillData> original-fill: root.value;
-    private property <bool> editable: root.open && !Api.inspector-color-refresh-pending && !root.unsupported;
+    private property <bool> editable: root.open && !Api.inspector-fill-refresh-pending && !root.unsupported;
     private property <bool> popup-open: picker-popup.is-open;
 
     function preview-fill(fill: FillData) -> bool {

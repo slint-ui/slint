@@ -104,11 +104,11 @@ export component InspectorColorField inherits Rectangle {
         restore-focus => { swatch-focus.focus(); }
         session-key: root.session-key;
         target-key: root.preview-key;
-        preview(key, color) => {
-            return Api.inspector-color-preview(key, root.property-name, color);
+        preview(key, fill) => {
+            return Api.inspector-fill-preview(key, root.property-name, fill);
         }
-        accepted(key, color) => {
-            return Api.inspector-color-commit(key, root.property-name, color);
+        accepted(key, fill) => {
+            return Api.inspector-fill-commit(key, root.property-name, fill);
         }
         closed => {
             root.picker-open = false;

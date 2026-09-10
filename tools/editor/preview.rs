@@ -246,7 +246,7 @@ pub struct PreviewState {
     undo_redo_stack: undo_redo::UndoRedoStack,
     pending_history: std::collections::VecDeque<bool>,
     inspector_edit: Option<inspector::Edit>,
-    color_refresh: Option<inspector::ColorRefresh>,
+    fill_refresh: Option<inspector::FillRefresh>,
 
     source_code: SourceCodeCache,
     resources: HashSet<Url>,
@@ -509,9 +509,9 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &VersionedUrl, content: String) {
-    let own_color_edit = inspector::color_contents_changed(url.url(), &content);
+    let own_fill_edit = inspector::fill_contents_changed(url.url(), &content);
     let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if !own_color_edit
+        if !own_fill_edit
             && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
         {
             undo_redo::set_undo_redo_enabled(preview_state);
@@ -1721,7 +1721,7 @@ fn submit_workspace_edit(
     label: String,
     edit: lsp_types::WorkspaceEdit,
     test_edit: bool,
-    color: Option<ui::FillData>,
+    fill: Option<ui::FillData>,
 ) -> bool {
     let Some(document_cache) = document_cache() else {
         return false;
@@ -1729,7 +1729,7 @@ fn submit_workspace_edit(
     let Ok(result) = text_edit::apply_workspace_edit(&document_cache, &edit) else {
         return false;
     };
-    let color_refresh = if let Some(color) = color.clone() {
+    let fill_refresh = if let Some(fill) = fill.clone() {
         let [expected] = result.as_slice() else { return false };
         let unchanged = PREVIEW_STATE.with_borrow(|state| {
             state
@@ -1742,7 +1742,7 @@ fn submit_workspace_edit(
             return true;
         }
         Some((
-            color,
+            fill,
             text_edit::EditedText {
                 url: expected.url.clone(),
                 contents: expected.contents.clone(),
@@ -1768,12 +1768,12 @@ fn submit_workspace_edit(
         if undo_redo::edit_pending(preview_state) {
             return false;
         }
-        if let Some((color, expected)) = color_refresh {
+        if let Some((fill, expected)) = fill_refresh {
             let Some(reverse) = reverse_edit else { return false };
-            preview_state.color_refresh = Some(inspector::ColorRefresh {
+            preview_state.fill_refresh = Some(inspector::FillRefresh {
                 expected,
                 submitted_edit: edit.clone(),
-                color,
+                fill,
                 undo: Some(undo_redo::EditItem {
                     title: label.clone(),
                     edit: reverse,
@@ -1794,10 +1794,10 @@ fn submit_workspace_edit(
             .unwrap();
         true
     });
-    if accepted && color.is_some() {
+    if accepted && fill.is_some() {
         let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
         if let Some(api) = api {
-            api.set_inspector_color_refresh_pending(true);
+            api.set_inspector_fill_refresh_pending(true);
         }
     }
     accepted
@@ -2118,7 +2118,7 @@ async fn reload_timer_function() {
 }
 
 pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
-    inspector::invalidate_color();
+    inspector::invalidate_fill();
     tracing::debug!(
         "Preview: load url={}, component={:?}, behavior={:?}",
         preview_component.url,
