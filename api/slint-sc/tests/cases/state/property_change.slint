@@ -1,0 +1,86 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in property <bool> alert;
+
+    out property <length> dot-width: dot.width;
+    out property <length> dot-height: dot.height;
+
+    background: #202020;
+
+    frame := Rectangle {
+        x: 8px;
+        y: 8px;
+        width: 48px;
+        height: 48px;
+        background: #404040;
+
+        dot := Rectangle {
+            width: 16px;
+            height: 16px;
+            background: #808080;
+
+            // The element that owns the block is the one an unqualified name
+            // addresses.
+            //#sls.state.change.target
+            states [
+                lit when root.alert: {
+                    //#sls.state.change.value
+                    width: 12px * 2;
+                    background: #2a6e3f;
+                }
+            ]
+        }
+
+        // Another element's set of states, with a state of the same name.
+        //#sls.state.scope
+        //#sls.state.name
+        states [
+            lit when root.alert: {
+                // A descendant is addressed by its element id.
+                dot.height: 32px;
+            }
+        ]
+
+        // A second block on the same element; both make up its set of states.
+        //#sls.state.blocks
+        states [
+            dim when !root.alert: {
+                dot.height: 8px;
+            }
+        ]
+    }
+}
+
+/*
+```rust
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+
+// `dot` has no active state, so its width is the value of its own binding.
+// `frame` has one, from the second of its two blocks: both blocks make up its
+// set of states, or `dim` could never be selected.
+//#sls.state.blocks
+assert_eq!(x.get_dot_width(), 16);
+assert_eq!(x.get_dot_height(), 8);
+screenshot!(x);
+
+// Both elements have a state named `lit`, and both are active at once: the
+// name belongs to the element, not to the component. The entry of `frame`'s
+// first block is selected now, the entry of its second one no longer.
+//#sls.state.name
+//#sls.state.scope
+//#sls.state.blocks
+//#sls.state.change.target
+//#sls.state.change.value
+x.set_alert(true);
+assert_eq!(x.get_dot_width(), 24);
+assert_eq!(x.get_dot_height(), 32);
+screenshot!(x, alert);
+
+// Leaving the state puts the property back on its own binding.
+//#sls.state.change.effect
+x.set_alert(false);
+assert_eq!(x.get_dot_width(), 16);
+```
+*/
