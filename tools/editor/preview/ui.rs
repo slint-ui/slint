@@ -1724,6 +1724,56 @@ mod tests {
     }
 
     #[test]
+    fn fill_session_preserves_target_and_rolls_back_rejected_edits() {
+        i_slint_backend_testing::init_no_event_loop();
+        for reject_preview in [false, true] {
+            let editor = super::EditorUi::new().unwrap();
+            let api = editor.global::<super::Api>();
+            super::brushes::setup(&api);
+            let session = editor.global::<super::FillSession>();
+            let target = slint::SharedString::from("rectangle:background");
+            session.set_target_key(target.clone());
+            session.set_property_name("background".into());
+            let original = super::FillData {
+                kind: super::BrushKind::Solid,
+                color: slint::Color::from_rgb_u8(255, 0, 0),
+                ..Default::default()
+            };
+            session.set_value(original.clone());
+            session.set_open(true);
+            session.invoke_show_picker();
+            let expected = target.clone();
+            api.on_inspector_fill_preview(move |key, property, _| {
+                assert_eq!(key, expected);
+                assert_eq!(property, "background");
+                true
+            });
+            let canceled = std::rc::Rc::new(std::cell::Cell::new(0));
+            let count = canceled.clone();
+            api.on_inspector_cancel(move || count.set(count.get() + 1));
+            assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(0, 0, 255)));
+            if reject_preview {
+                api.on_inspector_fill_preview(|_, _, _| false);
+                assert!(!session.invoke_preview_color(slint::Color::from_rgb_u8(0, 255, 0)));
+            } else {
+                let expected = target.clone();
+                api.on_inspector_fill_commit(move |key, property, _| {
+                    assert_eq!(key, expected);
+                    assert_eq!(property, "background");
+                    false
+                });
+                session.invoke_close_picker(true, true);
+                assert_eq!(session.get_focus_generation(), 1);
+            }
+            assert_eq!(canceled.get(), 1);
+            assert!(!session.get_open());
+            assert!(!session.get_session_active());
+            assert_eq!(session.get_target_key(), target);
+            assert_eq!(session.get_working_fill().color, original.color);
+        }
+    }
+
+    #[test]
     fn title_area_requests_window_move_on_first_drag() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();

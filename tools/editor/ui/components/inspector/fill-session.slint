@@ -36,7 +36,6 @@ export global FillSession {
 
     in-out property <color> working-color: FillSession.working-fill.kind == BrushKind.solid ? FillSession.working-fill.color : FillSession.working-fill.stops[FillSession.selected-stop].color;
     in-out property <bool> has-preview: false;
-    in-out property <string> active-target;
     in-out property <bool> session-active: false;
     in-out property <FillData> original-fill: FillSession.value;
     out property <bool> editable: open && !Api.inspector-fill-refresh-pending && !unsupported;
@@ -146,7 +145,7 @@ export global FillSession {
         if !FillSession.session-active || !FillSession.editable {
             return false;
         }
-        if Api.inspector-fill-preview(FillSession.active-target, FillSession.property-name, fill) {
+        if Api.inspector-fill-preview(FillSession.target-key, FillSession.property-name, fill) {
             if fill.kind == BrushKind.radial {
                 FillSession.radial-center-initialized = FillSession.radial-center-initialized || fill.custom-center;
                 FillSession.radius-initialized = FillSession.radius-initialized || fill.custom-radius;
@@ -258,7 +257,6 @@ export global FillSession {
         if FillSession.value.kind == BrushKind.conic {
             FillSession.conic-fill = FillSession.working-fill;
         }
-        FillSession.active-target = FillSession.target-key;
         FillSession.has-preview = false;
         FillSession.session-active = true;
         FillSession.reset-axis();
@@ -272,7 +270,7 @@ export global FillSession {
         FillSession.session-active = false;
         FillSession.stop-panel-open = false;
         let changed = Api.fill-brush(FillSession.working-fill) != Api.fill-brush(FillSession.original-fill);
-        if !accept || !changed || !Api.inspector-fill-commit(FillSession.active-target, FillSession.property-name, FillSession.working-fill) {
+        if !accept || !changed || !Api.inspector-fill-commit(FillSession.target-key, FillSession.property-name, FillSession.working-fill) {
             if FillSession.has-preview {
                 Api.inspector-cancel();
             }

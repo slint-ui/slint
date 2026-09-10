@@ -3,7 +3,7 @@
 
 import { FillSession } from "fill-session.slint";
 
-import { Api, FillData, BrushKind } from "../../api.slint";
+import { BrushKind } from "../../api.slint";
 import { EditorMetrics } from "../common.slint";
 import { InspectorTokens } from "tokens.slint";
 import { InspectorColorControls } from "color-controls.slint";
@@ -91,9 +91,7 @@ export component InspectorFillPicker inherits Rectangle {
                     }
                     if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid: InspectorGradientGeometry {
                         value: FillSession.working-fill;
-                        canvas-linear: FillSession.linear-active;
-                        canvas-radial: FillSession.radial-active;
-                        canvas-conic: FillSession.conic-active;
+                        canvas-active: FillSession.canvas-active;
                         session-key: FillSession.session-key;
                         preview(fill) => {
                             return FillSession.preview-fill(fill);

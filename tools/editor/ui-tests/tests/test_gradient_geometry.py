@@ -67,6 +67,62 @@ def test_custom_gradient_geometry_uses_layout_size(
         assert source_file.read_text() == source
 
 
+@pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
+def test_non_canvas_gradient_keeps_numeric_geometry(
+    editor_binary, editor_environment, tmp_path, kind
+):
+    from source_snapshot import SourceSnapshot
+    from ui_driver import elements_with_label, press_key
+
+    prefix = {"linear": "0deg", "radial": "circle", "conic": "from 0deg"}[kind]
+    stops = "red 0deg, blue 360deg" if kind == "conic" else "red 0%, blue 100%"
+    file = tmp_path / "TextGradient.slint"
+    file.write_text(f"""export component TextGradient inherits Window {{
+    width: 400px;
+    height: 400px;
+    label := Text {{
+        width: 200px;
+        height: 200px;
+        text: "Gradient";
+        color: @{kind}-gradient({prefix}, {stops});
+    }}
+}}
+""")
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "label")
+        click_picker_button(window, "Text color color picker")
+        assert not elements_with_label(window.root_element, "Gradient center handle")
+        assert not elements_with_label(window.root_element, "Gradient start")
+        if kind != "radial":
+            picker_field(window, "Gradient angle degrees").accessible_value = "36"
+        if kind != "linear":
+            set_picker_mode(window, "Gradient center", "Custom")
+            picker_field(window, "Gradient center X").accessible_value = "37"
+            picker_field(window, "Gradient center Y").accessible_value = "61"
+        if kind == "radial":
+            set_picker_mode(window, "Gradient radius mode", "Custom")
+            picker_field(window, "Gradient radius").accessible_value = "95"
+        click_picker_button(window, "Close Custom")
+        saved = wait_until(
+            lambda: file.read_bytes()
+            if file.read_bytes() != original.sources[Path(file.name)]
+            else None
+        )
+        original.wait_for_applied(saved, file.name)
+        if kind != "radial":
+            assert b"36deg" in saved
+        if kind != "linear":
+            assert b"at 37px 61px" in saved
+        if kind == "radial":
+            assert b"circle 95px" in saved
+        click_picker_button(window, "Text color color picker")
+        click_picker_button(window, "Add gradient stop")
+        press_key(window, keys.Escape)
+        assert file.read_bytes() == saved
+
+
 def picker_field(window, label, role=slint_testing.AccessibleRole.TextInput):
     return window_element_with_label(window, label, role)
 
