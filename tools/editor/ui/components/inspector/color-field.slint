@@ -4,7 +4,7 @@
 import { InspectorTokens } from "tokens.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { InspectorFillPicker } from "fill-picker.slint";
-import { Api, PropertyValue, PropertyValueKind, BrushKind } from "../../api.slint";
+import { Api, PropertyValue, PropertyValueKind } from "../../api.slint";
 
 export component InspectorColorField inherits Rectangle {
     in property <string> accessible-name: "";
@@ -93,7 +93,6 @@ export component InspectorColorField inherits Rectangle {
         target-width: Api.current-property-value-data("width").value-float;
         target-height: Api.current-property-value-data("height").value-float;
         expression: root.value;
-        bound: root.property-data.fill-bound || (root.property-data.code != "" && root.property-data.fill.kind == BrushKind.solid && !Api.string-is-color(root.value) && !Api.is-css-color(root.value));
         unsupported: !root.property-data.value-resolved;
         open: root.picker-open;
         anchor-position: swatch-focus.absolute-position;

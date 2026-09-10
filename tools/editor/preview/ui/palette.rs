@@ -196,27 +196,15 @@ pub fn evaluate_property(
     property.value_resolved = value.is_some();
     if matches!(ty, langtype::Type::Color | langtype::Type::Brush) {
         property.fill = ui::brushes::fill_from_brush(property.value_brush.clone());
-        if let Some(expression) = &expression {
-            expression.visit_recursive(&mut |e| {
-                if matches!(
-                    e,
-                    expression_tree::Expression::PropertyReference(_)
-                        | expression_tree::Expression::FunctionCall { .. }
-                        | expression_tree::Expression::Condition { .. }
-                ) {
-                    property.fill_bound = true;
-                }
-            });
-            if property.value_resolved {
-                if let Some(fill) = ui::brushes::fill_from_expression(
-                    expression,
-                    property.fill.clone(),
-                    window_adapter,
-                ) {
-                    property.fill = fill;
-                } else {
-                    property.value_resolved = false;
-                }
+        if let Some(expression) = &expression
+            && property.value_resolved
+        {
+            if let Some(fill) =
+                ui::brushes::fill_from_expression(expression, property.fill.clone(), window_adapter)
+            {
+                property.fill = fill;
+            } else {
+                property.value_resolved = false;
             }
         }
     }

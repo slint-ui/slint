@@ -25,7 +25,6 @@ export component InspectorFillPicker inherits Rectangle {
     in property <string> expression: "";
     in property <string> session-key: "";
     in property <string> target-key: "";
-    in property <bool> bound: false;
     in property <bool> unsupported: false;
     in property <bool> open: false;
     callback accepted(string, FillData) -> bool;
@@ -48,9 +47,8 @@ export component InspectorFillPicker inherits Rectangle {
     private property <bool> has-preview: false;
     private property <string> active-target;
     private property <bool> session-active: false;
-    private property <bool> detach-requested: false;
     private property <FillData> original-fill: root.value;
-    private property <bool> editable: root.open && !Api.inspector-color-refresh-pending && !root.unsupported && (!root.bound || root.detach-requested);
+    private property <bool> editable: root.open && !Api.inspector-color-refresh-pending && !root.unsupported;
     private property <bool> popup-open: picker-popup.is-open;
 
     function preview-fill(fill: FillData) -> bool {
@@ -113,7 +111,6 @@ export component InspectorFillPicker inherits Rectangle {
         if root.value.kind == BrushKind.conic { root.conic-fill = root.working-fill; }
         root.active-target = root.target-key;
         root.has-preview = false;
-        root.detach-requested = false;
         root.session-active = true;
         picker-popup.show();
     }
@@ -122,7 +119,7 @@ export component InspectorFillPicker inherits Rectangle {
         if !root.session-active { return; }
         root.session-active = false;
         root.stop-panel-open = false;
-        let changed = Api.fill-brush(root.working-fill) != Api.fill-brush(root.original-fill) || root.detach-requested;
+        let changed = Api.fill-brush(root.working-fill) != Api.fill-brush(root.original-fill);
         if !accept || !changed || !root.accepted(root.active-target, root.working-fill) {
             if root.has-preview { Api.inspector-cancel(); }
             root.working-fill = root.original-fill;
@@ -191,26 +188,6 @@ export component InspectorFillPicker inherits Rectangle {
                                 color: InspectorTokens.muted;
                                 font-size: 11px;
                                 wrap: word-wrap;
-                            }
-                        }
-
-                        if root.bound && !root.detach-requested && !root.unsupported: HorizontalLayout {
-                            height: 26px;
-                            Text {
-                                text: root.expression;
-                                color: InspectorTokens.muted;
-                                font-size: 11px;
-                                horizontal-stretch: 1;
-                                vertical-alignment: center;
-                                overflow: elide;
-                            }
-                            InspectorSegment {
-                                width: 58px;
-                                kind: "text";
-                                label: "Detach";
-                                accessible-label: "Detach color binding";
-                                enabled: root.bound && !Api.inspector-color-refresh-pending;
-                                clicked => { root.detach-requested = true; }
                             }
                         }
 
