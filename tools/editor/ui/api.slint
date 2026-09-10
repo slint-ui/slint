@@ -227,9 +227,23 @@ export struct GradientStop {
     color: color,
 }
 
+export struct FillData {
+    kind: BrushKind,
+    color: color,
+    stops: [GradientStop],
+    angle: float,
+    custom-center: bool,
+    center-x: float,
+    center-y: float,
+    custom-radius: bool,
+    radius: float,
+}
+
 /// Data about the property value for use in "simple" mode
 export struct PropertyValue {
     display-string: string, // ALWAYS, its a string description of what is there
+    fill: FillData,
+    fill-bound: bool,
     value-resolved: bool, // Whether value-brush/value-* came from a successful evaluation
     value-bool: bool, // boolean
     is-translatable: bool, // string
@@ -715,6 +729,10 @@ export global Api {
     callback set-element-id(element-url: string, element-version: int, element-offset: int, new-id: string);
 
     pure callback string-to-code(value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> string;
+
+    pure callback fill-from-brush(value: brush) -> FillData;
+    pure callback fill-brush(value: FillData) -> brush;
+    pure callback fill-expression(value: FillData) -> string;
 
     pure callback as-slint-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> string;
 
