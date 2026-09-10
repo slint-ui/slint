@@ -20,11 +20,9 @@ export component Ball inherits HorizontalLayout{
         replaced when replaceable && replaceAll: {
             root.height: 50px;
             root.animate: 30px;
-//          >error{'root.animate' is not a property}
+//          >          <error{'root.animate' is not a valid property}
             root.clicked: "blue";
-//         <error{'root.animate' is not a property}
-//          >^error{'root.clicked' is not a property}
+//          >          <error{'root.clicked' is not a valid property}
         }
-//     <error{'root.clicked' is not a property}
     ]
 }

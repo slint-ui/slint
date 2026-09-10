@@ -2652,13 +2652,7 @@ impl Element {
                     .StatePropertyChange()
                     .filter_map(|s| {
                         lookup_property_from_qualified_name_for_state(s.QualifiedName(), &r, diag)
-                            .map(|(ne, ty)| {
-                                if !ty.is_property_type() && !matches!(ty, Type::Invalid) {
-                                    diag.push_error(
-                                        format!("'{}' is not a property", **s.QualifiedName()),
-                                        &s,
-                                    );
-                                }
+                            .map(|(ne, _)| {
                                 (ne, Expression::Uncompiled(s.BindingExpression().into()), s)
                             })
                     })
@@ -4064,6 +4058,8 @@ fn lookup_property_from_qualified_name_for_state(
                         format!("'{unresolved_prop_name}' not found in '{elem_id}'"),
                         &node,
                     );
+                } else if !lookup_result.property_type.is_property_type() {
+                    diag.push_error(format!("'{qualname}' is not a valid property"), &node);
                 } else if !lookup_result.is_valid_for_assignment() {
                     diag.push_error(
                         format!(
