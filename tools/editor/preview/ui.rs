@@ -76,7 +76,24 @@ slint::include_modules!();
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
 pub fn create_ui() -> Result<EditorUi, PlatformError> {
-    EditorUi::new()
+    let ui = EditorUi::new()?;
+    let cursors = std::cell::RefCell::new(HashMap::<i32, slint::Image>::new());
+    ui.global::<EditorCursors>().on_rotation_image(move |angle| {
+        let angle = angle.round().rem_euclid(360.0) as i32;
+        cursors
+            .borrow_mut()
+            .entry(angle)
+            .or_insert_with(|| {
+                let svg = include_str!("../ui/assets/cursors/rotate.svg")
+                    .replace("{angle}", &angle.to_string());
+                let image = slint::Image::load_from_svg_data(svg.as_bytes())
+                    .expect("valid rotation cursor SVG");
+                // Match the fixed-pixel canvas pointer; native SVG cursors scale with the display.
+                slint::Image::from_rgba8(image.to_rgba8().expect("rotation cursor pixels"))
+            })
+            .clone()
+    });
+    Ok(ui)
 }
 
 pub fn initialize_editor(

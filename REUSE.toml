@@ -73,7 +73,11 @@ SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "CC-BY-ND-4.0"
 
 [[annotations]]
-path = ["tools/editor/ui/assets/cursors/default-32.png", "tools/editor/ui/assets/cursors/default-64.png"]
+path = [
+  "tools/editor/ui/assets/cursors/default-32.png",
+  "tools/editor/ui/assets/cursors/default-64.png",
+  "tools/editor/ui/assets/cursors/rotate.svg",
+]
 SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
 SPDX-License-Identifier = "Apache-2.0"
 

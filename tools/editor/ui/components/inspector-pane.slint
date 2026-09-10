@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Api, BrushKind, EditorSurfaceMode, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
-import { EdgeDivider, EditorMetrics, HorizontalResizeDivider, StudioTheme } from "common.slint";
+import { EdgeDivider, EditorAngles, EditorMetrics, HorizontalResizeDivider, StudioTheme } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
 import { InspectorComboOption, InspectorTokens } from "inspector/tokens.slint";
 import { InspectorInfoIcon } from "inspector/info-icon.slint";
@@ -693,7 +693,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorValueField {
                             width: parent.width - InspectorTokens.label-width - 2 * InspectorTokens.side-padding - 2 * InspectorTokens.row-gap - knob.width;
                             accessible-name: "Rotation"; prefix: "°";
-                            value: "\{knob.visual-value}";
+                            value: "\{EditorAngles.normalize(knob.visual-value * 1deg) / 1deg}";
                             commit-key: root.inspector-key;
                             accepted(text) => { return text.is-float() && root.commit-inspector("transform-rotation", text.to-float()); }
                         }

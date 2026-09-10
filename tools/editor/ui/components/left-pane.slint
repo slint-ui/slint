@@ -207,6 +207,8 @@ component ElementPaletteRows inherits VerticalLayout {
     spacing: 0px;
 
     ScrollView {
+        accessible-role: AccessibleRole.list;
+        accessible-label: "Element library";
         min-height: 0px;
         vertical-stretch: 1;
         content-width: self.width;

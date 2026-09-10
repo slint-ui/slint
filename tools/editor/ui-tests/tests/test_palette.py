@@ -13,6 +13,7 @@ from ui_driver import (
     elements_with_label,
     first_window,
     launch_editor,
+    palette_row,
     press_key,
     press_keys,
     select_fixture_element,
@@ -32,11 +33,7 @@ def begin_palette_drag(
     row = wait_until(
         lambda: (
             candidate
-            if (
-                candidate := window_element_with_label(
-                    window, kind, slint_testing.AccessibleRole.ListItem
-                )
-            ).accessible_enabled
+            if (candidate := palette_row(window, kind)).accessible_enabled
             else None
         )
     )

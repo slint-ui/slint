@@ -83,9 +83,19 @@ def shortcut(window, redo=False):
     window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Control))
 
 
-@pytest.mark.parametrize("value", ["-22.5", "0", "382.25"])
+@pytest.mark.parametrize(
+    ("value", "display"),
+    [
+        ("-22.5", "337.5"),
+        ("0", "0"),
+        ("382.25", "22.25"),
+        ("1095", "15"),
+        ("-1095", "345"),
+        ("720", "0"),
+    ],
+)
 def test_rotation_numeric_exact_source_and_undo(
-    editor_binary, editor_environment, fixture_project, value
+    editor_binary, editor_environment, fixture_project, value, display
 ):
     baseline = prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
@@ -99,12 +109,13 @@ def test_rotation_numeric_exact_source_and_undo(
         select_element(window, "Rectangle")
         edit_field(window, "Rotation", value)
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
-        wait_for_field(window, "Rotation", value)
+        wait_for_field(window, "Rotation", display)
         shortcut(window)
         snapshot.wait_for_applied(baseline, relative_path=SOURCE)
         wait_for_field(window, "Rotation", "32")
         shortcut(window, redo=True)
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
+        wait_for_field(window, "Rotation", display)
 
 
 @pytest.mark.parametrize("index", range(4))
@@ -214,10 +225,11 @@ def point(knob, angle):
 
 
 @pytest.mark.parametrize("cancel", ["release", "escape", "pointer"])
+@pytest.mark.parametrize("initial", [350, 1070, -10])
 def test_knob_crosses_zero_with_transient_preview(
-    editor_binary, editor_environment, fixture_project, cancel
+    editor_binary, editor_environment, fixture_project, cancel, initial
 ):
-    baseline = prepare(fixture_project, rotation="350deg")
+    baseline = prepare(fixture_project, rotation=f"{initial}deg")
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(
         editor_binary, editor_environment, fixture_project / SOURCE
@@ -234,7 +246,7 @@ def test_knob_crosses_zero_with_transient_preview(
         )
         wait_for_field(window, "Rotation", "350")
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        wait_for_field(window, "Rotation", "370")
+        wait_for_field(window, "Rotation", "10")
         snapshot.assert_unchanged()
         if cancel == "escape":
             window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
@@ -251,10 +263,15 @@ def test_knob_crosses_zero_with_transient_preview(
             wait_for_field(window, "Rotation", "350")
         else:
             snapshot.wait_for_applied(
-                baseline.replace(b"350deg", b"370deg"), relative_path=SOURCE
+                baseline.replace(
+                    f"{initial}deg".encode(), f"{initial + 20}deg".encode()
+                ),
+                relative_path=SOURCE,
             )
+            wait_for_field(window, "Rotation", "10")
             shortcut(window)
             snapshot.wait_for_applied(baseline, relative_path=SOURCE)
+            wait_for_field(window, "Rotation", "350")
 
 
 def test_rotation_under_rotated_parent_is_parent_relative(

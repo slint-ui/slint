@@ -1271,6 +1271,43 @@ def test_artboard_allows_resized_element_outside(
 
 
 @pytest.mark.parametrize("corner", CORNERS)
+@pytest.mark.parametrize("resizable", [True, False])
+@pytest.mark.parametrize("outside", [False, True])
+def test_rotation_starts_only_outside_resize_handle(
+    editor_binary, editor_environment, fixture_project, corner, resizable, outside
+):
+    source = "Main.slint" if resizable else "CanvasCases.slint"
+    kind = "Text" if resizable else "Rectangle"
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / source
+    ) as editor:
+        window = first_window(editor)
+        if resizable:
+            select_fixture_element(window, kind)
+        else:
+            select_outline_row(window, "layout-rectangle")
+        snapshot = SourceSnapshot.capture(fixture_project)
+        handle = window_element_with_label(window, f"{kind} resize {corner}")
+        assert handle.accessible_enabled == resizable
+        offset = 1 if outside else -1
+        position = center(handle)
+        position = slint_testing.LogicalPosition(
+            x=position.x
+            + (handle.size.width / 2 + offset) * (-1 if "left" in corner else 1),
+            y=position.y
+            + (handle.size.height / 2 + offset) * (-1 if "top" in corner else 1),
+        )
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(position, button))
+        if outside:
+            window_element_with_label(window, "Rotation angle")
+        else:
+            assert not elements_with_label(window.root_element, "Rotation angle")
+        window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
+        snapshot.assert_unchanged()
+
+
+@pytest.mark.parametrize("corner", CORNERS)
 def test_each_rotation_zone_writes_exact_source_on_release(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -1735,11 +1772,13 @@ def test_handle_click_below_drag_threshold_does_not_edit_source(
 
 
 @pytest.mark.parametrize("element_id", DISABLED_IDS)
+@pytest.mark.parametrize("corner", CORNERS)
 def test_disabled_manipulation_does_not_edit_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
     element_id: str,
+    corner: str,
 ) -> None:
     source_file = fixture_project / "CanvasCases.slint"
     baseline = source_file.read_bytes()
@@ -1749,7 +1788,7 @@ def test_disabled_manipulation_does_not_edit_source(
         snapshot = SourceSnapshot.capture(fixture_project)
         select_outline_row(window, element_id)
         window_element_with_label(window, "Selected Rectangle")
-        handle = window_element_with_label(window, "Rectangle resize bottom-right")
+        handle = window_element_with_label(window, f"Rectangle resize {corner}")
         assert not handle.accessible_enabled
         target = center(handle)
         window.drag_and_drop(
