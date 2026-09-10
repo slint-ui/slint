@@ -106,13 +106,14 @@ fn target_with_root(
         if url != current_url || element.offset < 0 {
             return None;
         }
+        let no_selected_instance = -1;
         (
             ElementSelection {
                 path: url.to_file_path().ok()?,
                 offset: (element.offset as u32).into(),
                 instance_index: 0,
             },
-            -1,
+            no_selected_instance,
         )
     } else {
         return None;
@@ -135,7 +136,8 @@ fn target_with_root(
 fn color_target(key: &str, property_name: &str) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
     let suffix = format!(":{property_name}");
     let base_key = key.strip_suffix(&suffix)?;
-    target_with_root(base_key, property_name == "background")
+    let allow_root_background = property_name == "background";
+    target_with_root(base_key, allow_root_background)
 }
 
 fn names(name: &str) -> Option<Vec<&str>> {

@@ -229,6 +229,10 @@ export component InspectorPane inherits Rectangle {
         return root.inspector-key + ":" + property-name;
     }
 
+    function color-session-key(property-name: string) -> string {
+        return root.selection-key + ":" + Api.inspector-color-generation + ":" + property-name;
+    }
+
     function property-brush(property-name: string) -> brush {
         let property = Api.current-property-value-data(property-name);
         return property.value-resolved ? property.value-brush : transparent;
@@ -712,7 +716,7 @@ export component InspectorPane inherits Rectangle {
                             effective-color: self.unsupported ? transparent : background-value.value-brush;
                             commit-key: root.field-key("background");
                             preview-key: root.field-key("background");
-                            session-key: root.selection-key + ":" + Api.inspector-color-generation + ":" + ("background");
+                            session-key: root.color-session-key("background");
                             property-name: "background";
                             width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
                             accepted(text) => {
@@ -728,7 +732,7 @@ export component InspectorPane inherits Rectangle {
                             unsupported: !root.property-is-solid("background");
                             commit-key: root.field-key("background");
                             preview-key: root.field-key("background");
-                            session-key: root.selection-key + ":" + Api.inspector-color-generation + ":" + ("background");
+                            session-key: root.color-session-key("background");
                             property-name: "background";
                             width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
                             accepted(text) => {
@@ -744,7 +748,7 @@ export component InspectorPane inherits Rectangle {
                             unsupported: !root.property-is-solid("color");
                             commit-key: root.field-key("color");
                             preview-key: root.field-key("color");
-                            session-key: root.selection-key + ":" + Api.inspector-color-generation + ":" + ("color");
+                            session-key: root.color-session-key("color");
                             property-name: "color";
                             width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
                             accepted(text) => {
@@ -823,7 +827,7 @@ export component InspectorPane inherits Rectangle {
                                     unsupported: !root.property-is-solid(root.current-shadow-prefix() + "color");
                                     commit-key: root.field-key(root.current-shadow-prefix() + "color");
                                     preview-key: root.field-key(root.current-shadow-prefix() + "color");
-                                    session-key: root.selection-key + ":" + Api.inspector-color-generation + ":" + (root.current-shadow-prefix() + "color");
+                                    session-key: root.color-session-key(root.current-shadow-prefix() + "color");
                                     property-name: root.current-shadow-prefix() + "color";
                                     accepted(text) => {
                                         return root.commit-code(root.current-shadow-prefix() + "color", text);
