@@ -1804,7 +1804,9 @@ impl Expression {
                 new_values.insert(f, default_value);
             }
             Expression::Struct { ty: target_struct_type.clone(), values: new_values }
-        } else if let Expression::Condition { condition, true_expr, false_expr, .. } = self {
+        } else if let Expression::Condition { condition, true_expr, false_expr, source_location } =
+            self
+        {
             // Recursive try to convert the conditional expressions to the target_type
             // true_expr and false_expr are equal this is handled with the condition at the beginning
             // of this function so if one fails to convert, we should not try to convert the false case
@@ -1817,10 +1819,11 @@ impl Expression {
             );
             if true_expr_converted.ty() != target_type.clone() {
                 // Failed to convert so we don't have to try to convert the false expr as well
-                Expression::Condition { condition, true_expr, false_expr, source_location: None }
+                Expression::Condition { condition, true_expr, false_expr, source_location }
             } else {
                 Expression::Condition {
                     condition,
+                    source_location,
                     true_expr: Box::new(true_expr_converted),
                     false_expr: Box::new(false_expr.maybe_convert_to(
                         target_type,
@@ -1828,7 +1831,6 @@ impl Expression {
                         diag,
                         symbol_counters,
                     )),
-                    source_location: None,
                 }
             }
         } else {
