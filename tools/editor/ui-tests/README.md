@@ -123,6 +123,26 @@ Closing accepts one edit in undo history; opening and closing unchanged leaves s
 Conic tests use the headless backend with the rest of the suite.
 They cover seam crossing, rotated rectangles, insertion, deletion, keyboard input, picker synchronization, cancellation, external edits, and history.
 
+## Verify Shared Stop Editing
+
+Run the gradient suites with four headless workers:
+
+```sh
+SLINT_EDITOR_UI_TEST_BACKEND=headless-skia ./run-tests.sh -n 4 --dist=worksteal \
+    tests/test_gradient_geometry.py tests/test_linear_gradient_canvas.py \
+    tests/test_radial_gradient_canvas.py tests/test_radial_gradient_session.py \
+    tests/test_conic_gradient_canvas.py
+```
+
+The tests create independent scenes; editing the demonstration fixtures doesn't change their expected geometry.
+Crossing tests send several pointer moves before release, including reversals across neighboring stops.
+A single pointer move doesn't expose loss of capture when a preview replaces the stop model.
+
+Picker rows follow position order, while selection and canvas handles refer to stable session slots during movement.
+The generated source and rendered brush use sorted copies.
+Check duplicate positions, color identity, focused deletion, and row ordering when changing this mapping.
+Text-gradient tests cover numeric geometry controls without canvas handles.
+
 ## Rust-Dependent Cases
 
 The suite retains skipped cases for behavior that needs changes in the Rust
