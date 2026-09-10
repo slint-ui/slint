@@ -204,34 +204,13 @@ export component InspectorFillPicker inherits Rectangle {
                                 vertical-alignment: center;
                                 overflow: elide;
                             }
-                            Rectangle {
+                            InspectorSegment {
                                 width: 58px;
-                                height: 24px;
-                                background: InspectorTokens.field-bg;
-                                border-radius: InspectorTokens.field-radius;
-                                TouchArea {
-                                    width: parent.width;
-                                    height: parent.height;
-                                    accessible-role: AccessibleRole.button;
-                                    accessible-label: "Detach color binding";
-                                    enabled: root.bound && !Api.inspector-color-refresh-pending;
-                                    function detach-binding() {
-                                        if self.enabled {
-                                            root.detach-requested = true;
-                                        }
-                                    }
-                                    clicked => { self.detach-binding(); }
-                                    accessible-action-default => { self.detach-binding(); }
-                                    Text {
-                                        text: "Detach";
-                                        width: parent.width;
-                                        height: parent.height;
-                                        horizontal-alignment: center;
-                                        vertical-alignment: center;
-                                        color: InspectorTokens.muted;
-                                        font-size: 11px;
-                                    }
-                                }
+                                kind: "text";
+                                label: "Detach";
+                                accessible-label: "Detach color binding";
+                                enabled: root.bound && !Api.inspector-color-refresh-pending;
+                                clicked => { root.detach-requested = true; }
                             }
                         }
 

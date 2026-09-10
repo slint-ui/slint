@@ -6,6 +6,7 @@ import { InspectorTokens } from "tokens.slint";
 
 export component InspectorSegment inherits Rectangle {
     in property <string> kind;
+    in property <bool> enabled: true;
     in property <int> index;
     in property <bool> selected;
     in property <string> label: "\{root.kind} option \{root.index + 1}";
@@ -18,13 +19,15 @@ export component InspectorSegment inherits Rectangle {
     border-width: segment-focus.has-focus ? 2px : selected ? 1px : 0px;
     border-color: segment-focus.has-focus ? InspectorTokens.accent : InspectorTokens.divider;
     accessible-role: button;
+    accessible-enabled: root.enabled;
     accessible-label: root.label;
     accessible-checked: root.selected;
     accessible-action-default => {
-        root.clicked();
+        if root.enabled { root.clicked(); }
     }
 
     segment-focus := FocusScope {
+        enabled: root.enabled;
         key-pressed(event) => {
             if event.text == Key.Return || event.text == Key.Space {
                 root.clicked();
@@ -48,6 +51,7 @@ export component InspectorSegment inherits Rectangle {
     }
 
     touch := TouchArea {
+        enabled: root.enabled;
         mouse-cursor: pointer;
         clicked => {
             segment-focus.focus();
