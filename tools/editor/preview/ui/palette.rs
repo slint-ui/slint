@@ -210,7 +210,7 @@ pub fn evaluate_property(
             if property.value_resolved {
                 if let Some(fill) = ui::brushes::fill_from_expression(
                     expression,
-                    property.value_brush.clone(),
+                    property.fill.clone(),
                     window_adapter,
                 ) {
                     property.fill = fill;

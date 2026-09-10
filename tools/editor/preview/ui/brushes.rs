@@ -169,15 +169,14 @@ pub fn fill_from_brush(brush: slint::Brush) -> ui::FillData {
 
 pub fn fill_from_expression(
     expression: &i_slint_compiler::expression_tree::Expression,
-    brush: slint::Brush,
+    mut fill: ui::FillData,
     window: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> Option<ui::FillData> {
     use crate::preview::eval::fully_eval_expression_tree_expression as eval;
     use i_slint_compiler::expression_tree::Expression;
     if let Expression::Cast { from, .. } = expression {
-        return fill_from_expression(from, brush, window);
+        return fill_from_expression(from, fill, window);
     }
-    let mut fill = fill_from_brush(brush);
     let number = |e: &Expression| -> Option<f32> {
         let value: f32 = eval(e, window)?.try_into().ok()?;
         value.is_finite().then_some(value)
