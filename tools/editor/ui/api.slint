@@ -130,6 +130,10 @@ export struct SelectionRectangle {
     // False when the element renders as a parallelogram, which these fields cannot describe.
     // Editing its geometry is refused, so don't offer it.
     describes-element: bool,
+    top-left-radius: length,
+    top-right-radius: length,
+    bottom-left-radius: length,
+    bottom-right-radius: length,
 }
 
 /// The topmost selectable element under a canvas position.

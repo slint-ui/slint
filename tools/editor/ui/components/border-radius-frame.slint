@@ -92,6 +92,7 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
 
             changed has-hover => {
                 root.radius-handle-active = self.has-hover || self.pressed;
+                if self.has-hover { root.control-hovered(); }
             }
 
             changed pressed => {
