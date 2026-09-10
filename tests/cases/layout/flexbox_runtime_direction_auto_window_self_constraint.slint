@@ -1,0 +1,45 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A self constraint in a window with no size of its own, so every dependency
+// routes through the window's layout info. Used to panic with "Recursion
+// detected"; the driver blocks run both arms.
+export component TestCase inherits Window {
+    in property <bool> horizontal: true;
+    VerticalLayout {
+        Rectangle { width: 40px; height: 40px; }
+        HorizontalLayout {
+            Rectangle { width: 40px; height: 40px; }
+            fl := FlexboxLayout {
+                min-height: fl.preferred-height;
+                flex-direction: horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+                flex-wrap: wrap;
+                Rectangle { min-width: 60px; min-height: 20px; }
+            }
+        }
+    }
+    out property <bool> test: fl.width >= 0px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_horizontal(false);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+handle->set_horizontal(false);
+assert(handle->get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+instance.horizontal = false;
+assert(instance.test);
+```
+*/

@@ -1,0 +1,40 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// #13059 variant: the constraint reaches the layout through a property. Used
+// to panic with "Recursion detected"; the driver blocks run both arms.
+export component TestCase inherits Window {
+    in property <bool> horizontal: true;
+    property <length> extra: fl.preferred-height + 1px;
+    HorizontalLayout {
+        Rectangle { width: 40px; }
+        VerticalLayout {
+            if false: Rectangle { }
+            fl := FlexboxLayout { min-height: root.extra; flex-direction: horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column; flex-wrap: wrap; }
+        }
+    }
+    out property <bool> test: fl.preferred-height >= 0px && fl.width >= 0px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_horizontal(false);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+handle->set_horizontal(false);
+assert(handle->get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+instance.horizontal = false;
+assert(instance.test);
+```
+*/

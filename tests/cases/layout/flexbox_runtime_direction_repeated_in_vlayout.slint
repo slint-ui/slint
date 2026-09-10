@@ -1,0 +1,43 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Repeated runtime-direction flexboxes in a VerticalLayout. The column arm
+// used to panic with "Recursion detected" while the row arm passed, which is
+// why the driver blocks run both arms.
+export component TestCase inherits Window {
+    in property <bool> horizontal: false;
+    width: 400px; height: 300px;
+    HorizontalLayout {
+        vl := VerticalLayout {
+            for i in [1, 2]: FlexboxLayout {
+                flex-direction: horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+                flex-wrap: wrap;
+                Rectangle { min-width: 20px; min-height: 20px; }
+            }
+        }
+    }
+    out property <bool> test: vl.width >= 0px && vl.height >= 0px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_horizontal(true);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+handle->set_horizontal(true);
+assert(handle->get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+instance.horizontal = true;
+assert(instance.test);
+```
+*/
