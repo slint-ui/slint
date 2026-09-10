@@ -109,12 +109,13 @@ def test_canvas_outline_preserves_item_border(
 
             assert min(edge_pixel(-4)) > 240
             if angle == 0:
-                assert min(edge_pixel(-2.5)) > 240
-                for distance in [-1.5, -0.5]:
+                width = 1 if selected else 2
+                assert min(edge_pixel(-width - 0.5)) > 240
+                for distance in [-i - 0.5 for i in range(width)]:
                     red, green, blue = edge_pixel(distance)
                     assert red < 130 and green > 100 and blue > 220
-            red, green, blue = edge_pixel(-1)
-            assert red < 130 and green > 100 and blue > 220
+            red, green, blue = edge_pixel(-0.5 if selected else -1)
+            assert blue > red + 60 and blue > green
             assert max(edge_pixel(1.5)) < 30
             assert min(edge_pixel(5)) > 240
         snapshot.assert_unchanged()

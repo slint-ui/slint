@@ -7,6 +7,7 @@ import { EditorCursors, EditorMetrics, StudioTheme } from "common.slint";
 
 export component MoveResizeFrame inherits Rectangle {
     in property <bool> enabled: true;
+    in property <length> outline-width: EditorMetrics.selection-outline-width;
     in property <string> accessible-prefix: "Selection";
     in property <bool> active;
     in property <bool> shift-pressed;
@@ -296,11 +297,11 @@ export component MoveResizeFrame inherits Rectangle {
 
         if root.active && !root.move-dragging: Rectangle {
             Rectangle {
-                x: -EditorMetrics.selection-outline-width;
-                y: -EditorMetrics.selection-outline-width;
-                width: root.width + 2 * EditorMetrics.selection-outline-width;
-                height: root.height + 2 * EditorMetrics.selection-outline-width;
-                border-width: EditorMetrics.selection-outline-width;
+                x: -root.outline-width;
+                y: -root.outline-width;
+                width: root.width + 2 * root.outline-width;
+                height: root.height + 2 * root.outline-width;
+                border-width: root.outline-width;
                 border-color: StudioTheme.accent-strong;
             }
 
