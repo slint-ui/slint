@@ -4,13 +4,13 @@
 //! Coverage points mapped to ranges of the generated code, counted by LLVM.
 //!
 //! The Slint SC compiler writes, next to the generated code, a map with the
-//! extension [`MAP_EXTENSION`] declaring its coverage points (`point <id>
-//! <kind> <name> <span> <path>`, the span in the `.slint` source as
+//! extension [`MAP_EXTENSION`]: the version line, its coverage points (`point
+//! <id> <kind> <name> <span> <path>`, the span in the `.slint` source as
 //! `line:column-line:column`, the path last as it may hold spaces) and the
 //! ranges of the code that are one (`range <start>-<end> <id>`, positions
-//! as `line:column`). LLVM measures the generated code like any other; the
-//! execution count of the code at a range is the point's hit count, and a
-//! point without a range was never reached.
+//! as `line:column`, the end exclusive). LLVM measures the generated code
+//! like any other; the execution count of the code at a range is the
+//! point's hit count, and a point without a range was never reached.
 
 use crate::{Kind, Point, Report};
 use serde::Deserialize;
@@ -129,8 +129,8 @@ impl FileRegions {
 /// A map: the points by id, and the ranges of the code, each with the id of
 /// its point.
 struct Map {
-    pub points: Vec<Point>,
-    pub ranges: Vec<((Position, Position), usize)>,
+    points: Vec<Point>,
+    ranges: Vec<((Position, Position), usize)>,
 }
 
 fn parse_map(text: &str) -> Result<Map, String> {
@@ -152,9 +152,10 @@ fn parse_map(text: &str) -> Result<Map, String> {
                     Some((line_no.parse().ok()?, column.parse().ok()?))
                 };
                 let (start, end) = positions.split_once('-')?;
+                let (start, end) = (position(start)?, position(end)?);
                 let id = id.parse().ok()?;
-                (id < map.points.len()).then_some(())?;
-                map.ranges.push(((position(start)?, position(end)?), id));
+                (id < map.points.len() && start < end).then_some(())?;
+                map.ranges.push(((start, end), id));
                 Some(())
             }),
             _ => None,
@@ -348,6 +349,10 @@ mod tests {
         assert!(parse_map("slint-sc-source-map 2\n").is_err());
         assert!(parse_map("slint-sc-source-map 1\nrange nonsense\n").is_err());
         assert!(parse_map("slint-sc-source-map 1\nrange 1:1-1:2 0\n").is_err());
+        let one_point = "slint-sc-source-map 1\npoint 0 element W 1:1-1:2 a\n";
+        assert!(parse_map(&format!("{one_point}range 1:2-1:2 0\n")).is_err());
+        assert!(parse_map(&format!("{one_point}range 1:3-1:2 0\n")).is_err());
+        assert!(parse_map(&format!("{one_point}range 1:2-1:3 0\n")).is_ok());
         assert!(parse_map("slint-sc-source-map 1\npoint 1 element 1:1-1:2 a\n").is_err());
     }
 

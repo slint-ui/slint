@@ -224,7 +224,11 @@ impl Printer {
                     if !close.is_empty() {
                         self.push(close);
                     }
-                    if let Some(id) = point_id(span) {
+                    // A range holds code: an empty group without delimiters
+                    // is none.
+                    if let Some(id) = point_id(span)
+                        && self.column > start
+                    {
                         self.ranges.push((start, self.column, id));
                     }
                 }
@@ -892,7 +896,9 @@ fn compile_callback_call(nr: &NamedReference, ctx: &Ctx) -> TokenStream {
             let handler = compile_binding(&element.borrow(), nr.name(), &handler.borrow(), ctx);
             quote!(#handler;)
         }
-        None => TokenStream::new(),
+        // An empty block, so that the call is code of its own that LLVM
+        // counts, rather than nothing.
+        None => quote!({}),
     }
 }
 
