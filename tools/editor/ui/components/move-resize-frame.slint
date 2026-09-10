@@ -295,8 +295,14 @@ export component MoveResizeFrame inherits Rectangle {
         @children
 
         if root.active && !root.move-dragging: Rectangle {
-            border-width: 1px;
-            border-color: StudioTheme.accent-strong;
+            Rectangle {
+                x: -EditorMetrics.selection-outline-width;
+                y: -EditorMetrics.selection-outline-width;
+                width: root.width + 2 * EditorMetrics.selection-outline-width;
+                height: root.height + 2 * EditorMetrics.selection-outline-width;
+                border-width: EditorMetrics.selection-outline-width;
+                border-color: StudioTheme.accent-strong;
+            }
 
             if root.proportional-resizing(): Path {
                 stroke: StudioTheme.accent-strong;
