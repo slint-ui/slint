@@ -1724,6 +1724,56 @@ mod tests {
     }
 
     #[test]
+    fn fill_session_invalidates_stale_targets_without_committing() {
+        i_slint_backend_testing::init_no_event_loop();
+        for change in 0..4 {
+            let editor = super::EditorUi::new().unwrap();
+            let api = editor.global::<super::Api>();
+            super::brushes::setup(&api);
+            api.on_inspector_fill_preview(|_, _, _| true);
+            api.on_inspector_fill_commit(|_, _, _| panic!("stale sessions must not commit"));
+            let canceled = std::rc::Rc::new(std::cell::Cell::new(0));
+            let count = canceled.clone();
+            api.on_inspector_cancel(move || count.set(count.get() + 1));
+            let session = editor.global::<super::FillSession>();
+            session.set_property_name("background".into());
+            let mut element = api.get_current_element();
+            element.source_uri = "file:///scene.slint".into();
+            api.set_current_element(element.clone());
+            session.set_session_key(
+                format!(
+                    "{}:{}:{}:{}:background",
+                    element.source_uri,
+                    element.offset,
+                    api.get_selection().highlight_index,
+                    api.get_inspector_fill_generation()
+                )
+                .into(),
+            );
+            session.set_open(true);
+            slint::platform::update_timers_and_animations();
+            assert!(session.get_open());
+            assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(255, 0, 0)));
+            match change {
+                0 => {
+                    element.source_uri = "file:///replacement.slint".into();
+                    api.set_current_element(element);
+                }
+                1 => {
+                    element.offset += 1;
+                    api.set_current_element(element);
+                }
+                2 => api.set_inspector_fill_generation(api.get_inspector_fill_generation() + 1),
+                _ => api.set_current_element(Default::default()),
+            }
+            slint::platform::update_timers_and_animations();
+            assert!(!session.get_open());
+            assert_eq!(canceled.get(), 1);
+            assert_eq!(session.get_working_fill(), session.get_original_fill());
+        }
+    }
+
+    #[test]
     fn stop_mutations_preserve_shared_gesture_snapshots() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();

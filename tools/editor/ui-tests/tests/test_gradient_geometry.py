@@ -68,9 +68,11 @@ def test_custom_gradient_geometry_uses_layout_size(
 
 
 @pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
+@pytest.mark.parametrize("target", ["text", "root"])
 def test_non_canvas_gradient_keeps_numeric_geometry(
-    editor_binary, editor_environment, tmp_path, kind
+    editor_binary, editor_environment, tmp_path, kind, target
 ):
+    from editor_sync import wait_for_source
     from source_snapshot import SourceSnapshot
     from ui_driver import elements_with_label, press_key
 
@@ -80,6 +82,7 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
     file.write_text(f"""export component TextGradient inherits Window {{
     width: 400px;
     height: 400px;
+    background: @{kind}-gradient({prefix}, {stops});
     label := Text {{
         width: 200px;
         height: 200px;
@@ -90,9 +93,24 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
 """)
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
-        select_outline_row(window, "label")
-        click_picker_button(window, "Text color color picker")
+        if target == "text":
+            select_outline_row(window, "label")
+        else:
+            from test_linear_gradient_canvas import gesture, shifted
+
+            artboard = window_element_with_label(
+                window, "Artboard", slint_testing.AccessibleRole.Region
+            )
+            point = shifted(artboard.absolute_position, x=390, y=390)
+            gesture(window, point, point)
+        picker = (
+            "Text color color picker"
+            if target == "text"
+            else "Root background color picker"
+        )
+        click_picker_button(window, picker)
         assert not elements_with_label(window.root_element, "Gradient center handle")
         assert not elements_with_label(window.root_element, "Gradient start")
         if kind != "radial":
@@ -117,7 +135,7 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
             assert b"at 37px 61px" in saved
         if kind == "radial":
             assert b"circle 95px" in saved
-        click_picker_button(window, "Text color color picker")
+        click_picker_button(window, picker)
         click_picker_button(window, "Add gradient stop")
         press_key(window, keys.Escape)
         assert file.read_bytes() == saved

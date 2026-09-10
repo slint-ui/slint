@@ -113,9 +113,4 @@ export component InspectorColorField inherits Rectangle {
         if FillSession.target-key == root.preview-key { swatch-focus.focus(); }
     }
 
-    changed session-key => {
-        if FillSession.open && FillSession.property-name == root.property-name && FillSession.session-key != root.session-key {
-            FillSession.close-picker(false, false);
-        }
-    }
 }
