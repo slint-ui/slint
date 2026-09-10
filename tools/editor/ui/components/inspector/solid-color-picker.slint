@@ -6,6 +6,51 @@ import { StudioTheme, EditorMetrics } from "../common.slint";
 import { InspectorTokens } from "tokens.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
+component ColorSlider inherits Rectangle {
+    in property <float> position;
+    in property <bool> enabled;
+    in property <bool> dragging;
+    in property <color> thumb-shadow: transparent;
+    callback started();
+    callback moved(float);
+    callback finished();
+    callback canceled();
+
+    height: 16px;
+    Rectangle {
+        border-radius: 8px;
+        clip: true;
+        @children
+    }
+    TouchArea {
+        enabled: root.enabled;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.started();
+                root.moved((self.mouse-x / max(1px, self.width)).clamp(0, 1));
+            } else if event.kind == PointerEventKind.move && root.dragging {
+                root.moved((self.mouse-x / max(1px, self.width)).clamp(0, 1));
+            } else if event.kind == PointerEventKind.up && root.dragging {
+                root.finished();
+            } else if event.kind == PointerEventKind.cancel {
+                root.canceled();
+            }
+        }
+    }
+    Rectangle {
+        x: root.position * parent.width - 7px;
+        y: 1px;
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        border-width: 2px;
+        border-color: white;
+        background: transparent;
+        drop-shadow-color: root.thumb-shadow;
+        drop-shadow-blur: 2px;
+    }
+}
+
 export component InspectorSolidColorPicker inherits Rectangle {
     in property <color> value;
     in property <string> expression: "";
@@ -127,16 +172,6 @@ export component InspectorSolidColorPicker inherits Rectangle {
     function update-saturation-brightness(x: length, y: length, width: length, height: length) {
         root.saturation = (x / max(1px, width)).clamp(0, 1);
         root.brightness = (1 - y / max(1px, height)).clamp(0, 1);
-        root.preview-color(root.color-at());
-    }
-
-    function update-hue(x: length, width: length) {
-        root.hue = 360 * (x / max(1px, width)).clamp(0, 1);
-        root.preview-color(root.color-at());
-    }
-
-    function update-alpha(x: length, width: length) {
-        root.alpha = (255 * (x / max(1px, width)).clamp(0, 1)).round();
         root.preview-color(root.color-at());
     }
 
@@ -358,88 +393,49 @@ export component InspectorSolidColorPicker inherits Rectangle {
                         }
                     }
 
-                    if !root.unsupported: Rectangle {
-                        height: 16px;
+                    if !root.unsupported: ColorSlider {
+                        position: root.hue / 360;
+                        enabled: root.editable;
+                        dragging: root.dragging;
+                        started => { root.begin-gesture(); }
+                        moved(position) => {
+                            root.hue = 360 * position;
+                            root.preview-color(root.color-at());
+                        }
+                        finished => { root.finish-gesture(); }
+                        canceled => { root.cancel-gesture(); }
                         Rectangle {
-                            border-radius: 8px;
-                            clip: true;
                             background: @linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
-                        }
-                        TouchArea {
-                            enabled: root.editable;
-                            pointer-event(event) => {
-                                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                                    root.begin-gesture();
-                                    root.update-hue(self.mouse-x, self.width);
-                                } else if event.kind == PointerEventKind.move && root.dragging {
-                                    root.update-hue(self.mouse-x, self.width);
-                                } else if event.kind == PointerEventKind.up && root.dragging {
-                                    root.finish-gesture();
-                                } else if event.kind == PointerEventKind.cancel {
-                                    root.cancel-gesture();
-                                }
-                            }
-                        }
-                        Rectangle {
-                            x: root.hue / 360 * parent.width - 7px;
-                            y: 1px;
-                            width: 14px;
-                            height: 14px;
-                            border-radius: 7px;
-                            border-width: 2px;
-                            border-color: white;
-                            background: transparent;
                         }
                     }
 
-                    if !root.unsupported: Rectangle {
-                        height: 16px;
+                    if !root.unsupported: ColorSlider {
+                        position: root.alpha / 255;
+                        enabled: root.editable;
+                        dragging: root.dragging;
+                        thumb-shadow: #00000070;
+                        started => { root.begin-gesture(); }
+                        moved(position) => {
+                            root.alpha = (255 * position).round();
+                            root.preview-color(root.color-at());
+                        }
+                        finished => { root.finish-gesture(); }
+                        canceled => { root.cancel-gesture(); }
                         Rectangle {
-                            border-radius: 8px;
-                            clip: true;
-                            Rectangle {
-                                for row in 2: Rectangle {
-                                    y: row * 8px;
-                                    width: 100%;
+                            for row in 2: Rectangle {
+                                y: row * 8px;
+                                width: 100%;
+                                height: 8px;
+                                for col in ceil(parent.width / 8px): Rectangle {
+                                    x: col * 8px;
+                                    width: 8px;
                                     height: 8px;
-                                    for col in ceil(parent.width / 8px): Rectangle {
-                                        x: col * 8px;
-                                        width: 8px;
-                                        height: 8px;
-                                        background: (row + col).mod(2) == 0 ? InspectorTokens.panel-bg : InspectorTokens.field-border;
-                                    }
-                                }
-                            }
-                            Rectangle {
-                                background: @linear-gradient(90deg, transparent, hsv(root.hue, root.saturation, root.brightness, 1));
-                            }
-                        }
-                        TouchArea {
-                            enabled: root.editable;
-                            pointer-event(event) => {
-                                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                                    root.begin-gesture();
-                                    root.update-alpha(self.mouse-x, self.width);
-                                } else if event.kind == PointerEventKind.move && root.dragging {
-                                    root.update-alpha(self.mouse-x, self.width);
-                                } else if event.kind == PointerEventKind.up && root.dragging {
-                                    root.finish-gesture();
-                                } else if event.kind == PointerEventKind.cancel {
-                                    root.cancel-gesture();
+                                    background: (row + col).mod(2) == 0 ? InspectorTokens.panel-bg : InspectorTokens.field-border;
                                 }
                             }
                         }
                         Rectangle {
-                            x: root.alpha / 255 * parent.width - 7px;
-                            y: 1px;
-                            width: 14px;
-                            height: 14px;
-                            border-radius: 7px;
-                            border-width: 2px;
-                            border-color: white;
-                            background: transparent;
-                            drop-shadow-color: #00000070;
-                            drop-shadow-blur: 2px;
+                            background: @linear-gradient(90deg, transparent, hsv(root.hue, root.saturation, root.brightness, 1));
                         }
                     }
 
