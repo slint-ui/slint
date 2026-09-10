@@ -16,6 +16,11 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_linear_gradient_axis(super::linear_gradient::editing_axis);
     api.on_radial_gradient_axis(super::radial_gradient::editing_axis);
     api.on_remap_radial_gradient(super::radial_gradient::remap);
+    api.on_conic_gradient_axis(super::conic_gradient::editing_axis);
+    api.on_remap_conic_gradient(super::conic_gradient::remap);
+    api.on_conic_gradient_point(super::conic_gradient::point);
+    api.on_conic_gradient_position(super::conic_gradient::position);
+    api.on_gradient_angular_delta(super::conic_gradient::angular_delta);
     api.on_gradient_axis_point(|axis, position| super::linear_gradient::point(&axis, position));
     api.on_gradient_axis_position(super::linear_gradient::position);
     api.on_linear_gradient_point(|angle, size, position| {

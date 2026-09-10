@@ -743,6 +743,11 @@ export global Api {
     pure callback linear-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
     pure callback radial-gradient-axis(value: FillData, size: Size, direction: float) -> LinearGradientAxis;
     pure callback remap-radial-gradient(value: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
+    pure callback conic-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
+    pure callback remap-conic-gradient(value: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
+    pure callback conic-gradient-point(axis: LinearGradientAxis, position: float) -> Point;
+    pure callback conic-gradient-position(axis: LinearGradientAxis, point: Point) -> float;
+    pure callback gradient-angular-delta(center: Point, previous: Point, next: Point) -> float;
     pure callback gradient-axis-point(axis: LinearGradientAxis, position: float) -> Point;
     pure callback gradient-axis-position(axis: LinearGradientAxis, point: Point) -> float;
     pure callback linear-gradient-point(angle: float, size: Size, position: float) -> Point;

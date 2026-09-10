@@ -62,6 +62,7 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
+mod conic_gradient;
 mod linear_gradient;
 mod radial_gradient;
 pub(super) use brushes::{fill_brush, fill_expression};
