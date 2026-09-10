@@ -121,7 +121,6 @@ export component GradientOverlay inherits FocusScope {
         root.press = root.to-local(p);
         root.original-axis = root.axis;
         root.original-fill = FillSession.working-fill;
-        root.original-fill.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
         root.original-stop = FillSession.stop-point(FillSession.working-fill.stops[FillSession.selected-stop].position);
         root.dragging = true;
     }

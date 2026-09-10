@@ -80,7 +80,6 @@ export component InspectorGradientStops inherits Rectangle {
                     if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                         ramp.focus();
                         root.gesture-value = root.value;
-                        root.gesture-value.stops = Api.clone-gradient-stops(root.value.stops);
                         let index = Api.nearest-gradient-stop(root.value.stops, position);
                         if index >= 0 && abs(root.value.stops[index].position - position) * (self.width - 24px) <= 10px {
                             root.selected-index = index;

@@ -332,6 +332,41 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
         original.assert_unchanged()
 
 
+@pytest.mark.parametrize("insert", [False, True])
+def test_picker_pointer_cancel_restores_stops(
+    editor_binary, editor_environment, tmp_path, insert
+):
+    from source_snapshot import SourceSnapshot
+    from test_linear_gradient_canvas import center, control, shifted
+
+    file = gradient_document(
+        tmp_path, "@linear-gradient(90deg, red 0%, blue 50%, white 100%)"
+    )
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "fill")
+        open_gradient(window)
+        role = slint_testing.AccessibleRole.Slider
+        left = center(control(window, "Gradient stop 1", role))
+        right = center(control(window, "Gradient stop 3", role))
+        start = shifted(left, x=(right.x - left.x) * (0.25 if insert else 0.5))
+        window.dispatch_event(
+            slint_testing.PointerPressEvent(
+                start, slint_testing.PointerEventButton.Left
+            )
+        )
+        window.dispatch_event(slint_testing.PointerMoveEvent(right))
+        window.dispatch_event(slint_testing.PointerExitedEvent())
+        for index, position in enumerate([0, 50, 100], 1):
+            assert (
+                float(picker_field(window, f"Stop {index} position").accessible_value)
+                == position
+            )
+        click_picker_button(window, "Close Custom")
+        original.assert_unchanged()
+
+
 def test_stop_interactions_preserve_color_identity(
     editor_binary, editor_environment, tmp_path
 ):

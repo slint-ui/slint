@@ -231,21 +231,22 @@ def test_linear_double_click_and_delete(
         original.assert_unchanged()
 
 
+@pytest.mark.parametrize("handle", ["Gradient end", "Gradient stop 2"])
 def test_linear_drag_escape_restores_gesture(
-    editor_binary, editor_environment, scene, tmp_path
+    editor_binary, editor_environment, scene, tmp_path, handle
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
         window = first_window(editor)
         open_linear(window)
-        start = center(control(window, "Gradient end"))
-        end = shifted(start, x=-30, y=-50)
+        start = center(control(window, handle))
+        end = shifted(start, x=-130, y=-50)
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
         press_key(window, keys.Escape)
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-        restored = center(control(window, "Gradient end"))
+        restored = center(control(window, handle))
         assert restored.x == pytest.approx(start.x)
         assert restored.y == pytest.approx(start.y)
         click(window, "Close Custom")
