@@ -11,7 +11,6 @@ use itertools::Itertools as _;
 use std::rc::Rc;
 
 pub fn setup(api: &ui::Api<'_>) {
-    api.on_fill_from_brush(fill_from_brush);
     api.on_fill_brush(fill_brush);
     api.on_fill_expression(fill_expression);
     api.on_nearest_gradient_stop(|stops, position| {
@@ -39,15 +38,11 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_add_gradient_stop(add_gradient_stop);
     api.on_remove_gradient_stop(remove_gradient_stop);
     api.on_move_gradient_stop(move_gradient_stop);
-    api.on_suggest_gradient_stop_at_row(suggest_gradient_stop_at_row);
-    api.on_suggest_gradient_stop_at_position(suggest_gradient_stop_at_position);
     api.on_sample_fill_stop(|fill, position| {
         gradient_stop_at_position(fill.stops, position, fill.kind != ui::BrushKind::Conic)
     });
     api.on_clone_gradient_stops(clone_gradient_stops);
 
-    api.on_as_json_brush(as_json_brush);
-    api.on_as_slint_brush(as_slint_brush);
     api.on_create_brush(create_brush);
 
     api.on_string_to_color(|s| string_to_color(s.as_ref()).unwrap_or_default());
@@ -96,15 +91,6 @@ fn color_to_short_string(color: slint::Color) -> String {
 
 pub fn string_to_color(text: &str) -> Option<slint::Color> {
     i_slint_common::color_parsing::parse_color_literal(text).map(slint::Color::from_argb_encoded)
-}
-
-fn as_json_brush(
-    kind: ui::BrushKind,
-    angle: f32,
-    color: slint::Color,
-    stops: slint::ModelRc<ui::GradientStop>,
-) -> slint::SharedString {
-    format!("\"{}\"", as_slint_brush(kind, angle, color, stops)).into()
 }
 
 fn as_slint_brush(
@@ -392,18 +378,6 @@ fn move_gradient_stop(model: slint::ModelRc<ui::GradientStop>, row: i32, new_pos
     row_usize as i32
 }
 
-fn interpolate(
-    previous: ui::GradientStop,
-    next: ui::GradientStop,
-    factor: f32,
-) -> ui::GradientStop {
-    let position = (previous.position + (next.position - previous.position) * factor)
-        .clamp(previous.position, next.position);
-    let color = interpolate_color(previous.color, next.color, factor, true);
-
-    ui::GradientStop { position, color }
-}
-
 fn interpolate_color(
     a: slint::Color,
     b: slint::Color,
@@ -431,40 +405,6 @@ fn interpolate_color(
 
 fn fallback_gradient_stop(position: f32) -> ui::GradientStop {
     ui::GradientStop { position, color: slint::Color::from_argb_u8(0xff, 0x80, 0x80, 0x80) }
-}
-
-fn suggest_gradient_stop_at_row(
-    model: slint::ModelRc<ui::GradientStop>,
-    row: i32,
-) -> ui::GradientStop {
-    let row_usize = row as usize;
-    if row < 0 || row_usize > model.row_count() {
-        return fallback_gradient_stop(0.0);
-    }
-
-    let (prev, next) = if row_usize == 0 {
-        let first_stop = model.row_data(0).unwrap_or(fallback_gradient_stop(0.0));
-        let very_first_stop = ui::GradientStop { position: 0.0, color: first_stop.color };
-        (very_first_stop.clone(), very_first_stop)
-    } else if row_usize == model.row_count() {
-        let last_stop = model.row_data(row_usize - 1).unwrap_or(fallback_gradient_stop(1.0));
-        let very_last_stop = ui::GradientStop { position: 1.0, color: last_stop.color };
-        (very_last_stop.clone(), very_last_stop)
-    } else {
-        (
-            model.row_data(row_usize - 1).expect("Index was tested to be valid"),
-            model.row_data(row_usize).expect("index was tested to be valid"),
-        )
-    };
-
-    interpolate(prev, next, 0.5)
-}
-
-fn suggest_gradient_stop_at_position(
-    model: slint::ModelRc<ui::GradientStop>,
-    position: f32,
-) -> ui::GradientStop {
-    gradient_stop_at_position(model, position, true)
 }
 
 fn gradient_stop_at_position(
