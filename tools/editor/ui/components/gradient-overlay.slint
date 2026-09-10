@@ -160,8 +160,20 @@ export component GradientOverlay inherits FocusScope {
         if event.text != Key.LeftArrow && event.text != Key.RightArrow && event.text != Key.UpArrow && event.text != Key.DownArrow {
             return reject;
         }
-        if root.conic { return reject; }
         let step = event.modifiers.shift ? 10 : 1;
+        if root.conic && kind != 0 {
+            let amount = (event.text == Key.LeftArrow || event.text == Key.DownArrow ? -step : step) / 360;
+            if kind == 3 {
+                FillSession.move-stop-position((FillSession.working-fill.stops[FillSession.selected-stop].position + amount).clamp(0, 1));
+                FillSession.focus-stop-generation += 1;
+            } else {
+                FillSession.move-axis(FillSession.working-fill, root.axis, {
+                    start: root.axis.start,
+                    end: Api.conic-gradient-point(root.axis, amount),
+                });
+            }
+            return accept;
+        }
         if kind == 3 {
             let amount = (event.text == Key.LeftArrow || event.text == Key.DownArrow ? -step : step) / 100;
             let p = FillSession.stop-point(FillSession.working-fill.stops[FillSession.selected-stop].position);
@@ -177,7 +189,7 @@ export component GradientOverlay inherits FocusScope {
             };
             let next = {
                 start: kind == 0 ? { x: root.axis.start.x + delta.x, y: root.axis.start.y + delta.y } : root.axis.start,
-                end: kind == 1 || root.radial ? { x: root.axis.end.x + delta.x, y: root.axis.end.y + delta.y } : root.axis.end,
+                end: kind == 1 || root.radial || root.conic ? { x: root.axis.end.x + delta.x, y: root.axis.end.y + delta.y } : root.axis.end,
             };
             FillSession.move-axis(FillSession.working-fill, root.axis, next);
         }
@@ -200,6 +212,7 @@ export component GradientOverlay inherits FocusScope {
             }
             return accept;
         }
+        if root.conic && root.has-focus && !root.dragging { return root.handle-key(1, event); }
         return reject;
     }
 

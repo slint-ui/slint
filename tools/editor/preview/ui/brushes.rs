@@ -21,6 +21,7 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_conic_gradient_point(super::conic_gradient::point);
     api.on_conic_gradient_position(super::conic_gradient::position);
     api.on_gradient_angular_delta(super::conic_gradient::angular_delta);
+    api.on_nearest_conic_gradient_stop(super::conic_gradient::nearest_stop);
     api.on_gradient_axis_point(|axis, position| super::linear_gradient::point(&axis, position));
     api.on_gradient_axis_position(super::linear_gradient::position);
     api.on_linear_gradient_point(|angle, size, position| {

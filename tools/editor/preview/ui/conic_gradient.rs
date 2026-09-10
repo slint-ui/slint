@@ -4,6 +4,19 @@
 use super::{FillData, LinearGradientAxis};
 use slint::{LogicalPosition as Point, LogicalSize};
 
+pub fn nearest_stop(stops: slint::ModelRc<super::GradientStop>, position: f32) -> i32 {
+    use slint::Model;
+    let distance = |value: f32| {
+        let delta = (value - position).abs().rem_euclid(1.);
+        delta.min(1. - delta)
+    };
+    stops
+        .iter()
+        .enumerate()
+        .min_by(|(_, a), (_, b)| distance(a.position).total_cmp(&distance(b.position)))
+        .map_or(-1, |(index, _)| index as i32)
+}
+
 pub fn editing_axis(fill: FillData, size: LogicalSize) -> LinearGradientAxis {
     let start = if fill.custom_center {
         Point::new(fill.center_x, fill.center_y)
@@ -100,6 +113,20 @@ mod tests {
 
     fn near(a: Point, b: Point) {
         assert!((a.x - b.x).powi(2) + (a.y - b.y).powi(2) < 0.00001, "{a:?} != {b:?}");
+    }
+
+    #[test]
+    fn nearest_stop_wraps_at_the_seam_without_changing_positions() {
+        let stops: slint::ModelRc<GradientStop> = Rc::new(VecModel::from(vec![
+            GradientStop { position: 0.55, ..Default::default() },
+            GradientStop { position: 1., ..Default::default() },
+            GradientStop { position: 2., ..Default::default() },
+        ]))
+        .into();
+        assert_eq!(nearest_stop(stops.clone(), 0.), 1);
+        assert_eq!(nearest_stop(stops.clone(), 0.54), 0);
+        assert_eq!(stops.row_data(2).unwrap().position, 2.);
+        assert_eq!(nearest_stop(Default::default(), 0.), -1);
     }
 
     #[test]

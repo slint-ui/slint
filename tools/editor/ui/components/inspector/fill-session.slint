@@ -116,7 +116,7 @@ export global FillSession {
         FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
         let position = FillSession.draft.stops[FillSession.selected-stop].position;
         Api.remove-gradient-stop(FillSession.draft.stops, FillSession.selected-stop);
-        FillSession.selected-stop = Api.nearest-gradient-stop(FillSession.draft.stops, position);
+        FillSession.selected-stop = FillSession.conic-active ? Api.nearest-conic-gradient-stop(FillSession.draft.stops, position) : Api.nearest-gradient-stop(FillSession.draft.stops, position);
         FillSession.preview-fill(FillSession.draft);
         FillSession.focus-stop-generation += 1;
     }

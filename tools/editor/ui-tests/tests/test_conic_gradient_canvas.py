@@ -16,6 +16,7 @@ from ui_driver import (
     first_window,
     launch_editor,
     press_key,
+    press_shortcut,
     select_outline_row,
     wait_until,
 )
@@ -49,6 +50,106 @@ def stop_center(window, index, position, start=220, rotation=0):
         control(window, f"Gradient stop {index}"),
         rotation + start - 90 + position + (90 if position >= 360 else -90),
     )
+
+
+@pytest.mark.parametrize("kind", ["center", "rotation", "stop"])
+def test_conic_escape_restores_gesture(
+    editor_binary, editor_environment, conic_scene, tmp_path, kind
+):
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        window = first_window(editor)
+        open_conic(window)
+        label = {
+            "center": "Gradient center handle",
+            "rotation": "Gradient rotation handle",
+            "stop": "Gradient stop 2",
+        }[kind]
+        start = (
+            stop_center(window, 2, 198)
+            if kind == "stop"
+            else center(control(window, label), 130)
+        )
+        end = shifted(start, x=25, y=-15)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        press_key(window, keys.Escape)
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        restored = (
+            stop_center(window, 2, 198)
+            if kind == "stop"
+            else center(control(window, label), 130)
+        )
+        assert restored.x == pytest.approx(start.x, abs=0.001)
+        assert restored.y == pytest.approx(start.y, abs=0.001)
+        click(window, "Close Custom")
+        original.assert_unchanged()
+
+
+def test_conic_keyboard_and_seam_neighbor(
+    editor_binary, editor_environment, conic_scene, tmp_path
+):
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        window = first_window(editor)
+        open_conic(window)
+        c = center(control(window, "Gradient center handle"), 130)
+        gesture(window, c, c)
+        press_key(window, keys.RightArrow)
+        press_shortcut(window, keys.Shift, keys.DownArrow)
+        moved = center(control(window, "Gradient center handle"), 130)
+        assert moved.x == pytest.approx(c.x + 1, abs=0.001)
+        assert moved.y == pytest.approx(c.y + 10, abs=0.001)
+        r = center(control(window, "Gradient rotation handle"), 130)
+        gesture(window, r, r)
+        press_key(window, keys.RightArrow)
+        press_shortcut(window, keys.Shift, keys.LeftArrow)
+        r = center(control(window, "Gradient rotation handle"), 121)
+        expected = around(moved, 126, 211)
+        assert r.x == pytest.approx(expected.x, abs=0.001)
+        assert r.y == pytest.approx(expected.y, abs=0.001)
+        p = stop_center(window, 2, 198, start=211)
+        gesture(window, p, p)
+        press_key(window, keys.RightArrow)
+        press_shortcut(window, keys.Shift, keys.LeftArrow)
+        assert float(
+            control(
+                window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+        ) == pytest.approx(189)
+        p = stop_center(window, 1, 0, start=211)
+        gesture(window, p, p)
+        press_key(window, keys.Delete)
+        press_key(window, keys.LeftArrow)
+        assert float(
+            control(
+                window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+        ) == pytest.approx(359)
+        press_key(window, keys.Backspace)
+        press_key(window, keys.Delete)
+        control(window, "Gradient stop 2")
+        assert not elements_with_label(window.root_element, "Gradient stop 3")
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
+
+
+def test_external_edit_invalidates_conic_session(
+    editor_binary, editor_environment, conic_scene
+):
+    from editor_sync import wait_for_source
+
+    original = conic_scene.read_text()
+    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        window = first_window(editor)
+        open_conic(window)
+        c = center(control(window, "Gradient center handle"), 130)
+        gesture(window, c, shifted(c, x=25, y=15))
+        external = original.replace("#7e3b66", "#abcdef")
+        conic_scene.write_text(external)
+        wait_for_source(conic_scene, external.encode())
+        assert not elements_with_label(window.root_element, "Gradient center handle")
 
 
 @pytest.mark.parametrize("rotation", [0, 45, 90])

@@ -768,6 +768,7 @@ export global Api {
 
     pure callback sample-fill-stop(fill: FillData, position: float) -> GradientStop;
     pure callback nearest-gradient-stop(stops: [GradientStop], position: float) -> int;
+    pure callback nearest-conic-gradient-stop(stops: [GradientStop], position: float) -> int;
     pure callback gradient-stop-gap(stops: [GradientStop]) -> float;
     pure callback add-gradient-stop(stops: [GradientStop], value: GradientStop) -> int;
     pure callback remove-gradient-stop(stops: [GradientStop], row: int);
