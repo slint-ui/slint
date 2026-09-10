@@ -748,6 +748,8 @@ export global Api {
 
     pure callback as-json-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> string;
 
+    pure callback nearest-gradient-stop(stops: [GradientStop], position: float) -> int;
+    pure callback gradient-stop-gap(stops: [GradientStop]) -> float;
     pure callback add-gradient-stop(stops: [GradientStop], value: GradientStop) -> int;
     pure callback remove-gradient-stop(stops: [GradientStop], row: int);
     // returns the new index of the gradient stop in the sorted list of GradientStops

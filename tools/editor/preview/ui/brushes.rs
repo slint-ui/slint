@@ -14,6 +14,20 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_fill_from_brush(fill_from_brush);
     api.on_fill_brush(fill_brush);
     api.on_fill_expression(fill_expression);
+    api.on_nearest_gradient_stop(|stops, position| stops.iter().enumerate()
+        .min_by(|(_, a), (_, b)| (a.position - position).abs().total_cmp(&(b.position - position).abs()))
+        .map_or(-1, |(index, _)| index as i32));
+    api.on_gradient_stop_gap(|stops| {
+        let mut positions = vec![0., 1.];
+        positions.extend(stops.iter().map(|s| s.position.clamp(0., 1.)));
+        positions.sort_by(f32::total_cmp);
+        let mut best = (0., 0.5);
+        for pair in positions.windows(2) {
+            let gap = pair[1] - pair[0];
+            if gap > best.0 { best = (gap, (pair[0] + pair[1]) / 2.); }
+        }
+        best.1
+    });
     api.on_add_gradient_stop(add_gradient_stop);
     api.on_remove_gradient_stop(remove_gradient_stop);
     api.on_move_gradient_stop(move_gradient_stop);

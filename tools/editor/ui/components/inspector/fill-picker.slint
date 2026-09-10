@@ -7,6 +7,7 @@ import { InspectorTokens } from "tokens.slint";
 import { InspectorColorControls } from "color-controls.slint";
 
 import { InspectorGradientGeometry } from "gradient-geometry.slint";
+import { InspectorGradientStops } from "gradient-stops.slint";
 import { InspectorSegment } from "segment.slint";
 
 export component InspectorFillPicker inherits Rectangle {
@@ -33,7 +34,8 @@ export component InspectorFillPicker inherits Rectangle {
 
     private property <FillData> draft;
     private property <FillData> working-fill: root.value;
-    private property <color> working-color: root.working-fill.color;
+    private property <int> selected-stop;
+    private property <color> working-color: root.working-fill.kind == BrushKind.solid ? root.working-fill.color : root.working-fill.stops[root.selected-stop].color;
     private property <bool> has-preview: false;
     private property <string> active-target;
     private property <bool> session-active: false;
@@ -57,7 +59,11 @@ export component InspectorFillPicker inherits Rectangle {
     }
     function preview-color(c: color) -> bool {
         root.draft = root.working-fill;
-        root.draft.color = c;
+        if root.draft.kind == BrushKind.solid { root.draft.color = c; }
+        else {
+            root.draft.stops = Api.clone-gradient-stops(root.working-fill.stops);
+            root.draft.stops[root.selected-stop].color = c;
+        }
         return root.preview-fill(root.draft);
     }
     function select-kind(kind: BrushKind) -> bool {
@@ -73,6 +79,7 @@ export component InspectorFillPicker inherits Rectangle {
     }
 
     function show-picker() {
+        root.selected-stop = 0;
         root.working-fill = root.value;
         root.original-fill = root.value;
         root.original-fill.stops = Api.clone-gradient-stops(root.value.stops);
@@ -267,10 +274,21 @@ export component InspectorFillPicker inherits Rectangle {
                         type-selected(kind) => { return root.select-kind(kind); }
                     }
 
-                    if !root.unsupported && root.working-fill.kind == BrushKind.solid: InspectorColorControls {
+                    if root.editable && root.working-fill.kind != BrushKind.solid: InspectorGradientStops {
+                        value: root.working-fill;
+                        selected-index <=> root.selected-stop;
+                        session-key: root.session-key;
+                        preview(fill) => { return root.preview-fill(fill); }
+                    }
+                    if root.editable && root.working-fill.kind != BrushKind.solid: Text {
+                        text: "Stop " + (root.selected-stop + 1);
+                        color: InspectorTokens.muted;
+                        font-size: 11px;
+                    }
+                    if !root.unsupported: InspectorColorControls {
                         value: root.working-color;
                         editable: root.editable;
-                        session-key: root.session-key;
+                        session-key: root.session-key + ":" + root.selected-stop;
                         preview(c) => { return root.preview-color(c); }
                     }
 
