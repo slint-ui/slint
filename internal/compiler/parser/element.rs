@@ -49,8 +49,8 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// animate someProp { }
 /// animate * { }
 /// @children
-/// @deprecated property alias <=> two.way;
-/// @shadowable @deprecated in-out property <int> yyy <=> two.way;
+/// @deprecated("") property alias <=> two.way;
+/// @shadowable @deprecated("") in-out property <int> yyy <=> two.way;
 /// @deprecated("Use 'foobar' instead") callback old_callback <=> foobar;
 /// @shadowable public function foo() {}
 /// double_binding <=> element.property;
@@ -630,7 +630,7 @@ fn parse_callback_declaration<P: Parser>(p: &mut P, checkpoint: Option<P::Checkp
 
 #[cfg_attr(test, parser_test)]
 /// ```test
-/// @deprecated
+/// @deprecated("")
 /// @deprecated("Some message")
 /// @shadowable
 /// ```
@@ -653,17 +653,21 @@ fn parse_member_attributes(p: &mut impl Parser) -> Option<&'static str> {
         if duplicated {
             p.error(format!("Duplicated @{name} attribute"));
         }
-        if is_deprecated && p.test(SyntaxKind::LParent) {
-            let peek = p.peek();
-            if peek.kind() != SyntaxKind::StringLiteral
-                || !peek.as_str().starts_with('"')
-                || !peek.as_str().ends_with('"')
-            {
-                p.error("@deprecated message must be a plain string literal, without any '\\{}' expressions");
-                p.until(SyntaxKind::RParent);
+        if is_deprecated {
+            if !p.test(SyntaxKind::LParent) {
+                p.error("@deprecated requires a message in parentheses. Use '@deprecated(\"\")' to deprecate without advising on a replacement");
             } else {
-                p.expect(SyntaxKind::StringLiteral);
-                p.expect(SyntaxKind::RParent);
+                let peek = p.peek();
+                if peek.kind() != SyntaxKind::StringLiteral
+                    || !peek.as_str().starts_with('"')
+                    || !peek.as_str().ends_with('"')
+                {
+                    p.error("@deprecated message must be a plain string literal, without any '\\{}' expressions");
+                    p.until(SyntaxKind::RParent);
+                } else {
+                    p.expect(SyntaxKind::StringLiteral);
+                    p.expect(SyntaxKind::RParent);
+                }
             }
         }
     }
