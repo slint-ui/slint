@@ -158,7 +158,16 @@ export component InspectorGradientStops inherits Rectangle {
                                 }
                                 HorizontalLayout {
                                     spacing: 5px;
-                                    Rectangle { width: 14px; height: 14px; background: stop.color; border-radius: 3px; }
+                                    Rectangle {
+                                        width: 14px;
+                                        Rectangle {
+                                            y: (parent.height - self.height) / 2;
+                                            width: 14px;
+                                            height: 14px;
+                                            background: stop.color;
+                                            border-radius: 3px;
+                                        }
+                                    }
                                     Text { text: Api.color-to-data(stop.color).short-text; color: InspectorTokens.text; font-size: 11px; vertical-alignment: center; }
                                 }
                                 TouchArea { accessible-role: button; accessible-label: "Edit stop " + (index + 1) + " color"; clicked => { parent.focus(); root.selected-index = index; root.edit-color(); } accessible-action-default => { root.selected-index = index; root.edit-color(); } }
