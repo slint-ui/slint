@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component ConicGradientScene inherits Window {
+    width: 400px;
+    height: 400px;
+    fill := Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 200px;
+        height: 200px;
+        background: @conic-gradient(from 220deg, #7e3b66 0deg, #264052 198deg, #568fb8 360deg);
+    }
+}

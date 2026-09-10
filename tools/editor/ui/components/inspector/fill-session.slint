@@ -65,7 +65,9 @@ export global FillSession {
     }
 
     public function reset-axis() {
-        FillSession.axis = FillSession.working-fill.kind == BrushKind.radial
+        FillSession.axis = FillSession.working-fill.kind == BrushKind.conic
+            ? Api.conic-gradient-axis(FillSession.working-fill, FillSession.target-size)
+            : FillSession.working-fill.kind == BrushKind.radial
             ? Api.radial-gradient-axis(FillSession.working-fill, FillSession.target-size, FillSession.radial-direction / 1deg)
             : Api.linear-gradient-axis(FillSession.working-fill, FillSession.target-size);
     }
@@ -73,7 +75,9 @@ export global FillSession {
         let dx = (next.end.x - next.start.x) / 1px;
         let dy = (next.end.y - next.start.y) / 1px;
         if dx * dx + dy * dy < 1 { return; }
-        let updated = fill.kind == BrushKind.radial
+        let updated = fill.kind == BrushKind.conic
+            ? Api.remap-conic-gradient(fill, previous, next)
+            : fill.kind == BrushKind.radial
             ? Api.remap-radial-gradient(fill, previous, next)
             : Api.remap-linear-gradient(fill, FillSession.target-size, previous, next);
         if FillSession.preview-fill(updated) {
@@ -84,12 +88,16 @@ export global FillSession {
         }
     }
     public pure function stop-point(position: float) -> Point {
-        return FillSession.working-fill.kind == BrushKind.radial
+        return FillSession.working-fill.kind == BrushKind.conic
+            ? Api.conic-gradient-point(FillSession.axis, position)
+            : FillSession.working-fill.kind == BrushKind.radial
             ? Api.gradient-axis-point(FillSession.axis, position)
             : Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.target-size, position);
     }
     public pure function stop-position(point: Point) -> float {
-        return FillSession.working-fill.kind == BrushKind.radial
+        return FillSession.working-fill.kind == BrushKind.conic
+            ? Api.conic-gradient-position(FillSession.axis, point)
+            : FillSession.working-fill.kind == BrushKind.radial
             ? Api.gradient-axis-position(FillSession.axis, point)
             : Api.linear-gradient-position(FillSession.working-fill.angle, FillSession.target-size, point);
     }
@@ -122,10 +130,13 @@ export global FillSession {
     }
 
     public function move-stop(point: Point) {
+        FillSession.move-stop-position(FillSession.stop-position(point));
+    }
+    public function move-stop-position(position: float) {
         FillSession.draft = FillSession.working-fill;
         FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
         FillSession.draft.stops[FillSession.selected-stop].position =
-            FillSession.stop-position(point);
+            position;
         FillSession.preview-fill(FillSession.draft);
     }
 
@@ -185,7 +196,7 @@ export global FillSession {
             }
         }
         let accepted = FillSession.preview-fill(FillSession.draft);
-        if accepted && (kind == BrushKind.linear || kind == BrushKind.radial) { FillSession.reset-axis(); }
+        if accepted && kind != BrushKind.solid { FillSession.reset-axis(); }
         return accepted;
     }
 
