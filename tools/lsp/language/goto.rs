@@ -62,6 +62,38 @@ fn goto_node(
 use i_slint_compiler::parser::TextSize;
 
 #[test]
+fn test_goto_struct_field_and_model_data() {
+    // #13305
+    let source = r#"
+struct InnerData { inner: string }
+struct Data { first: string, second: [InnerData] }
+export component AppWindow {
+    in property <Data> data;
+    Text { text: data.first + data.second[0].inner; }
+    for item in data.second: Text { text: item.inner; }
+}"#;
+
+    let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
+    let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+    let mut target_line = |needle: &str, offset: u32| {
+        let offset = TextSize::new(source.find(needle).unwrap() as u32 + offset);
+        let token = crate::language::token_at_offset(&doc, offset).unwrap();
+        let def = goto_definition(&mut dc, token).unwrap();
+        let GotoDefinitionResponse::Link(link) = def else { panic!("not a single link {def:?}") };
+        let link = link.first().unwrap();
+        assert_eq!(link.target_uri, uri);
+        link.target_range.start.line
+    };
+
+    // The field declarations in the structs
+    assert_eq!(target_line("data.first", 5), 2);
+    assert_eq!(target_line("data.second[0].inner", 15), 1);
+    assert_eq!(target_line("item.inner", 5), 1);
+    // The declared identifier of the `for`
+    assert_eq!(target_line("item.inner", 0), 6);
+}
+
+#[test]
 fn test_goto_definition() {
     fn first_link(def: &GotoDefinitionResponse) -> &LocationLink {
         let GotoDefinitionResponse::Link(link) = def else { panic!("not a single link {def:?}") };
