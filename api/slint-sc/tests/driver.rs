@@ -279,6 +279,11 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
     // Step 6: The coverage of the case must be what the case states, if it
     // does: every point, reached or not.
     let report = coverage::measure(tmp.path(), &generated_rs, &test_bin)?;
+    // The cases of the `coverage` group test the reporting: one that lost its
+    // caret lines would pass for stating nothing.
+    if rel.starts_with("coverage") && !expectations::is_stated(&source) {
+        return Err("a coverage case states its coverage in `//#c` caret lines".into());
+    }
     // The case is rewritten when asked to, and the difference is still a
     // failure, so that an update never passes unseen.
     if let Err(difference) = expectations::check(&source, slint_path, &report) {
