@@ -122,8 +122,11 @@ def test_geometry_field_writes_exact_source(
             # Preview replacement can invalidate the handle during the property read.
             return getattr(geometry, property_name) if rectangle.is_valid else None
 
-        # Canvas positions include the preview offset; apply the source value's delta.
-        expected = wait_until(rendered_value) + float(value) - original_value
+        expected = float(value)
+        if property_name in ("x", "y"):
+            # Absolute positions include the preview's offset in the editor window.
+            preview_offset = wait_until(rendered_value) - original_value
+            expected += preview_offset
 
         edit_field(window, label, value, slint_testing.AccessibleRole.TextInput)
         snapshot.wait_for_exact(
