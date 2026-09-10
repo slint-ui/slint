@@ -1645,26 +1645,26 @@ mod tests {
             ..Default::default()
         });
         session.set_session_active(true);
-        assert!(!session.get_linear_active());
+        assert!(!session.get_canvas_active());
         session.set_open(true);
-        assert!(session.get_linear_active());
+        assert!(session.get_canvas_active());
         session.set_unsupported(true);
-        assert!(!session.get_linear_active());
+        assert!(!session.get_canvas_active());
         session.set_unsupported(false);
         api.set_inspector_fill_refresh_pending(true);
-        assert!(!session.get_linear_active());
+        assert!(!session.get_canvas_active());
         api.set_inspector_fill_refresh_pending(false);
         session.set_working_fill(super::FillData {
-            kind: super::BrushKind::Radial,
+            kind: super::BrushKind::Solid,
             ..Default::default()
         });
-        assert!(!session.get_linear_active());
+        assert!(!session.get_canvas_active());
         session.set_working_fill(super::FillData {
             kind: super::BrushKind::Linear,
             ..Default::default()
         });
         session.set_canvas_target(false);
-        assert!(!session.get_linear_active());
+        assert!(!session.get_canvas_active());
     }
 
     #[test]

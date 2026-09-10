@@ -78,7 +78,7 @@ def open_linear(window):
 
 
 @pytest.mark.parametrize("rotation", [0, 45, 90, 180])
-def test_stop_drag_crosses_neighbours_without_losing_capture(
+def test_stop_drag_crosses_neighbors_without_losing_capture(
     editor_binary, editor_environment, scene, tmp_path, rotation
 ):
     scene.write_text(
