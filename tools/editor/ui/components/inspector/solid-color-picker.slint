@@ -63,17 +63,16 @@ export component InspectorSolidColorPicker inherits Rectangle {
         }
     }
 
-    function preview-color(c: color) -> bool {
+    function preview-color(c: color) {
         if !root.editable {
-            return false;
+            return;
         }
         root.update-color(c);
         if root.preview(root.gesture-key, c) {
             root.has-preview = true;
-            return true;
+            return;
         }
         root.cancel-gesture();
-        return false;
     }
 
     function commit-color(key: string, c: color) -> bool {
@@ -142,7 +141,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
         root.preview-color(root.color-at());
     }
 
-    public function show-picker() {
+    function show-picker() {
         root.update-color(root.value);
         root.original-color = root.value;
         root.dragging = false;
@@ -324,7 +323,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
 
                     if !root.unsupported: Rectangle {
                         height: 170px;
-                        sv := Rectangle {
+                        Rectangle {
                             border-radius: 5px;
                             clip: true;
                             background: hsv(root.hue, 1, 1);
@@ -368,7 +367,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
 
                     if !root.unsupported: Rectangle {
                         height: 16px;
-                        hue-track := Rectangle {
+                        Rectangle {
                             border-radius: 8px;
                             clip: true;
                             background: @linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
@@ -402,7 +401,7 @@ export component InspectorSolidColorPicker inherits Rectangle {
 
                     if !root.unsupported: Rectangle {
                         height: 16px;
-                        alpha-track := Rectangle {
+                        Rectangle {
                             border-radius: 8px;
                             clip: true;
                             Rectangle {

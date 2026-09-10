@@ -17,7 +17,6 @@ export component InspectorColorField inherits Rectangle {
     in property <string> preview-key: "";
     in property <string> session-key: "";
     in property <string> property-name: "";
-    in property <bool> is-brush: false;
     callback accepted(string) -> bool;
     private property <bool> picker-open: false;
 
@@ -101,13 +100,13 @@ export component InspectorColorField inherits Rectangle {
         session-key: root.session-key;
         target-key: root.preview-key;
         preview(key, color) => {
-            return Api.inspector-color-preview(key, root.property-name, color, root.is-brush);
+            return Api.inspector-color-preview(key, root.property-name, color);
         }
         accepted(key, color) => {
-            return Api.inspector-color-commit(key, root.property-name, color, root.is-brush);
+            return Api.inspector-color-commit(key, root.property-name, color);
         }
         detached(key) => {
-            return Api.inspector-color-commit(key, root.property-name, root.effective-color, root.is-brush);
+            return Api.inspector-color-commit(key, root.property-name, root.effective-color);
         }
         closed => {
             root.picker-open = false;

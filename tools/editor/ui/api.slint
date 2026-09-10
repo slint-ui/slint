@@ -706,8 +706,8 @@ export global Api {
     callback inspector-preview(key: string, name: string, value: float) -> bool;
     callback inspector-commit(key: string, name: string, value: float) -> bool;
     callback inspector-cancel();
-    callback inspector-color-preview(key: string, name: string, value: color, is-brush: bool) -> bool;
-    callback inspector-color-commit(key: string, name: string, value: color, is-brush: bool) -> bool;
+    callback inspector-color-preview(key: string, name: string, value: color) -> bool;
+    callback inspector-color-commit(key: string, name: string, value: color) -> bool;
 
     // ## Property Editor
     pure callback test-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;

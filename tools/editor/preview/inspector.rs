@@ -266,21 +266,12 @@ pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool
     preview_value(key, node, &names, slint_interpreter::Value::Number(value as f64))
 }
 
-pub(super) fn preview_color(
-    key: SharedString,
-    name: SharedString,
-    value: slint::Color,
-    is_brush: bool,
-) -> bool {
+pub(super) fn preview_color(key: SharedString, name: SharedString, value: slint::Color) -> bool {
     let Some((node, _, _)) = color_target(&key, &name) else {
         cancel();
         return false;
     };
-    let value = if is_brush {
-        slint_interpreter::Value::Brush(slint::Brush::SolidColor(value))
-    } else {
-        slint_interpreter::Value::from(value)
-    };
+    let value = slint_interpreter::Value::from(value);
     preview_value(key, node, &[name.as_str()], value)
 }
 
@@ -302,12 +293,7 @@ fn property_edit(
     )
 }
 
-pub(super) fn commit_color(
-    key: SharedString,
-    name: SharedString,
-    value: slint::Color,
-    _is_brush: bool,
-) -> bool {
+pub(super) fn commit_color(key: SharedString, name: SharedString, value: slint::Color) -> bool {
     let Some((node, url, version)) = color_target(&key, &name) else {
         cancel();
         return false;
