@@ -13,6 +13,17 @@ use std::rc::Rc;
 pub fn setup(api: &ui::Api<'_>) {
     api.on_fill_brush(fill_brush);
     api.on_fill_expression(fill_expression);
+    api.on_linear_gradient_axis(super::linear_gradient::editing_axis);
+    api.on_linear_gradient_point(|angle, size, position| {
+        super::linear_gradient::point(
+            &super::linear_gradient::canonical_axis(angle, size),
+            position,
+        )
+    });
+    api.on_linear_gradient_position(|angle, size, point| {
+        super::linear_gradient::position(super::linear_gradient::canonical_axis(angle, size), point)
+    });
+    api.on_remap_linear_gradient(super::linear_gradient::remap);
     api.on_nearest_gradient_stop(|stops, position| {
         stops
             .iter()
@@ -308,8 +319,6 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
 }
 
 fn find_index_for_position(model: &slint::ModelRc<ui::GradientStop>, position: f32) -> usize {
-    let position = position.clamp(0.0, 1.0);
-
     model
         .iter()
         .position(|gs| gs.position.total_cmp(&position) != std::cmp::Ordering::Less)
@@ -404,16 +413,12 @@ fn gradient_stop_at_position(
     position: f32,
     premultiplied: bool,
 ) -> ui::GradientStop {
-    let position = position.clamp(0.0, 1.0);
-
     if model.row_count() == 0 {
         return fallback_gradient_stop(position);
     }
 
     let mut prev = model.row_data(0).expect("Not empty");
-    prev.position = 0.0;
     let mut next = model.row_data(model.row_count() - 1).expect("Not empty");
-    next.position = 1.0;
 
     for current in model.iter() {
         if current.position > position {

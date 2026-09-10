@@ -62,6 +62,7 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
+mod linear_gradient;
 pub(super) use brushes::{fill_brush, fill_expression};
 mod element_library;
 pub(super) mod file_tree;

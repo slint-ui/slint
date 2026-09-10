@@ -230,6 +230,11 @@ export struct GradientStop {
     color: color,
 }
 
+export struct LinearGradientAxis {
+    start: Point,
+    end: Point,
+}
+
 export struct FillData {
     kind: BrushKind,
     color: color,
@@ -734,6 +739,10 @@ export global Api {
 
     pure callback fill-brush(value: FillData) -> brush;
     pure callback fill-expression(value: FillData) -> string;
+    pure callback linear-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
+    pure callback linear-gradient-point(angle: float, size: Size, position: float) -> Point;
+    pure callback linear-gradient-position(angle: float, size: Size, point: Point) -> float;
+    pure callback remap-linear-gradient(value: FillData, size: Size, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
 
 
     // ## preview data
