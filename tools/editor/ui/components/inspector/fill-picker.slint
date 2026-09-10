@@ -113,15 +113,8 @@ export component InspectorFillPicker inherits Rectangle {
                     }
 
                     if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid: InspectorGradientStops {
-                        value: FillSession.working-fill;
-                        selected-index <=> FillSession.selected-stop;
-                        focus-generation: FillSession.focus-stop-generation;
                         edit-color => {
                             FillSession.stop-panel-open = true;
-                        }
-                        session-key: FillSession.session-key;
-                        preview(fill) => {
-                            return FillSession.preview-fill(fill);
                         }
                     }
                     if !FillSession.unsupported && FillSession.working-fill.kind == BrushKind.solid: InspectorColorControls {

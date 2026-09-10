@@ -58,21 +58,12 @@ pub fn setup(api: &ui::Api<'_>) {
     });
     api.on_add_gradient_stop(add_gradient_stop);
     api.on_remove_gradient_stop(remove_gradient_stop);
-    api.on_move_gradient_stop(move_gradient_stop);
+    api.on_gradient_stop_order(gradient_stop_order);
     // Skia interpolates linear/radial gradients in premultiplied alpha, but conic gradients in straight alpha.
     api.on_sample_fill_stop(|fill, position| {
         gradient_stop_at_position(fill.stops, position, fill.kind != ui::BrushKind::Conic)
     });
     api.on_clone_gradient_stops(clone_gradient_stops);
-    api.on_sort_gradient_stops(|model, selected| {
-        let mut stops = model.iter().enumerate().collect::<Vec<_>>();
-        stops.sort_by(|a, b| a.1.position.total_cmp(&b.1.position));
-        let selected = stops.iter().position(|(index, _)| *index == selected as usize).unwrap_or(0);
-        for (index, (_, stop)) in stops.into_iter().enumerate() {
-            model.set_row_data(index, stop);
-        }
-        selected as i32
-    });
 
     api.on_create_brush(create_brush);
 
@@ -361,41 +352,22 @@ fn remove_gradient_stop(model: slint::ModelRc<ui::GradientStop>, row: i32) {
     }
 }
 
-fn move_gradient_stop(model: slint::ModelRc<ui::GradientStop>, row: i32, new_position: f32) -> i32 {
-    let mut row_usize = row as usize;
-    if row < 0 || row_usize >= model.row_count() {
-        return row;
+fn gradient_stop_order(
+    model: slint::ModelRc<ui::GradientStop>,
+    selected: i32,
+) -> ui::GradientStopOrder {
+    let mut stops = model.iter().enumerate().collect::<Vec<_>>();
+    stops.sort_by(|a, b| a.1.position.total_cmp(&b.1.position));
+    ui::GradientStopOrder {
+        selected: stops
+            .iter()
+            .position(|(index, _)| *index as i32 == selected)
+            .map_or(-1, |row| row as i32),
+        indices: Rc::new(VecModel::from(
+            stops.into_iter().map(|(index, _)| index as i32).collect::<Vec<_>>(),
+        ))
+        .into(),
     }
-
-    let m = model.as_any().downcast_ref::<VecModel<ui::GradientStop>>().unwrap();
-
-    let mut gs = model.row_data(row_usize).unwrap();
-    gs.position = new_position;
-    model.set_row_data(row_usize, gs);
-
-    fn swap_direction(
-        model: &VecModel<ui::GradientStop>,
-        row: usize,
-        value: f32,
-    ) -> Option<(usize, usize)> {
-        let previous = model.row_data(row.saturating_sub(1));
-        let next = model.row_data(row + 1);
-        let previous_order = previous.map(|gs| value.total_cmp(&gs.position));
-        let next_order = next.map(|gs| value.total_cmp(&gs.position));
-
-        match (previous_order, next_order) {
-            (Some(std::cmp::Ordering::Less), _) => Some((row, row - 1)),
-            (_, Some(std::cmp::Ordering::Greater)) => Some((row, row + 1)),
-            _ => None,
-        }
-    }
-
-    while let Some((old_row, new_row)) = swap_direction(m, row_usize, new_position) {
-        m.swap(old_row, new_row);
-        row_usize = new_row;
-    }
-
-    row_usize as i32
 }
 
 fn interpolate_color(
@@ -814,250 +786,41 @@ mod tests {
     }
 
     #[test]
-    fn test_move_gradient_stop() {
+    fn ordered_view_preserves_slots_and_duplicate_order() {
         let model = make_model();
-
-        assert_eq!(super::move_gradient_stop(model.clone(), 3, 0.4), 3);
-        let mut it = model.iter();
-
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.0,
-                color: slint::Color::from_argb_encoded(0xff030303)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.0,
-                color: slint::Color::from_argb_encoded(0xff040404)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.1445,
-                color: slint::Color::from_argb_encoded(0xff060606),
-            }),
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.4,
-                color: slint::Color::from_argb_encoded(0xff050505)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 1.0,
-                color: slint::Color::from_argb_encoded(0xff010101)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 1.0,
-                color: slint::Color::from_argb_encoded(0xff020202)
-            })
-        );
-        assert_eq!(it.next(), None);
-
-        let model = make_model();
-
-        assert_eq!(super::move_gradient_stop(model.clone(), 3, 0.1), 2);
-        let mut it = model.iter();
-
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.0,
-                color: slint::Color::from_argb_encoded(0xff030303)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.0,
-                color: slint::Color::from_argb_encoded(0xff040404)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.1,
-                color: slint::Color::from_argb_encoded(0xff050505)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.1445,
-                color: slint::Color::from_argb_encoded(0xff060606),
-            }),
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 1.0,
-                color: slint::Color::from_argb_encoded(0xff010101)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 1.0,
-                color: slint::Color::from_argb_encoded(0xff020202)
-            })
-        );
-        assert_eq!(it.next(), None);
-
-        let model = make_model();
-
-        assert_eq!(super::move_gradient_stop(model.clone(), 0, 0.05), 1);
-        let mut it = model.iter();
-
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.0,
-                color: slint::Color::from_argb_encoded(0xff040404)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.05,
-                color: slint::Color::from_argb_encoded(0xff030303)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.1445,
-                color: slint::Color::from_argb_encoded(0xff060606),
-            }),
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.5,
-                color: slint::Color::from_argb_encoded(0xff050505)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 1.0,
-                color: slint::Color::from_argb_encoded(0xff010101)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 1.0,
-                color: slint::Color::from_argb_encoded(0xff020202)
-            })
-        );
-        assert_eq!(it.next(), None);
-
-        let model = make_model();
-
-        assert_eq!(super::move_gradient_stop(model.clone(), 3, 0.0), 2);
-        let mut it = model.iter();
-
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.0,
-                color: slint::Color::from_argb_encoded(0xff030303)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.0,
-                color: slint::Color::from_argb_encoded(0xff040404)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.0,
-                color: slint::Color::from_argb_encoded(0xff050505)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.1445,
-                color: slint::Color::from_argb_encoded(0xff060606),
-            }),
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 1.0,
-                color: slint::Color::from_argb_encoded(0xff010101)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 1.0,
-                color: slint::Color::from_argb_encoded(0xff020202)
-            })
-        );
-        assert_eq!(it.next(), None);
-
-        let model = make_model();
-
-        assert_eq!(super::move_gradient_stop(model.clone(), 3, 1.0), 3);
-        let mut it = model.iter();
-
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.0,
-                color: slint::Color::from_argb_encoded(0xff030303)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.0,
-                color: slint::Color::from_argb_encoded(0xff040404)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 0.1445,
-                color: slint::Color::from_argb_encoded(0xff060606),
-            }),
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 1.0,
-                color: slint::Color::from_argb_encoded(0xff050505)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 1.0,
-                color: slint::Color::from_argb_encoded(0xff010101)
-            })
-        );
-        assert_eq!(
-            it.next(),
-            Some(ui::GradientStop {
-                position: 1.0,
-                color: slint::Color::from_argb_encoded(0xff020202)
-            })
-        );
-        assert_eq!(it.next(), None);
+        for (slot, position) in [(3, 0.4), (3, -0.1), (0, 1.2), (3, 0.), (3, 1.)] {
+            let before = model.iter().map(|stop| stop.color).collect::<Vec<_>>();
+            let mut stop = model.row_data(slot).unwrap();
+            stop.position = position;
+            model.set_row_data(slot, stop);
+            let order = super::gradient_stop_order(model.clone(), slot as i32);
+            let indices = order.indices.iter().collect::<Vec<_>>();
+            assert_eq!(indices[order.selected as usize], slot as i32);
+            assert_eq!(before, model.iter().map(|stop| stop.color).collect::<Vec<_>>());
+            for pair in indices.windows(2) {
+                let a = model.row_data(pair[0] as usize).unwrap().position;
+                let b = model.row_data(pair[1] as usize).unwrap().position;
+                assert!(a <= b);
+                if a == b {
+                    assert!(pair[0] < pair[1]);
+                }
+            }
+            let ordered: ModelRc<_> = Rc::new(VecModel::from(
+                indices.iter().map(|i| model.row_data(*i as usize).unwrap()).collect::<Vec<_>>(),
+            ))
+            .into();
+            for kind in [ui::BrushKind::Linear, ui::BrushKind::Radial, ui::BrushKind::Conic] {
+                let fill = ui::FillData { kind, stops: model.clone(), ..Default::default() };
+                let sorted = ui::FillData { stops: ordered.clone(), ..fill.clone() };
+                assert_eq!(
+                    super::fill_expression(fill.clone()),
+                    super::fill_expression(sorted.clone())
+                );
+                assert_eq!(super::fill_brush(fill), super::fill_brush(sorted));
+            }
+        }
+        let empty = super::gradient_stop_order(make_empty_model(), 0);
+        assert_eq!(empty.selected, -1);
+        assert_eq!(empty.indices.row_count(), 0);
     }
 }

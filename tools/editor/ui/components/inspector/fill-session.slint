@@ -103,22 +103,25 @@ export global FillSession {
     }
     public function add-stop(point: Point) {
         if !FillSession.canvas-active { return; }
-        FillSession.draft = FillSession.working-fill;
-        FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
-        let position = FillSession.stop-position(point);
-        FillSession.selected-stop = Api.add-gradient-stop(FillSession.draft.stops, Api.sample-fill-stop(FillSession.draft, position));
-        FillSession.preview-fill(FillSession.draft);
+        FillSession.add-stop-position(FillSession.stop-position(point));
         FillSession.focus-stop-generation += 1;
     }
-    public function remove-stop() {
-        if !FillSession.canvas-active || FillSession.working-fill.stops.length <= 2 { return; }
+    public function add-stop-position(position: float) {
         FillSession.draft = FillSession.working-fill;
         FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
-        let position = FillSession.draft.stops[FillSession.selected-stop].position;
-        Api.remove-gradient-stop(FillSession.draft.stops, FillSession.selected-stop);
-        FillSession.selected-stop = FillSession.conic-active ? Api.nearest-conic-gradient-stop(FillSession.draft.stops, position) : Api.nearest-gradient-stop(FillSession.draft.stops, position);
+        FillSession.selected-stop = Api.add-gradient-stop(FillSession.draft.stops, Api.sample-fill-stop(FillSession.draft, position));
         FillSession.preview-fill(FillSession.draft);
-        FillSession.focus-stop-generation += 1;
+    }
+    public function remove-stop(index: int) {
+        if FillSession.working-fill.stops.length <= 2 { return; }
+        FillSession.draft = FillSession.working-fill;
+        FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
+        let position = FillSession.draft.stops[index].position;
+        Api.remove-gradient-stop(FillSession.draft.stops, index);
+        FillSession.selected-stop = FillSession.selected-stop == index
+            ? (FillSession.draft.kind == BrushKind.conic ? Api.nearest-conic-gradient-stop(FillSession.draft.stops, position) : Api.nearest-gradient-stop(FillSession.draft.stops, position))
+            : FillSession.selected-stop - (FillSession.selected-stop > index ? 1 : 0);
+        FillSession.preview-fill(FillSession.draft);
     }
     public function apply-history(redo: bool) {
         FillSession.close-picker(false, false);
@@ -132,12 +135,11 @@ export global FillSession {
     public function move-stop(point: Point) {
         FillSession.move-stop-position(FillSession.stop-position(point));
     }
-    public function move-stop-position(position: float) {
+    public function move-stop-position(position: float) -> bool {
         FillSession.draft = FillSession.working-fill;
         FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
-        FillSession.draft.stops[FillSession.selected-stop].position =
-            position;
-        FillSession.preview-fill(FillSession.draft);
+        FillSession.draft.stops[FillSession.selected-stop].position = position;
+        return FillSession.preview-fill(FillSession.draft);
     }
 
     public function preview-fill(fill: FillData) -> bool {
@@ -189,9 +191,6 @@ export global FillSession {
             FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops.length >= 2 ? FillSession.working-fill.stops : [{color: FillSession.working-color, position: 0}, {color: FillSession.working-color, position: 1}]);
             FillSession.draft.kind = kind;
             FillSession.last-gradient = kind;
-            if kind != BrushKind.linear {
-                FillSession.selected-stop = Api.sort-gradient-stops(FillSession.draft.stops, FillSession.selected-stop);
-            }
         }
         let accepted = FillSession.preview-fill(FillSession.draft);
         if accepted && kind != BrushKind.solid { FillSession.reset-axis(); }

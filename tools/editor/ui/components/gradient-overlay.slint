@@ -154,7 +154,8 @@ export component GradientOverlay inherits FocusScope {
     }
     function handle-key(kind: int, event: KeyEvent) -> EventResult {
         if kind == 3 && (event.text == Key.Delete || event.text == Key.Backspace) {
-            FillSession.remove-stop();
+            FillSession.remove-stop(FillSession.selected-stop);
+            FillSession.focus-stop-generation += 1;
             return accept;
         }
         if event.text != Key.LeftArrow && event.text != Key.RightArrow && event.text != Key.UpArrow && event.text != Key.DownArrow {

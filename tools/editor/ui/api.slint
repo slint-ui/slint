@@ -235,6 +235,11 @@ export struct LinearGradientAxis {
     end: Point,
 }
 
+export struct GradientStopOrder {
+    indices: [int],
+    selected: int,
+}
+
 export struct FillData {
     kind: BrushKind,
     color: color,
@@ -772,10 +777,8 @@ export global Api {
     pure callback gradient-stop-gap(stops: [GradientStop]) -> float;
     pure callback add-gradient-stop(stops: [GradientStop], value: GradientStop) -> int;
     pure callback remove-gradient-stop(stops: [GradientStop], row: int);
-    // returns the new index of the gradient stop in the sorted list of GradientStops
-    pure callback move-gradient-stop(stops: [GradientStop], row: int, new_position: float) -> int;
+    pure callback gradient-stop-order(stops: [GradientStop], selected: int) -> GradientStopOrder;
     pure callback clone-gradient-stops(stops: [GradientStop]) -> [GradientStop];
-    callback sort-gradient-stops(stops: [GradientStop], selected: int) -> int;
 
     pure callback create-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> brush;
 

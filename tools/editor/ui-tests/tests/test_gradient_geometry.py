@@ -224,6 +224,58 @@ def click_picker_button(window, label):
     ).invoke_accessible_default_action()
 
 
+@pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
+def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
+    editor_binary, editor_environment, tmp_path, kind
+):
+    from source_snapshot import SourceSnapshot
+    from test_linear_gradient_canvas import center, control, shifted
+    from ui_driver import press_key
+
+    units = 360 if kind == "conic" else 100
+    suffix = "deg" if kind == "conic" else "%"
+    prefix = {"linear": "90deg", "radial": "circle", "conic": "from 0deg"}[kind]
+    file = gradient_document(
+        tmp_path,
+        f"@{kind}-gradient({prefix}, red 0{suffix}, #0000ff80 {units * 0.4}{suffix}, lime {units * 0.6}{suffix}, white {units}{suffix})",
+    )
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "fill")
+        open_gradient(window)
+        role = slint_testing.AccessibleRole.Slider
+        left = center(control(window, "Gradient stop 1", role))
+        right = center(control(window, "Gradient stop 4", role))
+        start = center(control(window, "Gradient stop 2", role))
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        for position in [0.65, 0.85, 0.3, 0.75]:
+            point = shifted(left, x=(right.x - left.x) * position)
+            window.dispatch_event(slint_testing.PointerMoveEvent(point))
+            assert float(
+                picker_field(window, "Stop 2 position").accessible_value
+            ) == pytest.approx(position * units, abs=0.01)
+        window.dispatch_event(slint_testing.PointerReleaseEvent(point, button))
+        assert (
+            picker_field(window, "Stop 3 position").absolute_position.y
+            < picker_field(window, "Stop 2 position").absolute_position.y
+        )
+        click_picker_button(window, "Edit stop 2 color")
+        assert picker_field(window, "Hex color").accessible_value == "#0000ff80"
+        click_picker_button(window, "Close Stop color")
+        click_picker_button(window, "Gradient stop 2")
+        press_key(window, keys.RightArrow)
+        assert float(
+            picker_field(window, "Stop 2 position").accessible_value
+        ) == pytest.approx(units * 0.75 + 1, abs=0.01)
+        click_picker_button(window, "Remove stop 1")
+        click_picker_button(window, "Edit stop 1 color")
+        assert picker_field(window, "Hex color").accessible_value == "#0000ff80"
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
+
+
 def test_stop_interactions_preserve_color_identity(
     editor_binary, editor_environment, tmp_path
 ):
