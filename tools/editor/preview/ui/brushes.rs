@@ -54,6 +54,18 @@ pub fn setup(api: &ui::Api<'_>) {
         gradient_stop_at_position(fill.stops, position, fill.kind != ui::BrushKind::Conic)
     });
     api.on_clone_gradient_stops(clone_gradient_stops);
+    api.on_gradient_handle_slots(|count| {
+        Rc::new(VecModel::from((0..count).collect::<Vec<_>>())).into()
+    });
+    api.on_sort_gradient_stops(|model, selected| {
+        let mut stops = model.iter().enumerate().collect::<Vec<_>>();
+        stops.sort_by(|a, b| a.1.position.total_cmp(&b.1.position));
+        let selected = stops.iter().position(|(index, _)| *index == selected as usize).unwrap_or(0);
+        for (index, (_, stop)) in stops.into_iter().enumerate() {
+            model.set_row_data(index, stop);
+        }
+        selected as i32
+    });
 
     api.on_create_brush(create_brush);
 
@@ -417,10 +429,11 @@ fn gradient_stop_at_position(
         return fallback_gradient_stop(position);
     }
 
-    let mut prev = model.row_data(0).expect("Not empty");
-    let mut next = model.row_data(model.row_count() - 1).expect("Not empty");
+    let stops = sorted_gradient_stops(model);
+    let mut prev = stops[0].clone();
+    let mut next = stops[stops.len() - 1].clone();
 
-    for current in model.iter() {
+    for current in stops {
         if current.position > position {
             next = current;
             break;
@@ -459,6 +472,27 @@ mod tests {
 
     fn make_empty_model() -> ModelRc<ui::GradientStop> {
         Rc::new(VecModel::default()).into()
+    }
+
+    #[test]
+    fn sampling_crossed_stops_matches_sorted_stops() {
+        let stops = vec![
+            ui::GradientStop { position: 1.2, color: slint::Color::from_argb_u8(128, 255, 0, 0) },
+            ui::GradientStop { position: -0.2, color: slint::Color::from_rgb_u8(0, 0, 255) },
+            ui::GradientStop { position: 0.5, color: slint::Color::from_rgb_u8(0, 255, 0) },
+        ];
+        let unsorted: ModelRc<_> = Rc::new(VecModel::from(stops.clone())).into();
+        let mut sorted = stops;
+        sorted.sort_by(|a, b| a.position.total_cmp(&b.position));
+        let sorted: ModelRc<_> = Rc::new(VecModel::from(sorted)).into();
+        for position in [-0.2, 0.0, 0.5, 0.8, 1.2] {
+            for premultiplied in [true, false] {
+                assert_eq!(
+                    super::gradient_stop_at_position(unsorted.clone(), position, premultiplied),
+                    super::gradient_stop_at_position(sorted.clone(), position, premultiplied),
+                );
+            }
+        }
     }
 
     #[test]

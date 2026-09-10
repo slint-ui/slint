@@ -116,13 +116,19 @@ def gradient_document(directory, expression):
 def test_picker_uses_live_preview_stop_markers(
     editor_binary, editor_environment, tmp_path, kind
 ):
-    expression = "@radial-gradient(circle, red, blue)" if kind == "radial" else "@conic-gradient(from 0deg, red 0deg, blue 360deg)"
+    expression = (
+        "@radial-gradient(circle, red, blue)"
+        if kind == "radial"
+        else "@conic-gradient(from 0deg, red 0deg, blue 360deg)"
+    )
     file = gradient_document(tmp_path, expression)
     with launch_editor(editor_binary, editor_environment, file) as editor:
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
-        stop = picker_field(window, "Gradient stop 1", slint_testing.AccessibleRole.Slider)
+        stop = picker_field(
+            window, "Gradient stop 1", slint_testing.AccessibleRole.Slider
+        )
         assert stop.size.width == 24
         assert stop.size.height == 24
         (tmp_path / "picker-stop-markers.png").write_bytes(window.grab_window_as_png())

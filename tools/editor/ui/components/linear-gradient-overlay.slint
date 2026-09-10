@@ -4,6 +4,7 @@
 import { Api, FillData, LinearGradientAxis, SelectionRectangle } from "../api.slint";
 import { FillSession } from "inspector/fill-session.slint";
 import { StudioTheme } from "common.slint";
+import { GradientStopMarker } from "../../../lsp/ui/components/widgets/gradient-stop-marker.slint";
 
 component GradientHandle inherits FocusScope {
     in property <string> label;
@@ -11,6 +12,7 @@ component GradientHandle inherits FocusScope {
     in property <bool> selected;
     in property <bool> endpoint;
     in property <int> focus-generation;
+    callback window-point(Point) -> Point;
     changed focus-generation => { if root.selected { root.focus(); } }
     callback started(Point);
     callback dragged(Point);
@@ -19,30 +21,28 @@ component GradientHandle inherits FocusScope {
     callback keyboard(KeyEvent) -> EventResult;
     width: 32px;
     height: 32px;
+    z: touch.pressed ? 3 : root.selected || root.has-focus ? 2 : 1;
     key-pressed(event) => { return root.keyboard(event); }
     changed has-focus => { if root.has-focus { root.focused(); } }
-    Rectangle {
+    if !root.endpoint: GradientStopMarker {
         x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: root.endpoint ? 12px : 22px;
-        height: self.width;
-        border-radius: root.endpoint ? self.width / 2 : 3px;
-        border-width: 2px;
-        border-color: white;
-        background: root.color;
+        y: 0px;
+        active: root.selected || root.has-focus;
+        stop-color: root.color;
+    }
+    if root.endpoint: Rectangle {
+        x: 10px;
+        y: 10px;
+        width: 12px;
+        height: 12px;
+        border-radius: 6px;
+        background: white;
+        border-width: root.has-focus ? 2px : 0px;
+        border-color: StudioTheme.accent-strong;
         drop-shadow-blur: 3px;
         drop-shadow-color: #0008;
-        if root.selected || root.has-focus: Rectangle {
-            x: -4px;
-            y: -4px;
-            width: parent.width + 8px;
-            height: parent.height + 8px;
-            border-radius: root.endpoint ? self.width / 2 : 5px;
-            border-width: 2px;
-            border-color: StudioTheme.accent-strong;
-        }
     }
-    TouchArea {
+    touch := TouchArea {
         mouse-cursor: grab;
         accessible-role: AccessibleRole.button;
         accessible-label: root.label;
@@ -51,14 +51,14 @@ component GradientHandle inherits FocusScope {
             if self.pressed {
                 root.focus();
                 root.focused();
-                root.started({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y });
+                root.started(root.window-point({ x: self.mouse-x, y: self.mouse-y }));
             } else {
                 root.finished();
             }
         }
         moved => {
             if self.pressed {
-                root.dragged({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y });
+                root.dragged(root.window-point({ x: self.mouse-x, y: self.mouse-y }));
             }
         }
     }
@@ -82,6 +82,11 @@ export component LinearGradientOverlay inherits FocusScope {
     private property <int> original-selected;
     private property <int> focus-request: FillSession.focus-stop-generation;
     private property <int> focus-epoch;
+    private property <int> stop-count: FillSession.working-fill.stops.length;
+    // Keep handle instances alive when previews replace the fill's stop model.
+    private property <[int]> handles;
+    init => { root.handles = Api.gradient-handle-slots(root.stop-count); }
+    changed stop-count => { root.handles = Api.gradient-handle-slots(root.stop-count); }
     changed focus-request => { focus-timer.start(); }
     focus-timer := Timer {
         interval: 0ms;
@@ -182,73 +187,76 @@ export component LinearGradientOverlay inherits FocusScope {
         return reject;
     }
 
-    line := Rectangle {
+    group := Rectangle {
         x: root.start.x;
-        y: root.start.y - 10px;
+        y: root.start.y;
         width: root.axis-length;
-        height: 20px;
-        transform-origin: { x: 0px, y: 10px };
+        height: 0px;
+        transform-origin: { x: 0px, y: 0px };
         transform-rotation: root.direction;
-        Rectangle {
-            y: 9px;
-            height: 2px;
-            background: white;
-            drop-shadow-blur: 2px;
-            drop-shadow-color: #000a;
+        pure function window-point(p: Point) -> Point {
+            return {
+                x: root.absolute-position.x + root.start.x + p.x * cos(root.direction) - p.y * sin(root.direction),
+                y: root.absolute-position.y + root.start.y + p.x * sin(root.direction) + p.y * cos(root.direction),
+            };
         }
-        touch := TouchArea {
-            mouse-cursor: grab;
-            accessible-role: AccessibleRole.button;
-            accessible-label: "Gradient axis";
-            pure function pointer() -> Point {
-                return {
-                    x: root.absolute-position.x + root.start.x + self.mouse-x * cos(root.direction) - (self.mouse-y - 10px) * sin(root.direction),
-                    y: root.absolute-position.y + root.start.y + self.mouse-x * sin(root.direction) + (self.mouse-y - 10px) * cos(root.direction),
-                };
+        line := Rectangle {
+            y: -5px;
+            width: parent.width;
+            height: 10px;
+            Rectangle {
+                y: 4px;
+                height: 2px;
+                background: white;
+                drop-shadow-blur: 2px;
+                drop-shadow-color: #000a;
             }
-            changed pressed => {
-                if self.pressed { root.focus(); root.begin(2, self.pointer()); }
-                else { root.dragging = false; }
+            touch := TouchArea {
+                mouse-cursor: grab;
+                accessible-role: AccessibleRole.button;
+                accessible-label: "Gradient axis";
+                pure function pointer() -> Point {
+                    return group.window-point({ x: self.mouse-x, y: self.mouse-y - 5px });
+                }
+                changed pressed => {
+                    if self.pressed { root.focus(); root.begin(2, self.pointer()); }
+                    else { root.dragging = false; }
+                }
+                moved => { if self.pressed { root.drag(self.pointer()); } }
+                double-clicked => { FillSession.add-stop(root.to-local(self.pointer())); }
             }
-            moved => { if self.pressed { root.drag(self.pointer()); } }
-            double-clicked => { FillSession.add-stop(root.to-local(self.pointer())); }
         }
-    }
-    for endpoint in 2: GradientHandle {
-        x: (endpoint == 0 ? root.start.x : root.end.x) - self.width / 2;
-        y: (endpoint == 0 ? root.start.y : root.end.y) - self.height / 2;
-        endpoint: true;
-        color: white;
-        label: endpoint == 0 ? "Gradient start" : "Gradient end";
-        keyboard(event) => { return root.handle-key(endpoint, event); }
-        started(p) => { root.begin(endpoint, p); }
-        dragged(p) => { root.drag(p); }
-        finished => { root.dragging = false; }
-    }
-    for stop[index] in FillSession.working-fill.stops: GradientHandle {
-        private property <Point> canonical: Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.target-size, stop.position);
-        private property <float> relative: ((self.canonical.x - root.axis.start.x) * (root.axis.end.x - root.axis.start.x)
-            + (self.canonical.y - root.axis.start.y) * (root.axis.end.y - root.axis.start.y))
-            / max(1px * 1px, (root.axis.end.x - root.axis.start.x) * (root.axis.end.x - root.axis.start.x)
-                + (root.axis.end.y - root.axis.start.y) * (root.axis.end.y - root.axis.start.y));
-        private property <Point> point: root.to-canvas({
-            x: root.axis.start.x + self.relative * (root.axis.end.x - root.axis.start.x),
-            y: root.axis.start.y + self.relative * (root.axis.end.y - root.axis.start.y),
-        });
-        private property <Point> perpendicular-offset: {
-            x: -root.dy / root.axis-length * 26px,
-            y: root.dx / root.axis-length * 26px,
-        };
-        x: self.point.x + self.perpendicular-offset.x - self.width / 2;
-        y: self.point.y + self.perpendicular-offset.y - self.height / 2;
-        color: stop.color;
-        selected: index == FillSession.selected-stop;
-        label: "Gradient stop " + (index + 1);
-        focus-generation: root.focus-epoch;
-        keyboard(event) => { return root.handle-key(3, event); }
-        focused => { FillSession.selected-stop = index; }
-        started(p) => { root.begin(3, p); }
-        dragged(p) => { root.drag(p); }
-        finished => { root.dragging = false; }
+        for endpoint in 2: GradientHandle {
+            x: (endpoint == 0 ? 0px : root.axis-length) - self.width / 2;
+            y: -self.height / 2;
+            endpoint: true;
+            color: white;
+            label: endpoint == 0 ? "Gradient start" : "Gradient end";
+            window-point(p) => { return group.window-point({ x: self.x + p.x, y: self.y + p.y }); }
+            keyboard(event) => { return root.handle-key(endpoint, event); }
+            started(p) => { root.begin(endpoint, p); }
+            dragged(p) => { root.drag(p); }
+            finished => { root.dragging = false; }
+        }
+        for index in root.handles: GradientHandle {
+            private property <Point> canonical: Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.target-size,
+                FillSession.working-fill.stops[index].position);
+            private property <float> relative: ((self.canonical.x - root.axis.start.x) * (root.axis.end.x - root.axis.start.x)
+                + (self.canonical.y - root.axis.start.y) * (root.axis.end.y - root.axis.start.y))
+                / max(1px * 1px, (root.axis.end.x - root.axis.start.x) * (root.axis.end.x - root.axis.start.x)
+                    + (root.axis.end.y - root.axis.start.y) * (root.axis.end.y - root.axis.start.y));
+            x: self.relative * root.axis-length - self.width / 2;
+            y: 5px;
+            color: FillSession.working-fill.stops[index].color;
+            selected: index == FillSession.selected-stop;
+            label: "Gradient stop " + (index + 1);
+            focus-generation: root.focus-epoch;
+            window-point(p) => { return group.window-point({ x: self.x + p.x, y: self.y + p.y }); }
+            keyboard(event) => { return root.handle-key(3, event); }
+            focused => { FillSession.selected-stop = index; }
+            started(p) => { root.begin(3, p); }
+            dragged(p) => { root.drag(p); }
+            finished => { root.dragging = false; }
+        }
     }
 }

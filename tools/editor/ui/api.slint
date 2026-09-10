@@ -765,6 +765,8 @@ export global Api {
     // returns the new index of the gradient stop in the sorted list of GradientStops
     pure callback move-gradient-stop(stops: [GradientStop], row: int, new_position: float) -> int;
     pure callback clone-gradient-stops(stops: [GradientStop]) -> [GradientStop];
+    pure callback gradient-handle-slots(count: int) -> [int];
+    callback sort-gradient-stops(stops: [GradientStop], selected: int) -> int;
 
     pure callback create-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> brush;
 

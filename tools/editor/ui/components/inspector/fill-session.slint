@@ -83,8 +83,9 @@ export global FillSession {
         if !FillSession.linear-active || FillSession.working-fill.stops.length <= 2 { return; }
         FillSession.draft = FillSession.working-fill;
         FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
+        let position = FillSession.draft.stops[FillSession.selected-stop].position;
         Api.remove-gradient-stop(FillSession.draft.stops, FillSession.selected-stop);
-        FillSession.selected-stop = min(FillSession.selected-stop, FillSession.draft.stops.length - 1);
+        FillSession.selected-stop = Api.nearest-gradient-stop(FillSession.draft.stops, position);
         FillSession.preview-fill(FillSession.draft);
         FillSession.focus-stop-generation += 1;
     }
@@ -100,8 +101,8 @@ export global FillSession {
     public function move-stop(point: Point) {
         FillSession.draft = FillSession.working-fill;
         FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
-        FillSession.selected-stop = Api.move-gradient-stop(FillSession.draft.stops, FillSession.selected-stop,
-            Api.linear-gradient-position(FillSession.draft.angle, FillSession.target-size, point));
+        FillSession.draft.stops[FillSession.selected-stop].position =
+            Api.linear-gradient-position(FillSession.draft.angle, FillSession.target-size, point);
         FillSession.preview-fill(FillSession.draft);
     }
 
@@ -156,6 +157,9 @@ export global FillSession {
             FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops.length >= 2 ? FillSession.working-fill.stops : [{color: FillSession.working-color, position: 0}, {color: FillSession.working-color, position: 1}]);
             FillSession.draft.kind = kind;
             FillSession.last-gradient = kind;
+            if kind != BrushKind.linear {
+                FillSession.selected-stop = Api.sort-gradient-stops(FillSession.draft.stops, FillSession.selected-stop);
+            }
         }
         let accepted = FillSession.preview-fill(FillSession.draft);
         if accepted && kind == BrushKind.linear { FillSession.reset-axis(); }
