@@ -78,6 +78,29 @@ Pass a normal pytest selection after `--visible` to watch specific cases:
 
 Set `SLINT_EDITOR_BINARY` to test a different editor binary.
 
+## Review Radial Canvas Editing
+
+From the repository root, open the centered 200 × 200 Rectangle fixture:
+
+```sh
+SLINT_LIVE_PREVIEW=1 SLINT_BACKEND=winit-skia \
+cargo run --release -p slint-editor --features slint/live-preview -- \
+    tools/editor/ui-tests/fixtures/radial-gradient.slint
+```
+
+Select the Rectangle and open its background color picker.
+Keep the existing gradient ramp and stop list visible beside the canvas.
+Drag the center or guide to translate the gradient, and drag the outer endpoint to change its radius.
+Rotating the guide without changing its length doesn't change the circular gradient or rewrite the source.
+
+Double-click the guide to add a stop.
+Drag a pointed stop marker along the guide, or focus it and use arrow keys, Delete, or Backspace.
+Shift increases keyboard steps tenfold; at least two stops remain.
+Escape cancels the current drag first, or cancels the whole session when no drag is active.
+
+The radial canvas and session tests use the headless backend with the rest of the suite.
+They cover rotated rectangles, picker synchronization, geometry, stop identity, cancellation, source reload, and history.
+
 ## Rust-Dependent Cases
 
 The suite retains skipped cases for behavior that needs changes in the Rust

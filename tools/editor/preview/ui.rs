@@ -1691,9 +1691,15 @@ mod tests {
         session.set_unsupported(true);
         assert!(!session.get_canvas_active());
         session.set_unsupported(false);
-        session.set_working_fill(super::FillData { kind: super::BrushKind::Conic, ..Default::default() });
+        session.set_working_fill(super::FillData {
+            kind: super::BrushKind::Conic,
+            ..Default::default()
+        });
         assert!(!session.get_canvas_active());
-        session.set_working_fill(super::FillData { kind: super::BrushKind::Radial, ..Default::default() });
+        session.set_working_fill(super::FillData {
+            kind: super::BrushKind::Radial,
+            ..Default::default()
+        });
         session.set_canvas_target(false);
         assert!(!session.get_radial_active());
     }

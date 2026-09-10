@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cspell:ignore hypot
+
 use super::{FillData, LinearGradientAxis};
 use slint::{LogicalPosition as Point, LogicalSize};
 
@@ -111,7 +113,7 @@ mod tests {
     }
 
     #[test]
-    fn collapsed_and_nonfinite_updates_are_ignored() {
+    fn collapsed_and_non_finite_updates_are_ignored() {
         let original = fill();
         let axis = editing_axis(original.clone(), LogicalSize::new(200., 200.), 0.);
         for end in [Point::new(100., 100.), Point::new(f32::NAN, 100.)] {
