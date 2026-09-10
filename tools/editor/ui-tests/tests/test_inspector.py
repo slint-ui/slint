@@ -75,13 +75,14 @@ def assert_rendered_element(window: slint_testing.Window, element_id: str) -> No
 
 
 @pytest.mark.parametrize(
-    ("label", "value", "old", "new"),
+    ("property_name", "original_value", "value", "old", "new"),
     [
-        (FIELDS["x"], "44", b"        x: 32px;", b"        x: 44px;"),
-        (FIELDS["y"], "48", b"        y: 32px;", b"        y: 48px;"),
-        (FIELDS["width"], "176", b"        width: 160px;", b"        width: 176px;"),
+        ("x", 32, "44", b"        x: 32px;", b"        x: 44px;"),
+        ("y", 32, "48", b"        y: 32px;", b"        y: 48px;"),
+        ("width", 160, "176", b"        width: 160px;", b"        width: 176px;"),
         (
-            FIELDS["height"],
+            "height",
+            96,
             "112",
             b"        width: 160px;\n        height: 96px;",
             b"        width: 160px;\n        height: 112px;",
@@ -93,11 +94,13 @@ def test_geometry_field_writes_exact_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    label: str,
+    property_name: str,
+    original_value: float,
     value: str,
     old: bytes,
     new: bytes,
 ) -> None:
+    label = FIELDS[property_name]
     source_file = fixture_project / INSPECTOR_SOURCE
     baseline = source_file.read_bytes()
     snapshot = SourceSnapshot.capture(fixture_project)
@@ -105,6 +108,26 @@ def test_geometry_field_writes_exact_source(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Rectangle")
+
+        def rendered_value():
+            elements = window.find_elements_by_id("InspectorCases::inspect-rectangle")
+            if len(elements) != 1:
+                return None
+            rectangle = elements[0]
+            geometry = (
+                rectangle.absolute_position
+                if property_name in ("x", "y")
+                else rectangle.size
+            )
+            # Preview replacement can invalidate the handle during the property read.
+            return getattr(geometry, property_name) if rectangle.is_valid else None
+
+        expected = float(value)
+        if property_name in ("x", "y"):
+            # Absolute positions include the preview's offset in the editor window.
+            preview_offset = wait_until(rendered_value) - original_value
+            expected += preview_offset
+
         edit_field(window, label, value, slint_testing.AccessibleRole.TextInput)
         snapshot.wait_for_exact(
             replace_once(baseline, old, new), relative_path=INSPECTOR_SOURCE
@@ -115,7 +138,14 @@ def test_geometry_field_writes_exact_source(
             value,
             slint_testing.AccessibleRole.TextInput,
         )
-        assert_rendered_element(window, "InspectorCases::inspect-rectangle")
+
+        # Source and field updates can precede preview replacement.
+        # The existing rectangle must reflect the edit, not merely exist.
+        def geometry_matches():
+            actual = rendered_value()
+            return actual if actual == pytest.approx(expected) else None
+
+        wait_until(geometry_matches)
 
 
 @pytest.mark.parametrize(
