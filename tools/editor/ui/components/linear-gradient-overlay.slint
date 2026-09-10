@@ -1,0 +1,200 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, FillData, LinearGradientAxis, SelectionRectangle } from "../api.slint";
+import { FillSession } from "inspector/fill-session.slint";
+import { StudioTheme } from "common.slint";
+
+component GradientHandle inherits FocusScope {
+    in property <string> label;
+    in property <color> color;
+    in property <bool> selected;
+    in property <bool> endpoint;
+    callback started(Point);
+    callback dragged(Point);
+    callback finished();
+    callback focused();
+    callback keyboard(KeyEvent) -> EventResult;
+    width: 32px;
+    height: 32px;
+    key-pressed(event) => { return root.keyboard(event); }
+    changed has-focus => { if root.has-focus { root.focused(); } }
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: root.endpoint ? 12px : 22px;
+        height: self.width;
+        border-radius: root.endpoint ? self.width / 2 : 3px;
+        border-width: 2px;
+        border-color: white;
+        background: root.color;
+        drop-shadow-blur: 3px;
+        drop-shadow-color: #0008;
+        if root.selected || root.has-focus: Rectangle {
+            x: -4px;
+            y: -4px;
+            width: parent.width + 8px;
+            height: parent.height + 8px;
+            border-radius: root.endpoint ? self.width / 2 : 5px;
+            border-width: 2px;
+            border-color: StudioTheme.accent-strong;
+        }
+    }
+    TouchArea {
+        mouse-cursor: grab;
+        accessible-role: AccessibleRole.button;
+        accessible-label: root.label;
+        accessible-action-default => { root.focus(); root.focused(); }
+        changed pressed => {
+            if self.pressed {
+                root.focus();
+                root.focused();
+                root.started({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y });
+            } else {
+                root.finished();
+            }
+        }
+        moved => {
+            if self.pressed {
+                root.dragged({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y });
+            }
+        }
+    }
+}
+
+export component LinearGradientOverlay inherits FocusScope {
+    in property <SelectionRectangle> selection;
+    private property <LinearGradientAxis> axis: FillSession.axis;
+    private property <Point> start: root.to-canvas(root.axis.start);
+    private property <Point> end: root.to-canvas(root.axis.end);
+    private property <length> dx: root.end.x - root.start.x;
+    private property <length> dy: root.end.y - root.start.y;
+    private property <length> axis-length: max(1px, sqrt((root.dx * root.dx + root.dy * root.dy) / (1px * 1px)) * 1px);
+    private property <angle> direction: atan2(root.dy / 1px, root.dx / 1px);
+    private property <bool> dragging;
+    private property <int> drag-kind;
+    private property <Point> press;
+    private property <LinearGradientAxis> original-axis;
+    private property <FillData> original-fill;
+    private property <Point> original-stop;
+
+    pure function to-canvas(p: Point) -> Point {
+        let cx = root.selection.width / 2;
+        let cy = root.selection.height / 2;
+        return {
+            x: root.selection.x + cx + (p.x - cx) * cos(root.selection.angle) - (p.y - cy) * sin(root.selection.angle),
+            y: root.selection.y + cy + (p.x - cx) * sin(root.selection.angle) + (p.y - cy) * cos(root.selection.angle),
+        };
+    }
+    pure function to-local(p: Point) -> Point {
+        let x = p.x - root.absolute-position.x - root.selection.x - root.selection.width / 2;
+        let y = p.y - root.absolute-position.y - root.selection.y - root.selection.height / 2;
+        return {
+            x: root.selection.width / 2 + x * cos(root.selection.angle) + y * sin(root.selection.angle),
+            y: root.selection.height / 2 - x * sin(root.selection.angle) + y * cos(root.selection.angle),
+        };
+    }
+    function begin(kind: int, p: Point) {
+        root.drag-kind = kind;
+        root.press = root.to-local(p);
+        root.original-axis = root.axis;
+        root.original-fill = FillSession.working-fill;
+        root.original-fill.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
+        root.original-stop = Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.target-size,
+            FillSession.working-fill.stops[FillSession.selected-stop].position);
+        root.dragging = true;
+    }
+    function drag(p: Point) {
+        if !root.dragging { return; }
+        let local = root.to-local(p);
+        let delta = { x: local.x - root.press.x, y: local.y - root.press.y };
+        if root.drag-kind == 3 {
+            FillSession.move-stop({ x: root.original-stop.x + delta.x, y: root.original-stop.y + delta.y });
+            return;
+        }
+        let next = {
+            start: root.drag-kind == 1 ? root.original-axis.start : { x: root.original-axis.start.x + delta.x, y: root.original-axis.start.y + delta.y },
+            end: root.drag-kind == 0 ? root.original-axis.end : { x: root.original-axis.end.x + delta.x, y: root.original-axis.end.y + delta.y },
+        };
+        FillSession.move-axis(root.original-fill, root.original-axis, next);
+    }
+    key-pressed(event) => {
+        if event.text == Key.Escape {
+            if root.dragging {
+                root.dragging = false;
+                FillSession.preview-fill(root.original-fill);
+                FillSession.axis = root.original-axis;
+            } else {
+                FillSession.close-picker(false, true);
+            }
+            return accept;
+        }
+        return reject;
+    }
+
+    line := Rectangle {
+        x: root.start.x;
+        y: root.start.y - 10px;
+        width: root.axis-length;
+        height: 20px;
+        transform-origin: { x: 0px, y: 10px };
+        transform-rotation: root.direction;
+        Rectangle {
+            y: 9px;
+            height: 2px;
+            background: white;
+            drop-shadow-blur: 2px;
+            drop-shadow-color: #000a;
+        }
+        touch := TouchArea {
+            mouse-cursor: grab;
+            accessible-role: AccessibleRole.button;
+            accessible-label: "Gradient axis";
+            pure function pointer() -> Point {
+                return {
+                    x: root.absolute-position.x + root.start.x + self.mouse-x * cos(root.direction) - (self.mouse-y - 10px) * sin(root.direction),
+                    y: root.absolute-position.y + root.start.y + self.mouse-x * sin(root.direction) + (self.mouse-y - 10px) * cos(root.direction),
+                };
+            }
+            changed pressed => {
+                if self.pressed { root.focus(); root.begin(2, self.pointer()); }
+                else { root.dragging = false; }
+            }
+            moved => { if self.pressed { root.drag(self.pointer()); } }
+        }
+    }
+    for endpoint in 2: GradientHandle {
+        x: (endpoint == 0 ? root.start.x : root.end.x) - self.width / 2;
+        y: (endpoint == 0 ? root.start.y : root.end.y) - self.height / 2;
+        endpoint: true;
+        color: white;
+        label: endpoint == 0 ? "Gradient start" : "Gradient end";
+        started(p) => { root.begin(endpoint, p); }
+        dragged(p) => { root.drag(p); }
+        finished => { root.dragging = false; }
+    }
+    for stop[index] in FillSession.working-fill.stops: GradientHandle {
+        private property <Point> canonical: Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.target-size, stop.position);
+        private property <float> relative: ((self.canonical.x - root.axis.start.x) * (root.axis.end.x - root.axis.start.x)
+            + (self.canonical.y - root.axis.start.y) * (root.axis.end.y - root.axis.start.y))
+            / max(1px * 1px, (root.axis.end.x - root.axis.start.x) * (root.axis.end.x - root.axis.start.x)
+                + (root.axis.end.y - root.axis.start.y) * (root.axis.end.y - root.axis.start.y));
+        private property <Point> point: root.to-canvas({
+            x: root.axis.start.x + self.relative * (root.axis.end.x - root.axis.start.x),
+            y: root.axis.start.y + self.relative * (root.axis.end.y - root.axis.start.y),
+        });
+        private property <Point> perpendicular-offset: {
+            x: -root.dy / root.axis-length * 26px,
+            y: root.dx / root.axis-length * 26px,
+        };
+        x: self.point.x + self.perpendicular-offset.x - self.width / 2;
+        y: self.point.y + self.perpendicular-offset.y - self.height / 2;
+        color: stop.color;
+        selected: index == FillSession.selected-stop;
+        label: "Gradient stop " + (index + 1);
+        focused => { FillSession.selected-stop = index; }
+        started(p) => { root.begin(3, p); }
+        dragged(p) => { root.drag(p); }
+        finished => { root.dragging = false; }
+    }
+}

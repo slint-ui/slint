@@ -11,6 +11,7 @@ import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
 import { AppState, ElementKind, SidebarToggleButton, StudioTheme } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
+import { LinearGradientOverlay } from "components/linear-gradient-overlay.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { EditorTopBar } from "components/top-bar.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
@@ -258,6 +259,13 @@ export component EditorUi inherits Window {
         if UpdateStatus.shows-bar(): UpdateStatusBar { }
     }
 
+    if FillSession.linear-active: LinearGradientOverlay {
+        x: FillSession.canvas-origin.x;
+        y: FillSession.canvas-origin.y;
+        width: FillSession.canvas-size.width;
+        height: FillSession.canvas-size.height;
+        selection: FillSession.selection;
+    }
     InspectorFillPicker { }
 
     if UpdateStatus.in-titlebar() && UpdateStatus.has-news(): UpdateStatusPill {

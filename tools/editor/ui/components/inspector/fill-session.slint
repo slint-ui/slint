@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, FillData, BrushKind } from "../../api.slint";
+import { Api, FillData, BrushKind, LinearGradientAxis, SelectionRectangle } from "../../api.slint";
 import { EditorMetrics } from "../common.slint";
 
 export global FillSession {
@@ -46,6 +46,37 @@ export global FillSession {
     out property <bool> linear-active: open && editable && session-active && canvas-target
         && working-fill.kind == BrushKind.linear && Api.current-element.type-name == "Rectangle"
         && Api.selection.highlight-index >= 0;
+
+    in-out property <LinearGradientAxis> axis;
+    in-out property <Point> canvas-origin;
+    in-out property <Size> canvas-size;
+    in-out property <SelectionRectangle> selection;
+    out property <Size> target-size: { width: target-width * 1px, height: target-height * 1px };
+    private property <string> current-session-key: Api.current-element.source-uri + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-fill-generation + ":" + property-name;
+    changed current-session-key => {
+        if FillSession.open && FillSession.session-key != FillSession.current-session-key {
+            FillSession.close-picker(false, false);
+        }
+    }
+
+    public function reset-axis() {
+        FillSession.axis = Api.linear-gradient-axis(FillSession.working-fill, FillSession.target-size);
+    }
+    public function move-axis(fill: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) {
+        let dx = (next.end.x - next.start.x) / 1px;
+        let dy = (next.end.y - next.start.y) / 1px;
+        if dx * dx + dy * dy < 1 { return; }
+        if FillSession.preview-fill(Api.remap-linear-gradient(fill, FillSession.target-size, previous, next)) {
+            FillSession.axis = next;
+        }
+    }
+    public function move-stop(point: Point) {
+        FillSession.draft = FillSession.working-fill;
+        FillSession.draft.stops = Api.clone-gradient-stops(FillSession.working-fill.stops);
+        FillSession.selected-stop = Api.move-gradient-stop(FillSession.draft.stops, FillSession.selected-stop,
+            Api.linear-gradient-position(FillSession.draft.angle, FillSession.target-size, point));
+        FillSession.preview-fill(FillSession.draft);
+    }
 
     public function preview-fill(fill: FillData) -> bool {
         if !FillSession.session-active || !FillSession.editable {
@@ -99,7 +130,9 @@ export global FillSession {
             FillSession.draft.kind = kind;
             FillSession.last-gradient = kind;
         }
-        return FillSession.preview-fill(FillSession.draft);
+        let accepted = FillSession.preview-fill(FillSession.draft);
+        if accepted && kind == BrushKind.linear { FillSession.reset-axis(); }
+        return accepted;
     }
 
     public function set-custom-center(custom: bool) -> bool {
@@ -136,6 +169,7 @@ export global FillSession {
         FillSession.draft.stops = Api.clone-gradient-stops(fill.stops);
         FillSession.last-gradient = fill.kind == BrushKind.solid ? FillSession.last-gradient : fill.kind;
         FillSession.preview-fill(FillSession.draft);
+        FillSession.reset-axis();
     }
 
     public function show-picker() {
@@ -164,6 +198,7 @@ export global FillSession {
         FillSession.active-target = FillSession.target-key;
         FillSession.has-preview = false;
         FillSession.session-active = true;
+        FillSession.reset-axis();
 
     }
 
