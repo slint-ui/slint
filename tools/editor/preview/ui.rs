@@ -1628,6 +1628,30 @@ mod tests {
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
 
     #[test]
+    fn canvas_outline_colors_follow_theme() {
+        slint::slint! {
+            import { StudioTheme } from "ui/components/common.slint";
+            import { Palette } from "std-widgets.slint";
+            export component ThemeProbe inherits Window {
+                out property<color> outline: StudioTheme.canvas-outline;
+                callback set-dark(bool);
+                set-dark(dark) => {
+                    Palette.color-scheme = dark ? ColorScheme.dark : ColorScheme.light;
+                }
+            }
+        }
+        i_slint_backend_testing::init_no_event_loop();
+        let instance = ThemeProbe::new().unwrap();
+        // Check both themes and switching back on the same instance.
+        for (dark, rgb) in
+            [(false, (11, 153, 254)), (true, (12, 140, 233)), (false, (11, 153, 254))]
+        {
+            instance.invoke_set_dark(dark);
+            assert_eq!(instance.get_outline(), slint::Color::from_rgb_u8(rgb.0, rgb.1, rgb.2));
+        }
+    }
+
+    #[test]
     fn begin_fill_session_accepts_previous_target_before_replacing_it() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
