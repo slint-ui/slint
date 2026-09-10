@@ -62,7 +62,7 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
-pub(super) use brushes::color_to_string;
+pub(super) use brushes::{fill_brush, fill_expression};
 mod element_library;
 pub(super) mod file_tree;
 pub mod log_messages;

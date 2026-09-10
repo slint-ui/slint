@@ -1721,7 +1721,7 @@ fn submit_workspace_edit(
     label: String,
     edit: lsp_types::WorkspaceEdit,
     test_edit: bool,
-    color: Option<slint::Color>,
+    color: Option<ui::FillData>,
 ) -> bool {
     let Some(document_cache) = document_cache() else {
         return false;
@@ -1729,7 +1729,7 @@ fn submit_workspace_edit(
     let Ok(result) = text_edit::apply_workspace_edit(&document_cache, &edit) else {
         return false;
     };
-    let color_refresh = if let Some(color) = color {
+    let color_refresh = if let Some(color) = color.clone() {
         let [expected] = result.as_slice() else { return false };
         let unchanged = PREVIEW_STATE.with_borrow(|state| {
             state

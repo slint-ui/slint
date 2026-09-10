@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::*;
+use slint::Model as _;
 
 const CORNERS: [&str; 4] = [
     "border-top-left-radius",
@@ -18,7 +19,7 @@ pub(super) struct Edit {
 pub(super) struct ColorRefresh {
     pub(super) expected: text_edit::EditedText,
     pub(super) submitted_edit: lsp_types::WorkspaceEdit,
-    pub(super) color: slint::Color,
+    pub(super) color: ui::FillData,
     pub(super) undo: Option<undo_redo::EditItem>,
 }
 
@@ -62,7 +63,7 @@ pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: b
         if refresh.submitted_edit != edit {
             return None;
         }
-        let color = refresh.color;
+        let color = refresh.color.clone();
         if !applied {
             state.workspace_edit_sent = false;
         } else {
@@ -76,7 +77,7 @@ pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: b
     let Some((api, color)) = result else { return };
     if applied {
         if let Some(api) = api {
-            api.invoke_add_recent_color(color);
+            if color.kind == ui::BrushKind::Solid { api.invoke_add_recent_color(color.color); }
         }
     } else {
         cancel();
@@ -221,12 +222,26 @@ pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool
     preview_value(key, node, &names, slint_interpreter::Value::Number(value as f64))
 }
 
-pub(super) fn preview_color(key: SharedString, name: SharedString, value: slint::Color) -> bool {
+fn fill_value(node: &ElementRcNode, name: &str, fill: &ui::FillData) -> Option<slint_interpreter::Value> {
+    use i_slint_compiler::langtype::{Type, PropertyLookupMode};
+    if !fill.angle.is_finite() || !fill.center_x.is_finite() || !fill.center_y.is_finite()
+        || !fill.radius.is_finite() || (fill.custom_radius && fill.radius <= 0.)
+        || fill.stops.iter().any(|s| !s.position.is_finite()) {
+        return None;
+    }
+    match node.as_element().borrow().lookup_property(name, PropertyLookupMode::ComponentLocal).property_type {
+        Type::Color if fill.kind == ui::BrushKind::Solid => Some(fill.color.into()),
+        Type::Brush => Some(ui::fill_brush(fill.clone()).into()),
+        _ => None,
+    }
+}
+
+pub(super) fn preview_color(key: SharedString, name: SharedString, value: ui::FillData) -> bool {
     let Some((node, _, _)) = color_target(&key, &name) else {
         cancel();
         return false;
     };
-    let value = slint_interpreter::Value::from(value);
+    let Some(value) = fill_value(&node, &name, &value) else { cancel(); return false; };
     preview_value(key, node, &[name.as_str()], value)
 }
 
@@ -248,12 +263,13 @@ fn property_edit(
     )
 }
 
-pub(super) fn commit_color(key: SharedString, name: SharedString, value: slint::Color) -> bool {
+pub(super) fn commit_color(key: SharedString, name: SharedString, value: ui::FillData) -> bool {
     let Some((node, url, version)) = color_target(&key, &name) else {
         cancel();
         return false;
     };
-    let color = ui::color_to_string(value);
+    if fill_value(&node, &name, &value).is_none() { cancel(); return false; }
+    let color = ui::fill_expression(value.clone());
     let edit = property_edit(
         node,
         url,

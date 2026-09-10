@@ -89,7 +89,7 @@ export component InspectorColorField inherits Rectangle {
     }
 
     picker := InspectorSolidColorPicker {
-        value: root.effective-color;
+        value: Api.fill-from-brush(root.effective-color);
         expression: root.value;
         bound: root.value != "" && !Api.string-is-color(root.value) && !Api.is-css-color(root.value);
         unsupported: root.unsupported;
