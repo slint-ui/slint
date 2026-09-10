@@ -710,6 +710,7 @@ export component InspectorPane inherits Rectangle {
 
                         if root.is-rectangle-selection(): InspectorColorField {
                             accessible-name: "Rectangle background";
+                            target-size: { width: root.selected-width(), height: root.selected-height() };
                             value: root.rectangle-background-code();
                             swatch: root.rectangle-background-swatch();
                             commit-key: root.field-key("background");
@@ -724,6 +725,7 @@ export component InspectorPane inherits Rectangle {
 
                         if root.is-text-selection(): InspectorColorField {
                             accessible-name: "Text color";
+                            target-size: { width: root.selected-width(), height: root.selected-height() };
                             value: root.text-color-code();
                             swatch: root.text-color-swatch();
                             commit-key: root.field-key("color");
@@ -801,6 +803,7 @@ export component InspectorPane inherits Rectangle {
 
                                 InspectorColorField {
                                     accessible-name: "Shadow color";
+                                    target-size: { width: root.selected-width(), height: root.selected-height() };
                                     value: root.shadow-color-code();
                                     swatch: root.shadow-color-swatch();
                                     commit-key: root.field-key(root.current-shadow-prefix() + "color");

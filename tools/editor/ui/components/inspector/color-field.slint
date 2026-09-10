@@ -10,6 +10,10 @@ export component InspectorColorField inherits Rectangle {
     in property <string> accessible-name: "";
     in property <string> value;
     in property <brush> swatch;
+    in property <Size> target-size: {
+        width: Api.current-property-value-data("width").value-float * 1px,
+        height: Api.current-property-value-data("height").value-float * 1px,
+    };
     in property <bool> wide: false;
     in property <string> commit-key: "";
     in property <string> preview-key: "";
@@ -90,8 +94,8 @@ export component InspectorColorField inherits Rectangle {
     picker := InspectorFillPicker {
         value: root.property-data.fill;
         allow-gradient: root.property-data.kind == PropertyValueKind.brush || root.property-data.value-kind == PropertyValueKind.brush;
-        target-width: Api.current-property-value-data("width").value-float;
-        target-height: Api.current-property-value-data("height").value-float;
+        target-width: root.target-size.width / 1px;
+        target-height: root.target-size.height / 1px;
         expression: root.value;
         unsupported: !root.property-data.value-resolved;
         open: root.picker-open;
