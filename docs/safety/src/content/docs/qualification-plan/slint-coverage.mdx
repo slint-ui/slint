@@ -1,57 +1,24 @@
 ---
-title: Coverage of Slint Code
-description: How the structural coverage of .slint code is measured, what the measurement rests on, and how the slint-sc-coverage tool is tested.
+title: Coverage Tool Verification
+description: What the measurement of slint-sc-coverage rests on, and how the tool is tested.
 ---
 
-The Rust code of an application, and the runtime inside it, are measured by LLVM's source-based coverage, see [Test Coverage](/qualification-plan/test-coverage/).
-The `.slint` code of the application is compiled into Rust code, so LLVM measures that code as well, but line by line of the generated code.
-An assessor wants the coverage stated in terms of the `.slint` source: which elements were drawn, which bindings were evaluated, which outcomes of a decision were taken.
-This chapter describes how that is measured, what the measurement rests on, and how the `slint-sc-coverage` tool is tested.
+`slint-sc-coverage` reports which parts of the `.slint` code of an application, and of the runtime test cases, the tests reached.
+[Coverage of Slint Code](/safety-manual/slint-coverage/) in the safety manual says what it measures and how.
+This chapter says what the measurement rests on, and how the tool is tested, so that its output can serve as evidence.
 
-## What Is Measured
-
-A coverage point is a place in the `.slint` source, and it is reached when the generated code for it ran:
-
-| Point | Where | Reached when |
-|---|---|---|
-| element | the type name of an element, `Rectangle { ... }` | the element was drawn |
-| binding | the expression of a property binding, `background: red;` | the expression was evaluated |
-| handler | the body of a callback handler, `clicked => { ... }` | the handler ran |
-| call | a callback invocation, `root.pressed()` | the invocation ran |
-| branch | the `?`, `&&` or `||` of a decision, one point per outcome | the outcome came about |
-
-A decision's true outcome is its `?:` taking the first arm, or its `&&` evaluating its right operand, or its `||` short-circuiting; the false outcome is the other one.
-A binding whose expression the generated code inlines in several places is one point, whose hits add up.
-A binding the generated code never evaluates, such as the size of an element that is neither drawn nor touched, is a point that is never reached.
-The measurement is at the level of the language: it does not measure the operators inside a binding beyond its decisions, and it is not MC/DC.
-
-## How It Is Measured
-
-The Slint SC compiler and the `slint-sc-coverage` tool share the work, and the generated code carries nothing:
-
-1. Asked with `--coverage`, the Slint SC compiler writes, next to the generated Rust code, a map with the extension `.slintcov`.
-   The map declares every point with its location in the `.slint` source, and for each point the range of the generated code that is the point.
-   The generator produces the range by stamping the tokens of a point with a span that names the point, and the printer that writes the code out records where they land.
-   A decision is spelled out as an `if` so that each outcome is a range of its own.
-2. The test program is built with `-C instrument-coverage` and run, and `llvm-cov` exports the execution count of every region of the generated code, as for any Rust code.
-3. `slint-sc-coverage` takes, for each range of the map, the count of the region that holds the start of the range, or of the first region that starts within the range, as the hit count of the point.
-   A point without a range, the code for it never having been generated, is never reached.
-4. `slint-sc-coverage` writes the coverage of the `.slint` files in the lcov format: a line count per line that holds a point, and a branch count per outcome of a decision.
-   Any lcov consumer shows the result, and it merges with the Rust coverage of the same run into one report.
-
-The code measured is the code that ships, not an instrumented build of it, since the map is beside the code rather than inside it.
-`examples/safe-ui/README.md` documents the recipe for an application, and `scripts/slint_sc_test_suite.sh` produces `slint-lcov.info`, the coverage of the runtime test cases themselves, next to the runtime's own coverage.
+## What the Measurement Rests On
 
 The measurement rests on two things outside Slint.
 The LLVM profiler runtime has to be available for the target the test program runs on, which holds for the host and not for the bare-metal targets, so the measurement is taken on the host, like the Rust coverage it joins.
-And step 3 rests on how `rustc` lays out coverage regions around the generated code, which `rustc` does not document.
+And the rule that takes the count of a point from the coverage regions of the generated code rests on how `rustc` lays out those regions, which `rustc` does not document.
 The tests below pin that layout: a change in `rustc` that moves a region shows up as a case whose measured coverage differs from what it states.
 
 ## How the Tool Is Tested
 
 `slint-sc-coverage` is tested at two levels, and both run on every run of the suites.
 
-The unit tests of the `slint-sc-coverage` crate cover its parts in isolation: the parsing of the map, the rule of step 3 including a range whose code LLVM never instantiated, the lcov and summary output, and the parsing and rewriting of the annotations described next.
+The unit tests of the `slint-sc-coverage` crate cover its parts in isolation: the parsing of the map and the rejection of a map written for other code, the region rule including a range whose code LLVM never instantiated, the lcov and summary output, and the parsing and rewriting of the annotations described next.
 
 The runtime test cases are the tests of the whole.
 The driver in `api/slint-sc/tests/driver.rs` measures the coverage of the `.slint` code of every case, on every run, including a plain `cargo test`.
@@ -69,7 +36,7 @@ export component TestCase inherits Window {
 }
 ```
 
-The root element is never drawn, since the test reads the properties without rendering.
+The code of the root element is never reached, since the test reads the properties without rendering.
 The binding of `nested` was evaluated; the outer `?` only ever took its first arm, the inner one took both.
 The `&&` evaluated its right operand every time, and never short-circuited.
 
@@ -78,12 +45,14 @@ The driver rejects a caret line that is malformed, a caret line that differs fro
 `SLINT_COVERAGE_TEST_UPDATE=1` has the driver rewrite the caret lines from the measurement, and the run still fails on the difference, so a change in what is measured is reviewed in the diff and never passes unseen.
 A point in an imported file, which the case cannot annotate, is stated in a ` ```coverage ` block at the end of the case.
 
-The cases that state their coverage are the ones that test the reporting, each pinning one part of it:
+The cases under `coverage/` test the reporting itself, and the driver fails one that states no coverage.
+Together with the cases of other groups that state theirs, each pins one part of the reporting:
 
 | Case | What it pins |
 |---|---|
-| `coverage/decisions` | outcomes of `?:`, `&&` and `||` taken and not taken, including a nested decision |
+| `coverage/decisions` | outcomes of `?:`, `&&` and `||` taken and not taken, a nested decision, and a caret under an operator past a multi-byte character |
 | `coverage/unreached` | an element, bindings, a handler and a call that the test never reaches |
+| `coverage/call_without_handler` | a call to a callback that has no handler, reached while nothing runs for it |
 | `expr/ternary` | chained and nested decisions, and a decision inside another's condition |
 | `expr/logical` | `&&` and `||` under `!` and parentheses, every outcome taken |
 | `callback/clicked` | a handler and the call it makes, both reached |
