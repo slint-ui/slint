@@ -259,6 +259,13 @@ export component EditorUi inherits Window {
         if UpdateStatus.shows-bar(): UpdateStatusBar { }
     }
 
+    if FillSession.open: TouchArea {
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                Api.dismiss-fill-picker({ x: self.mouse-x, y: self.mouse-y }, event.button);
+            }
+        }
+    }
     if FillSession.linear-active: LinearGradientOverlay {
         x: FillSession.canvas-origin.x;
         y: FillSession.canvas-origin.y;

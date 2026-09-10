@@ -9,6 +9,7 @@ import { InspectorTextFieldBase } from "text-field-base.slint";
 
 export component InspectorGradientGeometry inherits Rectangle {
     in property <FillData> value;
+    in property <bool> canvas-linear;
     in property <string> session-key;
     callback preview(FillData) -> bool;
     callback type-selected(BrushKind) -> bool;
@@ -42,7 +43,7 @@ export component InspectorGradientGeometry inherits Rectangle {
                     return root.type-selected(text == "Linear" ? BrushKind.linear : text == "Radial" ? BrushKind.radial : BrushKind.conic);
                 }
             }
-            if root.value.kind != BrushKind.radial: InspectorRotationKnob {
+            if root.value.kind != BrushKind.radial && !root.canvas-linear: InspectorRotationKnob {
                 accessible-name: "Gradient angle";
                 value: root.value.angle;
                 commit-key: root.session-key;
@@ -59,7 +60,7 @@ export component InspectorGradientGeometry inherits Rectangle {
                     root.preview(root.gesture-value);
                 }
             }
-            if root.value.kind != BrushKind.radial: InspectorTextFieldBase {
+            if root.value.kind != BrushKind.radial && !root.canvas-linear: InspectorTextFieldBase {
                 accessible-name: "Gradient angle degrees";
                 width: 62px;
                 value: root.value.angle.to-fixed(1);

@@ -117,7 +117,7 @@ export global FillSession {
         return FillSession.preview-fill(FillSession.draft);
     }
     public function select-kind(kind: BrushKind) -> bool {
-        if kind == BrushKind.solid {
+        if kind == BrushKind.solid || kind == BrushKind.linear {
             FillSession.stop-panel-open = false;
         }
         FillSession.draft = FillSession.working-fill;

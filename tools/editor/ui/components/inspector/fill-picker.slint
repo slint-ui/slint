@@ -16,21 +16,13 @@ import { InspectorPickerPanel } from "picker-panel.slint";
 import { InspectorSegment } from "segment.slint";
 
 export component InspectorFillPicker inherits Rectangle {
-    private property <bool> open: FillSession.open;
-    private property <bool> popup-open: picker-popup.is-open;
-    changed open => {
-        if root.open { picker-popup.show(); } else { picker-popup.close(); }
-    }
-    changed popup-open => {
-        if !root.popup-open && FillSession.open { FillSession.close-picker(true, false); }
-    }
-    picker-popup := PopupWindow {
+    visible: FillSession.open;
+    picker-panel := Rectangle {
         width: FillSession.stop-panel-open && !FillSession.stacked ? 608px : 300px;
         x: FillSession.main-x - (FillSession.stop-panel-open && FillSession.stop-on-left && !FillSession.stacked ? 308px : 0px) - root.absolute-position.x;
         y: FillSession.anchor-position.y.clamp(8px, max(8px, EditorMetrics.window-height - self.height - 8px)) - root.absolute-position.y;
         height: min(group-content.height, max(200px, EditorMetrics.window-height - 16px));
-        close-policy: close-on-click-outside;
-        forward-focus: picker-focus;
+
         picker-focus := FocusScope {
             capture-key-pressed(event) => {
                 if event.text == Key.Escape {
@@ -95,6 +87,7 @@ export component InspectorFillPicker inherits Rectangle {
                         }
                         if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid: InspectorGradientGeometry {
                             value: FillSession.working-fill;
+                            canvas-linear: FillSession.linear-active;
                             session-key: FillSession.session-key;
                             preview(fill) => {
                                 return FillSession.preview-fill(fill);
@@ -113,7 +106,7 @@ export component InspectorFillPicker inherits Rectangle {
                             }
                         }
 
-                        if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid: InspectorGradientStops {
+                        if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid && !FillSession.linear-active: InspectorGradientStops {
                             value: FillSession.working-fill;
                             selected-index <=> FillSession.selected-stop;
                             focus-generation: FillSession.focus-stop-generation;
@@ -125,7 +118,7 @@ export component InspectorFillPicker inherits Rectangle {
                                 return FillSession.preview-fill(fill);
                             }
                         }
-                        if !FillSession.unsupported && FillSession.working-fill.kind == BrushKind.solid: InspectorColorControls {
+                        if !FillSession.unsupported && (FillSession.working-fill.kind == BrushKind.solid || FillSession.linear-active): InspectorColorControls {
                             field-height: 170px;
                             value: FillSession.working-color;
                             editable: FillSession.editable;
@@ -145,7 +138,7 @@ export component InspectorFillPicker inherits Rectangle {
                         }
                     }
                     stop-panel := InspectorPickerPanel {
-                        visible: FillSession.stop-panel-open;
+                        visible: FillSession.stop-panel-open && !FillSession.linear-active;
                         x: FillSession.stacked || FillSession.stop-on-left ? 0px : 308px;
                         y: FillSession.stacked ? main-panel.height + 8px : 0px;
                         title: "Stop color";

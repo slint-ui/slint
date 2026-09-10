@@ -220,6 +220,21 @@ pub fn initialize_editor(
     api.on_inspector_cancel(super::inspector::cancel);
     api.on_inspector_fill_preview(super::inspector::preview_fill);
     api.on_inspector_fill_commit(super::inspector::commit_fill);
+    let editor_weak = editor_ui.as_weak();
+    api.on_dismiss_fill_picker(move |position, button| {
+        let Some(editor) = editor_weak.upgrade() else { return };
+        editor.global::<FillSession>().invoke_close_picker(true, false);
+        let editor_weak = editor.as_weak();
+        // Dispatch after the dismissing TouchArea releases its pointer grab.
+        slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+            if let Some(editor) = editor_weak.upgrade() {
+                editor.window().dispatch_event(slint::platform::WindowEvent::PointerPressed {
+                    position,
+                    button,
+                });
+            }
+        });
+    });
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
