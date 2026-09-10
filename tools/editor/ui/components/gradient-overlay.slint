@@ -65,6 +65,7 @@ component GradientHandle inherits FocusScope {
 }
 
 export component GradientOverlay inherits FocusScope {
+    focus-on-click: false;
     in property <SelectionRectangle> selection;
     private property <LinearGradientAxis> axis: FillSession.axis;
     private property <bool> radial: FillSession.radial-active;

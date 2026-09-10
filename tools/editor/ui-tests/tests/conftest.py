@@ -48,6 +48,13 @@ def fixture_project(tmp_path: Path) -> Path:
     return destination
 
 
+@pytest.fixture
+def radial_scene(tmp_path: Path) -> Path:
+    path = tmp_path / "RadialGradientScene.slint"
+    path.write_text((UI_TEST_ROOT / "fixtures" / "radial-gradient.slint").read_text())
+    return path
+
+
 def replay_pause_seconds(value: str) -> float:
     seconds = float(value)
     if not math.isfinite(seconds) or seconds < 0:

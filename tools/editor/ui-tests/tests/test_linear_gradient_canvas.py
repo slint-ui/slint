@@ -3,7 +3,6 @@
 
 from pathlib import Path
 import math
-import shutil
 
 import pytest
 import slint_testing
@@ -25,9 +24,18 @@ from ui_driver import (
 @pytest.fixture
 def scene(tmp_path):
     path = tmp_path / "LinearGradientScene.slint"
-    shutil.copyfile(
-        Path(__file__).parents[1] / "fixtures" / "linear-gradient.slint", path
-    )
+    path.write_text("""export component LinearGradientScene inherits Window {
+    width: 400px;
+    height: 400px;
+    fill := Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 200px;
+        height: 200px;
+        background: @linear-gradient(90deg, #568fb8 0%, #264052 55%, #7e3b66 100%);
+    }
+}
+""")
     return path
 
 
@@ -57,6 +65,7 @@ def shifted(point, x=0, y=0):
 
 def gesture(window, start, end):
     button = slint_testing.PointerEventButton.Left
+    window.dispatch_event(slint_testing.PointerMoveEvent(start))
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
     window.dispatch_event(slint_testing.PointerMoveEvent(end))
     window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
@@ -314,13 +323,14 @@ def test_linear_layout_size_and_keyboard(
         assert b"width: 200px" not in saved
 
 
+@pytest.mark.parametrize("other_y", [10, 60, 300])
 def test_linear_outside_click_accepts_before_selecting_another_rectangle(
-    editor_binary, editor_environment, scene, tmp_path
+    editor_binary, editor_environment, scene, tmp_path, other_y
 ):
     scene.write_text(
         scene.read_text().replace(
             "    fill := Rectangle {",
-            "    other := Rectangle { x: 10px; y: 10px; width: 50px; height: 50px; background: yellow; }\n    fill := Rectangle {",
+            f"    other := Rectangle {{ x: 10px; y: {other_y}px; width: 50px; height: 50px; background: yellow; }}\n    fill := Rectangle {{",
         )
     )
     original = SourceSnapshot.capture(tmp_path)
@@ -336,7 +346,7 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
                 iter(window.find_elements_by_id("LinearGradientScene::other")), None
             )
         )
-        other.single_click(slint_testing.PointerEventButton.Left)
+        gesture(window, center(other), center(other))
         saved = wait_until(
             lambda: scene.read_bytes() if b"#123456" in scene.read_bytes() else None
         )

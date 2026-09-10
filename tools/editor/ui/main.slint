@@ -252,21 +252,23 @@ export component EditorUi inherits Window {
         if UpdateStatus.shows-bar(): UpdateStatusBar { }
     }
 
-    if FillSession.open: TouchArea {
+    fill-layer := TouchArea {
+        visible: FillSession.open;
+        enabled: FillSession.open;
         pointer-event(event) => {
             if event.kind == PointerEventKind.down {
-                Api.dismiss-fill-picker({ x: self.mouse-x, y: self.mouse-y }, event.button);
+                Api.dismiss-fill-picker({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y }, event.button);
             }
         }
+        if FillSession.canvas-active: GradientOverlay {
+            x: FillSession.canvas-origin.x - fill-layer.absolute-position.x;
+            y: FillSession.canvas-origin.y - fill-layer.absolute-position.y;
+            width: FillSession.canvas-size.width;
+            height: FillSession.canvas-size.height;
+            selection: FillSession.selection;
+        }
+        InspectorFillPicker { }
     }
-    if FillSession.canvas-active: GradientOverlay {
-        x: FillSession.canvas-origin.x;
-        y: FillSession.canvas-origin.y;
-        width: FillSession.canvas-size.width;
-        height: FillSession.canvas-size.height;
-        selection: FillSession.selection;
-    }
-    InspectorFillPicker { }
 
     if UpdateStatus.in-titlebar() && UpdateStatus.has-news(): UpdateStatusPill {
         x: 100px;

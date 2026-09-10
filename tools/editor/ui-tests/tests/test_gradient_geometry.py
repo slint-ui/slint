@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 from pathlib import Path
+import math
 
 import pytest
 import slint_testing
@@ -54,6 +55,13 @@ def test_custom_gradient_geometry_uses_layout_size(
         field(
             "Rectangle background color picker", slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
+        if kind == "radial":
+            assert radial_geometry(window, "LayoutGradient::fill") == pytest.approx(
+                (200, 200, math.hypot(200, 200)), abs=0.001
+            )
+            click_picker_button(window, "Close Custom")
+            assert source_file.read_text() == source
+            return
         field(
             "Gradient center", slint_testing.AccessibleRole.Combobox
         ).accessible_value = "Custom"
@@ -63,15 +71,6 @@ def test_custom_gradient_geometry_uses_layout_size(
                     f"Gradient center {axis}", slint_testing.AccessibleRole.TextInput
                 ).accessible_value
             ) == pytest.approx(200)
-        if kind == "radial":
-            field(
-                "Gradient radius mode", slint_testing.AccessibleRole.Combobox
-            ).accessible_value = "Custom"
-            assert float(
-                field(
-                    "Gradient radius", slint_testing.AccessibleRole.TextInput
-                ).accessible_value
-            ) == pytest.approx(282.8)
         assert source_file.read_text() == source
         field(
             "Close Custom", slint_testing.AccessibleRole.Button
@@ -79,8 +78,6 @@ def test_custom_gradient_geometry_uses_layout_size(
         wait_until(
             lambda: True if "at 200px 200px" in source_file.read_text() else None
         )
-        if kind == "radial":
-            assert "circle 282.842" in source_file.read_text()
 
 
 def picker_field(window, label, role=slint_testing.AccessibleRole.TextInput):
@@ -153,27 +150,14 @@ def test_custom_geometry_survives_mode_changes(
         select_outline_row(window, "fill")
         open_gradient(window)
         if not loaded_custom:
-            set_picker_mode(window, "Gradient center", "Custom")
-            picker_field(window, "Gradient center X").accessible_value = "37"
-            picker_field(window, "Gradient center Y").accessible_value = "61"
-            set_picker_mode(window, "Gradient radius mode", "Custom")
-            picker_field(window, "Gradient radius").accessible_value = "95"
-        set_picker_mode(window, "Gradient center", "Automatic")
-        set_picker_mode(window, "Gradient radius mode", "Automatic")
+            set_radial_geometry(window, 37, 61, 95)
         set_picker_mode(window, "Gradient type", "Conic")
         set_picker_mode(window, "Gradient center", "Custom")
         picker_field(window, "Gradient center X").accessible_value = "83"
         picker_field(window, "Gradient center Y").accessible_value = "109"
         set_picker_mode(window, "Gradient center", "Automatic")
         set_picker_mode(window, "Gradient type", "Radial")
-        set_picker_mode(window, "Gradient center", "Custom")
-        set_picker_mode(window, "Gradient radius mode", "Custom")
-        for label, expected in [
-            ("Gradient center X", 37),
-            ("Gradient center Y", 61),
-            ("Gradient radius", 95),
-        ]:
-            assert float(picker_field(window, label).accessible_value) == expected
+        assert radial_geometry(window) == pytest.approx((37, 61, 95), abs=0.001)
         set_picker_mode(window, "Gradient type", "Conic")
         set_picker_mode(window, "Gradient center", "Custom")
         assert float(picker_field(window, "Gradient center X").accessible_value) == 83
@@ -218,7 +202,10 @@ def test_stop_precision_survives_save_and_reopen(
             click_picker_button(window, "Edit stop 1 color")
             picker_field(window, "Hex color").accessible_value = "#ff0100"
         elif kind == "radial":
-            set_picker_mode(window, "Gradient center", "Custom")
+            click_picker_button(window, "Gradient center handle")
+            from ui_driver import press_key
+
+            press_key(window, keys.RightArrow)
         else:
             picker_field(window, "Gradient angle degrees").accessible_value = "45"
         first = save()
@@ -230,7 +217,8 @@ def test_stop_precision_survives_save_and_reopen(
             click_picker_button(window, "Edit stop 1 color")
             picker_field(window, "Hex color").accessible_value = "#ff0200"
         elif kind == "radial":
-            picker_field(window, "Gradient center X").accessible_value = "201"
+            click_picker_button(window, "Gradient center handle")
+            press_key(window, keys.RightArrow)
         else:
             picker_field(window, "Gradient angle degrees").accessible_value = "46"
         picker_field(
@@ -334,10 +322,7 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
             assert picker_field(window, "Hex color").accessible_value == "#12345680"
             click_picker_button(window, "Gradient")
             set_picker_mode(window, "Gradient type", "Radial")
-            assert (
-                float(picker_field(window, "Gradient center X").accessible_value) == 40
-            )
-            assert float(picker_field(window, "Gradient radius").accessible_value) == 90
+            assert radial_geometry(window) == pytest.approx((40, 60, 90), abs=0.001)
             original.assert_unchanged_now()
             if cancel:
                 press_key(window, keys.Escape)
@@ -355,8 +340,7 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
         original.wait_for_applied(saved, file.name)
         select_outline_row(window, "fill")
         open_gradient(window)
-        assert float(picker_field(window, "Gradient radius").accessible_value) == 90
-        assert float(picker_field(window, "Gradient center Y").accessible_value) == 60
+        assert radial_geometry(window) == pytest.approx((40, 60, 90), abs=0.001)
         click_picker_button(window, "Edit stop 2 color")
         assert picker_field(window, "Hex color").accessible_value == "#12345680"
 
@@ -384,10 +368,7 @@ def test_recent_gradient_resets_custom_geometry_initialization(
         original.wait_for_applied(saved, file.name)
         select_outline_row(window, "fill")
         open_gradient(window)
-        set_picker_mode(window, "Gradient center", "Custom")
-        picker_field(window, "Gradient center X").accessible_value = "37"
-        set_picker_mode(window, "Gradient radius mode", "Custom")
-        picker_field(window, "Gradient radius").accessible_value = "95"
+        set_radial_geometry(window, 37, 200, 95)
         recent = [
             element
             for element in window.root_element.query_descendants()
@@ -397,10 +378,40 @@ def test_recent_gradient_resets_custom_geometry_initialization(
         ]
         assert len(recent) == 1
         recent[0].invoke_accessible_default_action()
-        set_picker_mode(window, "Gradient center", "Custom")
-        set_picker_mode(window, "Gradient radius mode", "Custom")
-        assert float(picker_field(window, "Gradient center X").accessible_value) == 200
-        assert float(picker_field(window, "Gradient center Y").accessible_value) == 200
-        assert float(
-            picker_field(window, "Gradient radius").accessible_value
-        ) == pytest.approx(282.8)
+        assert radial_geometry(window) == pytest.approx(
+            (200, 200, math.hypot(200, 200)), abs=0.001
+        )
+
+
+def radial_geometry(window, element_id="Gradient::fill"):
+    from test_linear_gradient_canvas import center, control
+
+    rectangle = wait_until(
+        lambda: next(iter(window.find_elements_by_id(element_id)), None)
+    )
+    c = center(control(window, "Gradient center handle"), 35)
+    r = center(control(window, "Gradient radius handle"), 35)
+    return (
+        c.x - rectangle.absolute_position.x,
+        c.y - rectangle.absolute_position.y,
+        math.hypot(r.x - c.x, r.y - c.y),
+    )
+
+
+def set_radial_geometry(window, x, y, radius):
+    from test_linear_gradient_canvas import center, control, gesture, shifted
+
+    old_x, old_y, _ = radial_geometry(window)
+    c = center(control(window, "Gradient center handle"), 35)
+    gesture(window, c, shifted(c, x=x - old_x, y=y - old_y))
+    c = center(control(window, "Gradient center handle"), 35)
+    r = center(control(window, "Gradient radius handle"), 35)
+    gesture(
+        window,
+        r,
+        shifted(
+            c,
+            x=radius * math.cos(math.radians(35)),
+            y=radius * math.sin(math.radians(35)),
+        ),
+    )

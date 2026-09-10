@@ -22,19 +22,47 @@ from ui_driver import (
 )
 
 
-@pytest.fixture
-def radial_scene(tmp_path):
-    path = tmp_path / "RadialGradientScene.slint"
-    path.write_text(
-        (Path(__file__).parents[1] / "fixtures" / "radial-gradient.slint").read_text()
-    )
-    return path
-
-
 def open_radial(window):
     select_outline_row(window, "fill")
     click(window, "Rectangle background color picker")
     control(window, "Gradient center handle")
+    assert not elements_with_label(window.root_element, "Gradient center")
+    assert not elements_with_label(window.root_element, "Gradient radius mode")
+    control(window, "Add gradient stop")
+
+
+def test_radial_activation_preserves_the_actual_picker(
+    editor_binary, editor_environment, radial_scene, tmp_path
+):
+    radial_scene.write_text(
+        re.sub(r"@radial-gradient\([^;]+\)", "#7e3b66", radial_scene.read_text())
+    )
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "fill")
+        assert not elements_with_label(window.root_element, "Gradient center handle")
+        click(window, "Rectangle background color picker")
+        assert not elements_with_label(window.root_element, "Gradient center handle")
+        click(window, "Gradient")
+        control(
+            window, "Gradient type", slint_testing.AccessibleRole.Combobox
+        ).accessible_value = "Radial"
+        control(window, "Gradient center handle")
+        control(window, "Gradient radius handle")
+        control(window, "Gradient stop 1", slint_testing.AccessibleRole.Slider)
+        control(window, "Edit stop 1 color")
+        assert not elements_with_label(window.root_element, "Hex color")
+        (tmp_path / "radial-picker-and-canvas.png").write_bytes(
+            window.grab_window_as_png()
+        )
+        click(window, "Solid")
+        assert not elements_with_label(window.root_element, "Gradient center handle")
+        control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
+        click(window, "Gradient")
+        control(window, "Gradient center handle")
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
 
 
 @pytest.mark.parametrize("rotation", [0, 45, 90])
