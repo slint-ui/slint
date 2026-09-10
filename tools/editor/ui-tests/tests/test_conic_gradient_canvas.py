@@ -25,9 +25,18 @@ from ui_driver import (
 @pytest.fixture
 def conic_scene(tmp_path):
     path = tmp_path / "ConicGradientScene.slint"
-    path.write_text(
-        (Path(__file__).parents[1] / "fixtures" / "conic-gradient.slint").read_text()
-    )
+    path.write_text("""export component ConicGradientScene inherits Window {
+    width: 400px;
+    height: 400px;
+    fill := Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 200px;
+        height: 200px;
+        background: @conic-gradient(from 220deg, #7e3b66 0deg, #264052 198deg, #568fb8 360deg);
+    }
+}
+""")
     return path
 
 

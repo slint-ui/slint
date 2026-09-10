@@ -86,10 +86,10 @@ export component GradientOverlay inherits FocusScope {
     private property <int> focus-request: FillSession.focus-stop-generation;
     private property <int> focus-epoch;
     private property <int> stop-count: FillSession.working-fill.stops.length;
-    // Keep handle instances alive when previews replace the fill's stop model.
-    private property <[int]> handles;
-    init => { root.handles = Api.gradient-handle-slots(root.stop-count); }
-    changed stop-count => { root.handles = Api.gradient-handle-slots(root.stop-count); }
+    // Preview model replacement must not rebuild the captured handle.
+    private property <int> handle-count;
+    init => { root.handle-count = root.stop-count; }
+    changed stop-count => { root.handle-count = root.stop-count; }
     changed focus-request => { focus-timer.start(); }
     focus-timer := Timer {
         interval: 0ms;
@@ -296,7 +296,7 @@ export component GradientOverlay inherits FocusScope {
             dragged(p) => { root.drag(p); }
             finished => { root.dragging = false; }
         }
-        for index in root.handles: GradientHandle {
+        for index in root.handle-count: GradientHandle {
             private property <float> position: FillSession.working-fill.stops[index].position;
             private property <angle> stop-angle: self.position * 360deg;
             private property <angle> marker-angle: root.conic ? self.stop-angle + (self.position >= 1 ? 90deg : -90deg) : 0deg;

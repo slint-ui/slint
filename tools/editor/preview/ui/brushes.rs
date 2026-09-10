@@ -64,9 +64,6 @@ pub fn setup(api: &ui::Api<'_>) {
         gradient_stop_at_position(fill.stops, position, fill.kind != ui::BrushKind::Conic)
     });
     api.on_clone_gradient_stops(clone_gradient_stops);
-    api.on_gradient_handle_slots(|count| {
-        Rc::new(VecModel::from((0..count).collect::<Vec<_>>())).into()
-    });
     api.on_sort_gradient_stops(|model, selected| {
         let mut stops = model.iter().enumerate().collect::<Vec<_>>();
         stops.sort_by(|a, b| a.1.position.total_cmp(&b.1.position));
