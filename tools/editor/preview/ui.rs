@@ -1610,6 +1610,46 @@ mod tests {
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
 
     #[test]
+    fn linear_fill_overlay_requires_an_editable_rectangle_session() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        let session = editor.global::<super::FillSession>();
+        let mut element = api.get_current_element();
+        element.type_name = "Rectangle".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        session.set_canvas_target(true);
+        session.set_working_fill(super::FillData {
+            kind: super::BrushKind::Linear,
+            ..Default::default()
+        });
+        session.set_session_active(true);
+        assert!(!session.get_linear_active());
+        session.set_open(true);
+        assert!(session.get_linear_active());
+        session.set_unsupported(true);
+        assert!(!session.get_linear_active());
+        session.set_unsupported(false);
+        api.set_inspector_fill_refresh_pending(true);
+        assert!(!session.get_linear_active());
+        api.set_inspector_fill_refresh_pending(false);
+        session.set_working_fill(super::FillData {
+            kind: super::BrushKind::Radial,
+            ..Default::default()
+        });
+        assert!(!session.get_linear_active());
+        session.set_working_fill(super::FillData {
+            kind: super::BrushKind::Linear,
+            ..Default::default()
+        });
+        session.set_canvas_target(false);
+        assert!(!session.get_linear_active());
+    }
+
+    #[test]
     fn title_area_requests_window_move_on_first_drag() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();

@@ -4,6 +4,8 @@
 import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, Hover } from "api.slint";
+import { InspectorFillPicker } from "components/inspector/fill-picker.slint";
+import { FillSession } from "components/inspector/fill-session.slint";
 import { Project } from "project.slint";
 import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
@@ -17,7 +19,7 @@ import { LeftPane } from "components/left-pane.slint";
 import { EditorMetrics } from "components/common.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
-export { Api, Hover, Preview, Project }
+export { Api, Hover, Preview, Project, FillSession }
 export { EditorCursors, EditorMetrics } from "components/common.slint";
 
 export component EditorUi inherits Window {
@@ -255,6 +257,8 @@ export component EditorUi inherits Window {
 
         if UpdateStatus.shows-bar(): UpdateStatusBar { }
     }
+
+    InspectorFillPicker { }
 
     if UpdateStatus.in-titlebar() && UpdateStatus.has-news(): UpdateStatusPill {
         x: 100px;

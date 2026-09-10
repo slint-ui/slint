@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { FillSession } from "fill-session.slint";
+
 import { Api, FillData, BrushKind } from "../../api.slint";
 import { EditorMetrics } from "../common.slint";
 import { InspectorTokens } from "tokens.slint";
@@ -8,360 +10,164 @@ import { InspectorColorControls } from "color-controls.slint";
 
 import { InspectorGradientGeometry } from "gradient-geometry.slint";
 import { InspectorGradientStops } from "gradient-stops.slint";
+import { ScrollView } from "std-widgets.slint";
 import { InspectorRecentFills } from "recent-fills.slint";
 import { InspectorPickerPanel } from "picker-panel.slint";
 import { InspectorSegment } from "segment.slint";
 
 export component InspectorFillPicker inherits Rectangle {
-    in property <FillData> value;
-    in property <bool> allow-gradient;
-    in property <float> target-width;
-    in property <float> target-height;
-    private property <FillData> linear-fill;
-    private property <FillData> radial-fill;
-    private property <FillData> conic-fill;
-    private property <bool> radial-center-initialized;
-    private property <bool> conic-center-initialized;
-    private property <bool> radius-initialized;
-    private property <BrushKind> last-gradient: BrushKind.linear;
-    in property <string> expression: "";
-    in property <string> session-key: "";
-    in property <string> target-key: "";
-    in property <bool> unsupported: false;
-    in property <bool> open: false;
-    callback accepted(string, FillData) -> bool;
-    callback preview(string, FillData) -> bool;
-    callback closed();
-    callback restore-focus();
-    in property <Point> anchor-position;
-    in property <length> anchor-width;
-
-    private property <FillData> draft;
-    private property <FillData> working-fill: root.value;
-    private property <int> selected-stop;
-    private property <bool> stop-panel-open;
-    private property <length> main-x: (root.anchor-position.x >= 316px ? root.anchor-position.x - 308px : root.anchor-position.x + root.anchor-width + 8px).clamp(8px, max(8px, EditorMetrics.window-width - 308px));
-    private property <bool> stop-on-left: root.main-x >= 316px;
-    private property <bool> stacked: root.stop-panel-open && !root.stop-on-left && root.main-x + 608px > EditorMetrics.window-width - 8px;
-    private property <int> focus-stop-generation;
-
-    private property <color> working-color: root.working-fill.kind == BrushKind.solid ? root.working-fill.color : root.working-fill.stops[root.selected-stop].color;
-    private property <bool> has-preview: false;
-    private property <string> active-target;
-    private property <bool> session-active: false;
-    private property <FillData> original-fill: root.value;
-    private property <bool> editable: root.open && !Api.inspector-fill-refresh-pending && !root.unsupported;
+    private property <bool> open: FillSession.open;
     private property <bool> popup-open: picker-popup.is-open;
-
-    function preview-fill(fill: FillData) -> bool {
-        if !root.session-active || !root.editable {
-            return false;
-        }
-        if root.preview(root.active-target, fill) {
-            if fill.kind == BrushKind.radial {
-                root.radial-center-initialized = root.radial-center-initialized || fill.custom-center;
-                root.radius-initialized = root.radius-initialized || fill.custom-radius;
-            }
-            if fill.kind == BrushKind.conic {
-                root.conic-center-initialized = root.conic-center-initialized || fill.custom-center;
-            }
-            root.has-preview = true;
-            root.working-fill = fill;
-            if fill.kind == BrushKind.linear {
-                root.linear-fill = fill;
-            }
-            if fill.kind == BrushKind.radial {
-                root.radial-fill = fill;
-            }
-            if fill.kind == BrushKind.conic {
-                root.conic-fill = fill;
-            }
-            return true;
-        }
-        root.close-picker(false, false);
-        return false;
-    }
-    function preview-color(c: color) -> bool {
-        root.draft = root.working-fill;
-        if root.draft.kind == BrushKind.solid {
-            root.draft.color = c;
-        } else {
-            root.draft.stops = Api.clone-gradient-stops(root.working-fill.stops);
-            root.draft.stops[root.selected-stop].color = c;
-        }
-        return root.preview-fill(root.draft);
-    }
-    function select-kind(kind: BrushKind) -> bool {
-        if kind == BrushKind.solid {
-            root.stop-panel-open = false;
-        }
-        root.draft = root.working-fill;
-        if kind == BrushKind.solid {
-            root.draft.color = root.working-color;
-            root.draft.kind = kind;
-        } else {
-            root.draft = kind == BrushKind.linear ? root.linear-fill : kind == BrushKind.radial ? root.radial-fill : root.conic-fill;
-            root.draft.stops = Api.clone-gradient-stops(root.working-fill.stops.length >= 2 ? root.working-fill.stops : [{color: root.working-color, position: 0}, {color: root.working-color, position: 1}]);
-            root.draft.kind = kind;
-            root.last-gradient = kind;
-        }
-        return root.preview-fill(root.draft);
-    }
-
-    function set-custom-center(custom: bool) -> bool {
-        root.draft = root.working-fill;
-        root.draft.custom-center = custom;
-        let initialized = root.draft.kind == BrushKind.radial
-            ? root.radial-center-initialized : root.conic-center-initialized;
-        if custom && !initialized {
-            root.draft.center-x = root.target-width / 2;
-            root.draft.center-y = root.target-height / 2;
-        }
-        return root.preview-fill(root.draft);
-    }
-
-    function set-custom-radius(custom: bool) -> bool {
-        root.draft = root.working-fill;
-        root.draft.custom-radius = custom;
-        if custom && !root.radius-initialized {
-            root.draft.radius = max(1, sqrt(root.target-width * root.target-width + root.target-height * root.target-height) / 2);
-        }
-        return root.preview-fill(root.draft);
-    }
-
-    function select-recent(fill: FillData) {
-        if fill.kind == BrushKind.radial {
-            root.radial-center-initialized = fill.custom-center;
-            root.radius-initialized = fill.custom-radius;
-        } else if fill.kind == BrushKind.conic {
-            root.conic-center-initialized = fill.custom-center;
-        }
-        root.stop-panel-open = false;
-        root.selected-stop = 0;
-        root.draft = fill;
-        root.draft.stops = Api.clone-gradient-stops(fill.stops);
-        root.last-gradient = fill.kind == BrushKind.solid ? root.last-gradient : fill.kind;
-        root.preview-fill(root.draft);
-    }
-
-    function show-picker() {
-        root.stop-panel-open = false;
-        root.selected-stop = 0;
-        root.working-fill = root.value;
-        root.original-fill = root.value;
-        root.original-fill.stops = Api.clone-gradient-stops(root.value.stops);
-        root.working-fill.stops = Api.clone-gradient-stops(root.value.stops);
-        root.radial-center-initialized = root.value.kind == BrushKind.radial && root.value.custom-center;
-        root.conic-center-initialized = root.value.kind == BrushKind.conic && root.value.custom-center;
-        root.radius-initialized = root.value.kind == BrushKind.radial && root.value.custom-radius;
-        root.linear-fill = {kind: BrushKind.linear, angle: 90};
-        root.radial-fill = {kind: BrushKind.radial};
-        root.conic-fill = {kind: BrushKind.conic};
-        root.last-gradient = root.value.kind == BrushKind.solid ? BrushKind.linear : root.value.kind;
-        if root.value.kind == BrushKind.linear {
-            root.linear-fill = root.working-fill;
-        }
-        if root.value.kind == BrushKind.radial {
-            root.radial-fill = root.working-fill;
-        }
-        if root.value.kind == BrushKind.conic {
-            root.conic-fill = root.working-fill;
-        }
-        root.active-target = root.target-key;
-        root.has-preview = false;
-        root.session-active = true;
-        picker-popup.show();
-    }
-
-    function close-picker(accept: bool, return-focus: bool) {
-        if !root.session-active {
-            return;
-        }
-        root.session-active = false;
-        root.stop-panel-open = false;
-        let changed = Api.fill-brush(root.working-fill) != Api.fill-brush(root.original-fill);
-        if !accept || !changed || !root.accepted(root.active-target, root.working-fill) {
-            if root.has-preview {
-                Api.inspector-cancel();
-            }
-            root.working-fill = root.original-fill;
-        }
-        root.has-preview = false;
-        root.closed();
-        picker-popup.close();
-        if return-focus {
-            root.restore-focus();
-        }
-    }
-
-    changed value => {
-        if !root.session-active {
-            root.working-fill = root.value;
-        }
-    }
-
-    changed session-key => {
-        root.close-picker(false, false);
-    }
-
     changed open => {
-        if root.open {
-            root.show-picker();
-        } else {
-            root.close-picker(false, false);
-        }
+        if root.open { picker-popup.show(); } else { picker-popup.close(); }
     }
-
     changed popup-open => {
-        if !root.popup-open && root.open {
-            root.close-picker(root.active-target == root.target-key, false);
-        }
+        if !root.popup-open && FillSession.open { FillSession.close-picker(true, false); }
     }
-
     picker-popup := PopupWindow {
-        width: root.stop-panel-open && !root.stacked ? 608px : 300px;
-        x: root.main-x - (root.stop-panel-open && root.stop-on-left && !root.stacked ? 308px : 0px) - root.absolute-position.x;
-        y: root.anchor-position.y.clamp(8px, max(8px, EditorMetrics.window-height - self.height - 8px)) - root.absolute-position.y;
-        height: group-content.height;
+        width: FillSession.stop-panel-open && !FillSession.stacked ? 608px : 300px;
+        x: FillSession.main-x - (FillSession.stop-panel-open && FillSession.stop-on-left && !FillSession.stacked ? 308px : 0px) - root.absolute-position.x;
+        y: FillSession.anchor-position.y.clamp(8px, max(8px, EditorMetrics.window-height - self.height - 8px)) - root.absolute-position.y;
+        height: min(group-content.height, max(200px, EditorMetrics.window-height - 16px));
         close-policy: close-on-click-outside;
         forward-focus: picker-focus;
         picker-focus := FocusScope {
             capture-key-pressed(event) => {
                 if event.text == Key.Escape {
-                    root.close-picker(false, true);
+                    FillSession.close-picker(false, true);
                     return accept;
                 }
                 return reject;
             }
-            group-content := Rectangle {
-                width: parent.width;
-                x: 0px;
-                y: 0px;
-                height: root.stacked ? main-panel.height + 8px + (root.stop-panel-open ? stop-panel.height : 0px) : max(main-panel.height, root.stop-panel-open ? stop-panel.height : 0px);
-                TouchArea {
-                    clicked => {
-                        root.close-picker(true, true);
-                    }
-                }
-                main-panel := InspectorPickerPanel {
-                    x: root.stop-panel-open && root.stop-on-left && !root.stacked ? 308px : 0px;
-                    y: 0px;
-                    height: min(self.preferred-height, max(200px, EditorMetrics.window-height - 16px - (root.stacked ? stop-panel.height + 8px : 0px)));
-                    title: "Custom";
-                    closed => {
-                        root.close-picker(true, true);
-                    }
-                    if root.unsupported: VerticalLayout {
-                        spacing: 5px;
-                        Text {
-                            text: root.expression;
-                            color: InspectorTokens.text;
-                            font-size: 12px;
-                            overflow: elide;
-                        }
-                        Text {
-                            text: "This expression cannot be edited as a fill.";
-                            color: InspectorTokens.muted;
-                            font-size: 11px;
-                            wrap: word-wrap;
+            ScrollView {
+                content-width: self.visible-width;
+                content-height: group-content.height;
+                group-content := Rectangle {
+                    width: parent.visible-width;
+                    height: FillSession.stacked ? main-panel.height + 8px + (FillSession.stop-panel-open ? stop-panel.height : 0px) : max(main-panel.height, FillSession.stop-panel-open ? stop-panel.height : 0px);
+                    TouchArea {
+                        clicked => {
+                            FillSession.close-picker(true, true);
                         }
                     }
-
-                    if root.allow-gradient && root.editable: HorizontalLayout {
-                        spacing: 4px;
-                        InspectorSegment {
-                            kind: "text";
-                            label: "Solid";
-                            selected: root.working-fill.kind == BrushKind.solid;
-                            clicked => {
-                                picker-focus.focus();
-                                root.select-kind(BrushKind.solid);
+                    main-panel := InspectorPickerPanel {
+                        x: FillSession.stop-panel-open && FillSession.stop-on-left && !FillSession.stacked ? 308px : 0px;
+                        title: "Custom";
+                        closed => {
+                            FillSession.close-picker(true, true);
+                        }
+                        if FillSession.unsupported: VerticalLayout {
+                            spacing: 5px;
+                            Text {
+                                text: FillSession.expression;
+                                color: InspectorTokens.text;
+                                font-size: 12px;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: "This expression cannot be edited as a fill.";
+                                color: InspectorTokens.muted;
+                                font-size: 11px;
+                                wrap: word-wrap;
                             }
                         }
-                        InspectorSegment {
-                            kind: "text";
-                            label: "Gradient";
-                            selected: root.working-fill.kind != BrushKind.solid;
-                            clicked => {
+
+                        if FillSession.allow-gradient && FillSession.editable: HorizontalLayout {
+                            spacing: 4px;
+                            InspectorSegment {
+                                kind: "text";
+                                label: "Solid";
+                                selected: FillSession.working-fill.kind == BrushKind.solid;
+                                clicked => {
+                                    picker-focus.focus();
+                                    FillSession.select-kind(BrushKind.solid);
+                                }
+                            }
+                            InspectorSegment {
+                                kind: "text";
+                                label: "Gradient";
+                                selected: FillSession.working-fill.kind != BrushKind.solid;
+                                clicked => {
+                                    picker-focus.focus();
+                                    FillSession.select-kind(FillSession.last-gradient);
+                                }
+                            }
+                        }
+                        if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid: InspectorGradientGeometry {
+                            value: FillSession.working-fill;
+                            session-key: FillSession.session-key;
+                            preview(fill) => {
+                                return FillSession.preview-fill(fill);
+                            }
+                            center-mode-selected(custom) => {
                                 picker-focus.focus();
-                                root.select-kind(root.last-gradient);
+                                return FillSession.set-custom-center(custom);
+                            }
+                            radius-mode-selected(custom) => {
+                                picker-focus.focus();
+                                return FillSession.set-custom-radius(custom);
+                            }
+                            type-selected(kind) => {
+                                picker-focus.focus();
+                                return FillSession.select-kind(kind);
+                            }
+                        }
+
+                        if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid: InspectorGradientStops {
+                            value: FillSession.working-fill;
+                            selected-index <=> FillSession.selected-stop;
+                            focus-generation: FillSession.focus-stop-generation;
+                            edit-color => {
+                                FillSession.stop-panel-open = true;
+                            }
+                            session-key: FillSession.session-key;
+                            preview(fill) => {
+                                return FillSession.preview-fill(fill);
+                            }
+                        }
+                        if !FillSession.unsupported && FillSession.working-fill.kind == BrushKind.solid: InspectorColorControls {
+                            field-height: 170px;
+                            value: FillSession.working-color;
+                            editable: FillSession.editable;
+                            session-key: FillSession.session-key + ":" + FillSession.selected-stop;
+                            preview(c) => {
+                                return FillSession.preview-color(c);
+                            }
+                        }
+
+                        if !FillSession.unsupported: InspectorRecentFills {
+                            allow-gradient: FillSession.allow-gradient;
+                            editable: FillSession.editable;
+                            chosen(fill) => {
+                                picker-focus.focus();
+                                FillSession.select-recent(fill);
                             }
                         }
                     }
-                    if root.editable && root.working-fill.kind != BrushKind.solid: InspectorGradientGeometry {
-                        value: root.working-fill;
-                        session-key: root.session-key;
-                        preview(fill) => {
-                            return root.preview-fill(fill);
-                        }
-                        center-mode-selected(custom) => {
+                    stop-panel := InspectorPickerPanel {
+                        visible: FillSession.stop-panel-open;
+                        x: FillSession.stacked || FillSession.stop-on-left ? 0px : 308px;
+                        y: FillSession.stacked ? main-panel.height + 8px : 0px;
+                        title: "Stop color";
+                        closed => {
                             picker-focus.focus();
-                            return root.set-custom-center(custom);
+                            FillSession.stop-panel-open = false;
+                            FillSession.focus-stop-generation += 1;
                         }
-                        radius-mode-selected(custom) => {
-                            picker-focus.focus();
-                            return root.set-custom-radius(custom);
+                        InspectorColorControls {
+                            value: FillSession.working-color;
+                            editable: FillSession.editable && FillSession.stop-panel-open;
+                            session-key: FillSession.session-key + ":" + FillSession.selected-stop + ":" + (FillSession.stop-panel-open ? "open" : "closed");
+                            preview(c) => {
+                                return FillSession.preview-color(c);
+                            }
                         }
-                        type-selected(kind) => {
-                            picker-focus.focus();
-                            return root.select-kind(kind);
-                        }
-                    }
-
-                    if root.editable && root.working-fill.kind != BrushKind.solid: InspectorGradientStops {
-                        value: root.working-fill;
-                        selected-index <=> root.selected-stop;
-                        focus-generation: root.focus-stop-generation;
-                        edit-color => {
-                            root.stop-panel-open = true;
-                        }
-                        session-key: root.session-key;
-                        preview(fill) => {
-                            return root.preview-fill(fill);
-                        }
-                    }
-                    if !root.unsupported && root.working-fill.kind == BrushKind.solid: InspectorColorControls {
-                        field-height: 170px;
-                        value: root.working-color;
-                        editable: root.editable;
-                        session-key: root.session-key + ":" + root.selected-stop;
-                        preview(c) => {
-                            return root.preview-color(c);
-                        }
-                    }
-
-                    if !root.unsupported: InspectorRecentFills {
-                        allow-gradient: root.allow-gradient;
-                        editable: root.editable;
-                        chosen(fill) => {
-                            picker-focus.focus();
-                            root.select-recent(fill);
-                        }
-                    }
-                }
-                stop-panel := InspectorPickerPanel {
-                    visible: root.stop-panel-open;
-                    x: root.stacked || root.stop-on-left ? 0px : 308px;
-                    y: root.stacked ? main-panel.height + 8px : 0px;
-                    title: "Stop color";
-                    closed => {
-                        picker-focus.focus();
-                        root.stop-panel-open = false;
-                        root.focus-stop-generation += 1;
-                    }
-                    InspectorColorControls {
-                        value: root.working-color;
-                        editable: root.editable && root.stop-panel-open;
-                        session-key: root.session-key + ":" + root.selected-stop + ":" + (root.stop-panel-open ? "open" : "closed");
-                        preview(c) => {
-                            return root.preview-color(c);
-                        }
-                    }
-                    if !root.unsupported: InspectorRecentFills {
-                        allow-gradient: false;
-                        editable: root.editable;
-                        chosen(fill) => {
-                            root.preview-color(fill.color);
+                        if !FillSession.unsupported: InspectorRecentFills {
+                            allow-gradient: false;
+                            editable: FillSession.editable;
+                            chosen(fill) => {
+                                FillSession.preview-color(fill.color);
+                            }
                         }
                     }
                 }
