@@ -328,18 +328,14 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
     }
 }
 
-fn find_index_for_position(model: &slint::ModelRc<ui::GradientStop>, position: f32) -> usize {
-    model
-        .iter()
-        .position(|gs| gs.position.total_cmp(&position) != std::cmp::Ordering::Less)
-        .unwrap_or(model.row_count())
-}
-
 fn add_gradient_stop(model: slint::ModelRc<ui::GradientStop>, value: ui::GradientStop) -> i32 {
-    let insert_pos = find_index_for_position(&model, value.position);
+    let insert_pos = model
+        .iter()
+        .position(|gs| gs.position.total_cmp(&value.position) != std::cmp::Ordering::Less)
+        .unwrap_or(model.row_count());
     let m = model.as_any().downcast_ref::<VecModel<_>>().unwrap();
     m.insert(insert_pos, value);
-    (insert_pos) as i32
+    insert_pos as i32
 }
 
 fn remove_gradient_stop(model: slint::ModelRc<ui::GradientStop>, row: i32) {
@@ -783,6 +779,54 @@ mod tests {
         );
 
         model
+    }
+
+    #[test]
+    fn insertion_preserves_coincident_order_after_crossing() {
+        for position in [-0.2, 0.5, 1.2] {
+            let red = slint::Color::from_rgb_u8(255, 0, 0);
+            let blue = slint::Color::from_rgb_u8(0, 0, 255);
+            let green = slint::Color::from_rgb_u8(0, 255, 0);
+            let model: ModelRc<_> = Rc::new(VecModel::from(vec![
+                ui::GradientStop { position: 2., color: red },
+                ui::GradientStop { position, color: red },
+                ui::GradientStop { position: -1., color: blue },
+                ui::GradientStop { position, color: blue },
+            ]))
+            .into();
+            let index = super::add_gradient_stop(
+                model.clone(),
+                ui::GradientStop { position, color: green },
+            );
+            assert_eq!(model.row_data(index as usize).unwrap().color, green);
+            let order = super::gradient_stop_order(model.clone(), index);
+            let ordered: ModelRc<_> = Rc::new(VecModel::from(
+                order
+                    .indices
+                    .iter()
+                    .map(|slot| model.row_data(slot as usize).unwrap())
+                    .collect::<Vec<_>>(),
+            ))
+            .into();
+            assert_eq!(
+                ordered
+                    .iter()
+                    .filter(|stop| stop.position == position)
+                    .map(|stop| stop.color)
+                    .collect::<Vec<_>>(),
+                [green, red, blue]
+            );
+            assert_eq!(super::gradient_stop_at_position(model.clone(), position, true).color, blue);
+            for kind in [ui::BrushKind::Linear, ui::BrushKind::Radial, ui::BrushKind::Conic] {
+                let fill = ui::FillData { kind, stops: model.clone(), ..Default::default() };
+                let sorted = ui::FillData { stops: ordered.clone(), ..fill.clone() };
+                assert_eq!(
+                    super::fill_expression(fill.clone()),
+                    super::fill_expression(sorted.clone())
+                );
+                assert_eq!(super::fill_brush(fill), super::fill_brush(sorted));
+            }
+        }
     }
 
     #[test]

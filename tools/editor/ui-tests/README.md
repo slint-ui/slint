@@ -140,8 +140,10 @@ A single pointer move doesn't expose loss of capture when a preview replaces the
 
 Picker rows follow position order, while selection and canvas handles refer to stable session slots during movement.
 The generated source and rendered brush use sorted copies.
+Insertion places the new stop before the first existing stop at or beyond its position, without sorting the draft.
+This keeps new stops before coincident stops and preserves their existing hard-edge order after crossing.
 Check duplicate positions, color identity, focused deletion, and row ordering when changing this mapping.
-Text-gradient tests cover numeric geometry controls without canvas handles.
+Text and root-background gradient tests cover numeric geometry controls without canvas handles.
 
 ## Rust-Dependent Cases
 
