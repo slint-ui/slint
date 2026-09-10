@@ -1,0 +1,46 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// #13199 variant: the constraint sits on an instance of a component that *is*
+// a flexbox, so the layout info it reads back lives in the sub-component. Used
+// to panic with "Recursion detected"; the driver blocks run both arms.
+component Inner inherits FlexboxLayout {
+    in property <bool> horizontal: true;
+    flex-direction: horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+    flex-wrap: wrap;
+    Rectangle { min-width: 60px; min-height: 20px; }
+}
+export component TestCase inherits Window {
+    in property <bool> horizontal: true;
+    HorizontalLayout {
+        Rectangle { width: 40px; }
+        VerticalLayout {
+            if false: Rectangle { }
+            i := Inner { horizontal: root.horizontal; min-height: i.preferred-height; }
+        }
+    }
+    out property <bool> test: i.preferred-height >= 0px && i.width >= 0px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_horizontal(false);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+handle->set_horizontal(false);
+assert(handle->get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+instance.horizontal = false;
+assert(instance.test);
+```
+*/
