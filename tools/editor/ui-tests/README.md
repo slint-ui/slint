@@ -101,6 +101,28 @@ Escape cancels the current drag first, or cancels the whole session when no drag
 The radial canvas and session tests use the headless backend with the rest of the suite.
 They cover rotated rectangles, picker synchronization, geometry, stop identity, cancellation, source reload, and history.
 
+## Review Conic Canvas Editing
+
+Open `tools/editor/ui-tests/fixtures/conic-gradient.slint` with the same release command.
+Select the Rectangle and open its background color picker.
+The existing picker stays beside the circular canvas guide.
+
+Drag the center to translate the gradient.
+Drag the white ray or its outer endpoint to rotate it, including across the zero-degree seam.
+The circle's radius is an editing aid, not a brush property.
+Drag pointed stop markers around the circle; their tips stay on the edited position.
+The zero-degree stop sits outside the circle, and the 360-degree stop sits inside it.
+
+Double-click the circle to insert a stop.
+Focus a stop and press Delete or Backspace to remove it; at least two stops remain.
+Arrow keys move the center by one logical pixel, or rotate the ray and stops by one degree.
+Shift multiplies these steps by ten.
+Escape restores an active gesture, then cancels the session on a second press.
+Closing accepts one edit in undo history; opening and closing unchanged leaves source untouched.
+
+Conic tests use the headless backend with the rest of the suite.
+They cover seam crossing, rotated rectangles, insertion, deletion, keyboard input, picker synchronization, cancellation, external edits, and history.
+
 ## Rust-Dependent Cases
 
 The suite retains skipped cases for behavior that needs changes in the Rust

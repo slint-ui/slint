@@ -220,6 +220,39 @@ def test_conic_rotation_crosses_the_seam(
             367, abs=0.001
         )
         assert b" at " not in saved
+        press_shortcut(window, keys.Control, "z")
+        original.wait_for_applied(
+            original.sources[Path(conic_scene.name)], conic_scene.name
+        )
+        press_shortcut(window, keys.Control, keys.Shift, "z")
+        original.wait_for_applied(saved, conic_scene.name)
+        open_conic(window)
+        reopened = center(control(window, "Gradient rotation handle"), 277)
+        expected = around(c, 126, 367)
+        assert reopened.x == pytest.approx(expected.x, abs=0.01)
+        assert reopened.y == pytest.approx(expected.y, abs=0.01)
+        click(window, "Close Custom")
+        assert conic_scene.read_bytes() == saved
+
+
+def test_conic_noop_and_collapsed_rotation_do_not_write_source(
+    editor_binary, editor_environment, conic_scene, tmp_path
+):
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        window = first_window(editor)
+        open_conic(window)
+        c = center(control(window, "Gradient center handle"), 130)
+        r = center(control(window, "Gradient rotation handle"), 130)
+        gesture(window, r, c)
+        actual = center(control(window, "Gradient rotation handle"), 130)
+        assert actual.x == pytest.approx(r.x, abs=0.001)
+        assert actual.y == pytest.approx(r.y, abs=0.001)
+        click(window, "Close Custom")
+        original.assert_unchanged()
+        open_conic(window)
+        click(window, "Close Custom")
+        original.assert_unchanged()
 
 
 def test_conic_seam_handles_and_stop_crossing(
@@ -288,6 +321,66 @@ def test_conic_ring_insertion(editor_binary, editor_environment, conic_scene, tm
         ) == pytest.approx(90, abs=0.01)
         press_key(window, keys.Delete)
         assert not elements_with_label(window.root_element, "Gradient stop 4")
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
+
+
+def test_conic_insertion_samples_straight_alpha(
+    editor_binary, editor_environment, conic_scene, tmp_path
+):
+    conic_scene.write_text(
+        conic_scene.read_text().replace(
+            "#7e3b66 0deg, #264052 198deg, #568fb8 360deg",
+            "#ff000000 0deg, #0000ff 360deg",
+        )
+    )
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        window = first_window(editor)
+        open_conic(window)
+        c = center(control(window, "Gradient center handle"), 130)
+        p = around(c, 126, 400)
+        gesture(window, p, p)
+        gesture(window, p, p)
+        click(window, "Edit stop 2 color")
+        value = control(
+            window, "Hex color", slint_testing.AccessibleRole.TextInput
+        ).accessible_value
+        assert value in ("#80008080", "#7f008080", "#80007f7f", "#7f00807f")
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
+
+
+def test_conic_coincident_stops_keep_keyboard_focus(
+    editor_binary, editor_environment, conic_scene, tmp_path
+):
+    conic_scene.write_text(
+        conic_scene.read_text().replace("#264052 198deg", "#264052 0deg")
+    )
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        window = first_window(editor)
+        open_conic(window)
+        click(window, "Gradient stop 1")
+        press_key(window, keys.Tab)
+        press_key(window, keys.RightArrow)
+        assert float(
+            control(
+                window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+        ) == pytest.approx(1)
+        assert float(
+            control(
+                window, "Stop 1 position", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+        ) == pytest.approx(0)
+        click(window, "Edit stop 2 color")
+        field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
+        p = center(field)
+        gesture(window, p, p)
+        press_shortcut(window, keys.Control, "a")
+        press_key(window, keys.Backspace)
+        control(window, "Gradient stop 3")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
