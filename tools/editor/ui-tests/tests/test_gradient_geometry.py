@@ -158,3 +158,57 @@ def test_custom_geometry_survives_mode_changes(
         assert float(picker_field(window, "Gradient center Y").accessible_value) == 109
         press_key(window, keys.Escape)
         original.assert_unchanged()
+
+
+@pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
+def test_stop_precision_survives_save_and_reopen(
+    editor_binary, editor_environment, tmp_path, kind
+):
+    from source_snapshot import SourceSnapshot
+
+    prefix = {"linear": "90deg", "radial": "circle", "conic": "from 0deg"}[kind]
+    unit = "deg" if kind == "conic" else "%"
+    expression = f"@{kind}-gradient({prefix}, #ff0000 0{unit} - 12.345678{unit}, #00ff0080 33.333333{unit}, blue 33.333333{unit}, white 123.456789{unit})"
+    file = gradient_document(tmp_path, expression)
+    snapshot = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "fill")
+
+        def save():
+            picker_field(
+                window, "Close Custom", slint_testing.AccessibleRole.Button
+            ).invoke_accessible_default_action()
+            content = wait_until(
+                lambda: (
+                    file.read_bytes()
+                    if file.read_bytes() != snapshot.sources[Path(file.name)]
+                    else None
+                )
+            )
+            snapshot.wait_for_applied(content, file.name)
+            return content
+
+        open_gradient(window)
+        picker_field(window, "Stop 2 position").accessible_value = "33.333333"
+        if kind == "radial":
+            set_picker_mode(window, "Gradient center", "Custom")
+        else:
+            picker_field(window, "Gradient angle degrees").accessible_value = "45"
+        first = save()
+        assert b"33.33%" not in first
+        assert b"33.3333" in first
+        select_outline_row(window, "fill")
+        open_gradient(window)
+        if kind == "radial":
+            picker_field(window, "Gradient center X").accessible_value = "201"
+        else:
+            picker_field(window, "Gradient angle degrees").accessible_value = "46"
+        picker_field(
+            window, "Close Custom", slint_testing.AccessibleRole.Button
+        ).invoke_accessible_default_action()
+        second = wait_until(
+            lambda: file.read_bytes() if file.read_bytes() != first else None
+        )
+        snapshot.wait_for_applied(second, file.name)
+        assert first.split(b",", 1)[1] == second.split(b",", 1)[1]

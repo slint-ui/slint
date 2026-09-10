@@ -238,6 +238,21 @@ pub fn fill_brush(fill: ui::FillData) -> slint::Brush {
     }
 }
 
+fn stop_position(position: f32, units: f64, suffix: &str) -> String {
+    let scaled = f64::from(position) * units;
+    for precision in 0..17 {
+        let candidate = format!("{scaled:.precision$e}").parse::<f64>().unwrap();
+        if (candidate / units) as f32 == position {
+            return if candidate < 0. {
+                format!("0{suffix} - {}{suffix}", -candidate)
+            } else {
+                format!("{candidate}{suffix}")
+            };
+        }
+    }
+    format!("{scaled}{suffix}")
+}
+
 pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
     if fill.kind == ui::BrushKind::Solid {
         return color_to_string(fill.color);
@@ -249,7 +264,11 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
             fill.angle,
             stops
                 .iter()
-                .map(|s| format!(", {} {:.2}%", color_to_string(s.color), s.position * 100.))
+                .map(|s| format!(
+                    ", {} {}",
+                    color_to_string(s.color),
+                    stop_position(s.position, 100., "%")
+                ))
                 .join("")
         );
     }
@@ -264,7 +283,11 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
             "@radial-gradient(circle{radius}{center}{})",
             stops
                 .iter()
-                .map(|s| format!(", {} {}%", color_to_string(s.color), s.position * 100.))
+                .map(|s| format!(
+                    ", {} {}",
+                    color_to_string(s.color),
+                    stop_position(s.position, 100., "%")
+                ))
                 .join("")
         )
     } else {
@@ -273,7 +296,11 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
             fill.angle,
             stops
                 .iter()
-                .map(|s| format!("{} {}deg", color_to_string(s.color), s.position * 360.))
+                .map(|s| format!(
+                    "{} {}",
+                    color_to_string(s.color),
+                    stop_position(s.position, 360., "deg")
+                ))
                 .join(", ")
         )
     }
