@@ -63,7 +63,8 @@ struct Cli {
     slint_sc: bool,
 
     /// Write, next to the output file, the map of the coverage points of the .slint source
-    /// that `slint-sc-coverage` reports from. Requires --slint-sc and an output file.
+    /// that `slint-sc-coverage` reports from, with the extension `.slintcov`.
+    /// Requires --slint-sc and an output file.
     #[cfg(feature = "slint-sc")]
     #[arg(long = "coverage", requires = "slint_sc")]
     coverage: bool,

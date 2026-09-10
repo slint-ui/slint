@@ -108,8 +108,12 @@ pub fn generate(
         }
         #[cfg(feature = "slint-sc")]
         OutputFormat::SlintSc => {
-            let output = slint_sc::generate(doc, compiler_config, destination_path)?;
-            write!(destination, "{output}")?;
+            let generated = slint_sc::generate(doc, compiler_config)?;
+            write!(destination, "{}", generated.code)?;
+            if let (true, Some(path)) = (compiler_config.coverage, destination_path) {
+                let map = path.with_extension("slintcov");
+                crate::fileaccess::write_file_if_changed(&map, generated.coverage_map.as_bytes())?;
+            }
         }
         OutputFormat::Interpreter => {
             return Err(std::io::Error::other(

@@ -21,7 +21,6 @@ use quote::{format_ident, quote, quote_spanned};
 use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
-use std::path::Path;
 use std::rc::Rc;
 use typed_index_collections::TiSlice;
 
@@ -311,14 +310,21 @@ impl ImageTable<'_> {
     }
 }
 
-/// Public entry point called from `generator::generate`: the generated code,
-/// and, when the configuration asks for coverage, its coverage map next to
-/// `destination_path`, with the extension `.slintcov`.
+/// What the generator produces for a document.
+pub struct Generated {
+    /// The Rust code, one line.
+    pub code: String,
+    /// The map of the code's coverage points, for the `slint-sc-coverage`
+    /// tool, which reads it from next to the code under the extension
+    /// `.slintcov`. See `Coverage`.
+    pub coverage_map: String,
+}
+
+/// Public entry point called from `generator::generate`.
 pub fn generate(
     doc: &Document,
-    compiler_config: &CompilerConfiguration,
-    destination_path: Option<&Path>,
-) -> std::io::Result<String> {
+    _compiler_config: &CompilerConfiguration,
+) -> std::io::Result<Generated> {
     let coverage = Coverage::new(doc);
     let mut output = TokenStream::new();
 
@@ -482,12 +488,8 @@ pub fn generate(
     }
 
     output.extend(images.statics());
-    let (code, map) = coverage.print(output);
-    if let (true, Some(path)) = (compiler_config.coverage, destination_path) {
-        crate::fileaccess::write_file_if_changed(&path.with_extension("slintcov"), map.as_bytes())?;
-    }
-
-    Ok(code)
+    let (code, coverage_map) = coverage.print(output);
+    Ok(Generated { code, coverage_map })
 }
 
 struct DeclaredProperty {

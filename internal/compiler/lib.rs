@@ -193,7 +193,7 @@ pub struct CompilerConfiguration {
 
     /// Write, next to the generated code, the map of its coverage points of
     /// the `.slint` source, for `slint-sc-coverage`. Only the Slint SC
-    /// generator honors it.
+    /// generator honors it, and only when writing to a file.
     pub coverage: bool,
 
     /// Generate debug hooks to inspect/override properties.
