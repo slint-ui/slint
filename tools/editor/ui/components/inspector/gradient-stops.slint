@@ -20,7 +20,9 @@ export component InspectorGradientStops inherits Rectangle {
     private property <float> units: root.value.kind == BrushKind.conic ? 360 : 100;
     private property <string> suffix: root.value.kind == BrushKind.conic ? "°" : "%";
     height: layout.preferred-height;
-    changed session-key => { root.dragging = false; }
+    changed session-key => {
+        root.dragging = false;
+    }
 
     function move-stop(position: float) -> bool {
         root.draft = root.value;
@@ -35,7 +37,9 @@ export component InspectorGradientStops inherits Rectangle {
         root.preview(root.draft);
     }
     function remove-stop(index: int) {
-        if root.value.stops.length <= 2 { return; }
+        if root.value.stops.length <= 2 {
+            return;
+        }
         root.draft = root.value;
         root.draft.stops = Api.clone-gradient-stops(root.value.stops);
         Api.remove-gradient-stop(root.draft.stops, index);
@@ -57,7 +61,10 @@ export component InspectorGradientStops inherits Rectangle {
                     root.selected-index = (root.selected-index + (event.text == Key.UpArrow ? -1 : 1)).clamp(0, root.value.stops.length - 1);
                     return accept;
                 }
-                if event.text == Key.Delete || event.text == Key.Backspace { root.remove-stop(root.selected-index); return accept; }
+                if event.text == Key.Delete || event.text == Key.Backspace {
+                    root.remove-stop(root.selected-index);
+                    return accept;
+                }
                 return reject;
             }
             Rectangle {
@@ -83,7 +90,10 @@ export component InspectorGradientStops inherits Rectangle {
                 accessible-label: "Gradient stop " + (index + 1);
                 accessible-value: (stop.position * root.units).to-fixed(1);
                 accessible-action-set-value(text) => {
-                    if text.is-float() { root.selected-index = index; root.move-stop(text.to-float() / root.units); }
+                    if text.is-float() {
+                        root.selected-index = index;
+                        root.move-stop(text.to-float() / root.units);
+                    }
                 }
             }
             TouchArea {
@@ -114,7 +124,16 @@ export component InspectorGradientStops inherits Rectangle {
         HorizontalLayout {
             Text { text: "Stops"; color: InspectorTokens.text; font-size: 12px; vertical-alignment: center; }
             Rectangle { horizontal-stretch: 1; }
-            InspectorSegment { kind: "text"; label: "+"; width: 24px; horizontal-stretch: 0; accessible-label: "Add gradient stop"; clicked => { root.add-stop(Api.gradient-stop-gap(root.value.stops)); } }
+            InspectorSegment {
+                kind: "text";
+                label: "+";
+                width: 24px;
+                horizontal-stretch: 0;
+                accessible-label: "Add gradient stop";
+                clicked => {
+                    root.add-stop(Api.gradient-stop-gap(root.value.stops));
+                }
+            }
         }
         HorizontalLayout {
             spacing: 6px;
@@ -142,7 +161,9 @@ export component InspectorGradientStops inherits Rectangle {
                             commit-key: root.session-key;
                             accepted(text) => {
                                 let number = text;
-                                if !number.is-float() { return false; }
+                                if !number.is-float() {
+                                    return false;
+                                }
                                 root.selected-index = index;
                                 return root.move-stop(number.to-float() / root.units);
                             }
@@ -151,9 +172,17 @@ export component InspectorGradientStops inherits Rectangle {
                             horizontal-stretch: 1;
                             color-focus := FocusScope {
                                 property <int> focus-generation: root.focus-generation;
-                                changed focus-generation => { if root.selected-index == index { self.focus(); } }
+                                changed focus-generation => {
+                                    if root.selected-index == index {
+                                        self.focus();
+                                    }
+                                }
                                 key-pressed(event) => {
-                                    if event.text == Key.Return || event.text == Key.Space { root.selected-index = index; root.edit-color(); return accept; }
+                                    if event.text == Key.Return || event.text == Key.Space {
+                                        root.selected-index = index;
+                                        root.edit-color();
+                                        return accept;
+                                    }
                                     return reject;
                                 }
                                 HorizontalLayout {
@@ -162,11 +191,32 @@ export component InspectorGradientStops inherits Rectangle {
                                     Rectangle { width: 14px; height: 14px; background: stop.color; border-radius: 3px; }
                                     Text { text: Api.color-to-data(stop.color).short-text; color: InspectorTokens.text; font-size: 11px; vertical-alignment: center; }
                                 }
-                                TouchArea { accessible-role: button; accessible-label: "Edit stop " + (index + 1) + " color"; clicked => { parent.focus(); root.selected-index = index; root.edit-color(); } accessible-action-default => { root.selected-index = index; root.edit-color(); } }
+                                TouchArea {
+                                    accessible-role: button;
+                                    accessible-label: "Edit stop " + (index + 1) + " color";
+                                    clicked => {
+                                        parent.focus();
+                                        root.selected-index = index;
+                                        root.edit-color();
+                                    }
+                                    accessible-action-default => {
+                                        root.selected-index = index;
+                                        root.edit-color();
+                                    }
+                                }
                             }
                         }
                         Text { width: 48px; text: (stop.color.alpha * 100 / 255).to-fixed(0) + "%"; color: InspectorTokens.text; font-size: 11px; vertical-alignment: center; }
-                        if root.value.stops.length > 2: InspectorSegment { width: 24px; horizontal-stretch: 0; kind: "text"; label: "−"; accessible-label: "Remove stop " + (index + 1); clicked => { root.remove-stop(index); } }
+                        if root.value.stops.length > 2: InspectorSegment {
+                            width: 24px;
+                            horizontal-stretch: 0;
+                            kind: "text";
+                            label: "−";
+                            accessible-label: "Remove stop " + (index + 1);
+                            clicked => {
+                                root.remove-stop(index);
+                            }
+                        }
                         if root.value.stops.length <= 2: Rectangle { width: 24px; }
                     }
                 }

@@ -38,6 +38,7 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_add_gradient_stop(add_gradient_stop);
     api.on_remove_gradient_stop(remove_gradient_stop);
     api.on_move_gradient_stop(move_gradient_stop);
+    // Skia interpolates linear/radial gradients in premultiplied alpha, but conic gradients in straight alpha.
     api.on_sample_fill_stop(|fill, position| {
         gradient_stop_at_position(fill.stops, position, fill.kind != ui::BrushKind::Conic)
     });
