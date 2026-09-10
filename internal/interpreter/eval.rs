@@ -1109,10 +1109,10 @@ fn with_layout_item_info(
     repeated_cross_size: Option<&Expression>,
     sub_expression: &Expression,
 ) -> Value {
-    // On a box layout's main-axis pass, re-measure each repeated cell at the
-    // layout's cross size so a height-for-width (resp. width-for-height)
-    // instance measures like an equivalent static cell. On a non-numeric
-    // value, fall back to the plain layout info rather than measuring at 0.
+    // On a vertical box layout's main-axis pass, re-measure each repeated
+    // cell at the layout's content width so a height-for-width instance
+    // measures like an equivalent static cell. On a non-numeric value, fall
+    // back to the plain layout info rather than measuring at 0.
     let cross_size: Option<f32> =
         repeated_cross_size.and_then(|e| eval_expression(ctx, e).try_into().ok());
     let mut cells: Vec<Value> = Vec::with_capacity(elements.len());
@@ -1205,11 +1205,8 @@ fn push_repeater_layout_items(
                     (Some(cs), i_slint_core::items::Orientation::Vertical) => {
                         RepeatedItemTree::layout_item_info_at_cross_width(instance.as_pin_ref(), cs)
                     }
-                    (Some(cs), i_slint_core::items::Orientation::Horizontal) => {
-                        RepeatedItemTree::layout_item_info_at_cross_height(
-                            instance.as_pin_ref(),
-                            cs,
-                        )
+                    (Some(_), i_slint_core::items::Orientation::Horizontal) => {
+                        unreachable!("a horizontal main pass forwards no cross size")
                     }
                     // A grid re-measures each instance at its own solved
                     // column width instead of one size shared by all cells.

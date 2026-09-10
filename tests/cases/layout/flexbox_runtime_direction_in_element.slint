@@ -4,7 +4,7 @@
 // Same shape as flexbox_runtime_direction_in_component.slint, but the
 // runtime-direction flex is wrapped in a plain element of the same component
 // instead of a sub-component. `wf` is not the component root, so
-// `move_declarations` hoists its synthesized `layoutinfo-h-with-constraint`
+// `move_declarations` hoists its synthesized `layoutinfo-v-with-constraint`
 // onto the root under a renamed private name. Measuring the cell must then use
 // the reference as it stands: re-anchoring it on `wf` would look the renamed
 // name up on a Rectangle, which has no such function.

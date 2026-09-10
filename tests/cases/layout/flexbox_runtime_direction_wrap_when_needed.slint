@@ -13,14 +13,16 @@
 // unwrapped single-line height (column) = 40 + 5 + 40 + 5 + 40 = 130px.
 //
 // Visual aids: the magenta outline is each flex's reported box; the sibling is
-// translucent orange. The outline hugs the items and stops before the sibling.
+// translucent orange. The outline hugs the items and stops before the sibling,
+// except in the short column case, where the third item spills below it
+// (see flexbox_column_wrap_width.slint).
 
 import { RadioGroup } from "std-widgets.slint";
 
 export component TestCase inherits Window {
     width: 400px;
-    // The short container is only 90px in column mode so the column wraps into a
-    // second column; a row flex there is wider than tall, so give it more room in
+    // The short container is only 90px in column mode so the third item does not
+    // fit; a row flex there is wider than tall, so give it more room in
     // row mode (and grow the window to match) instead of a cramped fit.
     height: root.row-direction ? 560px : 450px;
     // Two radio buttons pick the direction at runtime, through a ternary so it
@@ -74,7 +76,7 @@ export component TestCase inherits Window {
         }
     }
 
-    // --- Short: 90px only fits two items -> the third wraps to a 2nd column ---
+    // --- Short: 90px only fits two items -> the third overflows below ---
     shortFlexBg := Rectangle {
         x: 0; y: 350px; width: 400px; height: root.row-direction ? 200px : 90px;
         border-color: gray;
@@ -103,11 +105,14 @@ export component TestCase inherits Window {
         && t1.y < t2.y && t2.y < t3.y
         && tallFlex.width == 50px;
     out property <bool> tall_no_overlap: tallSibling.x >= tallFlex.x + tallFlex.width;
-    // Short: the third item wrapped into a second column, still no overlap.
-    out property <bool> short_wraps: s3.x > s1.x && shortFlex.width > 50px;
-    out property <bool> short_no_overlap: shortSibling.x >= shortFlex.x + shortFlex.width;
+    // Short: the flex is reported one column wide and does not wrap, so the
+    // third item stacks below the second, past the flex's height, and the
+    // sibling is placed right after the column.
+    out property <bool> short_overflows_down: s3.x == s1.x && s3.y >= shortFlex.height
+        && shortFlex.width == 50px;
+    out property <bool> short_sibling_after_column: shortSibling.x == shortFlex.x + shortFlex.width + 10px;
 
-    out property <bool> test: tall_single_column && tall_no_overlap && short_wraps && short_no_overlap;
+    out property <bool> test: tall_single_column && tall_no_overlap && short_overflows_down && short_sibling_after_column;
 }
 
 /*
@@ -115,8 +120,8 @@ export component TestCase inherits Window {
 auto handle = TestCase::create();
 assert(handle->get_tall_single_column());
 assert(handle->get_tall_no_overlap());
-assert(handle->get_short_wraps());
-assert(handle->get_short_no_overlap());
+assert(handle->get_short_overflows_down());
+assert(handle->get_short_sibling_after_column());
 assert(handle->get_test());
 ```
 
@@ -124,8 +129,8 @@ assert(handle->get_test());
 let instance = TestCase::new().unwrap();
 assert!(instance.get_tall_single_column(), "tall column flex must not wrap");
 assert!(instance.get_tall_no_overlap(), "tall flex overlaps its sibling");
-assert!(instance.get_short_wraps(), "short column flex must wrap into a 2nd column");
-assert!(instance.get_short_no_overlap(), "short flex overlaps its sibling");
+assert!(instance.get_short_overflows_down(), "short column flex must overflow below, not wrap into a 2nd column");
+assert!(instance.get_short_sibling_after_column(), "short flex sibling not placed after the reported column");
 assert!(instance.get_test());
 ```
 
@@ -133,8 +138,8 @@ assert!(instance.get_test());
 var instance = new slint.TestCase();
 assert(instance.tall_single_column);
 assert(instance.tall_no_overlap);
-assert(instance.short_wraps);
-assert(instance.short_no_overlap);
+assert(instance.short_overflows_down);
+assert(instance.short_sibling_after_column);
 assert(instance.test);
 ```
 */

@@ -2811,6 +2811,22 @@ fn build(l: &mut Loader) {
         ///
         /// In row direction, items are placed from left to right. When the available width is exceeded, items automatically wrap to the next row. In column direction, items are placed from top to bottom and wrap to the next column when the available height is exceeded.
         ///
+        /// A wrapping column direction container reports the width of all its columns
+        /// only when its `height` is set to a plain length, such as `height: 200px`.
+        /// `phx` and `rem` do not count, since they depend on the window's scale factor
+        /// and the default font size, which are only known while running.
+        /// Set it on the container, on a component it inherits from, or where the container is used.
+        /// A height a parent layout assigns, a percentage, and an expression all report
+        /// the width of a single column instead,
+        /// as for a CSS column flex container with an automatic height.
+        /// A height on the root of a component used elsewhere does not count for the elements inside it,
+        /// since each use may override it: set the height on the container instead.
+        /// A `wrap` column container never wraps into columns wider than its width:
+        /// the content overflows downward instead, like a wrapping `Text` given too little height.
+        /// A `wrap-reverse` one still wraps, since its lines are anchored at the opposite edge.
+        /// To wrap without setting a height, give the container more width,
+        /// with `horizontal-stretch` or a `min-width`: it wraps into whatever width it gets.
+        ///
         /// \footer
         /// ## Cell elements
         /// Cell elements inside a `FlexboxLayout` obtain the following new properties:

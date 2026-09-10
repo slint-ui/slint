@@ -6,13 +6,8 @@
 
 use crate::Value;
 use crate::eval::{EvalContext, eval_expression};
-use i_slint_compiler::layout::Orientation;
-use i_slint_compiler::llr::lower_layout_expression::{
-    MEASURE_KNOWN_H_LOCAL, MEASURE_KNOWN_W_LOCAL,
-};
-use i_slint_compiler::llr::{
-    BoxMeasureCell, Expression, FlexboxMeasureCell, FlexboxMeasureCellKind,
-};
+use i_slint_compiler::llr::lower_layout_expression::MEASURE_KNOWN_W_LOCAL;
+use i_slint_compiler::llr::{BoxMeasureCell, Expression, FlexboxMeasureCell};
 use i_slint_core::SharedVector;
 use i_slint_core::layout::{
     BoxLayoutData, FlexboxLayoutData, FlexboxLayoutItemInfo, GridLayoutData, GridLayoutInputData,
@@ -349,79 +344,65 @@ fn eval_info(ctx: &mut EvalContext, e: &Expression) -> LayoutInfo {
 
 /// One flexbox cell as seen by the measure callback, after expanding
 /// repeaters (a repeater contributes one entry per instance).
-struct FlatCell<'a> {
-    kind: FlatCellKind<'a>,
-    w4h_only: bool,
-}
-
-enum FlatCellKind<'a> {
+enum FlatCell<'a> {
     Static {
-        h_info: &'a Expression,
         v_info: &'a Expression,
     },
     Repeated(vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>),
-    /// No constrained layout info: the pre-resolved sizes are already correct.
+    /// Not height-for-width: the pre-resolved sizes are already correct.
     Fixed,
 }
 
 /// Flatten `measure_cells` into one entry per taffy cell. Static cells carry
-/// their `(h_info, v_info)` expressions; a repeater expands to one instance
-/// per row (re-measured through its own item tree at the assigned cross size).
+/// their `v_info` expression; a repeater expands to one instance per row
+/// (re-measured through its own item tree at the assigned width).
 fn flatten_measure_cells<'a>(
     ctx: &mut EvalContext,
     measure_cells: &'a [FlexboxMeasureCell],
 ) -> Vec<FlatCell<'a>> {
     let mut flat: Vec<FlatCell> = Vec::with_capacity(measure_cells.len());
     for item in measure_cells {
-        match &item.kind {
-            FlexboxMeasureCellKind::Static { h_info, v_info } => flat.push(FlatCell {
-                kind: FlatCellKind::Static { h_info, v_info },
-                w4h_only: item.w4h_only,
-            }),
-            FlexboxMeasureCellKind::Repeated(repeater) => {
+        match item {
+            FlexboxMeasureCell::Static { v_info } => flat.push(FlatCell::Static { v_info }),
+            FlexboxMeasureCell::Repeated(repeater) => {
                 if let Some(current) = ctx.current.as_ref() {
                     let rep = &current.repeaters[repeater.repeater_index];
                     rep.track_instance_changes();
-                    flat.extend(rep.instances_vec().into_iter().map(|instance| FlatCell {
-                        kind: FlatCellKind::Repeated(instance),
-                        w4h_only: item.w4h_only,
-                    }));
+                    flat.extend(rep.instances_vec().into_iter().map(FlatCell::Repeated));
                 }
             }
-            FlexboxMeasureCellKind::Fixed => {
-                flat.push(FlatCell { kind: FlatCellKind::Fixed, w4h_only: item.w4h_only })
-            }
+            FlexboxMeasureCell::Fixed => flat.push(FlatCell::Fixed),
         }
     }
     flat
 }
 
 /// Measure callback body shared by the solve and cross-axis-info paths:
-/// re-evaluate the cell's perpendicular layout info with the
-/// `measure_known_w` / `measure_known_h` local set to the dimension taffy
-/// assigned (a dimension it did not assign, `known_* == false`, arrives
-/// pre-resolved to the cell's preferred size). A probe with neither dimension
-/// known measures the cell's free axis at the default size (see
-/// `FlexboxMeasureFn` in i-slint-core).
+/// re-evaluate the cell's vertical layout info with the `measure_known_w`
+/// local set to the width taffy assigned (a width it did not assign,
+/// `known_w == false`, arrives pre-resolved to the cell's preferred width, and
+/// serves a probe with neither dimension known, see `FlexboxMeasureFn` in
+/// i-slint-core). With the height known, no dimension depends on it.
 fn measure_flexbox_cell(
     ctx: &mut EvalContext,
     flat: &[FlatCell],
     index: usize,
     w: f32,
     h: f32,
-    known_w: bool,
     known_h: bool,
 ) -> (f32, f32) {
     let Some(cell) = flat.get(index) else { return (w, h) };
-    // measure the height at the width `w`
-    let measure_height = |ctx: &mut EvalContext| match &cell.kind {
-        FlatCellKind::Static { v_info, .. } => {
+    if known_h {
+        return (w, h);
+    }
+    match cell {
+        FlatCell::Static { v_info } => {
             let prev = ctx.locals.insert(MEASURE_KNOWN_W_LOCAL.into(), Value::Number(w as f64));
             let info = eval_info(ctx, v_info);
             crate::eval::restore_local(ctx, MEASURE_KNOWN_W_LOCAL, prev);
             (w, info.preferred_bounded())
         }
-        FlatCellKind::Repeated(instance) => (
+        FlatCell::Repeated(instance) => (
             w,
             instance
                 .as_pin_ref()
@@ -429,37 +410,7 @@ fn measure_flexbox_cell(
                 .constraint
                 .preferred_bounded(),
         ),
-        FlatCellKind::Fixed => (w, h),
-    };
-    // measure the width at the height `h`
-    let measure_width = |ctx: &mut EvalContext| match &cell.kind {
-        FlatCellKind::Static { h_info, .. } => {
-            let prev = ctx.locals.insert(MEASURE_KNOWN_H_LOCAL.into(), Value::Number(h as f64));
-            let info = eval_info(ctx, h_info);
-            crate::eval::restore_local(ctx, MEASURE_KNOWN_H_LOCAL, prev);
-            (info.preferred_bounded(), h)
-        }
-        FlatCellKind::Repeated(instance) => (
-            instance
-                .as_pin_ref()
-                .flexbox_layout_item_info_at_cross_height(h)
-                .constraint
-                .preferred_bounded(),
-            h,
-        ),
-        FlatCellKind::Fixed => (w, h),
-    };
-    match (known_w, known_h) {
-        (true, true) => (w, h),
-        (true, false) => measure_height(ctx),
-        (false, true) => measure_width(ctx),
-        (false, false) => {
-            if cell.w4h_only {
-                measure_width(ctx)
-            } else {
-                measure_height(ctx)
-            }
-        }
+        FlatCell::Fixed => (w, h),
     }
 }
 
@@ -479,8 +430,8 @@ pub(crate) fn solve_flexbox_layout_with_measure(ctx: &mut EvalContext, expr: &Ex
     let fp = s.get_field("flex-props").map(to_flex_props).unwrap_or_default();
 
     let flat = flatten_measure_cells(ctx, measure_cells);
-    let mut measure = |index: usize, w: f32, h: f32, known_w: bool, known_h: bool| {
-        measure_flexbox_cell(ctx, &flat, index, w, h, known_w, known_h)
+    let mut measure = |index: usize, w: f32, h: f32, _known_w: bool, known_h: bool| {
+        measure_flexbox_cell(ctx, &flat, index, w, h, known_h)
     };
 
     Value::LayoutCache(i_slint_core::layout::solve_flexbox_layout_with_measure(
@@ -512,26 +463,18 @@ pub(crate) fn solve_flexbox_layout_with_measure(ctx: &mut EvalContext, expr: &Ex
 }
 
 /// Interpret [`Expression::BoxLayoutInfoOrthoWithMeasure`]: solve the box
-/// layout's main axis at the known cross-axis size, then fold the cells'
-/// cross-axis infos with `box_layout_info_ortho`, measuring each
-/// height-for-width (resp. width-for-height) cell at its solved main size.
+/// layout's main axis at the known width, then fold the cells' vertical infos
+/// with `box_layout_info_ortho`, measuring each height-for-width cell at its
+/// solved width.
 pub(crate) fn box_layout_info_ortho_with_measure(
     ctx: &mut EvalContext,
     expr: &Expression,
 ) -> Value {
     use i_slint_core::model::RepeatedItemTree;
-    let Expression::BoxLayoutInfoOrthoWithMeasure {
-        solve_data,
-        padding_ortho,
-        orientation,
-        measure_cells,
-    } = expr
+    let Expression::BoxLayoutInfoOrthoWithMeasure { solve_data, padding_ortho, measure_cells } =
+        expr
     else {
         return Value::Void;
-    };
-    let known_size_local = match orientation {
-        Orientation::Vertical => MEASURE_KNOWN_W_LOCAL,
-        Orientation::Horizontal => MEASURE_KNOWN_H_LOCAL,
     };
     let data = eval_expression(ctx, solve_data);
     let Value::Struct(s) = &data else { return LayoutInfo::default().into() };
@@ -552,11 +495,12 @@ pub(crate) fn box_layout_info_ortho_with_measure(
     for cell in measure_cells {
         match cell {
             BoxMeasureCell::Static { info } => {
-                let prev = ctx
-                    .locals
-                    .insert(known_size_local.into(), Value::Number(solved_size(cursor) as f64));
+                let prev = ctx.locals.insert(
+                    MEASURE_KNOWN_W_LOCAL.into(),
+                    Value::Number(solved_size(cursor) as f64),
+                );
                 let constraint = eval_info(ctx, info);
-                crate::eval::restore_local(ctx, known_size_local, prev);
+                crate::eval::restore_local(ctx, MEASURE_KNOWN_W_LOCAL, prev);
                 out_cells.push(LayoutItemInfo { constraint, ..Default::default() });
                 cursor += 1;
             }
@@ -571,15 +515,9 @@ pub(crate) fn box_layout_info_ortho_with_measure(
                 let rep = &current.repeaters[repeater.repeater_index];
                 rep.track_instance_changes();
                 for instance in rep.instances_vec() {
-                    let info = match orientation {
-                        Orientation::Vertical => instance
-                            .as_pin_ref()
-                            .layout_item_info_at_cross_width(solved_size(cursor)),
-                        Orientation::Horizontal => instance
-                            .as_pin_ref()
-                            .layout_item_info_at_cross_height(solved_size(cursor)),
-                    };
-                    out_cells.push(info);
+                    out_cells.push(
+                        instance.as_pin_ref().layout_item_info_at_cross_width(solved_size(cursor)),
+                    );
                     cursor += 1;
                 }
             }
@@ -608,8 +546,8 @@ pub(crate) fn flexbox_layout_info_cross_axis_with_measure(
     let (ch, cv) = (to_cells(&a[0]), to_cells(&a[1]));
     let fp = to_flex_props(&a[2]);
     let flat = flatten_measure_cells(ctx, measure_cells);
-    let mut measure = |index: usize, w: f32, h: f32, known_w: bool, known_h: bool| {
-        measure_flexbox_cell(ctx, &flat, index, w, h, known_w, known_h)
+    let mut measure = |index: usize, w: f32, h: f32, _known_w: bool, known_h: bool| {
+        measure_flexbox_cell(ctx, &flat, index, w, h, known_h)
     };
     i_slint_core::layout::flexbox_layout_info_cross_axis_with_measure(
         Slice::from_slice(&ch),

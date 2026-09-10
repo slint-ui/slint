@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // Nested perpendicular FlexboxLayouts, where the inner column-direction
-// flex is wrapped inside a component. The synthesis pass must propagate
-// `layoutinfo-h-with-constraint` through the component boundary so the
-// outer row flex's query for the cell's `layoutinfo-h` does not cycle
-// via `self.height`.
+// flex is wrapped inside a component. The inner flex's horizontal info is
+// measured at an unbounded height, so the outer row flex's query for the
+// cell's `layoutinfo-h` does not cycle via `self.height`.
 
 component InnerColumn {
     FlexboxLayout {

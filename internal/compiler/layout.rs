@@ -463,13 +463,6 @@ pub struct GridLayoutCell {
     pub colspan_expr: RowColExpr,
     pub rowspan_expr: RowColExpr,
     pub child_items: Option<Vec<RowChildTemplate>>, // for repeated rows
-    /// Set on every cell of a grid whose horizontal solve can read back into
-    /// its vertical cache, i.e. one holding a repeated width-for-height cell.
-    /// The vertical pass must then not measure repeated cells at their solved
-    /// column width, because reading the horizontal cache would close a
-    /// binding loop. Computed by `mark_grid_h_solve_reads_v_cache`, which runs
-    /// once the `layoutinfo-h-with-constraint` functions exist.
-    pub h_solve_reads_v_cache: bool,
 }
 
 impl GridLayoutCell {
@@ -620,7 +613,7 @@ impl LayoutGeometry {
 
 /// If this element or any of the parent has a binding to the property, call the functor with that binding, and the depth.
 /// Return None if the binding does not exist in any of the sub component, or Some with the result of the functor otherwise
-fn find_binding<R>(
+pub(crate) fn find_binding<R>(
     element: &ElementRc,
     name: &str,
     f: impl FnOnce(&BindingExpression, &Weak<Component>, i32) -> R,
@@ -781,8 +774,8 @@ impl FlexboxLayout {
         // layout when the element is a FlexboxLayout.
         let nr = {
             let eb = elem.borrow();
-            eb.layout_info_prop(Orientation::Vertical)
-                .or_else(|| eb.layout_info_prop(Orientation::Horizontal))
+            eb.effective_layout_info_prop(Orientation::Vertical)
+                .or_else(|| eb.effective_layout_info_prop(Orientation::Horizontal))
                 .cloned()
         }?;
         let target = nr.element();
@@ -908,20 +901,19 @@ pub fn implicit_layout_info_call(
     constraint: Option<Expression>,
 ) -> Option<Expression> {
     let mut elem_it = elem.clone();
+    // The instance decides, not the base it walks down to: a base cannot see a
+    // height the instance sets. Loop-invariant, so read it once.
+    let height_settled = elem.borrow().height_is_literal;
     loop {
         return match &elem_it.clone().borrow().base_type {
             ElementType::Component(base_comp) => {
-                // Flexbox supplies a cross-axis constraint to break its
+                // Flexbox supplies a width constraint to break its
                 // h/v cache cycle; call the base component's parametrized
                 // layout-info function when present.
-                let parametrized_nr = constraint.as_ref().and_then(|_| match orientation {
-                    Orientation::Vertical => {
-                        base_comp.root_element.borrow().layout_info_v_with_constraint.clone()
-                    }
-                    Orientation::Horizontal => {
-                        base_comp.root_element.borrow().layout_info_h_with_constraint.clone()
-                    }
-                });
+                let parametrized_nr =
+                    constraint.as_ref().filter(|_| orientation == Orientation::Vertical).and_then(
+                        |_| base_comp.root_element.borrow().layout_info_v_with_constraint.clone(),
+                    );
                 if let Some(nr) = parametrized_nr
                     && let Some(c) = &constraint
                 {
@@ -935,7 +927,8 @@ pub fn implicit_layout_info_call(
                         source_location: None,
                     });
                 }
-                match base_comp.root_element.borrow().layout_info_prop(orientation) {
+                let base_prop = elem_it.borrow().base_layout_info_prop(orientation, height_settled);
+                match base_prop {
                     Some(nr) => {
                         // We cannot take nr as is because it is relative to the elem's component. We therefore need to
                         // use `elem` as an element for the PropertyReference, not `root` within the base of elem

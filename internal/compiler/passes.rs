@@ -175,7 +175,6 @@ pub async fn run_passes(
         default_geometry::default_geometry(component, diag, &symbol_counters);
         lower_layout::optimize_single_cell_layouts(component);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);
-        lower_layout::synthesize_layoutinfo_h_with_constraint(component);
         lower_absolute_coordinates::lower_absolute_coordinates(component);
         z_order::reorder_by_z_order(component);
         lower_property_to_element::lower_property_to_element(
@@ -214,11 +213,6 @@ pub async fn run_passes(
     for root_component in doc.exported_roots() {
         lower_layout::check_window_layout(&root_component);
     }
-    // After the loop above: needs every component's `layoutinfo-h-with-constraint`
-    // and the wrapper elements the `lower_property_to_element` passes inject.
-    doc.visit_all_used_components(|component| {
-        lower_layout::mark_grid_h_solve_reads_v_cache(component);
-    });
     collect_globals::collect_globals(doc, diag);
     // Must be done before passes that rely on `NamedReference::is_constant`.
     collect_globals::mark_library_globals(doc);

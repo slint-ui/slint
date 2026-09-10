@@ -996,7 +996,8 @@ pub enum Expression {
     ComputeFlexboxLayoutInfo {
         layout: crate::layout::FlexboxLayout,
         orientation: crate::layout::Orientation,
-        /// only set in `layoutinfo-v-with-constraint`
+        /// The width parameter in `layoutinfo-v-with-constraint`, the flex's
+        /// own height in `layoutinfo-h-at-own-height`
         cross_axis_size: Option<Box<Expression>>,
     },
 

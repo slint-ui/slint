@@ -20,8 +20,8 @@ use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::lower_layout_expression::{
-    CROSS_HEIGHT_LOCAL, CROSS_WIDTH_LOCAL, GRID_MEASURE_CHILD_INDEX_LOCAL,
-    GRID_MEASURE_REPEATER_INDEX_LOCAL, MEASURE_KNOWN_H_LOCAL, MEASURE_KNOWN_W_LOCAL,
+    CROSS_WIDTH_LOCAL, GRID_MEASURE_CHILD_INDEX_LOCAL, GRID_MEASURE_REPEATER_INDEX_LOCAL,
+    MEASURE_KNOWN_W_LOCAL,
 };
 use crate::llr::{
     self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
@@ -3023,39 +3023,7 @@ fn generate_repeated_component(
                                 self.layout_item_info(sp::Orientation::Vertical, sp::None).constraint;
                         }
                     });
-                // Mirror of `v_constrained` for the other axis: a width-for-height
-                // instance (e.g. a wrapping column FlexboxLayout) must not read
-                // self.height. Use the unbounded constrained horizontal info.
-                let h_constrained =
-                    root_sc.layout_info_h_constrained_for_repeated.as_ref().map(|e| {
-                        let h_info = compile_expression(&e.borrow(), &ctx);
-                        quote! {
-                            if matches!(o, sp::Orientation::Horizontal) && child_index.is_none() {
-                                info.constraint = #h_info;
-                                return info;
-                            }
-                        }
-                    });
-                // A FlexboxLayout calls this with the height it assigned, so a
-                // width-for-height instance resolves to the same width as an
-                // equivalent static cell (instead of the unbounded, unwrapped one
-                // that `flexbox_layout_item_info` returns). The expression reads
-                // the `cross_height` local (matches CROSS_HEIGHT_LOCAL).
-                let at_cross_height_body = root_sc
-                    .layout_info_h_at_cross_height_for_repeated
-                    .as_ref()
-                    .map(|e| {
-                        let h_info = compile_expression(&e.borrow(), &ctx);
-                        quote! { info.constraint = #h_info; }
-                    })
-                    .unwrap_or_else(|| {
-                        quote! {
-                            info.constraint =
-                                self.layout_item_info(sp::Orientation::Horizontal, sp::None).constraint;
-                        }
-                    });
                 let cross_width_param = ident(CROSS_WIDTH_LOCAL);
-                let cross_height_param = ident(CROSS_HEIGHT_LOCAL);
                 quote! {
                     fn flexbox_layout_item_info(
                         self: ::core::pin::Pin<&Self>,
@@ -3066,7 +3034,6 @@ fn generate_repeated_component(
                         let _self = self.as_ref();
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
                         #v_constrained
-                        #h_constrained
                         info.constraint = self.layout_item_info(o, child_index).constraint;
                         info
                     }
@@ -3081,69 +3048,41 @@ fn generate_repeated_component(
                         #at_cross_width_body
                         info
                     }
-                    #[allow(unused_variables)]
-                    fn flexbox_layout_item_info_at_cross_height(
-                        self: ::core::pin::Pin<&Self>,
-                        #cross_height_param: f32,
-                    ) -> sp::FlexboxLayoutItemInfo {
-                        #[allow(unused)]
-                        let _self = self.as_ref();
-                        let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
-                        #at_cross_height_body
-                        info
-                    }
                 }
             });
-        // A box layout calls these with the cross size it lays the instance
-        // out at, so a height-for-width (resp. width-for-height) instance
-        // measures like an equivalent static cell. Mirrors the flexbox
-        // `flexbox_layout_item_info_at_cross_*` pair; the trait default (the
-        // plain `layout_item_info`) covers the other repeated components.
-        // The per-item fields are the same as in `layout_item_info`; `o` is
-        // fixed per accessor, so bind it locally and reuse those guards. Don't
-        // delegate to `layout_item_info` for them: it measures the constraint
-        // through `layout_info`, which is what this accessor exists to avoid.
-        let layout_item_info_at_cross_fn =
-            |expr: Option<&llr::MutExpression>, fn_name: &str, param: &str, o: Orientation| {
-                expr.filter(|_| root_sc.flexbox_layout_item_info_for_repeated.is_none()).map(|e| {
+        // A box layout calls this with the width it lays the instance out at,
+        // so a height-for-width instance measures like an equivalent static
+        // cell. Mirrors the flexbox `flexbox_layout_item_info_at_cross_width`;
+        // the trait default (the plain `layout_item_info`) covers the other
+        // repeated components. The per-item fields are the same as in
+        // `layout_item_info`; `o` is fixed, so bind it locally and reuse those
+        // guards. Don't delegate to `layout_item_info` for them: it measures
+        // the constraint through `layout_info`, which is what this accessor
+        // exists to avoid.
+        let layout_item_info_at_cross_width_fn = root_sc
+            .layout_info_v_at_cross_width_for_repeated
+            .as_ref()
+            .filter(|_| root_sc.flexbox_layout_item_info_for_repeated.is_none())
+            .map(|e| {
                 let info = compile_expression(&e.borrow(), &ctx);
-                let fn_name = ident(fn_name);
-                let param = ident(param);
-                let o = match o {
-                    Orientation::Horizontal => quote!(sp::Orientation::Horizontal),
-                    Orientation::Vertical => quote!(sp::Orientation::Vertical),
-                };
+                let param = ident(CROSS_WIDTH_LOCAL);
                 quote! {
-                    fn #fn_name(
+                    fn layout_item_info_at_cross_width(
                         self: ::core::pin::Pin<&Self>,
                         #param: f32,
                     ) -> sp::LayoutItemInfo {
                         #[allow(unused)]
                         let _self = self.as_ref();
                         #[allow(unused)]
-                        let o = #o;
+                        let o = sp::Orientation::Vertical;
                         sp::LayoutItemInfo { constraint: #info, #align_self_field #order_field ..::core::default::Default::default() }
                     }
                 }
-            })
-            };
-        let layout_item_info_at_cross_width_fn = layout_item_info_at_cross_fn(
-            root_sc.layout_info_v_at_cross_width_for_repeated.as_ref(),
-            "layout_item_info_at_cross_width",
-            CROSS_WIDTH_LOCAL,
-            Orientation::Vertical,
-        );
-        let layout_item_info_at_cross_height_fn = layout_item_info_at_cross_fn(
-            root_sc.layout_info_h_at_cross_height_for_repeated.as_ref(),
-            "layout_item_info_at_cross_height",
-            CROSS_HEIGHT_LOCAL,
-            Orientation::Horizontal,
-        );
+            });
         quote! {
             #layout_item_info_fn
             #flexbox_layout_item_info_fn
             #layout_item_info_at_cross_width_fn
-            #layout_item_info_at_cross_height_fn
             #grid_layout_input_data_fn
         }
     };
@@ -3854,22 +3793,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             } }
         }
 
-        Expression::BoxLayoutInfoOrthoWithMeasure {
-            solve_data,
-            padding_ortho,
-            orientation,
-            measure_cells,
-        } => {
+        Expression::BoxLayoutInfoOrthoWithMeasure { solve_data, padding_ortho, measure_cells } => {
             let data = compile_expression(solve_data, ctx);
             let padding = compile_expression(padding_ortho, ctx);
-            let known_size_ident = match orientation {
-                Orientation::Vertical => ident(MEASURE_KNOWN_W_LOCAL),
-                Orientation::Horizontal => ident(MEASURE_KNOWN_H_LOCAL),
-            };
-            let at_cross_fn = match orientation {
-                Orientation::Vertical => quote!(layout_item_info_at_cross_width),
-                Orientation::Horizontal => quote!(layout_item_info_at_cross_height),
-            };
+            let known_size_ident = ident(MEASURE_KNOWN_W_LOCAL);
             let steps = measure_cells.iter().map(|cell| match cell {
                 llr::BoxMeasureCell::Static { info } => {
                     let info = compile_expression(info, ctx);
@@ -3888,7 +3815,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     quote!(
                         for i in 0.._self.#repeater_id.len() {
                             if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
-                                cells_vec.push(sub_comp.as_pin_ref().#at_cross_fn(
+                                cells_vec.push(sub_comp.as_pin_ref().layout_item_info_at_cross_width(
                                     box_ortho_solved.as_slice()[cursor * 2 + 1] as f32,
                                 ));
                             } else {
@@ -5809,10 +5736,9 @@ fn generate_with_layout_item_info(
 ) -> TokenStream {
     let repeated_indices_var_name = repeated_indices_var_name.map(ident);
     let repeater_steps_var_name = repeater_steps_var_name.map(ident);
-    // Cross-axis size forwarded to repeated cells on a box layout's main-axis
-    // pass, so a height-for-width (resp. width-for-height) instance measures
-    // at the size it is laid out at, like a static cell. Evaluated once, not
-    // per instance.
+    // Content width forwarded to repeated cells on a vertical box layout's
+    // main-axis pass, so a height-for-width instance measures at the width it
+    // is laid out at, like a static cell. Evaluated once, not per instance.
     let cross_size_init = repeated_cross_size.map(|e| {
         let cs = compile_expression(e, ctx);
         quote!(let box_cross_size = (#cs) as f32;)
@@ -5888,11 +5814,9 @@ fn generate_with_layout_item_info(
                                         .as_pin_ref()
                                         .layout_item_info_at_cross_width(box_cross_size)
                                 ),
-                                (Some(_), _, Orientation::Horizontal) => quote!(
-                                    sub_comp
-                                        .as_pin_ref()
-                                        .layout_item_info_at_cross_height(box_cross_size)
-                                ),
+                                (Some(_), _, Orientation::Horizontal) => {
+                                    unreachable!("a horizontal main pass forwards no cross size")
+                                }
                                 (None, Some(w), _) => quote!(
                                     sub_comp
                                         .as_pin_ref()
@@ -6086,156 +6010,79 @@ fn generate_with_flexbox_layout_item_info(
 
 /// Emit the measure callback shared by `solve_flexbox_layout_with_measure` and
 /// `flexbox_layout_info_cross_axis_with_measure` calls, bound to a `measure`
-/// local. For each static cell, `measure_cells[i]` carries
-/// `(h_info_given_known_h, v_info_given_known_w)` — `LayoutInfo` expressions
-/// that read the `measure_known_w` / `measure_known_h` locals. taffy calls
-/// the callback with at most one of width/height known (the cross axis), so we
-/// recompute that cell's perpendicular info at the assigned dimension. A call
-/// with neither dimension known is a content-size probe (see `FlexboxMeasureFn`
-/// in i-slint-core): it measures the free axis at the default size — the
-/// horizontal axis for a width-for-height-only cell, the vertical one
-/// otherwise.
+/// local. For each static height-for-width cell, `measure_cells[i]` carries
+/// its vertical `LayoutInfo` expression, which reads the `measure_known_w`
+/// local. taffy calls the callback with at most one of width/height known
+/// (the cross axis): with the width known we recompute that cell's height at
+/// it, with the height known no dimension changes. A call with neither
+/// dimension known is a content-size probe (see `FlexboxMeasureFn` in
+/// i-slint-core): it measures the height at the default width.
 fn generate_flexbox_measure_closure(
     measure_cells: &[llr::FlexboxMeasureCell],
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let known_w_ident = ident(MEASURE_KNOWN_W_LOCAL);
-    let known_h_ident = ident(MEASURE_KNOWN_H_LOCAL);
-    let has_repeater = measure_cells
-        .iter()
-        .any(|item| matches!(item.kind, llr::FlexboxMeasureCellKind::Repeated(_)));
+    let has_repeater =
+        measure_cells.iter().any(|item| matches!(item, llr::FlexboxMeasureCell::Repeated(_)));
 
-    // Height-for-width / width-for-height: recompute the perpendicular info at
-    // the dimension taffy assigned. Without a repeater the cell index is known at
-    // compile time, so match on it (O(1) dispatch). With a repeater the count is
-    // only known at runtime: walk the elements, advancing `cursor` by 1 per static
-    // cell and by the repeater's instance count per repeater, until `index`'s range
-    // is found.
-    let (v_body, h_body, probe_body) = if !has_repeater {
-        let mut v_arms = Vec::new();
-        let mut h_arms = Vec::new();
-        let mut probe_arms = Vec::new();
-        for (i, item) in measure_cells.iter().enumerate() {
-            if let llr::FlexboxMeasureCellKind::Static { h_info, v_info } = &item.kind {
-                let idx = proc_macro2::Literal::usize_unsuffixed(i);
-                let v = compile_expression(v_info, ctx);
-                let h = compile_expression(h_info, ctx);
-                let v_arm = quote!(#idx => return (w, ({ #v }).preferred_bounded()),);
-                let h_arm = quote!(#idx => return (({ #h }).preferred_bounded(), h),);
-                probe_arms.push(if item.w4h_only { h_arm.clone() } else { v_arm.clone() });
-                v_arms.push(v_arm);
-                h_arms.push(h_arm);
-            }
-        }
-        (
-            quote!(match index { #(#v_arms)* _ => {} }),
-            quote!(match index { #(#h_arms)* _ => {} }),
-            quote!(match index { #(#probe_arms)* _ => {} }),
-        )
+    // Without a repeater the cell index is known at compile time, so match on
+    // it (O(1) dispatch). With a repeater the count is only known at runtime:
+    // walk the elements, advancing `cursor` by 1 per static cell and by the
+    // repeater's instance count per repeater, until `index`'s range is found.
+    let v_body = if !has_repeater {
+        let arms = measure_cells.iter().enumerate().filter_map(|(i, item)| {
+            let llr::FlexboxMeasureCell::Static { v_info } = item else { return None };
+            let idx = proc_macro2::Literal::usize_unsuffixed(i);
+            let v = compile_expression(v_info, ctx);
+            Some(quote!(#idx => return (w, ({ #v }).preferred_bounded()),))
+        });
+        quote!(match index { #(#arms)* _ => {} })
     } else {
-        let mut v_steps = Vec::new();
-        let mut h_steps = Vec::new();
-        let mut probe_steps = Vec::new();
-        for item in measure_cells {
-            match &item.kind {
-                llr::FlexboxMeasureCellKind::Static { h_info, v_info } => {
-                    let v = compile_expression(v_info, ctx);
-                    let h = compile_expression(h_info, ctx);
-                    let v_step = quote!(
-                        if index == cursor { return (w, ({ #v }).preferred_bounded()); }
-                        cursor += 1;
-                    );
-                    let h_step = quote!(
-                        if index == cursor { return (({ #h }).preferred_bounded(), h); }
-                        cursor += 1;
-                    );
-                    probe_steps.push(if item.w4h_only { h_step.clone() } else { v_step.clone() });
-                    v_steps.push(v_step);
-                    h_steps.push(h_step);
-                }
-                llr::FlexboxMeasureCellKind::Repeated(repeater) => {
-                    let repeater_id =
-                        format_ident!("repeater{}", usize::from(repeater.repeater_index));
-                    let v_step = quote!(
-                        {
-                            let len = _self.#repeater_id.len();
-                            if index >= cursor && index < cursor + len {
-                                if let Some(sub_comp) = _self.#repeater_id.instance_at(index - cursor) {
-                                    return (w, sub_comp
-                                        .as_pin_ref()
-                                        .flexbox_layout_item_info_at_cross_width(w)
-                                        .constraint
-                                        .preferred_bounded());
-                                }
-                                return (w, h);
-                            }
-                            cursor += len;
-                        }
-                    );
-                    let h_step = quote!(
-                        {
-                            let len = _self.#repeater_id.len();
-                            if index >= cursor && index < cursor + len {
-                                if let Some(sub_comp) = _self.#repeater_id.instance_at(index - cursor) {
-                                    return (sub_comp
-                                        .as_pin_ref()
-                                        .flexbox_layout_item_info_at_cross_height(h)
-                                        .constraint
-                                        .preferred_bounded(), h);
-                                }
-                                return (w, h);
-                            }
-                            cursor += len;
-                        }
-                    );
-                    probe_steps.push(if item.w4h_only { h_step.clone() } else { v_step.clone() });
-                    v_steps.push(v_step);
-                    h_steps.push(h_step);
-                }
-                llr::FlexboxMeasureCellKind::Fixed => {
-                    let step = quote!(cursor += 1;);
-                    probe_steps.push(step.clone());
-                    v_steps.push(step.clone());
-                    h_steps.push(step);
-                }
+        let steps = measure_cells.iter().map(|item| match item {
+            llr::FlexboxMeasureCell::Static { v_info } => {
+                let v = compile_expression(v_info, ctx);
+                quote!(
+                    if index == cursor { return (w, ({ #v }).preferred_bounded()); }
+                    cursor += 1;
+                )
             }
-        }
+            llr::FlexboxMeasureCell::Repeated(repeater) => {
+                let repeater_id = format_ident!("repeater{}", usize::from(repeater.repeater_index));
+                quote!(
+                    {
+                        let len = _self.#repeater_id.len();
+                        if index >= cursor && index < cursor + len {
+                            if let Some(sub_comp) = _self.#repeater_id.instance_at(index - cursor) {
+                                return (w, sub_comp
+                                    .as_pin_ref()
+                                    .flexbox_layout_item_info_at_cross_width(w)
+                                    .constraint
+                                    .preferred_bounded());
+                            }
+                            return (w, h);
+                        }
+                        cursor += len;
+                    }
+                )
+            }
+            llr::FlexboxMeasureCell::Fixed => quote!(cursor += 1;),
+        });
         // The final `cursor += …` is a dead write; `let _ = cursor;` consumes it
         // to avoid an `unused_assignments` warning in the generated code.
-        (
-            quote!(let mut cursor = 0usize; #(#v_steps)* let _ = cursor;),
-            quote!(let mut cursor = 0usize; #(#h_steps)* let _ = cursor;),
-            quote!(let mut cursor = 0usize; #(#probe_steps)* let _ = cursor;),
-        )
+        quote!(let mut cursor = 0usize; #(#steps)* let _ = cursor;)
     };
 
     // A dimension taffy didn't assign (`known_* == false`) arrives pre-resolved
     // to the cell's preferred size by resolve_measure_defaults in i-slint-core.
     quote! {
-        let mut measure = |index: usize, w: f32, h: f32, known_w: bool, known_h: bool| -> (f32, f32) {
-            match (known_w, known_h) {
-                (true, true) => (w, h),
-                (true, false) => {
-                    let #known_w_ident = w;
-                    let _ = #known_w_ident;
-                    #v_body
-                    (w, h)
-                }
-                (false, true) => {
-                    let #known_h_ident = h;
-                    let _ = #known_h_ident;
-                    #h_body
-                    (w, h)
-                }
-                (false, false) => {
-                    let #known_w_ident = w;
-                    let _ = #known_w_ident;
-                    let #known_h_ident = h;
-                    let _ = #known_h_ident;
-                    #probe_body
-                    (w, h)
-                }
+        let mut measure = |index: usize, w: f32, h: f32, _known_w: bool, known_h: bool| -> (f32, f32) {
+            if known_h {
+                return (w, h);
             }
+            let #known_w_ident = w;
+            let _ = #known_w_ident;
+            #v_body
+            (w, h)
         };
     }
 }
