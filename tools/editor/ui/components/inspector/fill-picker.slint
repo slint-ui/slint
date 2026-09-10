@@ -227,16 +227,16 @@ export component InspectorFillPicker inherits Rectangle {
 
                         if root.allow-gradient && root.editable: HorizontalLayout {
                             spacing: 4px;
-                            InspectorSegment { kind: "text"; label: "Solid"; selected: root.working-fill.kind == BrushKind.solid; clicked => { root.select-kind(BrushKind.solid); } }
-                            InspectorSegment { kind: "text"; label: "Gradient"; selected: root.working-fill.kind != BrushKind.solid; clicked => { root.select-kind(root.last-gradient); } }
+                            InspectorSegment { kind: "text"; label: "Solid"; selected: root.working-fill.kind == BrushKind.solid; clicked => { picker-focus.focus(); root.select-kind(BrushKind.solid); } }
+                            InspectorSegment { kind: "text"; label: "Gradient"; selected: root.working-fill.kind != BrushKind.solid; clicked => { picker-focus.focus(); root.select-kind(root.last-gradient); } }
                         }
                         if root.editable && root.working-fill.kind != BrushKind.solid: InspectorGradientGeometry {
                             value: root.working-fill;
                             session-key: root.session-key;
                             preview(fill) => { return root.preview-fill(fill); }
-                            center-mode-selected(custom) => { return root.set-custom-center(custom); }
-                            radius-mode-selected(custom) => { return root.set-custom-radius(custom); }
-                            type-selected(kind) => { return root.select-kind(kind); }
+                            center-mode-selected(custom) => { picker-focus.focus(); return root.set-custom-center(custom); }
+                            radius-mode-selected(custom) => { picker-focus.focus(); return root.set-custom-radius(custom); }
+                            type-selected(kind) => { picker-focus.focus(); return root.select-kind(kind); }
                         }
 
                         if root.editable && root.working-fill.kind != BrushKind.solid: InspectorGradientStops {
@@ -258,7 +258,7 @@ export component InspectorFillPicker inherits Rectangle {
                         if !root.unsupported: InspectorRecentFills {
                             allow-gradient: root.allow-gradient;
                             editable: root.editable;
-                            chosen(fill) => { root.select-recent(fill); }
+                            chosen(fill) => { picker-focus.focus(); root.select-recent(fill); }
                         }
                     }
                     stop-panel := InspectorPickerPanel {
@@ -266,7 +266,7 @@ export component InspectorFillPicker inherits Rectangle {
                         x: root.stacked || root.stop-on-left ? 0px : 308px;
                         y: root.stacked ? main-panel.height + 8px : 0px;
                         title: "Stop color";
-                        closed => { root.stop-panel-open = false; root.focus-stop-generation += 1; }
+                        closed => { picker-focus.focus(); root.stop-panel-open = false; root.focus-stop-generation += 1; }
                         InspectorColorControls {
                             value: root.working-color;
                             editable: root.editable && root.stop-panel-open;
