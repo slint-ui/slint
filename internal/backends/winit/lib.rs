@@ -37,6 +37,8 @@ pub(crate) mod event_loop;
 mod frame_throttle;
 #[cfg(target_os = "ios")]
 mod ios;
+#[cfg(target_os = "macos")]
+mod macos;
 
 /// Re-export of the winit crate.
 pub use winit;
