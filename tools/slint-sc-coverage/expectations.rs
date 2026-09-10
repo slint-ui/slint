@@ -41,7 +41,7 @@ const EXPECTED: &str = "`^+` or `^-` for a point, `^++`, `^+-`, `^-+` or `^--` f
 pub const UPDATE_VAR: &str = "SLINT_COVERAGE_TEST_UPDATE";
 
 /// Whether the case states its coverage: it has a caret line.
-fn is_stated(source: &str) -> bool {
+pub fn is_stated(source: &str) -> bool {
     source.lines().any(is_caret_line)
 }
 
@@ -114,7 +114,7 @@ fn check_caret_line(line: &str) -> Result<(), String> {
         }
         let marks = rest.strip_prefix('^').and_then(|after| {
             MARKS.into_iter().find(|marks| {
-                let next = after[marks.len().min(after.len())..].chars().next();
+                let next = after.strip_prefix(marks).and_then(|next| next.chars().next());
                 after.starts_with(marks) && matches!(next, None | Some(' ' | '^'))
             })
         });
@@ -356,6 +356,10 @@ set SLINT_COVERAGE_TEST_UPDATE=1 to rewrite the case"
                 "line 6: column 33: expected `^+` or `^-` for a point, `^++`, `^+-`, `^-+` or `^--` for a decision",
             ),
             (" //#c^+          ^-           ^-", "line 6: a caret line starts in the first column"),
+            (
+                "//#c^…",
+                "line 6: column 5: expected `^+` or `^-` for a point, `^++`, `^+-`, `^-+` or `^--` for a decision",
+            ),
             ("//#c ", "line 6: a caret line without a caret"),
         ] {
             let source = STATED.replacen(good, wrong, 1);
