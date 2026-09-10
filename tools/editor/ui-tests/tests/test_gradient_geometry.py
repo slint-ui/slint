@@ -55,29 +55,16 @@ def test_custom_gradient_geometry_uses_layout_size(
         field(
             "Rectangle background color picker", slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
-        if kind == "radial":
-            assert radial_geometry(window, "LayoutGradient::fill") == pytest.approx(
-                (200, 200, math.hypot(200, 200)), abs=0.001
-            )
-            click_picker_button(window, "Close Custom")
-            assert source_file.read_text() == source
-            return
-        field(
-            "Gradient center", slint_testing.AccessibleRole.Combobox
-        ).accessible_value = "Custom"
-        for axis in ("X", "Y"):
-            assert float(
-                field(
-                    f"Gradient center {axis}", slint_testing.AccessibleRole.TextInput
-                ).accessible_value
-            ) == pytest.approx(200)
-        assert source_file.read_text() == source
-        field(
-            "Close Custom", slint_testing.AccessibleRole.Button
-        ).invoke_accessible_default_action()
-        wait_until(
-            lambda: True if "at 200px 200px" in source_file.read_text() else None
+        geometry = (
+            radial_geometry(window, "LayoutGradient::fill")
+            if kind == "radial"
+            else conic_geometry(window, element_id="LayoutGradient::fill")
         )
+        assert geometry == pytest.approx(
+            (200, 200, math.hypot(200, 200) if kind == "radial" else 160), abs=0.001
+        )
+        click_picker_button(window, "Close Custom")
+        assert source_file.read_text() == source
 
 
 def picker_field(window, label, role=slint_testing.AccessibleRole.TextInput):
@@ -152,16 +139,11 @@ def test_custom_geometry_survives_mode_changes(
         if not loaded_custom:
             set_radial_geometry(window, 37, 61, 95)
         set_picker_mode(window, "Gradient type", "Conic")
-        set_picker_mode(window, "Gradient center", "Custom")
-        picker_field(window, "Gradient center X").accessible_value = "83"
-        picker_field(window, "Gradient center Y").accessible_value = "109"
-        set_picker_mode(window, "Gradient center", "Automatic")
+        set_conic_center(window, 83, 109)
         set_picker_mode(window, "Gradient type", "Radial")
         assert radial_geometry(window) == pytest.approx((37, 61, 95), abs=0.001)
         set_picker_mode(window, "Gradient type", "Conic")
-        set_picker_mode(window, "Gradient center", "Custom")
-        assert float(picker_field(window, "Gradient center X").accessible_value) == 83
-        assert float(picker_field(window, "Gradient center Y").accessible_value) == 109
+        assert conic_geometry(window)[:2] == pytest.approx((83, 109), abs=0.001)
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -207,7 +189,7 @@ def test_stop_precision_survives_save_and_reopen(
 
             press_key(window, keys.RightArrow)
         else:
-            picker_field(window, "Gradient angle degrees").accessible_value = "45"
+            rotate_conic(window, 0, 45)
         first = save()
         assert b"33.33%" not in first
         assert b"33.3333" in first
@@ -220,7 +202,7 @@ def test_stop_precision_survives_save_and_reopen(
             click_picker_button(window, "Gradient center handle")
             press_key(window, keys.RightArrow)
         else:
-            picker_field(window, "Gradient angle degrees").accessible_value = "46"
+            rotate_conic(window, 45, 46)
         picker_field(
             window, "Close Custom", slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
@@ -316,7 +298,7 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
             picker_field(window, "Hex color").accessible_value = "#12345680"
             click_picker_button(window, "Close Stop color")
             set_picker_mode(window, "Gradient type", "Conic")
-            picker_field(window, "Gradient angle degrees").accessible_value = "37"
+            rotate_conic(window, 0, 37)
             set_picker_mode(window, "Gradient type", "Linear")
             click_picker_button(window, "Solid")
             assert picker_field(window, "Hex color").accessible_value == "#12345680"
@@ -396,6 +378,38 @@ def radial_geometry(window, element_id="Gradient::fill"):
         c.y - rectangle.absolute_position.y,
         math.hypot(r.x - c.x, r.y - c.y),
     )
+
+
+def conic_geometry(window, angle=0, element_id="Gradient::fill"):
+    from test_linear_gradient_canvas import center, control
+
+    rectangle = wait_until(
+        lambda: next(iter(window.find_elements_by_id(element_id)), None)
+    )
+    c = center(control(window, "Gradient center handle"), angle - 90)
+    r = center(control(window, "Gradient rotation handle"), angle - 90)
+    return (
+        c.x - rectangle.absolute_position.x,
+        c.y - rectangle.absolute_position.y,
+        math.hypot(r.x - c.x, r.y - c.y),
+    )
+
+
+def set_conic_center(window, x, y, angle=0):
+    from test_linear_gradient_canvas import center, control, gesture, shifted
+
+    old_x, old_y, _ = conic_geometry(window, angle)
+    c = center(control(window, "Gradient center handle"), angle - 90)
+    gesture(window, c, shifted(c, x=x - old_x, y=y - old_y))
+
+
+def rotate_conic(window, previous, next_angle):
+    from test_conic_gradient_canvas import around
+    from test_linear_gradient_canvas import center, control, gesture
+
+    c = center(control(window, "Gradient center handle"), previous - 90)
+    r = center(control(window, "Gradient rotation handle"), previous - 90)
+    gesture(window, r, around(c, math.hypot(r.x - c.x, r.y - c.y), next_angle))
 
 
 def set_radial_geometry(window, x, y, radius):

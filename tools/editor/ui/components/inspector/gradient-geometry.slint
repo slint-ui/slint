@@ -11,6 +11,7 @@ export component InspectorGradientGeometry inherits Rectangle {
     in property <FillData> value;
     in property <bool> canvas-linear;
     in property <bool> canvas-radial;
+    in property <bool> canvas-conic;
     in property <string> session-key;
     callback preview(FillData) -> bool;
     callback type-selected(BrushKind) -> bool;
@@ -44,7 +45,7 @@ export component InspectorGradientGeometry inherits Rectangle {
                     return root.type-selected(text == "Linear" ? BrushKind.linear : text == "Radial" ? BrushKind.radial : BrushKind.conic);
                 }
             }
-            if root.value.kind != BrushKind.radial && !root.canvas-linear: InspectorRotationKnob {
+            if root.value.kind != BrushKind.radial && !root.canvas-linear && !root.canvas-conic: InspectorRotationKnob {
                 accessible-name: "Gradient angle";
                 value: root.value.angle;
                 commit-key: root.session-key;
@@ -61,7 +62,7 @@ export component InspectorGradientGeometry inherits Rectangle {
                     root.preview(root.gesture-value);
                 }
             }
-            if root.value.kind != BrushKind.radial && !root.canvas-linear: InspectorTextFieldBase {
+            if root.value.kind != BrushKind.radial && !root.canvas-linear && !root.canvas-conic: InspectorTextFieldBase {
                 accessible-name: "Gradient angle degrees";
                 width: 62px;
                 value: root.value.angle.to-fixed(1);
@@ -71,7 +72,7 @@ export component InspectorGradientGeometry inherits Rectangle {
                 }
             }
         }
-        if root.value.kind != BrushKind.linear && !root.canvas-radial: HorizontalLayout {
+        if root.value.kind != BrushKind.linear && !root.canvas-radial && !root.canvas-conic: HorizontalLayout {
             spacing: 8px;
             Text { text: "Center"; color: InspectorTokens.muted; font-size: 11px; vertical-alignment: center; width: 58px; }
             InspectorComboBox {
@@ -85,7 +86,7 @@ export component InspectorGradientGeometry inherits Rectangle {
                 }
             }
         }
-        if root.value.kind != BrushKind.linear && root.value.custom-center && !root.canvas-radial: HorizontalLayout {
+        if root.value.kind != BrushKind.linear && root.value.custom-center && !root.canvas-radial && !root.canvas-conic: HorizontalLayout {
             spacing: 8px;
             Text { text: "X / Y px"; color: InspectorTokens.muted; font-size: 11px; vertical-alignment: center; width: 58px; }
             InspectorTextFieldBase {

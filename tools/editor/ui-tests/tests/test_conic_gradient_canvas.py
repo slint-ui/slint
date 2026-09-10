@@ -34,6 +34,9 @@ def open_conic(window):
     select_outline_row(window, "fill")
     click(window, "Rectangle background color picker")
     control(window, "Gradient rotation handle")
+    assert not elements_with_label(window.root_element, "Gradient angle degrees")
+    assert not elements_with_label(window.root_element, "Gradient center")
+    control(window, "Add gradient stop")
 
 
 def around(c, radius, degrees):
@@ -184,5 +187,71 @@ def test_conic_ring_insertion(editor_binary, editor_environment, conic_scene, tm
         ) == pytest.approx(90, abs=0.01)
         press_key(window, keys.Delete)
         assert not elements_with_label(window.root_element, "Gradient stop 4")
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
+
+
+def test_conic_picker_and_canvas_share_selection_and_color(
+    editor_binary, editor_environment, conic_scene, tmp_path
+):
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        window = first_window(editor)
+        open_conic(window)
+        (tmp_path / "conic-picker-and-canvas.png").write_bytes(
+            window.grab_window_as_png()
+        )
+        control(window, "Gradient stop 2", slint_testing.AccessibleRole.Slider)
+        assert not elements_with_label(window.root_element, "Hex color")
+        click(window, "Edit stop 2 color")
+        field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
+        assert field.accessible_value == "#264052"
+        click(window, "Gradient stop 1")
+        assert field.accessible_value == "#7e3b66"
+        click(window, "Gradient stop 2")
+        field.accessible_value = "#abcdef80"
+        click(window, "Close Stop color")
+        control(
+            window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
+        ).accessible_value = "162"
+        c = center(control(window, "Gradient center handle"), 130)
+        actual = stop_center(window, 2, 162)
+        expected = around(c, 148, 220 + 162)
+        assert actual.x == pytest.approx(expected.x, abs=0.001)
+        assert actual.y == pytest.approx(expected.y, abs=0.001)
+        click(window, "Edit stop 2 color")
+        assert (
+            control(
+                window, "Hex color", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+            == "#abcdef80"
+        )
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
+
+
+def test_conic_activation_from_solid(
+    editor_binary, editor_environment, conic_scene, tmp_path
+):
+    conic_scene.write_text(
+        re.sub(r"@conic-gradient\([^;]+\)", "#7e3b66", conic_scene.read_text())
+    )
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "fill")
+        click(window, "Rectangle background color picker")
+        assert not elements_with_label(window.root_element, "Gradient rotation handle")
+        click(window, "Gradient")
+        control(
+            window, "Gradient type", slint_testing.AccessibleRole.Combobox
+        ).accessible_value = "Conic"
+        control(window, "Gradient rotation handle")
+        assert not elements_with_label(window.root_element, "Gradient angle degrees")
+        control(window, "Edit stop 1 color")
+        click(window, "Solid")
+        assert not elements_with_label(window.root_element, "Gradient rotation handle")
+        click(window, "Gradient")
+        control(window, "Gradient rotation handle")
         press_key(window, keys.Escape)
         original.assert_unchanged()
