@@ -11,6 +11,7 @@ from ui_driver import (
     first_window,
     launch_editor,
     select_outline_row,
+    wait_for_ui,
     wait_until,
     window_element_with_label,
 )
@@ -105,6 +106,30 @@ def test_geometry_field_writes_exact_source(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Rectangle")
+
+        def geometry():
+            elements = window.find_elements_by_id("InspectorCases::inspect-rectangle")
+            if len(elements) != 1 or not elements[0].is_valid:
+                return None
+            rectangle = elements[0]
+            position, size = rectangle.absolute_position, rectangle.size
+            if not rectangle.is_valid:
+                return None
+            return (position.x, position.y, size.width, size.height)
+
+        initial = wait_for_ui(
+            geometry,
+            lambda state: state is not None,
+            description="initial rectangle geometry",
+        )
+        assert initial is not None
+        expected_geometry = list(initial)
+        index = [FIELDS[name] for name in ("x", "y", "width", "height")].index(label)
+        if index < 2:
+            expected_geometry[index] += float(value) - 32
+        else:
+            expected_geometry[index] = float(value)
+
         edit_field(window, label, value, slint_testing.AccessibleRole.TextInput)
         snapshot.wait_for_exact(
             replace_once(baseline, old, new), relative_path=INSPECTOR_SOURCE
@@ -115,7 +140,11 @@ def test_geometry_field_writes_exact_source(
             value,
             slint_testing.AccessibleRole.TextInput,
         )
-        assert_rendered_element(window, "InspectorCases::inspect-rectangle")
+        wait_for_ui(
+            geometry,
+            lambda state: state == pytest.approx(expected_geometry),
+            description=f"rectangle geometry {expected_geometry}",
+        )
 
 
 @pytest.mark.parametrize(

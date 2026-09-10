@@ -40,6 +40,30 @@ def wait_until(probe: Callable[[], T | None], timeout: float = 5) -> T:
     return result
 
 
+def wait_for_ui(
+    read: Callable[[], T],
+    matches: Callable[[T], bool],
+    *,
+    description: str,
+    timeout: float = 5,
+) -> T:
+    """Wait for observable UI state, without claiming background work has settled.
+
+    The reader must reacquire elements without dispatching input or waiting itself.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        actual = read()
+        if matches(actual):
+            return actual
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise AssertionError(
+                f"Timed out waiting for {description}; last UI state: {actual!r}"
+            )
+        time.sleep(min(0.02, remaining))
+
+
 def first_window(
     application: slint_testing.Application,
 ) -> slint_testing.Window:
