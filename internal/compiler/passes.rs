@@ -319,6 +319,7 @@ pub async fn run_passes(
         match crate::translations::TranslationsBuilder::load_translations(
             path,
             type_loader.compiler_config.translation_domain.as_deref().unwrap_or(""),
+            &mut diag.all_loaded_files,
         ) {
             Ok(builder) => {
                 doc.translation_builder = Some(builder);
