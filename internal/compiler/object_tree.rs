@@ -2662,14 +2662,20 @@ impl Element {
             }
         }
 
-        #[cfg(feature = "slint-sc")]
-        for s_node in node.States() {
-            diag.slint_sc_error("States are", &s_node);
-        }
         for state in node.States().flat_map(|s| s.State()) {
+            let condition = state.Expression();
+            // Without a condition a state is never selected, so its property
+            // changes are code that can't run.
+            #[cfg(feature = "slint-sc")]
+            if condition.is_none() {
+                diag.slint_sc_error(
+                    "A state without a 'when' condition is",
+                    &state.DeclaredIdentifier(),
+                );
+            }
             let s = State {
                 id: parser::identifier_text(&state.DeclaredIdentifier()).unwrap_or_default(),
-                condition: state.Expression().map(|e| Expression::Uncompiled(e.into())),
+                condition: condition.map(|e| Expression::Uncompiled(e.into())),
                 property_changes: state
                     .StatePropertyChange()
                     .filter_map(|s| {
@@ -2681,6 +2687,8 @@ impl Element {
                     .collect(),
             };
             for trs in state.Transition() {
+                #[cfg(feature = "slint-sc")]
+                diag.slint_sc_error("Transitions are", &trs);
                 let mut t = Transition::from_node(trs, &r, tr, diag);
                 t.state_id.clone_from(&s.id);
                 r.borrow_mut().transitions.push(t);
@@ -3206,8 +3214,8 @@ impl Element {
             #[cfg(feature = "slint-sc")]
             if b.kind() == SyntaxKind::TwoWayBinding {
                 diag.slint_sc_error("Two-way bindings are", &b);
-            } else if lookup_result.is_valid() && !lookup_result.is_slint_sc {
-                diag.slint_sc_error(&format!("The property '{unresolved_name}' is"), &name_token);
+            } else {
+                lookup_result.check_slint_sc(&unresolved_name, &name_token, diag);
             }
             if !lookup_result.property_type.is_property_type() {
                 match lookup_result.property_type {
@@ -4068,22 +4076,27 @@ fn lookup_property_from_qualified_name_for_state(
     diag: &mut BuildDiagnostics,
 ) -> Option<(NamedReference, Type)> {
     let qualname = QualifiedTypeName::from_node(node.clone());
+    let check = |lookup: &PropertyLookupResult<'_>, diag: &mut BuildDiagnostics| {
+        #[cfg(feature = "slint-sc")]
+        lookup.check_slint_sc(&qualname, &node, diag);
+        if !lookup.property_type.is_property_type() {
+            diag.push_error(format!("'{qualname}' is not a valid property"), &node);
+        } else if !lookup.is_valid_for_assignment() {
+            diag.push_error(
+                format!(
+                    "'{}' cannot be set in a state because it is '{}'",
+                    qualname, lookup.property_visibility
+                ),
+                &node,
+            );
+        }
+    };
     match qualname.members.as_slice() {
         [unresolved_prop_name] => {
             let lookup_result = r
                 .borrow()
                 .lookup_property(unresolved_prop_name.as_ref(), PropertyLookupMode::ComponentLocal);
-            if !lookup_result.property_type.is_property_type() {
-                diag.push_error(format!("'{qualname}' is not a valid property"), &node);
-            } else if !lookup_result.is_valid_for_assignment() {
-                diag.push_error(
-                    format!(
-                        "'{}' cannot be set in a state because it is '{}'",
-                        qualname, lookup_result.property_visibility
-                    ),
-                    &node,
-                );
-            }
+            check(&lookup_result, diag);
             Some((
                 NamedReference::new(r, lookup_result.internal_or_resolved_name()),
                 lookup_result.property_type,
@@ -4100,16 +4113,8 @@ fn lookup_property_from_qualified_name_for_state(
                         format!("'{unresolved_prop_name}' not found in '{elem_id}'"),
                         &node,
                     );
-                } else if !lookup_result.property_type.is_property_type() {
-                    diag.push_error(format!("'{qualname}' is not a valid property"), &node);
-                } else if !lookup_result.is_valid_for_assignment() {
-                    diag.push_error(
-                        format!(
-                            "'{}' cannot be set in a state because it is '{}'",
-                            qualname, lookup_result.property_visibility
-                        ),
-                        &node,
-                    );
+                } else {
+                    check(&lookup_result, diag);
                 }
                 Some((
                     NamedReference::new(&element, lookup_result.internal_or_resolved_name()),

@@ -1,15 +1,32 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// States and transitions are rejected in Slint SC mode.
+// States are part of the Slint SC subset. A state needs a condition, changes
+// only properties that are in the subset, and carries no transition.
 
 export component Test inherits Window {
     in-out property <bool> active;
+    r := Rectangle { ta := TouchArea { } }
 
     states [
-//  >error{States are not supported in Slint SC}
-        on when active: { }
-        off when !active: { }
+        //#sls.state.condition-required
+        always: { r.background: #0f0; }
+//      >    <error{A state without a 'when' condition is not supported in Slint SC}
+
+        on when active: {
+            //#sls.state.change.subset
+            r.border-width: 2px;
+//          >            <error{The property 'r.border-width' is not supported in Slint SC}
+            //#sls.state.change.target-must-exist
+            r.nope: 3;
+//          >    <error{'nope' not found in 'r'}
+            unknown.background: #0f0;
+//          >                <error{'unknown' is not a valid element id}
+            ta.clicked: 1;
+//          >        <error{'ta.clicked' is not a valid property}
+            //#sls.state.no-transition
+            in { }
+//          >    <error{Transitions are not supported in Slint SC}
+        }
     ]
-//  <error{States are not supported in Slint SC}
 }
