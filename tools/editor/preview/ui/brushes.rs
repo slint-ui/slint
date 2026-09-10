@@ -41,6 +41,9 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_move_gradient_stop(move_gradient_stop);
     api.on_suggest_gradient_stop_at_row(suggest_gradient_stop_at_row);
     api.on_suggest_gradient_stop_at_position(suggest_gradient_stop_at_position);
+    api.on_sample_fill_stop(|fill, position| {
+        gradient_stop_at_position(fill.stops, position, fill.kind != ui::BrushKind::Conic)
+    });
     api.on_clone_gradient_stops(clone_gradient_stops);
 
     api.on_as_json_brush(as_json_brush);
@@ -396,9 +399,34 @@ fn interpolate(
 ) -> ui::GradientStop {
     let position = (previous.position + (next.position - previous.position) * factor)
         .clamp(previous.position, next.position);
-    let color = next.color.mix(&previous.color, factor);
+    let color = interpolate_color(previous.color, next.color, factor, true);
 
     ui::GradientStop { position, color }
+}
+
+fn interpolate_color(
+    a: slint::Color,
+    b: slint::Color,
+    t: f32,
+    premultiplied: bool,
+) -> slint::Color {
+    let alpha = a.alpha() as f32 * (1. - t) + b.alpha() as f32 * t;
+    let channel = |a_channel: u8, b_channel: u8| {
+        let value = if premultiplied && alpha > 0. {
+            (a_channel as f32 * a.alpha() as f32 * (1. - t)
+                + b_channel as f32 * b.alpha() as f32 * t)
+                / alpha
+        } else {
+            a_channel as f32 * (1. - t) + b_channel as f32 * t
+        };
+        value.round() as u8
+    };
+    slint::Color::from_argb_u8(
+        alpha.round() as u8,
+        channel(a.red(), b.red()),
+        channel(a.green(), b.green()),
+        channel(a.blue(), b.blue()),
+    )
 }
 
 fn fallback_gradient_stop(position: f32) -> ui::GradientStop {
@@ -436,6 +464,14 @@ fn suggest_gradient_stop_at_position(
     model: slint::ModelRc<ui::GradientStop>,
     position: f32,
 ) -> ui::GradientStop {
+    gradient_stop_at_position(model, position, true)
+}
+
+fn gradient_stop_at_position(
+    model: slint::ModelRc<ui::GradientStop>,
+    position: f32,
+    premultiplied: bool,
+) -> ui::GradientStop {
     let position = position.clamp(0.0, 1.0);
 
     if model.row_count() == 0 {
@@ -463,7 +499,10 @@ fn suggest_gradient_stop_at_position(
     }
     let factor = (position - prev.position) / (next.position - prev.position);
 
-    interpolate(prev, next, factor)
+    ui::GradientStop {
+        position,
+        color: interpolate_color(prev.color, next.color, factor, premultiplied),
+    }
 }
 
 fn clone_gradient_stops(

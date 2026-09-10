@@ -31,7 +31,7 @@ export component InspectorGradientStops inherits Rectangle {
     function add-stop(position: float) {
         root.draft = root.value;
         root.draft.stops = Api.clone-gradient-stops(root.value.stops);
-        root.selected-index = Api.add-gradient-stop(root.draft.stops, Api.suggest-gradient-stop-at-position(root.draft.stops, position));
+        root.selected-index = Api.add-gradient-stop(root.draft.stops, Api.sample-fill-stop(root.draft, position));
         root.preview(root.draft);
     }
     function remove-stop(index: int) {

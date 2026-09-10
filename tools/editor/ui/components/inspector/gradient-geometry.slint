@@ -34,9 +34,9 @@ export component InspectorGradientGeometry inherits Rectangle {
                 value: root.value.kind == BrushKind.linear ? "Linear" : root.value.kind == BrushKind.radial ? "Radial" : "Conic";
                 selected-index: root.value.kind == BrushKind.linear ? 0 : root.value.kind == BrushKind.radial ? 1 : 2;
                 options: [
-                    { label: "Linear", value: "Linear" },
-                    { label: "Radial", value: "Radial" },
-                    { label: "Conic", value: "Conic" },
+                { label: "Linear", value: "Linear" },
+                { label: "Radial", value: "Radial" },
+                { label: "Conic", value: "Conic" },
                 ];
                 accepted(text) => { return root.type-selected(text == "Linear" ? BrushKind.linear : text == "Radial" ? BrushKind.radial : BrushKind.conic); }
             }

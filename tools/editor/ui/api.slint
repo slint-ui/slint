@@ -748,6 +748,7 @@ export global Api {
 
     pure callback as-json-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> string;
 
+    pure callback sample-fill-stop(fill: FillData, position: float) -> GradientStop;
     pure callback nearest-gradient-stop(stops: [GradientStop], position: float) -> int;
     pure callback gradient-stop-gap(stops: [GradientStop]) -> float;
     pure callback add-gradient-stop(stops: [GradientStop], value: GradientStop) -> int;

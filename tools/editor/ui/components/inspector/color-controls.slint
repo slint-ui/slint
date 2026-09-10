@@ -127,14 +127,14 @@ export component InspectorColorControls inherits Rectangle {
         alignment: start;
         Rectangle {
             height: root.field-height;
-           Rectangle {
+            Rectangle {
                 border-radius: 5px;
                 clip: true;
                 background: hsv(root.hue, 1, 1);
 
-               Rectangle { background: @linear-gradient(90deg, white 0%, transparent 100%); }
-               Rectangle { background: @linear-gradient(0deg, black 0%, transparent 100%); }
-               Rectangle {
+                Rectangle { background: @linear-gradient(90deg, white 0%, transparent 100%); }
+                Rectangle { background: @linear-gradient(0deg, black 0%, transparent 100%); }
+                Rectangle {
                     border-radius: 5px;
                     border-width: 1px;
                     border-color: InspectorTokens.divider;
@@ -155,7 +155,7 @@ export component InspectorColorControls inherits Rectangle {
                     }
                 }
             }
-           Rectangle {
+            Rectangle {
                 x: root.saturation * parent.width - 6px;
                 y: (1 - root.brightness) * parent.height - 6px;
                 width: 12px;
@@ -180,7 +180,7 @@ export component InspectorColorControls inherits Rectangle {
             }
             finished => { root.finish-gesture(); }
             canceled => { root.cancel-gesture(); }
-           Rectangle {
+            Rectangle {
                 background: @linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
             }
         }
@@ -197,7 +197,7 @@ export component InspectorColorControls inherits Rectangle {
             }
             finished => { root.finish-gesture(); }
             canceled => { root.cancel-gesture(); }
-           Rectangle {
+            Rectangle {
                 for row in 2: Rectangle {
                     y: row * 8px;
                     width: 100%;
@@ -210,7 +210,7 @@ export component InspectorColorControls inherits Rectangle {
                     }
                 }
             }
-           Rectangle {
+            Rectangle {
                 background: @linear-gradient(90deg, transparent, hsv(root.hue, root.saturation, root.brightness, 1));
             }
         }
@@ -227,7 +227,7 @@ export component InspectorColorControls inherits Rectangle {
                 horizontal-stretch: 1;
                 accepted(text) => { return root.commit-text(text); }
             }
-           HorizontalLayout {
+            HorizontalLayout {
                 width: 78px;
                 spacing: 2px;
                 InspectorTextFieldBase {

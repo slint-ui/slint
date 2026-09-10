@@ -9,6 +9,7 @@ import { InspectorColorControls } from "color-controls.slint";
 import { InspectorGradientGeometry } from "gradient-geometry.slint";
 import { InspectorGradientStops } from "gradient-stops.slint";
 import { ScrollView } from "std-widgets.slint";
+import { InspectorRecentFills } from "recent-fills.slint";
 import { InspectorPickerPanel } from "picker-panel.slint";
 import { InspectorSegment } from "segment.slint";
 
@@ -34,7 +35,6 @@ export component InspectorFillPicker inherits Rectangle {
     in property <Point> anchor-position;
     in property <length> anchor-width;
 
-    private property <[FillData]> recent-fills: Api.filter-recent-fills(Api.recent-fills, root.allow-gradient);
     private property <FillData> draft;
     private property <FillData> working-fill: root.value;
     private property <int> selected-stop;
@@ -178,134 +178,98 @@ export component InspectorFillPicker inherits Rectangle {
                         x: root.stop-panel-open && root.stop-on-left && !root.stacked ? 308px : 0px;
                         title: "Custom";
                         closed => { root.close-picker(true, true); }
-                    if root.unsupported: VerticalLayout {
-                        spacing: 5px;
-                        Text {
-                            text: root.expression;
-                            color: InspectorTokens.text;
-                            font-size: 12px;
-                            overflow: elide;
+                        if root.unsupported: VerticalLayout {
+                            spacing: 5px;
+                            Text {
+                                text: root.expression;
+                                color: InspectorTokens.text;
+                                font-size: 12px;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: "This expression cannot be edited as a fill.";
+                                color: InspectorTokens.muted;
+                                font-size: 11px;
+                                wrap: word-wrap;
+                            }
                         }
-                        Text {
-                            text: "This expression cannot be edited as a fill.";
-                            color: InspectorTokens.muted;
-                            font-size: 11px;
-                            wrap: word-wrap;
-                        }
-                    }
 
-                    if root.bound && !root.detach-requested && !root.unsupported: HorizontalLayout {
-                        height: 26px;
-                        Text {
-                            text: root.expression;
-                            color: InspectorTokens.muted;
-                            font-size: 11px;
-                            horizontal-stretch: 1;
-                            vertical-alignment: center;
-                            overflow: elide;
-                        }
-                        Rectangle {
-                            width: 58px;
-                            height: 24px;
-                            background: InspectorTokens.field-bg;
-                            border-radius: InspectorTokens.field-radius;
-                            TouchArea {
-                                width: parent.width;
-                                height: parent.height;
-                                accessible-role: AccessibleRole.button;
-                                accessible-label: "Detach color binding";
-                                enabled: root.bound && !Api.inspector-color-refresh-pending;
-                                function detach-binding() {
-                                    if self.enabled {
-                                        root.detach-requested = true;
-                                    }
-                                }
-                                clicked => { self.detach-binding(); }
-                                accessible-action-default => { self.detach-binding(); }
-                                Text {
-                                    text: "Detach";
+                        if root.bound && !root.detach-requested && !root.unsupported: HorizontalLayout {
+                            height: 26px;
+                            Text {
+                                text: root.expression;
+                                color: InspectorTokens.muted;
+                                font-size: 11px;
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                                overflow: elide;
+                            }
+                            Rectangle {
+                                width: 58px;
+                                height: 24px;
+                                background: InspectorTokens.field-bg;
+                                border-radius: InspectorTokens.field-radius;
+                                TouchArea {
                                     width: parent.width;
                                     height: parent.height;
-                                    horizontal-alignment: center;
-                                    vertical-alignment: center;
-                                    color: InspectorTokens.muted;
-                                    font-size: 11px;
-                                }
-                            }
-                        }
-                    }
-
-                    if root.allow-gradient && root.editable: HorizontalLayout {
-                        spacing: 4px;
-                        InspectorSegment { kind: "text"; label: "Solid"; selected: root.working-fill.kind == BrushKind.solid; clicked => { root.select-kind(BrushKind.solid); } }
-                        InspectorSegment { kind: "text"; label: "Gradient"; selected: root.working-fill.kind != BrushKind.solid; clicked => { root.select-kind(root.last-gradient); } }
-                    }
-                    if root.editable && root.working-fill.kind != BrushKind.solid: InspectorGradientGeometry {
-                        value: root.working-fill;
-                        target-width: root.target-width;
-                        target-height: root.target-height;
-                        session-key: root.session-key;
-                        preview(fill) => { return root.preview-fill(fill); }
-                        type-selected(kind) => { return root.select-kind(kind); }
-                    }
-
-                    if root.editable && root.working-fill.kind != BrushKind.solid: InspectorGradientStops {
-                        value: root.working-fill;
-                        selected-index <=> root.selected-stop;
-                        focus-generation: root.focus-stop-generation;
-                        edit-color => { root.stop-panel-open = true; }
-                        session-key: root.session-key;
-                        preview(fill) => { return root.preview-fill(fill); }
-                    }
-                    if !root.unsupported && root.working-fill.kind == BrushKind.solid: InspectorColorControls {
-                        field-height: 170px;
-                        value: root.working-color;
-                        editable: root.editable;
-                        session-key: root.session-key + ":" + root.selected-stop;
-                        preview(c) => { return root.preview-color(c); }
-                    }
-
-                    if !root.unsupported: Text {
-                        text: "Recent fills";
-                        color: InspectorTokens.muted;
-                        font-size: 11px;
-                        font-weight: 600;
-                    }
-                    if !root.unsupported && root.recent-fills.length == 0: Text {
-                        text: "No recent fills";
-                        color: InspectorTokens.muted;
-                        font-size: 11px;
-                    }
-                    if !root.unsupported && root.recent-fills.length > 0: HorizontalLayout {
-                        height: 22px;
-                        spacing: 6px;
-                        alignment: start;
-                        for recent in root.recent-fills: Rectangle {
-                            width: 22px;
-                            height: 22px;
-                            border-radius: 3px;
-                            border-width: 1px;
-                            border-color: InspectorTokens.divider;
-                            background: Api.fill-brush(recent);
-                            TouchArea {
-                                width: parent.width;
-                                height: parent.height;
-                                enabled: root.editable;
-                                accessible-role: AccessibleRole.button;
-                                accessible-label: "Recent fill " + Api.fill-expression(recent);
-                                clicked => {
-                                    if self.enabled {
-                                        root.select-recent(recent);
+                                    accessible-role: AccessibleRole.button;
+                                    accessible-label: "Detach color binding";
+                                    enabled: root.bound && !Api.inspector-color-refresh-pending;
+                                    function detach-binding() {
+                                        if self.enabled {
+                                            root.detach-requested = true;
+                                        }
                                     }
-                                }
-                                accessible-action-default => {
-                                    if self.enabled {
-                                        root.select-recent(recent);
+                                    clicked => { self.detach-binding(); }
+                                    accessible-action-default => { self.detach-binding(); }
+                                    Text {
+                                        text: "Detach";
+                                        width: parent.width;
+                                        height: parent.height;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                        color: InspectorTokens.muted;
+                                        font-size: 11px;
                                     }
                                 }
                             }
                         }
-                    }
+
+                        if root.allow-gradient && root.editable: HorizontalLayout {
+                            spacing: 4px;
+                            InspectorSegment { kind: "text"; label: "Solid"; selected: root.working-fill.kind == BrushKind.solid; clicked => { root.select-kind(BrushKind.solid); } }
+                            InspectorSegment { kind: "text"; label: "Gradient"; selected: root.working-fill.kind != BrushKind.solid; clicked => { root.select-kind(root.last-gradient); } }
+                        }
+                        if root.editable && root.working-fill.kind != BrushKind.solid: InspectorGradientGeometry {
+                            value: root.working-fill;
+                            target-width: root.target-width;
+                            target-height: root.target-height;
+                            session-key: root.session-key;
+                            preview(fill) => { return root.preview-fill(fill); }
+                            type-selected(kind) => { return root.select-kind(kind); }
+                        }
+
+                        if root.editable && root.working-fill.kind != BrushKind.solid: InspectorGradientStops {
+                            value: root.working-fill;
+                            selected-index <=> root.selected-stop;
+                            focus-generation: root.focus-stop-generation;
+                            edit-color => { root.stop-panel-open = true; }
+                            session-key: root.session-key;
+                            preview(fill) => { return root.preview-fill(fill); }
+                        }
+                        if !root.unsupported && root.working-fill.kind == BrushKind.solid: InspectorColorControls {
+                            field-height: 170px;
+                            value: root.working-color;
+                            editable: root.editable;
+                            session-key: root.session-key + ":" + root.selected-stop;
+                            preview(c) => { return root.preview-color(c); }
+                        }
+
+                        if !root.unsupported: InspectorRecentFills {
+                            allow-gradient: root.allow-gradient;
+                            editable: root.editable;
+                            chosen(fill) => { root.select-recent(fill); }
+                        }
                     }
                     stop-panel := InspectorPickerPanel {
                         visible: root.stop-panel-open;
@@ -319,47 +283,11 @@ export component InspectorFillPicker inherits Rectangle {
                             session-key: root.session-key + ":" + root.selected-stop + ":" + (root.stop-panel-open ? "open" : "closed");
                             preview(c) => { return root.preview-color(c); }
                         }
-                    if !root.unsupported: Text {
-                        text: "Recent fills";
-                        color: InspectorTokens.muted;
-                        font-size: 11px;
-                        font-weight: 600;
-                    }
-                    if !root.unsupported && Api.filter-recent-fills(Api.recent-fills, false).length == 0: Text {
-                        text: "No recent fills";
-                        color: InspectorTokens.muted;
-                        font-size: 11px;
-                    }
-                    if !root.unsupported && Api.filter-recent-fills(Api.recent-fills, false).length > 0: HorizontalLayout {
-                        height: 22px;
-                        spacing: 6px;
-                        alignment: start;
-                        for recent in Api.filter-recent-fills(Api.recent-fills, false): Rectangle {
-                            width: 22px;
-                            height: 22px;
-                            border-radius: 3px;
-                            border-width: 1px;
-                            border-color: InspectorTokens.divider;
-                            background: Api.fill-brush(recent);
-                            TouchArea {
-                                width: parent.width;
-                                height: parent.height;
-                                enabled: root.editable;
-                                accessible-role: AccessibleRole.button;
-                                accessible-label: "Recent fill " + Api.fill-expression(recent);
-                                clicked => {
-                                    if self.enabled {
-                                        root.preview-color(recent.color);
-                                    }
-                                }
-                                accessible-action-default => {
-                                    if self.enabled {
-                                        root.preview-color(recent.color);
-                                    }
-                                }
-                            }
+                        if !root.unsupported: InspectorRecentFills {
+                            allow-gradient: false;
+                            editable: root.editable;
+                            chosen(fill) => { root.preview-color(fill.color); }
                         }
-                    }
                     }
                 }
             }
