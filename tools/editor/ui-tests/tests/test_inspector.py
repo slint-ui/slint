@@ -109,7 +109,7 @@ def test_geometry_field_writes_exact_source(
 
         def geometry():
             elements = window.find_elements_by_id("InspectorCases::inspect-rectangle")
-            if len(elements) != 1 or not elements[0].is_valid:
+            if len(elements) != 1:
                 return None
             rectangle = elements[0]
             position, size = rectangle.absolute_position, rectangle.size
@@ -117,13 +117,7 @@ def test_geometry_field_writes_exact_source(
                 return None
             return (position.x, position.y, size.width, size.height)
 
-        initial = wait_for_ui(
-            geometry,
-            lambda state: state is not None,
-            description="initial rectangle geometry",
-        )
-        assert initial is not None
-        expected_geometry = list(initial)
+        expected_geometry = list(wait_until(geometry))
         index = [FIELDS[name] for name in ("x", "y", "width", "height")].index(label)
         if index < 2:
             expected_geometry[index] += float(value) - 32
