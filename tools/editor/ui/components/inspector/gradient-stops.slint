@@ -19,7 +19,8 @@ export component InspectorGradientStops inherits Rectangle {
     private property <bool> dragging;
     private property <float> units: root.value.kind == BrushKind.conic ? 360 : 100;
     private property <string> suffix: root.value.kind == BrushKind.conic ? "°" : "%";
-    height: layout.preferred-height;
+    preferred-height: layout.preferred-height;
+    min-height: layout.min-height;
     changed session-key => {
         root.dragging = false;
     }
@@ -143,7 +144,9 @@ export component InspectorGradientStops inherits Rectangle {
             Rectangle { width: 24px; }
         }
         ScrollView {
-            height: min(root.value.stops.length * 30px, 120px);
+            preferred-height: rows.preferred-height;
+            min-height: 28px;
+            max-height: self.preferred-height;
             content-height: rows.preferred-height;
             content-width: self.visible-width;
             rows := VerticalLayout {

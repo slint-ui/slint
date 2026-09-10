@@ -9,7 +9,8 @@ export component InspectorPickerPanel inherits Rectangle {
     in property <string> title;
     callback closed();
     width: 300px;
-    height: layout.preferred-height;
+    preferred-height: layout.preferred-height;
+    height: self.preferred-height;
     background: InspectorTokens.panel-bg;
     border-width: 1px;
     border-color: InspectorTokens.divider;
