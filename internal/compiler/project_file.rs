@@ -281,7 +281,12 @@ mod tests {
     }
 
     fn unique_temp_file_path() -> PathBuf {
+        // The clock is too coarse to separate tests running in parallel on its own.
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-        std::env::temp_dir().join(format!("slint-project-file-test-{stamp}")).join(FILE_NAME)
+        let count = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        std::env::temp_dir()
+            .join(format!("slint-project-file-test-{stamp}-{count}"))
+            .join(FILE_NAME)
     }
 }
