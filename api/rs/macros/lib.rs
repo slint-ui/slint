@@ -336,6 +336,58 @@ fn extract_compiler_config(
     remaining_stream
 }
 
+/// The directory the search for `slint.project.json` starts in.
+///
+/// A macro body that does nothing but re-export from a single `.slint` file follows
+/// that file, so it picks up the same project file as compiling the file directly.
+/// Anything else is its own entry point and searches from the `.rs` file.
+fn project_file_search_directory(
+    document: &parser::syntax_nodes::Document,
+    source_path: &std::path::Path,
+) -> PathBuf {
+    let source_directory = pathutils::dirname(source_path);
+
+    let declares_anything = document.Component().next().is_some()
+        || document.StructDeclaration().next().is_some()
+        || document.EnumDeclaration().next().is_some()
+        || document.ExportsList().any(|exports| {
+            exports.Component().is_some()
+                || exports.StructDeclaration().next().is_some()
+                || exports.EnumDeclaration().next().is_some()
+        });
+    if declares_anything {
+        return source_directory;
+    }
+
+    let mut imported_uris = document
+        .ImportSpecifier()
+        .filter_map(|import| import.child_token(SyntaxKind::StringLiteral))
+        .chain(
+            document
+                .ExportsList()
+                .filter_map(|exports| exports.ExportModule())
+                .filter_map(|reexport| reexport.child_token(SyntaxKind::StringLiteral)),
+        );
+
+    let (Some(imported_uri), None) = (imported_uris.next(), imported_uris.next()) else {
+        return source_directory;
+    };
+
+    // Same verbatim treatment as the type loader gives an import path.
+    let imported_path = imported_uri.text().to_string();
+    let imported_path = imported_path.trim_matches('"');
+
+    // A library import needs the library paths the project file is meant to supply.
+    if imported_path.is_empty() || imported_path.starts_with('@') {
+        return source_directory;
+    }
+
+    pathutils::join(&source_directory, std::path::Path::new(imported_path))
+        .filter(|path| path.exists())
+        .map(|path| pathutils::dirname(&path))
+        .unwrap_or(source_directory)
+}
+
 /// The external files whose changes should invalidate this expansion: the loaded
 /// files that are absolute and not the `Cargo.toml`. This is the set that both the
 /// `include_bytes!` recompile markers and the output cache key off of.
@@ -356,6 +408,15 @@ fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
 /// When Rust 1.88 or later is used, the paths for loading images with `@image-url` and importing `.slint` files
 /// are relative to the `.rs` file that contains the macro.
 /// For compatibility with older rust version, the files are also searched in the manifest directory that contains `Cargo.toml`.
+///
+/// ### Project File
+///
+/// Settings such as the style or the include paths can come from a `slint.project.json` file.
+/// The search for it starts in the directory of the `.rs` file and goes up from there.
+///
+/// A macro body that only re-exports from a single `.slint` file, such as
+/// `export { App } from "ui/app.slint";`, searches from that file instead.
+/// Such a macro then uses the same project file as building `ui/app.slint` directly.
 ///
 /// ### Limitations
 ///
@@ -412,6 +473,37 @@ pub fn slint(stream: TokenStream) -> TokenStream {
 
     compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
 
+    let source_file = diagnostics::SourceFileInner::from_path_only(source_path.clone());
+    let mut diag = BuildDiagnostics::default();
+    let syntax_node = parser::parse_tokens(tokens.clone(), source_file, &mut diag);
+    if diag.has_errors() {
+        return diag.report_macro_diagnostic(&tokens);
+    }
+
+    // Before the cache key is taken, since the project file changes the generated output.
+    let document = parser::syntax_nodes::Document::from(syntax_node.clone());
+    let search_directory = project_file_search_directory(&document, &source_path);
+    match project_file::find_project_file_path(&search_directory) {
+        Ok(Some(path)) => match project_file::ProjectFile::load(&path) {
+            Ok(project_file) => project_file.apply_to(&mut compiler_config),
+            Err(error) => {
+                diag.push_error_with_span(
+                    format!("Cannot load {}: {error}", path.display()),
+                    Default::default(),
+                );
+                return diag.report_macro_diagnostic(&tokens);
+            }
+        },
+        Ok(None) => {}
+        Err(error) => {
+            diag.push_error_with_span(
+                format!("Cannot look for {}: {error}", project_file::FILE_NAME),
+                Default::default(),
+            );
+            return diag.report_macro_diagnostic(&tokens);
+        }
+    }
+
     // Consult the output cache before doing any (expensive) compilation. The key
     // is computed from the macro body plus everything else that influences the
     // generated output; a hit just re-parses the cached output string. Only
@@ -423,13 +515,6 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         && let Ok(stream) = output.parse::<TokenStream>()
     {
         return stream;
-    }
-
-    let source_file = diagnostics::SourceFileInner::from_path_only(source_path);
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse_tokens(tokens.clone(), source_file, &mut diag);
-    if diag.has_errors() {
-        return diag.report_macro_diagnostic(&tokens);
     }
 
     //println!("{syntax_node:#?}");
@@ -486,4 +571,130 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         expansion_cache::store(key, result.to_string(), &loaded);
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::project_file_search_directory;
+    use i_slint_compiler::diagnostics::BuildDiagnostics;
+    use i_slint_compiler::parser;
+    use std::path::{Path, PathBuf};
+
+    fn search_directory_for(body: &str, source_path: &Path) -> PathBuf {
+        let mut diag = BuildDiagnostics::default();
+        let node = parser::parse(body.to_string(), Some(source_path), &mut diag);
+        assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+        let document = parser::syntax_nodes::Document::from(node);
+        project_file_search_directory(&document, source_path)
+    }
+
+    fn with_test_directory<R>(f: impl FnOnce(&Path) -> R) -> R {
+        let directory = tempfile::TempDir::new().unwrap();
+        let path = std::fs::canonicalize(directory.path()).unwrap();
+        f(&path)
+    }
+
+    #[test]
+    fn an_inline_component_searches_from_the_rust_file() {
+        with_test_directory(|root| {
+            let source_path = root.join("src/main.rs");
+            assert_eq!(
+                search_directory_for("export component App inherits Rectangle {}", &source_path),
+                root.join("src")
+            );
+        });
+    }
+
+    #[test]
+    fn a_lone_re_export_follows_the_slint_file() {
+        with_test_directory(|root| {
+            let ui_directory = root.join("ui");
+            std::fs::create_dir_all(&ui_directory).unwrap();
+            std::fs::write(ui_directory.join("main.slint"), "export component App {}").unwrap();
+            let source_path = root.join("src/main.rs");
+            std::fs::create_dir_all(source_path.parent().unwrap()).unwrap();
+
+            assert_eq!(
+                search_directory_for(r#"export { App } from "../ui/main.slint";"#, &source_path),
+                ui_directory
+            );
+        });
+    }
+
+    #[test]
+    fn a_lone_import_follows_the_slint_file() {
+        with_test_directory(|root| {
+            let ui_directory = root.join("ui");
+            std::fs::create_dir_all(&ui_directory).unwrap();
+            std::fs::write(ui_directory.join("main.slint"), "export component App {}").unwrap();
+            let source_path = root.join("main.rs");
+
+            assert_eq!(
+                search_directory_for(
+                    r#"import { App } from "ui/main.slint"; export { App }"#,
+                    &source_path
+                ),
+                ui_directory
+            );
+        });
+    }
+
+    #[test]
+    fn a_re_export_next_to_an_inline_component_searches_from_the_rust_file() {
+        with_test_directory(|root| {
+            let ui_directory = root.join("ui");
+            std::fs::create_dir_all(&ui_directory).unwrap();
+            std::fs::write(ui_directory.join("main.slint"), "export component App {}").unwrap();
+            let source_path = root.join("main.rs");
+
+            assert_eq!(
+                search_directory_for(
+                    r#"export { App } from "ui/main.slint"; export component Extra inherits Rectangle {}"#,
+                    &source_path
+                ),
+                *root
+            );
+        });
+    }
+
+    #[test]
+    fn two_imports_search_from_the_rust_file() {
+        with_test_directory(|root| {
+            let ui_directory = root.join("ui");
+            std::fs::create_dir_all(&ui_directory).unwrap();
+            std::fs::write(ui_directory.join("a.slint"), "export component A {}").unwrap();
+            std::fs::write(ui_directory.join("b.slint"), "export component B {}").unwrap();
+            let source_path = root.join("main.rs");
+
+            assert_eq!(
+                search_directory_for(
+                    r#"import { A } from "ui/a.slint"; import { B } from "ui/b.slint"; export { A, B }"#,
+                    &source_path
+                ),
+                *root
+            );
+        });
+    }
+
+    #[test]
+    fn a_library_import_searches_from_the_rust_file() {
+        with_test_directory(|root| {
+            let source_path = root.join("main.rs");
+            assert_eq!(
+                search_directory_for(r#"export { App } from "@widgets/main.slint";"#, &source_path),
+                *root
+            );
+        });
+    }
+
+    #[test]
+    fn a_missing_slint_file_searches_from_the_rust_file() {
+        with_test_directory(|root| {
+            let source_path = root.join("main.rs");
+            assert_eq!(
+                search_directory_for(r#"export { App } from "ui/gone.slint";"#, &source_path),
+                *root
+            );
+        });
+    }
 }

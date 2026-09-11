@@ -55,6 +55,13 @@ function(SLINT_TARGET_SOURCES target)
         get_filename_component(_SLINT_BASE_NAME ${it} NAME_WE)
         get_filename_component(_SLINT_ABSOLUTE ${it} REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
         get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
+        # An unset style leaves the choice to slint.project.json, and to the
+        # compiler's own default when there is no project file.
+        if(_SLINT_STYLE)
+            set(_SLINT_STYLE_ARG --style ${_SLINT_STYLE})
+        else()
+            set(_SLINT_STYLE_ARG)
+        endif()
 
         set(t_prop "$<TARGET_GENEX_EVAL:${target},$<TARGET_PROPERTY:${target},SLINT_EMBED_RESOURCES>>")
         set(global_fallback "${DEFAULT_SLINT_EMBED_RESOURCES}")
@@ -87,7 +94,7 @@ function(SLINT_TARGET_SOURCES target)
                 -f cpp
                 -o ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
                 --depfile ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
-                --style ${_SLINT_STYLE}
+                ${_SLINT_STYLE_ARG}
                 --embed-resources=${embed}
                 --translation-domain=${translation_domain_arg}
                 ${no_default_translation_context_arg}

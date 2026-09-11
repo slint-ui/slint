@@ -981,6 +981,9 @@ class ComponentCompiler
 
 public:
     /// Constructs a new ComponentCompiler instance.
+    ///
+    /// A `slint.project.json` next to the compiled `.slint` file, or in a directory above
+    /// it, provides the settings. What you set below wins over it.
     ComponentCompiler() { cbindgen_private::slint_interpreter_component_compiler_new(&inner); }
 
     /// Destroys this ComponentCompiler.
@@ -990,13 +993,14 @@ public:
     }
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of
-    /// paths.
+    /// paths. This wins over the include paths of the project file.
     void set_include_paths(const slint::SharedVector<slint::SharedString> &paths)
     {
         cbindgen_private::slint_interpreter_component_compiler_set_include_paths(&inner, &paths);
     }
 
     /// Sets the style to be used for widgets.
+    /// This wins over the style of the project file.
     void set_style(std::string_view style)
     {
         cbindgen_private::slint_interpreter_component_compiler_set_style(

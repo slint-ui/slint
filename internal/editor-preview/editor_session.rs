@@ -5,6 +5,8 @@
 //! language server and the visual editor.
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::generator::OutputFormat;
+use i_slint_compiler::project_file::ProjectFile;
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
 use i_slint_live_preview::{
@@ -31,6 +33,81 @@ pub struct PreviewConnection {
     pub to_show: Option<PreviewComponent>,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct SessionConfigOverrides {
+    pub hide_ui: Option<bool>,
+    pub include_paths: Option<Vec<PathBuf>>,
+    pub library_paths: Option<HashMap<String, PathBuf>>,
+    pub style: Option<String>,
+    pub experimental: Option<bool>,
+}
+
+impl SessionConfigOverrides {
+    fn merge(&mut self, other: Self) {
+        if other.hide_ui.is_some() {
+            self.hide_ui = other.hide_ui;
+        }
+        if other.include_paths.is_some() {
+            self.include_paths = other.include_paths;
+        }
+        if other.library_paths.is_some() {
+            self.library_paths = other.library_paths;
+        }
+        if other.style.is_some() {
+            self.style = other.style;
+        }
+        if other.experimental.is_some() {
+            self.experimental = other.experimental;
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ProjectCompilerBaseline {
+    include_paths: Option<Vec<PathBuf>>,
+    library_paths: Option<HashMap<String, PathBuf>>,
+    style: Option<String>,
+    enable_experimental: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ActiveProjectFile {
+    source_path: PathBuf,
+    baseline: Option<ProjectCompilerBaseline>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+enum ActiveProjectSelection {
+    #[default]
+    Unset,
+    NoProject,
+    /// The project files of the open documents, nearest first.
+    /// A shared document cache has one configuration, so their settings are merged.
+    Projects(Vec<ActiveProjectFile>),
+}
+
+/// Inserts `project` so that the deepest project file comes first,
+/// which is the one that governs the fewest documents and therefore wins a conflict.
+fn insert_nearest_first(projects: &mut Vec<ActiveProjectFile>, project: ActiveProjectFile) {
+    let depth = |path: &std::path::Path| path.components().count();
+    let position = projects
+        .iter()
+        .position(|existing| depth(&existing.source_path) < depth(&project.source_path))
+        .unwrap_or(projects.len());
+    projects.insert(position, project);
+}
+
+enum DiscoveredProjectFile {
+    None,
+    File(ProjectFile),
+    Invalid { path: PathBuf, error: Box<dyn std::error::Error> },
+}
+
+enum ActiveProjectUpdate {
+    Unchanged,
+    Reapply(ActiveProjectSelection),
+}
+
 /// The documents currently being edited, together with the state the preview
 /// needs to follow along.
 pub struct EditorSession {
@@ -42,6 +119,10 @@ pub struct EditorSession {
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,
+    compiler_config_defaults: crate::document_cache::CompilerConfiguration,
+    startup_config_overrides: SessionConfigOverrides,
+    workspace_config_overrides: SessionConfigOverrides,
+    active_project: ActiveProjectSelection,
 }
 
 impl EditorSession {
@@ -84,6 +165,334 @@ impl EditorSession {
         for preview in &self.previews {
             preview.to_preview.send(message);
         }
+    }
+
+    pub fn new(document_cache: crate::DocumentCache, to_preview: Rc<crate::LspToPreviews>) -> Self {
+        Self::with_previews(
+            document_cache,
+            vec![PreviewConnection {
+                to_preview,
+                #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+                to_show: None,
+            }],
+        )
+    }
+
+    pub fn with_previews(
+        document_cache: crate::DocumentCache,
+        previews: Vec<PreviewConnection>,
+    ) -> Self {
+        let compiler_config_defaults = document_cache.configuration_with_import_callback();
+        Self {
+            document_cache,
+            preview_config: Default::default(),
+            open_urls: Default::default(),
+            previews,
+            pending_recompile: Default::default(),
+            compiler_config_defaults,
+            startup_config_overrides: Default::default(),
+            workspace_config_overrides: Default::default(),
+            active_project: Default::default(),
+        }
+    }
+
+    pub fn set_startup_config_overrides(&mut self, overrides: SessionConfigOverrides) {
+        self.startup_config_overrides = overrides;
+    }
+
+    pub async fn set_workspace_config_overrides(
+        &mut self,
+        overrides: SessionConfigOverrides,
+    ) -> crate::Result<VersionedDiagnostics> {
+        self.workspace_config_overrides = overrides;
+        self.reapply_effective_configuration().await
+    }
+
+    pub fn active_project_file_paths(&self) -> impl Iterator<Item = &std::path::Path> {
+        let projects = match &self.active_project {
+            ActiveProjectSelection::Projects(projects) => projects.as_slice(),
+            _ => &[],
+        };
+        projects.iter().map(|project| project.source_path.as_path())
+    }
+
+    fn effective_config_overrides(&self) -> SessionConfigOverrides {
+        let mut overrides = self.startup_config_overrides.clone();
+        overrides.merge(self.workspace_config_overrides.clone());
+        overrides
+    }
+
+    fn project_baseline(project_file: ProjectFile) -> ProjectCompilerBaseline {
+        let has_include_paths = project_file.include_directories().is_some();
+        let has_library_paths = project_file.library_paths().is_some();
+        let has_style = project_file.style().is_some();
+        let enable_experimental = project_file.enable_experimental_features();
+        let config = project_file.into_compiler_configuration(OutputFormat::Interpreter);
+
+        ProjectCompilerBaseline {
+            include_paths: has_include_paths.then_some(config.include_paths),
+            library_paths: has_library_paths.then_some(config.library_paths),
+            style: has_style.then_some(config.style).flatten(),
+            enable_experimental,
+        }
+    }
+
+    /// Combines the baselines of every active project file.
+    /// Lists grow, and a setting only one of them can hold goes to the nearest.
+    fn merged_project_baseline(projects: &[ActiveProjectFile]) -> Option<ProjectCompilerBaseline> {
+        let mut merged: Option<ProjectCompilerBaseline> = None;
+        let mut style_source: Option<&std::path::Path> = None;
+        let mut experimental_source: Option<&std::path::Path> = None;
+
+        for project in projects {
+            let Some(baseline) = &project.baseline else { continue };
+            let merged = merged.get_or_insert(ProjectCompilerBaseline {
+                include_paths: None,
+                library_paths: None,
+                style: None,
+                enable_experimental: None,
+            });
+
+            if let Some(include_paths) = &baseline.include_paths {
+                let merged_include_paths = merged.include_paths.get_or_insert_default();
+                for include_path in include_paths {
+                    if !merged_include_paths.contains(include_path) {
+                        merged_include_paths.push(include_path.clone());
+                    }
+                }
+            }
+
+            if let Some(library_paths) = &baseline.library_paths {
+                let merged_library_paths = merged.library_paths.get_or_insert_default();
+                for (name, library_path) in library_paths {
+                    merged_library_paths
+                        .entry(name.clone())
+                        .or_insert_with(|| library_path.clone());
+                }
+            }
+
+            if let Some(style) = &baseline.style {
+                match (&merged.style, style_source) {
+                    (Some(kept), Some(kept_path)) if kept != style => tracing::warn!(
+                        "Project file {} sets style {style}, keeping {kept} from {}",
+                        project.source_path.display(),
+                        kept_path.display()
+                    ),
+                    (Some(_), _) => {}
+                    _ => {
+                        merged.style = Some(style.clone());
+                        style_source = Some(&project.source_path);
+                    }
+                }
+            }
+
+            if let Some(enable_experimental) = baseline.enable_experimental {
+                match (merged.enable_experimental, experimental_source) {
+                    (Some(kept), Some(kept_path)) if kept != enable_experimental => tracing::warn!(
+                        "Project file {} sets experimental features to {enable_experimental}, keeping {kept} from {}",
+                        project.source_path.display(),
+                        kept_path.display()
+                    ),
+                    (Some(_), _) => {}
+                    _ => {
+                        merged.enable_experimental = Some(enable_experimental);
+                        experimental_source = Some(&project.source_path);
+                    }
+                }
+            }
+        }
+
+        merged
+    }
+
+    fn effective_compiler_configuration(&self) -> crate::document_cache::CompilerConfiguration {
+        let mut config = self.compiler_config_defaults.clone();
+
+        if let ActiveProjectSelection::Projects(projects) = &self.active_project
+            && let Some(merged) = Self::merged_project_baseline(projects)
+        {
+            if let Some(include_paths) = &merged.include_paths {
+                config.include_paths = include_paths.clone();
+            }
+            if let Some(library_paths) = &merged.library_paths {
+                config.library_paths = library_paths.clone();
+            }
+            if let Some(style) = &merged.style {
+                config.style = Some(style.clone());
+            }
+            if let Some(enable_experimental) = merged.enable_experimental {
+                config.enable_experimental = enable_experimental;
+            }
+        }
+
+        let overrides = self.effective_config_overrides();
+        if let Some(include_paths) = overrides.include_paths {
+            config.include_paths = include_paths;
+        }
+        if let Some(library_paths) = overrides.library_paths {
+            config.library_paths = library_paths;
+        }
+        if let Some(style) = overrides.style {
+            config.style = Some(style);
+        }
+        if let Some(experimental) = overrides.experimental {
+            config.enable_experimental = experimental;
+        }
+
+        config
+    }
+
+    async fn reapply_effective_configuration(&mut self) -> crate::Result<VersionedDiagnostics> {
+        let overrides = self.effective_config_overrides();
+        let compiler_config = self.effective_compiler_configuration();
+        let mut diagnostics = BuildDiagnostics::default();
+        let (compiler_config, reloaded_files) =
+            self.document_cache.reconfigure(compiler_config, &mut diagnostics).await;
+        let extra_files = reloaded_files.iter().filter_map(crate::uri_to_file).collect();
+        let diagnostics = collect_diagnostics(&self.document_cache, &extra_files, diagnostics);
+
+        self.preview_config = PreviewConfig {
+            hide_ui: overrides.hide_ui,
+            style: compiler_config.style.clone().unwrap_or_default(),
+            include_paths: compiler_config.include_paths.clone(),
+            library_paths: compiler_config.library_paths.clone(),
+            format_utf8: compiler_config.format == crate::ByteFormat::Utf8,
+            enable_experimental: compiler_config.enable_experimental,
+        };
+        self.send_to_previews(&LspToPreviewMessage::SetConfiguration {
+            config: self.preview_config.clone(),
+        });
+
+        Ok(diagnostics)
+    }
+
+    fn discover_project_file_for_document_url(url: &Url) -> crate::Result<DiscoveredProjectFile> {
+        let Some(document_path) = crate::uri_to_file(url) else {
+            return Ok(DiscoveredProjectFile::None);
+        };
+        let Some(candidate) =
+            crate::project_file_discovery::find_project_file_path_for_document_path(
+                &document_path,
+            )?
+        else {
+            return Ok(DiscoveredProjectFile::None);
+        };
+
+        match ProjectFile::load(&candidate) {
+            Ok(project_file) => Ok(DiscoveredProjectFile::File(project_file)),
+            Err(error) => Ok(DiscoveredProjectFile::Invalid { path: candidate, error }),
+        }
+    }
+
+    async fn maybe_update_active_project(
+        &mut self,
+        url: &Url,
+    ) -> crate::Result<VersionedDiagnostics> {
+        let discovered_project = Self::discover_project_file_for_document_url(url)?;
+
+        let update = match discovered_project {
+            DiscoveredProjectFile::None => match &self.active_project {
+                ActiveProjectSelection::Unset => {
+                    ActiveProjectUpdate::Reapply(ActiveProjectSelection::NoProject)
+                }
+                _ => ActiveProjectUpdate::Unchanged,
+            },
+            DiscoveredProjectFile::File(project_file) => {
+                let source_path = project_file.source_path().to_path_buf();
+                let baseline = Some(Self::project_baseline(project_file));
+                let mut projects = match &self.active_project {
+                    ActiveProjectSelection::Projects(projects) => projects.clone(),
+                    _ => Vec::new(),
+                };
+
+                match projects.iter_mut().find(|project| project.source_path == source_path) {
+                    Some(known) if known.baseline == baseline => ActiveProjectUpdate::Unchanged,
+                    Some(known) => {
+                        known.baseline = baseline;
+                        ActiveProjectUpdate::Reapply(ActiveProjectSelection::Projects(projects))
+                    }
+                    None => {
+                        insert_nearest_first(
+                            &mut projects,
+                            ActiveProjectFile { source_path, baseline },
+                        );
+                        ActiveProjectUpdate::Reapply(ActiveProjectSelection::Projects(projects))
+                    }
+                }
+            }
+            DiscoveredProjectFile::Invalid { path, error } => {
+                if self.active_project_file_paths().any(|known| known == path) {
+                    tracing::warn!(
+                        "Failed to reload project file {} for {url}: {error}; keeping fallback state",
+                        path.display()
+                    );
+                    ActiveProjectUpdate::Unchanged
+                } else {
+                    tracing::warn!("Project discovery for {url} failed: {error}");
+                    return Err(error);
+                }
+            }
+        };
+
+        match update {
+            ActiveProjectUpdate::Unchanged => Ok(Default::default()),
+            ActiveProjectUpdate::Reapply(active_project) => {
+                self.active_project = active_project;
+                self.reapply_effective_configuration().await
+            }
+        }
+    }
+
+    fn enqueue_configuration_recompile(&mut self) {
+        self.pending_recompile.extend(self.open_urls.iter().cloned());
+        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+        {
+            let preview_urls = self
+                .previews
+                .iter()
+                .filter_map(|preview| preview.to_show.as_ref().map(|c| c.url.clone()))
+                .collect::<Vec<_>>();
+            self.pending_recompile.extend(preview_urls);
+        }
+    }
+
+    async fn reload_active_project_file(
+        &mut self,
+        path: &std::path::Path,
+        change: FileChangeKind,
+    ) -> crate::Result<VersionedDiagnostics> {
+        let ActiveProjectSelection::Projects(projects) = &self.active_project else {
+            return Ok(Default::default());
+        };
+        let mut projects = projects.clone();
+        let Some(reloaded) = projects.iter_mut().find(|project| project.source_path == path) else {
+            return Ok(Default::default());
+        };
+
+        reloaded.baseline = match change {
+            FileChangeKind::Deleted => None,
+            FileChangeKind::Changed | FileChangeKind::Created => match ProjectFile::load(path) {
+                Ok(project_file) => Some(Self::project_baseline(project_file)),
+                Err(error) => {
+                    tracing::warn!(
+                        "Failed to reload active project file {}: {error}",
+                        path.display()
+                    );
+                    None
+                }
+            },
+        };
+
+        let updated_selection = ActiveProjectSelection::Projects(projects);
+
+        if updated_selection == self.active_project {
+            return Ok(Default::default());
+        }
+
+        self.active_project = updated_selection;
+        let diagnostics = self.reapply_effective_configuration().await?;
+        self.enqueue_configuration_recompile();
+        Ok(diagnostics)
     }
 
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -348,11 +757,17 @@ impl EditorSession {
         url: lsp_types::Url,
         version: Option<i32>,
     ) -> crate::Result<crate::VersionedDiagnostics> {
+        let mut configuration_diagnostics = self.maybe_update_active_project(&url).await?;
         let (extra_files, diag) = self.load_document_impl(content, url.clone(), version).await;
 
         tracing::debug!("Loaded {url} with {} diagnostics", diag.iter().count());
 
-        Ok(collect_diagnostics(&self.document_cache, &extra_files, diag))
+        configuration_diagnostics.extend(collect_diagnostics(
+            &self.document_cache,
+            &extra_files,
+            diag,
+        ));
+        Ok(configuration_diagnostics)
     }
 
     #[cfg_attr(target_arch = "wasm32", allow(unused))]
@@ -361,6 +776,7 @@ impl EditorSession {
         url: lsp_types::Url,
     ) -> crate::Result<crate::VersionedDiagnostics> {
         tracing::debug!("Reloading document: {url}");
+        let mut configuration_diagnostics = self.maybe_update_active_project(&url).await?;
 
         // Check if document is in cache (can use reload_cached_file)
         let in_cache = self.document_cache.all_urls().contains(&url);
@@ -374,21 +790,35 @@ impl EditorSession {
             let mut extra_files = HashSet::new();
             extra_files.extend(crate::uri_to_file(&url));
 
-            Ok(collect_diagnostics(&self.document_cache, &extra_files, diagnostics))
+            configuration_diagnostics.extend(collect_diagnostics(
+                &self.document_cache,
+                &extra_files,
+                diagnostics,
+            ));
+            Ok(configuration_diagnostics)
         } else {
             tracing::trace!("Document not in cache, loading from disk: {url}");
 
             let Some(path) = crate::uri_to_file(&url) else {
                 // The file was likely deleted, log and move on
                 tracing::debug!("Failed to locate file: {url}");
-                return Ok(Default::default());
+                return Ok(configuration_diagnostics);
             };
             match std::fs::read_to_string(&path) {
-                Ok(content) => self.load_document(content, url, None).await,
+                Ok(content) => {
+                    let (extra_files, diagnostics) =
+                        self.load_document_impl(content, url, None).await;
+                    configuration_diagnostics.extend(collect_diagnostics(
+                        &self.document_cache,
+                        &extra_files,
+                        diagnostics,
+                    ));
+                    Ok(configuration_diagnostics)
+                }
                 // The file was likely deleted, log and move on
                 Err(err) => {
                     tracing::debug!("Failed to read {} from disk: {err}", path.display());
-                    Ok(Default::default())
+                    Ok(configuration_diagnostics)
                 }
             }
         }
@@ -448,6 +878,13 @@ impl EditorSession {
         url: lsp_types::Url,
         typ: FileChangeKind,
     ) -> crate::Result<crate::VersionedDiagnostics> {
+        if let Some(path) = crate::uri_to_file(&url)
+            && self.active_project_file_paths().any(|active_path| active_path == path)
+        {
+            tracing::debug!("Active project file changed: {url} (type: {typ:?})");
+            return self.reload_active_project_file(&path, typ).await;
+        }
+
         if !self.open_urls.contains(&url) {
             tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
             match typ {
@@ -513,7 +950,7 @@ pub fn collect_diagnostics(
 }
 
 #[cfg(all(test, any(feature = "preview-external", feature = "preview-engine")))]
-mod tests {
+mod preview_tests {
     use super::*;
 
     fn session_with_recording_previews()
@@ -527,13 +964,7 @@ mod tests {
             })
             .collect();
         let messages = captures.map(|(_, messages)| messages);
-        let session = EditorSession {
-            document_cache: crate::test::empty_document_cache(),
-            preview_config: Default::default(),
-            open_urls: Default::default(),
-            previews,
-            pending_recompile: Default::default(),
-        };
+        let session = EditorSession::with_previews(crate::test::empty_document_cache(), previews);
         (session, messages)
     }
 
@@ -651,5 +1082,251 @@ mod tests {
         );
         assert!(session.primary_preview().to_show.is_none());
         assert_eq!(session.preview(1).unwrap().to_show, Some(component));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use i_slint_compiler::project_file::FILE_NAME;
+    use tempfile::TempDir;
+
+    fn session() -> EditorSession {
+        let config = crate::document_cache::CompilerConfiguration {
+            style: Some("fluent".into()),
+            ..Default::default()
+        };
+        EditorSession::new(
+            crate::DocumentCache::new(config),
+            crate::LspToPreviews::with_one(crate::DummyLspToPreview::default()),
+        )
+    }
+
+    fn write_document(path: &std::path::Path) {
+        std::fs::write(path, r#"export component Main inherits Window { }"#).unwrap();
+    }
+
+    fn load_document(session: &mut EditorSession, path: &std::path::Path) -> crate::Result<()> {
+        let url = Url::from_file_path(path).unwrap();
+        let content = std::fs::read_to_string(path).unwrap();
+        spin_on::spin_on(session.load_document(content, url, None)).map(|_| ())
+    }
+
+    fn open_document(session: &mut EditorSession, path: &std::path::Path) -> crate::Result<()> {
+        let url = Url::from_file_path(path).unwrap();
+        let content = std::fs::read_to_string(path).unwrap();
+        spin_on::spin_on(session.open_document(content, url, None)).map(|_| ())
+    }
+
+    #[test]
+    fn discovers_nearest_project_file() {
+        let temp = TempDir::new().unwrap();
+        let top_project_path = temp.path().join(FILE_NAME);
+        let nested_directory = temp.path().join("a/b");
+        std::fs::create_dir_all(&nested_directory).unwrap();
+        let nested_project_path = nested_directory.join(FILE_NAME);
+        let document_path = nested_directory.join("main.slint");
+        std::fs::write(&top_project_path, r#"{ "style": "cosmic" }"#).unwrap();
+        std::fs::write(&nested_project_path, r#"{ "style": "material" }"#).unwrap();
+        write_document(&document_path);
+
+        let mut session = session();
+        load_document(&mut session, &document_path).unwrap();
+
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            [nested_project_path.as_path()]
+        );
+        assert_eq!(session.preview_config.style, "material");
+    }
+
+    #[test]
+    fn omitted_project_settings_keep_session_defaults() {
+        let temp = TempDir::new().unwrap();
+        let project_path = temp.path().join(FILE_NAME);
+        let document_path = temp.path().join("main.slint");
+        std::fs::write(&project_path, r#"{ "include-directories": ["include"] }"#).unwrap();
+        write_document(&document_path);
+
+        let mut session = session();
+        load_document(&mut session, &document_path).unwrap();
+
+        assert_eq!(session.preview_config.style, "fluent");
+        assert_eq!(session.preview_config.include_paths, vec![temp.path().join("include")]);
+    }
+
+    #[test]
+    fn config_overrides_take_precedence_over_project_file() {
+        let temp = TempDir::new().unwrap();
+        let project_path = temp.path().join(FILE_NAME);
+        let document_path = temp.path().join("main.slint");
+        std::fs::write(&project_path, r#"{ "style": "material" }"#).unwrap();
+        write_document(&document_path);
+
+        let mut session = session();
+        session.set_startup_config_overrides(SessionConfigOverrides {
+            style: Some("cosmic".into()),
+            experimental: Some(true),
+            ..Default::default()
+        });
+        load_document(&mut session, &document_path).unwrap();
+        assert_eq!(session.preview_config.style, "cosmic");
+        assert!(session.preview_config.enable_experimental);
+
+        spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+            style: Some("cupertino".into()),
+            experimental: Some(false),
+            ..Default::default()
+        }))
+        .unwrap();
+        assert_eq!(session.preview_config.style, "cupertino");
+        assert!(!session.preview_config.enable_experimental);
+
+        spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
+        assert_eq!(session.preview_config.style, "cosmic");
+        assert!(session.preview_config.enable_experimental);
+    }
+
+    #[test]
+    fn a_conflicting_style_stays_with_the_nearest_project_file() {
+        let temp = TempDir::new().unwrap();
+        let outer = temp.path().to_path_buf();
+        let inner = outer.join("nested");
+        std::fs::create_dir_all(&inner).unwrap();
+        let outer_file = outer.join(FILE_NAME);
+        let inner_file = inner.join(FILE_NAME);
+        let outer_document = outer.join("main.slint");
+        let inner_document = inner.join("main.slint");
+        std::fs::write(&outer_file, r#"{ "style": "material" }"#).unwrap();
+        std::fs::write(&inner_file, r#"{ "style": "cupertino" }"#).unwrap();
+        write_document(&outer_document);
+        write_document(&inner_document);
+
+        let mut session = session();
+        load_document(&mut session, &outer_document).unwrap();
+        load_document(&mut session, &inner_document).unwrap();
+
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            [inner_file.as_path(), outer_file.as_path()]
+        );
+        assert_eq!(session.preview_config.style, "cupertino");
+    }
+
+    #[test]
+    fn settings_of_several_project_files_are_merged() {
+        let temp = TempDir::new().unwrap();
+        let project_a = temp.path().join("project-a");
+        let project_b = temp.path().join("project-b");
+        std::fs::create_dir_all(&project_a).unwrap();
+        std::fs::create_dir_all(&project_b).unwrap();
+        let document_a = project_a.join("main.slint");
+        let document_b = project_b.join("main.slint");
+        std::fs::write(
+            project_a.join(FILE_NAME),
+            r#"{ "include-directories": ["include-a"], "style": "material" }"#,
+        )
+        .unwrap();
+        std::fs::write(
+            project_b.join(FILE_NAME),
+            r#"{ "include-directories": ["include-b"], "library-paths": {"widgets": "lib.slint"} }"#,
+        )
+        .unwrap();
+        write_document(&document_a);
+        write_document(&document_b);
+
+        let mut session = session();
+        load_document(&mut session, &document_a).unwrap();
+        load_document(&mut session, &document_b).unwrap();
+
+        // Both are equally deep, so the include paths keep the order they were discovered in.
+        assert_eq!(
+            session.preview_config.include_paths,
+            vec![project_a.join("include-a"), project_b.join("include-b")]
+        );
+        assert_eq!(
+            session.preview_config.library_paths,
+            HashMap::from([("widgets".to_string(), project_b.join("lib.slint"))])
+        );
+        // Only project-a has a style, so no conflict arises.
+        assert_eq!(session.preview_config.style, "material");
+    }
+
+    #[test]
+    fn invalid_initial_project_file_prevents_document_load() {
+        let temp = TempDir::new().unwrap();
+        let project_path = temp.path().join(FILE_NAME);
+        let document_path = temp.path().join("main.slint");
+        std::fs::write(&project_path, "{").unwrap();
+        write_document(&document_path);
+
+        let mut session = session();
+        assert!(load_document(&mut session, &document_path).is_err());
+        assert_eq!(session.active_project_file_paths().next(), None);
+    }
+
+    #[test]
+    fn active_project_file_recovers_after_invalid_change() {
+        let temp = TempDir::new().unwrap();
+        let project_path = temp.path().join(FILE_NAME);
+        let document_path = temp.path().join("main.slint");
+        std::fs::write(&project_path, r#"{ "style": "material" }"#).unwrap();
+        write_document(&document_path);
+
+        let mut session = session();
+        open_document(&mut session, &document_path).unwrap();
+        let document_url = Url::from_file_path(&document_path).unwrap();
+        let project_url = Url::from_file_path(&project_path).unwrap();
+
+        std::fs::write(&project_path, "{").unwrap();
+        spin_on::spin_on(
+            session.trigger_file_watcher(project_url.clone(), FileChangeKind::Changed),
+        )
+        .unwrap();
+
+        assert_eq!(session.preview_config.style, "fluent");
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            [project_path.as_path()]
+        );
+        assert!(session.pending_recompile.contains(&document_url));
+
+        std::fs::write(&project_path, r#"{ "style": "cupertino" }"#).unwrap();
+        spin_on::spin_on(session.trigger_file_watcher(project_url, FileChangeKind::Changed))
+            .unwrap();
+
+        assert_eq!(session.preview_config.style, "cupertino");
+        assert!(session.pending_recompile.contains(&document_url));
+    }
+
+    #[test]
+    fn deleted_active_project_file_remains_selected() {
+        let temp = TempDir::new().unwrap();
+        let project_path = temp.path().join(FILE_NAME);
+        let document_path = temp.path().join("main.slint");
+        std::fs::write(&project_path, r#"{ "style": "material" }"#).unwrap();
+        write_document(&document_path);
+
+        let mut session = session();
+        open_document(&mut session, &document_path).unwrap();
+        let project_url = Url::from_file_path(&project_path).unwrap();
+
+        std::fs::remove_file(&project_path).unwrap();
+        spin_on::spin_on(
+            session.trigger_file_watcher(project_url.clone(), FileChangeKind::Deleted),
+        )
+        .unwrap();
+
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            [project_path.as_path()]
+        );
+        assert_eq!(session.preview_config.style, "fluent");
+
+        std::fs::write(&project_path, r#"{ "style": "cupertino" }"#).unwrap();
+        spin_on::spin_on(session.trigger_file_watcher(project_url, FileChangeKind::Created))
+            .unwrap();
+
+        assert_eq!(session.preview_config.style, "cupertino");
     }
 }

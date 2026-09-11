@@ -64,20 +64,24 @@ struct Cli {
 
     /// Specify include paths for imported .slint files or image resources.
     /// This is used for including external .slint files or image resources referenced by '@image-url'.
+    /// Wins over the include directories of the project file.
     #[arg(short = 'I', name = "include path", number_of_values = 1)]
     include_paths: Vec<std::path::PathBuf>,
 
     /// Define library paths in the format `<library>=<path>`.
     /// This can point to either a library directory or a .slint entry-point file.
+    /// Wins over the library paths of the project file.
     #[arg(short = 'L', name = "library path", number_of_values = 1)]
     library_paths: Vec<String>,
 
     /// Specify the path to the main .slint file to compile.
+    /// A slint.project.json in its directory, or in a directory above it, provides the settings.
     /// Use '-' to read from stdin.
     #[arg(name = "file")]
     path: std::path::PathBuf,
 
     /// Set the style for the UI (e.g., 'native' or 'fluent').
+    /// Wins over the style of the project file.
     #[arg(long, name = "style name")]
     style: Option<String>,
 
@@ -224,6 +228,37 @@ fn main() -> std::io::Result<()> {
     }
 
     let mut compiler_config = CompilerConfiguration::new(format.clone());
+
+    // The Slint SC subset rejects the flags a project file could set, so it has none.
+    #[cfg(feature = "slint-sc")]
+    let look_for_project_file = !args.slint_sc;
+    #[cfg(not(feature = "slint-sc"))]
+    let look_for_project_file = true;
+
+    // Reading from stdin gives no directory to search from.
+    let project_file_path = if look_for_project_file && args.path != std::path::Path::new("-") {
+        let directory = i_slint_compiler::pathutils::dirname(&args.path);
+        match i_slint_compiler::project_file::find_project_file_path(&directory) {
+            Ok(path) => path,
+            Err(error) => {
+                eprintln!("Cannot look for {}: {error}", i_slint_compiler::project_file::FILE_NAME);
+                std::process::exit(1);
+            }
+        }
+    } else {
+        None
+    };
+
+    if let Some(project_file_path) = &project_file_path {
+        match i_slint_compiler::project_file::ProjectFile::load(project_file_path) {
+            Ok(project_file) => project_file.apply_to(&mut compiler_config),
+            Err(error) => {
+                eprintln!("Cannot load {}: {error}", project_file_path.display());
+                std::process::exit(1);
+            }
+        }
+    }
+
     compiler_config.translation_domain = args.translation_domain;
     #[cfg(feature = "bundle-translations")]
     if args.no_default_translation_context {
@@ -246,12 +281,16 @@ fn main() -> std::io::Result<()> {
         };
     }
 
-    compiler_config.include_paths = args.include_paths;
-    compiler_config.library_paths = args
-        .library_paths
-        .iter()
-        .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-        .collect();
+    if !args.include_paths.is_empty() {
+        compiler_config.include_paths = args.include_paths;
+    }
+    if !args.library_paths.is_empty() {
+        compiler_config.library_paths = args
+            .library_paths
+            .iter()
+            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
+            .collect();
+    }
     if let Some(style) = args.style {
         compiler_config.style = Some(style);
     }
@@ -287,6 +326,9 @@ fn main() -> std::io::Result<()> {
     if let Some(depfile) = args.depfile {
         let mut cursor = Cursor::new(Vec::new());
         write!(cursor, "{}: {}", args.output.display(), args.path.display())?;
+        if let Some(project_file_path) = &project_file_path {
+            write!(cursor, " {}", project_file_path.display())?;
+        }
         for x in &diag.all_loaded_files {
             if x.is_absolute() {
                 write!(cursor, " {}", x.display())?;
