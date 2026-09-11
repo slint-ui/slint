@@ -211,6 +211,8 @@ fabstyle
 Farbfeld
 Fcntl
 fdiagnostics
+fdroid
+fdroiddata
 FEFF
 FELGO
 fetchpriority
@@ -701,6 +703,7 @@ vecmodel
 vello
 veniam
 venv
+VercodeOperation
 verticalbox
 verticallayout
 VGWGPU

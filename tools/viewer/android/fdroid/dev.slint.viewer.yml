@@ -1,0 +1,90 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+Categories:
+  - Development
+License: GPL-3.0-only
+AuthorName: SixtyFPS GmbH
+AuthorEmail: info@slint.dev
+WebSite: https://slint.dev
+SourceCode: https://github.com/slint-ui/slint
+IssueTracker: https://github.com/slint-ui/slint/issues
+Changelog: https://github.com/slint-ui/slint/blob/HEAD/CHANGELOG.md
+
+AutoName: Slint Viewer
+
+RepoType: git
+Repo: https://github.com/slint-ui/slint.git
+
+Builds:
+  - versionName: 1.18.0
+    versionCode: 118001
+    commit: v1.18.0
+    subdir: tools/viewer/android
+    sudo:
+      - apt-get update
+      - apt-get install -y clang libclang-dev python3 ninja-build make rustup
+    gradle:
+      - yes
+    output: app/build/outputs/apk/release/app-armeabi-v7a-release-unsigned.apk
+    binary: https://github.com/slint-ui/slint/releases/download/v%v/slint-viewer-armeabi-v7a.apk
+    prebuild:
+      - sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - cargo install --locked cargo-ndk@4.1.2 resvg@0.48.1
+    build:
+      - export PATH=$HOME/.cargo/bin:$PATH
+      - ./build-native.sh armeabi-v7a
+      - echo "slint.abi=armeabi-v7a" >> gradle.properties
+    ndk: r27
+
+  - versionName: 1.18.0
+    versionCode: 118002
+    commit: v1.18.0
+    subdir: tools/viewer/android
+    sudo:
+      - apt-get update
+      - apt-get install -y clang libclang-dev python3 ninja-build make rustup
+    gradle:
+      - yes
+    output: app/build/outputs/apk/release/app-x86_64-release-unsigned.apk
+    binary: https://github.com/slint-ui/slint/releases/download/v%v/slint-viewer-x86_64.apk
+    prebuild:
+      - sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - cargo install --locked cargo-ndk@4.1.2 resvg@0.48.1
+    build:
+      - export PATH=$HOME/.cargo/bin:$PATH
+      - ./build-native.sh x86_64
+      - echo "slint.abi=x86_64" >> gradle.properties
+    ndk: r27
+
+  - versionName: 1.18.0
+    versionCode: 118003
+    commit: v1.18.0
+    subdir: tools/viewer/android
+    sudo:
+      - apt-get update
+      - apt-get install -y clang libclang-dev python3 ninja-build make rustup
+    gradle:
+      - yes
+    output: app/build/outputs/apk/release/app-arm64-v8a-release-unsigned.apk
+    binary: https://github.com/slint-ui/slint/releases/download/v%v/slint-viewer-arm64-v8a.apk
+    prebuild:
+      - sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - cargo install --locked cargo-ndk@4.1.2 resvg@0.48.1
+    build:
+      - export PATH=$HOME/.cargo/bin:$PATH
+      - ./build-native.sh arm64-v8a
+      - echo "slint.abi=arm64-v8a" >> gradle.properties
+    ndk: r27
+
+AllowedAPKSigningKeys: eddd7a51dcb00057f082cc0946d9a748be037a34d1ead6643046602f0e5a67ca
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: HTTP
+UpdateCheckData: https://github.com/slint-ui/slint/releases/latest/download/slint-viewer-android-version.txt|versionCode=(\d+)|.|versionName=([\d.]+)
+VercodeOperation:
+  - 10 * %c + 1
+  - 10 * %c + 2
+  - 10 * %c + 3
+CurrentVersion: 1.18.0
+CurrentVersionCode: 118003

@@ -373,6 +373,7 @@
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
     "REUSE.toml",
+    "tools/viewer/android/fdroid/dev.slint.viewer.yml",
     "**/Cargo.lock",
     "docs/common/src/utils/slint.tmLanguage.json",
     "ui-libraries/material/docs/vendor/**",
