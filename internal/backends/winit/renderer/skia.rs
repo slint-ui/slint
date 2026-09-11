@@ -167,13 +167,16 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
         self.renderer.suspend()
     }
 
+    fn presentation_may_use_transparency(&self) -> bool {
+        self.renderer.presentation_may_use_transparency()
+    }
+
     fn resume(
         &self,
         active_event_loop: &winit::event_loop::ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
         _window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
-        let transparent = window_attributes.transparent;
         let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
             |winit_os_error| {
                 PlatformError::from(format!(
@@ -190,7 +193,6 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
             winit_window.clone(),
             physical_size_to_slint(&size),
             self.requested_graphics_api.clone(),
-            transparent,
         )?;
 
         self.renderer.set_pre_present_callback(Some(Box::new({

@@ -541,6 +541,12 @@ impl SkiaRenderer {
         renderer
     }
 
+    /// Returns true if the current surface will be presented with transparency enabled
+    /// See [`Surface::presentation_may_use_transparency`].
+    pub fn presentation_may_use_transparency(&self) -> bool {
+        self.surface.borrow().as_ref().is_some_and(|surface| surface.presentation_may_use_transparency())
+    }
+
     /// Reset the surface to a new surface. (destroy the previously set surface if any)
     pub fn set_surface(&self, surface: Box<dyn Surface + 'static>) {
         self.image_cache.clear_all();
@@ -594,7 +600,6 @@ impl SkiaRenderer {
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
-        transparent: bool,
     ) -> Result<(), PlatformError> {
         // just in case
         self.suspend()?;
@@ -605,7 +610,6 @@ impl SkiaRenderer {
             size,
             requested_graphics_api,
         )?;
-        surface.set_transparent(transparent)?;
         self.set_surface(surface);
         Ok(())
     }
@@ -1097,8 +1101,9 @@ pub trait Surface {
         &()
     }
 
-    fn set_transparent(&self, _: bool) -> Result<(), PlatformError> {
-        Ok(())
+    // returns true if this surface will be rendered with transparency respected by the OS
+    fn presentation_may_use_transparency(&self) -> bool {
+        false
     }
 }
 

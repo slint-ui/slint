@@ -80,6 +80,11 @@ mod renderer {
         // Got WindowEvent::Occluded
         fn occluded(&self, _: bool) {}
 
+        #[allow(dead_code)]
+        fn presentation_may_use_transparency(&self) -> bool {
+            false
+        }
+
         fn suspend(&self) -> Result<(), PlatformError>;
 
         // Got winit::Event::Resumed
