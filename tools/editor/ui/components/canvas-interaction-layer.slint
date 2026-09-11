@@ -225,16 +225,22 @@ component HoverCanvasFrame inherits MoveResizeFrame {
         );
     }
 
-    function finish-interaction() {
-        if root.move-dragging {
+    function finish-interaction(position: Point) {
+        let was-dragging = root.move-dragging;
+        if was-dragging {
             Api.persist-selected-element-geometry();
         }
         root.gesture-ended();
-        Hover.element = {};
+        if was-dragging {
+            Hover.element = {};
+        } else {
+            root.pointer-hovered(position);
+        }
     }
 
     changed frame-hover => {
-        if !root.frame-hover && !root.selection-area-has-hover && !root.gesture-active {
+        if !root.frame-hover && !root.selection-area-has-hover && !root.gesture-active
+            && !Hover.element.is-selected {
             Hover.element = {};
         }
     }
@@ -253,9 +259,9 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     moved-to(position) => {
         root.preview-geometry(position);
     }
-    move-released => {
+    move-released(position) => {
         if root.gesture-active {
-            root.finish-interaction();
+            root.finish-interaction(position);
         }
     }
     pointer-moved(position) => {
