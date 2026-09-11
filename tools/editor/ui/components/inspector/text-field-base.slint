@@ -73,6 +73,8 @@ export component InspectorTextFieldBase inherits Rectangle {
             @children
 
             input := TextInput {
+                // Disable TextInput's built-in accessibility support as the frame takes care of that.
+                accessible-role: none;
                 horizontal-stretch: 1;
                 text: root.value;
                 enabled: root.enabled;
