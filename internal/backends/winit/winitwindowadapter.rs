@@ -1230,7 +1230,7 @@ impl WinitWindowAdapter {
         event: &WinitWindowEvent,
     ) -> Result<(), PlatformError> {
         if let Some(mut window_event_filter) = self.window_event_filter.take() {
-            let event_result = window_event_filter(self.window(), &event);
+            let event_result = window_event_filter(self.window(), event);
             self.window_event_filter.set(Some(window_event_filter));
 
             match event_result {
@@ -1332,7 +1332,7 @@ impl WinitWindowAdapter {
                     i_slint_common::for_each_keys!(winit_key_to_char)
                 }
                 #[allow(unused_mut)]
-                let mut text = to_slint_key(&event, &key_code);
+                let mut text = to_slint_key(event, &key_code);
 
                 #[cfg(target_os = "windows")]
                 let text_without_modifiers = {
@@ -1348,7 +1348,7 @@ impl WinitWindowAdapter {
                     // combination used to imply AltGr or not.
                     // The latter case should be treated as a shortcut, the former should not.
                     let text_without_modifiers =
-                        to_slint_key(&event, &event.key_without_modifiers());
+                        to_slint_key(event, &event.key_without_modifiers());
                     // Skip the fallback for dead keys so the accent composes instead of being inserted.
                     if text.is_empty()
                         && !text_without_modifiers.is_empty()
@@ -1516,7 +1516,7 @@ impl WinitWindowAdapter {
                     });
                 }
             }
-            WinitWindowEvent::ScaleFactorChanged { scale_factor, mut inner_size_writer } => {
+            WinitWindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                     self.window().dispatch_event_with_result(
                         corelib::platform::WindowEvent::ScaleFactorChanged {
@@ -1524,7 +1524,7 @@ impl WinitWindowAdapter {
                         },
                     )?;
                     if let Some(physical) = self.physical_size_before_scale_factor.take() {
-                        inner_size_writer.request_inner_size(physical).ok();
+                        inner_size_writer.clone().request_inner_size(physical).ok();
                     }
                     // TODO: otherwise send a resize event or try to keep the logical size the same.
                 }
