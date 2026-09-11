@@ -7782,6 +7782,7 @@ dependencies = [
  "serde_json",
  "smol_str 0.3.2",
  "spin_on",
+ "tempfile",
  "typed-index-collections",
  "unicode-segmentation",
  "vtable",
