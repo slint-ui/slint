@@ -35,10 +35,6 @@ pub(super) struct LayoutOptions {
     pub(super) horizontal_align: TextHorizontalAlignment,
     pub(super) vertical_align: TextVerticalAlignment,
     pub(super) text_overflow: TextOverflow,
-    /// Origin-snap displacement in physical pixels; see `GlyphRenderer::text_origin_snap_delta`.
-    /// Draw callers read it from the renderer; query callers use `origin_snap_delta_for_query`.
-    /// Size queries use zero.
-    pub(super) origin_snap_delta: PhysicalPoint,
 }
 
 impl LayoutOptions {
@@ -54,8 +50,6 @@ impl LayoutOptions {
             horizontal_align: text_input.horizontal_alignment(),
             vertical_align: text_input.vertical_alignment(),
             text_overflow: TextOverflow::Clip,
-            // Draw and position-query callers supply the origin-snap displacement.
-            origin_snap_delta: PhysicalPoint::zero(),
         }
     }
 }
@@ -119,29 +113,6 @@ fn vertical_offset(
     }
 }
 
-fn alignment_fraction_h(horizontal_align: TextHorizontalAlignment) -> f32 {
-    match horizontal_align {
-        TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => 0.0,
-        TextHorizontalAlignment::Center => 0.5,
-        TextHorizontalAlignment::End | TextHorizontalAlignment::Right => 1.0,
-    }
-}
-
-fn alignment_fraction_v(vertical_align: TextVerticalAlignment) -> f32 {
-    match vertical_align {
-        TextVerticalAlignment::Top => 0.0,
-        TextVerticalAlignment::Center => 0.5,
-        TextVerticalAlignment::Bottom => 1.0,
-    }
-}
-
-/// Cancels the origin-snap displacement according to alignment: none at the start, half at the center, all at the end.
-/// Box dimensions remain unrounded for line breaking, elision, and height limits.
-/// See #6739.
-fn pixel_snap_correction(origin_snap_delta: PhysicalLength, fraction: f32) -> PhysicalLength {
-    PhysicalLength::new(-origin_snap_delta.get() * fraction)
-}
-
 pub(super) fn layout(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
     font_context: &mut parley::FontContext,
@@ -150,22 +121,8 @@ pub(super) fn layout(
     options: LayoutOptions,
     line_breaking: Option<RetainedLineBreaking>,
 ) -> Layout {
-    let max_physical_width = options.max_width.map(|w| w * scale_factor);
-    let max_physical_height = options.max_height.map(|h| h * scale_factor);
-
-    // Without a box dimension, Parley leaves that axis unaligned and needs no correction.
-    let x_offset = max_physical_width.map_or(PhysicalLength::zero(), |_| {
-        pixel_snap_correction(
-            options.origin_snap_delta.x_length(),
-            alignment_fraction_h(options.horizontal_align),
-        )
-    });
-    let y_offset_correction = max_physical_height.map_or(PhysicalLength::zero(), |_| {
-        pixel_snap_correction(
-            options.origin_snap_delta.y_length(),
-            alignment_fraction_v(options.vertical_align),
-        )
-    });
+    let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
+    let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
 
     let inputs = LineBreakingInputs::new(&options, max_physical_width);
     if let Some(line_breaking) =
@@ -176,8 +133,7 @@ pub(super) fn layout(
                 max_physical_height,
                 options.vertical_align,
                 line_breaking.height,
-            ) + y_offset_correction,
-            x_offset,
+            ),
             paragraphs,
             max_width: line_breaking.max_width,
             height: line_breaking.height,
@@ -270,13 +226,11 @@ pub(super) fn layout(
             .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height())),
     };
 
-    let y_offset =
-        vertical_offset(max_physical_height, options.vertical_align, height) + y_offset_correction;
+    let y_offset = vertical_offset(max_physical_height, options.vertical_align, height);
 
     Layout {
         paragraphs,
         y_offset,
-        x_offset,
         elision_info,
         max_width,
         height,
@@ -336,10 +290,6 @@ pub(super) struct ElisionCut {
 pub(super) struct Layout {
     pub(super) paragraphs: Vec<TextParagraph>,
     pub(super) y_offset: PhysicalLength,
-    /// Horizontal correction from [`pixel_snap_correction`].
-    /// Add it to Parley positions when drawing or reporting geometry; subtract it from incoming hit-test positions.
-    /// Line breaking, elision, and selection comparisons use unshifted Parley coordinates.
-    pub(super) x_offset: PhysicalLength,
     pub(super) max_width: PhysicalLength,
     pub(super) height: PhysicalLength,
     max_physical_height: Option<PhysicalLength>,
@@ -536,10 +486,9 @@ impl Layout {
         let Some(paragraph) = self.paragraph_by_y(pos.y_length()) else {
             return (0, crate::items::TextCursorAffinity::NextCharacter);
         };
-        // Convert the point to Parley coordinates; see `Self::x_offset`.
         let cursor = parley::editing::Cursor::from_point(
             &paragraph.layout,
-            pos.x - self.x_offset.get(),
+            pos.x,
             (pos.y_length() - self.y_offset - paragraph.y).get(),
         );
         (paragraph.range.start + cursor.index(), cursor.affinity().into())
@@ -565,7 +514,7 @@ impl Layout {
 
         PhysicalRect::new(
             PhysicalPoint::from_lengths(
-                PhysicalLength::new(rect.x0 as _) + self.x_offset,
+                PhysicalLength::new(rect.x0 as _),
                 PhysicalLength::new(rect.y0 as _) + self.y_offset + paragraph.y,
             ),
             PhysicalSize::new(rect.width() as _, rect.height() as _),

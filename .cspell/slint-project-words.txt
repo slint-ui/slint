@@ -691,7 +691,6 @@ unpic
 Unpremul
 unpremultiply
 unsendable
-unshifted
 usbc
 usecases
 userconfig

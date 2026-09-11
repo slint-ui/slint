@@ -73,7 +73,6 @@ impl CachedTextInputAccessibilityState {
             let total_paragraphs = paragraphs.len();
             for (i, (para, la)) in paragraphs.iter().zip(self.layout_access.iter_mut()).enumerate()
             {
-                let para_x_offset = physical_offset.0 + para.x.get() as f64;
                 let para_y_offset = physical_offset.1 + para.y.get() as f64;
                 let nodes_before = update.nodes.len();
                 la.build_nodes(
@@ -82,7 +81,7 @@ impl CachedTextInputAccessibilityState {
                     update,
                     parent_node,
                     &mut allocate_sub,
-                    para_x_offset,
+                    physical_offset.0,
                     para_y_offset,
                     // A `TextInput`'s text is plain, so it carries no styled spans.
                     |_node, _style| {},

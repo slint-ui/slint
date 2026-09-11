@@ -45,9 +45,6 @@ pub struct SkiaItemRenderer<'a> {
     path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
     box_shadow_cache: &'a SkiaBoxShadowCache,
-    /// Displacement captured by `save_canvas_and_pixel_align_origin` before it changes the canvas transform.
-    /// Text layout reads it through `GlyphRenderer::text_origin_snap_delta`.
-    text_origin_snap_delta: std::cell::Cell<PhysicalPoint>,
 }
 
 impl<'a> SkiaItemRenderer<'a> {
@@ -76,7 +73,6 @@ impl<'a> SkiaItemRenderer<'a> {
             path_cache,
             text_layout_cache,
             box_shadow_cache,
-            text_origin_snap_delta: std::cell::Cell::new(PhysicalPoint::zero()),
         }
     }
 
@@ -475,33 +471,23 @@ impl<'a> SkiaItemRenderer<'a> {
         RenderingResult::ContinueRenderingWithoutChildren
     }
 
-    // Like `pixel_align_origin_auto_restore`, but usable across calls that need `&self`.
-    // Returns whether the caller must restore the canvas.
-    // Records the displacement in `text_origin_snap_delta`.
-    fn save_canvas_and_pixel_align_origin(&self) -> bool {
+    // Snap the alignment anchor; the caller restores the canvas when this returns true.
+    fn save_canvas_and_pixel_align_origin(&self, anchor: PhysicalPoint) -> bool {
         let local_to_device = self.canvas.local_to_device_as_3x3();
-        if !local_to_device.is_translate() || local_to_device.is_identity() {
-            self.text_origin_snap_delta.set(PhysicalPoint::zero());
+        if !local_to_device.is_translate() {
             return false;
         }
         let Some(device_to_local) = local_to_device.invert() else {
-            self.text_origin_snap_delta.set(PhysicalPoint::zero());
             return false;
         };
-        let origin_point = local_to_device.map_point(skia_safe::Point::default());
-        let mut target_point = origin_point;
+        let mut target_point = local_to_device.map_point(to_skia_point(anchor));
 
         target_point.x = target_point.x.round();
         target_point.y = target_point.y.round();
 
-        self.text_origin_snap_delta.set(PhysicalPoint::new(
-            target_point.x - origin_point.x,
-            target_point.y - origin_point.y,
-        ));
-
         self.canvas.save();
 
-        self.canvas.translate(device_to_local.map_point(target_point));
+        self.canvas.translate(device_to_local.map_point(target_point) - to_skia_point(anchor));
 
         true
     }
@@ -625,7 +611,13 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        let restore = self.save_canvas_and_pixel_align_origin();
+        let (horizontal, vertical) = text.alignment();
+        let anchor = i_slint_core::item_rendering::text_alignment_anchor(
+            size * self.scale_factor,
+            horizontal,
+            vertical,
+        );
+        let restore = self.save_canvas_and_pixel_align_origin(anchor);
         sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
         if restore {
             self.canvas.restore();
@@ -638,7 +630,12 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         self_rc: &i_slint_core::items::ItemRc,
         size: LogicalSize,
     ) {
-        let restore = self.save_canvas_and_pixel_align_origin();
+        let anchor = i_slint_core::item_rendering::text_alignment_anchor(
+            size * self.scale_factor,
+            text_input.horizontal_alignment(),
+            text_input.vertical_alignment(),
+        );
+        let restore = self.save_canvas_and_pixel_align_origin(anchor);
         sharedparley::draw_text_input(self, text_input, self_rc, size, self.text_layout_cache);
         if restore {
             self.canvas.restore();
@@ -1089,8 +1086,13 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         }
     }
 
-    fn text_origin_snap_delta(&self) -> PhysicalPoint {
-        self.text_origin_snap_delta.get()
+    fn snap_selection_x(&self, x: f32) -> f32 {
+        let transform = self.canvas.local_to_device_as_3x3();
+        if !transform.is_translate() {
+            return x;
+        }
+        let origin = transform.map_point(skia_safe::Point::default()).x;
+        (origin + x).round() - origin
     }
 
     fn draw_glyph_run(

@@ -335,10 +335,6 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
 
 #[doc(hidden)]
 impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
-    fn snaps_text_origin_to_pixel_grid(&self) -> bool {
-        true
-    }
-
     fn text_layout_cache(&self) -> Option<&sharedparley::TextLayoutCache> {
         Some(&self.text_layout_cache)
     }

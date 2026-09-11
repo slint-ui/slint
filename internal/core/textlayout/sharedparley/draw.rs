@@ -40,13 +40,10 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush>;
 
-    /// Returns the current item's origin-snap displacement in physical pixels: `round(origin) - origin`.
-    /// Returns zero when the renderer skips snapping or the origin is already aligned.
-    ///
-    /// Called once per text draw to correct alignment without changing the box dimensions.
-    /// Implementations that snap before this call must retain the original displacement.
-    fn text_origin_snap_delta(&self) -> PhysicalPoint {
-        PhysicalPoint::zero()
+    /// Snaps a selection edge for both its highlight and glyph clip.
+    /// The input and result are physical x coordinates relative to the item.
+    fn snap_selection_x(&self, x: f32) -> f32 {
+        x.round()
     }
 
     /// Draws the glyphs provided by glyphs_it with the specified font, font_size, and brush at the
@@ -142,13 +139,7 @@ impl TextParagraph {
             _ => (line_count.saturating_sub(1), false),
         };
 
-        self.draw_inline_code_backgrounds(
-            item_renderer,
-            para_y,
-            layout.x_offset,
-            default_text_color,
-            last_drawn,
-        );
+        self.draw_inline_code_backgrounds(item_renderer, para_y, default_text_color, last_drawn);
 
         for (index, line) in self.layout.lines().enumerate() {
             // Stop once we are past the last kept line of the last kept paragraph.
@@ -224,7 +215,6 @@ impl TextParagraph {
                                 default_stroke_brush,
                                 para_y,
                                 glyph_x_range,
-                                layout.x_offset,
                                 &mut truncated_glyphs.into_iter(),
                                 selection.map(|selection| &selection.foreground),
                                 line_spans.unwrap_or_default(),
@@ -238,7 +228,6 @@ impl TextParagraph {
                                 default_stroke_brush,
                                 para_y,
                                 glyph_x_range,
-                                layout.x_offset,
                                 &mut glyph_run.positioned_glyphs(),
                                 selection.map(|selection| &selection.foreground),
                                 line_spans.unwrap_or_default(),
@@ -246,9 +235,8 @@ impl TextParagraph {
                             None
                         };
 
-                        if let Some((mut ellipsis_glyph, ellipsis_font, font_size)) = ellipsis {
+                        if let Some((ellipsis_glyph, ellipsis_font, font_size)) = ellipsis {
                             let run = glyph_run.run();
-                            ellipsis_glyph.x += layout.x_offset.get();
                             item_renderer.draw_glyph_run(
                                 &ellipsis_font,
                                 font_size,
@@ -274,7 +262,6 @@ impl TextParagraph {
         &self,
         item_renderer: &mut R,
         para_y: PhysicalLength,
-        x_offset: PhysicalLength,
         default_text_color: Color,
         last_drawn: usize,
     ) {
@@ -362,7 +349,7 @@ impl TextParagraph {
 
                 let bg_rect = PhysicalRect::new(
                     PhysicalPoint::from_lengths(
-                        PhysicalLength::new(bg_left) + x_offset,
+                        PhysicalLength::new(bg_left),
                         PhysicalLength::new(bg_top) + para_y,
                     ),
                     PhysicalSize::new(bg_width, bg_height),
@@ -396,9 +383,6 @@ impl TextParagraph {
         para_y: PhysicalLength,
         // A uniform `no-wrap` line is a single run, so culling whole runs is not enough.
         visible_x_range: Option<&Range<PhysicalLength>>,
-        // Correction applied to final glyph and clip positions; see `Layout::x_offset`.
-        // Run and selection comparisons use unshifted Parley coordinates.
-        x_offset: PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
         // The selection foreground, and the spans it covers on this run's line. Both empty when
         // there is no selection, which `run_coverage` reports as `Unselected`.
@@ -425,7 +409,6 @@ impl TextParagraph {
                 default_fill_brush,
                 default_stroke_brush,
                 para_y,
-                x_offset,
                 glyphs_it,
                 None,
             ),
@@ -435,7 +418,6 @@ impl TextParagraph {
                 default_fill_brush,
                 default_stroke_brush,
                 para_y,
-                x_offset,
                 glyphs_it,
                 selection_brush,
             ),
@@ -464,7 +446,6 @@ impl TextParagraph {
                             default_fill_brush,
                             default_stroke_brush,
                             para_y,
-                            x_offset,
                             &glyphs,
                             segment,
                             brush,
@@ -478,7 +459,6 @@ impl TextParagraph {
                     default_fill_brush,
                     default_stroke_brush,
                     para_y,
-                    x_offset,
                     &glyphs,
                     x..run_x.end,
                     None,
@@ -495,9 +475,7 @@ impl TextParagraph {
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
         para_y: PhysicalLength,
-        x_offset: PhysicalLength,
         glyphs: &[parley::layout::Glyph],
-        // Segment bounds in Parley coordinates, before applying `x_offset` to the clip.
         x: Range<f32>,
         override_fill_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
     ) {
@@ -514,7 +492,7 @@ impl TextParagraph {
         let render = item_renderer.combine_clip(
             LogicalRect::new(
                 LogicalPoint::from_lengths(
-                    (PhysicalLength::new(x.start) + x_offset) / scale_factor,
+                    PhysicalLength::new(x.start) / scale_factor,
                     current_clip.origin.y_length(),
                 ),
                 LogicalSize::from_lengths(
@@ -532,7 +510,6 @@ impl TextParagraph {
                 default_fill_brush,
                 default_stroke_brush,
                 para_y,
-                x_offset,
                 &mut glyphs.iter().cloned(),
                 override_fill_brush,
             );
@@ -547,18 +524,10 @@ impl TextParagraph {
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
         para_y: PhysicalLength,
-        x_offset: PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
         // Forced fill for selected glyphs, overriding the run's own brush.
         override_fill_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
     ) {
-        // Convert glyph positions to drawing coordinates; see `Layout::x_offset`.
-        let mut glyphs_it = glyphs_it.map(|mut glyph| {
-            glyph.x += x_offset.get();
-            glyph
-        });
-        let glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph> = &mut glyphs_it;
-
         let run = glyph_run.run();
         let normalized_coords = run.normalized_coords();
         let synthesis = run.synthesis();
@@ -657,7 +626,7 @@ impl TextParagraph {
             item_renderer.fill_rectangle(
                 PhysicalRect::new(
                     PhysicalPoint::from_lengths(
-                        PhysicalLength::new(glyph_run.offset()) + x_offset,
+                        PhysicalLength::new(glyph_run.offset()),
                         para_y
                             + PhysicalLength::new(glyph_run.baseline() - metrics.underline_offset),
                     ),
@@ -673,7 +642,7 @@ impl TextParagraph {
             item_renderer.fill_rectangle(
                 PhysicalRect::new(
                     PhysicalPoint::from_lengths(
-                        PhysicalLength::new(glyph_run.offset()) + x_offset,
+                        PhysicalLength::new(glyph_run.offset()),
                         para_y
                             + PhysicalLength::new(
                                 glyph_run.baseline() - metrics.strikethrough_offset,

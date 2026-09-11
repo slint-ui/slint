@@ -50,15 +50,6 @@ impl<T: RendererSealed> Renderer for T {}
 /// trait is not exported in the public API, it is not possible for the
 /// users to re-implement these functions.
 pub trait RendererSealed {
-    /// Whether this renderer snaps text origins to physical pixels under a pure translation.
-    ///
-    /// Hit-testing, cursor placement, and accessibility use this to match rendered text positions outside a draw call.
-    /// This reports renderer capability; `GlyphRenderer::text_origin_snap_delta` reports the displacement for the current item.
-    #[cfg(feature = "shared-parley")]
-    fn snaps_text_origin_to_pixel_grid(&self) -> bool {
-        false
-    }
-
     /// The cache used by the default implementations of the text related trait functions,
     /// which lay text out through [`crate::textlayout::sharedparley`]. Renderers using
     /// those default implementations return their cache here; with the default `None`,

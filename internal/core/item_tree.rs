@@ -670,22 +670,6 @@ impl ItemRc {
         self.map_to_item_tree_impl(p, |_| false)
     }
 
-    /// Returns this item's origin in window coordinates if the ancestor transform is a pure translation.
-    /// Returns `None` for rotation or scale.
-    ///
-    /// Only includes item-tree transforms.
-    /// See `crate::textlayout::sharedparley::origin_snap_delta_for_query` for the limits when matching renderer coordinates.
-    pub fn window_origin_if_translate_only(&self) -> Option<LogicalPoint> {
-        use crate::graphics::euclid::approxeq::ApproxEq;
-
-        let transform = self.local_to_window_transform(|_| false);
-        let is_translation = transform.m11.approx_eq(&1.0)
-            && transform.m12.approx_eq(&0.0)
-            && transform.m21.approx_eq(&0.0)
-            && transform.m22.approx_eq(&1.0);
-        is_translation.then(|| transform.transform_point(self.geometry().origin.cast()).cast())
-    }
-
     /// Returns an absolute position of `p` in the `ItemTree`'s coordinate system
     /// (does not add this item's x and y)
     pub fn map_to_item_tree(
@@ -2994,38 +2978,6 @@ mod tests {
         let local_point = Point2D::new(4., 5.);
         let window_point = leaf.map_to_window(local_point);
         assert_point_approx_eq(window_point, Point2D::new(28., 53.));
-    }
-
-    #[test]
-    fn test_window_origin_if_translate_only() {
-        // The result includes the item's own position and its ancestors' positions.
-        let (_window_adapter, item_tree) = create_subsubtree_items(None);
-        let root = ItemRc::new_root(item_tree);
-        let first_child = root.first_child().unwrap();
-        let first_child_of_first_child = first_child.first_child().unwrap();
-
-        assert_point_approx_eq(
-            first_child.window_origin_if_translate_only().unwrap(),
-            Point2D::new(2. * GEOMETRY_POSITION_X, 2. * GEOMETRY_POSITION_Y),
-        );
-        assert_point_approx_eq(
-            first_child_of_first_child.window_origin_if_translate_only().unwrap(),
-            Point2D::new(3. * GEOMETRY_POSITION_X, 3. * GEOMETRY_POSITION_Y),
-        );
-    }
-
-    #[test]
-    fn test_window_origin_if_translate_only_none_under_scale() {
-        // Renderers skip origin snapping under an ancestor scale.
-        let (_window_adapter, item_tree) = create_transform_test_items();
-        let root = ItemRc::new_root(item_tree);
-        let transform = root.first_child().unwrap();
-        let clip = transform.first_child().unwrap();
-        let leaf = clip.first_child().unwrap();
-
-        assert!(leaf.window_origin_if_translate_only().is_none());
-        // The root has no transformed ancestors.
-        assert!(root.window_origin_if_translate_only().is_some());
     }
 
     #[test]

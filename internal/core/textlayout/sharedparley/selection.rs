@@ -5,8 +5,7 @@
 
 //! Selection geometry, resolved once per draw into per-line horizontal spans.
 //!
-//! The same rounded span edges fill the highlight and clip the glyph runs, so the two can't
-//! disagree -- see [`SelectionSpan`].
+//! The same span edges fill the highlight and clip the glyph runs; see [`SelectionSpan`].
 
 use super::*;
 
@@ -25,10 +24,7 @@ pub(super) struct SelectionSpan {
     pub(super) paragraph: usize,
     /// Line within that paragraph.
     pub(super) line: usize,
-    /// Highlight rectangle in item coordinates, ready to fill. Its horizontal edges are snapped to
-    /// whole device pixels where they are computed, and [`Self::x`] hands the very same edges to
-    /// the glyph clip -- so the highlight edge and the clip edge cannot disagree and leave a sliver
-    /// of wrongly-colored glyph on top of the highlight.
+    /// Highlight rectangle in item coordinates, also used for the glyph clip.
     background: PhysicalRect,
 }
 
@@ -50,21 +46,8 @@ impl SelectionSpans {
         self.0.is_empty()
     }
 
-    /// Returns highlight rectangles with the horizontal drawing correction applied.
-    /// Stored spans remain in Parley coordinates for selection comparisons.
-    pub(super) fn backgrounds(
-        &self,
-        x_offset: PhysicalLength,
-    ) -> impl Iterator<Item = PhysicalRect> + '_ {
-        self.0.iter().map(move |span| {
-            PhysicalRect::new(
-                PhysicalPoint::from_lengths(
-                    span.background.origin.x_length() + x_offset,
-                    span.background.origin.y_length(),
-                ),
-                span.background.size,
-            )
-        })
+    pub(super) fn backgrounds(&self) -> impl Iterator<Item = PhysicalRect> + '_ {
+        self.0.iter().map(|span| span.background)
     }
 
     /// The spans covering one line. Both the stored spans and the draw loop walk paragraphs and
@@ -128,6 +111,7 @@ impl Layout {
         &self,
         selection_range: Range<usize>,
         visible_band: &Range<PhysicalLength>,
+        snap_x: impl Fn(f32) -> f32,
     ) -> SelectionSpans {
         let mut spans = Vec::new();
 
@@ -167,9 +151,7 @@ impl Layout {
             );
 
             selection.geometry_with(&paragraph.layout, |rect, line| {
-                // Snap the horizontal edges to device pixels once, here, so that the highlight
-                // rectangle and the glyph clip derived from the same span are pixel-identical.
-                let x = (rect.x0 as f32).round()..(rect.x1 as f32).round();
+                let x = snap_x(rect.x0 as f32)..snap_x(rect.x1 as f32);
                 if x.end <= x.start {
                     return;
                 }
