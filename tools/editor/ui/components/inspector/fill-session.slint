@@ -156,15 +156,6 @@ export global FillSession {
             }
             FillSession.has-preview = true;
             FillSession.working-fill = fill;
-            if fill.kind == BrushKind.linear {
-                FillSession.linear-fill = fill;
-            }
-            if fill.kind == BrushKind.radial {
-                FillSession.radial-fill = fill;
-            }
-            if fill.kind == BrushKind.conic {
-                FillSession.conic-fill = fill;
-            }
             return true;
         }
         FillSession.close-picker(false, false);
@@ -180,7 +171,18 @@ export global FillSession {
         }
         return FillSession.preview-fill(FillSession.draft);
     }
+    function remember-gradient() {
+        if FillSession.working-fill.kind == BrushKind.linear {
+            FillSession.linear-fill = FillSession.working-fill;
+        } else if FillSession.working-fill.kind == BrushKind.radial {
+            FillSession.radial-fill = FillSession.working-fill;
+        } else if FillSession.working-fill.kind == BrushKind.conic {
+            FillSession.conic-fill = FillSession.working-fill;
+        }
+    }
+
     public function select-kind(kind: BrushKind) -> bool {
+        FillSession.remember-gradient();
         FillSession.stop-panel-open = false;
         FillSession.draft = FillSession.working-fill;
         if kind == BrushKind.solid {
@@ -219,6 +221,7 @@ export global FillSession {
     }
 
     public function select-recent(fill: FillData) {
+        FillSession.remember-gradient();
         if fill.kind == BrushKind.radial {
             FillSession.radial-center-initialized = fill.custom-center;
             FillSession.radius-initialized = fill.custom-radius;
@@ -252,19 +255,10 @@ export global FillSession {
         FillSession.radial-center-initialized = FillSession.request.fill.kind == BrushKind.radial && FillSession.request.fill.custom-center;
         FillSession.conic-center-initialized = FillSession.request.fill.kind == BrushKind.conic && FillSession.request.fill.custom-center;
         FillSession.radius-initialized = FillSession.request.fill.kind == BrushKind.radial && FillSession.request.fill.custom-radius;
-        FillSession.linear-fill = {kind: BrushKind.linear, angle: 90};
-        FillSession.radial-fill = {kind: BrushKind.radial};
-        FillSession.conic-fill = {kind: BrushKind.conic};
+        FillSession.linear-fill = FillSession.request.fill.kind == BrushKind.linear ? FillSession.working-fill : {kind: BrushKind.linear, angle: 90};
+        FillSession.radial-fill = FillSession.request.fill.kind == BrushKind.radial ? FillSession.working-fill : {kind: BrushKind.radial};
+        FillSession.conic-fill = FillSession.request.fill.kind == BrushKind.conic ? FillSession.working-fill : {kind: BrushKind.conic};
         FillSession.last-gradient = FillSession.request.fill.kind == BrushKind.solid ? BrushKind.linear : FillSession.request.fill.kind;
-        if FillSession.request.fill.kind == BrushKind.linear {
-            FillSession.linear-fill = FillSession.working-fill;
-        }
-        if FillSession.request.fill.kind == BrushKind.radial {
-            FillSession.radial-fill = FillSession.working-fill;
-        }
-        if FillSession.request.fill.kind == BrushKind.conic {
-            FillSession.conic-fill = FillSession.working-fill;
-        }
         FillSession.has-preview = false;
         FillSession.session-active = true;
         FillSession.reset-axis();

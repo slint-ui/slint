@@ -1813,6 +1813,57 @@ mod tests {
     }
 
     #[test]
+    fn gradient_switching_restores_geometry_and_carries_current_stops() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        super::brushes::setup(&api);
+        api.on_inspector_fill_preview(|_, _, _| true);
+        let session = editor.global::<super::FillSession>();
+        session.invoke_begin(Default::default());
+        let kinds = [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic];
+        for (index, kind) in kinds.into_iter().enumerate() {
+            assert!(session.invoke_select_kind(kind));
+            let fill = super::FillData {
+                angle: 25. + index as f32,
+                custom_center: true,
+                center_x: 37. + index as f32,
+                center_y: 61.,
+                custom_radius: true,
+                radius: 95.,
+                ..session.get_working_fill()
+            };
+            assert!(session.invoke_preview_fill(fill));
+        }
+        let color = slint::Color::from_rgb_u8(42, 84, 126);
+        assert!(session.invoke_preview_color(color));
+        let stops = session.get_working_fill().stops.iter().collect::<Vec<_>>();
+        for _ in 0..2 {
+            assert!(session.invoke_select_kind(super::BrushKind::Solid));
+            for (index, kind) in kinds.into_iter().enumerate() {
+                assert!(session.invoke_select_kind(kind));
+                let fill = session.get_working_fill();
+                assert_eq!(fill.angle, 25. + index as f32);
+                assert_eq!(fill.center_x, 37. + index as f32);
+                assert_eq!(fill.center_y, 61.);
+                assert_eq!(fill.radius, 95.);
+                assert!(fill.custom_center && fill.custom_radius);
+                assert_eq!(fill.stops.iter().collect::<Vec<_>>(), stops);
+            }
+        }
+        session.invoke_select_recent(super::FillData {
+            kind: super::BrushKind::Radial,
+            stops: session.get_working_fill().stops,
+            ..Default::default()
+        });
+        assert!(session.invoke_select_kind(super::BrushKind::Conic));
+        assert_eq!(session.get_working_fill().center_x, 39.);
+        assert!(session.invoke_select_kind(super::BrushKind::Radial));
+        assert!(!session.get_working_fill().custom_center);
+        assert!(!session.get_working_fill().custom_radius);
+    }
+
+    #[test]
     fn stop_mutations_preserve_shared_gesture_snapshots() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
