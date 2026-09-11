@@ -27,8 +27,6 @@ def scene(tmp_path):
     width: 400px;
     height: 400px;
     fill := Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
         width: 200px;
         height: 200px;
         background: @linear-gradient(90deg, #568fb8 0%, #264052 55%, #7e3b66 100%);
