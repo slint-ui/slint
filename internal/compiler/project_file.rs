@@ -92,6 +92,13 @@ impl ProjectFile {
         output_format: crate::generator::OutputFormat,
     ) -> crate::CompilerConfiguration {
         let mut compiler_config = crate::CompilerConfiguration::new(output_format);
+        self.apply_to(&mut compiler_config);
+        compiler_config
+    }
+
+    /// Applies the settings of the project file to `compiler_config`,
+    /// leaving the settings the project file doesn't specify untouched.
+    pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
         let project_directory = crate::pathutils::dirname(&self.source_path);
 
         if let Some(include_directories) = &self.data.include_directories {
@@ -118,8 +125,6 @@ impl ProjectFile {
         if let Some(enable_experimental_features) = self.data.enable_experimental_features {
             compiler_config.enable_experimental = enable_experimental_features;
         }
-
-        compiler_config
     }
 }
 
