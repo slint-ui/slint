@@ -153,6 +153,18 @@ pub type Rgb8Pixel = rgb::RGB8;
 /// encoded as u8.
 pub type Rgba8Pixel = rgb::RGBA8;
 
+impl From<crate::Color> for Rgb8Pixel {
+    fn from(value: crate::Color) -> Self {
+        Self { r: value.red(), g: value.green(), b: value.blue() }
+    }
+}
+
+impl From<crate::Color> for Rgba8Pixel {
+    fn from(value: crate::Color) -> Self {
+        Self { r: value.red(), g: value.green(), b: value.blue(), a: value.alpha() }
+    }
+}
+
 /// SharedImageBuffer is a container for images that are stored in CPU accessible memory.
 ///
 /// The SharedImageBuffer's variants represent the different common formats for encoding
