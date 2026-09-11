@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+
+    out property <int> current-index <=> tab-widget.current-index;
+
+    tab-widget := TabWidget {
+        Tab {
+            title: "First";
+            Rectangle { background: red; }
+        }
+
+        Tab {
+            title: "Second";
+            Rectangle { background: green; }
+        }
+
+        Tab {
+            title: "Third";
+            Rectangle { background: blue; }
+        }
+    }
+}
+
+/*
+
+```rust
+use i_slint_backend_testing::{AccessibleRole, ElementQuery};
+
+let instance = TestCase::new().unwrap();
+
+let tab_bar = ElementQuery::from_root(&instance)
+    .match_descendants()
+    .match_accessible_role(AccessibleRole::TabList)
+    .find_first()
+    .unwrap();
+
+// Scrolling down selects the next tab.
+tab_bar.scroll(0., -50.);
+assert_eq!(instance.get_current_index(), 1);
+
+// Scrolling up selects the previous tab.
+tab_bar.scroll(0., 50.);
+assert_eq!(instance.get_current_index(), 0);
+
+tab_bar.scroll(0., -50.);
+assert_eq!(instance.get_current_index(), 1);
+
+// A purely horizontal scroll must not change the selection.
+tab_bar.scroll(-50., 0.);
+assert_eq!(instance.get_current_index(), 1, "horizontal scroll changed the current tab");
+
+// A vertical scroll below the dead zone must not change the selection either.
+tab_bar.scroll(0., 1.);
+assert_eq!(instance.get_current_index(), 1, "tiny scroll changed the current tab");
+```
+
+*/
