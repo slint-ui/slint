@@ -100,17 +100,43 @@ export abstract class Model<T> implements Iterable<T> {
         this.modelNotify = modelNotify ?? napi.jsModelNotifyNew();
     }
 
-    // /**
-    //  * Returns a new Model where all elements are mapped by the function `mapFunction`.
-    //  * @template T the type of the source model's items.
-    //  * @param mapFunction functions that maps
-    //  * @returns a new {@link MapModel} that wraps the current model.
-    //  */
-    // map<U>(
-    //     mapFunction: (data: T) => U
-    // ): MapModel<T, U> {
-    //     return new MapModel(this, mapFunction);
-    // }
+    /**
+     * Returns a new Model where all elements are mapped by the function `mapFunction`.
+     * @param mapFunction maps the data from T to U.
+     * @returns a new {@link MapModel} that wraps the current model.
+     */
+    map<U>(mapFunction: (data: T) => U): MapModel<T, U> {
+        return new MapModel(this, mapFunction);
+    }
+
+    /**
+     * Returns a new Model that only contains the rows of this model for which
+     * `filterFunction` returns true.
+     * @param filterFunction returns true if a row should be visible.
+     * @returns a new {@link FilterModel} that wraps the current model.
+     */
+    filter(filterFunction: (data: T) => boolean): FilterModel<T> {
+        return new FilterModel(this, filterFunction);
+    }
+
+    /**
+     * Returns a new Model with the same rows as this model, ordered according to
+     * `compareFunction`.
+     * @param compareFunction compares two rows the same way the callback passed to
+     *                         {@link Array.prototype.sort} does.
+     * @returns a new {@link SortModel} that wraps the current model.
+     */
+    sort(compareFunction: (a: T, b: T) => number): SortModel<T> {
+        return new SortModel(this, compareFunction);
+    }
+
+    /**
+     * Returns a new Model with the same rows as this model, in reverse order.
+     * @returns a new {@link ReverseModel} that wraps the current model.
+     */
+    reverse(): ReverseModel<T> {
+        return new ReverseModel(this);
+    }
 
     /**
      * Implementations of this function must return the current number of rows.
@@ -359,5 +385,274 @@ export class ArrayModel<T> extends Model<T> {
      */
     entries(): IterableIterator<[number, T]> {
         return this.#array.entries();
+    }
+}
+
+/**
+ * @hidden
+ * Base class for the Reverse/Filter/Sort/MapModel adapters, whose row-mapping
+ * bookkeeping runs natively in Rust behind a shared `napi.NativeModel`
+ * handle. Centralizes the delegation to that handle, including the
+ * `__slintNativeModel` property the native side uses to recognize a source
+ * model as backed by a native adapter and reuse its backing directly
+ * instead of treating it as an opaque JS model.
+ */
+abstract class NativeAdapterModel<T> extends Model<T> {
+    #native!: napi.NativeModel;
+
+    protected setNative(native: napi.NativeModel): void {
+        this.#native = native;
+    }
+
+    protected get native(): napi.NativeModel {
+        return this.#native;
+    }
+
+    /**
+     * @hidden
+     */
+    get __slintNativeModel(): napi.NativeModel {
+        return this.#native;
+    }
+
+    /**
+     * Returns the number of entries in the model.
+     */
+    rowCount(): number {
+        return this.#native.rowCount();
+    }
+
+    /**
+     * Returns the data at the specified row.
+     * @param row index in range 0..(rowCount() - 1).
+     * @returns undefined if row is out of range otherwise the data.
+     */
+    rowData(row: number): T | undefined {
+        return this.#native.rowData(row) as T | undefined;
+    }
+
+    /**
+     * Stores the given data in the source model at the row that corresponds
+     * to the given row index.
+     * @param row index in range 0..(rowCount() - 1).
+     * @param data new data item to store on the given row index.
+     */
+    setRowData(row: number, data: T): void {
+        this.#native.setRowData(row, data);
+    }
+}
+
+/**
+ * FilterModel provides a filtered view of rows from a source model, by applying
+ * a filter function to each row of the source model. Only rows for which the
+ * filter function returns `true` are visible in the FilterModel.
+ *
+ * ### Example
+ *
+ * ```js
+ * const source = new ArrayModel([1, 2, 3, 4, 5, 6]);
+ * const evenNumbers = new FilterModel(source, (x) => x % 2 === 0);
+ *
+ * // prints 2, 4, 6
+ * for (const x of evenNumbers) {
+ *     console.log(x);
+ * }
+ * ```
+ */
+export class FilterModel<T> extends NativeAdapterModel<T> {
+    /**
+     * The source model that this FilterModel filters rows from.
+     */
+    readonly sourceModel: Model<T>;
+
+    /**
+     * Constructs a new FilterModel that provides a filtered view on the given
+     * `sourceModel` by applying `filterFunction` on each of its rows.
+     * @param sourceModel the wrapped model.
+     * @param filterFunction returns true if a row should be visible in the FilterModel.
+     */
+    constructor(sourceModel: Model<T>, filterFunction: (data: T) => boolean) {
+        super();
+        this.sourceModel = sourceModel;
+        this.setNative(
+            napi.nativeFilterModelNew(
+                sourceModel,
+                filterFunction as (data: unknown) => boolean,
+                this,
+            ),
+        );
+    }
+
+    /**
+     * Re-applies the filter function on each row of the source model. Use
+     * this if the filter function depends on state external to the source
+     * model and that state has changed.
+     */
+    reset(): void {
+        this.native.reset();
+    }
+
+    /**
+     * Given a `filteredRow` index into this FilterModel, returns the
+     * corresponding row index in the source model.
+     * @param filteredRow index in range 0..(rowCount() - 1).
+     * @returns undefined if filteredRow is out of range otherwise the source row index.
+     */
+    unfilteredRow(filteredRow: number): number | undefined {
+        return this.native.unmappedRow(filteredRow) ?? undefined;
+    }
+}
+
+/**
+ * MapModel provides rows that are generated by a map function based on the
+ * rows of another model.
+ *
+ * @template T item type of source model that is mapped to U.
+ * @template U the type of the mapped items.
+ *
+ * ### Example
+ *
+ * Here we have an {@link ArrayModel} holding rows of a custom interface `Name`
+ * and a MapModel that maps the name rows to single string rows.
+ *
+ * ```js
+ * interface Name {
+ *     first: string;
+ *     last: string;
+ * }
+ *
+ * const model = new ArrayModel<Name>([
+ *     { first: "Hans", last: "Emil" },
+ *     { first: "Max", last: "Mustermann" },
+ *     { first: "Roman", last: "Tisch" },
+ * ]);
+ *
+ * const mappedModel = new MapModel(model, (data) => data.last + ", " + data.first);
+ *
+ * // prints "Emil, Hans"
+ * console.log(mappedModel.rowData(0));
+ * ```
+ */
+export class MapModel<T, U> extends NativeAdapterModel<U> {
+    /**
+     * The source model that this MapModel maps rows from.
+     */
+    readonly sourceModel: Model<T>;
+
+    /**
+     * Constructs a new MapModel that provides a mapped view on the given
+     * `sourceModel` by applying `mapFunction` on each of its rows.
+     * @param sourceModel the wrapped model.
+     * @param mapFunction maps the data from T to U.
+     */
+    constructor(sourceModel: Model<T>, mapFunction: (data: T) => U) {
+        super();
+        this.sourceModel = sourceModel;
+        this.setNative(
+            napi.nativeMapModelNew(
+                sourceModel,
+                mapFunction as (data: unknown) => unknown,
+                this,
+            ),
+        );
+    }
+}
+
+/**
+ * SortModel acts as an adapter model for a given source model by sorting all its
+ * rows according to the order given by `compareFunction`.
+ *
+ * ### Example
+ *
+ * ```js
+ * const source = new ArrayModel(["lorem", "ipsum", "dolor"]);
+ * const sorted = new SortModel(source, (a, b) => a.localeCompare(b));
+ *
+ * // prints dolor, ipsum, lorem
+ * for (const x of sorted) {
+ *     console.log(x);
+ * }
+ * ```
+ */
+export class SortModel<T> extends NativeAdapterModel<T> {
+    /**
+     * The source model that this SortModel sorts rows from.
+     */
+    readonly sourceModel: Model<T>;
+
+    /**
+     * Constructs a new SortModel that provides a sorted view on the given
+     * `sourceModel` by applying the order given by `compareFunction`.
+     * @param sourceModel the wrapped model.
+     * @param compareFunction compares two rows the same way the callback passed to
+     *                         {@link Array.prototype.sort} does.
+     */
+    constructor(
+        sourceModel: Model<T>,
+        compareFunction: (a: T, b: T) => number,
+    ) {
+        super();
+        this.sourceModel = sourceModel;
+        this.setNative(
+            napi.nativeSortModelNew(
+                sourceModel,
+                compareFunction as (a: unknown, b: unknown) => number,
+                this,
+            ),
+        );
+    }
+
+    /**
+     * Re-applies the sort order on the rows of the source model. Use this if
+     * the compare function depends on state external to the source model and
+     * that state has changed.
+     */
+    reset(): void {
+        this.native.reset();
+    }
+
+    /**
+     * Given a `sortedRow` index into this SortModel, returns the corresponding
+     * row index in the source model.
+     * @param sortedRow index in range 0..(rowCount() - 1).
+     * @returns undefined if sortedRow is out of range otherwise the source row index.
+     */
+    unsortedRow(sortedRow: number): number | undefined {
+        return this.native.unmappedRow(sortedRow) ?? undefined;
+    }
+}
+
+/**
+ * ReverseModel acts as an adapter model for a given source model by reversing
+ * all its rows. This means that the first row in the source model is the last
+ * row of this model, the second row is the second last, and so on.
+ *
+ * ### Example
+ *
+ * ```js
+ * const source = new ArrayModel([1, 2, 3, 4, 5]);
+ * const reversed = new ReverseModel(source);
+ *
+ * // prints 5, 4, 3, 2, 1
+ * for (const x of reversed) {
+ *     console.log(x);
+ * }
+ * ```
+ */
+export class ReverseModel<T> extends NativeAdapterModel<T> {
+    /**
+     * The source model that this ReverseModel reverses rows from.
+     */
+    readonly sourceModel: Model<T>;
+
+    /**
+     * Constructs a new ReverseModel that provides a reversed view on the given
+     * `sourceModel`.
+     * @param sourceModel the wrapped model.
+     */
+    constructor(sourceModel: Model<T>) {
+        super();
+        this.sourceModel = sourceModel;
+        this.setNative(napi.nativeReverseModelNew(sourceModel, this));
     }
 }
