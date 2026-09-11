@@ -704,6 +704,7 @@ fn struct_field_name_normalization() {
 #[deprecated(note = "Use slint_interpreter::Compiler instead")]
 pub struct ComponentCompiler {
     config: i_slint_compiler::CompilerConfiguration,
+    overrides: ProjectSettingOverrides,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -714,7 +715,7 @@ impl Default for ComponentCompiler {
             i_slint_compiler::generator::OutputFormat::Interpreter,
         );
         config.components_to_generate = i_slint_compiler::ComponentSelection::LastExported;
-        Self { config, diagnostics: Vec::new() }
+        Self { config, overrides: Default::default(), diagnostics: Vec::new() }
     }
 }
 
@@ -738,7 +739,10 @@ impl ComponentCompiler {
     }
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
+    ///
+    /// This wins over the include paths of the project file.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
+        self.overrides.include_paths = Some(include_paths.clone());
         self.config.include_paths = include_paths;
     }
 
@@ -748,7 +752,10 @@ impl ComponentCompiler {
     }
 
     /// Sets the library paths used for looking up `@library` imports to the specified map of library names to paths.
+    ///
+    /// This wins over the library paths of the project file.
     pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
+        self.overrides.library_paths = Some(library_paths.clone());
         self.config.library_paths = library_paths;
     }
 
@@ -768,7 +775,10 @@ impl ComponentCompiler {
     /// let definition =
     ///     spin_on::spin_on(compiler.build_from_path("hello.slint"));
     /// ```
+    ///
+    /// This wins over the style of the project file.
     pub fn set_style(&mut self, style: String) {
+        self.overrides.style = Some(style.clone());
         self.config.style = Some(style);
     }
 
@@ -820,8 +830,6 @@ impl ComponentCompiler {
     /// If the path is `"-"`, the file will be read from stdin.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
     ///
-    /// This deprecated type does not read a project file. [`Compiler`] does.
-    ///
     /// This function is `async` but in practice, this is only asynchronous if
     /// [`Self::set_file_loader`] was called and its future is actually asynchronous.
     /// If that is not used, then it is fine to use a very simple executor, such as the one
@@ -839,13 +847,15 @@ impl ComponentCompiler {
             }
         };
 
-        let r = build_compilation_result(
-            source,
-            path.into(),
-            self.config.clone(),
-            AnimationMode::Running,
-        )
-        .await;
+        let config = match self.effective_configuration(path) {
+            Ok(config) => config,
+            Err(message) => {
+                self.diagnostics = project_file_diagnostics(message);
+                return None;
+            }
+        };
+
+        let r = build_compilation_result(source, path.into(), config, AnimationMode::Running).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
@@ -871,16 +881,32 @@ impl ComponentCompiler {
         source_code: String,
         path: PathBuf,
     ) -> Option<ComponentDefinition> {
-        let r = build_compilation_result(
-            source_code,
-            path,
-            self.config.clone(),
-            AnimationMode::Running,
-        )
-        .await;
+        let config = match self.effective_configuration(&path) {
+            Ok(config) => config,
+            Err(message) => {
+                self.diagnostics = project_file_diagnostics(message);
+                return None;
+            }
+        };
+
+        let r = build_compilation_result(source_code, path, config, AnimationMode::Running).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
+
+    fn effective_configuration(
+        &self,
+        slint_file_path: &Path,
+    ) -> Result<i_slint_compiler::CompilerConfiguration, String> {
+        effective_configuration(&self.config, &self.overrides, slint_file_path)
+    }
+}
+
+/// Reports a project file that could not be read as a diagnostic without a source location.
+fn project_file_diagnostics(message: String) -> Vec<Diagnostic> {
+    let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
+    diagnostics.push_error_with_span(message, Default::default());
+    diagnostics.into_iter().collect()
 }
 
 /// This is the entry point of the crate, it can be used to load a `.slint` file and
@@ -911,6 +937,32 @@ impl ProjectSettingOverrides {
             config.style = Some(style.clone());
         }
     }
+}
+
+/// The configuration to compile `slint_file_path` with: the project file that applies to it,
+/// with `overrides` on top.
+fn effective_configuration(
+    config: &i_slint_compiler::CompilerConfiguration,
+    overrides: &ProjectSettingOverrides,
+    slint_file_path: &Path,
+) -> Result<i_slint_compiler::CompilerConfiguration, String> {
+    use i_slint_compiler::project_file::{FILE_NAME, ProjectFile, find_project_file_path};
+
+    let mut config = config.clone();
+
+    let directory = i_slint_compiler::pathutils::dirname(slint_file_path);
+    let project_file_path = find_project_file_path(&directory)
+        .map_err(|error| std::format!("Cannot look for {FILE_NAME}: {error}"))?;
+
+    if let Some(project_file_path) = project_file_path {
+        let project_file = ProjectFile::load(&project_file_path).map_err(|error| {
+            std::format!("Cannot load {}: {error}", project_file_path.display())
+        })?;
+        project_file.apply_to(&mut config);
+    }
+
+    overrides.apply_to(&mut config);
+    Ok(config)
 }
 
 impl Default for Compiler {
@@ -1125,23 +1177,7 @@ impl Compiler {
         &self,
         slint_file_path: &Path,
     ) -> Result<i_slint_compiler::CompilerConfiguration, String> {
-        use i_slint_compiler::project_file::{FILE_NAME, ProjectFile, find_project_file_path};
-
-        let mut config = self.config.clone();
-
-        let directory = i_slint_compiler::pathutils::dirname(slint_file_path);
-        let project_file_path = find_project_file_path(&directory)
-            .map_err(|error| std::format!("Cannot look for {FILE_NAME}: {error}"))?;
-
-        if let Some(project_file_path) = project_file_path {
-            let project_file = ProjectFile::load(&project_file_path).map_err(|error| {
-                std::format!("Cannot load {}: {error}", project_file_path.display())
-            })?;
-            project_file.apply_to(&mut config);
-        }
-
-        self.overrides.apply_to(&mut config);
-        Ok(config)
+        effective_configuration(&self.config, &self.overrides, slint_file_path)
     }
 
     /// Compile Slint code without timers or animations.
@@ -2543,6 +2579,7 @@ export component Foo3 inherits Window {
 
 #[cfg(test)]
 mod project_file_tests {
+
     use super::Compiler;
     use i_slint_compiler::project_file::FILE_NAME;
     use std::path::Path;
@@ -2616,6 +2653,47 @@ mod project_file_tests {
                 messages.iter().any(|message| message.contains(FILE_NAME)),
                 "expected the project file to be named: {messages:?}"
             );
+        });
+    }
+
+    // The C++ interpreter API goes through the deprecated ComponentCompiler.
+    #[test]
+    fn the_deprecated_compiler_reads_the_project_file() {
+        with_project(REJECTED_STYLE, |root| {
+            let main = root.join("main.slint");
+            std::fs::write(&main, "export component Main inherits Window { }").unwrap();
+
+            #[allow(deprecated)]
+            let mut compiler = super::ComponentCompiler::new();
+            #[allow(deprecated)]
+            let definition = spin_on::spin_on(compiler.build_from_path(&main));
+            assert!(definition.is_none());
+            #[allow(deprecated)]
+            let messages = compiler
+                .diagnostics()
+                .iter()
+                .map(|diagnostic| diagnostic.message().to_string())
+                .collect::<Vec<_>>();
+            assert!(
+                messages.iter().any(|message| message.contains("no-such-style")),
+                "expected the project file style to reach the compiler: {messages:?}"
+            );
+        });
+    }
+
+    #[test]
+    fn an_explicit_style_wins_for_the_deprecated_compiler() {
+        with_project(REJECTED_STYLE, |root| {
+            let main = root.join("main.slint");
+            std::fs::write(&main, "export component Main inherits Window { }").unwrap();
+
+            #[allow(deprecated)]
+            let mut compiler = super::ComponentCompiler::new();
+            #[allow(deprecated)]
+            compiler.set_style("fluent".into());
+            #[allow(deprecated)]
+            let definition = spin_on::spin_on(compiler.build_from_path(&main));
+            assert!(definition.is_some());
         });
     }
 
