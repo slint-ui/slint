@@ -318,6 +318,9 @@ def _load_file(
     * `translation_domain`: The domain to use for looking up the catalogue run-time translations. This must match the
        translation domain used when extracting translations with `slint-tr-extractor`.
 
+    A `slint.project.json` in the directory of `path`, or in a directory above it, provides the
+    settings that are not given here. The arguments above win over the project file.
+
     """
 
     compiler = native.Compiler()
@@ -391,6 +394,9 @@ def load_file(
        library imports, such as `import { MyButton } from "@mylibrary";`.
     * `translation_domain`: The domain to use for looking up the catalogue run-time translations. This must match the
        translation domain used when extracting translations with `slint-tr-extractor`.
+
+    A `slint.project.json` in the directory of `path`, or in a directory above it, provides the
+    settings that are not given here. The arguments above win over the project file.
 
     """
 

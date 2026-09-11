@@ -981,6 +981,10 @@ class ComponentCompiler
 
 public:
     /// Constructs a new ComponentCompiler instance.
+    ///
+    /// This compiler does not read a `slint.project.json` file. Set the paths and the
+    /// style below instead. A project file does apply to `.slint` files compiled by
+    /// CMake through `slint_target_sources`.
     ComponentCompiler() { cbindgen_private::slint_interpreter_component_compiler_new(&inner); }
 
     /// Destroys this ComponentCompiler.
