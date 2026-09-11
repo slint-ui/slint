@@ -19,4 +19,14 @@ export component Foo {
         0.0: Rectangle { }
         *: Rectangle { }
     }
+
+    function returns-float() -> float {
+        0.5
+    }
+
+    match returns-float() {
+//  >   <error{Cannot match on 'returns-float()', which is of type float}
+        0.0: Rectangle { }
+        *: Rectangle { }
+    }
 }
