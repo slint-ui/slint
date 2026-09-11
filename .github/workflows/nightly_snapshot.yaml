@@ -480,7 +480,7 @@ jobs:
                 mkdir -p $output_path/demos/android
                 cp -a ../android/* $output_path/demos/android/
                 # The slint-viewer APKs are release assets (too big for the web server), the AAB a CI artifact.
-                rm -f $output_path/demos/android/slint-viewer-*.apk \
+                rm -f $output_path/demos/android/slint-viewer-* \
                       $output_path/demos/android/slint-viewer.aab
 
                 # A directory listing so the published folder is browsable.
@@ -644,8 +644,9 @@ jobs:
                   mv slint-lsp-*.zip artifacts/
                   mv slint-compiler-*.tar.gz artifacts/
                   mv figma-plugin.zip artifacts/
-                  # The slint-viewer APKs ship as release assets (too big for the web server).
-                  mv android-demos/slint-viewer-*.apk artifacts/
+                  # The slint-viewer APKs ship as release assets (too big for the web
+                  # server), with the version file F-Droid polls.
+                  mv android-demos/slint-viewer-* artifacts/
             - uses: actions/checkout@v7
               with:
                 path: "slint-src"
@@ -854,7 +855,7 @@ jobs:
               run: |
                   mkdir -p android-demos
                   cp -a target/release/apk/*.apk android-demos/ || true
-                  cp -a tools/viewer/android/app/build/outputs/apk/release/slint-viewer-*.apk android-demos/ || true
+                  cp -a tools/viewer/android/app/build/outputs/apk/release/slint-viewer-* android-demos/ || true
                   cp -a tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab android-demos/ || true
             - name: "upload APK artifact"
               if: always()
