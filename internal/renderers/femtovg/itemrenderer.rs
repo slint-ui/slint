@@ -866,11 +866,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
     }
 
     fn text_origin_snap_delta(&self) -> PhysicalPoint {
-        // `draw_glyph_run` below pixel-aligns the canvas transform via `align_canvas_during`,
-        // which runs later than this (once per glyph run, rather than once up front) but reads
-        // the same, still-unsnapped transform this does -- so this can compute the delta live,
-        // unlike skia, which has already snapped its canvas by the time it's asked (see
-        // `SkiaItemRenderer::text_origin_snap_delta`).
+        // `align_canvas_during` snaps later, once per glyph run.
+        // The current transform still contains the unsnapped origin.
         let transform = self.canvas.borrow().transform();
         if !Self::is_translate_only(&transform) {
             return PhysicalPoint::zero();
@@ -1074,8 +1071,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         }
     }
 
-    // Whether `transform` is a pure translation (no rotation or scale), the precondition
-    // `align_canvas_during` below needs to actually snap the canvas to the pixel grid.
     fn is_translate_only(transform: &Transform2D) -> bool {
         let [a, b, c, d, _x, _y] = transform.0;
         a.approx_eq(&1.) && b.approx_eq(&0.) && c.approx_eq(&0.) && d.approx_eq(&1.)

@@ -670,15 +670,11 @@ impl ItemRc {
         self.map_to_item_tree_impl(p, |_| false)
     }
 
-    /// This item's own origin (`self.geometry().origin`) mapped to window coordinates, but only
-    /// if the accumulated ancestor transform (every ancestor's `children_transform`, i.e. any
-    /// rotation/scale) is a pure translation. `None` under any rotation or scale.
+    /// Returns this item's origin in window coordinates if the ancestor transform is a pure translation.
+    /// Returns `None` for rotation or scale.
     ///
-    /// Lets a query outside of any draw call (hit-testing, cursor placement, accessibility)
-    /// reconstruct the same origin a renderer's own per-draw pixel-snap would see, so the two
-    /// agree on whether, and where, that origin lands. Only walks this item tree's own ancestor
-    /// chain -- see `crate::textlayout::sharedparley::origin_snap_delta_for_query`'s doc for the
-    /// transforms that leaves out. See `#6739`.
+    /// Only includes item-tree transforms.
+    /// See `crate::textlayout::sharedparley::origin_snap_delta_for_query` for the limits when matching renderer coordinates.
     pub fn window_origin_if_translate_only(&self) -> Option<LogicalPoint> {
         use crate::graphics::euclid::approxeq::ApproxEq;
 
@@ -3002,8 +2998,7 @@ mod tests {
 
     #[test]
     fn test_window_origin_if_translate_only() {
-        // Under a pure translation, the item's own origin -- not just an arbitrary point passed
-        // in, unlike `map_to_window` -- comes back mapped to window coordinates.
+        // The result includes the item's own position and its ancestors' positions.
         let (_window_adapter, item_tree) = create_subsubtree_items(None);
         let root = ItemRc::new_root(item_tree);
         let first_child = root.first_child().unwrap();
@@ -3021,11 +3016,7 @@ mod tests {
 
     #[test]
     fn test_window_origin_if_translate_only_none_under_scale() {
-        // An item under an ancestor's non-identity `children_transform` (here a 2x/3x scale) has
-        // no single device pixel its origin lands on independent of how the rest of the item's
-        // own content is laid out -- matching the condition a renderer's own per-draw origin-snap
-        // itself checks (see e.g. skia's `local_to_device_as_3x3().is_translate()`) before it
-        // rounds anything, so this must not synthesize a delta a real draw call wouldn't apply.
+        // Renderers skip origin snapping under an ancestor scale.
         let (_window_adapter, item_tree) = create_transform_test_items();
         let root = ItemRc::new_root(item_tree);
         let transform = root.first_child().unwrap();
@@ -3033,8 +3024,7 @@ mod tests {
         let leaf = clip.first_child().unwrap();
 
         assert!(leaf.window_origin_if_translate_only().is_none());
-        // The root itself, and any item whose full ancestor chain up to it is untransformed, is
-        // unaffected: it's only a transformed *ancestor* that poisons the answer.
+        // The root has no transformed ancestors.
         assert!(root.window_origin_if_translate_only().is_some());
     }
 

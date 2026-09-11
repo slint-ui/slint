@@ -45,11 +45,8 @@ pub struct SkiaItemRenderer<'a> {
     path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
     box_shadow_cache: &'a SkiaBoxShadowCache,
-    /// Stashed by `save_canvas_and_pixel_align_origin` for `text_origin_snap_delta` to read back:
-    /// by the time `draw_text`/`draw_text_input` calls into `sharedparley`, the canvas transform
-    /// it would otherwise recompute this from has already been snapped (delta zero, by
-    /// construction), so the value has to be captured at snap time instead. See
-    /// `GlyphRenderer::text_origin_snap_delta`'s doc for why.
+    /// Displacement captured by `save_canvas_and_pixel_align_origin` before it changes the canvas transform.
+    /// Text layout reads it through `GlyphRenderer::text_origin_snap_delta`.
     text_origin_snap_delta: std::cell::Cell<PhysicalPoint>,
 }
 
@@ -478,13 +475,9 @@ impl<'a> SkiaItemRenderer<'a> {
         RenderingResult::ContinueRenderingWithoutChildren
     }
 
-    // Same as pixel_align_origin_auto_restore() but can be used across function calls where
-    // `&self` is needed. Returns true if the caller must call `restore()` on `self.canvas`.
-    //
-    // Also stashes the delta this snap applies (zero if it snaps nothing) into
-    // `text_origin_snap_delta`, for `GlyphRenderer::text_origin_snap_delta` to read back -- by
-    // the time a caller like `draw_text` gets to ask for it, this function's own translate has
-    // already zeroed the canvas transform's own delta, so it has to be captured here instead.
+    // Like `pixel_align_origin_auto_restore`, but usable across calls that need `&self`.
+    // Returns whether the caller must restore the canvas.
+    // Records the displacement in `text_origin_snap_delta`.
     fn save_canvas_and_pixel_align_origin(&self) -> bool {
         let local_to_device = self.canvas.local_to_device_as_3x3();
         if !local_to_device.is_translate() || local_to_device.is_identity() {
@@ -1097,11 +1090,6 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
     }
 
     fn text_origin_snap_delta(&self) -> PhysicalPoint {
-        // `draw_text`/`draw_text_input` call `save_canvas_and_pixel_align_origin` before drawing
-        // any glyphs (or asking for this), which stashes the delta its snap actually applied --
-        // zero if the transform wasn't a pure translation, or the origin was already exactly on a
-        // device pixel. Read that back rather than recomputing anything here: by now the canvas
-        // transform itself has already been snapped, so it has nothing left to compute from.
         self.text_origin_snap_delta.get()
     }
 

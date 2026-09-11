@@ -232,23 +232,12 @@ pub fn draw_text(
     );
 }
 
-/// The delta a renderer's own origin-snap would apply to `item_rc`'s screen position, computed
-/// independently of any actual draw call by reconstructing it via
-/// [`crate::item_tree::ItemRc::window_origin_if_translate_only`], for query paths (hit-testing,
-/// cursor placement, accessibility) that have no `GlyphRenderer` to ask the way
-/// [`draw_text`]/[`draw_text_input`] do via [`GlyphRenderer::text_origin_snap_delta`].
+/// Reconstructs the origin-snap displacement in physical pixels for hit-testing, cursor placement, and accessibility.
+/// Returns zero if the renderer doesn't snap origins or the item-tree transform includes rotation or scale.
 ///
-/// Zero when `renderer_snaps_origin` is `false`, when the accumulated transform up to `item_rc`
-/// isn't a pure translation, or when the origin already sits exactly on a device pixel.
-///
-/// [`ItemRc::window_origin_if_translate_only`] only walks the *item tree*'s own ancestor chain, so
-/// it can't see a transform a renderer composes on top of that at the canvas level: a nonzero
-/// device/output rotation (`rotation_angle_degrees`), applied directly on the renderer's root
-/// canvas transform, or the translation an embedded popup's canvas gets in
-/// [`crate::item_rendering::render_component_items`] (a popup's root has no `parent_item`
-/// connecting it back to the host tree). In both cases the draw path's
-/// [`GlyphRenderer::text_origin_snap_delta`] sees the real transform and this function doesn't.
-/// See `#6739`.
+/// Only includes item-tree transforms, so device rotation and embedded popup canvas translations can differ from the draw path.
+/// Popup roots have no parent item connecting them to the host tree.
+/// See #6739.
 fn origin_snap_delta_for_query(
     item_rc: &crate::item_tree::ItemRc,
     scale_factor: ScaleFactor,
@@ -257,8 +246,6 @@ fn origin_snap_delta_for_query(
     if !renderer_snaps_origin {
         return PhysicalPoint::zero();
     }
-    // See this function's doc for the two cases (device rotation, embedded popups) where the
-    // reconstruction below can disagree with what the renderer's live canvas transform would say.
     let Some(origin_logical) = item_rc.window_origin_if_translate_only() else {
         return PhysicalPoint::zero();
     };
@@ -283,9 +270,6 @@ pub fn link_under_cursor(
 
     let (horizontal_align, vertical_align) = text.alignment();
 
-    // Hit-testing, not drawing, so there's no `GlyphRenderer` at hand -- but this still has to
-    // agree with whatever the window's actual renderer draws, which
-    // `RendererSealed::snaps_text_origin_to_pixel_grid` reports independent of an active draw.
     let renderer_snaps_origin = crate::window::WindowInner::from_pub(window)
         .window_adapter()
         .renderer()
@@ -316,8 +300,7 @@ pub fn link_under_cursor(
 fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string::String> {
     layout.paragraph_by_y(cursor.y_length()).and_then(|paragraph| {
         let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
-        // `cursor` is in the same (post-snap) coordinates glyphs are drawn in; undo the snap to
-        // compare against `paragraph.layout`'s own, unshifted coordinates (see `Layout::x_offset`).
+        // Convert the cursor to Parley coordinates; see `Layout::x_offset`.
         let cursor_x: f64 = (cursor.x_length() - layout.x_offset).cast::<f64>().get();
 
         paragraph
@@ -530,10 +513,7 @@ fn text_size_impl(
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
             text_overflow: TextOverflow::Clip,
-            // Always Left/Top above, so `alignment_fraction_h`/`_v` are always 0.0 and this value's
-            // effect would be zero either way (it only ever scales an alignment offset, never the
-            // real width/height fed into line breaking). There's also no renderer to match here
-            // (this sizes the item before any renderer draws it).
+            // Size queries have no item origin to snap.
             origin_snap_delta: PhysicalPoint::zero(),
         },
         window_adapter.window(),
@@ -836,9 +816,7 @@ pub(crate) struct TextInputParagraph<'a> {
     layout: &'a parley::Layout<Brush>,
     /// Physical y of its top edge, relative to the item's.
     y: PhysicalLength,
-    /// The pixel-snap correction (see `Layout::x_offset`) every horizontal position read out of
-    /// `layout` above needs added, e.g. before handing `layout` to something that reports glyph
-    /// geometry such as `parley::LayoutAccessibility::build_nodes`.
+    /// Correction to add to horizontal positions from `layout`; see `Layout::x_offset`.
     x: PhysicalLength,
 }
 

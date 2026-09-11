@@ -50,17 +50,10 @@ impl<T: RendererSealed> Renderer for T {}
 /// trait is not exported in the public API, it is not possible for the
 /// users to re-implement these functions.
 pub trait RendererSealed {
-    /// Whether this renderer ever snaps a text item's own screen position to the device-pixel
-    /// grid before drawing its glyphs.
+    /// Whether this renderer snaps text origins to physical pixels under a pure translation.
     ///
-    /// Query paths that don't draw -- hit-testing, the cursor rectangle, accessibility geometry
-    /// -- read this to decide whether to reconstruct the item's screen position from the item
-    /// tree and compute the same alignment correction drawing would use, via
-    /// `crate::textlayout::sharedparley::origin_snap_delta_for_query`. Coarser than
-    /// `GlyphRenderer::text_origin_snap_delta` in the renderer crates, which reports the actual,
-    /// possibly-zero delta for a specific item: outside of a render pass there is no current
-    /// transform or item to consult, so this only says whether the renderer type snaps at all
-    /// under an ordinary (translate-only) transform. See `#6739`.
+    /// Hit-testing, cursor placement, and accessibility use this to match rendered text positions outside a draw call.
+    /// This reports renderer capability; `GlyphRenderer::text_origin_snap_delta` reports the displacement for the current item.
     #[cfg(feature = "shared-parley")]
     fn snaps_text_origin_to_pixel_grid(&self) -> bool {
         false

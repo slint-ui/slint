@@ -40,20 +40,11 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush>;
 
-    /// The delta this renderer's own origin-snap applies (or would apply) to the current item's
-    /// screen position, in physical pixels -- `round(origin) - origin`, or zero if this renderer
-    /// doesn't snap the origin at all, the transform it would snap under isn't a pure translation,
-    /// or the origin is already exactly on a device pixel.
+    /// Returns the current item's origin-snap displacement in physical pixels: `round(origin) - origin`.
+    /// Returns zero when the renderer skips snapping or the origin is already aligned.
     ///
-    /// Queried once per `draw_text`/`draw_text_input` call, so implementations that mutate their
-    /// own canvas's transform to perform the origin-snap (skia) must stash the delta from that
-    /// computation rather than trying to recompute it afterwards from the now-already-snapped
-    /// transform.
-    ///
-    /// The box's own width/height are never snapped, so this same delta also shows up, unchanged,
-    /// on every edge of the box; a caller that needs an alignment offset (`box_size -
-    /// content_size`) to hold a specific edge in place regardless of this snap uses this to
-    /// correct for it. See `#6739`.
+    /// Called once per text draw to correct alignment without changing the box dimensions.
+    /// Implementations that snap before this call must retain the original displacement.
     fn text_origin_snap_delta(&self) -> PhysicalPoint {
         PhysicalPoint::zero()
     }
@@ -405,10 +396,8 @@ impl TextParagraph {
         para_y: PhysicalLength,
         // A uniform `no-wrap` line is a single run, so culling whole runs is not enough.
         visible_x_range: Option<&Range<PhysicalLength>>,
-        // The pixel-snap correction (see `Layout::x_offset`), applied at every point below where
-        // a final glyph or clip position is handed to the renderer. `run_x`/`span_x` below stay
-        // in the *unshifted* coordinates `line_spans` were also resolved in, so the two compare
-        // correctly regardless of the correction.
+        // Correction applied to final glyph and clip positions; see `Layout::x_offset`.
+        // Run and selection comparisons use unshifted Parley coordinates.
         x_offset: PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
         // The selection foreground, and the spans it covers on this run's line. Both empty when
@@ -508,9 +497,7 @@ impl TextParagraph {
         para_y: PhysicalLength,
         x_offset: PhysicalLength,
         glyphs: &[parley::layout::Glyph],
-        // In the same unshifted coordinates as `glyph_run.offset()`; shifted by `x_offset` below
-        // when it becomes an actual clip rect, so it stays aligned with the (shifted) glyphs it
-        // clips.
+        // Segment bounds in Parley coordinates, before applying `x_offset` to the clip.
         x: Range<f32>,
         override_fill_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
     ) {
@@ -565,9 +552,7 @@ impl TextParagraph {
         // Forced fill for selected glyphs, overriding the run's own brush.
         override_fill_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
     ) {
-        // Apply the pixel-snap correction once, here, right before glyphs leave this crate for
-        // the renderer -- everything upstream (line breaking, elision, selection spans) stays in
-        // the real, unshifted coordinates. See `Layout::x_offset`.
+        // Convert glyph positions to drawing coordinates; see `Layout::x_offset`.
         let mut glyphs_it = glyphs_it.map(|mut glyph| {
             glyph.x += x_offset.get();
             glyph

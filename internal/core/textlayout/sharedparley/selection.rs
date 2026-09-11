@@ -50,10 +50,8 @@ impl SelectionSpans {
         self.0.is_empty()
     }
 
-    /// The highlight rectangles, ready to fill. `background` is stored in the same unshifted
-    /// coordinates `run_coverage`'s slicing compares against (see [`Self::for_line`] and the
-    /// segment walk in `draw_glyph_run_with_selection`), so `x_offset` (see `Layout::x_offset`)
-    /// is applied here, once, rather than when the span is resolved.
+    /// Returns highlight rectangles with the horizontal drawing correction applied.
+    /// Stored spans remain in Parley coordinates for selection comparisons.
     pub(super) fn backgrounds(
         &self,
         x_offset: PhysicalLength,
