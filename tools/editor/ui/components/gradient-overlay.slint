@@ -32,14 +32,11 @@ component GradientHandle inherits FocusScope {
     key-pressed(event) => { return root.keyboard(event); }
     changed has-focus => { if root.has-focus { root.focused(); } }
     if !root.endpoint: GradientStopMarker {
-        x: (parent.width - self.width) / 2;
         y: 0px;
         active: root.selected || root.has-focus;
         stop-color: root.color;
     }
     if root.endpoint: Rectangle {
-        x: 10px;
-        y: 10px;
         width: 12px;
         height: 12px;
         border-radius: 6px;
@@ -266,11 +263,8 @@ export component GradientOverlay inherits FocusScope {
             }
         }
         line := Rectangle {
-            y: -5px;
-            width: parent.width;
             height: 10px;
             Rectangle {
-                y: 4px;
                 height: 2px;
                 background: white;
                 drop-shadow-blur: 2px;
@@ -294,7 +288,6 @@ export component GradientOverlay inherits FocusScope {
         for endpoint in 2: GradientHandle {
             private property <GradientGestureKind> gesture-kind: endpoint == 0 ? GradientGestureKind.start-handle : GradientGestureKind.end-handle;
             x: (endpoint == 0 ? 0px : root.axis-length) - self.width / 2;
-            y: -self.height / 2;
             endpoint: true;
             color: white;
             label: root.conic ? (endpoint == 0 ? "Gradient center handle" : "Gradient rotation handle") : root.radial ? (endpoint == 0 ? "Gradient center handle" : "Gradient radius handle") : (endpoint == 0 ? "Gradient start" : "Gradient end");

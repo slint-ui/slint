@@ -31,7 +31,6 @@ export component InspectorGradientGeometry inherits Rectangle {
             spacing: 8px;
             InspectorComboBox {
                 accessible-name: "Gradient type";
-                horizontal-stretch: 1;
                 value: root.value.kind == BrushKind.linear ? "Linear" : root.value.kind == BrushKind.radial ? "Radial" : "Conic";
                 selected-index: root.value.kind == BrushKind.linear ? 0 : root.value.kind == BrushKind.radial ? 1 : 2;
                 options: [
@@ -75,7 +74,6 @@ export component InspectorGradientGeometry inherits Rectangle {
             Text { text: "Center"; color: InspectorTokens.muted; font-size: 11px; vertical-alignment: center; width: 58px; }
             InspectorComboBox {
                 accessible-name: "Gradient center";
-                horizontal-stretch: 1;
                 value: root.value.custom-center ? "Custom" : "Automatic";
                 selected-index: root.value.custom-center ? 1 : 0;
                 options: [{ label: "Automatic", value: "Automatic" }, { label: "Custom", value: "Custom" }];
@@ -89,7 +87,6 @@ export component InspectorGradientGeometry inherits Rectangle {
             Text { text: "X / Y px"; color: InspectorTokens.muted; font-size: 11px; vertical-alignment: center; width: 58px; }
             InspectorTextFieldBase {
                 accessible-name: "Gradient center X";
-                horizontal-stretch: 1;
                 value: root.value.center-x.to-fixed(1);
                 commit-key: root.session-key;
                 accepted(text) => {
@@ -103,7 +100,6 @@ export component InspectorGradientGeometry inherits Rectangle {
             }
             InspectorTextFieldBase {
                 accessible-name: "Gradient center Y";
-                horizontal-stretch: 1;
                 value: root.value.center-y.to-fixed(1);
                 commit-key: root.session-key;
                 accepted(text) => {
@@ -121,7 +117,6 @@ export component InspectorGradientGeometry inherits Rectangle {
             Text { text: "Radius"; color: InspectorTokens.muted; font-size: 11px; vertical-alignment: center; width: 58px; }
             InspectorComboBox {
                 accessible-name: "Gradient radius mode";
-                horizontal-stretch: 1;
                 value: root.value.custom-radius ? "Custom" : "Automatic";
                 selected-index: root.value.custom-radius ? 1 : 0;
                 options: [{ label: "Automatic", value: "Automatic" }, { label: "Custom", value: "Custom" }];
@@ -135,7 +130,6 @@ export component InspectorGradientGeometry inherits Rectangle {
             Text { text: "px"; color: InspectorTokens.muted; font-size: 11px; vertical-alignment: center; width: 58px; }
             InspectorTextFieldBase {
                 accessible-name: "Gradient radius";
-                horizontal-stretch: 1;
                 value: root.value.radius.to-fixed(1);
                 commit-key: root.session-key;
                 accepted(text) => {

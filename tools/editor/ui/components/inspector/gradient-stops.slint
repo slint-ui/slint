@@ -99,7 +99,7 @@ export component InspectorGradientStops inherits Rectangle {
         }
         HorizontalLayout {
             Text { text: "Stops"; color: InspectorTokens.text; font-size: 12px; vertical-alignment: center; }
-            Rectangle { horizontal-stretch: 1; }
+            Rectangle { }
             InspectorSegment {
                 kind: "text";
                 label: "+";
@@ -146,7 +146,6 @@ export component InspectorGradientStops inherits Rectangle {
                             }
                         }
                         Rectangle {
-                            horizontal-stretch: 1;
                             color-focus := FocusScope {
                                 property <int> focus-generation: root.focus-generation;
                                 changed focus-generation => {

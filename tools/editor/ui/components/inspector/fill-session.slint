@@ -15,11 +15,11 @@ export global FillSession {
     in-out property <bool> conic-center-initialized;
     in-out property <bool> radius-initialized;
     in-out property <BrushKind> last-gradient: BrushKind.linear;
-    in-out property <string> expression: "";
-    in-out property <string> session-key: "";
-    in-out property <string> target-key: "";
-    in-out property <bool> unsupported: false;
-    in-out property <bool> open: false;
+    in-out property <string> expression;
+    in-out property <string> session-key;
+    in-out property <string> target-key;
+    in-out property <bool> unsupported;
+    in-out property <bool> open;
 
     in-out property <Point> anchor-position;
     in-out property <length> anchor-width;
@@ -31,8 +31,8 @@ export global FillSession {
     in-out property <int> focus-stop-generation;
 
     in-out property <color> working-color: FillSession.working-fill.kind == BrushKind.solid ? FillSession.working-fill.color : FillSession.working-fill.stops[FillSession.selected-stop].color;
-    in-out property <bool> has-preview: false;
-    in-out property <bool> session-active: false;
+    in-out property <bool> has-preview;
+    in-out property <bool> session-active;
     in-out property <FillData> original-fill: FillSession.value;
     out property <bool> editable: open && !Api.inspector-fill-refresh-pending && !unsupported;
     in-out property <string> property-name;

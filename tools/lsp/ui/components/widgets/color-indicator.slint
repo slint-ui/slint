@@ -12,8 +12,6 @@ export component ColorIndicator {
     property <{hue: float, saturation: float, value: float, alpha: float}> hsv-color: color.to-hsv();
 
     Rectangle {
-        width: 100%;
-        height: 100%;
         border-radius: root.border-radius;
         clip: border-radius > 0;
         Rectangle {

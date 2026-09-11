@@ -45,9 +45,6 @@ export component InspectorFillPicker inherits Rectangle {
                 return reject;
             }
             group-content := Rectangle {
-                width: parent.width;
-                x: 0px;
-                y: 0px;
                 height: root.stacked ? main-panel.height + InspectorTokens.picker-gap + (FillSession.stop-panel-open ? stop-panel.height : 0px) : max(main-panel.height, FillSession.stop-panel-open ? stop-panel.height : 0px);
                 TouchArea {
                     clicked => {
@@ -126,7 +123,6 @@ export component InspectorFillPicker inherits Rectangle {
                         }
                     }
                     if !FillSession.unsupported && FillSession.working-fill.kind == BrushKind.solid: InspectorColorControls {
-                        field-height: 170px;
                         value: FillSession.working-color;
                         editable: FillSession.editable;
                         session-key: FillSession.session-key + ":" + FillSession.selected-stop;
@@ -163,7 +159,6 @@ export component InspectorFillPicker inherits Rectangle {
                         }
                     }
                     if !FillSession.unsupported: InspectorRecentFills {
-                        allow-gradient: false;
                         editable: FillSession.editable;
                         chosen(fill) => {
                             FillSession.preview-color(fill.color);

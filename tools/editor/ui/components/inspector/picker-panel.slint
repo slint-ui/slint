@@ -26,7 +26,7 @@ export component InspectorPickerPanel inherits Rectangle {
         HorizontalLayout {
             height: 24px;
             Text { text: root.title; color: InspectorTokens.text; font-size: 13px; font-weight: 700; vertical-alignment: center; }
-            Rectangle { horizontal-stretch: 1; }
+            Rectangle { }
             InspectorSegment { kind: "text"; label: "Close"; width: 48px; accessible-label: "Close " + root.title; clicked => { root.closed(); } }
         }
         Rectangle { height: 1px; background: InspectorTokens.divider; }
