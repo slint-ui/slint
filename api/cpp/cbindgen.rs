@@ -955,6 +955,10 @@ fn gen_corelib(
     config
         .export
         .body
+        .insert("AccessibilityAction".to_owned(), "    ~AccessibilityAction() {}".into());
+    config
+        .export
+        .body
         .insert("FocusScope".to_owned(), "    inline FocusScope(); inline ~FocusScope();".into());
     config
         .export
