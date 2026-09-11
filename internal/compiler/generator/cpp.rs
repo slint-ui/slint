@@ -4729,12 +4729,13 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 format!("slint::private_api::GradientStop{{ {color}, float({position}), }}")
             });
             let center_setup = match (center, radius) {
-                (Some((cx, cy)), Some(r)) => {
+                (Some((cx, cy)), Some((rx, ry))) => {
                     let cx = compile_expression(cx, ctx);
                     let cy = compile_expression(cy, ctx);
-                    let r = compile_expression(r, ctx);
+                    let rx = compile_expression(rx, ctx);
+                    let ry = compile_expression(ry, ctx);
                     format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), float({r})));",
+                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), float({rx}), float({ry})));",
                         stops_count = stops.len()
                     )
                 }
@@ -4742,14 +4743,15 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     let cx = compile_expression(cx, ctx);
                     let cy = compile_expression(cy, ctx);
                     format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), -1.0f));",
+                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), -1.0f, -1.0f));",
                         stops_count = stops.len()
                     )
                 }
-                (None, Some(r)) => {
-                    let r = compile_expression(r, ctx);
+                (None, Some((rx, ry))) => {
+                    let rx = compile_expression(rx, ctx);
+                    let ry = compile_expression(ry, ctx);
                     format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN(), float({r})));",
+                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN(), float({rx}), float({ry})));",
                         stops_count = stops.len()
                     )
                 }

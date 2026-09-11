@@ -270,7 +270,8 @@ impl<'a> SkiaItemRenderer<'a> {
 
                 paint.set_dither(true);
 
-                let mut local_matrix = skia_safe::Matrix::scale((g.radius.get(), g.radius.get()));
+                let mut local_matrix =
+                    skia_safe::Matrix::scale((g.radius_x.get(), g.radius_y.get()));
                 local_matrix.post_translate((g.center.x, g.center.y));
                 skia_safe::gradient::shaders::radial_gradient(
                     (skia_safe::Point::new(0., 0.), 1.),

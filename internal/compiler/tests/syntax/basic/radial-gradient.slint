@@ -4,19 +4,19 @@
 export X := Rectangle {
 //       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property<brush> g1: @radial-gradient();
-//                      >                <error{Expected 'circle': currently, only @radial-gradient(circle, ...) are supported}
+//                      >                <error{Expected 'circle' or 'ellipse'}
     property<brush> g2: @radial-gradient(circle at 100%, #333, #333 50%, #eee 75%, #333 75%);
 //                                              > <error{Expected two length values after 'at'}
     property<brush> g3: @radial_gradient(circle, blue, red);
     property<brush> g4: @radial_gradient(circle, blue 45%, red red);
 //                                                             > <error{Cannot convert color to float}
     property<brush> g5: @radial-gradient(ellipse at top, #e66465, transparent);
-//                      >                                                    <error{Expected 'circle': currently, only @radial-gradient(circle, ...) are supported}
+//                                               > <error{Expected two length values after 'at'}
     property<brush> g6: @radial-gradient(circle, blue 45%, red 88%);
     property<brush> g7: @radial-gradient(circle, 42 45%, red 0.3);
 //                                               > <error{Cannot convert float to color}
     property<brush> g8: @radial-gradient(90px, blue, red ,green);
-//                      >                                      <error{Expected 'circle': currently, only @radial-gradient(circle, ...) are supported}
+//                      >                                      <error{Expected 'circle' or 'ellipse'}
 
     property<brush> g9: @radial-gradient(circle blue, blue, red);
 //                                              >  <error{'circle' must be followed by a comma, a radius, or 'at'}
@@ -32,4 +32,12 @@ export X := Rectangle {
 
     property<brush> g14: @radial-gradient(circle 80px, red, blue);
     property<brush> g15: @radial-gradient(circle 80px at 50px 50px, red, blue);
+
+    // Ellipse shape support.
+    property<brush> g16: @radial-gradient(ellipse, red, blue);
+    property<brush> g17: @radial-gradient(ellipse 100px 50px, red, blue);
+    property<brush> g18: @radial-gradient(ellipse at 50px 50px, red, blue);
+    property<brush> g19: @radial-gradient(ellipse 100px 50px at 50px 50px, red, blue);
+    property<brush> g20: @radial-gradient(ellipse 100px, red, blue);
+//                                                >   <error{'ellipse' must be followed by a comma, two radii, or 'at'}
 }

@@ -62,13 +62,14 @@ private:
 };
 
 /// \private
-/// RadialGradientBrush represents a circular gradient.
+/// RadialGradientBrush represents a circular or elliptical gradient.
 ///
-/// Internally the brush encodes center-x, center-y, and radius as the first three
-/// fake GradientStop entries (positions 0–2), following the same pattern as
+/// Internally the brush encodes center-x, center-y, radius-x and radius-y as the first
+/// four fake GradientStop entries (positions 0–3), following the same pattern as
 /// LinearGradientBrush (which stores the angle as stop 0). Real color stops begin at
-/// index 3. NaN center values mean "use bounding-box center"; a negative radius means
-/// "use half the bounding-box diagonal".
+/// index 4. NaN center values mean "use bounding-box center"; a negative radius means
+/// "use half the bounding-box diagonal". A gradient where radius-x == radius-y renders
+/// as a circle; otherwise it renders as an ellipse.
 class RadialGradientBrush
 {
 public:
@@ -79,32 +80,35 @@ public:
     /// constructed from the stops array pointed to be \a firstStop, with the length \a stopCount.
     RadialGradientBrush(const GradientStop *firstStop, int stopCount)
     {
-        // Header: center_x (NaN=bbox), center_y (NaN=bbox), radius (negative=bbox diagonal/2)
+        // Header: center_x (NaN=bbox), center_y (NaN=bbox),
+        // radius_x, radius_y (negative=bbox diagonal/2)
         inner.push_back(
                 { Color::from_argb_encoded(0).inner, std::numeric_limits<float>::quiet_NaN() });
         inner.push_back(
                 { Color::from_argb_encoded(0).inner, std::numeric_limits<float>::quiet_NaN() });
         inner.push_back({ Color::from_argb_encoded(0).inner, -1.0f });
+        inner.push_back({ Color::from_argb_encoded(0).inner, -1.0f });
         for (int i = 0; i < stopCount; ++i, ++firstStop)
             inner.push_back(*firstStop);
     }
 
-    /// Constructs a new circular radial gradient with an explicit center and radius.
+    /// Constructs a new radial gradient with an explicit center and x/y radii.
     RadialGradientBrush(const GradientStop *firstStop, int stopCount, float center_x,
-                        float center_y, float radius)
+                        float center_y, float radius_x, float radius_y)
     {
         inner.push_back({ Color::from_argb_encoded(0).inner, center_x });
         inner.push_back({ Color::from_argb_encoded(0).inner, center_y });
-        inner.push_back({ Color::from_argb_encoded(0).inner, radius });
+        inner.push_back({ Color::from_argb_encoded(0).inner, radius_x });
+        inner.push_back({ Color::from_argb_encoded(0).inner, radius_y });
         for (int i = 0; i < stopCount; ++i, ++firstStop)
             inner.push_back(*firstStop);
     }
 
     /// Returns the number of gradient stops.
-    int stopCount() const { return int(inner.size()) - 3; }
+    int stopCount() const { return int(inner.size()) - 4; }
 
     /// Returns a pointer to the first gradient stop; undefined if the gradient has not stops.
-    const GradientStop *stopsBegin() const { return inner.begin() + 3; }
+    const GradientStop *stopsBegin() const { return inner.begin() + 4; }
     /// Returns a pointer past the last gradient stop. The returned pointer cannot be dereferenced,
     /// it can only be used for comparison.
     const GradientStop *stopsEnd() const { return inner.end(); }
@@ -278,9 +282,10 @@ Color Brush::color() const
         }
         break;
     case Tag::RadialGradient:
-        // First 3 stops are the fake header (center_x, center_y, radius); real stops start at 3.
-        if (data.radial_gradient._0.size() > 3) {
-            result.inner = data.radial_gradient._0[3].color;
+        // First 4 stops are the fake header (center_x, center_y, radius_x, radius_y); real
+        // stops start at 4.
+        if (data.radial_gradient._0.size() > 4) {
+            result.inner = data.radial_gradient._0[4].color;
         }
         break;
     case Tag::ConicGradient:
@@ -308,7 +313,7 @@ inline Brush Brush::brighter(float factor) const
         }
         break;
     case Tag::RadialGradient:
-        for (std::size_t i = 3; i < data.radial_gradient._0.size(); ++i) {
+        for (std::size_t i = 4; i < data.radial_gradient._0.size(); ++i) {
             cbindgen_private::types::slint_color_brighter(&data.radial_gradient._0[i].color, factor,
                                                           &result.data.radial_gradient._0[i].color);
         }
@@ -338,7 +343,7 @@ inline Brush Brush::darker(float factor) const
         }
         break;
     case Tag::RadialGradient:
-        for (std::size_t i = 3; i < data.radial_gradient._0.size(); ++i) {
+        for (std::size_t i = 4; i < data.radial_gradient._0.size(); ++i) {
             cbindgen_private::types::slint_color_darker(&data.radial_gradient._0[i].color, factor,
                                                         &result.data.radial_gradient._0[i].color);
         }
@@ -369,7 +374,7 @@ inline Brush Brush::transparentize(float factor) const
         }
         break;
     case Tag::RadialGradient:
-        for (std::size_t i = 3; i < data.radial_gradient._0.size(); ++i) {
+        for (std::size_t i = 4; i < data.radial_gradient._0.size(); ++i) {
             cbindgen_private::types::slint_color_transparentize(
                     &data.radial_gradient._0[i].color, factor,
                     &result.data.radial_gradient._0[i].color);
@@ -402,7 +407,7 @@ inline Brush Brush::with_alpha(float alpha) const
         }
         break;
     case Tag::RadialGradient:
-        for (std::size_t i = 3; i < data.radial_gradient._0.size(); ++i) {
+        for (std::size_t i = 4; i < data.radial_gradient._0.size(); ++i) {
             cbindgen_private::types::slint_color_with_alpha(
                     &data.radial_gradient._0[i].color, alpha,
                     &result.data.radial_gradient._0[i].color);

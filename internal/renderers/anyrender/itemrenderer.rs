@@ -984,13 +984,21 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
                     peniko::Gradient::new_radial(kurbo::Point::new(0., 0.), 1.0);
                 peniko_gradient.stops = to_peniko_stops(&gradient.stops);
 
-                // A unit circle at the origin, scaled to the radius and moved
-                // to the center, so the color stops span [0, radius].
+                // A unit circle at the origin, non-uniformly scaled to the two radii and
+                // moved to the center, so the color stops span [0, radius] on each axis
+                // (an ellipse when radius_x != radius_y).
                 (
                     peniko_gradient.into(),
-                    Some(kurbo::Affine::scale(gradient.radius.get() as f64).then_translate(
-                        kurbo::Vec2::new(gradient.center.x as f64, gradient.center.y as f64),
-                    )),
+                    Some(
+                        kurbo::Affine::scale_non_uniform(
+                            gradient.radius_x.get() as f64,
+                            gradient.radius_y.get() as f64,
+                        )
+                        .then_translate(kurbo::Vec2::new(
+                            gradient.center.x as f64,
+                            gradient.center.y as f64,
+                        )),
+                    ),
                 )
             }
             ResolvedBrush::ConicGradient(gradient) => {
