@@ -4,6 +4,7 @@
 import math
 from io import BytesIO
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 import slint_testing
@@ -21,14 +22,29 @@ from ui_driver import (
 )
 
 
-def window_pixels(window: slint_testing.Window):
-    rendered = Image.open(BytesIO(window.grab_window_as_png())).convert("RGB")
-    scale = rendered.width / window.size.width
+def window_pixels(window: slint_testing.Window, png: bytes | None = None):
+    rendered = Image.open(BytesIO(png or window.grab_window_as_png())).convert("RGB")
+    scale = rendered.width / window.root_element.size.width
 
     def pixel(x: float, y: float):
         return rendered.getpixel((int(x * scale), int(y * scale)))
 
     return pixel
+
+
+@pytest.mark.parametrize("scale", [1, 2])
+def test_window_pixels_uses_logical_coordinates(scale: int) -> None:
+    rendered = Image.new("RGB", (100 * scale, 80 * scale), "white")
+    rendered.putpixel((30 * scale, 20 * scale), (11, 153, 254))
+    png = BytesIO()
+    rendered.save(png, format="PNG")
+    window = Mock(
+        spec=slint_testing.Window,
+        size=Mock(width=100 * scale, height=80 * scale),
+        root_element=Mock(size=Mock(width=100, height=80)),
+    )
+    # Screenshot pixels are physical; element coordinates are logical.
+    assert window_pixels(window, png.getvalue())(30, 20) == (11, 153, 254)
 
 
 @pytest.mark.parametrize("angle", [0, 30])
@@ -101,8 +117,7 @@ def test_canvas_outline_preserves_item_border(
             assert not elements_with_label(window.root_element, "Hovered Rectangle")
         png = window.grab_window_as_png()
         (tmp_path / "outline.png").write_bytes(png)
-        rendered = Image.open(BytesIO(png)).convert("RGB")
-        scale = rendered.width / window.size.width
+        sample = window_pixels(window, png)
         radians = math.radians(angle)
 
         def pixel(x: float, y: float) -> tuple[int, int, int]:
@@ -119,9 +134,7 @@ def test_canvas_outline_preserves_item_border(
                 + dx * math.sin(radians)
                 + dy * math.cos(radians)
             )
-            color = rendered.getpixel(
-                (int(absolute_x * scale), int(absolute_y * scale))
-            )
+            color = sample(absolute_x, absolute_y)
             assert isinstance(color, tuple)
             return color[0], color[1], color[2]
 
@@ -207,6 +220,36 @@ def test_selected_hover_hides_for_manipulation(
             )
         window.dispatch_event(slint_testing.PointerMoveEvent(inside))
         window_element_with_label(window, "Hovered Rectangle")
+
+
+def test_click_selection_keeps_visible_hover_outline(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    tmp_path: Path,
+) -> None:
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Main.slint"
+    ) as editor:
+        window = first_window(editor)
+        artboard = window_element_with_label(window, "Artboard")
+        target = slint_testing.LogicalPosition(
+            x=artboard.absolute_position.x + 80,
+            y=artboard.absolute_position.y + 100,
+        )
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerMoveEvent(target))
+        window_element_with_label(window, "Hovered Rectangle")
+        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+        frame = window_element_with_label(window, "Selected Rectangle")
+        window_element_with_label(window, "Hovered Rectangle")
+        png = window.grab_window_as_png()
+        (tmp_path / "click-hover.png").write_bytes(png)
+        # The second blue pixel belongs to hover, not the one-pixel selection.
+        assert window_pixels(window, png)(
+            frame.absolute_position.x - 1.5, frame.absolute_position.y + 60
+        ) == (11, 153, 254)
 
 
 def test_manipulation_indicators_have_white_fills(
