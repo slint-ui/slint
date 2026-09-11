@@ -1,8 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from pathlib import Path
 import math
+from pathlib import Path
 
 import pytest
 import slint_testing
@@ -124,9 +124,11 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
             picker_field(window, "Gradient radius").accessible_value = "95"
         click_picker_button(window, "Close Custom")
         saved = wait_until(
-            lambda: file.read_bytes()
-            if file.read_bytes() != original.sources[Path(file.name)]
-            else None
+            lambda: (
+                file.read_bytes()
+                if file.read_bytes() != original.sources[Path(file.name)]
+                else None
+            )
         )
         original.wait_for_applied(saved, file.name)
         if kind != "radial":
@@ -423,9 +425,11 @@ def test_stop_interactions_preserve_color_identity(
         original.assert_unchanged_now()
         click_picker_button(window, "Close Custom")
         saved = wait_until(
-            lambda: file.read_bytes()
-            if file.read_bytes() != original.sources[Path(file.name)]
-            else None
+            lambda: (
+                file.read_bytes()
+                if file.read_bytes() != original.sources[Path(file.name)]
+                else None
+            )
         )
         original.wait_for_applied(saved, file.name)
         assert b"#0000ff80 50%, #00ff00b0 75%" in saved

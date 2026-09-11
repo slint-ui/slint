@@ -4,7 +4,6 @@
 import pytest
 import slint_testing
 from slint_testing import keys
-
 from source_snapshot import SourceSnapshot
 from test_gradient_geometry import (
     click_picker_button,

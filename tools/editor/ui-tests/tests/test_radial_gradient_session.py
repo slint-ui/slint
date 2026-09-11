@@ -6,7 +6,6 @@ import math
 import pytest
 import slint_testing
 from slint_testing import keys
-
 from source_snapshot import SourceSnapshot
 from test_linear_gradient_canvas import center, click, control, gesture, shifted
 from test_radial_gradient_canvas import open_radial

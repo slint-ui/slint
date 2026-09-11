@@ -1,13 +1,12 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from pathlib import Path
 import math
+from pathlib import Path
 
 import pytest
 import slint_testing
 from slint_testing import keys
-
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     elements_with_label,
@@ -192,9 +191,11 @@ def test_linear_endpoint_drag_and_session_history(
         original.assert_unchanged_now()
         click(window, "Close Custom")
         saved = wait_until(
-            lambda: scene.read_bytes()
-            if scene.read_bytes() != original.sources[Path(scene.name)]
-            else None
+            lambda: (
+                scene.read_bytes()
+                if scene.read_bytes() != original.sources[Path(scene.name)]
+                else None
+            )
         )
         original.wait_for_applied(saved, scene.name)
         assert b"20%" in saved
@@ -314,9 +315,9 @@ def test_linear_layout_size_and_keyboard(
         press_key(window, keys.RightArrow)
         click(window, "Close Custom")
         saved = wait_until(
-            lambda: scene.read_bytes()
-            if b"red, blue" not in scene.read_bytes()
-            else None
+            lambda: (
+                scene.read_bytes() if b"red, blue" not in scene.read_bytes() else None
+            )
         )
         from editor_sync import wait_for_source
 
@@ -399,9 +400,11 @@ def test_linear_extended_axis_round_trip(
         gesture(window, end, shifted(end, x=50))
         click(window, "Close Custom")
         saved = wait_until(
-            lambda: scene.read_bytes()
-            if scene.read_bytes() != original.sources[Path(scene.name)]
-            else None
+            lambda: (
+                scene.read_bytes()
+                if scene.read_bytes() != original.sources[Path(scene.name)]
+                else None
+            )
         )
         original.wait_for_applied(saved, scene.name)
         assert b"0% - 25%" in saved

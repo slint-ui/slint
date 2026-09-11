@@ -7,7 +7,6 @@ from io import BytesIO
 from pathlib import Path
 
 from PIL import Image
-
 from source_snapshot import SourceSnapshot
 from test_gradient_geometry import gradient_document, open_gradient
 from test_linear_gradient_canvas import center, control, gesture
@@ -42,9 +41,11 @@ def test_coincident_canvas_insertion_preserves_rendering(
         assert pixels() == before
         control(window, "Close Custom").invoke_accessible_default_action()
         saved = wait_until(
-            lambda: file.read_bytes()
-            if file.read_bytes() != original.sources[Path(file.name)]
-            else None
+            lambda: (
+                file.read_bytes()
+                if file.read_bytes() != original.sources[Path(file.name)]
+                else None
+            )
         )
         original.wait_for_applied(saved, file.name)
         assert (

@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 import slint_testing
 from slint_testing import keys
-
 from source_snapshot import SourceSnapshot
 from test_linear_gradient_canvas import center, click, control, gesture, shifted
 from ui_driver import (
@@ -220,14 +219,16 @@ def test_conic_rotation_crosses_the_seam(
         original.assert_unchanged_now()
         click(window, "Close Custom")
         saved = wait_until(
-            lambda: conic_scene.read_bytes()
-            if conic_scene.read_bytes() != original.sources[Path(conic_scene.name)]
-            else None
+            lambda: (
+                conic_scene.read_bytes()
+                if conic_scene.read_bytes() != original.sources[Path(conic_scene.name)]
+                else None
+            )
         )
         original.wait_for_applied(saved, conic_scene.name)
-        assert float(re.search(rb"from ([0-9.]+)deg", saved).group(1)) == pytest.approx(
-            367, abs=0.001
-        )
+        angle = re.search(rb"from ([0-9.]+)deg", saved)
+        assert angle is not None
+        assert float(angle.group(1)) == pytest.approx(367, abs=0.001)
         assert b" at " not in saved
         press_shortcut(window, keys.Control, "z")
         original.wait_for_applied(

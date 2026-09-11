@@ -8,17 +8,16 @@ from pathlib import Path
 import pytest
 import slint_testing
 from slint_testing import keys
-
 from source_snapshot import SourceSnapshot
 from test_linear_gradient_canvas import center, click, control, gesture, shifted
 from ui_driver import (
+    elements_with_label,
     first_window,
     launch_editor,
-    select_outline_row,
     press_key,
     press_shortcut,
+    select_outline_row,
     wait_until,
-    elements_with_label,
 )
 
 
@@ -111,13 +110,16 @@ def test_radial_radius_save_reopen_and_history(
         gesture(window, r, shifted(c, x=100))
         click(window, "Close Custom")
         saved = wait_until(
-            lambda: radial_scene.read_bytes()
-            if radial_scene.read_bytes() != original.sources[Path(radial_scene.name)]
-            else None
+            lambda: (
+                radial_scene.read_bytes()
+                if radial_scene.read_bytes()
+                != original.sources[Path(radial_scene.name)]
+                else None
+            )
         )
-        assert float(
-            re.search(rb"circle ([0-9.]+)px", saved).group(1)
-        ) == pytest.approx(100, abs=0.001)
+        radius = re.search(rb"circle ([0-9.]+)px", saved)
+        assert radius is not None
+        assert float(radius.group(1)) == pytest.approx(100, abs=0.001)
         original.wait_for_applied(saved, radial_scene.name)
         assert b" at " not in saved
         press_shortcut(window, keys.Control, "z")
