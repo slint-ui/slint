@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { loadFile, CompileError, private_api } from "../dist/index.js";
+import { loadFile, type CompileError, private_api } from "../dist/index.js";
 
 private_api.initTesting();
 

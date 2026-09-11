@@ -45,7 +45,9 @@ def test_include_directories_come_from_the_project_file(
 
 
 def test_library_paths_come_from_the_project_file(tmp_path: pathlib.Path) -> None:
-    directory = project_directory(tmp_path, {"library-paths": {"widgets": "widgets.slint"}})
+    directory = project_directory(
+        tmp_path, {"library-paths": {"widgets": "widgets.slint"}}
+    )
     (directory / "widgets.slint").write_text("export component Widget { }")
 
     main = write_main(
