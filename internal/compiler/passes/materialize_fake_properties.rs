@@ -232,5 +232,6 @@ fn size_div_2(elem: &ElementRc, field: &str) -> Expression {
         lhs: Expression::PropertyReference(NamedReference::new(elem, field.into())).into(),
         op: '/',
         rhs: Expression::NumberLiteral(2., Unit::None).into(),
+        source_location: None,
     }
 }

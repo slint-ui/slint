@@ -179,6 +179,7 @@ fn process_tabwidget(
             .into(),
             rhs: Expression::NumberLiteral(index as _, Unit::None).into(),
             op: '=',
+            source_location: None,
         };
         let old = child.borrow_mut().set_binding(SmolStr::new_static("visible"), condition.into());
         if let Some(old) = old {

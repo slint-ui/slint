@@ -59,6 +59,7 @@ boing
 boolprop
 bootsel
 boxlayout
+BRDA
 briefcasex
 brushprop
 brushval
@@ -250,6 +251,7 @@ fullsize
 Fullwidth
 fvar
 Fwww
+genhtml
 getattr
 getifs
 getpid
@@ -495,6 +497,8 @@ premultiply
 PRIMASK
 printk
 println
+profdata
+profraw
 Programiv
 progressindicator
 propref
@@ -503,6 +507,7 @@ protoc
 protox
 Pseudonymized
 psram
+punct
 purelib
 pyclass
 pyftsubset
@@ -546,6 +551,7 @@ rfind
 Rgbx
 Ringbuffer
 rlib
+rlibs
 Roboto
 RODATA
 rowcol
@@ -585,6 +591,7 @@ SIGUSR
 singlefile
 singleshot
 skrifa
+slintcov
 slintlib
 Smartwin
 smol

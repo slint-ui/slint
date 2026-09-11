@@ -191,6 +191,11 @@ pub struct CompilerConfiguration {
     /// Generate debug information for elements (ids, type names)
     pub debug_info: bool,
 
+    /// Write, next to the generated code, the map of its coverage points of
+    /// the `.slint` source, for `slint-sc-coverage`. Only the Slint SC
+    /// generator honors it, and only when writing to a file.
+    pub coverage: bool,
+
     /// Generate debug hooks to inspect/override properties.
     pub debug_hooks: Option<std::hash::RandomState>,
 
@@ -308,6 +313,7 @@ impl CompilerConfiguration {
             cpp_namespace,
             error_on_binding_loop_with_window_layout: false,
             debug_info,
+            coverage: false,
             debug_hooks: None,
             components_to_generate: ComponentSelection::ExportedWindows,
             #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]

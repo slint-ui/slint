@@ -6,35 +6,57 @@
 
 component Frame inherits Rectangle {
     width: 24px;
+//#c       ^+
     height: 24px;
+//#c        ^+
     background: #444444;
+//#c            ^+
 }
 
 component Led {
     width: 20px;
+//#c       ^-
     height: 20px;
+//#c        ^-
     Rectangle {
+//#c^+
         x: 2px;
+//#c       ^+
         y: 2px;
+//#c       ^+
         width: 16px;
+//#c           ^+
         height: 16px;
+//#c            ^+
         background: #ff0000;
+//#c                ^+
     }
 }
 
 export component UserComponent inherits Window {
+//#c                                    ^+
     background: #202020;
+//#c            ^+
     //#sls.file.element.instantiation-typename
     Frame {
+//#c^+
         x: 8px;
+//#c       ^+
         y: 8px;
+//#c       ^+
         Led { x: 2px; y: 2px; }
+//#c    ^+       ^+      ^+
     }
     Frame {
+//#c^+
         x: 40px;
+//#c       ^+
         y: 8px;
+//#c       ^+
         background: #006600;
+//#c                ^+
         Led { x: 2px; y: 2px; }
+//#c    ^+       ^+      ^+
     }
 }
 

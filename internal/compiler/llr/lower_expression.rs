@@ -248,7 +248,7 @@ fn lower_binary_expression(
     // stack depth stays bounded no matter how long the chain is.
     let mut spine = Vec::new();
     let mut node = expression;
-    while let tree_Expression::BinaryExpression { lhs, rhs, op } = node {
+    while let tree_Expression::BinaryExpression { lhs, rhs, op, .. } = node {
         spine.push((rhs, *op));
         node = lhs;
     }
@@ -351,7 +351,7 @@ fn lower_condition(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
 ) -> llr_Expression {
-    let tree_Expression::Condition { condition, true_expr, false_expr } = expression else {
+    let tree_Expression::Condition { condition, true_expr, false_expr, .. } = expression else {
         unreachable!()
     };
     let (true_ty, false_ty) = (true_expr.ty(), false_expr.ty());
@@ -549,6 +549,7 @@ fn lower_assignment(
                         .into(),
                         rhs: Box::new(rhs.clone()),
                         op,
+                        source_location: None,
                     }
                 };
                 values.insert(field.clone(), e);

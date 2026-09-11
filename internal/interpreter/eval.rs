@@ -883,7 +883,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             Value::Void
         }
-        Expression::BinaryExpression { lhs, rhs, op } => {
+        Expression::BinaryExpression { lhs, rhs, op, .. } => {
             let lhs = eval_expression(ctx, lhs);
             // `&&` and `||` must short-circuit, or else rhs side effects
             // would wrongly run.
@@ -915,7 +915,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             Value::Image(image)
         }
-        Expression::Condition { condition, true_expr, false_expr } => {
+        Expression::Condition { condition, true_expr, false_expr, .. } => {
             match eval_expression(ctx, condition) {
                 Value::Bool(true) => eval_expression(ctx, true_expr),
                 Value::Bool(false) => eval_expression(ctx, false_expr),

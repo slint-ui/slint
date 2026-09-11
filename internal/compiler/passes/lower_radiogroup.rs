@@ -165,6 +165,7 @@ fn wire_radio_button(
         lhs: Expression::PropertyReference(NamedReference::new(group, "orientation".into())).into(),
         rhs: Expression::EnumerationValue(orientation_vertical).into(),
         op: '=',
+        source_location: None,
     };
     let item_index_ref =
         || Expression::PropertyReference(NamedReference::new(child, "item-index".into()));
@@ -172,11 +173,13 @@ fn wire_radio_button(
         condition: is_vertical.clone().into(),
         true_expr: item_index_ref().into(),
         false_expr: Expression::NumberLiteral(0.0, Unit::None).into(),
+        source_location: None,
     };
     let col_expr = Expression::Condition {
         condition: is_vertical.into(),
         true_expr: Expression::NumberLiteral(0.0, Unit::None).into(),
         false_expr: item_index_ref().into(),
+        source_location: None,
     };
     child.borrow_mut().set_binding(SmolStr::new_static("row"), row_expr.into());
     child.borrow_mut().set_binding(SmolStr::new_static("col"), col_expr.into());

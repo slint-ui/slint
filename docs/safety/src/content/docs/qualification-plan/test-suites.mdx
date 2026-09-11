@@ -37,6 +37,8 @@ For each case, the driver in `api/slint-sc/tests/driver.rs`:
 3. Compiles the generated code and that body with `rustc`.
 4. Runs the resulting binary.
 5. Compares the screenshots the case took, if it took any, against the PNG references in `api/slint-sc/tests/references/`.
+6. Measures the coverage of the case's `.slint` code and compares it with the caret lines the case states it in, if it states it.
+   The cases under `coverage/` test that reporting and have to state theirs; see [Coverage Tool Verification](/qualification-plan/slint-coverage/).
 
 Step 3 is itself a test.
 The runtime is the only `--extern` passed to `rustc`,

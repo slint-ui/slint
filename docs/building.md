@@ -120,6 +120,13 @@ cargo build
 cargo test
 ```
 
+The tests of the Slint SC runtime measure the coverage of their `.slint` code, which
+needs the `llvm-tools` rustup component:
+
+```sh
+rustup component add llvm-tools
+```
+
 ### Workspace layout
 
 The repository is split into several Cargo workspaces that all share the same

@@ -127,7 +127,7 @@ fn collect_unconditional_read_count(expr: &Expression, result: &DedupPropState) 
         }
         //Expression::RepeaterIndexReference { element } => {}
         //Expression::RepeaterModelReference { element } => {}
-        Expression::BinaryExpression { lhs, rhs: _, op: '|' | '&' } => {
+        Expression::BinaryExpression { lhs, rhs: _, op: '|' | '&', .. } => {
             lhs.visit(|sub| collect_unconditional_read_count(sub, result))
         }
         Expression::Condition { condition, .. } => {
@@ -139,11 +139,11 @@ fn collect_unconditional_read_count(expr: &Expression, result: &DedupPropState) 
 
 fn process_conditional_expressions(expr: &mut Expression, state: &DedupPropState) {
     match expr {
-        Expression::BinaryExpression { lhs, rhs, op: '|' | '&' } => {
+        Expression::BinaryExpression { lhs, rhs, op: '|' | '&', .. } => {
             lhs.visit_mut(|sub| process_conditional_expressions(sub, state));
             process_expression(rhs, state);
         }
-        Expression::Condition { condition, true_expr, false_expr } => {
+        Expression::Condition { condition, true_expr, false_expr, .. } => {
             condition.visit_mut(|sub| process_conditional_expressions(sub, state));
             process_expression(true_expr, state);
             process_expression(false_expr, state);
@@ -160,7 +160,7 @@ fn do_replacements(expr: &mut Expression, state: &DedupPropState) {
                 *expr = Expression::ReadLocalVariable { name, ty };
             }
         }
-        Expression::BinaryExpression { lhs, rhs: _, op: '|' | '&' } => {
+        Expression::BinaryExpression { lhs, rhs: _, op: '|' | '&', .. } => {
             lhs.visit_mut(|sub| do_replacements(sub, state));
         }
         Expression::Condition { condition, .. } => {

@@ -548,7 +548,7 @@ impl Snapshotter {
                     pure: v.pure,
                     shadowed_name: v.shadowed_name.clone(),
                     shadowable: v.shadowable,
-                    moved_to_root: v.moved_to_root,
+                    moved_from: v.moved_from.clone(),
                     deprecated: v.deprecated.clone(),
                 };
                 (k.clone(), decl)
@@ -798,19 +798,23 @@ impl Snapshotter {
                 op: *op,
                 node: node.clone(),
             },
-            Expression::BinaryExpression { lhs, rhs, op } => Expression::BinaryExpression {
+            Expression::BinaryExpression { lhs, rhs, op, .. } => Expression::BinaryExpression {
                 lhs: Box::new(self.snapshot_expression(lhs)),
                 rhs: Box::new(self.snapshot_expression(rhs)),
                 op: *op,
+                source_location: None,
             },
             Expression::UnaryOp { sub, op } => {
                 Expression::UnaryOp { sub: Box::new(self.snapshot_expression(sub)), op: *op }
             }
-            Expression::Condition { condition, true_expr, false_expr } => Expression::Condition {
-                condition: Box::new(self.snapshot_expression(condition)),
-                true_expr: Box::new(self.snapshot_expression(true_expr)),
-                false_expr: Box::new(self.snapshot_expression(false_expr)),
-            },
+            Expression::Condition { condition, true_expr, false_expr, .. } => {
+                Expression::Condition {
+                    condition: Box::new(self.snapshot_expression(condition)),
+                    true_expr: Box::new(self.snapshot_expression(true_expr)),
+                    false_expr: Box::new(self.snapshot_expression(false_expr)),
+                    source_location: None,
+                }
+            }
             Expression::Array { element_ty, values } => Expression::Array {
                 element_ty: element_ty.clone(),
                 values: values.iter().map(|e| self.snapshot_expression(e)).collect(),
