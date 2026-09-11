@@ -104,7 +104,6 @@ export component InspectorGradientStops inherits Rectangle {
                 kind: "text";
                 label: "+";
                 width: 24px;
-                horizontal-stretch: 0;
                 accessible-label: "Add gradient stop";
                 clicked => {
                     FillSession.add-stop-position(Api.gradient-stop-gap(root.value.stops));
@@ -188,7 +187,6 @@ export component InspectorGradientStops inherits Rectangle {
                         Text { width: 48px; text: (stop.color.alpha * 100 / 255).to-fixed(0) + "%"; color: InspectorTokens.text; font-size: 11px; vertical-alignment: center; }
                         if root.value.stops.length > 2: InspectorSegment {
                             width: 24px;
-                            horizontal-stretch: 0;
                             kind: "text";
                             label: "−";
                             accessible-label: "Remove stop " + (index + 1);
