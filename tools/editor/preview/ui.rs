@@ -1883,7 +1883,7 @@ mod tests {
             },
             ..Default::default()
         });
-        stops.set_row_data(0, super::GradientStop { position: 0.25, ..original[1].clone() });
+        stops.set_row_data(0, super::GradientStop { position: 0.25, ..original[1] });
         assert_eq!(session.get_request().fill.stops.iter().collect::<Vec<_>>(), original);
         session.invoke_close_picker(false, false);
         assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), original);

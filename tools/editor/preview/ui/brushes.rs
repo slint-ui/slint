@@ -409,8 +409,8 @@ fn gradient_stop_at_position(
     }
 
     let stops = sorted_gradient_stops(model);
-    let mut prev = stops[0].clone();
-    let mut next = stops[stops.len() - 1].clone();
+    let mut prev = stops[0];
+    let mut next = stops[stops.len() - 1];
 
     for current in stops {
         if current.position > position {
