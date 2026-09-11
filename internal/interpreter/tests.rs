@@ -46,6 +46,20 @@ fn reuse_window() {
             instance.get_property("text_alias").unwrap(),
             Value::from(SharedString::from("foo"))
         );
+        let attached_item_tree =
+            i_slint_core::window::WindowInner::from_pub(instance.window()).component();
+        let detached = definition
+            .create_detached_with_existing_window(instance.window(), i_slint_core::InternalToken)
+            .unwrap();
+        assert!(!i_slint_core::item_tree::ItemTreeRc::ptr_eq(
+            &attached_item_tree,
+            &detached.as_item_tree(i_slint_core::InternalToken),
+        ));
+        let _ = detached.window();
+        assert!(i_slint_core::item_tree::ItemTreeRc::ptr_eq(
+            &attached_item_tree,
+            &i_slint_core::window::WindowInner::from_pub(instance.window()).component(),
+        ));
         instance
     };
 }
