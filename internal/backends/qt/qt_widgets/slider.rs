@@ -421,6 +421,9 @@ impl Item for NativeSlider {
 impl NativeSlider {
     fn set_value(self: Pin<&Self>, new_val: f32) {
         let new_val = new_val.max(self.minimum()).min(self.maximum());
+        if self.value() == new_val {
+            return;
+        }
         self.value.set(new_val);
         Self::FIELD_OFFSETS.changed().apply_pin(self).call(&(new_val,));
     }
