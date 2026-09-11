@@ -4,9 +4,7 @@
 // A Flickable that cannot pan in either direction (its content fits within its own size) must not swallow
 // a press/release that no descendant claims: it should be forwarded to whatever is underneath,
 // the same way it already happens for wheel events.
-// See issue #8973.
-//
-// A Flickable that *can* pan must keep intercepting the event as before.
+// See issues #8973 and #13118.
 
 export component TestCase inherits Window {
     width: 400px;
@@ -27,14 +25,13 @@ export component TestCase inherits Window {
         content-height: self.height;
     }
 
-    // Right half: scrollable Flickable on top of a TouchArea. The click must still be intercepted.
     TouchArea {
         x: 200px;
         width: 200px;
         height: 200px;
-        clicked => { root.scrollable-clicked = true; }
+        clicked => { root.scrollable-clicked-count += 1; }
     }
-    Flickable {
+    scrollable-flick := Flickable {
         x: 200px;
         width: 200px;
         height: 200px;
@@ -43,7 +40,8 @@ export component TestCase inherits Window {
     }
 
     out property <bool> non-scrollable-clicked: false;
-    out property <bool> scrollable-clicked: false;
+    out property <int> scrollable-clicked-count: 0;
+    out property <length> scrollable-content-y: scrollable-flick.content-y;
 }
 
 // Reproduction from issue #8973: a non-scrollable Flickable nested inside a TouchArea,
@@ -72,6 +70,49 @@ export component TestCaseWrapped inherits Window {
     out property <int> counter: 0;
 }
 
+export component TestCaseWrappedPannable inherits Window {
+    width: 100px;
+    height: 100px;
+
+    TouchArea {
+        clicked => { root.counter += 1; }
+
+        flick := Flickable {
+            width: 50px;
+            height: 50px;
+            content-width: 60px;
+            content-height: 60px;
+
+            Rectangle {
+                width: 60px;
+                height: 60px;
+                background: gray;
+            }
+        }
+    }
+
+    out property <int> counter: 0;
+    out property <length> content-y: flick.content-y;
+}
+
+export component TestCaseWrappedMoved inherits Window {
+    width: 100px;
+    height: 100px;
+
+    ta := TouchArea {
+        clicked => { root.counter += 1; }
+
+        Flickable {
+            width: 100px;
+            height: 100px;
+            content-width: 100px;
+            content-height: 200px;
+        }
+    }
+
+    out property <int> counter: 0;
+}
+
 /*
 ```rust
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
@@ -81,12 +122,19 @@ let instance = TestCase::new().unwrap();
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_non_scrollable_clicked(), true);
-assert_eq!(instance.get_scrollable_clicked(), false);
+assert_eq!(instance.get_scrollable_clicked_count(), 0);
 
-// Click into the scrollable Flickable: it can pan, so it keeps intercepting the click as before.
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
-assert_eq!(instance.get_scrollable_clicked(), false);
+assert_eq!(instance.get_scrollable_clicked_count(), 1);
+assert_eq!(instance.get_scrollable_content_y(), 0.);
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 50.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 10.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(300.0, 10.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_scrollable_content_y(), -90.);
+assert_eq!(instance.get_scrollable_clicked_count(), 1);
 ```
 
 ```rust
@@ -96,5 +144,32 @@ let instance = TestCaseWrapped::new().unwrap();
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_counter(), 1);
+```
+
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCaseWrappedPannable::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 1);
+assert_eq!(instance.get_content_y(), 0.);
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(25.0, 15.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(25.0, 5.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 5.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_content_y(), -10.);
+assert_eq!(instance.get_counter(), 1);
+```
+
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCaseWrappedMoved::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(60.0, 50.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(60.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 0);
 ```
 */
