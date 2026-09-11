@@ -12,7 +12,6 @@ pub mod editing;
 pub mod editor_session;
 pub mod element;
 mod lsp_to_previews;
-pub mod project_file_discovery;
 #[cfg(all(feature = "remote-client", not(target_arch = "wasm32")))]
 pub mod remote_authentication;
 #[cfg(all(feature = "remote-client", not(target_arch = "wasm32")))]
