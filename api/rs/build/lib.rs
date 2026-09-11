@@ -930,7 +930,7 @@ fn project_file_discovery_is_exactly_manifest_dir_relative() {
 
         fs::write(&manifest_project_file, r#"{"style":"fluent"}"#).unwrap();
         let discovered = discover_project_file_in(&manifest_dir).unwrap().unwrap();
-        assert_eq!(discovered.source_path(), fs::canonicalize(&manifest_project_file).unwrap());
+        assert_eq!(discovered.source_path(), manifest_project_file);
     });
 }
 
@@ -943,8 +943,9 @@ fn project_file_discovery_loads_present_paths() {
 
         fs::create_dir_all(&project_file).unwrap();
 
-        let error = discover_project_file_in(test_root).unwrap_err();
-        assert!(error.to_string().contains("Is a directory"));
+        // The message for reading a directory differs per platform, so only pin that
+        // it errors instead of being swallowed like a missing file.
+        assert!(discover_project_file_in(test_root).is_err());
     });
 }
 
