@@ -1901,7 +1901,12 @@ mod tests {
         session.invoke_add_stop_position(0.25);
         session.invoke_remove_stop(0);
         assert_eq!(snapshot.stops.iter().collect::<Vec<_>>(), stops);
+        assert_eq!(session.get_request().fill.stops.iter().collect::<Vec<_>>(), stops);
         assert!(session.invoke_preview_fill(snapshot));
+        assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), stops);
+        api.on_inspector_fill_preview(|_, _, _| false);
+        assert!(!session.invoke_move_stop_position(0.75));
+        assert!(!session.get_open());
         assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), stops);
     }
 
