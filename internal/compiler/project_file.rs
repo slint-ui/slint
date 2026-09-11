@@ -32,6 +32,25 @@ pub struct ProjectFile {
 
 pub const FILE_NAME: &str = "slint-project.json";
 
+/// Searches `directory` and its ancestors for a project file,
+/// returning the path of the first one found.
+pub fn find_project_file_path(directory: &Path) -> std::io::Result<Option<PathBuf>> {
+    // On wasm std::fs reports Unsupported rather than NotFound, which would turn every
+    // lookup below into an error. There is no filesystem to hold a project file anyway.
+    if cfg!(target_arch = "wasm32") {
+        return Ok(None);
+    }
+
+    for directory in directory.ancestors() {
+        let candidate = directory.join(FILE_NAME);
+        if candidate.try_exists()? {
+            return Ok(Some(candidate));
+        }
+    }
+
+    Ok(None)
+}
+
 impl ProjectFile {
     pub fn load(path: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
         let source_path = normalize_project_file_path(path.as_ref());
@@ -116,7 +135,7 @@ fn resolve_relative_path(project_directory: &Path, path: PathBuf) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::{FILE_NAME, ProjectFile};
+    use super::{FILE_NAME, ProjectFile, find_project_file_path};
     use crate::generator::OutputFormat;
     use std::{
         collections::HashMap,
@@ -234,6 +253,21 @@ mod tests {
             assert_eq!(compiler_config.style, default_config.style);
             assert_eq!(compiler_config.enable_experimental, default_config.enable_experimental);
         });
+    }
+
+    #[test]
+    fn the_nearest_project_file_is_found() {
+        let root = unique_temp_file_path().parent().unwrap().to_path_buf();
+        let nested = root.join("a/b");
+        fs::create_dir_all(&nested).unwrap();
+
+        fs::write(root.join(FILE_NAME), "{}").unwrap();
+        assert_eq!(find_project_file_path(&nested).unwrap(), Some(root.join(FILE_NAME)));
+
+        fs::write(root.join("a").join(FILE_NAME), "{}").unwrap();
+        assert_eq!(find_project_file_path(&nested).unwrap(), Some(root.join("a").join(FILE_NAME)));
+
+        fs::remove_dir_all(&root).unwrap();
     }
 
     fn load_project_file(source: &str) -> Result<ProjectFile, Box<dyn std::error::Error>> {

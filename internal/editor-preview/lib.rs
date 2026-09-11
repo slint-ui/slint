@@ -13,7 +13,6 @@ pub mod editor_session;
 pub mod element;
 pub mod file_url;
 mod lsp_to_previews;
-pub mod project_file_discovery;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod settings_store;
 #[cfg(any(test, feature = "testing"))]
