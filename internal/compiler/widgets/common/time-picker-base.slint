@@ -279,7 +279,7 @@ export component PeriodSelector {
     callback update-period(bool);
 
     min-width: max(38px, layout.min-width);
-    accessible-label: "AM or PM";
+    accessible-label: @tr("AM or PM");
     accessible-role: checkbox;
     accessible-checked: root.am-selected;
 
@@ -417,7 +417,7 @@ export component TimePickerBase {
 
                 accessible-role: AccessibleRole.text-input;
                 accessible-value: self.text;
-                accessible-label: "hour";
+                accessible-label: @tr("hour");
 
                 clicked => {
                     root.minutes-selected = false;
@@ -440,7 +440,7 @@ export component TimePickerBase {
 
                 accessible-role: AccessibleRole.text-input;
                 accessible-value: self.text;
-                accessible-label: "minute";
+                accessible-label: @tr("minute");
 
                 clicked => {
                     root.minutes-selected = true;
