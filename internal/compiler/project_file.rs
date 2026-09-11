@@ -64,6 +64,18 @@ impl ProjectFile {
         Ok(Self { source_path, data })
     }
 
+    /// Loads the project file that applies to the files in `directory`, if there is one.
+    pub fn find(directory: &Path) -> Result<Option<Self>, String> {
+        let Some(path) = find_project_file_path(directory)
+            .map_err(|error| format!("Cannot look for {FILE_NAME}: {error}"))?
+        else {
+            return Ok(None);
+        };
+        Self::load(&path)
+            .map(Some)
+            .map_err(|error| format!("Cannot load {}: {error}", path.display()))
+    }
+
     pub fn source_path(&self) -> &Path {
         &self.source_path
     }
@@ -89,6 +101,13 @@ impl ProjectFile {
         output_format: crate::generator::OutputFormat,
     ) -> crate::CompilerConfiguration {
         let mut compiler_config = crate::CompilerConfiguration::new(output_format);
+        self.apply_to(&mut compiler_config);
+        compiler_config
+    }
+
+    /// Applies the settings of the project file to `compiler_config`,
+    /// leaving the settings the project file doesn't specify untouched.
+    pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
         let project_directory = crate::pathutils::dirname(&self.source_path);
 
         if let Some(include_directories) = &self.data.include_directories {
@@ -115,8 +134,39 @@ impl ProjectFile {
         if let Some(enable_experimental_features) = self.data.enable_experimental_features {
             compiler_config.enable_experimental = enable_experimental_features;
         }
+    }
+}
 
-        compiler_config
+/// The settings that a caller set explicitly through an API, which win over the project file.
+#[derive(Clone, Debug, Default)]
+pub struct Overrides {
+    pub include_paths: Option<Vec<PathBuf>>,
+    pub library_paths: Option<HashMap<String, PathBuf>>,
+    pub style: Option<String>,
+}
+
+impl Overrides {
+    /// Applies the project file for the files in `directory` to `config`, then these overrides.
+    /// Returns the project file that was applied.
+    pub fn apply_with_project_file(
+        &self,
+        config: &mut crate::CompilerConfiguration,
+        directory: &Path,
+    ) -> Result<Option<ProjectFile>, String> {
+        let project_file = ProjectFile::find(directory)?;
+        if let Some(project_file) = &project_file {
+            project_file.apply_to(config);
+        }
+        if let Some(include_paths) = &self.include_paths {
+            config.include_paths = include_paths.clone();
+        }
+        if let Some(library_paths) = &self.library_paths {
+            config.library_paths = library_paths.clone();
+        }
+        if let Some(style) = &self.style {
+            config.style = Some(style.clone());
+        }
+        Ok(project_file)
     }
 }
 
