@@ -1742,7 +1742,7 @@ mod tests {
         .next()
         .unwrap();
         for (width, anchor, paired) in
-            [(1360., 1200., false), (1360., 1200., true), (1040., 330., true), (620., 330., true)]
+            [(1360., 1200., false), (1360., 1200., true), (1040., 330., true), (540., 330., true)]
         {
             editor.global::<super::EditorMetrics>().set_window_width(width);
             session.set_anchor_position(LogicalPosition::new(anchor, 100.));
@@ -1752,7 +1752,7 @@ mod tests {
             let size = panel.size();
             assert!(position.x >= 8.);
             assert!(position.x + size.width <= width - 8.);
-            assert_eq!(size.width, if paired && width > 620. { 608. } else { 300. });
+            assert_eq!(size.width, if paired && width > 540. { 528. } else { 260. });
         }
     }
 
