@@ -627,7 +627,7 @@ fn sync_file_watcher_if_needed(
         .document_cache
         .all_paths_to_watch()
         .into_iter()
-        .chain(ctx.session.active_project_file_path().map(Path::to_path_buf));
+        .chain(ctx.session.active_project_file_paths().map(Path::to_path_buf));
     watcher
         .update_watched_paths(watched_paths)
         .map_err(|err| std::io::Error::other(format!("Failed to update watched paths: {err:?}")))?;
