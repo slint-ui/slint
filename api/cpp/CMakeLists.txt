@@ -241,7 +241,9 @@ if (SLINT_BUILD_RUNTIME)
             set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE})
         endif()
     else()
-        set_property(GLOBAL PROPERTY SLINT_STYLE "fluent")
+        # Left empty on purpose: the style then comes from slint.project.json,
+        # or from the compiler's default when there is no project file.
+        set_property(GLOBAL PROPERTY SLINT_STYLE "")
     endif()
 
     # Build environments such as buildroot set PKG_CONFIG_SYSROOT_DIR in their toolchain file
