@@ -409,6 +409,15 @@ fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
 /// are relative to the `.rs` file that contains the macro.
 /// For compatibility with older rust version, the files are also searched in the manifest directory that contains `Cargo.toml`.
 ///
+/// ### Project File
+///
+/// Settings such as the style or the include paths can come from a `slint.project.json` file.
+/// The search for it starts in the directory of the `.rs` file and goes up from there.
+///
+/// A macro body that only re-exports from a single `.slint` file, such as
+/// `export { App } from "ui/app.slint";`, searches from that file instead.
+/// Such a macro then uses the same project file as building `ui/app.slint` directly.
+///
 /// ### Limitations
 ///
 /// Because this macro receives its input through Rust's tokenizer, a few constructs that are

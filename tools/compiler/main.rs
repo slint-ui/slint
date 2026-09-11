@@ -64,20 +64,24 @@ struct Cli {
 
     /// Specify include paths for imported .slint files or image resources.
     /// This is used for including external .slint files or image resources referenced by '@image-url'.
+    /// Wins over the include directories of the project file.
     #[arg(short = 'I', name = "include path", number_of_values = 1)]
     include_paths: Vec<std::path::PathBuf>,
 
     /// Define library paths in the format `<library>=<path>`.
     /// This can point to either a library directory or a .slint entry-point file.
+    /// Wins over the library paths of the project file.
     #[arg(short = 'L', name = "library path", number_of_values = 1)]
     library_paths: Vec<String>,
 
     /// Specify the path to the main .slint file to compile.
+    /// A slint.project.json in its directory, or in a directory above it, provides the settings.
     /// Use '-' to read from stdin.
     #[arg(name = "file")]
     path: std::path::PathBuf,
 
     /// Set the style for the UI (e.g., 'native' or 'fluent').
+    /// Wins over the style of the project file.
     #[arg(long, name = "style name")]
     style: Option<String>,
 

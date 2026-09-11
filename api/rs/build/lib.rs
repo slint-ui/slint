@@ -9,6 +9,12 @@ The main entry point of this crate is the [`compile()`] function
 
 The generated code must be included in your crate by using the `slint::include_modules!()` macro.
 
+## Project File
+
+Settings such as the style or the include paths can be put in a `slint.project.json`
+file instead. The search for it starts in the directory of the `.slint` file and
+goes up from there. What you set on [`CompilerConfiguration`] wins over it.
+
 ## Example
 
 In your Cargo.toml:
@@ -134,6 +140,8 @@ impl CompilerConfiguration {
 
     /// Create a new configuration that includes sets the include paths used for looking up
     /// `.slint` imports to the specified vector of paths.
+    ///
+    /// This wins over the include paths of the project file.
     #[must_use]
     pub fn with_include_paths(self, include_paths: Vec<std::path::PathBuf>) -> Self {
         let mut this = self;
@@ -167,6 +175,8 @@ impl CompilerConfiguration {
     /// ```slint,ignore
     /// import { Example } from "@example";
     /// ```
+    ///
+    /// This wins over the library paths of the project file.
     #[must_use]
     pub fn with_library_paths(
         mut self,
@@ -177,6 +187,8 @@ impl CompilerConfiguration {
     }
 
     /// Create a new configuration that selects the style to be used for widgets.
+    ///
+    /// This wins over the style of the project file.
     #[must_use]
     pub fn with_style(mut self, style: String) -> Self {
         self.overrides.style = Some(style);
@@ -553,6 +565,9 @@ fn formatter_test() {
 ///
 /// This function can only be called within a build script run by cargo.
 ///
+/// A `slint.project.json` in the directory of `path`, or in a directory above it,
+/// provides the settings.
+///
 /// See also [`compile_with_config()`] if you want to specify a configuration.
 pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
     compile_with_config(path, CompilerConfiguration::default())
@@ -567,6 +582,8 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 ///     .with_style("material".into());
 /// slint_build::compile_with_config("ui/hello.slint", config).unwrap();
 /// ```
+///
+/// The project file provides the settings that `config` leaves open.
 pub fn compile_with_config(
     relative_slint_file_path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,
@@ -634,6 +651,8 @@ pub fn compile_with_config(
 /// Both input_slint_file_path and output_rust_file_path should be absolute paths.
 ///
 /// Doesn't print any cargo messages.
+///
+/// The project file provides the settings that `config` leaves open.
 ///
 /// Returns a list of all input files that were used to generate the output file. (dependencies)
 pub fn compile_with_output_path(
