@@ -8,7 +8,7 @@ import { InspectorSegment } from "segment.slint";
 export component InspectorPickerPanel inherits Rectangle {
     in property <string> title;
     callback closed();
-    width: 300px;
+    width: InspectorTokens.picker-width;
     preferred-height: layout.preferred-height;
     height: self.preferred-height;
     background: InspectorTokens.panel-bg;

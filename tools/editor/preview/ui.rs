@@ -1724,6 +1724,39 @@ mod tests {
     }
 
     #[test]
+    fn fill_picker_fits_single_paired_and_stacked_panels() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        super::brushes::setup(&api);
+        let session = editor.global::<super::FillSession>();
+        session.set_session_key(":0:0:0:".into());
+        session.set_anchor_width(24.);
+        session.set_open(true);
+        editor.show().unwrap();
+        slint::platform::update_timers_and_animations();
+        let panel = i_slint_backend_testing::ElementHandle::find_by_element_id(
+            &editor,
+            "InspectorFillPicker::picker-panel",
+        )
+        .next()
+        .unwrap();
+        for (width, anchor, paired) in
+            [(1360., 1200., false), (1360., 1200., true), (1040., 330., true), (620., 330., true)]
+        {
+            editor.global::<super::EditorMetrics>().set_window_width(width);
+            session.set_anchor_position(LogicalPosition::new(anchor, 100.));
+            session.set_stop_panel_open(paired);
+            slint::platform::update_timers_and_animations();
+            let position = panel.absolute_position();
+            let size = panel.size();
+            assert!(position.x >= 8.);
+            assert!(position.x + size.width <= width - 8.);
+            assert_eq!(size.width, if paired && width > 620. { 608. } else { 300. });
+        }
+    }
+
+    #[test]
     fn fill_session_invalidates_stale_targets_without_committing() {
         i_slint_backend_testing::init_no_event_loop();
         for change in 0..4 {

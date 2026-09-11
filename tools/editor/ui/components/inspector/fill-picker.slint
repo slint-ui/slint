@@ -15,11 +15,21 @@ import { InspectorPickerPanel } from "picker-panel.slint";
 import { InspectorSegment } from "segment.slint";
 
 export component InspectorFillPicker inherits Rectangle {
+    private property <length> panel-step: InspectorTokens.picker-width + InspectorTokens.picker-gap;
+    private property <length> pair-width: InspectorTokens.picker-width + root.panel-step;
+    private property <length> margin: InspectorTokens.picker-margin;
+    private property <length> main-x: (FillSession.anchor-position.x >= root.panel-step + root.margin
+        ? FillSession.anchor-position.x - root.panel-step
+        : FillSession.anchor-position.x + FillSession.anchor-width + InspectorTokens.picker-gap)
+        .clamp(root.margin, max(root.margin, EditorMetrics.window-width - InspectorTokens.picker-width - root.margin));
+    private property <bool> stop-on-left: root.main-x >= root.panel-step + root.margin;
+    private property <bool> stacked: FillSession.stop-panel-open && !root.stop-on-left
+        && root.main-x + root.pair-width > EditorMetrics.window-width - root.margin;
     visible: FillSession.open;
     picker-panel := Rectangle {
-        width: FillSession.stop-panel-open && !FillSession.stacked ? 608px : 300px;
-        x: FillSession.main-x - (FillSession.stop-panel-open && FillSession.stop-on-left && !FillSession.stacked ? 308px : 0px) - root.absolute-position.x;
-        y: FillSession.anchor-position.y.clamp(8px, max(8px, EditorMetrics.window-height - self.height - 8px)) - root.absolute-position.y;
+        width: FillSession.stop-panel-open && !root.stacked ? root.pair-width : InspectorTokens.picker-width;
+        x: root.main-x - (FillSession.stop-panel-open && root.stop-on-left && !root.stacked ? root.panel-step : 0px) - root.absolute-position.x;
+        y: FillSession.anchor-position.y.clamp(root.margin, max(root.margin, EditorMetrics.window-height - self.height - root.margin)) - root.absolute-position.y;
         height: group-content.height;
 
         picker-focus := FocusScope {
@@ -38,16 +48,16 @@ export component InspectorFillPicker inherits Rectangle {
                 width: parent.width;
                 x: 0px;
                 y: 0px;
-                height: FillSession.stacked ? main-panel.height + 8px + (FillSession.stop-panel-open ? stop-panel.height : 0px) : max(main-panel.height, FillSession.stop-panel-open ? stop-panel.height : 0px);
+                height: root.stacked ? main-panel.height + InspectorTokens.picker-gap + (FillSession.stop-panel-open ? stop-panel.height : 0px) : max(main-panel.height, FillSession.stop-panel-open ? stop-panel.height : 0px);
                 TouchArea {
                     clicked => {
                         FillSession.close-picker(true, true);
                     }
                 }
                 main-panel := InspectorPickerPanel {
-                    x: FillSession.stop-panel-open && FillSession.stop-on-left && !FillSession.stacked ? 308px : 0px;
+                    x: FillSession.stop-panel-open && root.stop-on-left && !root.stacked ? root.panel-step : 0px;
                     y: 0px;
-                    height: min(self.preferred-height, max(200px, EditorMetrics.window-height - 16px - (FillSession.stacked ? stop-panel.height + 8px : 0px)));
+                    height: min(self.preferred-height, max(200px, EditorMetrics.window-height - 2 * root.margin - (root.stacked ? stop-panel.height + InspectorTokens.picker-gap : 0px)));
                     title: "Custom";
                     closed => {
                         FillSession.close-picker(true, true);
@@ -136,8 +146,8 @@ export component InspectorFillPicker inherits Rectangle {
                 }
                 stop-panel := InspectorPickerPanel {
                     visible: FillSession.stop-panel-open;
-                    x: FillSession.stacked || FillSession.stop-on-left ? 0px : 308px;
-                    y: FillSession.stacked ? main-panel.height + 8px : 0px;
+                    x: root.stacked || root.stop-on-left ? 0px : root.panel-step;
+                    y: root.stacked ? main-panel.height + InspectorTokens.picker-gap : 0px;
                     title: "Stop color";
                     closed => {
                         picker-focus.focus();

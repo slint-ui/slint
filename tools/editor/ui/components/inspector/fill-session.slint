@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Api, FillData, BrushKind, LinearGradientAxis, SelectionRectangle } from "../../api.slint";
-import { EditorMetrics } from "../common.slint";
 
 export global FillSession {
     in-out property <FillData> value;
@@ -29,9 +28,6 @@ export global FillSession {
     in-out property <FillData> working-fill;
     in-out property <int> selected-stop;
     in-out property <bool> stop-panel-open;
-    in-out property <length> main-x: (FillSession.anchor-position.x >= 316px ? FillSession.anchor-position.x - 308px : FillSession.anchor-position.x + FillSession.anchor-width + 8px).clamp(8px, max(8px, EditorMetrics.window-width - 308px));
-    in-out property <bool> stop-on-left: FillSession.main-x >= 316px;
-    in-out property <bool> stacked: FillSession.stop-panel-open && !FillSession.stop-on-left && FillSession.main-x + 608px > EditorMetrics.window-width - 8px;
     in-out property <int> focus-stop-generation;
 
     in-out property <color> working-color: FillSession.working-fill.kind == BrushKind.solid ? FillSession.working-fill.color : FillSession.working-fill.stops[FillSession.selected-stop].color;
