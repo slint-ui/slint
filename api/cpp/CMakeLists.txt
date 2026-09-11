@@ -240,8 +240,6 @@ if (SLINT_BUILD_RUNTIME)
         else()
             set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE})
         endif()
-    else()
-        set_property(GLOBAL PROPERTY SLINT_STYLE "fluent")
     endif()
 
     # Build environments such as buildroot set PKG_CONFIG_SYSROOT_DIR in their toolchain file
