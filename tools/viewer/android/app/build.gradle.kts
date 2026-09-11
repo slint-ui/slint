@@ -18,7 +18,8 @@ val releaseVersionCode = major * 10000 + minor * 100 + patch
 
 // Each per-ABI APK needs a distinct versionCode: the release code times ten
 // plus this offset, so a device supporting several ABIs (arm64 also runs
-// armeabi-v7a) installs the highest, i.e. arm64.
+// armeabi-v7a) installs the highest, i.e. arm64. The build entries of the
+// F-Droid recipe (fdroid/dev.slint.viewer.yml) follow this order.
 val abiVersionCodeOffset = mapOf("armeabi-v7a" to 1, "x86_64" to 2, "arm64-v8a" to 3)
 
 // -Pslint.abi=<abi> restricts the APKs to one ABI; F-Droid builds one ABI

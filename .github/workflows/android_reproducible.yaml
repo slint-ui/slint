@@ -4,10 +4,10 @@
 # cSpell: ignore sdkmanager diffoscope
 
 # The Android viewer build has to be reproducible so F-Droid can verify its
-# own rebuild against our signed APK. Build the arm64 APK twice, from
-# checkouts at different paths and depths, and require identical bytes.
-# Two Skia builds from source make this slow, so it runs with the full CI
-# only, not on pull requests.
+# own rebuild against our signed APK. Build the arm64 APK, build it again
+# with the F-Droid recipe inside the F-Droid build server image, and require
+# identical bytes. Two Skia builds from source make this slow, so it runs
+# with the full CI only, not on pull requests.
 name: Android reproducible build
 
 on:
@@ -16,46 +16,84 @@ on:
 
 jobs:
     build:
-        strategy:
-            matrix:
-                # The second checkout sits at another path and depth.
-                checkout: [., a/deeper/checkout/directory]
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-android-viewer-build
-            - name: Clone into the build directory
-              if: matrix.checkout != '.'
-              run: git clone . ${{ matrix.checkout }}
             - name: Build the native library
               run: tools/viewer/android/build-native.sh arm64-v8a
-              working-directory: ${{ matrix.checkout }}
             - name: Build the APK
               run: gradle --no-daemon assembleRelease -Pslint.abi=arm64-v8a
-              working-directory: ${{ matrix.checkout }}/tools/viewer/android
+              working-directory: tools/viewer/android
             - uses: actions/upload-artifact@v7
               with:
-                  name: apk-${{ strategy.job-index }}
-                  path: ${{ matrix.checkout }}/tools/viewer/android/app/build/outputs/apk/release/app-*-release-unsigned.apk
+                  name: apk
+                  path: tools/viewer/android/app/build/outputs/apk/release/app-*-release-unsigned.apk
+
+    fdroid:
+        runs-on: ubuntu-latest
+        container:
+            image: registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie
+        steps:
+            - uses: actions/checkout@v7
+            # Mirrors the `fdroid build` job of fdroiddata's .gitlab-ci.yml:
+            # fdroidserver from master, run as the vagrant user with sudo,
+            # JDK 21 as the default java. The recipe is this checkout's, pointed
+            # at this commit and without the release assets to compare against;
+            # the source is this checkout too, cloned where `fdroid build`
+            # expects it. Only the arm64 entry, the recipe's last, is built.
+            - name: fdroid build
+              # The image's default shell is sh.
+              shell: bash
+              run: |
+                  source /etc/profile.d/bsenv.sh
+                  apt-get update
+                  apt-get install -y sudo openjdk-21-jdk-headless
+                  update-alternatives --set java /usr/lib/jvm/java-21-openjdk-amd64/bin/java
+                  sdkmanager "platform-tools" "build-tools;31.0.0"
+                  mkdir -p $fdroidserver
+                  curl --silent https://gitlab.com/fdroid/fdroidserver/-/archive/master/fdroidserver-master.tar.gz \
+                      | tar -xz --directory=$fdroidserver --strip-components=1
+                  git -C $home_vagrant/gradlew-fdroid pull
+                  mkdir -p $home_vagrant/{logs,tmp,unsigned,build,metadata,.android,.gradle}
+                  git config --global --add safe.directory '*'
+                  sed -e "s|^    commit: .*|    commit: $(git rev-parse HEAD)|" -e '/^    binary: /d' \
+                      tools/viewer/android/fdroid/dev.slint.viewer.yml > $home_vagrant/metadata/dev.slint.viewer.yml
+                  git clone . $home_vagrant/build/dev.slint.viewer
+                  git -C $home_vagrant/build/dev.slint.viewer remote set-url origin https://github.com/slint-ui/slint.git
+                  chown -R vagrant $home_vagrant/{logs,tmp,unsigned,build,metadata,.android,.gradle}
+                  cd $home_vagrant
+                  sudo --preserve-env --user vagrant \
+                      env PATH=$fdroidserver:$PATH PYTHONPATH=$fdroidserver:$fdroidserver/examples \
+                      PYTHONUNBUFFERED=true HOME=$home_vagrant GRADLE_USER_HOME=$home_vagrant/.gradle \
+                      fdroid build --verbose --test --on-server --no-tarball \
+                      dev.slint.viewer:$(sed -n 's/^    versionCode: //p' tools/viewer/android/fdroid/dev.slint.viewer.yml | tail -1)
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: apk-fdroid
+                  path: /home/vagrant/tmp/dev.slint.viewer_*.apk
+            - uses: actions/upload-artifact@v7
+              if: failure()
+              with:
+                  name: fdroid-build-logs
+                  path: /home/vagrant/logs/
 
     compare:
-        needs: build
+        needs: [build, fdroid]
         runs-on: ubuntu-latest
         steps:
             - uses: actions/download-artifact@v8
               with:
-                  name: apk-0
-                  path: first
+                  name: apk
+                  path: ours
             - uses: actions/download-artifact@v8
               with:
-                  name: apk-1
-                  path: second
-            - name: Compare the two APKs
+                  name: apk-fdroid
+                  path: fdroid
+            - name: Compare the APKs
               run: |
-                  if cmp first/app-*-release-unsigned.apk second/app-*-release-unsigned.apk; then
-                      echo "The two builds are byte-identical."
-                  else
-                      sudo apt-get install -y diffoscope-minimal
-                      diffoscope --text - --max-text-report-size 200000 first/app-*-release-unsigned.apk second/app-*-release-unsigned.apk || true
-                      exit 1
-                  fi
+                  ours=(ours/*.apk); theirs=(fdroid/*.apk)
+                  cmp "$ours" "$theirs" && exit 0
+                  sudo apt-get install -y diffoscope-minimal
+                  diffoscope --text - --max-text-report-size 200000 "$ours" "$theirs" || true
+                  exit 1
