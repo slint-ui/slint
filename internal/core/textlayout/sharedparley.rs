@@ -694,8 +694,6 @@ fn text_input_byte_offset_for_position_impl(
         return no_hit;
     };
     let pos: PhysicalPoint = pos * scale_factor;
-    let origin_snap_delta =
-        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
 
     let width = text_input.width();
     let height = text_input.height();
@@ -711,6 +709,8 @@ fn text_input_byte_offset_for_position_impl(
         return no_hit;
     };
 
+    let origin_snap_delta =
+        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
     let (byte_offset, affinity) = with_text_layout(
         cache,
         Some(item_rc),
@@ -760,8 +760,6 @@ fn text_input_cursor_rect_for_byte_offset_impl(
     let Some(scale_factor) = scale_factor else {
         return LogicalRect::default();
     };
-    let origin_snap_delta =
-        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
 
     let layout_builder =
         shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);
@@ -784,6 +782,8 @@ fn text_input_cursor_rect_for_byte_offset_impl(
 
     let byte_offset = visual_representation.map_byte_offset_from_actual_to_visual_text(byte_offset);
 
+    let origin_snap_delta =
+        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
     with_text_layout(
         cache,
         Some(item_rc),
@@ -883,8 +883,6 @@ fn with_text_input_layout_impl<R>(
 ) -> Option<R> {
     let scale_factor = scale_factor?;
     let window_adapter = window_adapter?;
-    let origin_snap_delta =
-        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
 
     let width = size.width_length();
     let height = size.height_length();
@@ -901,6 +899,8 @@ fn with_text_input_layout_impl<R>(
         return None;
     };
 
+    let origin_snap_delta =
+        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
     with_text_layout(
         cache,
         Some(item_rc),
