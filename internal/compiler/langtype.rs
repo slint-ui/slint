@@ -11,6 +11,7 @@ use itertools::Itertools;
 
 use smol_str::SmolStr;
 
+use crate::diagnostics::SourceLocation;
 use crate::expression_tree::{BuiltinFunction, Expression, Unit};
 use crate::object_tree::{Component, DEFAULT_SLOT_NAME, PropertyVisibility};
 use crate::parser::SyntaxNode;
@@ -362,22 +363,43 @@ impl Type {
 #[derive(Debug, Clone)]
 pub enum BuiltinPropertyDefault {
     None,
-    Expr(Expression),
-    /// When materializing a property of this type, it will be initialized with an Expression that depends on the ElementRc
-    WithElement(fn(&crate::object_tree::ElementRc) -> Expression),
+    Expr(ConstantExpression),
+    /// The property is computed per element by this function, which takes the element.
+    ElementFunction(BuiltinFunction),
+    /// A value only the runtime knows, which this function returns. It takes no argument, so
+    /// unlike [`Self::ElementFunction`] the property still belongs to the native item.
+    RuntimeValue(BuiltinFunction),
     /// The property is actually not a property but a builtin function
     BuiltinFunction(BuiltinFunction),
 }
 
 impl BuiltinPropertyDefault {
-    pub fn expr(&self, elem: &crate::object_tree::ElementRc) -> Option<Expression> {
+    /// The default of a property that doesn't need an element to express, for the callers that
+    /// have no `ElementRc` at hand.
+    pub fn expr_without_element(&self) -> Option<Expression> {
         match self {
             BuiltinPropertyDefault::None => None,
-            BuiltinPropertyDefault::Expr(expression) => Some(expression.clone()),
-            BuiltinPropertyDefault::WithElement(init_expr) => Some(init_expr(elem)),
-            BuiltinPropertyDefault::BuiltinFunction(..) => {
-                unreachable!("can't get an expression for functions")
-            }
+            BuiltinPropertyDefault::Expr(constant) => Some(constant.to_expression()),
+            BuiltinPropertyDefault::RuntimeValue(function) => Some(Expression::FunctionCall {
+                function: function.clone().into(),
+                arguments: Vec::new(),
+                source_location: None,
+            }),
+            // Neither is a default this caller can express: ElementFunction needs the element,
+            // and a function is not a property in the first place
+            BuiltinPropertyDefault::ElementFunction(..)
+            | BuiltinPropertyDefault::BuiltinFunction(..) => None,
+        }
+    }
+
+    pub fn expr(&self, elem: &crate::object_tree::ElementRc) -> Option<Expression> {
+        match self {
+            BuiltinPropertyDefault::ElementFunction(function) => Some(Expression::FunctionCall {
+                function: function.clone().into(),
+                arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
+                source_location: None,
+            }),
+            other => other.expr_without_element(),
         }
     }
 }
@@ -390,19 +412,23 @@ pub struct BuiltinPropertyInfo {
     /// When != None, this is the initial value that we will have to set if no other binding were specified
     pub default_value: BuiltinPropertyDefault,
     pub property_visibility: PropertyVisibility,
-    /// Raw `///` doc comment from builtins.slint, if any.
+    /// Raw `///` doc comment from the builtin element declaration, if any.
     pub docs: Option<String>,
     /// Whether the property is part of the Slint SC subset
-    /// (`\sc` marker in its doc comment). Set by [`Self::set_docs`].
-    #[cfg(feature = "slint-sc")]
+    /// (`@sc` modifier in the builtin element declaration).
     pub slint_sc: bool,
     /// True when a component may declare a member of the same name, shadowing this one
-    /// (`@shadowable` attribute in builtins.slint).
+    /// (`@shadowable` attribute in the builtin element declaration).
     /// Members added to a builtin element after its initial release should be marked
     /// shadowable so that older code that already declares the name keeps compiling —
     /// unless a compiler pass accesses the member by name, in which case shadowing
     /// would generate wrong code and the member must not be marked.
     pub shadowable: bool,
+    /// For a function or callback: whether it is pure.
+    /// A member implemented natively has no body the compiler could inspect, so this comes from
+    /// the `pure` qualifier of the builtin element declaration, or from [`BuiltinFunction::is_pure`] when the
+    /// declaration names one.
+    pub pure: bool,
 }
 
 impl BuiltinPropertyInfo {
@@ -413,23 +439,18 @@ impl BuiltinPropertyInfo {
             property_visibility: PropertyVisibility::InOut,
             docs: None,
             shadowable: false,
-            #[cfg(feature = "slint-sc")]
+            pure: false,
             slint_sc: false,
         }
     }
 
-    /// Set the doc comment, deriving the Slint SC subset flag from its
-    /// `\sc` marker.
-    pub fn set_docs(&mut self, docs: Option<String>) {
-        #[cfg(feature = "slint-sc")]
-        {
-            self.slint_sc = docs.as_deref().is_some_and(crate::load_builtins::has_sc_marker);
-        }
-        self.docs = docs;
-    }
-
     pub fn is_native_output(&self) -> bool {
         matches!(self.property_visibility, PropertyVisibility::InOut | PropertyVisibility::Output)
+    }
+
+    /// The `pure` declaration of a function or callback, `None` for a property.
+    pub fn declared_pure(&self) -> Option<bool> {
+        matches!(self.ty, Type::Function(_) | Type::Callback(_)).then_some(self.pure)
     }
 }
 
@@ -437,11 +458,11 @@ impl From<BuiltinFunction> for BuiltinPropertyInfo {
     fn from(function: BuiltinFunction) -> Self {
         Self {
             ty: Type::Function(function.ty()),
-            default_value: BuiltinPropertyDefault::BuiltinFunction(function),
             property_visibility: PropertyVisibility::Public,
             docs: None,
             shadowable: false,
-            #[cfg(feature = "slint-sc")]
+            pure: function.is_pure(),
+            default_value: BuiltinPropertyDefault::BuiltinFunction(function),
             slint_sc: false,
         }
     }
@@ -510,7 +531,7 @@ impl ElementType {
                         resolved_name,
                         property_type: p.ty.clone(),
                         property_visibility: p.property_visibility,
-                        declared_pure: None,
+                        declared_pure: p.declared_pure(),
                         is_local_to_component: false,
                         is_in_direct_base: false,
                         is_shadowable: p.shadowable,
@@ -518,7 +539,6 @@ impl ElementType {
                             BuiltinPropertyDefault::BuiltinFunction(f) => Some(f.clone()),
                             _ => None,
                         },
-                        #[cfg(feature = "slint-sc")]
                         is_slint_sc: p.slint_sc,
                         internal_name: None,
                         deprecated: None,
@@ -531,18 +551,16 @@ impl ElementType {
                 } else {
                     Cow::Borrowed(name)
                 };
-                let property_type =
-                    n.lookup_property(resolved_name.as_ref()).cloned().unwrap_or_default();
+                let info = n.lookup_property_info(resolved_name.as_ref());
                 PropertyLookupResult {
                     resolved_name,
-                    property_type,
+                    property_type: info.map(|p| p.ty.clone()).unwrap_or_default(),
                     property_visibility: PropertyVisibility::InOut,
-                    declared_pure: None,
+                    declared_pure: info.and_then(|p| p.declared_pure()),
                     is_local_to_component: false,
                     is_in_direct_base: false,
                     is_shadowable: false,
                     builtin_function: None,
-                    #[cfg(feature = "slint-sc")]
                     is_slint_sc: false,
                     internal_name: None,
                     deprecated: None,
@@ -753,8 +771,8 @@ macro_rules! define_builtin_struct_enum {
             LogicalPosition,
             LogicalSize,
 
-            // Path element types, set via `//-builtin_struct:` annotations
-            // in builtins.slint and read through NativeClass.builtin_struct
+            // Path element types, set via the `builtin_struct` flag of the
+            // builtin element declaration and read through NativeClass.builtin_struct
             PathMoveTo,
             PathLineTo,
             PathArcTo,
@@ -866,13 +884,14 @@ impl NativeClass {
     }
 
     pub fn lookup_property(&self, name: &str) -> Option<&Type> {
-        if let Some(bty) = self.properties.get(name) {
-            Some(&bty.ty)
-        } else if let Some(parent_class) = &self.parent {
-            parent_class.lookup_property(name)
-        } else {
-            None
-        }
+        self.lookup_property_info(name).map(|info| &info.ty)
+    }
+
+    /// The declaration of `name` on this class or the closest parent that has it.
+    pub fn lookup_property_info(&self, name: &str) -> Option<&BuiltinPropertyInfo> {
+        self.properties
+            .get(name)
+            .or_else(|| self.parent.as_ref().and_then(|parent| parent.lookup_property_info(name)))
     }
 
     pub fn lookup_alias(&self, name: &str) -> Option<&str> {
@@ -899,6 +918,15 @@ pub enum DefaultSizeBinding {
     ImplicitSize,
 }
 
+/// One entry in the documentation of a builtin element, in declaration order.
+#[derive(Debug, Clone)]
+pub enum ElementDocEntry {
+    /// Free-form documentation text (from `///` or `//!` comments).
+    Text(String),
+    /// Reference to a property, callback, or function by name.
+    Member(SmolStr),
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct BuiltinElement {
     pub name: SmolStr,
@@ -906,7 +934,7 @@ pub struct BuiltinElement {
     pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
     /// Additional builtin element that can be accepted as child of this element
     /// (example `Tab` in `TabWidget`, `Row` in `GridLayout` and the path elements in `Path`)
-    pub additional_accepted_child_types: HashMap<SmolStr, Rc<BuiltinElement>>,
+    pub additional_accepted_child_types: BTreeMap<SmolStr, Rc<BuiltinElement>>,
     /// `Self` is conceptually in `additional_accepted_child_types` (which it can't otherwise that'd make a Rc loop)
     pub additional_accept_self: bool,
     pub disallow_global_types_as_child_elements: bool,
@@ -917,21 +945,15 @@ pub struct BuiltinElement {
     pub default_size_binding: DefaultSizeBinding,
     /// When true this is an internal type not shown in the auto-completion
     pub is_internal: bool,
-    /// Documentation sections from builtins.slint, preserving source order.
+    /// Documentation sections of the builtin element declaration, preserving source order.
     /// `Text` entries come from `///` (element-level) and `//!` (section) comments;
     /// `Member` entries reference a property, callback, or function by name.
-    pub docs: Vec<crate::doc_comments::ElementDocEntry>,
+    pub docs: Vec<ElementDocEntry>,
     /// When true this builtin can be declared as a child even if the parent element
     /// does not expose an explicit @children insertion slot.
     pub can_be_declared_without_children_slot: bool,
     /// When true this element is part of the Slint SC (safety-critical) subset.
     pub slint_sc: bool,
-}
-
-impl BuiltinElement {
-    pub fn new(native_class: Arc<NativeClass>) -> Self {
-        Self { name: native_class.class_name.clone(), native_class, ..Default::default() }
-    }
 }
 
 /// How [`crate::object_tree::Element::lookup_property`] resolves a name.
@@ -968,9 +990,8 @@ pub struct PropertyLookupResult<'a> {
     /// If the property is a builtin function
     pub builtin_function: Option<BuiltinFunction>,
 
-    /// Whether the property is part of the Slint SC subset
-    /// (`\sc` marker in its doc comment in builtins.slint).
-    #[cfg(feature = "slint-sc")]
+    /// Whether the property is part of the Slint SC subset (`@sc` in the builtin element
+    /// declaration).
     pub is_slint_sc: bool,
 
     /// Some if the property was declared with `@deprecated`: the hint message shown after
@@ -1010,7 +1031,6 @@ impl<'a> PropertyLookupResult<'a> {
             is_in_direct_base: false,
             is_shadowable: false,
             builtin_function: None,
-            #[cfg(feature = "slint-sc")]
             is_slint_sc: false,
             internal_name: None,
             deprecated: None,
@@ -1045,45 +1065,6 @@ impl Display for Function {
     }
 }
 
-/// A `Send` + `Sync` reference to *where* a user-declared struct or enum was
-/// written: the source file and the text range of its declaration node.
-///
-/// It deliberately carries no syntax tree, so the langtype graph (and therefore
-/// the LLR) stays compact and `Send` without pinning parsed documents at
-/// runtime. Everything the code generators need from the declaration is captured
-/// into the type at build time (e.g. `@rust-attr` in `rust_attributes`); the
-/// language server, which keeps every open document, resolves the actual syntax
-/// node from its own `DocumentCache` using [`Self::text_range`].
-#[derive(Debug, Clone)]
-pub struct DeclNode {
-    source_file: crate::diagnostics::SourceFile,
-    range: rowan::TextRange,
-}
-
-impl DeclNode {
-    pub fn new(node: &crate::parser::SyntaxNode) -> Self {
-        Self { source_file: node.source_file.clone(), range: node.node.text_range() }
-    }
-
-    /// The absolute text range of the declaration node within its document.
-    pub fn text_range(&self) -> rowan::TextRange {
-        self.range
-    }
-
-    /// The source file the declaration was parsed from.
-    pub fn source_file(&self) -> &crate::diagnostics::SourceFile {
-        &self.source_file
-    }
-
-    /// The source location (file + span) of the declaration.
-    pub fn to_source_location(&self) -> crate::diagnostics::SourceLocation {
-        crate::diagnostics::SourceLocation {
-            source_file: Some(self.source_file.clone()),
-            span: crate::diagnostics::Span::new(self.range.start().into(), self.range.len().into()),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum StructName {
     /// Anonymous structs
@@ -1092,7 +1073,7 @@ pub enum StructName {
     User {
         name: SmolStr,
         /// Where the declaration was written (for the language server).
-        node: DeclNode,
+        node: SourceLocation,
         /// The raw text of each `@rust-attr(...)` on the declaration, captured
         /// at build time so the Rust generator does not need the syntax tree.
         rust_attributes: Vec<SmolStr>,
@@ -1164,7 +1145,7 @@ impl Struct {
     }
 
     /// Where a user-declared struct was written (for the language server).
-    pub fn node(&self) -> Option<&DeclNode> {
+    pub fn node(&self) -> Option<&SourceLocation> {
         match &self.name {
             StructName::User { node, .. } => Some(node),
             _ => None,
@@ -1316,9 +1297,7 @@ impl Display for Struct {
 pub(crate) fn visit_declared_types(ty: &Type, visitor: &mut impl FnMut(&SmolStr, &Type)) {
     match ty {
         Type::Struct(s) => {
-            if s.node().is_some()
-                && let StructName::User { name, .. } = &s.name
-            {
+            if let StructName::User { name, .. } = &s.name {
                 visitor(name, ty);
             }
             for sub_ty in s.fields.values() {
@@ -1343,7 +1322,7 @@ pub struct Enumeration {
     pub values: Vec<SmolStr>,
     pub default_value: usize, // index in values
     // For non-builtins enums, this is where the declaration was written.
-    pub node: Option<DeclNode>,
+    pub node: Option<SourceLocation>,
     /// The raw text of each `@rust-attr(...)` on the declaration, captured at
     /// build time so the Rust generator does not need the syntax tree.
     pub rust_attributes: Vec<SmolStr>,

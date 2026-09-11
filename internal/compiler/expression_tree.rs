@@ -25,7 +25,7 @@ pub use crate::passes::resolving;
 
 #[derive(Debug, Clone, PartialEq, Eq, strum::EnumString)]
 /// A function built into the run-time.
-/// Member functions in `builtins.slint` bind to a variant by naming it as their body.
+/// Member functions of builtin elements bind to a variant with `#[slint(builtin_function(..))]`.
 pub enum BuiltinFunction {
     GetWindowScaleFactor,
     GetWindowDefaultFontSize,
@@ -146,6 +146,9 @@ pub enum BuiltinFunction {
     /// because `parse_interpolated` takes `StyledText` arguments.
     ColorToStyledText,
     DecimalSeparator,
+    /// The window title when the application doesn't set one, see
+    /// `i_slint_core::window::default_window_title`
+    DefaultWindowTitle,
     PathPointAt,
     PathAngleAt,
 }
@@ -231,6 +234,7 @@ declare_builtin_function_types!(
     ATan: (Type::Float32) -> Type::Angle,
     ATan2: (Type::Float32, Type::Float32) -> Type::Angle,
     DecimalSeparator: () -> Type::String,
+    DefaultWindowTitle: () -> Type::String,
     Log: (Type::Float32, Type::Float32) -> Type::Float32,
     Ln: (Type::Float32) -> Type::Float32,
     Pow: (Type::Float32, Type::Float32) -> Type::Float32,
@@ -374,6 +378,7 @@ impl BuiltinFunction {
             BuiltinFunction::ValidDate => false,
             BuiltinFunction::ParseDate => false,
             BuiltinFunction::DecimalSeparator => false,
+            BuiltinFunction::DefaultWindowTitle => false,
             // Even if it is not pure, we optimize it away anyway
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod
@@ -480,6 +485,7 @@ impl BuiltinFunction {
             BuiltinFunction::ValidDate => true,
             BuiltinFunction::ParseDate => true,
             BuiltinFunction::DecimalSeparator => true,
+            BuiltinFunction::DefaultWindowTitle => true,
             // Even if it has technically side effect, we still consider it as pure for our purpose
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod
@@ -853,6 +859,8 @@ pub enum Expression {
         rhs: Box<Expression>,
         /// '+', '-', '/', '*', '=', '!', '<', '>', '≤', '≥', '&', '|'
         op: char,
+        /// The operator token, when written in the source.
+        source_location: Option<SourceLocation>,
     },
 
     UnaryOp {
@@ -871,6 +879,8 @@ pub enum Expression {
         condition: Box<Expression>,
         true_expr: Box<Expression>,
         false_expr: Box<Expression>,
+        /// The `?` token, when written in the source.
+        source_location: Option<SourceLocation>,
     },
 
     Array {
@@ -1053,7 +1063,7 @@ impl Expression {
             },
             Expression::SelfAssignment { .. } => Type::Void,
             Expression::ImageReference { .. } => Type::Image,
-            Expression::Condition { condition: _, true_expr, false_expr } => {
+            Expression::Condition { condition: _, true_expr, false_expr, .. } => {
                 let true_type = true_expr.ty();
                 let false_type = false_expr.ty();
                 if true_type == false_type {
@@ -1066,7 +1076,7 @@ impl Expression {
                     Type::Void
                 }
             }
-            Expression::BinaryExpression { op, lhs, rhs } => {
+            Expression::BinaryExpression { op, lhs, rhs, .. } => {
                 if operator_class(*op) != OperatorClass::ArithmeticOp {
                     Type::Bool
                 } else if *op == '+' || *op == '-' {
@@ -1148,6 +1158,10 @@ impl Expression {
 
     /// Call the visitor for each sub-expression.  (note: this function does not recurse)
     pub fn visit(&self, mut visitor: impl FnMut(&Self)) {
+        self.visit_dyn(&mut visitor)
+    }
+
+    fn visit_dyn(&self, visitor: &mut dyn FnMut(&Self)) {
         match self {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
@@ -1176,7 +1190,7 @@ impl Expression {
                 visitor(rhs);
             }
             Expression::ImageReference { .. } => {}
-            Expression::Condition { condition, true_expr, false_expr } => {
+            Expression::Condition { condition, true_expr, false_expr, .. } => {
                 visitor(condition);
                 visitor(true_expr);
                 visitor(false_expr);
@@ -1290,6 +1304,10 @@ impl Expression {
     }
 
     pub fn visit_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
+        self.visit_mut_dyn(&mut visitor)
+    }
+
+    fn visit_mut_dyn(&mut self, visitor: &mut dyn FnMut(&mut Self)) {
         match self {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
@@ -1318,7 +1336,7 @@ impl Expression {
                 visitor(rhs);
             }
             Expression::ImageReference { .. } => {}
-            Expression::Condition { condition, true_expr, false_expr } => {
+            Expression::Condition { condition, true_expr, false_expr, .. } => {
                 visitor(condition);
                 visitor(true_expr);
                 visitor(false_expr);
@@ -1490,7 +1508,7 @@ impl Expression {
             }
             Expression::SelfAssignment { .. } => false,
             Expression::ImageReference { .. } => true,
-            Expression::Condition { condition, false_expr, true_expr } => {
+            Expression::Condition { condition, false_expr, true_expr, .. } => {
                 condition.is_constant(ga) && false_expr.is_constant(ga) && true_expr.is_constant(ga)
             }
             Expression::BinaryExpression { lhs, rhs, .. } => {
@@ -1601,6 +1619,7 @@ impl Expression {
                     lhs: Box::new(self),
                     rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
                     op: '*',
+                    source_location: None,
                 },
                 (ref from_ty @ Type::Struct(ref left), Type::Struct(right))
                     if left.fields != right.fields =>
@@ -1625,6 +1644,26 @@ impl Expression {
                                     node,
                                 );
                             }
+                        }
+                    }
+                    if !diag.is_slint_sc() {
+                        let extra = left
+                            .fields
+                            .keys()
+                            .filter(|f| !right.fields.contains_key(*f))
+                            .map(|f| format!("'{f}'"))
+                            .collect::<Vec<_>>();
+                        if let Some((last, rest)) = extra.split_last() {
+                            let (noun, list) = match rest {
+                                [] => ("field", last.clone()),
+                                _ => ("fields", format!("{} and {last}", rest.join(", "))),
+                            };
+                            diag.push_warning(
+                                format!(
+                                    "Conversion to {target_type} ignores the extra {noun} {list}"
+                                ),
+                                node,
+                            );
                         }
                     }
                     if let Expression::Struct { mut values, .. } = self {
@@ -1677,6 +1716,7 @@ impl Expression {
                                     let op = if power < 0 { '*' } else { '/' };
                                     for _ in 0..power.abs() {
                                         result = Expression::BinaryExpression {
+                                            source_location: None,
                                             lhs: Box::new(result),
                                             rhs: Box::new(Expression::FunctionCall {
                                                 function: Callable::Builtin(builtin_fn.clone()),
@@ -1770,7 +1810,9 @@ impl Expression {
                 new_values.insert(f, default_value);
             }
             Expression::Struct { ty: target_struct_type.clone(), values: new_values }
-        } else if let Expression::Condition { condition, true_expr, false_expr } = self {
+        } else if let Expression::Condition { condition, true_expr, false_expr, source_location } =
+            self
+        {
             // Recursive try to convert the conditional expressions to the target_type
             // true_expr and false_expr are equal this is handled with the condition at the beginning
             // of this function so if one fails to convert, we should not try to convert the false case
@@ -1783,10 +1825,11 @@ impl Expression {
             );
             if true_expr_converted.ty() != target_type.clone() {
                 // Failed to convert so we don't have to try to convert the false expr as well
-                Expression::Condition { condition, true_expr, false_expr }
+                Expression::Condition { condition, true_expr, false_expr, source_location }
             } else {
                 Expression::Condition {
                     condition,
+                    source_location,
                     true_expr: Box::new(true_expr_converted),
                     false_expr: Box::new(false_expr.maybe_convert_to(
                         target_type,
@@ -2399,7 +2442,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, " {}= ", if *op == '=' { ' ' } else { *op })?;
             pretty_print(f, rhs)
         }
-        Expression::BinaryExpression { lhs, rhs, op } => {
+        Expression::BinaryExpression { lhs, rhs, op, .. } => {
             write!(f, "(")?;
             pretty_print(f, lhs)?;
             match *op {
@@ -2414,7 +2457,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             pretty_print(f, sub)
         }
         Expression::ImageReference { resource_ref, .. } => write!(f, "{resource_ref:?}"),
-        Expression::Condition { condition, true_expr, false_expr } => {
+        Expression::Condition { condition, true_expr, false_expr, .. } => {
             write!(f, "if (")?;
             pretty_print(f, condition)?;
             write!(f, ") {{ ")?;

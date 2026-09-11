@@ -199,16 +199,15 @@ component GradientStopValue {
                 letter-spacing: 0.8px;
                 input-type: text;
 
-                property <{hue: float, saturation: float, value: float}> hsv-color;
                 function apply-text(text: string) {
                     if Api.string-is-color("#\{self.text}") {
-                        PickerData.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
-                        PickerData.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
-                        PickerData.value = Api.string-to-color("#\{self.text}").to-hsv().value;
+                        let hsv-color = Api.string-to-color("#\{self.text}").to-hsv();
+                        PickerData.hue = hsv-color.hue;
+                        PickerData.saturation = hsv-color.saturation;
+                        PickerData.value = hsv-color.value;
                         if self.text.character-count > 6 {
                             PickerData.current-gradient-stops[stop-index].color = Api.string-to-color("#\{self.text}");
                         } else {
-                            hsv-color = Api.string-to-color("#\{self.text}").to-hsv();
                             PickerData.current-gradient-stops[stop-index].color = hsv(hsv-color.hue, hsv-color.saturation, hsv-color.value, PickerData.current-gradient-stops[stop-index].color.to-hsv().alpha);
                         }
                     } else {

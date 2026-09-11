@@ -6,10 +6,6 @@
 
 set -e
 
-export RUSTFLAGS="-D warnings"
-export CARGO_INCREMENTAL=false
-export CARGO_PROFILE_DEV_DEBUG=0
-
 # The repository is split into several workspaces (root libraries/tools,
 # examples, demos and tests) that all share the same target directory, so the
 # common library crates are only built once across these clippy runs.

@@ -212,21 +212,62 @@ message RequestTakeSnapshot {
     string image_mime_type = 2;
 }
 
+// Keyboard modifiers to hold during a pointer gesture. Slint reads modifiers from
+// the window's key state rather than from the pointer event, so these are pressed
+// before the gesture and released after it.
+message KeyboardModifiers {
+    bool shift = 1;
+    bool control = 2;
+    bool alt = 3;
+    bool meta = 4;
+}
+
 message RequestElementClick {
     Handle element_handle = 1;
     ClickAction action = 2;
     PointerEventButton button = 3;
+    KeyboardModifiers modifiers = 4;
 }
 
 message RequestElementDrag {
     Handle element_handle = 1;
     LogicalPosition target = 2;
     PointerEventButton button = 3;
+    KeyboardModifiers modifiers = 4;
 }
 
 message RequestDispatchWindowEvent {
     Handle window_handle = 1;
     WindowEvent event = 2;
+}
+
+// Not part of RequestToAUT: moving the pointer, hovering, and clearing a hover
+// all boil down to dispatching a PointerMoveEvent via RequestDispatchWindowEvent,
+// which the wire protocol already supports. These messages exist only to give the
+// move_pointer/hover_element MCP tools their own minimal input schema.
+message RequestMovePointer {
+    Handle window_handle = 1;
+    LogicalPosition position = 2;
+}
+
+message RequestHoverElement {
+    Handle element_handle = 1;
+    KeyboardModifiers modifiers = 2;
+}
+
+message RequestScrollElement {
+    Handle element_handle = 1;
+    float delta_x = 2;
+    float delta_y = 3;
+    KeyboardModifiers modifiers = 4;
+}
+
+message RequestPointerScroll {
+    Handle window_handle = 1;
+    LogicalPosition position = 2;
+    float delta_x = 3;
+    float delta_y = 4;
+    KeyboardModifiers modifiers = 5;
 }
 
 message RequestDispatchKeyEvent {

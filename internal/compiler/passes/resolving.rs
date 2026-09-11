@@ -17,7 +17,9 @@ use crate::langtype::{
 };
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::object_tree::*;
-use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
+use crate::parser::{
+    NodeOrToken, SyntaxKind, SyntaxNode, TextRange, identifier_text, syntax_nodes,
+};
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
@@ -57,6 +59,7 @@ fn resolve_expression(
             type_loader: Some(type_loader),
             current_token: None,
             local_variables: Vec::new(),
+            expected_type_probe: None,
         };
         lookup_ctx.expected_type = lookup_ctx.return_type().clone();
 
@@ -161,6 +164,14 @@ fn resolve_match_elements(
             match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
         check_duplicate_cases(&match_element.cases, &values, diag);
         check_exhaustiveness(match_element, &values, diag);
+
+        let subject_ref = crate::layout::create_new_prop(elem, "match-subject".into(), case_type);
+        let subject = std::mem::replace(
+            &mut match_element.subject,
+            Expression::PropertyReference(subject_ref.clone()),
+        );
+        elem.borrow_mut().set_binding(subject_ref.name().clone(), subject.into());
+
         match_element.lower_to_conditional_elements();
     }
 }
@@ -394,6 +405,22 @@ enum LookupPhase {
     ResolvingTwoWayBindings,
 }
 
+/// The range of `node`, extended to cover any blank space before it so a cursor there
+/// (like the empty rhs of `x ==  `) still resolves to this node.
+fn probe_range(node: &SyntaxNode) -> TextRange {
+    let range = node.text_range();
+    let mut start = range.start();
+    let mut prev = node.node.prev_sibling_or_token();
+    while let Some(rowan::NodeOrToken::Token(t)) = &prev {
+        if !matches!(t.kind(), SyntaxKind::Whitespace | SyntaxKind::Comment) {
+            break;
+        }
+        start = t.text_range().start();
+        prev = t.prev_sibling_or_token();
+    }
+    TextRange::new(start, range.end())
+}
+
 impl Expression {
     pub fn from_binding_expression_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::BindingExpression);
@@ -591,6 +618,12 @@ impl Expression {
     }
 
     pub fn from_expression_node(node: syntax_nodes::Expression, ctx: &mut LookupCtx) -> Self {
+        // LSP probe: the innermost node containing the offset wins (depth-first descent).
+        if ctx.expected_type_probe.is_some() {
+            let ty = ctx.expected_type.clone();
+            ctx.record_expected_type_probe(probe_range(&node), &ty);
+        }
+
         // This function recurses for nested expressions. Dispatch with early returns
         // instead of a `find_map` closure: in unoptimized builds, every arm of a match
         // producing a value gets its own stack slot for the resulting `Expression`,
@@ -1151,9 +1184,12 @@ impl Expression {
                     *e = Expression::BinaryExpression {
                         lhs: Box::new(begin.clone()),
                         rhs: Box::new(Expression::BinaryExpression {
+                            source_location: None,
                             lhs: Box::new(Expression::BinaryExpression {
+                                source_location: None,
                                 lhs: Box::new(Expression::NumberLiteral(i as f64 + 1., Unit::None)),
                                 rhs: Box::new(Expression::BinaryExpression {
+                                    source_location: None,
                                     lhs: Box::new(end.clone()),
                                     rhs: Box::new(begin.clone()),
                                     op: '-',
@@ -1164,6 +1200,7 @@ impl Expression {
                             op: '/',
                         }),
                         op: '+',
+                        source_location: None,
                     };
                 }
             }
@@ -1190,6 +1227,7 @@ impl Expression {
                             lhs: Box::new(angle_typed),
                             rhs: Box::new(Expression::NumberLiteral(360., Unit::Deg)),
                             op: '/',
+                            source_location: None,
                         };
                         (color, normalized_pos)
                     })
@@ -1691,15 +1729,9 @@ impl Expression {
         };
         match r {
             LookupResult::Expression { expression, .. } => expression,
-            // `spring` used bare (no call parens) is sugar for `spring()`, i.e. bounce 0.
+            // `spring` used bare (no call parens) is a spring curve with the default bounce of 0.
             LookupResult::Callable(LookupResultCallable::Macro(BuiltinMacroFunction::Spring)) => {
-                crate::builtin_macros::lower_macro(
-                    BuiltinMacroFunction::Spring,
-                    node,
-                    std::iter::empty(),
-                    ctx.diag,
-                    &ctx.symbol_counters,
-                )
+                Expression::EasingCurve(crate::expression_tree::EasingCurve::Spring(0.))
             }
             LookupResult::Callable(c) => {
                 let what = match c {
@@ -1733,6 +1765,8 @@ impl Expression {
         let mut sub_expr = node.Expression();
 
         let func_expr = sub_expr.next().unwrap();
+        // The argument list `(...)`, for placing the probe on an empty argument slot.
+        let args_range = TextRange::new(func_expr.text_range().end(), node.text_range().end());
 
         let (function, source_location) = if let Some(qn) = func_expr.QualifiedName() {
             let sl = qn.last_token().unwrap().to_source_location();
@@ -1778,6 +1812,13 @@ impl Expression {
         // literals resolve against the parameter type at their exact argument position.
         let arg_nodes = sub_expr.collect::<Vec<_>>();
         let convert_args = |ctx: &mut LookupCtx, expected: &[Type]| {
+            // Empty trailing-comma argument has no node: record its parameter type for the probe.
+            if let Some(offset) = ctx.expected_type_probe_offset() {
+                let idx = arg_nodes.iter().take_while(|n| n.text_range().end() <= offset).count();
+                if let Some(ty) = expected.get(idx).cloned() {
+                    ctx.record_expected_type_probe(args_range, &ty);
+                }
+            }
             arg_nodes
                 .iter()
                 .enumerate()
@@ -1961,24 +2002,27 @@ impl Expression {
         node: syntax_nodes::BinaryExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let op = node
+        let (op, operator) = node
             .children_with_tokens()
-            .find_map(|n| match n.kind() {
-                SyntaxKind::Plus => Some('+'),
-                SyntaxKind::Minus => Some('-'),
-                SyntaxKind::Star => Some('*'),
-                SyntaxKind::Div => Some('/'),
-                SyntaxKind::LessEqual => Some('≤'),
-                SyntaxKind::GreaterEqual => Some('≥'),
-                SyntaxKind::LAngle => Some('<'),
-                SyntaxKind::RAngle => Some('>'),
-                SyntaxKind::EqualEqual => Some('='),
-                SyntaxKind::NotEqual => Some('!'),
-                SyntaxKind::AndAnd => Some('&'),
-                SyntaxKind::OrOr => Some('|'),
-                _ => None,
+            .find_map(|n| {
+                let op = match n.kind() {
+                    SyntaxKind::Plus => '+',
+                    SyntaxKind::Minus => '-',
+                    SyntaxKind::Star => '*',
+                    SyntaxKind::Div => '/',
+                    SyntaxKind::LessEqual => '≤',
+                    SyntaxKind::GreaterEqual => '≥',
+                    SyntaxKind::LAngle => '<',
+                    SyntaxKind::RAngle => '>',
+                    SyntaxKind::EqualEqual => '=',
+                    SyntaxKind::NotEqual => '!',
+                    SyntaxKind::AndAnd => '&',
+                    SyntaxKind::OrOr => '|',
+                    _ => return None,
+                };
+                Some((op, Some(n.to_source_location())))
             })
-            .unwrap_or('_');
+            .unwrap_or(('_', None));
 
         // In Slint SC, arithmetic (`+`, `-`, `*`), logical (`&&`, `||`), and
         // comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) are in the subset; `/` is
@@ -2065,7 +2109,12 @@ impl Expression {
             Some(ty) => rhs.maybe_convert_to(ty, &rhs_n, ctx.diag, &ctx.symbol_counters),
             None => rhs,
         };
-        Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
+        Expression::BinaryExpression {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            op,
+            source_location: operator,
+        }
     }
 
     fn from_unaryop_expression_node(
@@ -2141,6 +2190,7 @@ impl Expression {
             condition: Box::new(condition),
             true_expr: Box::new(true_expr),
             false_expr: Box::new(false_expr),
+            source_location: node.child_token(SyntaxKind::Question).map(|t| t.to_source_location()),
         }
     }
 
@@ -2193,6 +2243,8 @@ impl Expression {
             Type::Array(el) => (**el).clone(),
             _ => Type::Invalid,
         };
+        // Empty trailing-comma element has no node: record the element type for the probe.
+        ctx.record_expected_type_probe(node.text_range(), &element_expected);
         let mut values: Vec<Expression> = node
             .Expression()
             .map(|e| {
@@ -2332,6 +2384,7 @@ impl Expression {
                     lhs: Box::new(result),
                     rhs: Box::new(expr),
                     op: '+',
+                    source_location: None,
                 }),
                 None => Some(expr),
             }
@@ -2949,6 +3002,7 @@ fn resolve_two_way_bindings_for_element(
                 type_loader: None,
                 current_token: Some(node.clone().into()),
                 local_variables: Vec::new(),
+                expected_type_probe: None,
             };
 
             // Only the alias-only case stores the two-way binding in the expression slot;

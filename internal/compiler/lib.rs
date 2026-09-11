@@ -17,10 +17,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+mod builtin_elements;
 pub mod builtin_macros;
 pub mod data_uri;
 pub mod diagnostics;
-pub mod doc_comments;
 pub mod embedded_resources;
 pub mod expression_tree;
 pub mod fileaccess;
@@ -30,7 +30,6 @@ pub mod layout;
 pub mod lexer;
 pub mod literals;
 pub mod llr;
-pub(crate) mod load_builtins;
 pub mod lookup;
 pub mod namedreference;
 pub mod object_tree;
@@ -192,6 +191,11 @@ pub struct CompilerConfiguration {
     /// Generate debug information for elements (ids, type names)
     pub debug_info: bool,
 
+    /// Write, next to the generated code, the map of its coverage points of
+    /// the `.slint` source, for `slint-sc-coverage`. Only the Slint SC
+    /// generator honors it, and only when writing to a file.
+    pub coverage: bool,
+
     /// Generate debug hooks to inspect/override properties.
     pub debug_hooks: Option<std::hash::RandomState>,
 
@@ -309,6 +313,7 @@ impl CompilerConfiguration {
             cpp_namespace,
             error_on_binding_loop_with_window_layout: false,
             debug_info,
+            coverage: false,
             debug_hooks: None,
             components_to_generate: ComponentSelection::ExportedWindows,
             #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]

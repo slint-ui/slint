@@ -45,7 +45,11 @@ pub struct TranslationsBuilder {
 }
 
 impl TranslationsBuilder {
-    pub fn load_translations(path: &Path, domain: &str) -> std::io::Result<Self> {
+    pub fn load_translations(
+        path: &Path,
+        domain: &str,
+        all_loaded_files: &mut std::collections::BTreeSet<std::path::PathBuf>,
+    ) -> std::io::Result<Self> {
         let mut languages = vec![("".into(), i_slint_common::DEFAULT_DECIMAL_SEPARATOR)];
         let mut catalogs = Vec::new();
         let mut plural_rules =
@@ -61,6 +65,7 @@ impl TranslationsBuilder {
         for l in entries {
             let path = l.path().join("LC_MESSAGES").join(format!("{domain}.po"));
             if path.exists() {
+                all_loaded_files.insert(path.clone());
                 let catalog = rspolib::pofile(path.as_path()).map_err(|e| {
                     std::io::Error::other(format!("Error parsing {}: {e}", path.display()))
                 })?;

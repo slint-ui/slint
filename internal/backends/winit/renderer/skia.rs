@@ -56,7 +56,7 @@ impl WinitSkiaRenderer {
         }))
     }
 
-    #[cfg(feature = "renderer-skia-vulkan")]
+    #[cfg(supports_vulkan)]
     pub fn new_vulkan_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
@@ -86,7 +86,7 @@ impl WinitSkiaRenderer {
         }))
     }
 
-    #[cfg(feature = "unstable-wgpu-30")]
+    // skia depends on default features which includes wgpu_30, so this is always available
     pub fn new_wgpu_30_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
@@ -123,9 +123,9 @@ impl WinitSkiaRenderer {
                         return Err("Metal rendering requested but this is only supported on Apple platforms".to_string().into());
                     }
                     RequestedGraphicsAPI::Vulkan => {
-                        #[cfg(feature = "renderer-skia-vulkan")]
+                        #[cfg(supports_vulkan)]
                         return Ok(Self::new_vulkan_suspended);
-                        #[cfg(not(feature = "renderer-skia-vulkan"))]
+                        #[cfg(not(supports_vulkan))]
                         return Err(
                             "Vulkan rendering requested but renderer-skia-vulkan is not enabled"
                                 .to_string()

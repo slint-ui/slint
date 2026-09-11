@@ -104,6 +104,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::GetWindowDefaultFontSize => PROPERTY_ACCESS_COST,
         BuiltinFunction::AnimationTick => PROPERTY_ACCESS_COST,
         BuiltinFunction::DecimalSeparator => PROPERTY_ACCESS_COST,
+        BuiltinFunction::DefaultWindowTitle => PROPERTY_ACCESS_COST,
         BuiltinFunction::Debug => isize::MAX,
         BuiltinFunction::Mod => 10,
         BuiltinFunction::Round => 10,

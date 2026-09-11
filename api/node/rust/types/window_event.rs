@@ -6,6 +6,30 @@ use slint_interpreter::{LogicalPosition, LogicalSize};
 
 use crate::types::{JsPointerEventButton, SlintPoint, SlintSize};
 
+// api/node/build.rs generates the TypeScript interfaces for these variants, documenting them
+// from the matching `i_slint_core::platform::WindowEvent` variant. Add JSDoc here only where
+// JavaScript needs to be told something different.
+
+/// An event that describes user input or a windowing system change.
+///
+/// The `type` field selects the variant and determines which other fields apply.
+/// Dispatch an event to a window with `Window.dispatchEvent`,
+/// which reports whether the scene accepted or rejected it.
+///
+/// @example
+/// ```js
+/// import * as slint from "slint-ui";
+///
+/// const result = window.dispatchEvent({
+///     type: "pointer-pressed",
+///     position: { x: 51, y: 51 },
+///     button: "left",
+/// });
+///
+/// if (result === slint.platform.WindowEventDispatchResult.Accepted) {
+///     console.log("the scene handled the press");
+/// }
+/// ```
 #[repr(u32)]
 #[napi(js_name = "WindowEvent", discriminant_case = "kebab-case")]
 pub enum JsWindowEvent {
@@ -31,6 +55,9 @@ pub enum JsWindowEvent {
         #[napi(js_name = "deltaY")]
         delta_y: f64,
     },
+    /// The pointer exited the window.
+    ///
+    /// Dispatching this event always returns `Accepted`.
     PointerExited,
     KeyPressed {
         text: String,
@@ -41,15 +68,28 @@ pub enum JsWindowEvent {
     KeyReleased {
         text: String,
     },
+    /// The window's scale factor has changed.
+    /// This can happen for example when the display's resolution changes,
+    /// the user selects a new scale factor in the system settings,
+    /// or the window is moved to a different screen.
     ScaleFactorChanged {
         #[napi(js_name = "scaleFactor")]
         scale_factor: f64,
     },
+    /// The window was resized.
+    ///
+    /// Dispatching this event updates the `width` and `height` properties of the root window element.
     Resized {
         size: SlintSize,
     },
+    /// The user requested to close the window.
+    ///
+    /// Dispatching this event invokes the `close-requested` callback of the window element,
+    /// and hides the window unless that callback returns `reject`.
     CloseRequested,
+    /// The window was activated or de-activated.
     WindowActiveChanged {
+        /// True when the window gained focus, false when it lost focus.
         active: bool,
     },
 }

@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A binding may target a declared `in` property of a child instance, with a
+// literal or with an expression that reads the enclosing component.
+component Swatch inherits Rectangle {
+    in property <color> tint;
+    width: 16px;
+    height: 16px;
+    background: tint;
+}
+
+export component TestCase inherits Window {
+    background: #ffffff;
+    in property <color> c;
+    //#sls.prop.decl.in.child
+    Swatch { x: 4px; y: 24px; tint: #ff0000; }
+    Swatch { x: 24px; y: 24px; tint: root.c; }
+    Swatch { x: 44px; y: 24px; tint: #0000ff; }
+}
+
+/*
+```rust
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+x.set_c(slint_sc::Color::from_rgb_u8(0, 255, 0));
+screenshot!(x);
+```
+
+Only the exported component's own declared properties reach the generated struct:
+a child's declared property has no accessor, so its interface stays internal.
+```rust compile_fail
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+x.set_tint(slint_sc::Color::default());
+//~ ERROR no method named `set_tint`
+```
+
+A builtin property has no accessor either, even set directly on the root:
+```rust compile_fail
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+x.set_background(slint_sc::Color::default());
+//~ ERROR no method named `set_background`
+```
+*/

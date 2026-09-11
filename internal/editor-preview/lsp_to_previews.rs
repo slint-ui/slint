@@ -30,6 +30,12 @@ pub trait RemoteTransport {
         port: u16,
     ) -> std::pin::Pin<Box<dyn Future<Output = Result<()>>>>;
     fn disconnect(&self) -> std::pin::Pin<Box<dyn Future<Output = ()>>>;
+    /// The code the user read off the viewer's screen.
+    fn submit_pairing_code(&self, code: String);
+    /// Abandon the pairing attempt the user was prompted for.
+    fn cancel_pairing(&self);
+    /// Connect to the pairing-disabled viewer the user was warned about.
+    fn accept_unpaired_connection(&self);
 }
 
 /// Fans LSP messages out to the active local preview and, if connected, to a

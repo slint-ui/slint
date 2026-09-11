@@ -7,8 +7,6 @@
 #![cfg_attr(slint_nightly_test, feature(non_exhaustive_omitted_patterns_lint))]
 #![cfg_attr(slint_nightly_test, warn(non_exhaustive_omitted_patterns))]
 
-#[cfg(any(target_vendor = "apple", skia_backend_vulkan))]
-use std::cell::OnceCell;
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
@@ -44,18 +42,11 @@ mod itemrenderer;
 #[cfg(skia_backend_software)]
 pub mod software_surface;
 
-#[cfg(target_vendor = "apple")]
-pub mod metal_surface;
-
-#[cfg(target_family = "windows")]
-pub mod d3d_surface;
-
-#[cfg(skia_backend_vulkan)]
-pub mod vulkan_surface;
-
 #[cfg(any(not(target_vendor = "apple"), target_os = "macos"))]
 pub mod opengl_surface;
 
+#[cfg(skia_wgpu_vulkan)]
+mod vulkan_handle;
 #[cfg(feature = "wgpu-29")]
 pub mod wgpu_29_surface;
 #[cfg(feature = "wgpu-30")]
@@ -67,7 +58,10 @@ pub use wgpu_renderer::SkiaWGPU29Renderer;
 #[cfg(feature = "wgpu-30")]
 pub use wgpu_renderer::SkiaWGPU30Renderer;
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
-pub use wgpu_renderer::{SkiaWGPURenderer, SkiaWGPURendererGeneric};
+#[allow(deprecated)]
+pub use wgpu_renderer::SkiaWGPURenderer;
+#[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
+pub use wgpu_renderer::SkiaWGPURendererGeneric;
 
 use itemrenderer::to_skia_rect;
 pub use skia_safe;
@@ -166,16 +160,84 @@ pub(crate) fn gradient_colors<'a>(
     )
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(skia_backend_vulkan)] {
-        type DefaultSurface = vulkan_surface::VulkanSurface;
-    } else if #[cfg(skia_backend_opengl)] {
-        type DefaultSurface = opengl_surface::OpenGLSurface;
-    } else if #[cfg(skia_backend_metal)] {
-        type DefaultSurface = metal_surface::MetalSurface;
-    } else if #[cfg(skia_backend_softbuffer)] {
-        type DefaultSurface = software_surface::SoftwareSurface;
+#[cfg(skia_backend_wgpu)]
+fn default_wgpu_surface_factory(
+    context: &SkiaSharedContext,
+    window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Sync + Send>,
+    display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
+    size: PhysicalWindowSize,
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
+) -> Result<Box<dyn Surface>, PlatformError> {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "wgpu-30")] {
+            surface_factory::<wgpu_30_surface::WGPUSurface>(
+                context,
+                window_handle,
+                display_handle,
+                size,
+                requested_graphics_api,
+            )
+        } else {
+            surface_factory::<wgpu_29_surface::WGPUSurface>(
+                context,
+                window_handle,
+                display_handle,
+                size,
+                requested_graphics_api,
+            )
+        }
     }
+}
+
+#[cfg(all(target_vendor = "apple", skia_backend_wgpu))]
+fn metal_wgpu_surface_factory(
+    context: &SkiaSharedContext,
+    window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Sync + Send>,
+    display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
+    size: PhysicalWindowSize,
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
+) -> Result<Box<dyn Surface>, PlatformError> {
+    default_wgpu_surface_factory(
+        context,
+        window_handle,
+        display_handle,
+        size,
+        Some(requested_graphics_api.unwrap_or(RequestedGraphicsAPI::Metal)),
+    )
+}
+
+#[cfg(skia_wgpu_vulkan)]
+fn vulkan_wgpu_surface_factory(
+    context: &SkiaSharedContext,
+    window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Sync + Send>,
+    display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
+    size: PhysicalWindowSize,
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
+) -> Result<Box<dyn Surface>, PlatformError> {
+    default_wgpu_surface_factory(
+        context,
+        window_handle,
+        display_handle,
+        size,
+        Some(requested_graphics_api.unwrap_or(RequestedGraphicsAPI::Vulkan)),
+    )
+}
+
+#[cfg(all(target_family = "windows", skia_backend_wgpu))]
+fn direct3d_wgpu_surface_factory(
+    context: &SkiaSharedContext,
+    window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Sync + Send>,
+    display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
+    size: PhysicalWindowSize,
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
+) -> Result<Box<dyn Surface>, PlatformError> {
+    default_wgpu_surface_factory(
+        context,
+        window_handle,
+        display_handle,
+        size,
+        Some(requested_graphics_api.unwrap_or(RequestedGraphicsAPI::Direct3D)),
+    )
 }
 
 #[cfg(skia_windowed)]
@@ -186,32 +248,75 @@ fn create_default_surface(
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
 ) -> Result<Box<dyn Surface>, PlatformError> {
-    match DefaultSurface::new(
-        context,
-        window_handle.clone(),
-        display_handle.clone(),
-        size,
-        requested_graphics_api,
-    ) {
-        Ok(gpu_surface) => Ok(Box::new(gpu_surface) as Box<dyn Surface>),
-        #[cfg(skia_backend_softbuffer)]
-        Err(err) => {
-            i_slint_core::debug_log!(
-                "Failed to initialize Skia GPU renderer: {} . Falling back to software rendering",
-                err
-            );
-            software_surface::SoftwareSurface::new(
-                context,
-                window_handle,
-                display_handle,
-                size,
-                None,
-            )
-            .map(|r| Box::new(r) as Box<dyn Surface>)
-        }
-        #[cfg(not(skia_backend_softbuffer))]
-        Err(err) => Err(err),
+    #[cfg(feature = "unstable-wgpu-29")]
+    if matches!(requested_graphics_api, Some(RequestedGraphicsAPI::WGPU29(..))) {
+        // user explicitly asked for wgpu29 even if 30 is enabled
+        return surface_factory::<wgpu_29_surface::WGPUSurface>(
+            context,
+            window_handle,
+            display_handle,
+            size,
+            requested_graphics_api,
+        );
     }
+    #[cfg(feature = "unstable-wgpu-30")]
+    if matches!(requested_graphics_api, Some(RequestedGraphicsAPI::WGPU30(..))) {
+        // this is also what would happen if we got the default wgpu surface since 30 is newest
+        return surface_factory::<wgpu_30_surface::WGPUSurface>(
+            context,
+            window_handle,
+            display_handle,
+            size,
+            requested_graphics_api,
+        );
+    }
+
+    let candidates: [(&str, SurfaceFactoryFn); _] = [
+        // vulkan feature enables but also prioritizes vulkan
+        #[cfg(all(feature = "vulkan", skia_wgpu_vulkan))]
+        ("wgpu", vulkan_wgpu_surface_factory),
+        // opengl feature enables but also prioritizes opengl
+        #[cfg(all(feature = "opengl", any(not(target_vendor = "apple"), target_os = "macos")))]
+        ("opengl", surface_factory::<opengl_surface::OpenGLSurface>),
+        #[cfg(skia_backend_wgpu)]
+        ("wgpu", default_wgpu_surface_factory),
+        #[cfg(all(not(feature = "opengl"), skia_backend_opengl))]
+        ("opengl", surface_factory::<opengl_surface::OpenGLSurface>),
+        #[cfg(skia_backend_softbuffer)]
+        ("software", surface_factory::<software_surface::SoftwareSurface>),
+    ];
+
+    let mut errors = Vec::new();
+    for (index, (name, factory)) in candidates.iter().enumerate() {
+        match factory(
+            context,
+            window_handle.clone(),
+            display_handle.clone(),
+            size,
+            requested_graphics_api.clone(),
+        ) {
+            Ok(surface) => return Ok(surface),
+            Err(err) => {
+                i_slint_core::debug_log!(
+                    "Failed to initialize Skia {} surface: {} .{}",
+                    name,
+                    err,
+                    if index != candidates.len().saturating_sub(1) {
+                        " Falling back to the next surface candidate"
+                    } else {
+                        ""
+                    }
+                );
+                errors.push(format!("{name}: {err}"));
+            }
+        }
+    }
+
+    Err(if errors.is_empty() {
+        "No Skia surface implementation was enabled at compile time".into()
+    } else {
+        format!("Could not initialize any Skia surface. Tried {}", errors.join(", ")).into()
+    })
 }
 
 enum DirtyRegionDebugMode {
@@ -243,10 +348,11 @@ fn create_partial_renderer_state(
 
 #[derive(Default)]
 struct SkiaSharedContextInner {
-    #[cfg(target_vendor = "apple")]
-    metal_context: OnceCell<metal_surface::SharedMetalContext>,
-    #[cfg(skia_backend_vulkan)]
-    vulkan_context: OnceCell<vulkan_surface::SharedVulkanContext>,
+    // Weak: the surfaces own these, see `SharedWgpuState`.
+    #[cfg(feature = "wgpu-29")]
+    wgpu_29_state: RefCell<Weak<wgpu_29_surface::SharedWgpuState>>,
+    #[cfg(feature = "wgpu-30")]
+    wgpu_30_state: RefCell<Weak<wgpu_30_surface::SharedWgpuState>>,
 }
 
 /// This data structure contains data that's intended to be shared across several instances of SkiaRenderer.
@@ -355,37 +461,37 @@ impl SkiaRenderer {
         )
     }
 
-    #[cfg(target_vendor = "apple")]
-    /// Creates a new SkiaRenderer that will always use Skia's Metal renderer.
+    #[cfg(all(target_vendor = "apple", skia_backend_wgpu))]
+    /// Creates a new SkiaRenderer that will always render using Metal, through WGPU.
     pub fn default_metal(context: &SkiaSharedContext) -> Self {
         Self::new_with_surface_factory(
             context,
-            surface_factory::<metal_surface::MetalSurface>,
+            metal_wgpu_surface_factory,
             create_partial_renderer_state(None),
         )
     }
 
-    #[cfg(skia_backend_vulkan)]
-    /// Creates a new SkiaRenderer that will always use Skia's Vulkan renderer.
+    #[cfg(skia_wgpu_vulkan)]
+    /// Creates a new SkiaRenderer that will always render using Vulkan, through WGPU.
     pub fn default_vulkan(context: &SkiaSharedContext) -> Self {
         Self::new_with_surface_factory(
             context,
-            surface_factory::<vulkan_surface::VulkanSurface>,
+            vulkan_wgpu_surface_factory,
             create_partial_renderer_state(None),
         )
     }
 
-    #[cfg(target_family = "windows")]
-    /// Creates a new SkiaRenderer that will always use Skia's Direct3D renderer.
+    #[cfg(all(target_family = "windows", skia_backend_wgpu))]
+    /// Creates a new SkiaRenderer that will always render using Direct3D 12, through WGPU.
     pub fn default_direct3d(context: &SkiaSharedContext) -> Self {
         Self::new_with_surface_factory(
             context,
-            surface_factory::<d3d_surface::D3DSurface>,
+            direct3d_wgpu_surface_factory,
             create_partial_renderer_state(None),
         )
     }
 
-    #[cfg(feature = "unstable-wgpu-30")]
+    #[cfg(feature = "wgpu-30")]
     /// Creates a new SkiaRenderer that will always use Skia's WGPU 30.x renderer.
     pub fn default_wgpu_30(context: &SkiaSharedContext) -> Self {
         Self::new_with_surface_factory(
@@ -395,7 +501,7 @@ impl SkiaRenderer {
         )
     }
 
-    #[cfg(feature = "unstable-wgpu-29")]
+    #[cfg(feature = "wgpu-29")]
     /// Creates a new SkiaRenderer that will always use Skia's WGPU 29.x renderer.
     pub fn default_wgpu_29(context: &SkiaSharedContext) -> Self {
         Self::new_with_surface_factory(
@@ -835,7 +941,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         self.text_layout_cache.component_destroyed(component);
 
         if let Some(partial_rendering_state) = self.partial_rendering_state() {
-            partial_rendering_state.free_graphics_resources(items);
+            partial_rendering_state.free_graphics_resources(component, items);
         }
 
         Ok(())

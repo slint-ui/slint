@@ -47,6 +47,7 @@ struct EspPlatform : public slint::platform::Platform
     EspPlatform(const SlintPlatformConfiguration<PixelType> &config)
         : size(config.size),
           panel_handle(config.panel_handle),
+          panel_type(config.panel_type),
           touch_handle(config.touch_handle),
           buffer1(config.buffer1),
           buffer2(config.buffer2),
@@ -66,6 +67,7 @@ struct EspPlatform : public slint::platform::Platform
 private:
     slint::PhysicalSize size;
     esp_lcd_panel_handle_t panel_handle;
+    SlintDisplayPanelType panel_type;
     esp_lcd_touch_handle_t touch_handle;
     std::optional<std::span<PixelType>> buffer1;
     std::optional<std::span<PixelType>> buffer2;
@@ -187,8 +189,21 @@ void EspPlatform<PixelType>::run_event_loop()
             max_ticks_to_wait = pdMS_TO_TICKS(10);
         }
     }
+    // The esp_lcd_rgb_panel_* and esp_lcd_dpi_panel_* APIs write through the opaque panel handle
+    // assuming their own driver's struct layout, without any run-time type check, so they must
+    // only be called on a panel that the matching peripheral drives. The peripheral cannot be
+    // queried from the handle; resolve SlintDisplayPanelType::Auto from the chip's capabilities.
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+    const bool is_dpi_panel = panel_type == SlintDisplayPanelType::MipiDsiDpi
+            || panel_type == SlintDisplayPanelType::Auto;
+#else
+    [[maybe_unused]] const bool is_dpi_panel = false;
+#endif
+
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
-    if (buffer2) {
+    const bool is_rgb_panel = panel_type == SlintDisplayPanelType::RgbLcd
+            || (panel_type == SlintDisplayPanelType::Auto && !is_dpi_panel);
+    if (buffer2 && is_rgb_panel) {
         sem_vsync_end = xSemaphoreCreateBinary();
         sem_gui_ready = xSemaphoreCreateBinary();
         esp_lcd_rgb_panel_event_callbacks_t cbs = {};
@@ -198,21 +213,22 @@ void EspPlatform<PixelType>::run_event_loop()
 #endif
 
 #if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
-    // Assumes panel_handle is a MIPI-DSI DPI panel (the case on e.g. ESP32-P4). Register the
-    // completion callbacks that drive the draw and refresh synchronization described above.
-    // sem_dpi_draw_done starts "available" so the first draw isn't blocked.
-    sem_dpi_draw_done = xSemaphoreCreateBinary();
-    xSemaphoreGive(sem_dpi_draw_done);
-    sem_dpi_refresh = xSemaphoreCreateBinary();
-    esp_lcd_dpi_panel_event_callbacks_t dpi_cbs = {};
-    dpi_cbs.on_color_trans_done = on_dpi_color_trans_done;
-    dpi_cbs.on_refresh_done = on_dpi_refresh_done;
-    if (esp_lcd_dpi_panel_register_event_callbacks(panel_handle, &dpi_cbs, nullptr) != ESP_OK) {
-        // Not a DPI panel (or callbacks unsupported): fall back to draws without synchronization.
-        vSemaphoreDelete(sem_dpi_draw_done);
-        sem_dpi_draw_done = nullptr;
-        vSemaphoreDelete(sem_dpi_refresh);
-        sem_dpi_refresh = nullptr;
+    if (is_dpi_panel) {
+        // Register the completion callbacks that drive the draw and refresh synchronization
+        // described above. sem_dpi_draw_done starts "available" so the first draw isn't blocked.
+        sem_dpi_draw_done = xSemaphoreCreateBinary();
+        xSemaphoreGive(sem_dpi_draw_done);
+        sem_dpi_refresh = xSemaphoreCreateBinary();
+        esp_lcd_dpi_panel_event_callbacks_t dpi_cbs = {};
+        dpi_cbs.on_color_trans_done = on_dpi_color_trans_done;
+        dpi_cbs.on_refresh_done = on_dpi_refresh_done;
+        if (esp_lcd_dpi_panel_register_event_callbacks(panel_handle, &dpi_cbs, nullptr) != ESP_OK) {
+            // Callbacks unsupported: fall back to draws without synchronization.
+            vSemaphoreDelete(sem_dpi_draw_done);
+            sem_dpi_draw_done = nullptr;
+            vSemaphoreDelete(sem_dpi_refresh);
+            sem_dpi_refresh = nullptr;
+        }
     }
 #endif
 
@@ -297,7 +313,9 @@ void EspPlatform<PixelType>::run_event_loop()
                 auto stride = rotated ? size.height : size.width;
                 if (buffer1) {
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
-                    if (buffer2) {
+                    // Only created for double buffering on an RGB panel; wait for the vsync
+                    // event before rendering into the buffer the panel no longer scans out.
+                    if (sem_gui_ready) {
                         xSemaphoreGive(sem_gui_ready);
                         xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
                     }

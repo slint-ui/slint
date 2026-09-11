@@ -11,14 +11,19 @@ export global InspectorTokens {
     out property <color> field-border: StudioTheme.dark ? #4b4b4b : #d9d9d9;
     out property <color> text: StudioTheme.dark ? #f4f4f4 : #1e1e1e;
     out property <color> muted: StudioTheme.dark ? #9a9a9a : #8c8c8c;
-    out property <color> accent: #0d99ff;
-    out property <length> side-padding: 15px;
+    out property <color> accent: StudioTheme.accent;
+    out property <color> selected-control-bg: StudioTheme.dark ? accent : field-bg-hover;
+    out property <color> slider-fill: StudioTheme.dark ? accent : transparent;
+    out property <color> slider-thumb: StudioTheme.dark ? accent : muted;
+    out property <length> label-width: 52px;
+    out property <length> row-gap: 6px;
+    out property <length> side-padding: 12px;
     out property <length> section-title-size: 12px;
     out property <length> field-height: 24px;
     out property <length> field-radius: 4px;
     out property <length> column-width: 88px;
     out property <length> column-gap: 8px;
-    out property <length> wide-width: 184px;
+    out property <length> wide-width: 207px;
 }
 
 export struct InspectorComboOption {

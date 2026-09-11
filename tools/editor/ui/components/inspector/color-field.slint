@@ -3,14 +3,25 @@
 
 import { InspectorTokens } from "tokens.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
+import { InspectorFillPicker } from "fill-picker.slint";
+import { Api, PropertyValue, PropertyValueKind } from "../../api.slint";
 
 export component InspectorColorField inherits Rectangle {
     in property <string> accessible-name: "";
     in property <string> value;
-    in property <color> swatch;
+    in property <brush> swatch;
+    in property <Size> target-size: {
+        width: Api.current-property-value-data("width").value-float * 1px,
+        height: Api.current-property-value-data("height").value-float * 1px,
+    };
     in property <bool> wide: false;
     in property <string> commit-key: "";
+    in property <string> preview-key: "";
+    in property <string> session-key: "";
+    in property <string> property-name: "";
     callback accepted(string) -> bool;
+    private property <PropertyValue> property-data: Api.current-property-value-data(root.property-name);
+    private property <bool> picker-open: false;
 
     width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
     height: InspectorTokens.field-height;
@@ -26,28 +37,81 @@ export component InspectorColorField inherits Rectangle {
             return root.accepted(text);
         }
 
-        Rectangle {
-            width: 11px;
-            height: 11px;
-            border-radius: 2.5px;
-            border-width: 1px;
-            border-color: InspectorTokens.muted;
-            background: root.swatch;
+        swatch-focus := FocusScope {
+            width: 24px;
+            key-pressed(event) => {
+                if event.text == Key.Return || event.text == " " {
+                    root.picker-open = true;
+                    return accept;
+                }
+                return reject;
+            }
+            height: parent.height;
+            Rectangle {
+                x: 6px;
+                y: (parent.height - 11px) / 2;
+                width: 11px;
+                height: 11px;
+                border-radius: 2.5px;
+                border-width: 1px;
+                border-color: InspectorTokens.muted;
+                background: root.swatch;
 
-            for row in 3: Rectangle {
-                x: 2.5px + row * 2.5px;
-                y: 2.5px;
-                width: 1px;
-                height: 6px;
-                background: InspectorTokens.muted.with-alpha(0.35);
+                for row in 3: Rectangle {
+                    x: 2.5px + row * 2.5px;
+                    y: 2.5px;
+                    width: 1px;
+                    height: 6px;
+                    background: InspectorTokens.muted.with-alpha(0.35);
+                }
+                for col in 3: Rectangle {
+                    x: 2.5px;
+                    y: 2.5px + col * 2.5px;
+                    width: 6px;
+                    height: 1px;
+                    background: InspectorTokens.muted.with-alpha(0.35);
+                }
             }
-            for col in 3: Rectangle {
-                x: 2.5px;
-                y: 2.5px + col * 2.5px;
-                width: 6px;
-                height: 1px;
-                background: InspectorTokens.muted.with-alpha(0.35);
+
+            TouchArea {
+                width: parent.width;
+                height: parent.height;
+                mouse-cursor: pointer;
+                accessible-role: AccessibleRole.button;
+                accessible-label: root.accessible-name + " color picker";
+                clicked => {
+                    root.picker-open = true;
+                    swatch-focus.focus();
+                }
+                accessible-action-default => {
+                    root.picker-open = true;
+                    swatch-focus.focus();
+                }
             }
+        }
+    }
+
+    picker := InspectorFillPicker {
+        value: root.property-data.fill;
+        allow-gradient: root.property-data.kind == PropertyValueKind.brush || root.property-data.value-kind == PropertyValueKind.brush;
+        target-width: root.target-size.width / 1px;
+        target-height: root.target-size.height / 1px;
+        expression: root.value;
+        unsupported: !root.property-data.value-resolved;
+        open: root.picker-open;
+        anchor-position: swatch-focus.absolute-position;
+        anchor-width: swatch-focus.width;
+        restore-focus => { swatch-focus.focus(); }
+        session-key: root.session-key;
+        target-key: root.preview-key;
+        preview(key, fill) => {
+            return Api.inspector-fill-preview(key, root.property-name, fill);
+        }
+        accepted(key, fill) => {
+            return Api.inspector-fill-commit(key, root.property-name, fill);
+        }
+        closed => {
+            root.picker-open = false;
         }
     }
 }

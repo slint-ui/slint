@@ -37,6 +37,8 @@ mod renderer {
 
     #[cfg(feature = "renderer-software")]
     pub mod sw;
+    #[cfg(feature = "renderer-vello")]
+    pub mod vello;
 
     pub fn try_skia_then_femtovg_then_software(
         device_opener: &crate::DeviceOpener,
@@ -58,6 +60,8 @@ mod renderer {
             ("FemtoVG", femtovg::FemtoVGRendererAdapter::new as FactoryFn),
             #[cfg(feature = "renderer-femtovg-wgpu")]
             ("FemtoVG wgpu", femtovg_wgpu::FemtoVGWgpuRendererAdapter::new as FactoryFn),
+            #[cfg(feature = "renderer-vello")]
+            ("vello", vello::VelloRendererAdapter::new as FactoryFn),
             #[cfg(feature = "renderer-software")]
             ("Software", sw::SoftwareRendererAdapter::new as FactoryFn),
             ("", |_, _| Err(PlatformError::NoPlatform)),
@@ -100,7 +104,7 @@ use noop_backend::*;
 pub struct BackendBuilder {
     pub(crate) renderer_name: Option<String>,
     pub(crate) requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "libinput"))]
     pub(crate) libinput_event_hook: Option<Box<dyn Fn(&input::Event) -> bool>>,
 }
 
@@ -118,7 +122,7 @@ impl BackendBuilder {
         self
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "libinput"))]
     pub fn with_libinput_event_hook(
         mut self,
         event_hook: Box<dyn Fn(&input::Event) -> bool>,

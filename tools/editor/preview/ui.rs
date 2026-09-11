@@ -62,11 +62,13 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
+pub(super) use brushes::{fill_brush, fill_expression};
+mod element_library;
 pub(super) mod file_tree;
 pub mod log_messages;
 pub mod palette;
 mod property_view;
-mod recent_colors;
+mod recent_fills;
 pub mod search_model;
 
 slint::include_modules!();
@@ -74,7 +76,24 @@ slint::include_modules!();
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
 pub fn create_ui() -> Result<EditorUi, PlatformError> {
-    EditorUi::new()
+    let ui = EditorUi::new()?;
+    let cursors = std::cell::RefCell::new(HashMap::<i32, slint::Image>::new());
+    ui.global::<EditorCursors>().on_rotation_image(move |angle| {
+        let angle = angle.round().rem_euclid(360.0) as i32;
+        cursors
+            .borrow_mut()
+            .entry(angle)
+            .or_insert_with(|| {
+                let svg = include_str!("../ui/assets/cursors/rotate.svg")
+                    .replace("{angle}", &angle.to_string());
+                let image = slint::Image::load_from_svg_data(svg.as_bytes())
+                    .expect("valid rotation cursor SVG");
+                // Match the fixed-pixel canvas pointer; native SVG cursors scale with the display.
+                slint::Image::from_rgba8(image.to_rgba8().expect("rotation cursor pixels"))
+            })
+            .clone()
+    });
+    Ok(ui)
 }
 
 pub fn initialize_editor(
@@ -84,6 +103,7 @@ pub fn initialize_editor(
 ) {
     let api = editor_ui.global::<Api>();
     let api_weak = <Api as slint::Global<'_, EditorUi>>::as_weak(&api);
+    let hover = editor_ui.global::<Hover>();
     let project = editor_ui.global::<Project>();
     let project_weak = <Project as slint::Global<'_, EditorUi>>::as_weak(&project);
 
@@ -117,6 +137,7 @@ pub fn initialize_editor(
     api.set_known_styles(style_model.into());
     api.set_current_style_index(current_style_index);
 
+    element_library::setup(&api);
     api.on_add_new_component(super::add_new_component);
     api.on_rename_component(super::rename_component);
     api.on_style_changed(super::change_style);
@@ -134,6 +155,7 @@ pub fn initialize_editor(
     api.on_unselect(super::element_selection::unselect_element);
     api.on_reselect(super::element_selection::reselect_element);
     api.on_select_at(super::element_selection::select_element_at);
+    hover.on_element_at(super::element_selection::hovered_element_at);
     api.on_selection_stack_at(super::element_selection::selection_stack_at);
     api.on_filter_sort_selection_stack(super::element_selection::filter_sort_selection_stack);
     api.on_find_selected_selection_stack_frame(|stack| {
@@ -151,14 +173,7 @@ pub fn initialize_editor(
     api.on_highlight_positions(super::element_selection::highlight_positions);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
-    api.on_new_component_data_for_kind(|kind| -> DataTransfer {
-        let Some(kind) = super::PaletteComponent::from_ui(kind) else {
-            return Default::default();
-        };
-        let mut transfer = DataTransfer::default();
-        transfer.set_user_data(Rc::new(DragItem::NewComponent { kind }));
-        transfer
-    });
+    api.on_new_component_data_for_kind(super::new_component_data_for_kind);
     api.on_move_element_instance_data(|uri: SharedString, offset: i32| -> DataTransfer {
         let Ok(offset) = offset.try_into() else {
             return Default::default();
@@ -198,6 +213,12 @@ pub fn initialize_editor(
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
+    api.on_inspector_values(super::inspector::values);
+    api.on_inspector_preview(super::inspector::preview);
+    api.on_inspector_commit(super::inspector::commit);
+    api.on_inspector_cancel(super::inspector::cancel);
+    api.on_inspector_fill_preview(super::inspector::preview_fill);
+    api.on_inspector_fill_commit(super::inspector::commit_fill);
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
@@ -245,7 +266,7 @@ pub fn initialize_editor(
     palette::setup(&api);
     let file_tree_controller = file_tree::setup(&api, api_weak.clone(), &project, project_weak);
     preview::set_file_tree_controller(file_tree_controller);
-    recent_colors::setup(&api, api_weak.clone());
+    recent_fills::setup(&api, api_weak.clone());
     super::outline::setup(&api, api_weak.clone());
     super::undo_redo::setup(&api);
 
@@ -490,7 +511,7 @@ fn unit_model(units: &[expression_tree::WrittenUnit]) -> ModelRc<SharedString> {
 }
 
 fn is_equal_value(c: &PropertyValue, n: &PropertyValue) -> bool {
-    c.code == n.code
+    c.code == n.code && c.value_resolved == n.value_resolved && c.value_brush == n.value_brush
 }
 
 fn is_equal_property(c: &PropertyInformation, n: &PropertyInformation) -> bool {
@@ -618,12 +639,14 @@ fn map_value_and_type(
         color: slint::Color,
         kind: PropertyValueKind,
         code: SharedString,
+        value_resolved: bool,
     ) {
         let color_string = brushes::color_to_string(color);
         mapping.headers.push(mapping.name_prefix.clone());
         mapping.current_values.push(PropertyValue {
             value_kind: kind,
             kind,
+            value_resolved,
             display_string: color_string.clone(),
             brush_kind: BrushKind::Solid,
             value_brush: slint::Brush::SolidColor(color),
@@ -803,20 +826,26 @@ fn map_value_and_type(
                 get_value::<slint::Color>(value),
                 PropertyValueKind::Color,
                 get_code(value),
+                value.is_some(),
             );
         }
         Type::Brush => {
             let brush = get_value::<slint::Brush>(value);
             match brush {
-                slint::Brush::SolidColor(c) => {
-                    map_color(mapping, c, PropertyValueKind::Brush, get_code(value))
-                }
+                slint::Brush::SolidColor(c) => map_color(
+                    mapping,
+                    c,
+                    PropertyValueKind::Brush,
+                    get_code(value),
+                    value.is_some(),
+                ),
                 slint::Brush::LinearGradient(lg) => {
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(PropertyValue {
                         display_string: SharedString::from("Linear Gradient"),
                         kind: PropertyValueKind::Brush,
                         value_kind: PropertyValueKind::Brush,
+                        value_resolved: value.is_some(),
                         brush_kind: BrushKind::Linear,
                         value_float: lg.angle(),
                         value_brush: slint::Brush::LinearGradient(lg.clone()),
@@ -837,6 +866,7 @@ fn map_value_and_type(
                         display_string: SharedString::from("Radial Gradient"),
                         kind: PropertyValueKind::Brush,
                         value_kind: PropertyValueKind::Brush,
+                        value_resolved: value.is_some(),
                         brush_kind: BrushKind::Radial,
                         value_brush: slint::Brush::RadialGradient(rg.clone()),
                         gradient_stops: Rc::new(VecModel::from(
@@ -856,6 +886,7 @@ fn map_value_and_type(
                         display_string: SharedString::from("Conic Gradient"),
                         kind: PropertyValueKind::Brush,
                         value_kind: PropertyValueKind::Brush,
+                        value_resolved: value.is_some(),
                         brush_kind: BrushKind::Conic,
                         value_brush: slint::Brush::ConicGradient(cg.clone()),
                         gradient_stops: Rc::new(VecModel::from(
@@ -875,6 +906,7 @@ fn map_value_and_type(
                         display_string: SharedString::from("Unknown Brush"),
                         kind: PropertyValueKind::Code,
                         value_kind: PropertyValueKind::Code,
+                        value_resolved: false,
                         value_string: SharedString::from("???"),
                         accessor_path: mapping.name_prefix.clone(),
                         code: get_code(value),
@@ -1148,8 +1180,13 @@ fn current_property_value_data(
     api: &Api<'_>,
     property_name: SharedString,
 ) -> Option<PropertyValue> {
-    for group in api.get_properties().iter() {
-        for property in group.properties.iter() {
+    let groups = api.get_properties();
+    groups.model_tracker().track_row_count_changes();
+    for (group_index, group) in groups.iter().enumerate() {
+        groups.model_tracker().track_row_data_changes(group_index);
+        group.properties.model_tracker().track_row_count_changes();
+        for (property_index, property) in group.properties.iter().enumerate() {
+            group.properties.model_tracker().track_row_data_changes(property_index);
             if property.name == property_name {
                 return Some(property.value);
             }

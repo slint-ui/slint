@@ -2973,7 +2973,7 @@ fn repeated_layout_item_fields(
             let cross_o = orientation_name(cross_o);
             format!(
                 "(o == slint::cbindgen_private::Orientation::{cross_o}) ? ({expr}) \
-                 : slint::cbindgen_private::CrossAxisSelfAlignment::Auto"
+                 : slint::cbindgen_private::CrossAxisAlignment::Auto"
             )
         }
         None => "{}".to_owned(),
@@ -5055,6 +5055,9 @@ fn compile_builtin_function_call(
             format!("slint::private_api::debug({});", a.join(","))
         }
         BuiltinFunction::DecimalSeparator => "slint::private_api::decimal_separator()".into(),
+        BuiltinFunction::DefaultWindowTitle => {
+            "slint::private_api::default_window_title()".into()
+        }
         BuiltinFunction::Mod => {
             ctx.generator_state.conditional_includes.cmath.set(true);
             format!("([](float a, float b) {{ auto r = std::fmod(a, b); return r >= 0 ? r : r + std::abs(b); }})({},{})", a.next().unwrap(), a.next().unwrap())

@@ -51,6 +51,48 @@ assert_eq!(&*edits.borrow(), &[40]);
 
 edits.borrow_mut().clear();
 
+// The up and down arrow keys change the value
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+assert_eq!(instance.get_value(), 41);
+assert_eq!(&*edits.borrow(), &[41_i32]);
+edits.borrow_mut().clear();
+
+slint_testing::send_keyboard_char(&instance, Key::DownArrow.into(), true);
+assert_eq!(instance.get_value(), 40);
+assert_eq!(&*edits.borrow(), &[40_i32]);
+edits.borrow_mut().clear();
+
+// Stepping leaves the cursor at the end of the new text, so typing appends to it
+instance.set_value(10);
+mock_elapsed_time(1);
+// Move the cursor to the start
+for _ in 0..4 {
+    slint_testing::send_keyboard_char(&instance, Key::LeftArrow.into(), true);
+}
+edits.borrow_mut().clear();
+
+slint_testing::send_keyboard_char(&instance, Key::DownArrow.into(), true);
+assert_eq!(instance.get_value(), 9);
+slint_testing::send_keyboard_char(&instance, '5', true);
+assert_eq!(instance.get_value(), 95);
+assert_eq!(&*edits.borrow(), &[9_i32, 95_i32]);
+
+// Same, for a value that grows a digit
+instance.set_value(9);
+mock_elapsed_time(1);
+edits.borrow_mut().clear();
+
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+assert_eq!(instance.get_value(), 10);
+// Backspace at the end of "10" leaves 1; from the middle it would leave 0
+slint_testing::send_keyboard_char(&instance, Key::Backspace.into(), true);
+assert_eq!(instance.get_value(), 1);
+assert_eq!(&*edits.borrow(), &[10_i32, 1_i32]);
+
+instance.set_value(40);
+mock_elapsed_time(1);
+edits.borrow_mut().clear();
+
 // This position happens to work with all styles
 let position = LogicalPosition::new(40.0, 50.0);
 
@@ -79,6 +121,30 @@ assert_eq!(instance.get_value(), 40);
 assert_eq!(&*edits.borrow(), &[40_i32]);
 edits.borrow_mut().clear();
 
+// The arrow keys honour the step size too
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+assert_eq!(instance.get_value(), 42);
+assert_eq!(&*edits.borrow(), &[42_i32]);
+edits.borrow_mut().clear();
+
+slint_testing::send_keyboard_char(&instance, Key::DownArrow.into(), true);
+assert_eq!(instance.get_value(), 40);
+assert_eq!(&*edits.borrow(), &[40_i32]);
+edits.borrow_mut().clear();
+
+instance.set_step_size(1);
+
+// The arrow keys don't move the value out of the minimum/maximum range
+instance.set_value(0);
+slint_testing::send_keyboard_char(&instance, Key::DownArrow.into(), true);
+assert_eq!(instance.get_value(), 0);
+assert!(edits.borrow().is_empty());
+
+instance.set_value(100);
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+assert_eq!(instance.get_value(), 100);
+assert!(edits.borrow().is_empty());
+
 instance.set_value(0);
 // scroll down should do nothing when the value is 0
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: -10.0 });
@@ -103,6 +169,14 @@ assert_eq!(spinbox.accessible_value().unwrap(), "30");
 // scroll up
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: 50.0 });
 assert_eq!(instance.get_value(), 30);
+
+// arrow keys
+assert!(instance.get_spinbox_focused());
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+assert_eq!(instance.get_value(), 30);
+slint_testing::send_keyboard_char(&instance, Key::DownArrow.into(), true);
+assert_eq!(instance.get_value(), 30);
+assert!(edits.borrow().is_empty());
 
 ```
 

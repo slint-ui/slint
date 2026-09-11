@@ -317,7 +317,7 @@ impl DrmOutput {
         ((clock * 1_000_000 + (htotal * vtotal) / 2) / (htotal * vtotal)) as u32
     }
 
-    #[cfg(skia_wgpu_29)]
+    #[cfg(wgpu_29_surface_target)]
     /// Creates a wgpu-29 DRM surface target from this output.
     pub fn wgpu_29_surface_target(
         &self,

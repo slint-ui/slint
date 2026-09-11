@@ -696,6 +696,13 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
+                if inner.capture_events.is_none() && !Self::can_pan(flick, flick_rc) {
+                    // There is nothing to pan in either direction: don't hold up the press waiting to see if it turns into a drag,
+                    // just let it fall through to whatever is underneath,
+                    // the same way wheel events already are when the Flickable can't scroll in their direction.
+                    return InputEventFilterResult::ForwardAndIgnore;
+                }
+
                 inner.velocity_rb = VelocityRingBuffer::default();
                 inner.pressed_mouse_state = Some((crate::animations::current_tick(), *position));
                 inner.last_mouse_position = *position;
@@ -812,6 +819,21 @@ impl FlickableData {
             && abs(mouse_delta.x_length()) > DISTANCE_THRESHOLD)
             || ((content_height > flickable_height || flick.content_y() != zero)
                 && abs(mouse_delta.y_length()) > DISTANCE_THRESHOLD)
+    }
+
+    /// Whether the flickable has any content to pan in either direction, regardless of mouse movement.
+    /// Used to decide whether a press that no descendant claimed is worth grabbing,
+    /// mirroring the direction check wheel events already get in `handle_mouse_filter`.
+    fn can_pan(flick: Pin<&Flickable>, flick_rc: &ItemRc) -> bool {
+        let flickable_geometry = Flickable::geometry_without_virtual_keyboard(flick_rc);
+        let flickable_width = flickable_geometry.width_length();
+        let flickable_height = flickable_geometry.height_length();
+        let content_width = flick.content_width();
+        let content_height = flick.content_height();
+        let zero = LogicalLength::zero();
+
+        (content_width > flickable_width || flick.content_x() != zero)
+            || (content_height > flickable_height || flick.content_y() != zero)
     }
 
     fn handle_mouse(

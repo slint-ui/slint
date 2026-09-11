@@ -11,7 +11,7 @@ export component Test inherits Window {
     // A raster image on disk is accepted
     in property <image> ok: @image-url("image_2x2.png");
     // The dimensions of an image are read as `.width` and `.height`
-    //#sls.expr.image.dimensions
+    //#sls.type.image.properties
     out property <int> ok-width: ok.width;
     out property <int> ok-height: ok.height;
     // An SVG image can't be decoded into static pixels

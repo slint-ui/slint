@@ -13,6 +13,10 @@ export enum RemoteViewerState {
     previewing,
     /// The last build failed; `message` holds the error text.
     preview-error,
+    /// Someone is trying to connect and has to type `pairing-code`, which is
+    /// only readable here on the device. Displaces whatever was on screen
+    /// until the attempt is over.
+    pairing,
 }
 
 export component RemoteViewerWindow inherits Window {
@@ -24,10 +28,26 @@ export component RemoteViewerWindow inherits Window {
     in property <RemoteViewerState> state;
     in property <[AttributionItem]> third-party-licenses;
 
+    /// The code to be typed into the editor, while `state` is `pairing`.
+    in property <string> pairing-code;
+    /// Who is asking, so the user can tell an expected attempt from a stray one.
+    in property <string> pairing-peer;
+    /// Counts down while the code is on screen. Cosmetic: the deadline is
+    /// enforced on the connection, which drops the peer when it passes.
+    in-out property <int> pairing-seconds-left;
+    /// Set when the viewer was started with `--no-pairing`, so it's obvious
+    /// from the device that anyone on the network can connect.
+    in property <bool> pairing-disabled;
+
     property <bool> show-licenses: false;
 
     property <bool> has-name: name != "";
     property <bool> showing-name: true;
+
+    /// Whether the name/address screen is the one on show. The other states
+    /// each take the whole window.
+    property <bool> showing-idle-screen: root.state != RemoteViewerState.preview-error
+        && root.state != RemoteViewerState.pairing;
 
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
     property <bool> landscape-layout: root.width > root.height;
@@ -84,7 +104,9 @@ export component RemoteViewerWindow inherits Window {
     TouchArea {
         y: 0;
         height: root.safe-area-insets.top + 246px;
-        enabled: root.state != RemoteViewerState.preview-error;
+        // Covers the band the pairing code sits in, and copying the address
+        // is not what anyone is trying to do while reading a code.
+        enabled: root.showing-idle-screen;
 
         clicked => {
             root.showing-name = !root.showing-name;
@@ -116,7 +138,7 @@ export component RemoteViewerWindow inherits Window {
         padding-right: max(root.safe-area-insets.right, 24px);
         padding-top: root.safe-area-insets.top + 146px;
         padding-bottom: root.safe-area-insets.bottom;
-        visible: root.state != RemoteViewerState.preview-error;
+        visible: root.showing-idle-screen;
         VerticalLayout {
             alignment: start;
             spacing: 8px;
@@ -154,6 +176,15 @@ export component RemoteViewerWindow inherits Window {
                 text: root.build-info;
                 font-size: 0.71rem;
                 font-weight: 400;
+            }
+
+            if root.pairing-disabled: Text {
+                text: @tr("Pairing disabled: anyone on this network can connect");
+                font-size: 0.71rem;
+                font-weight: 400;
+                color: #e5484d;
+                horizontal-alignment: center;
+                wrap: word-wrap;
             }
         }
     }
@@ -219,6 +250,74 @@ export component RemoteViewerWindow inherits Window {
             text: message;
             horizontal-alignment: center;
             wrap: word-wrap;
+        }
+    }
+
+    pairing-countdown := Timer {
+        interval: 1s;
+        running: root.state == RemoteViewerState.pairing && root.pairing-seconds-left > 0;
+        triggered => {
+            root.pairing-seconds-left -= 1;
+        }
+    }
+
+    if root.state == RemoteViewerState.pairing: VerticalLayout {
+        alignment: center;
+        spacing: 32px;
+        padding-left: max(root.safe-area-insets.left, 24px);
+        padding-right: max(root.safe-area-insets.right, 24px);
+        padding-top: root.safe-area-insets.top;
+        padding-bottom: root.safe-area-insets.bottom;
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 4px;
+
+            Text {
+                text: @tr("A computer wants to connect");
+                font-size: 1.41rem;
+                font-weight: 100;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            if root.pairing-peer != "": Text {
+                text: @tr("from {}", root.pairing-peer);
+                font-size: 0.95rem;
+                font-weight: 400;
+                horizontal-alignment: center;
+                opacity: 0.7;
+                wrap: word-wrap;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 8px;
+
+            Text {
+                text: @tr("Enter this code");
+                font-size: 0.82rem;
+                font-weight: 400;
+                horizontal-alignment: center;
+                opacity: 0.7;
+            }
+
+            Text {
+                text: root.pairing-code;
+                font-size: 2.8rem;
+                font-weight: 500;
+                letter-spacing: 0.35rem;
+                horizontal-alignment: center;
+            }
+        }
+
+        Text {
+            text: root.pairing-seconds-left > 0 ? @tr("Expires in {}s", root.pairing-seconds-left) : @tr("Expired");
+            font-size: 0.82rem;
+            font-weight: 400;
+            horizontal-alignment: center;
+            opacity: 0.6;
         }
     }
 

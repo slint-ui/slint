@@ -4,12 +4,15 @@
 // ROTATION_THRESHOLD=30  - Zeno anti-aliasing is slightly different in different rotation
 // SKIP_LINE_BY_LINE  - Path not implemented in line-by-line mode
 
+// A component inheriting Path takes the commands or path elements from its instance
+component BasePath inherits Path { }
+
 export component TestCase inherits Window {
     width: 64px;
     height: 64px;
     background: transparent;
 
-    Path {
+    BasePath {
         x: 0px;
         y: 0px;
         width: 32px;
@@ -21,7 +24,7 @@ export component TestCase inherits Window {
         opacity: 0.5;
     }
 
-    Path {
+    BasePath {
         x: 32px;
         y: 32px;
         width: 32px;

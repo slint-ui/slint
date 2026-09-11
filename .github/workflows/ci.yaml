@@ -81,13 +81,17 @@ jobs:
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
     visual_editor:
-        if: ${{ contains(fromJSON(inputs.changes), 'visual_editor') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        if: ${{ contains(fromJSON(inputs.changes), 'visual_editor') }}
         name: Visual Editor
         runs-on: macos-14
         timeout-minutes: 120
         env:
             RUSTFLAGS: -D warnings
             SLINT_EMIT_DEBUG_INFO: '1'
+            # The UI tests need a private package that GitHub doesn't hand the
+            # token for to pull requests from forks. Lint and build the editor
+            # there anyway, and skip only the steps that need the token.
+            UI_TESTS: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-skia-dependencies
@@ -101,6 +105,7 @@ jobs:
                   python-version: '3.11'
             - uses: astral-sh/setup-uv@v7
             - name: Install UI test dependencies
+              if: ${{ env.UI_TESTS == 'true' }}
               working-directory: tools/editor/ui-tests
               env:
                   UV_INDEX: slint-private=https://testing.slint.dev/simple/
@@ -114,6 +119,7 @@ jobs:
             - name: Build the visual editor UI test binary
               run: cargo build --locked -p slint-editor --all-features --features slint/mcp
             - name: Run visual editor UI tests
+              if: ${{ env.UI_TESTS == 'true' }}
               working-directory: tools/editor/ui-tests
               env:
                   SLINT_BACKEND: headless-skia
@@ -602,6 +608,10 @@ jobs:
             - name: Build slint-viewer for Android
               run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --features remote
 
+    android_reproducible:
+        if: ${{ inputs.full }}
+        uses: ./.github/workflows/android_reproducible.yaml
+
     android_cpp:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'android_backend') }}
         runs-on: ubuntu-latest
@@ -769,6 +779,52 @@ jobs:
               # The excluded crates need a dedicated toolchain or don't cross-compile here.
               run: cargo xwin build --target i686-pc-windows-msvc --locked --workspace --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude slint-doc-generator --exclude i-slint-renderer-skia --exclude slint-editor
 
+    # `backend-linuxkms` is the bare backend and `compat-1-2` restores its pre-1.18
+    # meaning of libseat + libinput. Getting that implication wrong still compiles,
+    # it just silently changes what an application links against, so assert the
+    # resolution itself, from the CMake options down. `cargo tree` and CMake only, no
+    # compilation and no system libraries.
+    linuxkms_features:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'api_cpp') }}
+        runs-on: ubuntu-24.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: x-linuxkms-features
+            - name: Check LinuxKMS feature resolution
+              run: ./api/cpp/tests/check_linuxkms_features.sh
+
+    # Compile the four combinations of the LinuxKMS backend's libseat and libinput
+    # features, to catch mistakes in their `#[cfg]` gating. That a combination really
+    # drops its dependencies is asserted by linuxkms_features above, which inspects the
+    # resolved dependency graph instead of relying on which packages a runner image
+    # happens to ship.
+    linuxkms_build_matrix:
+        if: ${{ inputs.full }}
+        runs-on: ubuntu-24.04
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - name: "minimal"
+                      features: "compat-1-18,backend-linuxkms,renderer-software"
+                    - name: "libseat"
+                      features: "compat-1-18,backend-linuxkms,backend-linuxkms-libseat,renderer-software"
+                    - name: "libinput"
+                      features: "compat-1-18,backend-linuxkms,backend-linuxkms-libinput,renderer-software"
+                    - name: "libseat + libinput"
+                      features: "compat-1-18,backend-linuxkms,backend-linuxkms-libseat,backend-linuxkms-libinput,renderer-software"
+        name: LinuxKMS ${{ matrix.name }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: x-linuxkms-${{ matrix.name }}
+            - name: Build
+              run: cargo build -p slint --no-default-features --features ${{ matrix.features }}
+
     qa-tree-sitter-latest:
         if: ${{ inputs.full }}
         uses: ./.github/workflows/tree_sitter.yaml
@@ -789,9 +845,6 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v7
-            - name: Downgrade cc and ring crate to work around https://github.com/slint-ui/slint/issues/6875
-              run: |
-                  cargo update -p ring --precise 0.17.9
             - name: Fetch Yocto SDK
               run: |
                   # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
@@ -825,7 +878,7 @@ jobs:
                   # runner's system libclang is too old for; use the one installed above.
                   export LIBCLANG_PATH=/usr/lib/llvm-20/lib
                   mkdir ${{ runner.workspace }}/cppbuild
-                  cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_INTERPRETER=ON
+                  cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT=ON -DSLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT=ON -DSLINT_FEATURE_INTERPRETER=ON
                   cmake --build ${{ runner.workspace }}/cppbuild
 
     mcu_zephyr:

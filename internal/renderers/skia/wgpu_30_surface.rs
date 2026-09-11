@@ -10,6 +10,7 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 
 use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use wgpu_30 as wgpu;
@@ -31,6 +32,7 @@ pub(crate) fn attachment_color_space(texture: &wgpu::Texture) -> skia_safe::Colo
 }
 
 /// See [`crate::sampled_texture_color_space`].
+#[cfg_attr(not(feature = "unstable-wgpu-30"), allow(dead_code))]
 pub(crate) fn sampled_texture_color_space(texture: &wgpu::Texture) -> skia_safe::ColorSpace {
     crate::sampled_texture_color_space(crate::TextureEncoding::from_format_is_srgb(
         texture.format().is_srgb(),
@@ -41,9 +43,7 @@ pub(crate) fn sampled_texture_color_space(texture: &wgpu::Texture) -> skia_safe:
 /// window surface) and offscreen rendering into caller-provided textures.
 pub struct WGPUSurface {
     pub(crate) gr_context: RefCell<skia_safe::gpu::DirectContext>,
-    instance: wgpu::Instance,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    wgpu: Rc<SharedWgpuState>,
     surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
     surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
@@ -61,18 +61,29 @@ impl WGPUSurface {
             i_slint_core::graphics::wgpu_30::init_instance_adapter_device_queue_surface(
                 surface_target,
                 requested_graphics_api,
-                wgpu::Backends::GL /* we're not mapping that to skia because we can't save/restore state */
-                    .union(if cfg!(target_os = "windows") {
-                        wgpu::Backends::VULKAN
-                    } else {
-                        wgpu::Backends::empty()
-                    }),
+                i_slint_core::graphics::wgpu_30::default_backends_to_avoid(),
             )?;
+        Self::init_with_parts(
+            Rc::new(SharedWgpuState { instance, adapter, device, queue }),
+            surface,
+            size,
+        )
+    }
 
-        let mut surface_config =
-            surface.get_default_config(&adapter, size.width, size.height).unwrap();
+    fn init_with_parts(
+        wgpu: Rc<SharedWgpuState>,
+        surface: wgpu::Surface<'static>,
+        size: PhysicalWindowSize,
+    ) -> Result<Self, PlatformError> {
+        let SharedWgpuState { adapter, device, queue, .. } = &*wgpu;
+        #[cfg(target_vendor = "apple")]
+        metal::set_layer_contents_gravity(&surface);
 
-        let swapchain_capabilities = surface.get_capabilities(&adapter);
+        let mut surface_config = surface
+            .get_default_config(adapter, size.width, size.height)
+            .ok_or_else(|| PlatformError::from("WGPU surface is not compatible with adapter"))?;
+
+        let swapchain_capabilities = surface.get_capabilities(adapter);
         let swapchain_format = swapchain_capabilities
             .formats
             .iter()
@@ -82,21 +93,28 @@ impl WGPUSurface {
             .copied()
             .unwrap_or_else(|| swapchain_capabilities.formats[0]);
         surface_config.format = swapchain_format;
-        surface.configure(&device, &surface_config);
 
-        let backend = Backend::new(&adapter, &device)?;
+        // Prefer FIFO modes over the Mailbox that `get_default_config` picks on some backends
+        // (it takes the first advertised mode, and DX12 lists Mailbox first), for frame pacing
+        // and better energy efficiency. `AutoVsync` falls back to FifoRelaxed and then Fifo, so
+        // it is supported everywhere.
+        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
 
-        let gr_context = backend.make_context(&adapter, &device, &queue);
+        let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
+        surface.configure(device, &surface_config);
+        if let Some(e) = spin_on::spin_on(error_scope.pop()) {
+            return Err(PlatformError::from(format!("Error configuring WGPU surface: {e}")));
+        }
+
+        let backend = Backend::new(adapter, device)?;
+
+        let gr_context = backend
+            .make_context(adapter, device, queue)
+            .ok_or_else(|| PlatformError::from("Failed to create Skia context from WGPU"))?;
 
         Ok(Self {
-            gr_context: RefCell::new(
-                gr_context.ok_or_else(|| {
-                    PlatformError::from("Failed to create Skia context from WGPU")
-                })?,
-            ),
-            instance,
-            device,
-            queue,
+            gr_context: gr_context.into(),
+            wgpu,
             surface_config: Some(surface_config).into(),
             surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
@@ -107,6 +125,7 @@ impl WGPUSurface {
 
     pub(crate) fn new_offscreen(
         instance: wgpu::Instance,
+        adapter: wgpu::Adapter,
         device: wgpu::Device,
         queue: wgpu::Queue,
         backend: Backend,
@@ -114,9 +133,7 @@ impl WGPUSurface {
     ) -> Self {
         Self {
             gr_context: RefCell::new(gr_context),
-            instance,
-            device,
-            queue,
+            wgpu: Rc::new(SharedWgpuState { instance, adapter, device, queue }),
             surface_config: None.into(),
             surface: None,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
@@ -131,9 +148,10 @@ impl WGPUSurface {
     pub(crate) fn flush_and_submit(&self, gr_context: &mut skia_safe::gpu::DirectContext) {
         let textures_to_transition = self.textures_to_transition_for_sampling.take();
         if !textures_to_transition.is_empty() {
-            let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Skia texture transition encoder"),
-            });
+            let mut encoder =
+                self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Skia texture transition encoder"),
+                });
             encoder.transition_resources(
                 std::iter::empty(),
                 textures_to_transition.iter().map(|texture| wgpu::TextureTransition {
@@ -142,27 +160,149 @@ impl WGPUSurface {
                     state: wgpu::TextureUses::RESOURCE,
                 }),
             );
-            self.queue.submit(Some(encoder.finish()));
+            self.wgpu.queue.submit(Some(encoder.finish()));
         }
 
         gr_context.submit(None);
     }
 }
 
+/// The wgpu stack a surface renders with.
+///
+/// [`SkiaSharedContext`] caches the one the first window created, so that later windows it can
+/// serve reuse it instead of creating their own.
+/// That cache holds a weak reference and every surface a strong one, so the resources go away
+/// with the last surface using them.
+/// Were they to outlive the surfaces, they'd be destroyed whenever the last renderer happens to
+/// be dropped, and tearing a wgpu device down from a thread-local destructor aborts the process
+/// on macOS, where the Metal backend needs an autorelease pool that is gone by then.
+/// A window that is still shown owns its surface, so that case remains.
+pub(crate) struct SharedWgpuState {
+    instance: wgpu::Instance,
+    adapter: wgpu::Adapter,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+}
+
+/// Whether `device` offers everything `settings` asks of it.
+///
+/// The instance and adapter parts of the settings are covered by
+/// [`adapter_matches_graphics_api_request`].
+#[cfg(feature = "unstable-wgpu-30")]
+fn device_satisfies_settings(
+    device: &wgpu::Device,
+    settings: &i_slint_core::graphics::wgpu_30::api::WGPUSettings,
+) -> bool {
+    device.features().contains(settings.device_required_features)
+        && settings.device_required_limits.check_limits(&device.limits())
+}
+
+fn adapter_matches_graphics_api_request(
+    adapter: &wgpu::Adapter,
+    requested_graphics_api: Option<&RequestedGraphicsAPI>,
+) -> bool {
+    let backend = adapter.get_info().backend;
+
+    #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
+    match requested_graphics_api {
+        None => true,
+        Some(RequestedGraphicsAPI::Metal) => backend == wgpu::Backend::Metal,
+        Some(RequestedGraphicsAPI::Vulkan) => backend == wgpu::Backend::Vulkan,
+        Some(RequestedGraphicsAPI::Direct3D) => backend == wgpu::Backend::Dx12,
+        #[cfg(feature = "unstable-wgpu-30")]
+        Some(RequestedGraphicsAPI::WGPU30(
+            i_slint_core::graphics::wgpu_30::api::WGPUConfiguration::Automatic(settings),
+        )) => {
+            let backend_bit = match backend {
+                wgpu::Backend::Vulkan => wgpu::Backends::VULKAN,
+                wgpu::Backend::Metal => wgpu::Backends::METAL,
+                wgpu::Backend::Dx12 => wgpu::Backends::DX12,
+                wgpu::Backend::Gl => wgpu::Backends::GL,
+                wgpu::Backend::BrowserWebGpu => wgpu::Backends::BROWSER_WEBGPU,
+                _ => return false,
+            };
+            settings.backends.contains(backend_bit)
+        }
+        Some(_) => false,
+    }
+}
+
 impl crate::Surface for WGPUSurface {
     fn new(
-        _shared_context: &SkiaSharedContext,
+        shared_context: &SkiaSharedContext,
         window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError> {
-        Self::new_with_surface(
-            Box::new(WindowAndDisplayHandle(window_handle, display_handle))
-                as Box<dyn wgpu::DisplayAndWindowHandle + 'static>,
-            size,
-            requested_graphics_api,
-        )
+        let make_target = || -> Box<dyn wgpu::DisplayAndWindowHandle + 'static> {
+            Box::new(WindowAndDisplayHandle(window_handle.clone(), display_handle.clone()))
+        };
+
+        #[cfg(feature = "unstable-wgpu-30")]
+        let manual_configuration = matches!(
+            &requested_graphics_api,
+            Some(RequestedGraphicsAPI::WGPU30(
+                i_slint_core::graphics::wgpu_30::api::WGPUConfiguration::Manual { .. }
+            ))
+        );
+        #[cfg(not(feature = "unstable-wgpu-30"))]
+        let manual_configuration = false;
+
+        #[cfg(feature = "unstable-wgpu-30")]
+        #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
+        let requested_settings = match &requested_graphics_api {
+            Some(RequestedGraphicsAPI::WGPU30(
+                i_slint_core::graphics::wgpu_30::api::WGPUConfiguration::Automatic(settings),
+            )) => Some(settings.clone()),
+            _ => None,
+        };
+
+        // try to reuse old / shared graphics primitives from previous windows with matching
+        // settings
+        if !manual_configuration {
+            let shared_state = shared_context.0.wgpu_30_state.borrow().upgrade();
+            if let Some(shared) = shared_state {
+                #[cfg(feature = "unstable-wgpu-30")]
+                let settings_compatible = requested_settings
+                    .as_ref()
+                    .is_none_or(|settings| device_satisfies_settings(&shared.device, settings));
+                #[cfg(not(feature = "unstable-wgpu-30"))]
+                let settings_compatible = true;
+                if settings_compatible
+                    && adapter_matches_graphics_api_request(
+                        &shared.adapter,
+                        requested_graphics_api.as_ref(),
+                    )
+                    && let Ok(surface) = shared.instance.create_surface(make_target())
+                    && shared.adapter.is_surface_supported(&surface)
+                {
+                    match Self::init_with_parts(shared, surface, size) {
+                        Ok(surface) => return Ok(surface),
+                        Err(err) => {
+                            // The shared device may be lost. Drop it and start over.
+                            i_slint_core::debug_log!(
+                                "Failed to reuse the shared WGPU device: {err} . Re-initializing"
+                            );
+                            shared_context.0.wgpu_30_state.take();
+                        }
+                    }
+                }
+            }
+        }
+
+        let (instance, adapter, device, queue, surface) =
+            i_slint_core::graphics::wgpu_30::init_instance_adapter_device_queue_surface(
+                make_target(),
+                requested_graphics_api,
+                i_slint_core::graphics::wgpu_30::default_backends_to_avoid(),
+            )?;
+        let wgpu = Rc::new(SharedWgpuState { instance, adapter, device, queue });
+        let new_surface = Self::init_with_parts(wgpu.clone(), surface, size)?;
+        if !manual_configuration {
+            *shared_context.0.wgpu_30_state.borrow_mut() = Rc::downgrade(&wgpu);
+        }
+        Ok(new_surface)
     }
 
     fn name(&self) -> &'static str {
@@ -189,12 +329,10 @@ impl crate::Surface for WGPUSurface {
             gr_context.flush_submit_and_sync_cpu();
         }
 
-        // Prefer FIFO modes over possible Mailbox setting for frame pacing and better energy efficiency.
-        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
         surface_config.width = size.width;
         surface_config.height = size.height;
 
-        surface.configure(&self.device, surface_config);
+        surface.configure(&self.wgpu.device, surface_config);
         Ok(())
     }
 
@@ -232,7 +370,7 @@ impl crate::Surface for WGPUSurface {
                 // dropped before a new `Surface` is made"), panicking on the first frame on
                 // Wayland. Drop it first. (`Outdated`/`Lost` carry nothing → no-op.)
                 drop(stale);
-                surface.configure(&self.device, surface_config);
+                surface.configure(&self.wgpu.device, surface_config);
                 match surface.get_current_texture() {
                     wgpu::CurrentSurfaceTexture::Success(t) => t,
                     _ => return Ok(DrawOutcome::Occluded),
@@ -245,9 +383,10 @@ impl crate::Surface for WGPUSurface {
         // and clear it. Clear it through wgpu instead before Skia draws; the
         // in-order queue keeps Skia's later-committed work on top.
         let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Slint frame init"),
-        });
+        let mut encoder =
+            self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Slint frame init"),
+            });
         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Slint frame init"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -264,7 +403,7 @@ impl crate::Surface for WGPUSurface {
             occlusion_query_set: None,
             multiview_mask: None,
         });
-        self.queue.submit(Some(encoder.finish()));
+        self.wgpu.queue.submit(Some(encoder.finish()));
 
         let skia_surface = self.backend.make_swapchain_surface(gr_context, &frame.texture);
 
@@ -282,9 +421,10 @@ impl crate::Surface for WGPUSurface {
         // presentation after Skia's work: the clear submission above signals its semaphore
         // before Skia even starts. Referencing the frame texture in a submission of our own
         // makes present wait for it.
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Skia present ordering encoder"),
-        });
+        let mut encoder =
+            self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Skia present ordering encoder"),
+            });
         encoder.transition_resources(
             std::iter::empty(),
             std::iter::once(wgpu::TextureTransition {
@@ -293,13 +433,13 @@ impl crate::Surface for WGPUSurface {
                 state: wgpu::TextureUses::PRESENT,
             }),
         );
-        self.queue.submit(Some(encoder.finish()));
+        self.wgpu.queue.submit(Some(encoder.finish()));
 
         if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
             pre_present_callback();
         }
 
-        self.queue.present(frame);
+        self.wgpu.queue.present(frame);
 
         Ok(DrawOutcome::Success)
     }
@@ -322,9 +462,9 @@ impl crate::Surface for WGPUSurface {
     #[cfg(feature = "unstable-wgpu-30")]
     fn with_graphics_api(&self, callback: &mut dyn FnMut(GraphicsAPI<'_>)) {
         let api = i_slint_core::graphics::create_graphics_api_wgpu_30(
-            self.instance.clone(),
-            self.device.clone(),
-            self.queue.clone(),
+            self.wgpu.instance.clone(),
+            self.wgpu.device.clone(),
+            self.wgpu.queue.clone(),
         );
         callback(api)
     }
@@ -335,7 +475,7 @@ impl crate::Surface for WGPUSurface {
         canvas: &skia_safe::Canvas,
         any_wgpu_texture: &i_slint_core::graphics::WGPUTexture,
     ) -> Option<skia_safe::Image> {
-        let texture = match any_wgpu_texture {
+        let texture: wgpu_30::Texture = match any_wgpu_texture {
             #[cfg(feature = "unstable-wgpu-29")]
             i_slint_core::graphics::WGPUTexture::WGPU29Texture(..) => return None,
             #[cfg(feature = "unstable-wgpu-30")]
@@ -364,10 +504,14 @@ impl crate::Surface for WGPUSurface {
                     return Ok(());
                 };
                 surface_config.alpha_mode = mode;
-                surface.configure(&self.device, surface_config);
+                surface.configure(&self.wgpu.device, surface_config);
             }
         }
         Ok(())
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
     }
 }
 
@@ -522,6 +666,7 @@ impl Backend {
         }
     }
 
+    #[cfg_attr(not(feature = "unstable-wgpu-30"), allow(dead_code))]
     pub(crate) fn import_texture(
         &self,
         canvas: &skia_safe::Canvas,

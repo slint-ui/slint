@@ -20,8 +20,12 @@ path = "lib.rs"
 backend-winit = ["backend-winit-x11", "backend-winit-wayland"]
 backend-winit-x11 = ["i-slint-backend-winit/x11"]
 backend-winit-wayland = ["i-slint-backend-winit/wayland"]
-backend-linuxkms = ["i-slint-backend-linuxkms/libseat"]
-backend-linuxkms-noseat = ["i-slint-backend-linuxkms"]
+# Base LinuxKMS backend: DRM/KMS output only, no seat management and no input.
+backend-linuxkms = ["i-slint-backend-linuxkms"]
+backend-linuxkms-libseat = ["backend-linuxkms", "i-slint-backend-linuxkms/libseat"]
+backend-linuxkms-libinput = ["backend-linuxkms", "i-slint-backend-linuxkms/libinput"]
+# Pre-1.18 spelling of "input, but no libseat".
+backend-linuxkms-noseat = ["backend-linuxkms-libinput"]
 backend-qt = ["i-slint-backend-qt/enable"]
 backend-testing = ["i-slint-backend-testing/internal"]
 
@@ -56,6 +60,7 @@ renderer-software = [
   "i-slint-backend-linuxkms?/renderer-software",
   "i-slint-backend-testing?/renderer-software",
 ]
+renderer-vello = ["i-slint-backend-winit?/renderer-vello", "i-slint-backend-linuxkms?/renderer-vello"]
 
 rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
 accessibility = ["i-slint-backend-winit?/accessibility"]
@@ -82,7 +87,7 @@ unstable-wgpu-30 = [
 
 unstable-winit-030 = ["i-slint-backend-winit"]
 
-unstable-libinput-09 = ["dep:input"]
+unstable-libinput-09 = ["dep:input", "i-slint-backend-linuxkms?/libinput"]
 
 backend-android-activity = ["dep:i-slint-backend-android-activity"]
 

@@ -6,20 +6,18 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from inspector_interactions import FIELDS
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    file_row,
     first_window,
     launch_editor,
+    press_key,
     select_outline_row,
     wait_until,
     window_element_with_label,
 )
-
-
-def press_key(window: slint_testing.Window, key: str) -> None:
-    window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
-    window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
 
 
 def stage_field_text(
@@ -102,20 +100,17 @@ def test_imported_file_edit_targets_only_nested_source(
 
     with launch_editor(editor_binary, editor_environment, main_file) as editor:
         window = first_window(editor)
-        main_row = window_element_with_label(
-            window, str(main_file), slint_testing.AccessibleRole.ListItem
-        )
         wait_until(
-            lambda: current if (current := main_row).accessible_item_selected else None,
+            lambda: (
+                current
+                if (current := file_row(window, main_file)).accessible_item_selected
+                else None
+            ),
             timeout=15,
         )
         components = fixture_project / "components"
-        window_element_with_label(
-            window, str(components), slint_testing.AccessibleRole.ListItem
-        ).invoke_accessible_default_action()
-        window_element_with_label(
-            window, str(nested_file), slint_testing.AccessibleRole.ListItem
-        ).invoke_accessible_default_action()
+        file_row(window, components).invoke_accessible_default_action()
+        file_row(window, nested_file).invoke_accessible_default_action()
         window_element_with_label(
             window, "nested-text", slint_testing.AccessibleRole.ListItem, timeout=15
         ).invoke_accessible_default_action()
@@ -148,7 +143,7 @@ def test_stale_selection_commit_is_rejected(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_outline_row(window, "inspect-rectangle")
-        stage_field_text(window, "Position X", "99")
+        stage_field_text(window, FIELDS["x"], "99")
         snapshot.assert_unchanged_now()
         select_outline_row(window, "inspect-text")
         wait_until(
@@ -156,7 +151,7 @@ def test_stale_selection_commit_is_rejected(
                 field
                 if (
                     field := window_element_with_label(
-                        window, "Position X", slint_testing.AccessibleRole.TextInput
+                        window, FIELDS["x"], slint_testing.AccessibleRole.TextInput
                     )
                 ).accessible_value
                 == "224"
@@ -168,10 +163,23 @@ def test_stale_selection_commit_is_rejected(
         snapshot.assert_unchanged()
 
 
+@pytest.mark.parametrize(
+    ("label", "property_name", "original", "updated"),
+    [
+        (FIELDS["x"], "x", "32", "36"),
+        (FIELDS["y"], "y", "32", "40"),
+        (FIELDS["width"], "width", "160", "180"),
+        (FIELDS["height"], "height", "96", "120"),
+    ],
+)
 def test_stale_revision_commit_is_rejected(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
+    label: str,
+    property_name: str,
+    original: str,
+    updated: str,
 ) -> None:
     source_file = fixture_project / "InspectorCases.slint"
     baseline = source_file.read_bytes()
@@ -180,26 +188,32 @@ def test_stale_revision_commit_is_rejected(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_outline_row(window, "inspect-rectangle")
-        stage_field_text(window, "Position X", "99")
+        stage_field_text(window, label, "99")
         snapshot.assert_unchanged_now()
-        external = baseline.replace(b"        x: 32px;", b"        x: 36px;", 1)
+        external = baseline.replace(
+            f"        {property_name}: {original}px;".encode(),
+            f"        {property_name}: {updated}px;".encode(),
+            1,
+        )
+        assert external != baseline
         source_file.write_bytes(external)
         snapshot.wait_for_exact(external, relative_path="InspectorCases.slint")
+        snapshot = SourceSnapshot.capture(fixture_project)
         wait_until(
             lambda: (
                 field
                 if (
                     field := window_element_with_label(
-                        window, "Position X", slint_testing.AccessibleRole.TextInput
+                        window, label, slint_testing.AccessibleRole.TextInput
                     )
                 ).accessible_value
-                == "36"
+                == updated
                 else None
             ),
             timeout=15,
         )
         press_key(window, keys.Return)
-        SourceSnapshot.capture(fixture_project).assert_unchanged()
+        snapshot.assert_unchanged()
 
 
 @pytest.mark.skip(reason="Requires a Rust source-watcher recovery fix")

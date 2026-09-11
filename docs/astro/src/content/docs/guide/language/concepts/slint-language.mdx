@@ -204,7 +204,7 @@ slow or costly to evolve the application.
 
 Slint provides a declarative language to describe an application's user interface
 
-```slint showLineNumbers=true no-test
+```slint showLineNumbers=true
 Rectangle {
     Button {
         text: "Click me!";

@@ -5,16 +5,23 @@
 // parentheses to override precedence.
 
 export component TestCase inherits Window {
+//#c                               ^-
     in property <bool> a;
     in property <bool> b;
     //#sls.op.logical
     out property <bool> both: a && b;
+//#c                          ^+^++
     out property <bool> either: a || b;
+//#c                            ^+^++
     //#sls.op.not
     out property <bool> not_a: !a;
+//#c                           ^+
     out property <bool> neither: !a && !b;
+//#c                             ^+ ^++
     out property <bool> not_both: !(a && b);
+//#c                              ^+  ^++
     out property <bool> grouped: (a || b) && !(a && b);
+//#c                             ^+ ^++   ^++    ^++
 }
 
 /*

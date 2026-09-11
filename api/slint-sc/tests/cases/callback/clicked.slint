@@ -2,27 +2,38 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
 
 export component TestCase inherits Window {
+//#c                               ^+
     //#sls.callback.def
     //#sls.callback.decl.form
     callback alarm-acknowledged;
     in-out property <color> alarm-color: #802020;
+//#c                                     ^+
     background: #202020;
+//#c            ^+
     Rectangle {
+//#c^+
         x: 8px;
+//#c       ^+
         y: 8px;
+//#c       ^+
         width: 48px;
+//#c           ^+
         height: 24px;
+//#c            ^+
         background: root.alarm-color;
+//#c                ^+
         // No geometry of its own, so it covers the rectangle
         //#sls.ref.toucharea.size
         //#sls.ref.toucharea.members
         TouchArea {
+//#c    ^+
             //#sls.callback.handler.form
             //#sls.callback.handler.target
             //#sls.ref.toucharea.clicked
             //#sls.ref.toucharea.clicked.input
             //#sls.callback.call.form
             clicked => { root.alarm-acknowledged(); }
+//#c        ^+                ^+
         }
     }
 }

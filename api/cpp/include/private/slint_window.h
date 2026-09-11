@@ -706,9 +706,12 @@ public:
         return cbindgen_private::slint_windowrc_has_active_animations(&inner.handle());
     }
 
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
     /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
     ///
     /// Note that this function may be slow to call as it may need to re-render the scene.
+    ///
+    /// This function is not available in freestanding environments.
     std::optional<SharedPixelBuffer<Rgba8Pixel>> take_snapshot() const
     {
         SharedPixelBuffer<Rgba8Pixel> result;
@@ -719,6 +722,7 @@ public:
             return {};
         }
     }
+#endif
 
 #if (!defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)                                   \
      && !defined(SLINT_FEATURE_FREESTANDING))                                                      \

@@ -34,13 +34,17 @@ backend-qt = ["i-slint-backend-selector/backend-qt", "std"]
 backend-winit = ["i-slint-backend-selector/backend-winit", "std"]
 backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
+# The LinuxKMS backend's capabilities are selected individually. `-libseat` and
+# `-libinput` each enable the backend and compose, so this is not a prerequisite.
 backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
-backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
+backend-linuxkms-libseat = ["i-slint-backend-selector/backend-linuxkms-libseat", "std"]
+backend-linuxkms-libinput = ["i-slint-backend-selector/backend-linuxkms-libinput", "std"]
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
 renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu"]
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "i-slint-renderer-skia", "raw-window-handle"]
 renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "renderer-skia"]
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "renderer-skia"]
+renderer-vello = ["i-slint-backend-selector/renderer-vello"]
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 software-renderer-path = ["i-slint-renderer-software/path"]
 gettext = ["i-slint-core/gettext-rs"]
@@ -77,8 +81,8 @@ slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], option
 i-slint-live-preview = { workspace = true, optional = true, features = ["ffi"] }
 raw-window-handle = { version = "0.6", optional = true }
 
-esp-backtrace = { version = "0.19.0", features = ["panic-handler", "println"], optional = true }
-esp-println = { version = "0.17.0", default-features = false, features = ["auto", "log-04"], optional = true }
+esp-backtrace = { version = "0.20.0", features = ["panic-handler", "println"], optional = true }
+esp-println = { version = "0.18.0", default-features = false, features = ["auto", "log-04"], optional = true }
 unicode-segmentation = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]

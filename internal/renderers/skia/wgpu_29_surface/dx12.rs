@@ -20,28 +20,26 @@ unsafe fn wrap_dx12_texture(
     color_type: skia_safe::ColorType,
     color_space: skia_safe::ColorSpace,
 ) -> Option<skia_safe::Surface> {
-    unsafe {
-        let texture_info = skia_safe::gpu::d3d::TextureResourceInfo {
-            resource,
-            alloc: None,
-            resource_state: D3D12_RESOURCE_STATE_PRESENT,
-            format: dxgi_format,
-            sample_count: 1,
-            level_count: 1,
-            sample_quality_pattern: DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN,
-            protected: skia_safe::gpu::Protected::No,
-        };
-        let backend_render_target =
-            skia_safe::gpu::BackendRenderTarget::new_d3d((width, height), &texture_info);
-        skia_safe::gpu::surfaces::wrap_backend_render_target(
-            gr_context,
-            &backend_render_target,
-            skia_safe::gpu::SurfaceOrigin::TopLeft,
-            color_type,
-            color_space,
-            None,
-        )
-    }
+    let texture_info = skia_safe::gpu::d3d::TextureResourceInfo {
+        resource,
+        alloc: None,
+        resource_state: D3D12_RESOURCE_STATE_PRESENT,
+        format: dxgi_format,
+        sample_count: 1,
+        level_count: 1,
+        sample_quality_pattern: DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN,
+        protected: skia_safe::gpu::Protected::No,
+    };
+    let backend_render_target =
+        skia_safe::gpu::backend_render_targets::make_d3d((width, height), &texture_info);
+    skia_safe::gpu::surfaces::wrap_backend_render_target(
+        gr_context,
+        &backend_render_target,
+        skia_safe::gpu::SurfaceOrigin::TopLeft,
+        color_type,
+        color_space,
+        None,
+    )
 }
 
 /// # Safety
@@ -83,6 +81,7 @@ pub unsafe fn make_dx12_surface(
     }
 }
 
+#[cfg_attr(not(feature = "unstable-wgpu-29"), allow(dead_code))]
 #[allow(non_snake_case)]
 pub unsafe fn import_dx12_texture(
     canvas: &skia_safe::Canvas,
@@ -117,9 +116,10 @@ pub unsafe fn import_dx12_texture(
         };
         let size = texture.size();
 
-        let backend_texture = skia_safe::gpu::BackendTexture::new_d3d(
+        let backend_texture = skia_safe::gpu::backend_textures::make_d3d(
             (size.width as i32, size.height as i32),
             &texture_info,
+            "slint_imported_wgpu_texture",
         );
 
         Some(
@@ -172,5 +172,5 @@ pub unsafe fn make_dx12_context(
         })
     };
 
-    skia_safe::gpu::DirectContext::new_d3d(&backend.unwrap(), None)
+    unsafe { skia_safe::gpu::direct_contexts::make_d3d(&backend.unwrap(), None) }
 }

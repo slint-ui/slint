@@ -1152,6 +1152,7 @@ impl GridLayout {
                             lhs: Box::new(base.clone()),
                             rhs: Box::new(model_idx),
                             op: '+',
+                            source_location: None,
                         }
                     } else {
                         model_idx
@@ -1203,6 +1204,7 @@ impl GridLayout {
                             condition: Box::new(model_expr),
                             true_expr: Box::new(Expression::NumberLiteral(1., Unit::None)),
                             false_expr: Box::new(Expression::NumberLiteral(0., Unit::None)),
+                            source_location: None,
                         }
                     } else {
                         Expression::FunctionCall {
@@ -1216,6 +1218,7 @@ impl GridLayout {
                             lhs: Box::new(prev),
                             rhs: Box::new(len_expr),
                             op: '+',
+                            source_location: None,
                         }
                     } else {
                         len_expr
@@ -1227,6 +1230,7 @@ impl GridLayout {
                             lhs: Box::new(prev),
                             rhs: Box::new(Expression::NumberLiteral(1., Unit::None)),
                             op: '+',
+                            source_location: None,
                         }
                     } else {
                         Expression::NumberLiteral(1., Unit::None)
@@ -1509,7 +1513,12 @@ fn single_cell_box_layout(layout: &BoxLayout) -> Option<SingleCellBoxLayout> {
 }
 
 fn bin(op: char, lhs: Expression, rhs: Expression) -> Expression {
-    Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
+    Expression::BinaryExpression {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+        op,
+        source_location: None,
+    }
 }
 
 fn min_max(op: MinMaxOp, lhs: Expression, rhs: Expression) -> Expression {
@@ -1731,11 +1740,26 @@ fn clamp_cross_stretch_size(
     size_expr
 }
 
+/// `auto` is the unset default of `cross-axis-alignment` and only valid for
+/// `cross-axis-self-alignment`; setting it explicitly is an error.
+fn check_cross_axis_alignment_not_auto(elem: &ElementRc, diag: &mut BuildDiagnostics) {
+    if let Some(b) = elem.borrow().binding("cross-axis-alignment")
+        && let Expression::EnumerationValue(ev) = b.value_expression()
+        && ev.to_string() == "auto"
+    {
+        diag.push_error(
+            "cross-axis-alignment cannot be set to 'auto', which is only valid for cross-axis-self-alignment; the default is 'stretch'".into(),
+            &*b,
+        );
+    }
+}
+
 fn lower_box_layout(
     layout_element: &ElementRc,
     diag: &mut BuildDiagnostics,
     orientation: Orientation,
 ) {
+    check_cross_axis_alignment_not_auto(layout_element, diag);
     let mut layout = BoxLayout {
         orientation,
         elems: Default::default(),
@@ -1900,6 +1924,7 @@ fn lower_box_layout(
 }
 
 fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics) {
+    check_cross_axis_alignment_not_auto(layout_element, diag);
     let direction = crate::layout::binding_reference(layout_element, "flex-direction");
     let cross_axis_line_alignment =
         crate::layout::binding_reference(layout_element, "cross-axis-line-alignment");
@@ -2157,7 +2182,7 @@ fn lower_dialog_layout(
                                         pure: None,
                                         shadowed_name: None,
                                         shadowable: false,
-                                        moved_to_root: false,
+                                        moved_from: None,
                                         deprecated: None,
                                     });
                             }

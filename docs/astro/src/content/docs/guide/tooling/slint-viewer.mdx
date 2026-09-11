@@ -129,6 +129,8 @@ By default it listens on an automatically assigned port on all network interface
 Pass `--remote-address <address>` to choose a specific address and port.
 
 To connect, open the live preview of a `.slint` file in your editor, then pick **Remote** from the combobox in the top-right corner of the preview and enter the address the viewer shows.
+The viewer then displays a four-digit code; type it into the editor to confirm the connection.
+It only asks once per viewer run, so reconnecting later doesn't interrupt you.
 The editor compiles the `.slint` file and sends the result to the remote viewer, reloading it as you edit, while debug output from the previewed UI is sent back to the editor.
 
 `--remote` doesn't take a file path, and can't be combined with `--screenshot` or `--check`.
@@ -147,6 +149,8 @@ Run `slint-viewer --help` for the authoritative, always-current list. The common
 | `--check` | Compile the file, print diagnostics, and exit without opening a window. Incompatible with the options above. |
 | `--remote` | Start in remote mode and wait for the editor to connect. See [Remote Viewer](#remote-viewer). |
 | `--remote-address <address>` | Address and port to listen on in remote mode. Defaults to an auto-assigned port on all interfaces. |
+| `--pairing-code <code>` | Always require this four-digit pairing code instead of showing a generated one, for devices with no usable display. |
+| `--no-pairing` | Accept any connection without pairing or encryption. Only for networks you control; the editor warns before each connection to such a viewer. |
 | `--component <name>` | Load the component with this name. Defaults to the last exported component. |
 | `--style <style>` | Set the widget style. Defaults to `fluent`. |
 | `--backend <backend>` | Override the Slint rendering <Link type="backends_and_renderers" label="backend"/>. |

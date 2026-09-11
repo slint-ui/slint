@@ -300,7 +300,7 @@ export component DatePickerBase {
     property <[int]> today: SlintInternal.date_now();
     property <int> start-column: SlintInternal.month_offset(root.display-date.month, root.display-date.year);
     property <string> current-month: SlintInternal.format_date("%B %Y", root.display-date.day, root.display-date.month, root.display-date.year);
-    property <[int]> year-model: [2024, 2025, 2026, 2027, 2028, 2029, 2031, 2032, 2033, 2034, 2035, 2036, 2037, 2038, 2039, 2040, 2041, 2042, 2043];
+    property <[int]> year-model: [2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035, 2036, 2037, 2038, 2039, 2040, 2041, 2042, 2043];
     property <int> selected-year: root.display-date.year;
     property <int> today-year: root.today[2];
     property <string> current-day: SlintInternal.format_date("%a, %b %d", root.current-date.day, root.current-date.month, root.current-date.year);

@@ -8,11 +8,25 @@ export enum CanvasCorner {
     bottom-left,
 }
 
-export enum PaletteComponentKind {
+export enum ElementKind {
     none,
+    component,
     rectangle,
     text,
     image,
+    touch-area,
+}
+
+/// A palette item whose kind selects its icon and drag payload.
+export struct ElementLibraryEntry {
+    label: string,
+    kind: ElementKind,
+}
+
+/// A named palette group with entries sorted by label.
+export struct ElementLibraryGroup {
+    label: string,
+    entries: [ElementLibraryEntry],
 }
 
 // cSpell: ignore dataonly
@@ -66,6 +80,12 @@ export struct RemoteViewerInfo {
 export enum RemoteConnectionState {
     Disconnected,
     Connecting,
+    /// The viewer is showing a pairing code and is waiting for it to be
+    /// typed in here.
+    PairingRequired,
+    /// The viewer has pairing disabled; waiting for the user to accept the
+    /// unencrypted connection or cancel.
+    UnpairedWarning,
     Connected,
     Failed,
 }
@@ -107,6 +127,25 @@ export struct SelectionRectangle {
     width: length,
     height: length,
     angle: angle,
+    // False when the element renders as a parallelogram, which these fields cannot describe.
+    // Editing its geometry is refused, so don't offer it.
+    describes-element: bool,
+}
+
+/// The topmost selectable element under a canvas position.
+export struct HoveredElement {
+    valid: bool,
+    is-selected: bool,
+    is-over-selected-element: bool,
+    element-path: string,
+    element-offset: int,
+    type-name: string,
+    geometry: [SelectionRectangle],
+}
+
+export global Hover {
+    in-out property <HoveredElement> element;
+    pure callback element-at(x: length, y: length, enter-component: bool) -> HoveredElement;
 }
 
 /// A `Selection`
@@ -191,9 +230,23 @@ export struct GradientStop {
     color: color,
 }
 
+export struct FillData {
+    kind: BrushKind,
+    color: color,
+    stops: [GradientStop],
+    angle: float,
+    custom-center: bool,
+    center-x: float,
+    center-y: float,
+    custom-radius: bool,
+    radius: float,
+}
+
 /// Data about the property value for use in "simple" mode
 export struct PropertyValue {
     display-string: string, // ALWAYS, its a string description of what is there
+    fill: FillData,
+    value-resolved: bool, // Whether value-brush/value-* came from a successful evaluation
     value-bool: bool, // boolean
     is-translatable: bool, // string
     kind: PropertyValueKind, // Defines what to display this as
@@ -305,12 +358,7 @@ export struct LogMessage {
     level: LogMessageLevel,
 }
 
-export enum OutlineNodeIconKind {
-    default,
-    rectangle,
-    image,
-    text,
-}
+
 
 /// A node in the outline tree
 export struct OutlineTreeNode {
@@ -318,7 +366,7 @@ export struct OutlineTreeNode {
     has-children: bool,
     is-expanded: bool,
     is-last-child: bool,
-    icon-kind: OutlineNodeIconKind,
+    icon-kind: ElementKind,
     element-type: string,
     element-id: string,
     uri: string,
@@ -398,6 +446,12 @@ export global Api {
     in-out property <[LogMessage]> log-output;
     in-out property <bool> auto-clear-console: true;
 
+    // ## Element library
+    in property <[ElementLibraryGroup]> element-library;
+    pure callback element-library-has-matches(groups: [ElementLibraryGroup], query: string) -> bool;
+    pure callback element-library-normalize-query(query: string) -> string;
+    pure callback element-library-filter-entries(entries: [ElementLibraryEntry], query: string) -> [ElementLibraryEntry];
+
     // ## Drawing Area
     // Borders around things
     pure callback highlight-positions(source-uri: string, offset: int) -> [SelectionRectangle];
@@ -406,7 +460,7 @@ export global Api {
     // The actual preview
     in-out property <component-factory> preview-area;
 
-    pure callback new-component-data-for-kind(kind: PaletteComponentKind) -> data-transfer;
+    pure callback new-component-data-for-kind(kind: ElementKind) -> data-transfer;
     pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
 
     // set to true to resize
@@ -414,7 +468,7 @@ export global Api {
 
     // ## Palette data:
     in-out property <[PaletteEntry]> palettes;
-    in-out property <[color]> recent-colors;
+    in-out property <[FillData]> recent-fills;
 
     // ## Property Editor
     in-out property <ElementInformation> current-element;
@@ -660,6 +714,16 @@ export global Api {
     callback show-preview-for(name: string, url: string);
     callback reload-preview();
 
+    in property <int> inspector-generation;
+    in property <int> inspector-fill-generation;
+    in property <bool> inspector-fill-refresh-pending;
+    pure callback inspector-values(key: string) -> [float];
+    callback inspector-preview(key: string, name: string, value: float) -> bool;
+    callback inspector-commit(key: string, name: string, value: float) -> bool;
+    callback inspector-cancel();
+    callback inspector-fill-preview(key: string, name: string, value: FillData) -> bool;
+    callback inspector-fill-commit(key: string, name: string, value: FillData) -> bool;
+
     // ## Property Editor
     pure callback test-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
     pure callback set-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string);
@@ -668,7 +732,9 @@ export global Api {
 
     pure callback string-to-code(value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> string;
 
-    pure callback as-slint-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> string;
+    pure callback fill-brush(value: FillData) -> brush;
+    pure callback fill-expression(value: FillData) -> string;
+
 
     // ## preview data
     pure callback get-property-value(component: string, name: string) -> PropertyValue;
@@ -680,14 +746,14 @@ export global Api {
 
     pure callback set-json-preview-data(component: string, name: string, json-value: string, send-telemetry: bool) -> string;
 
-    pure callback as-json-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> string;
 
+    pure callback sample-fill-stop(fill: FillData, position: float) -> GradientStop;
+    pure callback nearest-gradient-stop(stops: [GradientStop], position: float) -> int;
+    pure callback gradient-stop-gap(stops: [GradientStop]) -> float;
     pure callback add-gradient-stop(stops: [GradientStop], value: GradientStop) -> int;
     pure callback remove-gradient-stop(stops: [GradientStop], row: int);
     // returns the new index of the gradient stop in the sorted list of GradientStops
     pure callback move-gradient-stop(stops: [GradientStop], row: int, new_position: float) -> int;
-    pure callback suggest-gradient-stop-at-row(stops: [GradientStop], row: int) -> GradientStop;
-    pure callback suggest-gradient-stop-at-position(stops: [GradientStop], position: float) -> GradientStop;
     pure callback clone-gradient-stops(stops: [GradientStop]) -> [GradientStop];
 
     pure callback create-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> brush;
@@ -697,7 +763,8 @@ export global Api {
 
     // Palettes:
     pure callback filter-palettes(palettes: [PaletteEntry], pattern: string) -> [PaletteEntry];
-    callback add-recent-color(color);
+    callback add-recent-fill(FillData);
+    pure callback filter-recent-fills(fills: [FillData], allow-gradient: bool) -> [FillData];
     pure callback is-css-color(code: string) -> bool;
 
     // ## Console / LogMessages
@@ -721,6 +788,12 @@ export global Api {
     callback remote-connect(addresses: [string], port: int);
     callback remote-connect-manual(host-port: string);
     callback remote-disconnect();
+    callback remote-submit-pairing-code(code: string);
+    callback remote-cancel-pairing();
+    /// Connect to the pairing-disabled viewer the warning is about.
+    callback remote-accept-unpaired();
+    /// Digits in a pairing code, from `pairing::CODE_DIGITS`.
+    in-out property <int> remote-pairing-code-length;
 
     // ## SlintPad related APIs
     in-out property <bool> runs-in-slintpad;

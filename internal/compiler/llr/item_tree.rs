@@ -777,6 +777,12 @@ pub struct CompilationUnit {
     pub translations: Option<crate::translations::Translations>,
 }
 
+// The code generators may run on another thread, so the LLR must not reference the object tree.
+const _: () = {
+    const fn assert_send<T: Send>() {}
+    assert_send::<CompilationUnit>();
+};
+
 impl CompilationUnit {
     pub fn needs_window_adapter(&self) -> bool {
         self.public_components.iter().any(|p| p.top_level_type == TopLevelComponentType::Window)

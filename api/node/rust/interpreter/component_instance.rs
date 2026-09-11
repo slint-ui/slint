@@ -80,7 +80,10 @@ impl JsComponentInstance {
             } else if let Ok(value) = super::to_value(&env, result, &return_type, &owner) {
                 value
             } else {
-                eprintln!("Node.js: cannot convert return type of callback {callback_name}");
+                crate::console_err!(
+                    env,
+                    "Node.js: cannot convert return type of callback {callback_name}"
+                );
                 slint_interpreter::default_value_for_type(&return_type)
             }
         }

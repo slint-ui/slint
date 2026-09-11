@@ -218,7 +218,7 @@ def test_model_reassignment_after_drop() -> None:
     assert instance.get_property("test-value").row_count() == 3
 
     # Mutations must still reach the views attached to the fresh model.
-    model.append(4)
+    model.push_row(4)
     assert instance.get_property("test-value").row_count() == 4
 
 

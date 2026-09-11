@@ -1,0 +1,57 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Same shape as flexbox_runtime_direction_in_component.slint, but the
+// runtime-direction flex is wrapped in a plain element of the same component
+// instead of a sub-component. `wf` is not the component root, so
+// `move_declarations` hoists its synthesized `layoutinfo-h-with-constraint`
+// onto the root under a renamed private name. Measuring the cell must then use
+// the reference as it stands: re-anchoring it on `wf` would look the renamed
+// name up on a Rectangle, which has no such function.
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+    in property <bool> horizontal: true;
+
+    HorizontalLayout {
+        Rectangle { width: 40px; }
+        VerticalLayout {
+            alignment: start;
+            // Required: the repeated sibling makes the VerticalLayout measure
+            // the cell instead of just forwarding its layout info.
+            if false: Rectangle { }
+            wf := Rectangle {
+                FlexboxLayout {
+                    flex-direction: horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+                    flex-wrap: wrap;
+
+                    Rectangle { min-width: 60px; preferred-width: 60px; min-height: 20px; preferred-height: 20px; }
+                    Rectangle { min-width: 60px; preferred-width: 60px; min-height: 20px; preferred-height: 20px; }
+                    Rectangle { min-width: 60px; preferred-width: 60px; min-height: 20px; preferred-height: 20px; }
+                }
+            }
+        }
+    }
+
+    // The 40px sidebar leaves 160px, so two 60px items fit per line and the
+    // three items wrap onto two lines of 20px.
+    out property <bool> test: wf.width == 160px && wf.height == 40px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

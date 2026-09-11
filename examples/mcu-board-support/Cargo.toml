@@ -120,7 +120,7 @@ esp32-s3-box-3 = [
   "dep:static_cell",
   "embedded-hal",
   "embedded-hal-bus",
-  "esp-alloc",
+  "esp-alloc/esp32s3",
   "esp-println/esp32s3",
   "esp-backtrace/esp32s3",
   "dep:mipidsi",
@@ -135,13 +135,14 @@ esp32-s3-lcd-ev-board = [
   "esp-hal/unstable",               # required for PSRAM support
   "embedded-hal",
   "embedded-hal-bus",
-  "esp-alloc",
+  "esp-alloc/esp32s3",
   "esp-println/esp32s3",
   "esp-backtrace/esp32s3",
   "dep:mipidsi",
   "embedded-graphics-core",
   "slint/libm",
   "dep:embedded-graphics-framebuf",
+  "esp-bootloader-esp-idf/esp32s3",
 ]
 esope-sld-c-w-s3 = [
   "slint/unsafe-single-threaded",
@@ -149,7 +150,7 @@ esope-sld-c-w-s3 = [
   "esp-hal/unstable",               # required for PSRAM support
   "embedded-hal",
   "embedded-hal-bus",
-  "esp-alloc",
+  "esp-alloc/esp32s3",
   "esp-println/esp32s3",
   "esp-backtrace/esp32s3",
   "dep:mipidsi",
@@ -171,7 +172,7 @@ waveshare-esp32-s3-touch-amoled-1-8 = [
   "esp-hal/unstable",               # required for PSRAM support
   "embedded-hal",
   "embedded-hal-bus",
-  "esp-alloc",
+  "esp-alloc/esp32s3",
   "esp-println/esp32s3",
   "esp-backtrace/esp32s3",
   "dep:mipidsi",
@@ -182,6 +183,7 @@ waveshare-esp32-s3-touch-amoled-1-8 = [
   "dep:embedded-graphics-framebuf",
   "dep:sh8601-rs",
   "dep:ft3x68-rs",
+  "esp-bootloader-esp-idf/esp32s3",
 ]
 m5stack-cores3 = [
   "slint/unsafe-single-threaded",
@@ -189,7 +191,7 @@ m5stack-cores3 = [
   "esp-hal/unstable",               # required for PSRAM support
   "embedded-hal",
   "embedded-hal-bus",
-  "esp-alloc",
+  "esp-alloc/esp32s3",
   "esp-println/esp32s3",
   "esp-backtrace/esp32s3",
   "dep:mipidsi",
@@ -266,7 +268,11 @@ embedded-time = { version = "0.12.0", optional = true }
 embedded-display-controller = { version = "0.2.0", optional = true }
 ft5336 = { version = "0.2", optional = true }
 
-esp-hal = { version = "1.1.1", optional = true }
+# The whole esp stack is held on the esp-hal 1.1 release line: sh8601-rs (Waveshare AMOLED)
+# activates esp-hal 1.1-line crates and blocks moving to esp-hal 1.2 / esp-sync 0.3.
+# The tilde pin keeps esp-hal from floating to 1.2, which drags in a second esp-sync
+# that fails to build. Move everything to the 1.2 line together once sh8601-rs updates.
+esp-hal = { version = "~1.1.1", optional = true }
 esp-alloc = { version = "0.10.0", optional = true }
 esp-println = { version = "0.17.0", default-features = false, features = ["auto", "log-04"], optional = true }
 esp-backtrace = { version = "0.19.0", optional = true, features = ["esp32s3", "println"] }
@@ -292,7 +298,7 @@ embassy-sync = { version = "0.8.0", optional = true }
 esp-rtos = { version = "0.3.0", optional = true, features = ["esp32s3", "embassy"] }
 gt911 = { version = "0.3.0", optional = true }
 sitronix-touch = { version = "0.0.1", optional = true }
-sh8601-rs = { version = "0.1.6", features = ["waveshare_18_amoled"], optional = true }
+sh8601-rs = { version = "0.1.8", features = ["waveshare_18_amoled"], optional = true }
 ft3x68-rs = { version = "0.1.2", optional = true }
 
 rand_core = { version = "0.6.3", optional = true }

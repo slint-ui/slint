@@ -115,11 +115,12 @@ export component SliderBase {
     }
 
     public function set-value(value: float) {
-        if (root.value == value) {
+        let clamped = max(root.minimum, min(root.maximum, value));
+        if (root.value == clamped) {
             return;
         }
 
-        root.value = max(root.minimum, min(root.maximum, value));
+        root.value = clamped;
         root.changed(root.value);
     }
 

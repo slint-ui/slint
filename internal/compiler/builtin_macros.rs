@@ -42,6 +42,7 @@ pub fn lower_macro(
             }
             Expression::Condition {
                 condition: Expression::BinaryExpression {
+                    source_location: None,
                     lhs: x.maybe_convert_to(Type::Float32, &arg_node, diag, symbol_counters).into(),
                     rhs: Expression::NumberLiteral(0., Unit::None).into(),
                     op: '<',
@@ -49,6 +50,7 @@ pub fn lower_macro(
                 .into(),
                 true_expr: Expression::NumberLiteral(-1., Unit::None).into(),
                 false_expr: Expression::NumberLiteral(1., Unit::None).into(),
+                source_location: None,
             }
         }
         BuiltinMacroFunction::Debug => debug_macro(n, sub_expr.collect(), diag, symbol_counters),
@@ -146,70 +148,35 @@ pub fn lower_macro(
 
             expr
         }
-        BuiltinMacroFunction::Spring => {
-            let mut has_error = None;
-            let mut bounce_node = None;
-            let expected_argument_type_error = "Arguments to spring curve must be number literal";
-            let mut a = || match sub_expr.next() {
-                None => 0.,
-                Some((Expression::NumberLiteral(val, Unit::None), n)) => {
-                    bounce_node = n;
-                    val as f32
-                }
-                // handle negative numbers
-                Some((Expression::UnaryOp { sub, op: '-' }, n)) => match *sub {
-                    Expression::NumberLiteral(val, Unit::None) => {
-                        bounce_node = n;
-                        -val as f32
-                    }
-                    _ => {
-                        has_error
-                            .get_or_insert((n.to_source_location(), expected_argument_type_error));
-                        0.
-                    }
-                },
-                // handle positive numbers
-                Some((Expression::UnaryOp { sub, op: '+' }, n)) => match *sub {
-                    Expression::NumberLiteral(val, Unit::None) => {
-                        bounce_node = n;
-                        val as f32
-                    }
-                    _ => {
-                        has_error
-                            .get_or_insert((n.to_source_location(), expected_argument_type_error));
-                        0.
-                    }
-                },
-                Some((_, n)) => {
-                    has_error.get_or_insert((n.to_source_location(), expected_argument_type_error));
-                    0.
-                }
-            };
-            let bounce = a();
-            let bounce = if !(-1.0..=1.0).contains(&bounce) {
-                let loc = bounce_node
-                    .map(|n| n.to_source_location())
-                    .unwrap_or_else(|| n.to_source_location());
-                has_error.get_or_insert((
-                    loc,
-                    "The bounce argument to spring curve must be between -1 and 1",
-                ));
-                0.
-            } else {
-                bounce
-            };
-            let expr = Expression::EasingCurve(EasingCurve::Spring(bounce));
-            if let Some((_, n)) = sub_expr.next() {
-                has_error
-                    .get_or_insert((n.to_source_location(), "Too many argument for spring curve"));
-            }
-            if let Some((n, msg)) = has_error {
-                diag.push_error(msg.into(), &n);
-            }
-
-            expr
-        }
+        BuiltinMacroFunction::Spring => spring_macro(n, sub_expr.collect(), diag),
     }
+}
+
+fn spring_macro(
+    node: &dyn Spanned,
+    args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    let literal = |e: &Expression| match e {
+        Expression::NumberLiteral(val, Unit::None) => Some(*val),
+        _ => None,
+    };
+    let bounce = match args.as_slice() {
+        [(Expression::UnaryOp { sub, op: '-' }, _)] => literal(sub).map(|v| -v),
+        [(Expression::UnaryOp { sub, op: '+' }, _)] => literal(sub),
+        [(expr, _)] => literal(expr),
+        _ => None,
+    };
+    let Some(mut bounce) = bounce else {
+        diag.push_error("The spring curve needs a single number literal argument".into(), node);
+        return Expression::EasingCurve(EasingCurve::Spring(0.));
+    };
+    if !(-1.0..=1.0).contains(&bounce) {
+        let loc = args[0].1.as_ref().map_or(node, |n| n as &dyn Spanned);
+        diag.push_error("The bounce argument to spring curve must be between -1 and 1".into(), loc);
+        bounce = 0.;
+    }
+    Expression::EasingCurve(EasingCurve::Spring(bounce as f32))
 }
 
 fn min_max_macro(
@@ -382,6 +349,7 @@ fn rgb_macro(
                         )),
                         rhs: Box::new(Expression::NumberLiteral(255., Unit::None)),
                         op: '*',
+                        source_location: None,
                     }
                 } else {
                     expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
@@ -424,6 +392,7 @@ fn hsv_macro(
                     lhs: Box::new(expr),
                     rhs: Box::new(Expression::NumberLiteral(1., Unit::Deg)),
                     op: '/',
+                    source_location: None,
                 }
             } else {
                 expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
@@ -463,6 +432,7 @@ fn oklch_macro(
                     lhs: Box::new(expr),
                     rhs: Box::new(Expression::NumberLiteral(0.004, Unit::None)),
                     op: '*',
+                    source_location: None,
                 }
             // For hue (index 2), convert angle to degrees
             } else if i == 2 && expr.ty() == Type::Angle {
@@ -470,6 +440,7 @@ fn oklch_macro(
                     lhs: Box::new(expr),
                     rhs: Box::new(Expression::NumberLiteral(1., Unit::Deg)),
                     op: '/',
+                    source_location: None,
                 }
             } else {
                 expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
@@ -501,10 +472,12 @@ fn debug_macro(
                 lhs: Box::new(string),
                 op: '+',
                 rhs: Box::new(Expression::BinaryExpression {
+                    source_location: None,
                     lhs: Box::new(Expression::StringLiteral(" ".into())),
                     op: '+',
                     rhs: Box::new(val),
                 }),
+                source_location: None,
             },
         });
     }
@@ -637,6 +610,7 @@ fn array_index_of_macro(
                 ty: element_type,
             }),
             op: '=',
+            source_location: None,
         }),
     };
 
@@ -708,11 +682,13 @@ fn to_debug_string(
             rhs: Box::new(Expression::StringLiteral(
                 Type::UnitProduct(ty.as_unit_product().unwrap()).to_smolstr(),
             )),
+            source_location: None,
         },
         Type::Bool => Expression::Condition {
             condition: Box::new(expr),
             true_expr: Box::new(Expression::StringLiteral("true".into())),
             false_expr: Box::new(Expression::StringLiteral("false".into())),
+            source_location: None,
         },
         Type::Struct(s) => {
             let local_object = symbol_counters.generate_name("debug_struct");
@@ -739,6 +715,7 @@ fn to_debug_string(
                     lhs: Box::new(Expression::StringLiteral(field_name)),
                     op: '+',
                     rhs: Box::new(value),
+                    source_location: None,
                 };
                 string = Some(match string {
                     None => field,
@@ -746,6 +723,7 @@ fn to_debug_string(
                         lhs: Box::new(x),
                         op: '+',
                         rhs: Box::new(field),
+                        source_location: None,
                     },
                 });
             }
@@ -754,6 +732,7 @@ fn to_debug_string(
                 Some(string) => Expression::CodeBlock(vec![
                     Expression::StoreLocalVariable { name: local_object, value: Box::new(expr) },
                     Expression::BinaryExpression {
+                        source_location: None,
                         lhs: Box::new(string),
                         op: '+',
                         rhs: Box::new(Expression::StringLiteral(" }".into())),

@@ -678,7 +678,7 @@ pub(crate) mod ffi {
         keys: &Keys,
         out: &mut crate::SharedVector<SharedString>,
     ) {
-        *out = keys.to_parts().into_iter().collect();
+        *out = keys.to_parts().map(SharedString::from).collect();
     }
 }
 
@@ -859,7 +859,7 @@ impl Keys {
     }
 
     #[i_slint_core_macros::slint_doc]
-    /// Decompose this `Keys` value into the list of string parts that
+    /// Decompose this `Keys` value into the string parts that
     /// [`Keys::from_parts`] accepts.
     ///
     /// See also the Slint documentation on [Key Bindings](slint:KeyBindingOverview).
@@ -870,8 +870,7 @@ impl Keys {
     /// ```
     /// use slint::Keys;
     /// let k = Keys::from_parts(["Control", "Shift?", "Z"])?;
-    /// let parts = k.to_parts();
-    /// let k_from_parts = Keys::from_parts(parts.iter().map(|s| s.as_str()))?;
+    /// let k_from_parts = Keys::from_parts(k.to_parts())?;
     /// assert_eq!(k_from_parts, k);
     /// # Ok::<(), i_slint_core::input::KeysParseError>(())
     /// ```
@@ -885,31 +884,12 @@ impl Keys {
     /// [`runtime_key_bindings`](https://github.com/slint-ui/slint/tree/master/examples/runtime_key_bindings)
     /// example shows one way to persist a user-configured shortcut and restore it.
     ///
-    /// An empty `Keys` (i.e. [`Keys::default()`]) returns an empty `Vec`.
-    pub fn to_parts(&self) -> alloc::vec::Vec<SharedString> {
+    /// An empty `Keys` (i.e. [`Keys::default()`]) returns an empty iterator.
+    pub fn to_parts(&self) -> impl Iterator<Item = &str> {
         let inner = &self.inner;
-        if inner.key.is_empty() {
-            return alloc::vec::Vec::new();
-        }
-
-        let mut parts = alloc::vec::Vec::new();
+        let has_key = !inner.key.is_empty();
         // Order matches the `@keys` macro / Debug impl: Meta, Control, Alt, Shift.
-        if inner.modifiers.meta {
-            parts.push("Meta".into());
-        }
-        if inner.modifiers.control {
-            parts.push("Control".into());
-        }
-        if inner.modifiers.alt {
-            parts.push("Alt".into());
-        } else if inner.ignore_alt {
-            parts.push("Alt?".into());
-        }
-        if inner.modifiers.shift {
-            parts.push("Shift".into());
-        } else if inner.ignore_shift {
-            parts.push("Shift?".into());
-        }
+        //
         // The key itself is always emitted as the stored character, never as the
         // name it may have been created from. Names are not reversed back: a
         // `LocalizedShiftable` name auto-applies `ignore_shift` on re-parse, so
@@ -917,8 +897,17 @@ impl Keys {
         // `["Control", "+"]` (which has `ignore_shift = false`). Emitting the raw
         // character lets `ignore_shift` be carried explicitly by `Shift?`, so
         // `@keys(Control + Plus)` comes back as `["Control", "Shift?", "+"]`.
-        parts.push(inner.key.clone());
-        parts
+        [
+            (has_key && inner.modifiers.meta).then_some("Meta"),
+            (has_key && inner.modifiers.control).then_some("Control"),
+            (has_key && inner.modifiers.alt).then_some("Alt"),
+            (has_key && !inner.modifiers.alt && inner.ignore_alt).then_some("Alt?"),
+            (has_key && inner.modifiers.shift).then_some("Shift"),
+            (has_key && !inner.modifiers.shift && inner.ignore_shift).then_some("Shift?"),
+            has_key.then(|| inner.key.as_str()),
+        ]
+        .into_iter()
+        .flatten()
     }
 
     /// Check whether a `Keys` can be triggered by the given `KeyEvent`
@@ -3303,8 +3292,7 @@ mod tests {
         ];
         for parts in inputs {
             let k = Keys::from_parts(parts.iter().copied()).unwrap();
-            let out = k.to_parts();
-            let out_strs: alloc::vec::Vec<&str> = out.iter().map(|s| s.as_str()).collect();
+            let out_strs: alloc::vec::Vec<&str> = k.to_parts().collect();
             let k2 = Keys::from_parts(out_strs.iter().copied()).unwrap();
             assert_eq!(k, k2, "round-trip mismatch for {parts:?} → {out_strs:?}");
         }
@@ -3347,8 +3335,7 @@ mod tests {
         ];
         for (input, expected) in cases {
             let k = Keys::from_parts(input.iter().copied()).unwrap();
-            let out = k.to_parts();
-            let out_strs: alloc::vec::Vec<&str> = out.iter().map(|s| s.as_str()).collect();
+            let out_strs: alloc::vec::Vec<&str> = k.to_parts().collect();
             assert_eq!(&out_strs.as_slice(), expected, "for input {input:?}");
         }
     }

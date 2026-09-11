@@ -53,3 +53,20 @@ export component FooBar {
         "hello": Rectangle { }
     }
 }
+
+enum Fruit {
+    apple,
+    pear,
+    orange,
+    tomato,
+}
+
+export component TypeBasedLookupOfEnumCases {
+    in property <Fruit> fruit: Fruit.tomato;
+
+    match fruit {
+        apple: Text { text: "unqualified Fruit"; }
+        Fruit.pear: Text { text: "fully qualified Fruit"; }
+        * : { }
+    }
+}

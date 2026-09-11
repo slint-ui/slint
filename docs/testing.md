@@ -48,6 +48,10 @@ All the .slint files in the sub directories will be tested by the drivers with t
 language frontends.
 
 The `.slint` code contains a comment with some block of code which is extracted by the relevant driver.
+Only the interpreter driver evaluates the `test` property by itself.
+The rust, C++ and Node drivers run the `rust`, `cpp` or `js` block in that comment.
+A case without the block still compiles on those drivers, asserts nothing, and the suite reports success.
+Copy the block from a neighboring case.
 
 `tests/run_tests.sh <rust|cpp|interpreter|python|nodejs> [<filter>]` is the convenient entry
 point for all five drivers below and passes `--manifest-path tests/Cargo.toml` for you; the
@@ -77,6 +81,8 @@ export component Foo inherits Rectangle {
    in-out property <bool> test: 1 + 1 == 2;
 }
 ```
+
+For a layout case, see [Writing a layout test case](development/layout-system.md#writing-a-layout-test-case).
 
 ### Rust driver
 

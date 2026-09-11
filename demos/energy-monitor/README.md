@@ -51,7 +51,7 @@ Set `WEATHER_LAT` and `WEATHER_LONG` to change the location (defaults to Berlin)
 ```sh
 cargo install wasm-pack
 cd demos/energy-monitor/
-wasm-pack build --release --target web --no-default-features --features slint/default,chrono
+wasm-pack build --release --target web --no-default-features --features slint/backend-winit,slint/renderer-femtovg,chrono
 python3 -m http.server
 ```
 

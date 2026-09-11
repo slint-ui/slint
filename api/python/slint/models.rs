@@ -241,8 +241,8 @@ impl i_slint_core::model::Model for PyModelShared {
 
             let element_type = self.element_type.borrow().clone();
             let result =
-                obj.call_method1("append", (type_collection.to_py_value(data, element_type),));
-            self.map_result(py, result, "push_row(), named append(),")
+                obj.call_method1("push_row", (type_collection.to_py_value(data, element_type),));
+            self.map_result(py, result, "push_row()")
         })
         .unwrap_or(Err(ModelError::unsupported(self)))
     }

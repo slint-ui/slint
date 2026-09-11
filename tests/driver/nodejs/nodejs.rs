@@ -30,6 +30,8 @@ static NODE_API_JS_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
         .arg("install")
         .arg("--ignore-scripts")
         .arg("--config.confirmModulesPurge=false") // https://github.com/pnpm/pnpm/issues/9973 (and 7727 for the solution)
+        // Prevent the pnpm confirmation prompt for module purge.
+        .env("CI", "true")
         .current_dir(node_dir.clone())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())

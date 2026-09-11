@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 use alloc::boxed::Box;
+
+esp_bootloader_esp_idf::esp_app_desc!();
 use alloc::rc::Rc;
 use core::cell::RefCell;
 use embedded_hal::delay::DelayNs;

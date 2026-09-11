@@ -64,6 +64,7 @@ pub unsafe fn make_metal_surface(
     }
 }
 
+#[cfg_attr(not(feature = "unstable-wgpu-30"), allow(dead_code))]
 pub unsafe fn import_metal_texture(
     canvas: &skia_safe::Canvas,
     texture: wgpu::Texture,
@@ -98,6 +99,22 @@ pub unsafe fn import_metal_texture(
             )
             .unwrap(),
         )
+    }
+}
+
+pub fn set_layer_contents_gravity(surface: &wgpu::Surface<'_>) {
+    // SAFETY: The hal surface is only borrowed for the duration of this call, to adjust a
+    // CAMetalLayer property that wgpu itself neither reads nor writes.
+    unsafe {
+        if let Some(hal_surface) = surface.as_hal::<wgpu::wgc::api::Metal>() {
+            let layer = hal_surface.render_layer().lock();
+            let gravity = if !layer.contentsAreFlipped() {
+                objc2_quartz_core::kCAGravityTopLeft
+            } else {
+                objc2_quartz_core::kCAGravityBottomLeft
+            };
+            layer.setContentsGravity(gravity);
+        }
     }
 }
 

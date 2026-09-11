@@ -1,0 +1,225 @@
+---
+title: Get Started
+description: Set up your editor and AI assistant, install the prerequisites for your language, and create a first project from a template.
+---
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { CPP_BASE_URL, RUST_SLINT_CRATE_URL, NODEJS_BASE_URL, PYTHON_BASE_URL } from "@slint/common-files/src/utils/site-config";
+
+A Slint application is a user interface written in `.slint` files,
+connected to business logic in Rust, C++, JavaScript, or Python.
+This page gets your machine ready for that: an editor that understands `.slint`,
+the toolchain for your language, and a project to start from.
+
+:::tip[New to Slint?]
+The [tutorial](/tutorial/quickstart/) builds a small memory game step by step and is the fastest way to learn the language.
+:::
+
+## Set Up Your Tools
+
+### Editor
+
+Slint provides an editor extension that helps you write `.slint` code.
+It gives you syntax highlighting, completion, diagnostics, and a live preview of the UI as you type.
+
+Install the [Slint extension for Visual Studio Code](/guide/tooling/vscode/),
+or see [Manual Setup](/guide/tooling/manual-setup/) for other editors.
+
+### AI Coding Assistant (Optional)
+
+If you already use an AI coding agent,
+the Slint skill teaches it the `.slint` language and lets it inspect your running application.
+See [AI Coding Assistants](/guide/tooling/ai-coding-assistants/) for the install command of each tool.
+
+## Install the Prerequisites
+
+Pick the language you want to write your application logic in.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+
+Install Rust by following its [getting-started guide](https://www.rust-lang.org/learn/get-started).
+Slint needs Rust 1.92 or newer; check with `rustc --version`.
+
+The Slint crate builds as part of your project, so no separate installation of Slint is needed.
+The <a href={RUST_SLINT_CRATE_URL}>Rust API documentation</a> describes how to add it to an existing project.
+
+We also recommend [rust-analyzer](https://rust-analyzer.github.io) for Rust support in your editor.
+
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+
+- A C++ compiler that supports C++20.
+- [CMake](https://cmake.org/download/) 3.21 or newer.
+- [Rust](https://www.rust-lang.org/learn/get-started), 1.92 or newer, to build Slint from source.
+  The template below does this automatically with CMake's `FetchContent`.
+
+The C++ documentation has its own <a href={`${CPP_BASE_URL}cmake/`}>Set Up Development Environment</a> page.
+It covers the pre-built Slint packages for Linux and Windows x86-64, which don't need Rust,
+and how to use Slint from an existing CMake project.
+
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+
+Install [Node.js](https://nodejs.org/download/release/) 20 or newer, which includes `npm`.
+
+The `slint-ui` package ships pre-built binaries for macOS, Windows, and Linux.
+See the <a href={NODEJS_BASE_URL}>Node.js documentation</a> for platforms that need a build from source.
+
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+
+- [Python](https://python.org/) 3.12 or newer.
+- [uv](https://docs.astral.sh/uv/) to manage the project and its dependencies.
+
+The `slint` package ships pre-built binaries for macOS, Windows, and Linux.
+See the <a href={PYTHON_BASE_URL}>Python documentation</a> for platforms that need a build from source.
+
+</TabItem>
+</Tabs>
+
+## Create a Project From a Template
+
+Each language has a template repository with a minimal application that follows our recommended project structure.
+
+In Visual Studio Code, open the command palette and run **Slint: Create New Project from Template**.
+It downloads the template for your language into a folder of your choice.
+See [Visual Studio Code](/guide/tooling/vscode/#setting-up-vs-code) for a walk-through with screenshots.
+
+Without VS Code, download the template by hand:
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+
+<Steps>
+
+1. Download and extract the [ZIP archive](https://github.com/slint-ui/slint-rust-template/archive/refs/heads/main.zip)
+   of the [Rust template](https://github.com/slint-ui/slint-rust-template).
+
+2. Rename the extracted directory and change into it:
+
+   ```sh
+   mv slint-rust-template-main my-project
+   cd my-project
+   ```
+
+3. Build and run:
+
+   ```sh
+   cargo run
+   ```
+
+</Steps>
+
+Edit the `name` field in `Cargo.toml` to match the name of your project.
+
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+
+<Steps>
+
+1. Download and extract the [ZIP archive](https://github.com/slint-ui/slint-cpp-template/archive/refs/heads/main.zip)
+   of the [C++ template](https://github.com/slint-ui/slint-cpp-template).
+
+2. Rename the extracted directory and change into it:
+
+   ```sh
+   mv slint-cpp-template-main my-project
+   cd my-project
+   ```
+
+3. Configure and build with CMake:
+
+   ```sh
+   cmake -B build
+   cmake --build build
+   ```
+
+   The first configure fetches and builds Slint from source, which takes a few minutes.
+
+4. Run the application on Linux or macOS:
+
+   ```sh
+   ./build/my_application
+   ```
+
+   Or on Windows:
+
+   ```sh
+   build\my_application.exe
+   ```
+
+</Steps>
+
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+
+<Steps>
+
+1. Download and extract the [ZIP archive](https://github.com/slint-ui/slint-nodejs-template/archive/refs/heads/main.zip)
+   of the [Node.js template](https://github.com/slint-ui/slint-nodejs-template).
+
+2. Rename the extracted directory and change into it:
+
+   ```sh
+   mv slint-nodejs-template-main my-project
+   cd my-project
+   ```
+
+3. Install the dependencies and run:
+
+   ```sh
+   npm install
+   npm start
+   ```
+
+</Steps>
+
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+
+<Steps>
+
+1. Download and extract the [ZIP archive](https://github.com/slint-ui/slint-python-template/archive/refs/heads/main.zip)
+   of the [Python template](https://github.com/slint-ui/slint-python-template).
+
+2. Rename the extracted directory and change into it:
+
+   ```sh
+   mv slint-python-template-main my-project
+   cd my-project
+   ```
+
+3. Install the dependencies and run:
+
+   ```sh
+   uv run main.py
+   ```
+
+</Steps>
+
+</TabItem>
+</Tabs>
+
+A window with a counter and a button appears.
+The UI lives in `ui/app-window.slint`; the file next to it in `src/` (or `main.py`) holds the application logic.
+
+## Mobile and Embedded
+
+The templates above build a desktop application.
+Slint also runs on phones and on embedded devices:
+
+- **Android:** see the [project setup](/guide/platforms/mobile/android/#project-setup) for Rust or C++.
+- **iOS:** see [adding iOS support to a Rust application](/guide/platforms/mobile/ios/#adding-ios-support-to-an-existing-rust-application).
+- **Embedded Linux and microcontrollers:** the [embedded guide](/guide/platforms/embedded/) shows how to run the demos on a board
+  and how to set up a project for a microcontroller.
+  The API documentation has more on microcontrollers for <a href={`${RUST_SLINT_CRATE_URL}docs/mcu/index.html`}>Rust</a>
+  and for <a href={`${CPP_BASE_URL}mcu/intro/`}>C++</a> on ESP-IDF or STM32.
+
+## Next Steps
+
+- Open `ui/app-window.slint` in your editor and start the [live preview](/guide/tooling/live-preview/).
+  Changes to the file show up in the preview as you type, without rebuilding.
+- Follow the [tutorial](/tutorial/quickstart/) to build a complete application.
+- Read about the [Slint language](/guide/language/concepts/slint-language/) and its [reactivity model](/guide/language/concepts/reactivity/).
+- Browse the [language integrations](/language-integrations/) for the API of your language.

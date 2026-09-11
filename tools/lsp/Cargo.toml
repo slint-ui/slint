@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore dashmap nucleo
+# cSpell: ignore nucleo
 [package]
 name = "slint-lsp"
 description = "A language server protocol implementation for Slint"
@@ -18,6 +18,7 @@ default-run = "slint-lsp"
 
 [package.metadata.bundle]
 name = "Slint Live Preview"
+identifier = "dev.slint.lsp"
 icon = ["../../logo/slint-logo.icns"]
 
 [[bin]]
@@ -25,8 +26,9 @@ name = "slint-lsp"
 path = "main.rs"
 
 [lib]
-# lib is there only for the web
-crate-type = ["cdylib"]
+# lib is there only for the web.
+# "rlib" is also needed so cdylib don't cause error on musl (#13169)
+crate-type = ["cdylib", "rlib"]
 path = "wasm_main.rs"
 # On windows building this package creates slint-lsp.exe and slint-lsp.dll.
 # To avoid that both end up trying to create slint-lsp.pdb for their debug
@@ -40,7 +42,8 @@ backend-winit = ["slint/backend-winit", "preview"]
 backend-winit-x11 = ["slint/backend-winit-x11", "preview"]
 backend-winit-wayland = ["slint/backend-winit-wayland", "preview"]
 backend-linuxkms = ["slint/backend-linuxkms", "preview"]
-backend-linuxkms-noseat = ["slint/backend-linuxkms-noseat", "preview"]
+backend-linuxkms-libseat = ["slint/backend-linuxkms-libseat", "preview"]
+backend-linuxkms-libinput = ["slint/backend-linuxkms-libinput", "preview"]
 backend-default = ["slint/backend-default", "preview"]
 
 renderer-femtovg = ["slint/renderer-femtovg", "preview"]
@@ -77,6 +80,7 @@ preview-engine = [
   "dep:i-slint-backend-selector",
   "dep:slint-build",
   "i-slint-editor-preview/preview-engine",
+  "i-slint-editor-preview/preview-process",
 ]
 ## Build in the actual code to act as a preview for slint files. Does nothing in WASM!
 preview-builtin = ["preview-engine", "i-slint-editor-preview/preview-builtin"]
@@ -88,7 +92,7 @@ preview-remote = ["preview-engine", "preview-builtin", "i-slint-editor-preview/p
 default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]
 
 [dependencies]
-i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
+i-slint-compiler = { workspace = true, features = ["display-diagnostics", "builtin-docs"] }
 i-slint-common = { workspace = true }
 
 by_address = { workspace = true }
@@ -128,7 +132,6 @@ clap = { workspace = true }
 crossbeam-channel = "0.5"                                                                                                # must match the version used by lsp-server
 lsp-server = "0.10"
 tokio = { version = "1.50.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "net", "fs", "process"] }
-dashmap = "6.1.0"
 mdns-sd = { version = "0.20.0", default-features = false }
 # Unicode XID property lookup used by the host-language accessor scanner to
 # tokenize identifiers in Rust/C++ source rather than scanning byte-by-byte.
@@ -152,6 +155,8 @@ spin_on = { workspace = true }
 tempfile = "3"
 # The remote connector tests talk to the real viewer-side connection.
 i-slint-live-preview = { path = "../../internal/live-preview", features = ["remote"] }
+tokio-tungstenite = "0.30.0"
+tokio = { version = "1.50.0", features = ["test-util"] }
 
 [build-dependencies]
 slint-build = { workspace = true, optional = true }

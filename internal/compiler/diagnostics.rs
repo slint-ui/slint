@@ -11,14 +11,10 @@ use std::collections::BTreeSet;
 /// Span represent an error location within a file.
 ///
 /// Currently, it is just an offset in byte within the file + the corresponding length.
-///
-/// When the `proc_macro_span` feature is enabled, it may also hold a proc_macro span.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Span {
     pub offset: usize,
     pub length: usize,
-    #[cfg(feature = "proc_macro_span")]
-    pub span: Option<proc_macro::Span>,
 }
 
 impl Span {
@@ -26,33 +22,14 @@ impl Span {
         self.offset != usize::MAX
     }
 
-    #[allow(clippy::needless_update)] // needed when `proc_macro_span` is enabled
     pub fn new(offset: usize, length: usize) -> Self {
-        Self { offset, length, ..Default::default() }
+        Self { offset, length }
     }
 }
 
 impl Default for Span {
     fn default() -> Self {
-        Span {
-            offset: usize::MAX,
-            length: 0,
-            #[cfg(feature = "proc_macro_span")]
-            span: Default::default(),
-        }
-    }
-}
-
-impl PartialEq for Span {
-    fn eq(&self, other: &Span) -> bool {
-        self.offset == other.offset && self.length == other.length
-    }
-}
-
-#[cfg(feature = "proc_macro_span")]
-impl From<proc_macro::Span> for Span {
-    fn from(span: proc_macro::Span) -> Self {
-        Self { span: Some(span), ..Default::default() }
+        Span { offset: usize::MAX, length: 0 }
     }
 }
 
@@ -552,28 +529,26 @@ impl BuildDiagnostics {
 
     #[cfg(all(feature = "proc_macro_span", feature = "display-diagnostics"))]
     /// Will convert the diagnostics that only have offsets to the actual proc_macro::Span
+    ///
+    /// `tokens` are the tokens the document was parsed from, in document order.
     pub fn report_macro_diagnostic(
         self,
-        span_map: &[crate::parser::Token],
+        tokens: &[crate::parser::Token],
     ) -> proc_macro::TokenStream {
         let mut result = proc_macro::TokenStream::default();
         let mut needs_error = self.has_errors();
         let output = self.call_diagnostics(
             Some(&mut |diag| {
-                let span = diag.span.span.span.or_else(|| {
-                    //let pos =
-                    //span_map.binary_search_by_key(d.span.offset, |x| x.0).unwrap_or_else(|x| x);
-                    //d.span.span = span_map.get(pos).as_ref().map(|x| x.1);
-                    let mut offset = 0;
-                    span_map.iter().find_map(|t| {
-                        if diag.span.span.offset <= offset {
-                            t.span
-                        } else {
-                            offset += t.text.len();
-                            None
-                        }
-                    })
-                });
+                // A diagnostic only carries an offset into the document, which is the
+                // concatenation of the token texts: find the token that offset lands in.
+                let span = if diag.span.span.is_valid() {
+                    let index = tokens
+                        .binary_search_by_key(&diag.span.span.offset, |t| t.offset)
+                        .unwrap_or_else(|i| i.saturating_sub(1));
+                    tokens.get(index).and_then(|t| t.span)
+                } else {
+                    None
+                };
                 let message = &diag.message;
 
                 let span: proc_macro2::Span = if let Some(span) = span {

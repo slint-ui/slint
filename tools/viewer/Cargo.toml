@@ -16,19 +16,24 @@ categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["viewer", "gui", "ui", "toolkit"]
 
 [features]
+# Enable the embedded MCP server; requires SLINT_MCP_PORT to be set at runtime.
+mcp = ["slint-interpreter/mcp"]
+
 backend-default = ["slint-interpreter/backend-default"]
 backend-qt = ["slint-interpreter/backend-qt"]
 backend-winit = ["slint-interpreter/backend-winit"]
 backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
 backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
 backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
-backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
+backend-linuxkms-libseat = ["slint-interpreter/backend-linuxkms-libseat"]
+backend-linuxkms-libinput = ["slint-interpreter/backend-linuxkms-libinput"]
 
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
 renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
 renderer-skia = ["slint-interpreter/renderer-skia", "dep:i-slint-renderer-skia"]
 renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl", "dep:i-slint-renderer-skia"]
 renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan", "dep:i-slint-renderer-skia"]
+renderer-vello = ["slint-interpreter/renderer-vello"]
 renderer-software = ["slint-interpreter/renderer-software"]
 
 # Compat

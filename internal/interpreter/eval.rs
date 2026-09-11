@@ -883,7 +883,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             Value::Void
         }
-        Expression::BinaryExpression { lhs, rhs, op } => {
+        Expression::BinaryExpression { lhs, rhs, op, .. } => {
             let lhs = eval_expression(ctx, lhs);
             // `&&` and `||` must short-circuit, or else rhs side effects
             // would wrongly run.
@@ -915,7 +915,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             Value::Image(image)
         }
-        Expression::Condition { condition, true_expr, false_expr } => {
+        Expression::Condition { condition, true_expr, false_expr, .. } => {
             match eval_expression(ctx, condition) {
                 Value::Bool(true) => eval_expression(ctx, true_expr),
                 Value::Bool(false) => eval_expression(ctx, false_expr),
@@ -1179,11 +1179,11 @@ fn push_repeater_layout_items(
         struct_value.set_field("constraint".to_string(), info.constraint.into());
         // The cell's `cross-axis-self-alignment` in a box layout; `to_cells`
         // reads it back on the cross-axis solve, an absent field means `auto`.
-        if info.cross_axis_self_alignment != i_slint_core::items::CrossAxisSelfAlignment::Auto {
+        if info.cross_axis_self_alignment != i_slint_core::items::CrossAxisAlignment::Auto {
             struct_value.set_field(
                 "cross-axis-self-alignment".to_string(),
                 Value::EnumerationValue(
-                    "CrossAxisSelfAlignment".to_string(),
+                    "CrossAxisAlignment".to_string(),
                     info.cross_axis_self_alignment.to_string(),
                 ),
             );
@@ -1428,7 +1428,7 @@ fn flex_props_to_value(props: i_slint_core::layout::FlexItemProps) -> Value {
     s.set_field(
         "cross-axis-self-alignment".to_string(),
         Value::EnumerationValue(
-            "CrossAxisSelfAlignment".to_string(),
+            "CrossAxisAlignment".to_string(),
             format!("{:?}", props.cross_axis_self_alignment).to_lowercase(),
         ),
     );
@@ -1954,6 +1954,9 @@ fn call_builtin_function(
         BuiltinFunction::ToStringUnlocalized => {
             let n = to_num(ctx, &arguments[0]);
             Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
+        }
+        BuiltinFunction::DefaultWindowTitle => {
+            Value::String(i_slint_core::window::default_window_title())
         }
         BuiltinFunction::DecimalSeparator => Value::String(
             find_window_adapter(ctx)

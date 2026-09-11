@@ -88,13 +88,13 @@ export component TestCase inherits Window {{
     }
 }
 
-/// The `CrossAxisSelfAlignment` enum is in the stable type register:
+/// The `CrossAxisAlignment` enum is in the stable type register:
 /// nameable as a type and as a qualified value without experimental features.
 #[test]
 fn cross_axis_self_alignment_enum_is_stable() {
     let source = r#"
 export component TestCase inherits Window {
-    in property <CrossAxisSelfAlignment> a: CrossAxisSelfAlignment.center;
+    in property <CrossAxisAlignment> a: CrossAxisAlignment.center;
     FlexboxLayout {
         Rectangle { cross-axis-self-alignment: root.a; }
     }

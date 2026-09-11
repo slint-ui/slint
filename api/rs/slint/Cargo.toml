@@ -31,11 +31,12 @@ default = [
 ]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with Slint 1.2
+## This feature is required to keep the compatibility with Slint 1.18
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added.
 ## [More info in this blog post](https://slint.dev/blog/rust-adding-default-cargo-feature.html)
-"compat-1-2" = []
+"compat-1-18" = []
+"compat-1-2" = ["compat-1-18", "i-slint-backend-linuxkms?/libseat", "i-slint-backend-linuxkms?/libinput"]
 "compat-1-0" = ["compat-1-2", "renderer-software"]
 
 ## Enable use of the Rust standard library.
@@ -198,21 +199,41 @@ renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu", "i-sl
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "dep:i-slint-renderer-skia", "std"]
 
 ## Same as `renderer-skia`, but Skia will always use OpenGL.
-## Note: This is not supported on iOS. Use `renderer-skia` on iOS to enable Meta based rendering.
+## Note: This is not supported on iOS. Use `renderer-skia` on iOS to enable Metal based rendering.
 renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "dep:i-slint-renderer-skia", "std"]
 
-## Same as `renderer-skia`, but Skia will always use Vulkan.
+## Same as `renderer-skia`, but Skia will prefer Vulkan when selecting a backend.
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "dep:i-slint-renderer-skia", "std"]
 
 ## Render using the software renderer.
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 
-## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
-## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead.
-backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
+## Render using [vello](https://crates.io/crates/vello) on [WGPU](http://wgpu.rs).
+##
+## Also available with the linuxkms backend, where it renders onto a DRM plane.
+##
+## This renderer is experimental: it is never selected automatically when another renderer is
+## also enabled. Select it with `SLINT_BACKEND=winit-vello`, `SLINT_BACKEND=linuxkms-vello` or
+## [`BackendSelector::renderer_name()`](crate::BackendSelector::renderer_name()).
+renderer-vello = ["i-slint-backend-selector/renderer-vello", "std"]
 
-## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
+## KMS with Vulkan or EGL on Linux is used to render the application in full screen mode, without any
 ## windowing system.
+##
+## With `compat-1-2` this implies libseat and libinput support. With `compat-1-18` or newer it is
+## the minimal feature set, without libseat and libinput; add `backend-linuxkms-libseat` and
+## `backend-linuxkms-libinput` to opt back in.
+backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "dep:i-slint-backend-linuxkms", "std"]
+
+## Add libseat to the LinuxKMS backend, for GPU and input device access without root privileges.
+backend-linuxkms-libseat = ["i-slint-backend-selector/backend-linuxkms-libseat", "std"]
+
+## Add libinput to the LinuxKMS backend, to react to mouse, touch and keyboard input.
+backend-linuxkms-libinput = ["i-slint-backend-selector/backend-linuxkms-libinput", "std"]
+
+## **Deprecated** Use `backend-linuxkms-libinput` instead, which selects the same
+## combination of the LinuxKMS backend: libinput for mouse, touch and keyboard input,
+## but no libseat.
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
 ## Use the backend based on the [android-activity](https://docs.rs/android-activity) crate. (Using it's native activity feature)
@@ -319,6 +340,13 @@ i-slint-renderer-software = { path = "../../../internal/renderers/software", fea
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux
 i-slint-backend-qt = { workspace = true, features = ["enable"], optional = true }
+# Marker edge, never used from code: `compat-1-2` enables features on this optional
+# dependency, and only `backend-linuxkms` activates it, which is what restores the
+# pre-1.18 meaning of that feature while leaving `backend-linuxkms-noseat` alone.
+# Do not route those feature references through i-slint-backend-selector: its own
+# edge to the backend is also activated by `backend-linuxkms-noseat`, which would
+# then gain libseat and break targets that do not have it.
+i-slint-backend-linuxkms = { workspace = true, optional = true }
 
 [package.metadata.docs.rs]
 features = [

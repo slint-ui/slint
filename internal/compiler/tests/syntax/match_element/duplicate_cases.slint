@@ -44,6 +44,11 @@ export component DuplicateCaseWithColor {
         #456: Rectangle { }
         #123: Rectangle { }
 //      >  <error{Duplicate case value}
+        #ff0000: Text { text: "red literal"; }
+        red: Text { text: "named color red"; }
+//      > <error{Duplicate case value}
+        Colors.red: Text { text: "fully-qualified named color red"; }
+//      >        <error{Duplicate case value}
         *: Rectangle { }
     }
 }

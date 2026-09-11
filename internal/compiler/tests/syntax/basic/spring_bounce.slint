@@ -6,6 +6,7 @@ export component X inherits Rectangle {
     animate a { easing: spring; }
     property <float> b;
     animate b { easing: spring(); }
+//                      >    <error{The spring curve needs a single number literal argument}
     property <float> c;
     animate c { easing: spring(0.0); }
     property <float> d;
@@ -18,4 +19,16 @@ export component X inherits Rectangle {
     property <float> g;
     animate g { easing: spring(-2); }
 //                             ><error{The bounce argument to spring curve must be between -1 and 1}
+    property <float> h;
+    animate h { easing: spring(0, 0); }
+//                      >    <error{The spring curve needs a single number literal argument}
+    property <float> i;
+    animate i { easing: spring(50%); }
+//                      >    <error{The spring curve needs a single number literal argument}
+    property <float> j;
+    animate j { easing: spring(32 * 1); }
+//                      >    <error{The spring curve needs a single number literal argument}
+    property <float> k;
+    animate k { easing: spring("string"); }
+//                      >    <error{The spring curve needs a single number literal argument}
 }

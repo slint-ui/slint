@@ -585,6 +585,61 @@ pub(crate) struct MouseDispatchResult {
     pub accepted: bool,
 }
 
+/// The program a path names, without its directory or the Windows `.exe` suffix.
+/// `None` for a path that names no file, or an empty name.
+#[cfg(feature = "std")]
+fn program_name(path: &std::path::Path) -> Option<SharedString> {
+    // A Windows program is called "foo", not "foo.exe"
+    let is_exe = path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("exe"));
+    let name = if is_exe { path.file_stem()? } else { path.file_name()? };
+    let name = name.to_string_lossy();
+    (!name.is_empty()).then(|| name.as_ref().into())
+}
+
+/// The name of the running program, used as the window title when the application doesn't set one.
+///
+/// It comes from argument zero, which is also what winit derives the X11 `WM_CLASS` from, so the
+/// two agree even when the program is started through a symlink.
+/// Empty where the platform names the program neither way, such as on the web.
+pub fn application_name() -> SharedString {
+    #[cfg(feature = "std")]
+    {
+        static NAME: std::sync::LazyLock<SharedString> = std::sync::LazyLock::new(|| {
+            std::env::args_os()
+                .next()
+                .and_then(|arg| program_name(std::path::Path::new(&arg)))
+                .or_else(|| std::env::current_exe().ok().as_deref().and_then(program_name))
+                .unwrap_or_default()
+        });
+        NAME.clone()
+    }
+    #[cfg(not(feature = "std"))]
+    SharedString::default()
+}
+
+crate::thread_local! {
+    static DEFAULT_WINDOW_TITLE: core::cell::RefCell<Option<SharedString>> = Default::default();
+}
+
+/// Override what [`default_window_title`] returns, for this thread.
+///
+/// A tool that hosts someone else's component, like the Slint viewer, says here what its windows
+/// are called.
+/// A window reads the title when it first applies its properties, so this only reaches windows
+/// that have yet to be shown.
+pub fn set_default_window_title(title: SharedString) {
+    DEFAULT_WINDOW_TITLE.with(|slot| slot.replace(Some(title)));
+}
+
+/// The title a window shows when the application doesn't set one: [`set_default_window_title`]
+/// if a host called it on this thread, otherwise the application name.
+///
+/// This is what the compiler binds `Window.title` to, through
+/// `BuiltinFunction::DefaultWindowTitle`.
+pub fn default_window_title() -> SharedString {
+    DEFAULT_WINDOW_TITLE.with(|slot| slot.borrow().clone()).unwrap_or_else(application_name)
+}
+
 /// Inner datastructure for the [`crate::api::Window`]
 pub struct WindowInner {
     window_adapter_weak: Weak<dyn WindowAdapter>,
@@ -597,6 +652,7 @@ pub struct WindowInner {
     /// ItemRC that currently have the focus (possibly an instance of TextInput)
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
     focus_item_visibility_tracker: ChangeTracker,
+    focus_item_position_tracker: ChangeTracker,
     /// The last text that was sent to the input method
     pub(crate) last_ime_text: RefCell<SharedString>,
     /// Don't let ComponentContainers's instantiation change the focus.
@@ -675,6 +731,7 @@ impl WindowInner {
             }),
             focus_item: Default::default(),
             focus_item_visibility_tracker: Default::default(),
+            focus_item_position_tracker: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
             active_popups: Default::default(),
@@ -694,6 +751,7 @@ impl WindowInner {
     pub fn set_component(&self, component: &ItemTreeRc) {
         self.close_all_popups();
         self.focus_item_visibility_tracker.clear();
+        self.focus_item_position_tracker.clear();
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
         self.touch_state.replace(Default::default());
@@ -1435,6 +1493,7 @@ impl WindowInner {
     /// This sends the event which must be either FocusOut or WindowLostFocus for popups
     fn take_focus_item(&self, event: &FocusEvent) -> Option<ItemRc> {
         self.focus_item_visibility_tracker.clear();
+        self.focus_item_position_tracker.clear();
         let focus_item = self.focus_item.take();
         assert!(matches!(event, FocusEvent::FocusOut(_)));
 
@@ -1468,7 +1527,7 @@ impl WindowInner {
                 );
                 // Reveal offscreen item when it gains focus
                 if result == crate::input::FocusEventResult::FocusAccepted {
-                    self.track_focus_item_visibility(item);
+                    self.track_focus_item(item);
                     item.try_scroll_into_visible();
                 }
 
@@ -1476,13 +1535,15 @@ impl WindowInner {
             }
             None => {
                 self.focus_item_visibility_tracker.clear();
+                self.focus_item_position_tracker.clear();
                 *self.focus_item.borrow_mut() = Default::default();
                 crate::input::FocusEventResult::FocusAccepted // We were removing the focus, treat that as OK
             }
         }
     }
 
-    fn track_focus_item_visibility(&self, item: &ItemRc) {
+    fn track_focus_item(&self, item: &ItemRc) {
+        // Track visibility
         let visibility_clips = item.visibility_clips();
         self.focus_item_visibility_tracker.init(
             (item.downgrade(), self.window_adapter_weak.clone(), visibility_clips),
@@ -1504,6 +1565,27 @@ impl WindowInner {
                 );
             },
         );
+
+        // Track position
+        if item.downcast::<crate::items::TextInput>().is_some() {
+            self.focus_item_position_tracker.init(
+                (item.downgrade(), self.window_adapter_weak.clone()),
+                |(item, _)| {
+                    let Some(item) = item.upgrade() else { return Default::default() };
+                    Some(item.map_to_native_window(item.geometry().origin))
+                },
+                |(item, window_adapter), _| {
+                    let (Some(item), Some(window_adapter)) =
+                        (item.upgrade(), window_adapter.upgrade())
+                    else {
+                        return;
+                    };
+                    if let Some(text_input) = item.downcast::<crate::items::TextInput>() {
+                        text_input.as_pin_ref().update_ime(&window_adapter, &item);
+                    }
+                },
+            );
+        }
     }
 
     fn move_focus(
@@ -2457,10 +2539,13 @@ pub mod ffi {
     #![allow(missing_docs)]
 
     use super::*;
+    #[cfg(feature = "std")]
     use crate::SharedVector;
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
+    use crate::graphics::IntSize;
+    #[cfg(feature = "std")]
+    use crate::graphics::Rgba8Pixel;
     use crate::graphics::Size;
-    use crate::graphics::{IntSize, Rgba8Pixel};
     use crate::items::WindowItem;
     use core::ffi::c_void;
 
@@ -2509,6 +2594,12 @@ pub mod ffi {
     /// Same layout as WindowAdapterRc
     #[repr(C)]
     pub struct WindowAdapterRcOpaque(*const c_void, *const c_void);
+
+    /// The title a window shows when the application doesn't set one
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_default_window_title(out: &mut SharedString) {
+        *out = super::default_window_title();
+    }
 
     /// Releases the reference to the windowrc held by handle.
     #[unsafe(no_mangle)]
@@ -3072,6 +3163,7 @@ pub mod ffi {
     }
 
     /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
+    #[cfg(feature = "std")]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_take_snapshot(
         handle: *const WindowAdapterRcOpaque,
@@ -3210,5 +3302,40 @@ pub mod ffi_window {
         } else {
             null_mut()
         }
+    }
+}
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::*;
+
+    fn name_of(path: &str) -> Option<SharedString> {
+        program_name(std::path::Path::new(path))
+    }
+
+    #[test]
+    fn a_program_name_is_the_bare_file_name() {
+        assert_eq!(name_of("/usr/bin/gallery").as_deref(), Some("gallery"));
+        assert_eq!(name_of("gallery").as_deref(), Some("gallery"));
+        assert_eq!(name_of("./gallery").as_deref(), Some("gallery"));
+        assert_eq!(name_of("/opt/my-tool.v2").as_deref(), Some("my-tool.v2"));
+        // Windows spells the suffix either way, and its file names don't care
+        assert_eq!(name_of("gallery.exe").as_deref(), Some("gallery"));
+        assert_eq!(name_of("GALLERY.EXE").as_deref(), Some("GALLERY"));
+        // A leading dot makes it the whole name, not a suffix
+        assert_eq!(name_of(".exe").as_deref(), Some(".exe"));
+        assert_eq!(name_of(""), None);
+        assert_eq!(name_of("/"), None);
+        assert_eq!(name_of("some/dir/").as_deref(), Some("dir"));
+    }
+
+    #[test]
+    fn a_host_overrides_the_default_title() {
+        // The test binary is the running program, so the name is never empty here
+        assert!(!default_window_title().is_empty());
+        set_default_window_title("Some Viewer".into());
+        assert_eq!(default_window_title(), "Some Viewer");
+        DEFAULT_WINDOW_TITLE.with(|slot| slot.replace(None));
+        assert_eq!(default_window_title(), application_name());
     }
 }

@@ -44,6 +44,7 @@ export component TestCase {
     public function push_one(val: int) { ints.push(val) }
     public function remove_one(index: int) { ints.remove(index) }
     public function insert_one(index: int, value: int) { ints.insert(index, value) }
+    public function set_one(index: int, value: int) { ints[index] = value }
 
     public function push_one_empty(val: int) { empty_ints.push(val) }
     public function remove_one_empty() { empty_ints.remove(0) }
@@ -305,6 +306,31 @@ instance.remove_one_empty();
 assert.equal(model.rowCount(), 0);
 instance.insert_one_empty();
 assert.equal(model.rowCount(), 0);
+
+// A read-only model: it doesn't re-implement pushRow/insertRow/removeRow,
+// so mutating operations coming from .slint are rejected and logged.
+class ReadOnlyModel extends slintlib.Model {
+    rowCount() { return 3; }
+    rowData(row) { return [10, 20, 30][row]; }
+}
+instance.ints = new ReadOnlyModel();
+assert.equal(instance.num_ints, 3);
+assert.equal(instance.third_int, 30);
+
+const log = require("node:test").mock.method(console, "log", () => {});
+instance.push_one(40);
+instance.remove_one(0);
+instance.insert_one(1, 40);
+instance.set_one(0, 99);
+log.mock.restore();
+const logs = log.mock.calls.map((call) => call.arguments[0]);
+assert.equal(instance.num_ints, 3);
+assert.equal(instance.third_int, 30);
+assert.equal(logs.length, 4);
+assert.match(logs[0], /array\.slint:\d+:\d+: array\.push\(\): the model ReadOnlyModel does not support this modification$/);
+assert.match(logs[1], /array\.slint:\d+:\d+: array\.remove\(\): the model ReadOnlyModel does not support this modification$/);
+assert.match(logs[2], /array\.slint:\d+:\d+: array\.insert\(\): the model ReadOnlyModel does not support this modification$/);
+assert.equal(logs[3], "setRowData(): the model ReadOnlyModel does not support this modification");
 ```
 
 ////////// Test with read-only model and check for logs.

@@ -27,7 +27,7 @@ pub use i_slint_editor_preview::util;
 
 use editor_preview::Result;
 use language::*;
-pub use server_notifier::{OutgoingRequest, OutgoingRequestQueue, ServerNotifier};
+pub use server_notifier::{OutgoingRequestQueue, ServerNotifier, complete_request};
 
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
@@ -174,8 +174,17 @@ fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformErr
         ));
     }
 
+    slint::BackendSelector::new().select().ok();
     let to_lsp: Rc<dyn editor_preview::PreviewToLsp> =
-        Rc::new(connector::RemoteControlledPreviewToLsp::new());
+        Rc::new(editor_preview::child_process::RemoteControlledPreviewToLsp::new(
+            |message| {
+                slint::invoke_from_event_loop(move || preview::lsp_to_preview(message))?;
+                Ok(())
+            },
+            || {
+                slint::quit_event_loop().ok();
+            },
+        ));
 
     preview::run(to_lsp, args.fullscreen, false)
 }
@@ -299,7 +308,11 @@ async fn main_loop(
         let sn = server_notifier.clone();
 
         let child_preview: Box<dyn editor_preview::LspToPreview> =
-            Box::new(connector::ChildProcessLspToPreview::new(preview_to_lsp_sender.clone()));
+            Box::new(connector::ChildProcessLspToPreview::new(
+                std::env::current_exe().expect("Could not find executable name of the slint-lsp"),
+                vec!["live-preview".into(), "--remote-controlled".into()],
+                preview_to_lsp_sender.clone(),
+            ));
         let embedded_preview: Box<dyn editor_preview::LspToPreview> =
             Box::new(connector::EmbeddedLspToPreview::new(sn.clone()));
         LspToPreviews::new(
@@ -476,10 +489,12 @@ async fn run_main_loop(
         session: crate::editor_preview::EditorSession {
             document_cache: crate::editor_preview::DocumentCache::new(compiler_config),
             preview_config: Default::default(),
-            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-            to_show: Default::default(),
             open_urls: Default::default(),
-            to_preview,
+            previews: vec![crate::editor_preview::PreviewConnection {
+                to_preview,
+                #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+                to_show: Default::default(),
+            }],
             pending_recompile: Default::default(),
         },
         server_notifier,
@@ -644,19 +659,9 @@ fn crossbeam_tokio_adapter(
     loop {
         match connection.receiver.recv() {
             Ok(Message::Response(resp)) => {
-                let Some(mut q) = request_queue.get_mut(&resp.id) else {
+                if !complete_request(&request_queue, resp) {
                     tracing::error!("Response to unknown request");
-                    continue;
-                };
-                match &*q {
-                    OutgoingRequest::Done(_) => {
-                        tracing::error!("Response to unknown request");
-                        continue;
-                    }
-                    OutgoingRequest::Start => { /* nothing to do */ }
-                    OutgoingRequest::Pending(x) => x.wake_by_ref(),
-                };
-                *q = OutgoingRequest::Done(resp);
+                }
             }
             Ok(msg) => {
                 if from_lsp_sender.send(msg.clone()).is_err() {
@@ -666,6 +671,63 @@ fn crossbeam_tokio_adapter(
             Err(_) => return,
         }
     }
+}
+
+/// Round-trips requests through the adapter thread with an in-memory connection.
+/// The client answers every request twice, so the adapter also sees the duplicate
+/// it must ignore, and answers one request with an error that the future reports.
+/// A response that gets lost shows up as a timeout.
+#[tokio::test]
+async fn fast_client_responses_complete() {
+    let (connection, client) = Connection::memory();
+    let connection = Arc::new(connection);
+    let queue = OutgoingRequestQueue::default();
+    let notifier = ServerNotifier::new(connection.sender.clone(), queue.clone());
+    let (sender, _receiver) = mpsc::unbounded_channel();
+    let adapter = std::thread::spawn(move || {
+        crossbeam_tokio_adapter(connection, sender, queue);
+    });
+    let client = std::thread::spawn(move || {
+        while let Ok(Message::Request(request)) = client.receiver.recv() {
+            let response = if request.method == "window/showMessageRequest" {
+                Response::new_err(request.id, ErrorCode::RequestFailed as i32, "refused".into())
+            } else {
+                Response::new_ok(request.id, serde_json::json!([]))
+            };
+            for _ in 0..2 {
+                client.sender.send(Message::Response(response.clone())).unwrap();
+            }
+        }
+    });
+
+    for round in 0..100 {
+        let response = notifier
+            .send_request::<lsp_types::request::WorkspaceConfiguration>(
+                lsp_types::ConfigurationParams { items: vec![] },
+            )
+            .unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(2), response).await;
+        assert!(
+            matches!(&result, Ok(Ok(values)) if values.is_empty()),
+            "round {round}: {result:?}"
+        );
+    }
+
+    let response = notifier
+        .send_request::<lsp_types::request::ShowMessageRequest>(
+            lsp_types::ShowMessageRequestParams {
+                typ: lsp_types::MessageType::INFO,
+                message: String::new(),
+                actions: None,
+            },
+        )
+        .unwrap();
+    let result = tokio::time::timeout(Duration::from_secs(2), response).await;
+    assert!(matches!(&result, Ok(Err(err)) if err.to_string() == "refused"), "{result:?}");
+
+    notifier.send_notification::<lsp_types::notification::Exit>(()).unwrap();
+    client.join().unwrap();
+    adapter.join().unwrap();
 }
 
 async fn handle_notification(
@@ -796,7 +858,7 @@ async fn handle_preview_to_lsp_message(
         }
         M::PreviewTypeChanged { target } => {
             tracing::debug!("Preview type changed: {target:?}");
-            ctx.session.to_preview.set_local_target(target)?;
+            ctx.session.primary_preview().to_preview.set_local_target(target)?;
         }
         M::RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
@@ -824,7 +886,7 @@ async fn handle_preview_to_lsp_message(
         M::ConnectRemote { addresses, port } => {
             tracing::debug!("Preview asked to connect remote at {addresses:?}:{port}");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
                 // `connect()` owns the dialog state and has the preview
                 // state pushed once connected.
                 crate::editor_preview::spawn_local(remote.connect(addresses, port));
@@ -833,8 +895,29 @@ async fn handle_preview_to_lsp_message(
         M::DisconnectRemote => {
             tracing::debug!("Preview asked to disconnect remote");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
                 crate::editor_preview::spawn_local(remote.disconnect());
+            }
+        }
+        M::SubmitPairingCode { code } => {
+            tracing::debug!("Preview submitted a pairing code");
+            #[cfg(feature = "preview-remote")]
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
+                remote.submit_pairing_code(code);
+            }
+        }
+        M::CancelPairing => {
+            tracing::debug!("Preview cancelled pairing");
+            #[cfg(feature = "preview-remote")]
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
+                remote.cancel_pairing();
+            }
+        }
+        M::AcceptUnpairedConnection => {
+            tracing::debug!("Preview accepted an unpaired connection");
+            #[cfg(feature = "preview-remote")]
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
+                remote.accept_unpaired_connection();
             }
         }
         M::Pong => {
@@ -843,6 +926,19 @@ async fn handle_preview_to_lsp_message(
         }
         M::RequestPreview { .. } => {
             tracing::debug!("Ignoring preview request from a preview client");
+        }
+        M::Exited => {
+            tracing::debug!("Preview exited");
+        }
+        // The connector completes pairing before a session exists, so these
+        // never reach the LSP's message loop.
+        M::PairingReady
+        | M::PairingRequired { .. }
+        | M::PairingTokenChallenge { .. }
+        | M::PairingConfirm { .. }
+        | M::PairingAccepted
+        | M::PairingRejected { .. } => {
+            tracing::debug!("Ignoring a pairing message outside the pairing handshake");
         }
     }
     Ok(())

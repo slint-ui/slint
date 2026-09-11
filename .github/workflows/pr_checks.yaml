@@ -1,0 +1,110 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Checks a pull request has to pass before it can be merged, one job per check,
+# so each one can be required separately in the branch ruleset.
+#
+# `pull_request_target` runs with the secrets of this repository, so this
+# workflow never checks out or runs code from the pull request.
+# It only reads the description.
+
+name: PR Checks
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  # Contributions are licensed under MIT-0, see CONTRIBUTING.md#license.
+  # A contributor accepts these terms once, for all their pull requests, by
+  # ticking a checkbox this job adds to the description of their first pull
+  # request. The pull request keeps the ticked box as the record, and later
+  # pull requests find it there through the search API. Accounts that accepted
+  # before this check existed are listed in the CONTRIBUTION_AGREEMENTS
+  # repository variable, one per line; lines starting with '#' are comments.
+  contribution_agreement:
+    # Team members are covered by their contract, bots by their operator's terms.
+    if: >-
+      github.event.pull_request.user.type != 'Bot' &&
+      !contains(fromJson('["OWNER", "MEMBER"]'), github.event.pull_request.author_association)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+      AUTHOR: ${{ github.event.pull_request.user.login }}
+      BODY: ${{ github.event.pull_request.body }}
+      LEGACY_AGREED: ${{ vars.CONTRIBUTION_AGREEMENTS }}
+      AGREEMENT: >-
+        - [ ] I license this and all my future contributions to Slint under the
+        [MIT-0 license](https://opensource.org/license/mit-0).
+        They are my own work, and no third party (such as my employer) holds rights to them.
+    steps:
+      - name: Look up the agreement
+        id: lookup
+        run: |
+          # The box only counts with the complete sentence after it, unchanged.
+          sentence=$(printf '%s\n' "$AGREEMENT" | sed -n 's/^- \[ \] //p')
+          box_followed_by_sentence() {
+            tr -d '\r' \
+              | sed -n "s/^[[:space:]]*[-*][[:space:]]*\\[$1\\][[:space:]]*//p" | sed 's/[[:space:]]*$//' \
+              | grep -qxF -- "$sentence"
+          }
+          ticked() { printf '%s\n' "$BODY" | box_followed_by_sentence '[xX]'; }
+          present() { printf '%s\n' "$BODY" | box_followed_by_sentence '[ xX]'; }
+          listed_as_legacy() {
+            printf '%s\n' "$LEGACY_AGREED" | grep -v '^#' | tr -s '[:space:]' '\n' | grep -qixF -- "$AUTHOR"
+          }
+          ticked_in_an_earlier_pull_request() {
+            gh api -X GET search/issues -f per_page=100 \
+              -f q="repo:$REPO is:pr author:$AUTHOR \"I license my contribution\" in:body" \
+              --jq ".items[] | select(.number != $PR) | .body" \
+              | box_followed_by_sentence '[xX]'
+          }
+          if listed_as_legacy; then
+            echo "Listed in the CONTRIBUTION_AGREEMENTS variable."
+            status=recorded
+          elif ticked_in_an_earlier_pull_request; then
+            echo "Ticked the box in an earlier pull request."
+            status=recorded
+          elif ticked; then
+            status=ticked
+          elif present; then
+            status=unticked
+          else
+            status=missing
+          fi
+          echo "status=$status" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Add the agreement checkbox to the description
+        if: steps.lookup.outputs.status == 'missing'
+        run: |
+          { [ -n "$BODY" ] && printf '%s\n\n' "$BODY"; printf '%s\n' "$AGREEMENT"; } \
+            | gh pr edit "$PR" --repo "$REPO" --body-file -
+
+      - name: Welcome the contributor and ask them to tick the box
+        if: github.event.action == 'opened' && steps.lookup.outputs.status != 'recorded' && steps.lookup.outputs.status != 'ticked'
+        run: |
+          gh pr comment "$PR" --repo "$REPO" --body-file - <<'MSG'
+          👋 Welcome, and thanks for your pull request! If you haven't yet, take a look at [CONTRIBUTING.md](https://github.com/slint-ui/slint/blob/master/CONTRIBUTING.md).
+
+          Before we can merge it, tick the box at the end of the description to confirm that you agree to the licensing described in [CONTRIBUTING.md#license](https://github.com/slint-ui/slint/blob/master/CONTRIBUTING.md#license). You only do this once. If you can't agree, tell us in a comment instead.
+
+          We're a small team and reviews can take a while. If you don't hear back, nudge us in our [public chat](https://chat.slint.dev).
+          MSG
+
+      - name: Verify the agreement
+        env:
+          STATUS: ${{ steps.lookup.outputs.status }}
+        run: |
+          case "$STATUS" in
+            recorded|ticked)
+              echo "$AUTHOR accepted the contribution terms." ;;
+            *)
+              echo "::error::Tick the box at the end of the pull request description to license your contribution under MIT-0."
+              exit 1 ;;
+          esac

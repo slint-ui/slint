@@ -62,6 +62,38 @@ fn goto_node(
 use i_slint_compiler::parser::TextSize;
 
 #[test]
+fn test_goto_struct_field_and_model_data() {
+    // #13305
+    let source = r#"
+struct InnerData { inner: string }
+struct Data { first: string, second: [InnerData] }
+export component AppWindow {
+    in property <Data> data;
+    Text { text: data.first + data.second[0].inner; }
+    for item in data.second: Text { text: item.inner; }
+}"#;
+
+    let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
+    let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+    let mut target_line = |needle: &str, offset: u32| {
+        let offset = TextSize::new(source.find(needle).unwrap() as u32 + offset);
+        let token = crate::language::token_at_offset(&doc, offset).unwrap();
+        let def = goto_definition(&mut dc, token).unwrap();
+        let GotoDefinitionResponse::Link(link) = def else { panic!("not a single link {def:?}") };
+        let link = link.first().unwrap();
+        assert_eq!(link.target_uri, uri);
+        link.target_range.start.line
+    };
+
+    // The field declarations in the structs
+    assert_eq!(target_line("data.first", 5), 2);
+    assert_eq!(target_line("data.second[0].inner", 15), 1);
+    assert_eq!(target_line("item.inner", 5), 1);
+    // The declared identifier of the `for`
+    assert_eq!(target_line("item.inner", 0), 6);
+}
+
+#[test]
 fn test_goto_definition() {
     fn first_link(def: &GotoDefinitionResponse) -> &LocationLink {
         let GotoDefinitionResponse::Link(link) = def else { panic!("not a single link {def:?}") };
@@ -237,21 +269,7 @@ fn test_goto_definition_multi_files() {
     "#,
         url1 = url1.to_file_path().unwrap().display()
     );
-    let mut ctx = crate::language::Context {
-        session: editor_preview::EditorSession {
-            document_cache: dc,
-            preview_config: Default::default(),
-            to_show: None,
-            open_urls: Default::default(),
-            to_preview: crate::editor_preview::LspToPreviews::with_one(
-                editor_preview::DummyLspToPreview::default(),
-            ),
-            pending_recompile: Default::default(),
-        },
-        server_notifier: crate::ServerNotifier::dummy(),
-        init_param: Default::default(),
-        host_language_rename_dont_ask_again: Default::default(),
-    };
+    let mut ctx = crate::language::test::mock_context_with_document_cache(dc);
     let (extra_files, diag) =
         spin_on::spin_on(ctx.session.load_document_impl(source2.clone(), url2.clone(), Some(43)));
     let diag = editor_preview::editor_session::convert_diagnostics(
@@ -312,4 +330,38 @@ fn test_goto_definition_multi_files() {
     let link = first_link(&def);
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 7);
+}
+
+#[test]
+fn test_goto_definition_expected_type() {
+    fn first_link(def: &GotoDefinitionResponse) -> &LocationLink {
+        let GotoDefinitionResponse::Link(link) = def else { panic!("not a single link {def:?}") };
+        link.first().unwrap()
+    }
+
+    // A bare enum value resolved through the expected type (here the right-hand side of a
+    // comparison, and a call argument) still goes to the value's declaration.
+    let source = r#"
+enum Direction { up, down, forward }
+export component Test {
+    callback cb(Direction);
+    in property <Direction> dir;
+    out property <bool> b: dir == forward;
+    cb2 => { cb(up); }
+    callback cb2;
+}"#;
+    let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
+    let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+
+    let offset: TextSize = (source.find("dir == forward").unwrap() as u32 + 7).into();
+    let token = crate::language::token_at_offset(&doc, offset).unwrap();
+    assert_eq!(token.text(), "forward");
+    let def = goto_definition(&mut dc, token).unwrap();
+    assert_eq!(first_link(&def).target_range.start.line, 1);
+
+    let offset: TextSize = (source.find("cb(up)").unwrap() as u32 + 3).into();
+    let token = crate::language::token_at_offset(&doc, offset).unwrap();
+    assert_eq!(token.text(), "up");
+    let def = goto_definition(&mut dc, token).unwrap();
+    assert_eq!(first_link(&def).target_range.start.line, 1);
 }

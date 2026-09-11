@@ -23,6 +23,7 @@ exec cargo publish "$@" \
     -p i-slint-renderer-skia --features i-slint-renderer-skia/x11 \
     -p i-slint-renderer-femtovg \
     -p i-slint-renderer-software \
+    -p i-slint-renderer-anyrender \
     -p i-slint-backend-winit --features i-slint-backend-winit/x11,i-slint-backend-winit/renderer-femtovg \
     -p slint-build \
     -p i-slint-backend-qt \

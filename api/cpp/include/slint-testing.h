@@ -410,7 +410,7 @@ public:
     /// Selects the text between two UTF-8 offsets.
     ///
     /// This will invoke the `accessible-action-set-selection-offsets` callback.
-    void set_accessible_selection(int anchor, int focus) const
+    void set_accessible_selection_offsets(int anchor, int focus) const
     {
         if (inner.element_index != 0)
             return;

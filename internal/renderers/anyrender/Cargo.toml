@@ -11,11 +11,14 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-# Internal for now: no public API commitment yet, and no crates.io release.
-publish = false
 
 [lib]
 path = "lib.rs"
+
+[features]
+default = []
+## Render through vello on WGPU, using Slint's own WGPU initialization.
+vello = ["dep:anyrender_vello", "dep:vello", "i-slint-core/unstable-wgpu-29"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "shared-fontique", "shared-parley", "image-decoders", "svg"] }
@@ -31,6 +34,10 @@ kurbo = { version = "0.13" }
 # wasm32, so it doesn't compile on i686/armv7 either. See the matching `cfg` in lib.rs.
 [target.'cfg(any(target_pointer_width = "64", target_arch = "wasm32"))'.dependencies]
 anyrender = { version = "0.13" }
+# Only the scene recording is used from anyrender_vello; the WGPU setup is
+# Slint's own, see vello.rs.
+anyrender_vello = { version = "0.14", optional = true, default-features = false }
+vello = { version = "0.10", optional = true }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

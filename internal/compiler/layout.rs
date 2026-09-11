@@ -64,7 +64,7 @@ pub enum Layout {
 
 impl Layout {
     /// Call the visitor for each NamedReference stored in the layout
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         match self {
             Layout::GridLayout(grid) => grid.visit_named_references(visitor),
             Layout::BoxLayout(l) => l.visit_named_references(visitor),
@@ -168,7 +168,7 @@ impl LayoutRect {
         }
     }
 
-    fn visit_named_references(&mut self, mut visitor: &mut impl FnMut(&mut NamedReference)) {
+    fn visit_named_references(&mut self, mut visitor: &mut dyn FnMut(&mut NamedReference)) {
         self.width_reference.as_mut().map(&mut visitor);
         self.height_reference.as_mut().map(&mut visitor);
         self.x_reference.as_mut().map(&mut visitor);
@@ -420,7 +420,7 @@ impl LayoutConstraints {
             .chain(c.stretch.as_ref().map(|x| (x, "stretch")))
     }
 
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         if let Some(e) = self.max_width.as_mut() {
             visitor(&mut *e);
         }
@@ -473,7 +473,7 @@ pub struct GridLayoutCell {
 }
 
 impl GridLayoutCell {
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         if let RowColExpr::Named(ref mut e) = self.col_expr {
             visitor(e);
         }
@@ -521,7 +521,7 @@ pub struct Padding {
 }
 
 impl Padding {
-    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         if let Some(e) = self.left.as_mut() {
             visitor(&mut *e)
         }
@@ -552,7 +552,7 @@ pub struct Spacing {
 }
 
 impl Spacing {
-    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         if let Some(e) = self.horizontal.as_mut() {
             visitor(&mut *e);
         }
@@ -578,7 +578,7 @@ pub struct LayoutGeometry {
 }
 
 impl LayoutGeometry {
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         self.rect.visit_named_references(visitor);
         if let Some(e) = self.alignment.as_mut() {
             visitor(&mut *e)
@@ -698,7 +698,7 @@ impl GridLayout {
         }
     }
 
-    pub fn visit_rowcol_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_rowcol_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         for elem in &mut self.elems {
             let mut cell = elem.cell.borrow_mut();
             if let RowColExpr::Named(ref mut e) = cell.col_expr {
@@ -716,7 +716,7 @@ impl GridLayout {
         }
     }
 
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         self.visit_rowcol_named_references(visitor);
         for layout_elem in &mut self.elems {
             layout_elem.item.constraints.visit_named_references(visitor);
@@ -742,7 +742,7 @@ pub struct BoxLayout {
 }
 
 impl BoxLayout {
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
             cell.constraints.visit_named_references(visitor);
             if let Some(e) = cell.cross_axis_self_alignment.as_mut() {
@@ -837,7 +837,7 @@ impl FlexboxLayout {
         }
     }
 
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
             cell.constraints.visit_named_references(visitor);
             if let Some(e) = cell.cross_axis_self_alignment.as_mut() {

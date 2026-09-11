@@ -99,6 +99,8 @@ mod renderer {
 
     #[cfg(feature = "renderer-software")]
     pub(crate) mod sw;
+    #[cfg(feature = "renderer-vello")]
+    pub(crate) mod vello;
 }
 
 #[cfg(enable_accesskit)]
@@ -118,8 +120,10 @@ cfg_if::cfg_if! {
         const DEFAULT_RENDERER_NAME: &str = "Skia";
     } else if #[cfg(feature = "renderer-software")] {
         const DEFAULT_RENDERER_NAME: &str = "Software";
+    } else if #[cfg(feature = "renderer-vello")] {
+        const DEFAULT_RENDERER_NAME: &str = "Vello";
     } else {
-        compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan` or `renderer-software`");
+        compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software` or `renderer-vello`");
     }
 }
 
@@ -135,8 +139,12 @@ fn default_renderer_factory(
             renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_backend_data)
         } else if #[cfg(feature = "renderer-software")] {
             renderer::sw::WinitSoftwareRenderer::new_suspended(shared_backend_data)
+        } else if #[cfg(feature = "renderer-vello")] {
+            // Last in the chain: vello is opt-in and only becomes the default
+            // when it is the only renderer built in.
+            renderer::vello::WinitVelloRenderer::new_suspended(shared_backend_data)
         } else {
-            compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan` or `renderer-software`");
+            compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software` or `renderer-vello`");
         }
     }
 }
@@ -164,6 +172,8 @@ fn try_create_window_with_fallback_renderer(
         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
         #[cfg(feature = "renderer-software")]
         renderer::sw::WinitSoftwareRenderer::new_suspended,
+        #[cfg(feature = "renderer-vello")]
+        renderer::vello::WinitVelloRenderer::new_suspended,
     ]
     .into_iter()
     .find_map(|renderer_factory| {
@@ -522,7 +532,7 @@ impl SharedBackendData {
             renderer_name,
             requested_graphics_api,
             #[cfg(enable_skia_renderer)]
-            skia_context: i_slint_renderer_skia::SkiaSharedContext::default(),
+            skia_context: Default::default(),
             active_windows,
             inactive_windows: Default::default(),
             pending_mouse_move: Default::default(),
@@ -732,6 +742,30 @@ impl Backend {
     }
 }
 
+/// Proxy of the event loop of the winit backend that was installed as the platform, so
+/// that [`invoke_from_active_event_loop`] can reach it from any thread.
+static GLOBAL_PROXY: std::sync::Mutex<Option<winit::event_loop::EventLoopProxy<SlintEvent>>> =
+    std::sync::Mutex::new(None);
+
+/// Schedules a callback to be invoked in the winit event loop, and passes winit's
+/// [`ActiveEventLoop`] to it.
+///
+/// This is similar to [`slint::invoke_from_event_loop`](i_slint_core::api::invoke_from_event_loop),
+/// but the callback also receives the [`ActiveEventLoop`], which winit only exposes while the
+/// event loop is running. Use it to call winit APIs that need it, for example to create custom
+/// windows.
+///
+/// This function can be called from any thread. It returns an error if the winit backend hasn't
+/// been installed yet, or if the event loop has terminated.
+pub fn invoke_from_active_event_loop(
+    func: impl FnOnce(&ActiveEventLoop) + Send + 'static,
+) -> Result<(), EventLoopError> {
+    let proxy = GLOBAL_PROXY.lock().unwrap().clone().ok_or(EventLoopError::NoEventLoopProvider)?;
+    proxy
+        .send_event(SlintEvent(CustomEvent::UserEventWithEventLoop(Box::new(func))))
+        .map_err(|_| EventLoopError::EventLoopTerminated)
+}
+
 #[allow(unused)]
 const DEFAULT_CURSOR_FLASH_CYCLE: core::time::Duration = core::time::Duration::from_millis(1000);
 
@@ -931,6 +965,7 @@ impl i_slint_core::platform::Platform for Backend {
                     .map_err(|_| EventLoopError::EventLoopTerminated)
             }
         }
+        *GLOBAL_PROXY.lock().unwrap() = Some(self.shared_data.event_loop_proxy.clone());
         Some(Box::new(Proxy(
             self.shared_data.event_loop_proxy.clone(),
             Arc::clone(&self.shared_data.event_loop_generation),
@@ -1222,49 +1257,22 @@ fn create_renderer(
             }
             renderer::skia::WinitSkiaRenderer::new_opengl_suspended(shared_data)
         }
-        #[cfg(all(
-            enable_skia_renderer,
-            any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30")
-        ))]
-        (Some("skia-wgpu"), maybe_graphics_api) => {
-            if let Some(selected_renderer) = maybe_graphics_api.map_or_else(
-                || {
-                    #[cfg(feature = "unstable-wgpu-30")]
-                    {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(
-                            shared_data,
-                        ));
-                    }
-                    #[cfg(all(feature = "unstable-wgpu-29", not(feature = "unstable-wgpu-30")))]
-                    {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
-                            shared_data,
-                        ));
-                    }
-                    #[allow(unreachable_code)]
-                    None
-                },
-                |_api| {
-                    #[cfg(feature = "unstable-wgpu-30")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU30(..)) {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(
-                            shared_data,
-                        ));
-                    }
-                    #[cfg(feature = "unstable-wgpu-29")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU29(..)) {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
-                            shared_data,
-                        ));
-                    }
-                    None
-                },
-            ) {
-                selected_renderer
-            } else {
+        #[cfg(enable_skia_renderer)]
+        (Some("skia-wgpu"), maybe_graphics_api) => match maybe_graphics_api {
+            None => renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(shared_data),
+            #[cfg(feature = "unstable-wgpu-30")]
+            // this is always enabled when skia is enabled, but rust-analyzer can get confused
+            Some(RequestedGraphicsAPI::WGPU30(..)) => {
+                renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(shared_data)
+            }
+            #[cfg(feature = "unstable-wgpu-29")]
+            Some(RequestedGraphicsAPI::WGPU29(..)) => {
+                renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(shared_data)
+            }
+            Some(_) => {
                 Err("Skia with WGPU doesn't support non-WGPU graphics API".to_string().into())
             }
-        }
+        },
         #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
         (Some("skia-software"), None) => {
             renderer::skia::WinitSkiaRenderer::new_software_suspended(shared_data)
@@ -1272,6 +1280,19 @@ fn create_renderer(
         #[cfg(feature = "renderer-software")]
         (Some("sw"), None) | (Some("software"), None) => {
             renderer::sw::WinitSoftwareRenderer::new_suspended(shared_data)
+        }
+        #[cfg(feature = "renderer-vello")]
+        (Some("vello"), maybe_graphics_api) => {
+            // vello renders through WGPU 29; anything else was not created by
+            // this renderer and cannot be adopted.
+            if let Some(api) = maybe_graphics_api
+                && !matches!(api, RequestedGraphicsAPI::WGPU29(..))
+            {
+                return Err(
+                    "The vello renderer only supports the WGPU29 graphics API selection".into()
+                );
+            }
+            renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
         }
         (None, None) => default_renderer_factory(shared_data),
         (Some(renderer_name), _) => {
@@ -1289,8 +1310,10 @@ fn create_renderer(
             cfg_if::cfg_if! {
                 if #[cfg(enable_skia_renderer)] {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(shared_data)
+                } else if #[cfg(feature = "renderer-vello")] {
+                    renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
                 } else {
-                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select renderer-skia*".into())
+                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select renderer-skia* or renderer-vello".into())
                 }
             }
         }

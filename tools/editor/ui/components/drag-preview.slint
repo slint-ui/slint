@@ -1,16 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { AppState, PaletteComponentKind, StudioTheme } from "common.slint";
+import { AppState, ElementKind, StudioTheme } from "common.slint";
+import { ElementPresentation, ElementVisuals } from "element-presentation.slint";
 import { EditorTreeTokens } from "editor-tree-tokens.slint";
 
-component PaletteImageDragPreview inherits Rectangle {
-    border-radius: 16px;
+component PalettePlaceholderDragPreview inherits Rectangle {
+    in property <bool> show-thumbnail: true;
+    in property <length> corner-radius;
+    border-radius: root.corner-radius;
     background: StudioTheme.object-subtle;
     border-width: 1px;
     border-color: StudioTheme.object-border;
 
-    Rectangle {
+    if root.show-thumbnail: Rectangle {
         width: 48px;
         height: 36px;
         border-radius: 6px;
@@ -38,7 +41,9 @@ component PaletteImageDragPreview inherits Rectangle {
 }
 
 export component DragPreview inherits Rectangle {
-    private property <bool> palette-drag-active: AppState.palette-drag-kind != PaletteComponentKind.none;
+    in property <Point> parent-origin;
+    private property <ElementPresentation> presentation: ElementVisuals.for-kind(AppState.palette-drag-kind);
+    private property <bool> palette-drag-active: AppState.palette-drag-kind != ElementKind.none;
     visible: AppState.outline-drag-active || root.palette-drag-active;
     width: AppState.outline-drag-active
         ? AppState.outline-drag-preview-size.width
@@ -46,25 +51,22 @@ export component DragPreview inherits Rectangle {
     height: AppState.outline-drag-active
         ? AppState.outline-drag-preview-size.height
         : AppState.palette-drag-size.height;
-    x: AppState.outline-drag-active
+    x: (AppState.outline-drag-active
         ? AppState.outline-drag-position.x
-        : AppState.palette-drag-preview-position.x;
-    y: AppState.outline-drag-active
+        : AppState.palette-drag-preview-position.x) - root.parent-origin.x;
+    y: (AppState.outline-drag-active
         ? AppState.outline-drag-position.y
-        : AppState.palette-drag-preview-position.y;
+        : AppState.palette-drag-preview-position.y) - root.parent-origin.y;
     border-radius: AppState.outline-drag-active
         ? EditorTreeTokens.row-radius
-        : AppState.palette-drag-kind == PaletteComponentKind.image ? 16px : 8px;
+        : root.presentation.corner-radius;
     background: transparent;
     opacity: AppState.outline-drag-active ? 0.5 : 1;
     drop-shadow-blur: 18px;
     drop-shadow-offset-y: 8px;
     drop-shadow-color: StudioTheme.dark ? #00000055 : #33415535;
     accessible-role: AccessibleRole.region;
-    accessible-label: AppState.palette-drag-kind == PaletteComponentKind.rectangle ? "Rectangle drag preview"
-        : AppState.palette-drag-kind == PaletteComponentKind.text ? "Text drag preview"
-        : AppState.palette-drag-kind == PaletteComponentKind.image ? "Image drag preview"
-        : "Outline drag preview";
+    accessible-label: AppState.outline-drag-active ? "Outline drag preview" : root.presentation.drag-label;
 
     if AppState.outline-drag-active: Rectangle {
         border-radius: EditorTreeTokens.row-radius;
@@ -99,14 +101,14 @@ export component DragPreview inherits Rectangle {
         }
     }
 
-    if !AppState.outline-drag-active && AppState.palette-drag-kind == PaletteComponentKind.rectangle: Rectangle {
-        border-radius: 8px;
+    if !AppState.outline-drag-active && AppState.palette-drag-kind == ElementKind.rectangle: Rectangle {
+        border-radius: root.presentation.corner-radius;
         background: StudioTheme.object-bg;
         border-width: 1px;
         border-color: StudioTheme.object-border;
     }
 
-    if !AppState.outline-drag-active && AppState.palette-drag-kind == PaletteComponentKind.text: Text {
+    if !AppState.outline-drag-active && AppState.palette-drag-kind == ElementKind.text: Text {
         text: "Text";
         color: StudioTheme.phone-text;
         font-size: 24px;
@@ -114,5 +116,8 @@ export component DragPreview inherits Rectangle {
         vertical-alignment: center;
     }
 
-    if !AppState.outline-drag-active && AppState.palette-drag-kind == PaletteComponentKind.image: PaletteImageDragPreview { }
+    if !AppState.outline-drag-active && (AppState.palette-drag-kind == ElementKind.image || AppState.palette-drag-kind == ElementKind.touch-area): PalettePlaceholderDragPreview {
+        corner-radius: root.border-radius;
+        show-thumbnail: root.presentation.show-thumbnail;
+    }
 }

@@ -5,9 +5,8 @@
 // Generate mdx documentation files for builtin elements using data from
 // the compiler's TypeRegister.
 
-use i_slint_compiler::doc_comments::ElementDocEntry;
 use i_slint_compiler::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementType, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementDocEntry, ElementType, Type,
 };
 use i_slint_compiler::object_tree::PropertyVisibility;
 
@@ -18,43 +17,6 @@ use std::io::{BufWriter, Write};
 
 use crate::Config;
 use crate::mdx;
-
-// -- SC annotation --
-
-/// Find each standalone occurrence of `\sc` (not followed by an identifier
-/// character so we don't collide with hypothetical markers like `\scope`).
-fn find_sc_markers(doc: &str) -> impl Iterator<Item = (usize, usize)> + '_ {
-    doc.match_indices("\\sc").filter_map(|(start, _)| {
-        let end = start + 3;
-        match doc.as_bytes().get(end).copied() {
-            None => Some((start, end)),
-            Some(b) if !b.is_ascii_alphanumeric() && b != b'_' => Some((start, end)),
-            _ => None,
-        }
-    })
-}
-
-/// Whether a doc string carries the `\sc` marker, identifying content that's
-/// part of the Slint SC safety-certified surface.
-pub fn is_sc_covered(doc: &str) -> bool {
-    find_sc_markers(doc).next().is_some()
-}
-
-/// Remove every `\sc` marker from a doc string so it never leaks into rendered output.
-pub fn strip_sc(doc: &str) -> String {
-    let ranges: Vec<(usize, usize)> = find_sc_markers(doc).collect();
-    if ranges.is_empty() {
-        return doc.to_string();
-    }
-    let mut out = String::with_capacity(doc.len());
-    let mut cursor = 0;
-    for (s, e) in ranges {
-        out.push_str(&doc[cursor..s]);
-        cursor = e;
-    }
-    out.push_str(&doc[cursor..]);
-    out.trim_end().to_string()
-}
 
 // -- Annotation helpers --
 
@@ -223,13 +185,11 @@ fn strip_hidden_regions(text: &str, tag: &str) -> String {
 /// becomes a `<CodeSnippetMD>` wrapper with an auto-generated `imagePath`.
 /// When `counter.skip_screenshots` is true, screenshot attributes are stripped
 /// instead and the fence is emitted as a plain ```slint``` block. Also strips
-/// the `\sc` marker so it never reaches the rendered output, and the
-/// `<NotInSC>`/`<OnlyInSC>` region the page's site doesn't render.
+/// the `<NotInSC>`/`<OnlyInSC>` region the page's site doesn't render.
 #[allow(clippy::while_let_on_iterator)] // inner loop also advances `lines`
 fn transform_code_fences(text: &str, counter: &mut ScreenshotCounter) -> String {
-    let stripped = strip_sc(text);
     let mut stripped =
-        strip_hidden_regions(&stripped, if counter.sc_only { "NotInSC" } else { "OnlyInSC" });
+        strip_hidden_regions(text, if counter.sc_only { "NotInSC" } else { "OnlyInSC" });
     // The safety manual mounts the language chapters at /language/ instead of
     // the main documentation's /reference/language/. Doc comments write the
     // canonical path, so links to the specification resolve on both sites.
@@ -357,19 +317,30 @@ fn format_default_expr(expr: &i_slint_compiler::expression_tree::Expression) -> 
     }
 }
 
-/// Format a callback or function signature from a `Function` type.
-fn format_signature(func: &i_slint_compiler::langtype::Function) -> String {
+/// Format a callback or function signature from a `Function` type. Pass `None`
+/// for a signature rendered as code: a link doesn't survive backticks.
+fn format_signature(
+    func: &i_slint_compiler::langtype::Function,
+    links: Option<&mdx::TypeLinks>,
+) -> String {
+    let type_name = |ty: &Type| match links {
+        Some(links) => links.linked(&ty.to_string()),
+        None => ty.to_string(),
+    };
     let params: Vec<String> = func
         .arg_names
         .iter()
         .zip(func.args.iter())
         .filter(|(_, ty)| !matches!(ty, Type::ElementReference))
-        .map(|(name, ty)| if name.is_empty() { ty.to_string() } else { format!("{name}: {ty}") })
+        .map(|(name, ty)| {
+            let ty = type_name(ty);
+            if name.is_empty() { ty } else { format!("{name}: {ty}") }
+        })
         .collect();
     let ret = if matches!(func.return_type, Type::Void) {
         String::new()
     } else {
-        format!(" -> {}", func.return_type)
+        format!(" -> {}", type_name(&func.return_type))
     };
     format!("({}){ret}", params.join(", "))
 }
@@ -381,13 +352,13 @@ fn write_mdx_signature_heading(
     markdown_heading: &str,
     name: &str,
     func: &i_slint_compiler::langtype::Function,
+    links: &mdx::TypeLinks,
 ) -> std::io::Result<()> {
-    let sig = format_signature(func);
-    let title = format!("{name}{sig}");
-    if title.contains('{') || title.contains('<') {
-        writeln!(file, "{markdown_heading} `{title}`")?;
+    let sig = format_signature(func, None);
+    if sig.contains('{') || sig.contains('<') {
+        writeln!(file, "{markdown_heading} `{name}{sig}`")?;
     } else {
-        writeln!(file, "{markdown_heading} {title}")?;
+        writeln!(file, "{markdown_heading} {name}{}", format_signature(func, Some(links)))?;
     }
     Ok(())
 }
@@ -419,13 +390,17 @@ fn element_description(builtin: &BuiltinElement) -> String {
             let mut d = t.clone();
             extract_group(&mut d);
             strip_annotation(&mut d, "\\draft");
-            strip_annotation(&mut d, "\\skip_inherited");
             strip_annotation(&mut d, "\\skip_children");
             let (desc, _) = split_footer(&d);
             desc
         }
         _ => String::new(),
     }
+}
+
+/// A member without docs, or outside the subset on the SC reference, has no section.
+fn skip_member(cfg: &Config, info: &BuiltinPropertyInfo) -> bool {
+    info.docs.is_none() || (cfg.sc_only && !info.slint_sc)
 }
 
 /// Collect all text from a builtin element for import detection.
@@ -440,7 +415,7 @@ fn collect_builtin_text(builtin: &BuiltinElement, text: &mut String, sc_only: bo
                 if let Some(info) = builtin.properties.get(name.as_str())
                     && let Some(doc) = &info.docs
                     // A member the page leaves out contributes no import
-                    && (!sc_only || is_sc_covered(doc))
+                    && (!sc_only || info.slint_sc)
                 {
                     text.push(' ');
                     text.push_str(doc);
@@ -475,20 +450,29 @@ fn collect_all_text(builtin: &BuiltinElement, skip_children: bool, sc_only: bool
     text
 }
 
+/// The built-in type names an element's documentation resolves against.
+struct TypeContext<'a> {
+    /// Every built-in enum and struct, whether or not this run documents it: a
+    /// property names the kind of its type either way.
+    enums: HashSet<String>,
+    structs: HashSet<String>,
+    /// The pages this run writes, for the types it links.
+    links: &'a mdx::TypeLinks,
+}
+
 fn write_slint_property(
     file: &mut impl Write,
     name: &str,
     info: &BuiltinPropertyInfo,
     heading: &str,
-    enums: &HashSet<String>,
-    structs: &HashSet<String>,
+    types: &TypeContext,
     sc: &mut ScreenshotCounter,
 ) -> std::io::Result<()> {
     let type_name = info.ty.to_string();
     let raw_doc = info.docs.as_deref().unwrap_or("");
     let (description, doc_default) = extract_default(raw_doc);
     let mut default_value = match &info.default_value {
-        BuiltinPropertyDefault::Expr(expr) => format_default_expr(expr),
+        BuiltinPropertyDefault::Expr(expr) => format_default_expr(&expr.to_expression()),
         _ => String::new(),
     };
     if default_value.is_empty()
@@ -497,9 +481,9 @@ fn write_slint_property(
         default_value = d;
     }
 
-    let (type_attr, is_enum, is_struct) = if enums.contains(&type_name) {
+    let (type_attr, is_enum, is_struct) = if types.enums.contains(&type_name) {
         ("enum", true, false)
-    } else if structs.contains(&type_name) {
+    } else if types.structs.contains(&type_name) {
         ("struct", false, true)
     } else {
         (type_name.as_str(), false, false)
@@ -540,8 +524,7 @@ fn write_member(
     in_properties: &mut bool,
     in_callbacks: &mut bool,
     in_functions: &mut bool,
-    enums: &HashSet<String>,
-    structs: &HashSet<String>,
+    types: &TypeContext,
     sc: &mut ScreenshotCounter,
 ) -> std::io::Result<()> {
     match &info.ty {
@@ -551,7 +534,7 @@ fn write_member(
                 writeln!(file)?;
                 *in_properties = true;
             }
-            write_slint_property(file, name, info, "###", enums, structs, sc)?;
+            write_slint_property(file, name, info, "###", types, sc)?;
         }
         Type::Callback(func) => {
             if !*in_callbacks {
@@ -559,7 +542,7 @@ fn write_member(
                 writeln!(file)?;
                 *in_callbacks = true;
             }
-            write_mdx_signature_heading(file, "###", name, func)?;
+            write_mdx_signature_heading(file, "###", name, func, types.links)?;
             if let Some(doc) = &info.docs
                 && !doc.is_empty()
             {
@@ -573,7 +556,7 @@ fn write_member(
                 writeln!(file)?;
                 *in_functions = true;
             }
-            write_mdx_signature_heading(file, "###", name, func)?;
+            write_mdx_signature_heading(file, "###", name, func, types.links)?;
             if let Some(doc) = &info.docs {
                 writeln!(file, "{}", transform_code_fences(doc, sc).trim_end())?;
             }
@@ -627,8 +610,7 @@ fn normalize_section_text(text: &str) -> String {
 fn write_members(
     file: &mut impl Write,
     builtin: &BuiltinElement,
-    enums: &HashSet<String>,
-    structs: &HashSet<String>,
+    types: &TypeContext,
     sc: &mut ScreenshotCounter,
     cfg: &Config,
 ) -> std::io::Result<()> {
@@ -670,8 +652,7 @@ fn write_members(
             }
             ElementDocEntry::Member(name) => {
                 let Some(info) = builtin.properties.get(name.as_str()) else { continue };
-                let Some(doc) = info.docs.as_deref() else { continue };
-                if cfg.sc_only && !is_sc_covered(doc) {
+                if skip_member(cfg, info) {
                     continue;
                 }
                 write_member(
@@ -681,8 +662,7 @@ fn write_members(
                     &mut in_properties,
                     &mut in_callbacks,
                     &mut in_functions,
-                    enums,
-                    structs,
+                    types,
                     sc,
                 )?;
             }
@@ -693,13 +673,11 @@ fn write_members(
 }
 
 /// Write a sub-element section. Recurse into the sub-element's own children.
-#[allow(clippy::too_many_arguments)]
 fn write_sub_element(
     file: &mut impl Write,
     child_name: &str,
     child: &BuiltinElement,
-    enums: &HashSet<String>,
-    structs: &HashSet<String>,
+    types: &TypeContext,
     seen: &mut HashSet<String>,
     sc: &mut ScreenshotCounter,
     cfg: &Config,
@@ -710,12 +688,7 @@ fn write_sub_element(
     if !has_documentation(child) {
         return Ok(());
     }
-    if cfg.sc_only
-        && !child
-            .docs
-            .first()
-            .is_some_and(|e| matches!(e, ElementDocEntry::Text(t) if is_sc_covered(t)))
-    {
+    if cfg.sc_only && !child.slint_sc {
         return Ok(());
     }
 
@@ -739,8 +712,7 @@ fn write_sub_element(
         if let ElementDocEntry::Member(name) = entry
             && let Some(info) = child.properties.get(name.as_str())
         {
-            let Some(doc) = info.docs.as_deref() else { continue };
-            if cfg.sc_only && !is_sc_covered(doc) {
+            if skip_member(cfg, info) {
                 continue;
             }
             match &info.ty {
@@ -764,7 +736,7 @@ fn write_sub_element(
             writeln!(file)?;
         }
         for (name, info) in &props {
-            write_slint_property(file, name, info, h, enums, structs, sc)?;
+            write_slint_property(file, name, info, h, types, sc)?;
         }
     }
     if !cbs.is_empty() {
@@ -772,7 +744,7 @@ fn write_sub_element(
         writeln!(file)?;
         for (name, info) in &cbs {
             let Type::Callback(func) = &info.ty else { continue };
-            write_mdx_signature_heading(file, h, name, func)?;
+            write_mdx_signature_heading(file, h, name, func, types.links)?;
             if let Some(doc) = &info.docs
                 && !doc.is_empty()
             {
@@ -786,7 +758,7 @@ fn write_sub_element(
         writeln!(file)?;
         for (name, info) in &fns {
             let Type::Function(func) = &info.ty else { continue };
-            write_mdx_signature_heading(file, h, name, func)?;
+            write_mdx_signature_heading(file, h, name, func, types.links)?;
             if let Some(doc) = &info.docs {
                 writeln!(file, "{}", transform_code_fences(doc, sc).trim_end())?;
             }
@@ -797,7 +769,7 @@ fn write_sub_element(
     // Recurse into grandchildren.
     if !skip_children {
         for (gc_name, gc) in &child.additional_accepted_child_types {
-            write_sub_element(file, gc_name, gc, enums, structs, seen, sc, cfg)?;
+            write_sub_element(file, gc_name, gc, types, seen, sc, cfg)?;
         }
     }
 
@@ -805,20 +777,17 @@ fn write_sub_element(
 }
 
 /// Generate .mdx page files for each exported builtin element.
-pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    let register = i_slint_compiler::typeregister::TypeRegister::builtin_experimental(
-        &i_slint_compiler::symbol_counters::SymbolCounters::shared(),
-    );
+pub fn generate(cfg: &Config, links: &mdx::TypeLinks) -> Result<(), Box<dyn std::error::Error>> {
+    let register = i_slint_compiler::typeregister::TypeRegister::builtin_experimental();
     let register = register.borrow();
     let generated_dir = cfg.reference_dir();
     create_dir_all(&generated_dir)?;
 
-    // Include all types for resolution, regardless of experimental or SC flag,
-    // so property types still resolve their kind even when the target page
-    // isn't generated.
-    let enum_names: HashSet<String> = mdx::extract_enum_docs(true, false).keys().cloned().collect();
-    let struct_names: HashSet<String> =
-        mdx::extract_builtin_structs(true, false).keys().cloned().collect();
+    let types = TypeContext {
+        enums: mdx::extract_enum_docs(true).keys().cloned().collect(),
+        structs: mdx::extract_builtin_structs(true).keys().cloned().collect(),
+        links,
+    };
 
     // Collect exported elements.
     let mut elements = Vec::new();
@@ -847,7 +816,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        if cfg.sc_only && !is_sc_covered(&description) {
+        if cfg.sc_only && !builtin.slint_sc {
             continue;
         }
 
@@ -860,7 +829,6 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         }
         let (desc, footer) = split_footer(&description);
         description = desc;
-        strip_annotation(&mut description, "\\skip_inherited");
         let skip_children = strip_annotation(&mut description, "\\skip_children");
 
         let filename = format!("{}.mdx", name.to_ascii_lowercase());
@@ -906,7 +874,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
             )?;
         }
         let mut extra_imports = Vec::new();
-        for sname in &struct_names {
+        for sname in &types.structs {
             if all_text.contains(&format!("<{sname} />"))
                 || all_text.contains(&format!("<{sname}/>"))
             {
@@ -916,7 +884,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
                 ));
             }
         }
-        for ename in &enum_names {
+        for ename in &types.enums {
             if all_text.contains(&format!("<{ename} />"))
                 || all_text.contains(&format!("<{ename}/>"))
             {
@@ -959,7 +927,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Members.
-        write_members(&mut file, builtin, &enum_names, &struct_names, &mut sc, cfg)?;
+        write_members(&mut file, builtin, &types, &mut sc, cfg)?;
 
         // Sub-elements (recursive, with cycle protection).
         if !skip_children {
@@ -969,8 +937,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
                     &mut file,
                     child_name,
                     child,
-                    &enum_names,
-                    &struct_names,
+                    &types,
                     &mut seen_children,
                     &mut sc,
                     cfg,

@@ -26,20 +26,3 @@ license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint
 repository = "https://github.com/slint-ui/slint"
 rust-version = "1.92"
 version = "1.17.0"
-
-# Kept identical to the root Cargo.toml's `[profile.*]`, so that the shared
-# `target/` directory is reused; `cargo xtask check_profiles` enforces it.
-[profile.release]
-panic = "abort"
-
-
-# Always build resvg and its hot-path dependencies with optimizations,
-# as it otherwise causes freezes to load large SVGs in debug builds.
-[profile.dev.package.resvg]
-opt-level = 3
-[profile.dev.package.usvg]
-opt-level = 3
-[profile.dev.package.tiny-skia]
-opt-level = 3
-[profile.dev.package.rgb]
-opt-level = 3

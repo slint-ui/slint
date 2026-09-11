@@ -6,8 +6,8 @@
 // cspell:ignore coord
 
 use crate::items::{
-    CrossAxisAlignment, CrossAxisSelfAlignment, DialogButtonRole, FlexboxLayoutDirection,
-    FlexboxLayoutWrap, LayoutAlignment,
+    CrossAxisAlignment, DialogButtonRole, FlexboxLayoutDirection, FlexboxLayoutWrap,
+    LayoutAlignment,
 };
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
@@ -429,6 +429,16 @@ mod grid_internal {
         for cdata in layout_data.iter_mut() {
             if cdata.stretch == marker_for_empty {
                 cdata.stretch = 0.;
+            }
+            // A cell collapsed to a fixed zero size can pull the row/col's
+            // max below its min (#9724). The minimum is the hard constraint,
+            // so raise max to meet it; min == max now, so that's pref's only
+            // legal value too. Guarded: this must not touch rows without a
+            // min/max conflict, since to_layout_data's output also drives
+            // solve_grid_layout.
+            if cdata.max < cdata.min {
+                cdata.max = cdata.min;
+                cdata.pref = cdata.min;
             }
         }
         layout_data
@@ -1169,7 +1179,7 @@ pub struct LayoutItemInfo {
     pub constraint: LayoutInfo,
     /// Per-item cross-axis alignment override for box layouts
     /// (`Auto` = use the container's `cross-axis-alignment`)
-    pub cross_axis_self_alignment: CrossAxisSelfAlignment,
+    pub cross_axis_self_alignment: CrossAxisAlignment,
     /// Visual ordering of box layout cells (lower values appear first, default 0).
     /// Only [`solve_box_layout`] reads it; the cross-axis solve and both
     /// layout-info functions ignore it. A FlexboxLayout carries it in
@@ -1187,7 +1197,7 @@ pub struct LayoutItemInfo {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct FlexItemProps {
     /// Per-item cross-axis alignment override (Auto = use container's cross-axis-alignment)
-    pub cross_axis_self_alignment: CrossAxisSelfAlignment,
+    pub cross_axis_self_alignment: CrossAxisAlignment,
     /// Visual ordering of flex items (lower values appear first, default 0)
     pub layout_order: i32,
 }
@@ -1325,6 +1335,22 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
     result
 }
 
+/// Resolves the effective alignment of an item on the cross axis: `auto` on the
+/// item uses the container's alignment, and `auto` on the container is `stretch`.
+fn resolve_cross_axis_alignment(
+    self_alignment: CrossAxisAlignment,
+    container_alignment: CrossAxisAlignment,
+) -> CrossAxisAlignment {
+    let alignment = match self_alignment {
+        CrossAxisAlignment::Auto => container_alignment,
+        other => other,
+    };
+    match alignment {
+        CrossAxisAlignment::Auto => CrossAxisAlignment::Stretch,
+        other => other,
+    }
+}
+
 /// Cross-axis solve: returns (position, size) per cell, like [`solve_box_layout`].
 pub fn solve_box_layout_ortho(
     data: &BoxLayoutOrthoData,
@@ -1338,13 +1364,8 @@ pub fn solve_box_layout_ortho(
     let size_without_padding = data.size - data.padding.begin - data.padding.end;
     let mut generator = LayoutCacheGenerator::new(&repeater_indices, &mut result);
     for c in data.cells.iter() {
-        let alignment = match c.cross_axis_self_alignment {
-            CrossAxisSelfAlignment::Auto => data.cross_axis_alignment,
-            CrossAxisSelfAlignment::Stretch => CrossAxisAlignment::Stretch,
-            CrossAxisSelfAlignment::Start => CrossAxisAlignment::Start,
-            CrossAxisSelfAlignment::End => CrossAxisAlignment::End,
-            CrossAxisSelfAlignment::Center => CrossAxisAlignment::Center,
-        };
+        let alignment =
+            resolve_cross_axis_alignment(c.cross_axis_self_alignment, data.cross_axis_alignment);
         let min =
             c.constraint.min.max(c.constraint.min_percent * size_without_padding / 100 as Coord);
         let max =
@@ -1356,7 +1377,9 @@ pub fn solve_box_layout_ortho(
         .min(max)
         .max(min);
         let pos = match alignment {
-            CrossAxisAlignment::Stretch | CrossAxisAlignment::Start => data.padding.begin,
+            CrossAxisAlignment::Auto | CrossAxisAlignment::Stretch | CrossAxisAlignment::Start => {
+                data.padding.begin
+            }
             CrossAxisAlignment::End => data.padding.begin + size_without_padding - size,
             CrossAxisAlignment::Center => {
                 data.padding.begin + (size_without_padding - size) / 2 as Coord
@@ -1418,9 +1441,8 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, CrossAxisAlignment, CrossAxisSelfAlignment, FlexItemProps,
-        FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignment, LayoutInfo, LayoutItemInfo,
-        Padding, Slice,
+        Coord, CrossAxisAlignment, FlexItemProps, FlexboxLayoutWrap as SlintFlexboxLayoutWrap,
+        LayoutAlignment, LayoutInfo, LayoutItemInfo, Padding, Slice, resolve_cross_axis_alignment,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
@@ -1609,13 +1631,10 @@ mod flexbox_taffy {
                     // alignment. `auto` is also what lets the measure callback
                     // decide the cross size, and what lets the minimum pass reach
                     // the item's min constraint.
-                    let stretches = match flex.cross_axis_self_alignment {
-                        CrossAxisSelfAlignment::Auto => {
-                            params.cross_axis_alignment == CrossAxisAlignment::Stretch
-                        }
-                        CrossAxisSelfAlignment::Stretch => true,
-                        _ => false,
-                    };
+                    let stretches = resolve_cross_axis_alignment(
+                        flex.cross_axis_self_alignment,
+                        params.cross_axis_alignment,
+                    ) == CrossAxisAlignment::Stretch;
                     let cross_auto =
                         stretches || params.cross_axis_sizing != CrossAxisSizing::Preferred;
                     let definite_cross = |preferred: Coord| {
@@ -1679,11 +1698,11 @@ mod flexbox_taffy {
                                 // stretch factor, as it would in a box layout.
                                 flex_shrink: 1.,
                                 align_self: match flex.cross_axis_self_alignment {
-                                    CrossAxisSelfAlignment::Auto => None,
-                                    CrossAxisSelfAlignment::Stretch => Some(AlignSelf::Stretch),
-                                    CrossAxisSelfAlignment::Start => Some(AlignSelf::FlexStart),
-                                    CrossAxisSelfAlignment::End => Some(AlignSelf::FlexEnd),
-                                    CrossAxisSelfAlignment::Center => Some(AlignSelf::Center),
+                                    CrossAxisAlignment::Auto => None,
+                                    CrossAxisAlignment::Stretch => Some(AlignSelf::Stretch),
+                                    CrossAxisAlignment::Start => Some(AlignSelf::FlexStart),
+                                    CrossAxisAlignment::End => Some(AlignSelf::FlexEnd),
+                                    CrossAxisAlignment::Center => Some(AlignSelf::Center),
                                 },
                                 ..Default::default()
                             },
@@ -1720,7 +1739,9 @@ mod flexbox_taffy {
                         },
                         justify_content: Some(to_align_content(params.alignment)),
                         align_items: Some(match params.cross_axis_alignment {
-                            CrossAxisAlignment::Stretch => AlignItems::Stretch,
+                            CrossAxisAlignment::Auto | CrossAxisAlignment::Stretch => {
+                                AlignItems::Stretch
+                            }
                             CrossAxisAlignment::Start => AlignItems::FlexStart,
                             CrossAxisAlignment::End => AlignItems::FlexEnd,
                             CrossAxisAlignment::Center => AlignItems::Center,
@@ -3519,5 +3540,69 @@ mod tests {
         // Without the fix the dropped `50% * MAX` makes this the f32 sentinel
         // (or panics under i32); with it the item just takes its natural size.
         assert!(w.is_finite() && w < Coord::MAX, "item main-axis size was {w}");
+    }
+
+    /// Runs `grid_internal::to_layout_data` for a single row made of one
+    /// non-spanning cell per constraint, and returns that row's combined
+    /// LayoutData (min/max/pref), for testing the row/col aggregation in
+    /// isolation from the rest of GridLayout.
+    fn row_layout_data(constraints: &[LayoutInfo]) -> grid_internal::LayoutData {
+        let mut organized_data = GridLayoutOrganizedData::default();
+        let mut generator =
+            OrganizedDataGenerator::new(&[], &[], constraints.len(), 0, 0, &mut organized_data);
+        for col in 0..constraints.len() {
+            generator.add(col as u16, 1, 0, 1);
+        }
+        let items: Vec<LayoutItemInfo> = constraints
+            .iter()
+            .map(|constraint| LayoutItemInfo { constraint: *constraint, ..Default::default() })
+            .collect();
+        let mut layout_data = grid_internal::to_layout_data(
+            &organized_data,
+            Slice::from_slice(&items),
+            Orientation::Vertical,
+            Slice::from_slice(&[]),
+            Slice::from_slice(&[]),
+            0 as _,
+            None,
+        );
+        assert_eq!(layout_data.len(), 1);
+        layout_data.remove(0)
+    }
+
+    #[test]
+    fn test_grid_row_collapsed_cell_raises_max_and_pulls_pref_down_with_it() {
+        // Row with a cell collapsed to a fixed zero size (the `height: cond ?
+        // x : 0px` idiom, #9724) next to a cell with an explicit min/preferred
+        // and no max (e.g. `min-height: 5px; preferred-height: 50px;`).
+        let row = row_layout_data(&[
+            LayoutInfo { min: 0 as _, max: 0 as _, preferred: 0 as _, ..Default::default() },
+            LayoutInfo { min: 5 as _, preferred: 50 as _, ..Default::default() },
+        ]);
+        // The collapsed cell's fixed zero pulls the row's max down to 0 while
+        // its sibling's min pulls the row's min up to 5: a real conflict, so
+        // max must be raised to meet min, and the sibling's now out-of-range
+        // preferred (50) must be pulled down with it, not summed into the
+        // row's LayoutInfo as-is.
+        assert_eq!(row.min, 5 as Coord);
+        assert_eq!(row.max, 5 as Coord);
+        assert_eq!(row.pref, 5 as Coord);
+    }
+
+    #[test]
+    fn test_grid_row_without_conflicting_constraints_keeps_its_own_pref() {
+        // No cell forces max below min here (max 10 >= min 0): not a #9724
+        // conflict, so the fix must leave this row untouched. The second
+        // cell's preferred (50) legitimately exceeds the row's own max (10)
+        // already on master; to_layout_data's output also drives
+        // solve_grid_layout, so clamping pref here would silently shrink
+        // rows that never had a min/max conflict in the first place.
+        let row = row_layout_data(&[
+            LayoutInfo { min: 0 as _, max: 10 as _, preferred: 5 as _, ..Default::default() },
+            LayoutInfo { min: 0 as _, preferred: 50 as _, ..Default::default() },
+        ]);
+        assert_eq!(row.min, 0 as Coord);
+        assert_eq!(row.max, 10 as Coord);
+        assert_eq!(row.pref, 50 as Coord);
     }
 }

@@ -71,7 +71,11 @@ impl FileWatcherImpl for notify::RecommendedWatcher {
             notify::ErrorKind::PathNotFound
             | notify::ErrorKind::WatchNotFound
             | notify::ErrorKind::Generic(_) => true,
-            notify::ErrorKind::Io(e) => e.kind() == std::io::ErrorKind::NotFound,
+            // `InvalidInput` is `inotify_rm_watch` on a watch the kernel already dropped with
+            // the deleted directory, before notify processed that event.
+            notify::ErrorKind::Io(e) => {
+                matches!(e.kind(), std::io::ErrorKind::NotFound | std::io::ErrorKind::InvalidInput)
+            }
             _ => false,
         }
     }
@@ -574,28 +578,18 @@ mod tests {
     use super::*;
 
     use std::fs;
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::mpsc::{self, Receiver};
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use std::time::Duration;
 
     const WATCHER_SETTLE_DELAY: Duration = Duration::from_millis(50);
     const EVENT_TIMEOUT: Duration = Duration::from_secs(1);
     const QUIET_TIMEOUT: Duration = Duration::from_millis(50);
 
-    fn new_test_root() -> PathBuf {
-        static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
-
-        let unique_id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-        let root = std::env::temp_dir()
-            .join(format!("slint-file-watcher-{timestamp}-{unique_id}-{}", std::process::id()));
-        fs::create_dir_all(&root).unwrap();
-        root
-    }
-
     struct TestContext {
-        root: PathBuf,
+        /// Declared before `root` so that it is dropped first: the watcher must not follow the
+        /// vanished paths up to the shared temp directory.
         watcher: FileWatcher,
+        root: tempfile::TempDir,
         events: Receiver<WatchEvent>,
         errors: Receiver<notify::Error>,
     }
@@ -606,7 +600,7 @@ mod tests {
         }
 
         fn new_with_passthrough(pass_through_unwatched_events: bool) -> Self {
-            let root = new_test_root();
+            let root = tempfile::Builder::new().prefix("slint-file-watcher-").tempdir().unwrap();
             let (event_tx, events) = mpsc::channel();
             let (error_tx, errors) = mpsc::channel();
 
@@ -627,11 +621,11 @@ mod tests {
             )
             .unwrap();
 
-            Self { root, watcher, events, errors }
+            Self { watcher, root, events, errors }
         }
 
         fn path(&self, relative: impl AsRef<Path>) -> PathBuf {
-            self.root.join(relative)
+            self.root.path().join(relative)
         }
 
         fn create_dir_all(&self, relative: impl AsRef<Path>) -> PathBuf {
@@ -733,12 +727,6 @@ mod tests {
             }
 
             self.assert_no_errors();
-        }
-    }
-
-    impl Drop for TestContext {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.root);
         }
     }
 

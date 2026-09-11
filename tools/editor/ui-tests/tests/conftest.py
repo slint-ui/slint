@@ -1,11 +1,16 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cspell:ignore addoption nodeid
+
+import math
 import os
 import shutil
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from ui_reporting import TestReport, current_report
 
 UI_TEST_ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = UI_TEST_ROOT.parents[2]
@@ -41,3 +46,34 @@ def fixture_project(tmp_path: Path) -> Path:
     destination = tmp_path / "editor-project"
     shutil.copytree(FIXTURE_PROJECT, destination)
     return destination
+
+
+def replay_pause_seconds(value: str) -> float:
+    seconds = float(value)
+    if not math.isfinite(seconds) or seconds < 0:
+        raise ValueError("Replay pause must be a finite, nonnegative number")
+    return seconds
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--replay-pause",
+        type=replay_pause_seconds,
+        default=0,
+        help="Pause for this many seconds after replay stages; use -s to see stage names",
+    )
+
+
+@pytest.fixture(autouse=True)
+def ui_test_report(request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[None]:
+    token = current_report.set(
+        TestReport(
+            request.node.nodeid,
+            tmp_path / "screenshots",
+            request.config.getoption("--replay-pause"),
+        )
+    )
+    try:
+        yield
+    finally:
+        current_report.reset(token)
