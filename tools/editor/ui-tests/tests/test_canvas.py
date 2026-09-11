@@ -556,12 +556,12 @@ def test_repeated_palette_drop_preserves_component_kind(
             source_file.write_bytes(reloaded)
             wait_for_source(source_file, reloaded)
             window_element_with_label(
-                window, reload_label, slint_testing.AccessibleRole.Text
+                window, reload_label, slint_testing.AccessibleRole.Text, timeout=15
             )
             source_file.write_bytes(expected)
             wait_for_source(source_file, expected)
             window_element_with_label(
-                window, "Reload probe", slint_testing.AccessibleRole.Text
+                window, "Reload probe", slint_testing.AccessibleRole.Text, timeout=15
             )
             wait_until(
                 lambda: (

@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::{
+    cell::RefCell,
     collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
 };
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
-use i_slint_live_preview::protocol::SourceFileVersion;
+use i_slint_live_preview::protocol::{
+    LspToPreview, LspToPreviewMessage, PreviewTarget, SourceFileVersion,
+};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -66,6 +69,29 @@ pub fn main_test_file_name() -> PathBuf {
 
 pub fn test_file_name(name: &str) -> PathBuf {
     test_file_prefix().join(name)
+}
+
+pub type CapturedPreviewMessages = Rc<RefCell<Vec<LspToPreviewMessage>>>;
+
+#[derive(Default)]
+struct CapturePreview {
+    messages: CapturedPreviewMessages,
+}
+
+impl LspToPreview for CapturePreview {
+    fn send(&self, message: &LspToPreviewMessage) {
+        self.messages.borrow_mut().push(message.clone());
+    }
+
+    fn preview_target(&self) -> PreviewTarget {
+        PreviewTarget::Dummy
+    }
+}
+
+pub fn preview_capture() -> (Rc<crate::LspToPreviews>, CapturedPreviewMessages) {
+    let capture = CapturePreview::default();
+    let messages = capture.messages.clone();
+    (crate::LspToPreviews::with_one(capture), messages)
 }
 
 #[track_caller]
@@ -165,10 +191,12 @@ pub fn session_with(document_cache: crate::DocumentCache) -> crate::EditorSessio
     crate::EditorSession {
         document_cache,
         preview_config: Default::default(),
-        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        to_show: None,
         open_urls: Default::default(),
-        to_preview: crate::LspToPreviews::with_one(crate::DummyLspToPreview::default()),
+        previews: vec![crate::PreviewConnection {
+            to_preview: crate::LspToPreviews::with_one(crate::DummyLspToPreview::default()),
+            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+            to_show: None,
+        }],
         pending_recompile: Default::default(),
     }
 }

@@ -1806,20 +1806,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dashmap"
-version = "6.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6361d5c062261c78a176addb82d4c821ae42bed6089de0e12603cd25de2059c"
-dependencies = [
- "cfg-if",
- "crossbeam-utils",
- "hashbrown 0.14.5",
- "lock_api",
- "once_cell",
- "parking_lot_core",
-]
-
-[[package]]
 name = "data-encoding"
 version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3660,6 +3646,7 @@ dependencies = [
 name = "i-slint-editor-preview"
 version = "1.18.0"
 dependencies = [
+ "async-compat",
  "directories",
  "futures-util",
  "i-slint-backend-testing",
@@ -3667,7 +3654,10 @@ dependencies = [
  "i-slint-live-preview",
  "itertools 0.15.0",
  "lsp-types",
+ "scopeguard",
  "serde",
+ "serde_json",
+ "slint-interpreter",
  "smol_str 0.3.2",
  "spin_on",
  "tempfile",
@@ -3683,13 +3673,13 @@ dependencies = [
  "anyhow",
  "base64 0.23.1",
  "chacha20poly1305",
- "dashmap",
  "derive_more",
  "futures-util",
  "getifs",
  "getrandom 0.2.17",
  "hkdf",
  "hostname",
+ "i-slint-backend-selector",
  "i-slint-compiler",
  "i-slint-core",
  "lsp-types",
@@ -7679,6 +7669,7 @@ dependencies = [
  "clap",
  "clru",
  "crossbeam-channel",
+ "futures-util",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
  "i-slint-common",
