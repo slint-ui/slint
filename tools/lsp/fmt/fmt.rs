@@ -2711,6 +2711,56 @@ component A {
     }
 
     #[test]
+    fn match_element() {
+        assert_formatting(
+            r#"component A { match   value  {   0  :  Text {  }   1: Rectangle { background: red; }  } }
+"#,
+            r#"component A {
+    match value {
+        0: Text { }
+        1: Rectangle {
+            background: red;
+        }
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn match_wildcard_case() {
+        assert_formatting(
+            r#"component A { match ( value )  {  0: Text { }    *   :   Text { text: "other"; }  } }
+"#,
+            r#"component A {
+    match (value) {
+        0: Text { }
+        *: Text {
+            text: "other";
+        }
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn match_empty_case() {
+        assert_formatting(
+            r#"component A { match value {  0:{}   1: Text { }   *:{  } } }
+"#,
+            r#"component A {
+    match value {
+        0: { }
+        1: Text { }
+        *: { }
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
     fn array() {
         assert_formatting(
             r#"
