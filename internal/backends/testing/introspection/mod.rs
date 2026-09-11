@@ -111,7 +111,7 @@ fn ensure_event_tracking() -> Result<(), i_slint_core::api::EventLoopError> {
 #[cfg(feature = "mcp")]
 pub(crate) struct HeldModifiers {
     window_adapter: Rc<dyn WindowAdapter>,
-    keys: Vec<i_slint_core::input::key_codes::Key>,
+    modifiers: proto::KeyboardModifiers,
 }
 
 #[cfg(feature = "mcp")]
@@ -120,35 +120,34 @@ impl HeldModifiers {
         window_adapter: Rc<dyn WindowAdapter>,
         modifiers: Option<&proto::KeyboardModifiers>,
     ) -> Self {
-        use i_slint_core::input::key_codes::Key;
-        let mut keys = Vec::new();
-        if let Some(modifiers) = modifiers {
-            for (pressed, key) in [
-                (modifiers.shift, Key::Shift),
-                (modifiers.control, Key::Control),
-                (modifiers.alt, Key::Alt),
-                (modifiers.meta, Key::Meta),
-            ] {
-                if pressed {
-                    keys.push(key);
-                }
-            }
-        }
-        for key in &keys {
-            window_adapter.window().dispatch_event(
-                i_slint_core::platform::WindowEvent::KeyPressed { text: (*key).into() },
+        let this = Self { window_adapter, modifiers: modifiers.copied().unwrap_or_default() };
+        for key in this.keys() {
+            this.window_adapter.window().dispatch_event(
+                i_slint_core::platform::WindowEvent::KeyPressed { text: key.into() },
             );
         }
-        Self { window_adapter, keys }
+        this
+    }
+
+    fn keys(&self) -> impl DoubleEndedIterator<Item = i_slint_core::input::key_codes::Key> {
+        use i_slint_core::input::key_codes::Key;
+        [
+            (self.modifiers.shift, Key::Shift),
+            (self.modifiers.control, Key::Control),
+            (self.modifiers.alt, Key::Alt),
+            (self.modifiers.meta, Key::Meta),
+        ]
+        .into_iter()
+        .filter_map(|(pressed, key)| pressed.then_some(key))
     }
 }
 
 #[cfg(feature = "mcp")]
 impl Drop for HeldModifiers {
     fn drop(&mut self) {
-        for key in self.keys.iter().rev() {
+        for key in self.keys().rev() {
             self.window_adapter.window().dispatch_event(
-                i_slint_core::platform::WindowEvent::KeyReleased { text: (*key).into() },
+                i_slint_core::platform::WindowEvent::KeyReleased { text: key.into() },
             );
         }
     }
