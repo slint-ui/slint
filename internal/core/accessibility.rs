@@ -5,7 +5,7 @@
 
 use crate::{
     SharedString,
-    item_tree::ItemTreeVTable,
+    item_tree::{ItemTreeVTable, ParentItemTraversalMode},
     items::{ItemRc, TextInput},
 };
 use alloc::vec::Vec;
@@ -122,9 +122,31 @@ pub fn accessible_descendents(root_item: &ItemRc) -> impl Iterator<Item = ItemRc
     })
 }
 
+/// The item that stands for `item` in the accessibility tree: `item` itself when it is accessible,
+/// otherwise its closest accessible ancestor. The walk stops at a popup boundary.
+pub fn nearest_accessible_item(mut item: ItemRc) -> ItemRc {
+    while !item.is_accessible() {
+        let Some(parent) = item.parent_item(ParentItemTraversalMode::StopAtPopups) else { break };
+        item = parent;
+    }
+    item
+}
+
 /// Find the first built-in `TextInput` in `item` or its descendents.
 pub fn find_text_input(item: &ItemRc) -> Option<VRcMapped<ItemTreeVTable, TextInput>> {
     find_text_input_with_rc(item).map(|(_, input)| input)
+}
+
+/// The text input that `item` exposes in the accessibility tree.
+///
+/// This is the first input below `item`, and only when `item` is the accessible item nearest to
+/// it: an accessible item further up finds the same input, and exposing it from both would give
+/// its text runs two owners.
+pub fn find_exposed_text_input(
+    item: &ItemRc,
+) -> Option<(ItemRc, VRcMapped<ItemTreeVTable, TextInput>)> {
+    let found = find_text_input_with_rc(item)?;
+    (nearest_accessible_item(found.0.clone()) == *item).then_some(found)
 }
 
 /// Same as [`find_text_input`], but also returns the `TextInput`'s `ItemRc`.
