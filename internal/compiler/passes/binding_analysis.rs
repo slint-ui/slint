@@ -634,7 +634,12 @@ fn recurse_expression(
             {
                 vis(&nr.clone().into(), P);
             }
-            visit_layout_items_dependencies(l.elems.iter(), *o, vis);
+            visit_layout_items_dependencies(
+                l.elems.iter(),
+                *o,
+                l.is_synthesized_repeated_merge,
+                vis,
+            );
 
             // The orthogonal solve depends on `cross-axis-alignment` and on the
             // cells' `cross-axis-self-alignment`.
@@ -719,7 +724,12 @@ fn recurse_expression(
                 match layout.axis_relation(orientation) {
                     FlexboxAxisRelation::MainAxis => {
                         // Main axis: only visit same-axis item dependencies
-                        visit_layout_items_dependencies(layout.elems.iter(), orientation, vis);
+                        visit_layout_items_dependencies(
+                            layout.elems.iter(),
+                            orientation,
+                            false,
+                            vis,
+                        );
                     }
                     FlexboxAxisRelation::CrossAxis => {
                         // Cross axis: depends on the perpendicular (main-axis)
@@ -743,11 +753,13 @@ fn recurse_expression(
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Horizontal,
+                            false,
                             vis,
                         );
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Vertical,
+                            false,
                             vis,
                         );
                     }
@@ -758,11 +770,13 @@ fn recurse_expression(
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Horizontal,
+                            false,
                             vis,
                         );
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Vertical,
+                            false,
                             vis,
                         );
                     }
@@ -795,6 +809,7 @@ fn recurse_expression(
             visit_layout_items_dependencies(
                 layout.elems.iter().map(|it| &it.item),
                 *orientation,
+                false,
                 vis,
             );
             let mut g = layout.geometry.clone();
@@ -872,9 +887,16 @@ fn recurse_expression(
     }
 }
 
+/// `skip_model_dependency` is set for the one-cell `BoxLayout`
+/// [`crate::layout::repeated_element_layout_info`] synthesizes to merge a
+/// repeated element's constraints into a non-layout parent (issue #407) —
+/// see [`crate::layout::BoxLayout::is_synthesized_repeated_merge`] for why a
+/// repeated cell's *model* expression isn't a dependency there, unlike for a
+/// real layout.
 fn visit_layout_items_dependencies<'a>(
     items: impl Iterator<Item = &'a LayoutItem>,
     orientation: Orientation,
+    skip_model_dependency: bool,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
     for it in items {
@@ -883,7 +905,11 @@ fn visit_layout_items_dependencies<'a>(
             .borrow()
             .repeated
             .as_ref()
-            .map(|r| recurse_expression(&element, &r.model, vis))
+            .map(|r| {
+                if !skip_model_dependency {
+                    recurse_expression(&element, &r.model, vis);
+                }
+            })
             .is_some()
         {
             element = it.element.borrow().base_type.as_component().root_element.clone();

@@ -1756,6 +1756,7 @@ fn lower_box_layout(
         elems: Default::default(),
         geometry: LayoutGeometry::new(layout_element),
         cross_alignment: binding_reference(layout_element, "cross-axis-alignment"),
+        is_synthesized_repeated_merge: false,
     };
 
     let layout_info_prop_v = create_new_prop(
