@@ -470,7 +470,7 @@ fn sync_file_watcher_if_needed(
                     .as_ref()
                     .and_then(|component| SourcePath::from_url(&component.url).into_native_path())
             }))
-            .chain(session.active_project_file_path().map(Path::to_path_buf)),
+            .chain(session.active_project_file_paths().map(Path::to_path_buf)),
     )?;
     *watch_paths_revision = Some(current_revision);
     Ok(())
