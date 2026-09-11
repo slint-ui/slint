@@ -32,7 +32,6 @@ export global FillSession {
     out property <BrushKind> last-gradient: BrushKind.linear;
     out property <bool> open;
 
-
     private property <FillData> draft;
     out property <FillData> working-fill;
     in-out property <int> selected-stop;
@@ -42,10 +41,9 @@ export global FillSession {
     out property <color> working-color: FillSession.working-fill.kind == BrushKind.solid ? FillSession.working-fill.color : FillSession.working-fill.stops[FillSession.selected-stop].color;
     private property <bool> has-preview;
     private property <bool> session-active;
-    private property <FillData> original-fill;
     out property <bool> editable: open && !Api.inspector-fill-refresh-pending && !request.unsupported;
     out property <int> focus-generation;
-    private property <bool> canvas-editable: open && editable && session-active && request.target.canvas
+    private property <bool> canvas-editable: editable && session-active && request.target.canvas
         && Api.current-element.type-name == "Rectangle"
         && Api.selection.highlight-index >= 0;
     out property <bool> radial-active: canvas-editable && working-fill.kind == BrushKind.radial;
@@ -64,7 +62,7 @@ export global FillSession {
         }
     }
 
-    public function reset-axis() {
+    function reset-axis() {
         FillSession.axis = FillSession.working-fill.kind == BrushKind.conic
             ? Api.conic-gradient-axis(FillSession.working-fill, FillSession.request.target.size)
             : FillSession.working-fill.kind == BrushKind.radial
@@ -94,7 +92,7 @@ export global FillSession {
             ? Api.gradient-axis-point(FillSession.axis, position)
             : Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.request.target.size, position);
     }
-    public pure function stop-position(point: Point) -> float {
+    pure function stop-position(point: Point) -> float {
         return FillSession.working-fill.kind == BrushKind.conic
             ? Api.conic-gradient-position(FillSession.axis, point)
             : FillSession.working-fill.kind == BrushKind.radial
@@ -240,17 +238,11 @@ export global FillSession {
     public function begin(request: FillSessionRequest) {
         FillSession.close-picker(true, false);
         FillSession.request = request;
-        FillSession.initialize();
-        FillSession.open = true;
-    }
-
-    function initialize() {
+        FillSession.request.fill.stops = Api.clone-gradient-stops(request.fill.stops);
         FillSession.radial-direction = 35deg;
         FillSession.stop-panel-open = false;
         FillSession.selected-stop = 0;
         FillSession.working-fill = FillSession.request.fill;
-        FillSession.original-fill = FillSession.request.fill;
-        FillSession.original-fill.stops = Api.clone-gradient-stops(FillSession.request.fill.stops);
         FillSession.working-fill.stops = Api.clone-gradient-stops(FillSession.request.fill.stops);
         FillSession.radial-center-initialized = FillSession.request.fill.kind == BrushKind.radial && FillSession.request.fill.custom-center;
         FillSession.conic-center-initialized = FillSession.request.fill.kind == BrushKind.conic && FillSession.request.fill.custom-center;
@@ -262,7 +254,7 @@ export global FillSession {
         FillSession.has-preview = false;
         FillSession.session-active = true;
         FillSession.reset-axis();
-
+        FillSession.open = true;
     }
 
     public function close-picker(accept: bool, return-focus: bool) {
@@ -271,12 +263,12 @@ export global FillSession {
         }
         FillSession.session-active = false;
         FillSession.stop-panel-open = false;
-        let changed = Api.fill-brush(FillSession.working-fill) != Api.fill-brush(FillSession.original-fill);
+        let changed = Api.fill-brush(FillSession.working-fill) != Api.fill-brush(FillSession.request.fill);
         if !accept || !changed || !Api.inspector-fill-commit(FillSession.request.target.key, FillSession.request.target.property-name, FillSession.working-fill) {
             if FillSession.has-preview {
                 Api.inspector-cancel();
             }
-            FillSession.working-fill = FillSession.original-fill;
+            FillSession.working-fill = FillSession.request.fill;
         }
         FillSession.has-preview = false;
         FillSession.open = false;
@@ -284,6 +276,4 @@ export global FillSession {
             FillSession.focus-generation += 1;
         }
     }
-
-
 }

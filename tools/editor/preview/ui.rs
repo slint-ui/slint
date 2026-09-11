@@ -1864,6 +1864,32 @@ mod tests {
     }
 
     #[test]
+    fn fill_session_owns_its_initial_stop_snapshot() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        super::brushes::setup(&api);
+        let stops = std::rc::Rc::new(VecModel::from(vec![
+            super::GradientStop { position: 0., color: slint::Color::from_rgb_u8(255, 0, 0) },
+            super::GradientStop { position: 1., color: slint::Color::from_rgb_u8(0, 0, 255) },
+        ]));
+        let original = stops.iter().collect::<Vec<_>>();
+        let session = editor.global::<super::FillSession>();
+        session.invoke_begin(super::FillSessionRequest {
+            fill: super::FillData {
+                kind: super::BrushKind::Linear,
+                stops: stops.clone().into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        stops.set_row_data(0, super::GradientStop { position: 0.25, ..original[1].clone() });
+        assert_eq!(session.get_request().fill.stops.iter().collect::<Vec<_>>(), original);
+        session.invoke_close_picker(false, false);
+        assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), original);
+    }
+
+    #[test]
     fn stop_mutations_preserve_shared_gesture_snapshots() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
