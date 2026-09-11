@@ -62,12 +62,12 @@ jobs:
                   git clone . $home_vagrant/build/dev.slint.viewer
                   git -C $home_vagrant/build/dev.slint.viewer remote set-url origin https://github.com/slint-ui/slint.git
                   chown -R vagrant $home_vagrant/{logs,tmp,unsigned,build,metadata,.android,.gradle}
+                  code=$(sed -n 's/^    versionCode: //p' tools/viewer/android/fdroid/dev.slint.viewer.yml | tail -1)
                   cd $home_vagrant
                   sudo --preserve-env --user vagrant \
                       env PATH=$fdroidserver:$PATH PYTHONPATH=$fdroidserver:$fdroidserver/examples \
                       PYTHONUNBUFFERED=true HOME=$home_vagrant GRADLE_USER_HOME=$home_vagrant/.gradle \
-                      fdroid build --verbose --test --on-server --no-tarball \
-                      dev.slint.viewer:$(sed -n 's/^    versionCode: //p' tools/viewer/android/fdroid/dev.slint.viewer.yml | tail -1)
+                      fdroid build --verbose --test --on-server --no-tarball dev.slint.viewer:$code
             - uses: actions/upload-artifact@v7
               with:
                   name: apk-fdroid
