@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
-use i_slint_compiler::project_file::{FILE_NAME, ProjectFile};
+use i_slint_compiler::project_file::ProjectFile;
 use lsp_types::Url;
 
 use crate::{Result, uri_to_file};
@@ -26,28 +26,16 @@ pub fn find_project_file_for_document_path(document_path: &Path) -> Result<Optio
 }
 
 pub fn find_project_file_path_for_document_path(document_path: &Path) -> Result<Option<PathBuf>> {
-    // On wasm std::fs reports Unsupported rather than NotFound, which would turn every
-    // lookup below into an error. There is no filesystem to hold a project file anyway.
-    if cfg!(target_arch = "wasm32") {
-        return Ok(None);
-    }
-
-    let mut directory = if document_path.is_dir() {
-        Some(document_path.to_path_buf())
+    let directory = if document_path.is_dir() {
+        document_path.to_path_buf()
     } else {
-        document_path.parent().map(PathBuf::from)
+        let Some(parent) = document_path.parent() else {
+            return Ok(None);
+        };
+        parent.to_path_buf()
     };
 
-    while let Some(current_directory) = directory {
-        let candidate = current_directory.join(FILE_NAME);
-        match candidate.try_exists() {
-            Ok(true) => return Ok(Some(candidate)),
-            Ok(false) => directory = current_directory.parent().map(PathBuf::from),
-            Err(error) => return Err(error.into()),
-        }
-    }
-
-    Ok(None)
+    Ok(i_slint_compiler::project_file::find_project_file_path(&directory)?)
 }
 
 #[cfg(test)]

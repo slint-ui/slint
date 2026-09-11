@@ -32,6 +32,28 @@ pub struct ProjectFile {
 
 pub const FILE_NAME: &str = "slint.project.json";
 
+/// Searches `directory` and its ancestors for a project file,
+/// returning the path of the first one found.
+pub fn find_project_file_path(directory: &Path) -> std::io::Result<Option<PathBuf>> {
+    // On wasm std::fs reports Unsupported rather than NotFound, which would turn every
+    // lookup below into an error. There is no filesystem to hold a project file anyway.
+    if cfg!(target_arch = "wasm32") {
+        return Ok(None);
+    }
+
+    let mut directory = Some(directory.to_path_buf());
+
+    while let Some(current_directory) = directory {
+        let candidate = current_directory.join(FILE_NAME);
+        if candidate.try_exists()? {
+            return Ok(Some(candidate));
+        }
+        directory = current_directory.parent().map(PathBuf::from);
+    }
+
+    Ok(None)
+}
+
 impl ProjectFile {
     pub fn load(path: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
         let source_path = normalize_project_file_path(path.as_ref());
