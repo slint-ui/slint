@@ -27,6 +27,24 @@ component CustomButton {
 }
 ```
 
+A component that takes the `text-input` role for a `TextInput` inside it describes that input's text itself.
+Set `accessible-role: none` on the inner `TextInput`, so that a screen reader is given the text once rather than under two elements.
+The compiler warns when both of them keep the role.
+
+```slint
+component CustomLineEdit {
+    in-out property <string> text <=> input.text;
+
+    accessible-role: text-input;
+    accessible-value <=> root.text;
+
+    input := TextInput {
+        // The component around it describes this input
+        accessible-role: none;
+    }
+}
+```
+
 ## Separate Code, UI, and Assets
 
 Many projects start out small, with just a few files. But before you know it, your team grows, files get added, and it becomes harder to see forest for the trees. We recommend starting with the following basic directory structure:
