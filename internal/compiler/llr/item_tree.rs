@@ -20,6 +20,8 @@ pub struct CallbackIdx(usize);
 pub struct SubComponentIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct GlobalIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+pub struct PublicComponentIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SubComponentInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -145,7 +147,7 @@ pub struct BindingExpression {
     pub use_count: Cell<usize>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GlobalComponent {
     pub name: SmolStr,
     pub properties: TiVec<PropertyIdx, Property>,
@@ -347,7 +349,7 @@ impl TwoWayBinding {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Property {
     pub name: SmolStr,
     pub ty: Type,
@@ -356,7 +358,7 @@ pub struct Property {
     pub use_count: Cell<usize>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Callback {
     pub name: SmolStr,
     pub ret_ty: Type,
@@ -375,7 +377,7 @@ pub struct Callback {
     pub needs_tracker: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Function {
     pub name: SmolStr,
     pub ret_ty: Type,
@@ -408,7 +410,7 @@ pub struct ListViewInfo {
     pub prop_height: MemberReference,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RepeatedElement {
     pub model: MutExpression,
     /// Within the sub_tree's root component. None for `if`
@@ -429,7 +431,7 @@ pub struct RepeatedElement {
     pub container_item_index: Option<ItemInstanceIdx>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ComponentContainerElement {
     /// The index of the `ComponentContainer` in the enclosing components `item_tree` array
     pub component_container_item_tree_index: u32,
@@ -439,6 +441,7 @@ pub struct ComponentContainerElement {
     pub component_placeholder_item_tree_index: u32,
 }
 
+#[derive(Clone)]
 pub struct Item {
     pub ty: Arc<NativeClass>,
     pub name: SmolStr,
@@ -456,7 +459,7 @@ impl std::fmt::Debug for Item {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TreeNode {
     pub sub_component_path: Vec<SubComponentInstanceIdx>,
     /// Either an index in the items, or the local dynamic index for repeater or component container
@@ -526,7 +529,7 @@ impl TreeNode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SubComponent {
     pub name: SmolStr,
     pub properties: TiVec<PropertyIdx, Property>,
@@ -634,14 +637,14 @@ pub struct SubComponent {
     pub debug_info: Option<super::debug_info::SubComponentDebugInfo>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PopupWindow {
     pub item_tree: ItemTree,
     pub position: MutExpression,
     pub is_tooltip: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PopupMenu {
     pub item_tree: ItemTree,
     pub sub_menu: MemberReference,
@@ -650,7 +653,7 @@ pub struct PopupMenu {
     pub entries: MemberReference,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Timer {
     pub interval: MutExpression,
     pub running: MutExpression,
@@ -684,7 +687,7 @@ impl SubComponent {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SubComponentInstance {
     pub ty: SubComponentIdx,
     pub name: SmolStr,
@@ -693,7 +696,7 @@ pub struct SubComponentInstance {
     pub repeater_offset: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ItemTree {
     pub root: SubComponentIdx,
     pub tree: TreeNode,
@@ -708,7 +711,7 @@ pub enum TopLevelComponentType {
     SystemTrayIcon,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PublicComponent {
     pub public_properties: PublicProperties,
     pub private_properties: PrivateProperties,
@@ -719,7 +722,7 @@ pub struct PublicComponent {
 
 /// One name the generated module exposes for a declared type (or a component alias):
 /// its own name, a renamed export, or a name kept only for backward compatibility.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypeExport {
     /// The name users write.
     pub exported_name: SmolStr,
@@ -758,9 +761,9 @@ impl TypeExport {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CompilationUnit {
-    pub public_components: Vec<PublicComponent>,
+    pub public_components: TiVec<PublicComponentIdx, PublicComponent>,
     /// Storage for all sub-components
     pub sub_components: TiVec<SubComponentIdx, SubComponent>,
     /// The sub-components that are not item-tree root
