@@ -147,6 +147,12 @@ fn resolve_match_elements(
             diag,
         );
         let case_type = match_element.subject.ty();
+        if CaseValue::new(&match_element.subject).is_some() {
+            diag.push_warning(
+                "Match subject is a literal, so the same case always applies".into(),
+                &match_element.node.Expression(),
+            );
+        }
         for case in &mut match_element.cases {
             resolve_expression(
                 elem,

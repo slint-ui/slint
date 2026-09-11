@@ -1,6 +1,39 @@
 // Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nicholas Turner <nicholas.turner@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+export component LiteralSubjects {
+    match 1 {
+//        ><warning{Match subject is a literal, so the same case always applies}
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match -1 {
+//        > <warning{Match subject is a literal, so the same case always applies}
+        -1: Rectangle { }
+        *: Rectangle { }
+    }
+    match "a" {
+//        >  <warning{Match subject is a literal, so the same case always applies}
+        "a": Rectangle { }
+        *: Rectangle { }
+    }
+    match #123 {
+//        >   <warning{Match subject is a literal, so the same case always applies}
+        #123: Rectangle { }
+        *: Rectangle { }
+    }
+    match 10px {
+//        >   <warning{Match subject is a literal, so the same case always applies}
+        10px: Rectangle { }
+        *: Rectangle { }
+    }
+    match true {
+//        >   <warning{Match subject is a literal, so the same case always applies}
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+}
+
 export component Foo {
     out property <int> case0: 0;
     out property <int> case1: 1;

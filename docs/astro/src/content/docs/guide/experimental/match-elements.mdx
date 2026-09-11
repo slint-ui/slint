@@ -110,6 +110,8 @@ A `match` must handle every value its subject can take.
 - For `bool` and enum subjects, either list all values explicitly or provide a `*` case. A missing value is an error (for example, `Non-exhaustive match on bool: missing 'false'`).
 - For all other types (`int`, `string`, `color`, `length`, …) the set of values is unbounded, so a `*` case is required.
 
+A literal subject (for example `match 1 { … }`) warns, because the same case always applies.
+
 ## Duplicate cases
 
 Each case value must be distinct. A value that is already covered by an earlier case is an error, including values that are equal after conversion (for example `2` and `2.0`, or `1s` and `1000ms`).
