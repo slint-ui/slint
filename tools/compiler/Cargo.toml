@@ -17,6 +17,9 @@ publish = false
 name = "slint-compiler"
 path = "main.rs"
 
+[dev-dependencies]
+tempfile = "3"
+
 [features]
 renderer-software = ["i-slint-compiler/renderer-software"]
 image-default-formats = ["i-slint-compiler/image-default-formats"]
