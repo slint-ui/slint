@@ -131,7 +131,8 @@ Run the gradient suites with four headless workers:
 SLINT_EDITOR_UI_TEST_BACKEND=headless-skia ./run-tests.sh -n 4 --dist=worksteal \
     tests/test_gradient_geometry.py tests/test_linear_gradient_canvas.py \
     tests/test_radial_gradient_canvas.py tests/test_radial_gradient_session.py \
-    tests/test_conic_gradient_canvas.py
+    tests/test_conic_gradient_canvas.py tests/test_gradient_hard_edges.py \
+    tests/test_picker_layout.py
 ```
 
 The tests create independent scenes; editing the demonstration fixtures doesn't change their expected geometry.
@@ -144,6 +145,11 @@ Insertion places a sampled stop after the last coincident stop, without sorting 
 Sampling uses that last color, so insertion preserves both sides of an existing hard edge.
 Check duplicate positions, color identity, focused deletion, and row ordering when changing this mapping.
 Text and root-background gradient tests cover numeric geometry controls without canvas handles.
+
+The hard-edge regression compares rendered pixels before insertion, after insertion, and after accepting and reopening the picker.
+It also checks the saved order of coincident stops.
+Picker layout tests cover fixed-width controls, short and long stop lists, scrolling, insertion, and deletion.
+The Rust placement test covers single, paired, and stacked 260px panels.
 
 ## Rust-Dependent Cases
 
