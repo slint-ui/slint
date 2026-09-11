@@ -26,6 +26,12 @@ pub fn find_project_file_for_document_path(document_path: &Path) -> Result<Optio
 }
 
 pub fn find_project_file_path_for_document_path(document_path: &Path) -> Result<Option<PathBuf>> {
+    // On wasm std::fs reports Unsupported rather than NotFound, which would turn every
+    // lookup below into an error. There is no filesystem to hold a project file anyway.
+    if cfg!(target_arch = "wasm32") {
+        return Ok(None);
+    }
+
     let mut directory = if document_path.is_dir() {
         Some(document_path.to_path_buf())
     } else {
