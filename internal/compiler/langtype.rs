@@ -1015,6 +1015,20 @@ impl<'a> PropertyLookupResult<'a> {
         )
     }
 
+    /// Report the property as outside the Slint SC subset, unless it's one the subset has.
+    /// A name that resolves to nothing is left to the diagnostic that says so.
+    #[cfg(feature = "slint-sc")]
+    pub fn check_slint_sc(
+        &self,
+        name: &dyn Display,
+        source: &dyn crate::diagnostics::Spanned,
+        diag: &mut crate::diagnostics::BuildDiagnostics,
+    ) {
+        if self.is_valid() && !self.is_slint_sc {
+            diag.slint_sc_error(&format!("The property '{name}' is"), source);
+        }
+    }
+
     /// The name the member is stored under in `Element::property_declarations`, `bindings`,
     /// `change_callbacks` and `property_analysis`, and the name a `NamedReference` to it carries.
     pub fn internal_or_resolved_name(&self) -> SmolStr {

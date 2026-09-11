@@ -249,6 +249,10 @@ export default defineConfig({
                                 label: "Geometry",
                                 slug: "language/geometry",
                             },
+                            {
+                                label: "States and Transitions",
+                                slug: "language/states-and-transitions",
+                            },
                         ],
                     },
                     {

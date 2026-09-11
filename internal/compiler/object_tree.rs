@@ -2640,31 +2640,33 @@ impl Element {
             }
         }
 
-        #[cfg(feature = "slint-sc")]
-        for s_node in node.States() {
-            diag.slint_sc_error("States are", &s_node);
-        }
         for state in node.States().flat_map(|s| s.State()) {
+            let condition = state.Expression();
+            // Without a condition a state is never selected, so its property
+            // changes are code that can't run.
+            #[cfg(feature = "slint-sc")]
+            if condition.is_none() {
+                diag.slint_sc_error(
+                    "A state without a 'when' condition is",
+                    &state.DeclaredIdentifier(),
+                );
+            }
             let s = State {
                 id: parser::identifier_text(&state.DeclaredIdentifier()).unwrap_or_default(),
-                condition: state.Expression().map(|e| Expression::Uncompiled(e.into())),
+                condition: condition.map(|e| Expression::Uncompiled(e.into())),
                 property_changes: state
                     .StatePropertyChange()
                     .filter_map(|s| {
                         lookup_property_from_qualified_name_for_state(s.QualifiedName(), &r, diag)
-                            .map(|(ne, ty)| {
-                                if !ty.is_property_type() && !matches!(ty, Type::Invalid) {
-                                    diag.push_error(
-                                        format!("'{}' is not a property", **s.QualifiedName()),
-                                        &s,
-                                    );
-                                }
+                            .map(|(ne, _)| {
                                 (ne, Expression::Uncompiled(s.BindingExpression().into()), s)
                             })
                     })
                     .collect(),
             };
             for trs in state.Transition() {
+                #[cfg(feature = "slint-sc")]
+                diag.slint_sc_error("Transitions are", &trs);
                 let mut t = Transition::from_node(trs, &r, tr, diag);
                 t.state_id.clone_from(&s.id);
                 r.borrow_mut().transitions.push(t);
@@ -3190,8 +3192,8 @@ impl Element {
             #[cfg(feature = "slint-sc")]
             if b.kind() == SyntaxKind::TwoWayBinding {
                 diag.slint_sc_error("Two-way bindings are", &b);
-            } else if lookup_result.is_valid() && !lookup_result.is_slint_sc {
-                diag.slint_sc_error(&format!("The property '{unresolved_name}' is"), &name_token);
+            } else {
+                lookup_result.check_slint_sc(&unresolved_name, &name_token, diag);
             }
             if !lookup_result.property_type.is_property_type() {
                 match lookup_result.property_type {
@@ -4037,6 +4039,8 @@ fn lookup_property_from_qualified_name_for_state(
             let lookup_result = r
                 .borrow()
                 .lookup_property(unresolved_prop_name.as_ref(), PropertyLookupMode::ComponentLocal);
+            #[cfg(feature = "slint-sc")]
+            lookup_result.check_slint_sc(&qualname, &node, diag);
             if !lookup_result.property_type.is_property_type() {
                 diag.push_error(format!("'{qualname}' is not a valid property"), &node);
             } else if !lookup_result.is_valid_for_assignment() {
@@ -4059,11 +4063,15 @@ fn lookup_property_from_qualified_name_for_state(
                     unresolved_prop_name.as_ref(),
                     PropertyLookupMode::ComponentLocal,
                 );
+                #[cfg(feature = "slint-sc")]
+                lookup_result.check_slint_sc(&qualname, &node, diag);
                 if !lookup_result.is_valid() {
                     diag.push_error(
                         format!("'{unresolved_prop_name}' not found in '{elem_id}'"),
                         &node,
                     );
+                } else if !lookup_result.property_type.is_property_type() {
+                    diag.push_error(format!("'{qualname}' is not a valid property"), &node);
                 } else if !lookup_result.is_valid_for_assignment() {
                     diag.push_error(
                         format!(

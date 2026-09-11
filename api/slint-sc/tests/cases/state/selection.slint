@@ -1,0 +1,77 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in property <int> level;
+    in property <bool> acknowledged;
+
+    out property <int> severity: 0;
+    in-out property <color> tint: #202020;
+
+    //#sls.state.form
+    states [
+        //#sls.state.entry.form
+        //#sls.state.change.form
+        alarm when level > 10: {
+            severity: 3;
+            tint: #a02020;
+        }
+        warning when level > 5: {
+            severity: 2;
+        }
+        //#sls.state.condition
+        muted when acknowledged: {
+            severity: 1;
+        }
+    ]
+}
+
+/*
+```rust
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+
+// No condition holds, so no state is active and every property keeps its
+// own binding.
+//#sls.state.inactive
+assert_eq!(x.get_severity(), 0);
+assert_eq!(x.get_tint(), slint_sc::Color::from_rgb_u8(0x20, 0x20, 0x20));
+
+// The condition of `warning` holds, so the property it lists takes the
+// state's value. `tint`, which it doesn't list, keeps its binding.
+//#sls.state.def
+//#sls.state.change.effect
+x.set_level(7);
+assert_eq!(x.get_severity(), 2);
+assert_eq!(x.get_tint(), slint_sc::Color::from_rgb_u8(0x20, 0x20, 0x20));
+
+// The conditions of `alarm` and `warning` both hold. The state listed first
+// is the active one, and it's the only one: `severity` is the value `alarm`
+// gives it, not `warning`'s.
+//#sls.state.active
+//#sls.state.first-wins
+x.set_level(12);
+assert_eq!(x.get_severity(), 3);
+assert_eq!(x.get_tint(), slint_sc::Color::from_rgb_u8(0xa0, 0x20, 0x20));
+
+// A condition may read any property in scope, `acknowledged` as much as
+// `level`.
+//#sls.state.condition
+x.set_level(0);
+x.set_acknowledged(true);
+assert_eq!(x.get_severity(), 1);
+
+// `alarm` still comes first, so acknowledging an alarm doesn't mute it.
+//#sls.state.first-wins
+x.set_level(12);
+assert_eq!(x.get_severity(), 3);
+
+// Setting a property the active state changes replaces the value the state
+// gives it, and no state gives it a value again.
+//#sls.state.change.set
+assert_eq!(x.get_tint(), slint_sc::Color::from_rgb_u8(0xa0, 0x20, 0x20));
+x.set_tint(slint_sc::Color::from_rgb_u8(0xff, 0xff, 0xff));
+assert_eq!(x.get_tint(), slint_sc::Color::from_rgb_u8(0xff, 0xff, 0xff));
+x.set_level(0);
+assert_eq!(x.get_tint(), slint_sc::Color::from_rgb_u8(0xff, 0xff, 0xff));
+```
+*/
