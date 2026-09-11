@@ -361,7 +361,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             let mut transform = self
                 .current_state
                 .transform
-                .then_translate(kurbo::Vec2::new(fit.offset.x as f64, fit.offset.y as f64));
+                .pre_translate(kurbo::Vec2::new(fit.offset.x as f64, fit.offset.y as f64));
 
             // With bilinear sampling, a fractional tile phase blends
             // adjacent texels across every tile seam and washes out the
@@ -470,7 +470,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         let transform = self
             .current_state
             .transform
-            .then_translate(kurbo::Vec2::new(phys_offset.x as f64, phys_offset.y as f64));
+            .pre_translate(kurbo::Vec2::new(phys_offset.x as f64, phys_offset.y as f64));
 
         let brush_size = size * sf;
 
@@ -687,17 +687,17 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         self.current_state.transform = self
             .current_state
             .transform
-            .then_translate(kurbo::Vec2::new(distance.x as f64, distance.y as f64));
+            .pre_translate(kurbo::Vec2::new(distance.x as f64, distance.y as f64));
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {
         self.current_state.transform =
-            self.current_state.transform.then_rotate(angle_in_degrees.to_radians().into());
+            self.current_state.transform.pre_rotate(angle_in_degrees.to_radians().into());
     }
 
     fn scale(&mut self, x_factor: f32, y_factor: f32) {
         self.current_state.transform =
-            self.current_state.transform.then_scale_non_uniform(x_factor as f64, y_factor as f64)
+            self.current_state.transform.pre_scale_non_uniform(x_factor as f64, y_factor as f64)
     }
 
     fn apply_opacity(&mut self, opacity: f32) {
@@ -765,10 +765,8 @@ impl<'a, S: PaintScene> GlyphRenderer for AnyrenderItemRenderer<'a, S> {
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) {
-        let transform = self
-            .current_state
-            .transform
-            .then_translate(kurbo::Vec2::new(0., y_offset.get() as f64));
+        let transform =
+            self.current_state.transform.pre_translate(kurbo::Vec2::new(0., y_offset.get() as f64));
         let glyphs: Vec<_> =
             glyphs_it.map(|g| anyrender::Glyph { id: g.id, x: g.x, y: g.y }).collect();
         self.scene.draw_glyphs(
