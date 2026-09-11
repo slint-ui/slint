@@ -248,6 +248,7 @@ message RequestDispatchWindowEvent {
 message RequestMovePointer {
     Handle window_handle = 1;
     LogicalPosition position = 2;
+    KeyboardModifiers modifiers = 3;
 }
 
 message RequestHoverElement {

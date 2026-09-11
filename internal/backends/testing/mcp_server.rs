@@ -106,7 +106,7 @@ const TOOLS: &[ToolDef] = &[
         name: "move_pointer",
         description: "Move the mouse pointer to a position in the window, in logical coordinates, without pressing any button. Use hover_element to hover an element by handle; use this to move to an arbitrary point, such as away from an element to check that its hover state is cleared.",
         request_type: "RequestMovePointer",
-        optional_fields: &[],
+        optional_fields: &["modifiers"],
     },
     ToolDef {
         name: "scroll_element",
@@ -415,6 +415,10 @@ async fn handle_tool_call(
                 p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?,
             )?;
             let position = p.position.ok_or_else(|| "missing position".to_string())?;
+            let _modifiers = introspection::HeldModifiers::hold(
+                state.window_adapter(window_index)?,
+                p.modifiers.as_ref(),
+            );
             state.dispatch_window_event(
                 window_index,
                 i_slint_core::platform::WindowEvent::PointerMoved {
@@ -1291,6 +1295,7 @@ mod tests {
         let adapter = i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter();
         let state = make_state();
         state.add_window(&adapter);
+        let window = serde_json::to_value(index_to_handle(state.window_handles()[0])).unwrap();
         let root = serde_json::to_value(index_to_handle(
             state.root_element_handle(state.window_handles()[0]).unwrap(),
         ))
@@ -1324,6 +1329,26 @@ mod tests {
         ))
         .expect("hover_element failed");
         assert!(!app.get_shift_on_move(), "Shift stayed down after the gesture");
+
+        block_on(handle_tool_call(
+            &state,
+            "move_pointer",
+            &serde_json::json!({
+                "windowHandle": window,
+                "position": { "x": 10.0, "y": 10.0 },
+                "modifiers": { "shift": true }
+            }),
+        ))
+        .expect("move_pointer failed");
+        assert!(app.get_shift_on_move(), "move_pointer's own pointer event didn't carry Shift");
+
+        block_on(handle_tool_call(
+            &state,
+            "move_pointer",
+            &serde_json::json!({ "windowHandle": window, "position": { "x": 20.0, "y": 20.0 } }),
+        ))
+        .expect("move_pointer failed");
+        assert!(!app.get_shift_on_move(), "Shift stayed down after move_pointer's gesture");
     }
 
     #[test]
