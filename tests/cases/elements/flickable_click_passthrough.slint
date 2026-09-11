@@ -4,12 +4,7 @@
 // A Flickable that cannot pan in either direction (its content fits within its own size) must not swallow
 // a press/release that no descendant claims: it should be forwarded to whatever is underneath,
 // the same way it already happens for wheel events.
-// See issue #8973.
-//
-// A Flickable that *can* pan must forward a plain click (press + release, no drag) the same way,
-// once release confirms the interaction was never a drag.
-// It must still intercept a real drag.
-// See issue #13118.
+// See issues #8973 and #13118.
 
 export component TestCase inherits Window {
     width: 400px;
@@ -30,8 +25,6 @@ export component TestCase inherits Window {
         content-height: self.height;
     }
 
-    // Right half: scrollable Flickable on top of a TouchArea. A plain click passes through,
-    // but a real drag must still pan and must not reach the TouchArea.
     TouchArea {
         x: 200px;
         width: 200px;
@@ -77,11 +70,6 @@ export component TestCaseWrapped inherits Window {
     out property <int> counter: 0;
 }
 
-// Reproduction from issue #13118 (ubruhin's second SlintPad example): a *pannable* Flickable
-// nested inside a TouchArea, with only non-interactive content inside the Flickable.
-// A plain click (press + release, no drag) on the Flickable's content must still reach the enclosing TouchArea,
-// since a plain click was never a drag.
-// An actual drag must still pan the Flickable and must not also reach the TouchArea.
 export component TestCaseWrappedPannable inherits Window {
     width: 100px;
     height: 100px;
@@ -107,11 +95,6 @@ export component TestCaseWrappedPannable inherits Window {
     out property <length> content-y: flick.content-y;
 }
 
-// A vertical-only pannable Flickable wrapped by a TouchArea. A horizontal move (which the
-// Flickable itself ignores, since it can't pan horizontally, but which the enclosing TouchArea's
-// hover tracking accepts) must still prevent the eventual release from replaying the original
-// press as a plain click: the pointer did move, even though not in a direction the Flickable
-// reacts to. See issue #13118.
 export component TestCaseWrappedMoved inherits Window {
     width: 100px;
     height: 100px;
@@ -141,14 +124,11 @@ instance.window().dispatch_event(WindowEvent::PointerReleased { position: Logica
 assert_eq!(instance.get_non_scrollable_clicked(), true);
 assert_eq!(instance.get_scrollable_clicked_count(), 0);
 
-// A plain click (no drag) into the scrollable Flickable: it can pan, but a plain click was never
-// a drag, so it's forwarded to the TouchArea underneath once release confirms that (issue #13118).
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_scrollable_clicked_count(), 1);
 assert_eq!(instance.get_scrollable_content_y(), 0.);
 
-// A real drag on the same Flickable must still pan, and must not also reach the TouchArea.
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 50.0) });
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 10.0) });
@@ -170,18 +150,15 @@ assert_eq!(instance.get_counter(), 1);
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
 let instance = TestCaseWrappedPannable::new().unwrap();
 
-// A plain click on the pannable Flickable's content reaches the enclosing TouchArea.
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_counter(), 1);
 assert_eq!(instance.get_content_y(), 0.);
 
-// A real drag still pans the Flickable and does not also reach the TouchArea.
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(25.0, 15.0) });
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(25.0, 5.0) });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 5.0), button: PointerEventButton::Left });
-// Clamped: content is only 10px taller than the viewport (60px vs. 50px).
 assert_eq!(instance.get_content_y(), -10.);
 assert_eq!(instance.get_counter(), 1);
 ```

@@ -1575,13 +1575,11 @@ fn build(l: &mut Loader) {
         /// 3. If the interaction of press, move, and release events begins at coordinates that do not intersect with
         ///    a `TouchArea`, then `Flickable` will flick immediately on pointer move events when the euclidean distance
         ///    to the coordinates of the press event exceeds 8 logical pixels.
-        /// If no element underneath claims a press, the `Flickable` itself only ever holds onto it provisionally, in case it turns into a drag.
-        /// If release comes with no pointer movement in between and before the 100ms hold resolves,
-        /// the press is forwarded to elements underneath it too, the same way wheel/scroll events already are (see below) --
-        /// whether or not the `Flickable` could actually pan.
-        /// Only an actual drag, recognized per the algorithm above, causes the `Flickable` to intercept the interaction.
-        /// A press that either moves at all before release (even without crossing the drag threshold) or is
-        /// still held past the 100ms mark is not yet forwarded on release (tracked in issue #13120).
+        ///
+        /// If released without pointer movement before the 100ms delay expires, an unclaimed press passes through to elements underneath.
+        /// This applies whether or not the `Flickable` can pan.
+        /// Drags follow the algorithm above.
+        /// Presses with intervening movement or held past 100ms are not forwarded on release (see issue #13120).
         ///
         /// ## Wheel/Scroll Event Interaction
         ///

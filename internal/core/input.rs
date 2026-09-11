@@ -1427,13 +1427,6 @@ pub struct MouseInputState {
     /// this to decide whether to deliver a Drop — matching OS DnD pipelines, where a
     /// target that didn't previously accept never receives a drop.
     pub(crate) drop_target: Option<ItemWeak>,
-    /// A press held back by `DelayForwarding`: the timer,
-    /// the event already translated into the delaying item's own local frame
-    /// (used by the timer-triggered replay, which only ever visits that item's own children),
-    /// the event in the frame it was dispatched in, not yet translated into any descendant's local frame
-    /// (used by the release-triggered replay, which restarts dispatch from the captured root below instead),
-    /// and the root item that dispatch started from,
-    /// so a release can replay the event through the full dispatch, not just the delaying item's own children.
     delayed: Option<(crate::timers::Timer, MouseEvent, MouseEvent, ItemWeak)>,
     delayed_exit_items: Vec<ItemWeak>,
     pub(crate) cursor: MouseCursorInner,
@@ -1738,18 +1731,7 @@ pub fn process_mouse_input(
         result.drop_target =
             accepted.then(|| result.item_stack.last().map(|(w, _)| w.clone())).flatten();
     }
-    // If nothing claims a `Moved` event at all (`!accepted`), the delaying item is still the
-    // rightful owner of the interaction -- e.g. a vertical-only Flickable ignoring a move that
-    // turns out to be horizontal, while it's still waiting to see whether a later move goes the
-    // direction it cares about. A nested child inside the delaying item (e.g. a `TouchArea`
-    // showing press feedback while a Flickable holds a press) similarly keeps the delay alive
-    // when accepted, even though the item on top of the stack changed -- the delaying item is
-    // still reached, just no longer last. But if something *else* accepts the move while the
-    // delaying item itself bubbles out of the stack entirely (e.g. an *enclosing* TouchArea's
-    // hover tracking accepted it after the Flickable ignored it), the pointer did genuinely move,
-    // just not in a way the Flickable reacts to; release must not later replay the stored press as
-    // if it never moved. See the follow-up tracked for the related "any move discards the pending
-    // delay" gap in builtins.slint and input-event-system.md.
+    // #13120
     let accepted_past_delaying_item = accepted
         && matches!(mouse_event, MouseEvent::Moved { .. })
         && mouse_input_state
@@ -1786,12 +1768,6 @@ pub fn process_mouse_input(
     MouseInputResult { state: result, accepted }
 }
 
-/// Called when the delay timer fires while the button/finger is still down.
-/// The interaction might still become a drag, so this only gives `top_item`'s own children a chance to react,
-/// e.g. a nested `TouchArea`/`Button` showing press feedback.
-/// It deliberately never re-runs `top_item`'s own filter, so `top_item` keeps holding the press exactly as before.
-/// Resolving what to do when *nobody* claims the press at all is left to [`resolve_delayed_event_on_release`],
-/// since only a `Released` event means the interaction is actually over.
 pub(crate) fn process_delayed_event(
     window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
@@ -1819,10 +1795,6 @@ pub(crate) fn process_delayed_event(
                 window_adapter,
                 &mut mouse_input_state,
                 Some(last_top_item),
-                // `top_item`'s own filter is never re-run here at all (only its children are
-                // visited); any nested delaying child hit falls back to its own `input_event`
-                // like `ForwardEvent`, exactly as it did before this whole replay mechanism
-                // existed.
                 Some(false),
                 &top_item,
                 &original_event,
@@ -1837,27 +1809,7 @@ pub(crate) fn process_delayed_event(
     mouse_input_state
 }
 
-/// Called when a `Released` event arrives while a press is still held back by `DelayForwarding`.
-/// The interaction is now definitely over, so this replays the stored press through the *full* dispatch,
-/// from the same root it originally started from, instead of only against the delaying item's own children.
-/// Passes `replaying: Some(true)` to `send_mouse_event_to_item` (see its doc comment), so *every*
-/// `DelayForwarding` item the replay reaches -- not just the original delaying one -- forwards to
-/// its children and forward-and-ignores if unclaimed, rather than falling back to grab itself.
-/// A nested delaying item (e.g. a pannable `Flickable` inside this one, or a `SwipeGestureHandler`
-/// wrapping another) must get the same treatment as the outermost one: since the interaction is
-/// over, letting it fall back and grab the mouse would just reintroduce #13118's bug one level
-/// deeper, and it would never see a further `Moved`/`Released` to let go of that grab again.
-///
-/// Only resolves the delay if `current_event` is the release of the same pointer and button
-/// that's being delayed.
-/// `TouchState::process_started` synthesizes a `Released` for the primary finger when a second
-/// finger touches down, purely to clear that finger's own grab/hover state -- it does not mean
-/// the delayed press' interaction is over, so it must not trigger a replay. That synthetic event
-/// deliberately carries the *new* finger's id rather than the primary's, so comparing
-/// `touch_finger_id` tells the two apart.
-/// The button comparison matters for mice: every mouse button carries `touch_finger_id` `0`,
-/// so without it, releasing a different button while the delayed one is still held would
-/// incorrectly resolve the delay.
+// #13118
 pub(crate) fn resolve_delayed_event_on_release(
     window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
@@ -1880,18 +1832,15 @@ pub(crate) fn resolve_delayed_event_on_release(
         return mouse_input_state;
     }
 
-    // The take below also destroys the Timer.
     let Some((_timer, _event_for_children, original_event, root)) =
         mouse_input_state.delayed.take()
     else {
         return mouse_input_state;
     };
     let Some(root) = root.upgrade() else {
-        // The tree this dispatch started from is gone; there's nothing left to replay against.
         return mouse_input_state;
     };
 
-    // Recover the real previous click target so click_count is preserved across delayed events.
     let last_top_item = mouse_input_state.top_item_including_delayed();
 
     let mut result = MouseInputState {
@@ -1915,16 +1864,9 @@ pub(crate) fn resolve_delayed_event_on_release(
     );
 
     if !r.has_aborted() {
-        // Nothing anywhere claimed it: behave exactly as if this press had never been delayed in the first place.
-        // In particular, any still-in-progress ancestor (e.g. an outer Flickable in a nested-Flickable scenario)
-        // must keep its own press-tracking state untouched,
-        // so it can still recognize a real drag on a later Move/Release of this same gesture.
         return mouse_input_state;
     }
 
-    // Something else now owns the interaction.
-    // Drop any exit queued from before this delay resolved that targets whatever the replay just accepted,
-    // otherwise we'd hand it the press and immediately cancel it with a stale Exit.
     result.delayed_exit_items = mouse_input_state
         .delayed_exit_items
         .iter()
@@ -1941,25 +1883,7 @@ fn send_mouse_event_to_item(
     window_adapter: &Rc<dyn WindowAdapter>,
     result: &mut MouseInputState,
     last_top_item: Option<&ItemRc>,
-    // `None` for a fresh, non-replayed dispatch: a `DelayForwarding` item arms a new delay as usual.
-    // `Some(ignore)` while replaying a previously stored delay (timer- or release-triggered):
-    // every `DelayForwarding` item hit this way forwards to its children without arming another
-    // delay, since it already got its own look at this exact event once and holding it further
-    // wouldn't reveal anything new. `ignore` then decides what happens if nothing among its
-    // children claims it:
-    // - `false` (timer-triggered replay, `process_delayed_event`): fall back to its own
-    //   `input_event`, exactly as a fresh `ForwardEvent` dispatch would -- letting e.g. a nested
-    //   `SwipeGestureHandler` grab the mouse to keep watching for a swipe of its own, since the
-    //   interaction might still become a drag.
-    // - `true` (release-triggered replay, `resolve_delayed_event_on_release`): never fall back,
-    //   forward-and-ignore instead. The interaction is now known to be over, so *every* delaying
-    //   item reached here -- not just the original one -- must let an unclaimed press bubble past
-    //   it rather than belatedly grab it, or a nested delaying item with nothing inside to claim
-    //   the press would reintroduce #13118's bug one level deeper.
     replaying: Option<bool>,
-    // The root this dispatch started from, and the event in that root's frame,
-    // unchanged across the whole recursion.
-    // Only read when a fresh `DelayForwarding` needs to stash them for a later replay.
     root: &ItemRc,
     original_event: &MouseEvent,
 ) -> VisitChildrenResult {
@@ -1994,8 +1918,6 @@ fn send_mouse_event_to_item(
         InputEventFilterResult::ForwardAndIgnore => (true, true),
         InputEventFilterResult::ForwardAndInterceptGrab => (true, false),
         InputEventFilterResult::Intercept => (false, false),
-        // See `replaying`'s doc comment above for why this forwards to children without arming a
-        // new delay, and why `ignore` differs between the timer- and release-triggered paths.
         InputEventFilterResult::DelayForwarding(_) if replaying.is_some() => {
             (true, replaying.unwrap())
         }
