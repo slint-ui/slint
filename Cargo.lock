@@ -3687,6 +3687,7 @@ dependencies = [
  "notify",
  "postcard",
  "rand 0.9.5",
+ "scopeguard",
  "serde",
  "serde_json",
  "sha2",

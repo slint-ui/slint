@@ -40,6 +40,7 @@ tokio = { version = "1.48.0", features = ["rt", "sync", "macros", "time"], optio
 futures-util = { version = "0.3.31", features = ["sink"], optional = true }
 postcard = { version = "1.1.3", default-features = false, features = ["alloc"], optional = true }
 base64 = { version = "0.23", optional = true }
+scopeguard = { version = "1.1.0", default-features = false, optional = true }
 hostname = { version = "0.4.1", optional = true }
 anyhow = { version = "1.0.100", optional = true }
 # remote: only the viewer generates pairing secrets, so the random source
@@ -92,6 +93,7 @@ preview-session = [
   "dep:tokio",
   "dep:base64",
   "dep:anyhow",
+  "dep:scopeguard",
   "slint-interpreter/accessibility",
   "slint-interpreter/image-default-formats",
 ]

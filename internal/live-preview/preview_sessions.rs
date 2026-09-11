@@ -359,10 +359,13 @@ impl PreviewSession {
             tracing::error!("Preview session is already compiling a component");
             return PreviewCompilation::Unavailable;
         };
+        // A dropped compilation must not take the compiler with it: a session without one
+        // refuses every build that follows.
+        let compiler = scopeguard::guard(compiler, |compiler| self.restore_compiler(compiler));
         let compilation_result = compiler
             .build_from_source(String::from_utf8_lossy(&file.contents).into_owned(), path)
             .await;
-        self.restore_compiler(compiler);
+        drop(compiler);
         // Set even on errors so edits to imported files still trigger a rebuild.
         *self.dependencies.borrow_mut() = compilation_result
             .watch_paths(InternalToken)
