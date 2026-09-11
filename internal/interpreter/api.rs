@@ -920,6 +920,8 @@ impl Compiler {
     }
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
+    ///
+    /// This wins over the include paths of the project file.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
         self.overrides.include_paths = Some(include_paths.clone());
         self.config.include_paths = include_paths;
@@ -931,6 +933,8 @@ impl Compiler {
     }
 
     /// Sets the library paths used for looking up `@library` imports to the specified map of library names to paths.
+    ///
+    /// This wins over the library paths of the project file.
     pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
         self.overrides.library_paths = Some(library_paths.clone());
         self.config.library_paths = library_paths;
@@ -951,6 +955,8 @@ impl Compiler {
     /// compiler.set_style("material".into());
     /// let result = spin_on::spin_on(compiler.build_from_path("hello.slint"));
     /// ```
+    ///
+    /// This wins over the style of the project file.
     pub fn set_style(&mut self, style: String) {
         self.overrides.style = Some(style.clone());
         self.config.style = Some(style);
@@ -1022,6 +1028,9 @@ impl Compiler {
     /// If the path is `"-"`, the file will be read from stdin.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
     ///
+    /// A `slint-project.json` in the directory of `path`, or in a directory above it,
+    /// provides the settings that were not set on this compiler.
+    ///
     /// This function is `async` but in practice, this is only asynchronous if
     /// [`Self::set_file_loader`] was called and its future is actually asynchronous.
     /// If that is not used, then it is fine to use a very simple executor, such as the one
@@ -1050,7 +1059,7 @@ impl Compiler {
     /// Compile some .slint code
     ///
     /// The `path` argument will be used for diagnostics and to compute relative
-    /// paths while importing.
+    /// paths while importing. The search for a `slint-project.json` starts there too.
     ///
     /// Any diagnostics produced during the compilation, such as warnings or errors, can be retrieved
     /// after the call using [`CompilationResult::diagnostics()`].
