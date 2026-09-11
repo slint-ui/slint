@@ -7844,6 +7844,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "spin_on",
+ "tempfile",
 ]
 
 [[package]]
