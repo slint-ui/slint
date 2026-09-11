@@ -57,6 +57,8 @@ RADIUS_DELTAS: dict[str, tuple[int, int]] = {
 }
 MOVE_KINDS = ("Rectangle", "Text", "Image")
 ROTATED_KINDS = ("Rectangle", "Text", "Image")
+# The rotation the elements of RotatedCanvasCases.slint carry.
+ROTATED_FIXTURE_ANGLE = 30
 BOUNDARY_KINDS = ("Rectangle", "Text", "Image")
 BOUNDARY_MOVE_DIRECTIONS = ("top-left", "bottom-right")
 OUTSIDE_ARTBOARD_DISTANCE = 32
@@ -704,7 +706,7 @@ def rotated_resize_values(
     corner: str,
     dx: float,
     dy: float,
-    angle_degrees: float = 30,
+    angle_degrees: float = ROTATED_FIXTURE_ANGLE,
 ) -> tuple[int, int, int, int]:
     angle = math.radians(angle_degrees)
     cosine = math.cos(angle)
@@ -898,7 +900,6 @@ def test_move_element_writes_exact_source_on_release(
         snapshot.wait_for_exact(expected)
 
 
-@RUST_FIX_REQUIRED
 @pytest.mark.parametrize("kind", MOVE_KINDS)
 def test_move_rotated_element_writes_exact_source_on_release(
     editor_binary: Path,
@@ -939,7 +940,6 @@ def test_move_rotated_element_writes_exact_source_on_release(
         snapshot.wait_for_exact(expected, "RotatedCanvasCases.slint")
 
 
-@RUST_FIX_REQUIRED
 def test_nested_rotated_element_move_writes_exact_local_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -1062,7 +1062,6 @@ def test_resize_modifier_changes_during_drag(
         )
 
 
-@RUST_FIX_REQUIRED
 @pytest.mark.parametrize("kind", ROTATED_KINDS)
 @pytest.mark.parametrize("corner", CORNERS)
 def test_rotated_element_resize_writes_exact_source(
@@ -1116,13 +1115,17 @@ def test_rotated_element_resize_writes_exact_source(
             f"        width: {new_width}px;\n"
             f"        height: {new_height}px;"
         ).encode()
-        snapshot.wait_for_exact(
+        # The handles are read back, so the preview has to hold the edited source.
+        snapshot.wait_for_applied(
             replace_once(baseline, original, changed),
             "RotatedCanvasCases.slint",
         )
         assert (
             position_distance(
-                center(window_element_with_label(window, opposite_label)),
+                center(
+                    window_element_with_label(window, opposite_label),
+                    math.radians(ROTATED_FIXTURE_ANGLE),
+                ),
                 fixed_handle_center,
             )
             < 1.5
