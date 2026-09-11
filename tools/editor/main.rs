@@ -447,7 +447,7 @@ fn sync_file_watcher_if_needed(
                     .filter(|url| url.scheme() == "file")
                     .filter_map(|url| editor_preview::uri_to_file(&url)),
             )
-            .chain(session.active_project_file_path().map(Path::to_path_buf)),
+            .chain(session.active_project_file_paths().map(Path::to_path_buf)),
     )?;
     *watch_paths_revision = Some(current_revision);
     Ok(())
