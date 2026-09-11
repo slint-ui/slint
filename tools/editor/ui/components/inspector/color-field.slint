@@ -92,20 +92,21 @@ export component InspectorColorField inherits Rectangle {
     }
 
     function show-picker() {
-        FillSession.close-picker(true, false);
-        FillSession.value = root.property-data.fill;
-        FillSession.property-name = root.property-name;
-        FillSession.target-key = root.preview-key;
-        FillSession.session-key = root.session-key;
-        FillSession.expression = root.value;
-        FillSession.unsupported = !root.property-data.value-resolved;
-        FillSession.allow-gradient = root.property-data.kind == PropertyValueKind.brush || root.property-data.value-kind == PropertyValueKind.brush;
-        FillSession.canvas-target = root.property-name == "background" && Api.current-element.type-name == "Rectangle";
-        FillSession.target-width = root.target-size.width / 1px;
-        FillSession.target-height = root.target-size.height / 1px;
-        FillSession.anchor-position = swatch-focus.absolute-position;
-        FillSession.anchor-width = swatch-focus.width;
-        FillSession.open = true;
+        FillSession.begin({
+            fill: root.property-data.fill,
+            target: {
+                key: root.preview-key,
+                session-key: root.session-key,
+                property-name: root.property-name,
+                size: root.target-size,
+                canvas: root.property-name == "background" && Api.current-element.type-name == "Rectangle",
+            },
+            expression: root.value,
+            unsupported: !root.property-data.value-resolved,
+            allow-gradient: root.property-data.kind == PropertyValueKind.brush || root.property-data.value-kind == PropertyValueKind.brush,
+            anchor-position: swatch-focus.absolute-position,
+            anchor-width: swatch-focus.width,
+        });
     }
 
     private property <int> focus-generation: FillSession.focus-generation;

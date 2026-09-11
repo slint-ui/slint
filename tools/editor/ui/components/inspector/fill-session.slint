@@ -3,6 +3,24 @@
 
 import { Api, FillData, BrushKind, LinearGradientAxis, SelectionRectangle } from "../../api.slint";
 
+export struct FillSessionTarget {
+    key: string,
+    session-key: string,
+    property-name: string,
+    size: Size,
+    canvas: bool,
+}
+
+export struct FillSessionRequest {
+    fill: FillData,
+    target: FillSessionTarget,
+    expression: string,
+    unsupported: bool,
+    allow-gradient: bool,
+    anchor-position: Point,
+    anchor-width: length,
+}
+
 export global FillSession {
     in-out property <FillData> value;
     in-out property <bool> allow-gradient;
@@ -228,6 +246,24 @@ export global FillSession {
         FillSession.reset-axis();
     }
 
+    public function begin(request: FillSessionRequest) {
+        FillSession.close-picker(true, false);
+        FillSession.value = request.fill;
+        FillSession.property-name = request.target.property-name;
+        FillSession.target-key = request.target.key;
+        FillSession.session-key = request.target.session-key;
+        FillSession.target-width = request.target.size.width / 1px;
+        FillSession.target-height = request.target.size.height / 1px;
+        FillSession.canvas-target = request.target.canvas;
+        FillSession.expression = request.expression;
+        FillSession.unsupported = request.unsupported;
+        FillSession.allow-gradient = request.allow-gradient;
+        FillSession.anchor-position = request.anchor-position;
+        FillSession.anchor-width = request.anchor-width;
+        FillSession.show-picker();
+        FillSession.open = true;
+    }
+
     public function show-picker() {
         FillSession.radial-direction = 35deg;
         FillSession.stop-panel-open = false;
@@ -287,9 +323,9 @@ export global FillSession {
 
 
     changed open => {
-        if FillSession.open {
+        if FillSession.open && !FillSession.session-active {
             FillSession.show-picker();
-        } else {
+        } else if !FillSession.open {
             FillSession.close-picker(false, false);
         }
     }

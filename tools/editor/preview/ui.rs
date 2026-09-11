@@ -1628,6 +1628,47 @@ mod tests {
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
 
     #[test]
+    fn begin_fill_session_accepts_previous_target_before_replacing_it() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        super::brushes::setup(&api);
+        api.on_inspector_fill_preview(|_, _, _| true);
+        let commits = std::rc::Rc::new(std::cell::Cell::new(0));
+        let count = commits.clone();
+        api.on_inspector_fill_commit(move |key, property, _| {
+            assert_eq!(key, "first");
+            assert_eq!(property, "background");
+            count.set(count.get() + 1);
+            true
+        });
+        let session = editor.global::<super::FillSession>();
+        let mut request = super::FillSessionRequest {
+            target: super::FillSessionTarget {
+                key: "first".into(),
+                property_name: "background".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        session.invoke_begin(request.clone());
+        assert!(session.get_open());
+        assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(255, 0, 0)));
+        request.target.key = "second".into();
+        session.invoke_begin(request.clone());
+        assert_eq!(commits.get(), 1);
+        assert_eq!(session.get_target_key(), "second");
+        assert_eq!(
+            api.invoke_fill_brush(session.get_working_fill()),
+            api.invoke_fill_brush(request.fill.clone())
+        );
+        session.invoke_close_picker(true, false);
+        session.invoke_begin(request);
+        session.invoke_close_picker(true, false);
+        assert_eq!(commits.get(), 1);
+    }
+
+    #[test]
     fn linear_fill_overlay_requires_an_editable_rectangle_session() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
