@@ -68,14 +68,25 @@ enum PreviewSessionCommand {
     Reset(oneshot::Sender<()>),
 }
 
+/// The files and the compiler behind one preview, fed by an editor over any transport.
+///
+/// Lives on the thread that runs the preview: use [`PreviewSessionHandle`] to reach it from
+/// the thread that owns the transport.
 pub struct PreviewSession {
+    /// File contents pushed by the editor, keyed by the `Url` the editor sent. Using the URL
+    /// verbatim avoids platform-dependent path normalization (Windows backslashes,
+    /// percent-encoding) — equality is structural.
     file_cache: RefCell<HashMap<Url, CacheEntry>>,
+    /// Files the currently shown component depends on. `SetContents` for URLs outside this set
+    /// does not rebuild, so unrelated edits in the user's editor don't disturb the preview.
     dependencies: RefCell<HashSet<Url>>,
+    /// Taken for the duration of a compilation, which is how a second one is refused.
     compiler: RefCell<Option<slint_interpreter::Compiler>>,
     configuration: RefCell<Option<PreviewConfig>>,
     to_editor: Rc<dyn PreviewToLsp>,
 }
 
+/// Feeds messages to a [`PreviewSession`] from any thread.
 #[derive(Clone)]
 pub struct PreviewSessionHandle {
     command_sender: mpsc::UnboundedSender<PreviewSessionCommand>,
@@ -352,6 +363,7 @@ impl PreviewSession {
             .build_from_source(String::from_utf8_lossy(&file.contents).into_owned(), path)
             .await;
         self.restore_compiler(compiler);
+        // Set even on errors so edits to imported files still trigger a rebuild.
         *self.dependencies.borrow_mut() = compilation_result
             .watch_paths(InternalToken)
             .iter()
@@ -375,6 +387,8 @@ impl PreviewSession {
             .or_else(|| compilation_result.component_names().next())
             .and_then(|name| compilation_result.component(name))
         else {
+            // No compile errors but no component: skip the diagnostics so they don't clobber
+            // unrelated ones the editor holds for this URL.
             tracing::error!("Component not found");
             return PreviewCompilation::ComponentNotFound;
         };
@@ -436,6 +450,8 @@ impl PreviewSessionHandle {
     }
 }
 
+/// Whether the session can act on this URL. A preview only handles `file://` URLs; the editor
+/// can legitimately produce others (e.g. `vscode-remote://`), but they're ignored on this side.
 fn is_supported(url: &Url) -> bool {
     if url.scheme() != "file" {
         tracing::warn!("Ignoring message for unsupported URL scheme: {url}");
@@ -542,7 +558,8 @@ async fn show_component(
     Ok(())
 }
 
-fn register_font(window: &i_slint_core::api::Window, contents: Arc<[u8]>) {
+pub fn register_font(window: &i_slint_core::api::Window, contents: Arc<[u8]>) {
+    // Wrap the already-Arc-backed bytes in a Blob without copying.
     let blob = fontique::Blob::new(Arc::new(contents));
     WindowInner::from_pub(window)
         .context()

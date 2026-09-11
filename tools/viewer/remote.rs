@@ -2,14 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::{net::SocketAddr, rc::Rc};
 
 use i_slint_core::SharedString;
-use i_slint_core::textlayout::sharedparley::fontique;
-use i_slint_core::window::WindowInner;
 use i_slint_live_preview::preview_sessions::{
-    PreviewCompilation, PreviewSession, PreviewSessionEvent,
+    PreviewCompilation, PreviewSession, PreviewSessionEvent, register_font,
 };
 use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage, lsp_types};
 use i_slint_live_preview::remote::{Connection, ConnectionMessage, PairingPolicy};
@@ -265,13 +262,7 @@ async fn run_async(
                         tracing::debug!("Font {url} already registered, skipping");
                         continue;
                     }
-                    let blob = fontique::Blob::new(Arc::new(contents));
-                    WindowInner::from_pub(placeholder.window())
-                        .context()
-                        .font_context()
-                        .borrow_mut()
-                        .collection
-                        .register_fonts(blob, None);
+                    register_font(placeholder.window(), contents);
                     tracing::debug!("Registered font {url} ({len} bytes)");
                 }
             },
