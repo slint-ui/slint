@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-// cSpell: ignore getenv
+// cSpell: ignore getenv Pslint
+
+import com.android.build.api.variant.FilterConfiguration.FilterType.ABI
 
 plugins {
     id("com.android.application")
@@ -12,6 +14,16 @@ val slintVersion = System.getenv("SLINT_VERSION")
     ?: Regex("""(?m)^version = "([^"]+)"""")
         .find(file("../../../../Cargo.toml").readText())!!.groupValues[1]
 val (major, minor, patch) = slintVersion.substringBefore('-').split('.').map(String::toInt)
+val releaseVersionCode = major * 10000 + minor * 100 + patch
+
+// Each per-ABI APK needs a distinct versionCode: the release code times ten
+// plus this offset, so a device supporting several ABIs (arm64 also runs
+// armeabi-v7a) installs the highest, i.e. arm64.
+val abiVersionCodeOffset = mapOf("armeabi-v7a" to 1, "x86_64" to 2, "arm64-v8a" to 3)
+
+// -Pslint.abi=<abi> restricts the APKs to one ABI; F-Droid builds one ABI
+// per version code that way.
+val abis = (project.findProperty("slint.abi") as String?)?.let { listOf(it) } ?: abiVersionCodeOffset.keys.toList()
 
 // Mirror `[package.metadata.android]` in tools/viewer/Cargo.toml so the AAB
 // and the cargo-apk APK match.
@@ -24,12 +36,8 @@ android {
         applicationId = "dev.slint.viewer"
         minSdk = 26
         targetSdk = 36
-        versionCode = System.getenv("SLINT_BUILD_NUMBER")?.toIntOrNull()
-            ?: (major * 10000 + minor * 100 + patch)
+        versionCode = System.getenv("SLINT_BUILD_NUMBER")?.toIntOrNull() ?: releaseVersionCode
         versionName = slintVersion
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-        }
     }
 
     val keystorePath: String? = System.getenv("ANDROID_KEYSTORE_PATH")
@@ -56,6 +64,27 @@ android {
             vcsInfo {
                 include = false
             }
+        }
+    }
+
+    // One APK per ABI so a download carries only its architecture's native
+    // libraries (Skia dominates the size). `bundleRelease` ignores `splits`
+    // and keeps every ABI in the bundle.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include(*abis.toTypedArray())
+        }
+    }
+}
+
+// The bundle has no ABI filter and keeps `defaultConfig`'s versionCode.
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            val abi = output.filters.find { it.filterType == ABI }?.identifier ?: return@forEach
+            output.versionCode.set(releaseVersionCode * 10 + abiVersionCodeOffset.getValue(abi))
         }
     }
 }

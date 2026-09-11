@@ -31,12 +31,12 @@ jobs:
               run: tools/viewer/android/build-native.sh arm64-v8a
               working-directory: ${{ matrix.checkout }}
             - name: Build the APK
-              run: gradle --no-daemon assembleRelease
+              run: gradle --no-daemon assembleRelease -Pslint.abi=arm64-v8a
               working-directory: ${{ matrix.checkout }}/tools/viewer/android
             - uses: actions/upload-artifact@v7
               with:
                   name: apk-${{ strategy.job-index }}
-                  path: ${{ matrix.checkout }}/tools/viewer/android/app/build/outputs/apk/release/app-release-unsigned.apk
+                  path: ${{ matrix.checkout }}/tools/viewer/android/app/build/outputs/apk/release/app-*-release-unsigned.apk
 
     compare:
         needs: build
@@ -52,10 +52,10 @@ jobs:
                   path: second
             - name: Compare the two APKs
               run: |
-                  if cmp first/app-release-unsigned.apk second/app-release-unsigned.apk; then
+                  if cmp first/app-*-release-unsigned.apk second/app-*-release-unsigned.apk; then
                       echo "The two builds are byte-identical."
                   else
                       sudo apt-get install -y diffoscope-minimal
-                      diffoscope --text - --max-text-report-size 200000 first/app-release-unsigned.apk second/app-release-unsigned.apk || true
+                      diffoscope --text - --max-text-report-size 200000 first/app-*-release-unsigned.apk second/app-*-release-unsigned.apk || true
                       exit 1
                   fi

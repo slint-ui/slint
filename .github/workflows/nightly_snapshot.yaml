@@ -479,8 +479,8 @@ jobs:
 
                 mkdir -p $output_path/demos/android
                 cp -a ../android/* $output_path/demos/android/
-                # slint-viewer APK/AAB are too big for the web server (APK is a release asset, AAB a CI artifact).
-                rm -f $output_path/demos/android/slint-viewer.apk \
+                # The slint-viewer APKs are release assets (too big for the web server), the AAB a CI artifact.
+                rm -f $output_path/demos/android/slint-viewer-*.apk \
                       $output_path/demos/android/slint-viewer.aab
 
                 # A directory listing so the published folder is browsable.
@@ -644,8 +644,8 @@ jobs:
                   mv slint-lsp-*.zip artifacts/
                   mv slint-compiler-*.tar.gz artifacts/
                   mv figma-plugin.zip artifacts/
-                  # slint-viewer APK ships as a release asset (too big for the web server).
-                  mv android-demos/slint-viewer.apk artifacts/
+                  # The slint-viewer APKs ship as release assets (too big for the web server).
+                  mv android-demos/slint-viewer-*.apk artifacts/
             - uses: actions/checkout@v7
               with:
                 path: "slint-src"
@@ -827,31 +827,14 @@ jobs:
             - name: Build home automation demo
               run: cargo apk build --manifest-path demos/Cargo.toml -p home-automation --target aarch64-linux-android --lib --release
 
-            # Play Store accepts only AABs for new submissions. Build the
-            # bundle, then derive the nightly slint-viewer APK from it so the
-            # viewer is only compiled once.
-            - name: Build slint-viewer AAB
+            # Play Store accepts only AABs for new submissions; the per-ABI
+            # APKs are for GitHub releases and F-Droid.
+            - name: Build slint-viewer AAB and per-ABI APKs
               env:
                   ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}
                   ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
                   ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
               run: tools/viewer/android/build-aab.sh
-            # A universal APK works on every ABI the bundle carries.
-            - name: Build slint-viewer APK from the AAB
-              env:
-                  ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-                  ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
-              run: |
-                  curl --fail -L -o bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
-                  java -jar bundletool.jar build-apks --mode=universal \
-                      --bundle=tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab \
-                      --output=slint-viewer.apks \
-                      --ks="$CARGO_APK_RELEASE_KEYSTORE" \
-                      --ks-pass="pass:$ANDROID_KEYSTORE_PASSWORD" \
-                      --ks-key-alias="$ANDROID_KEYSTORE_ALIAS"
-                  mkdir -p target/release/apk
-                  unzip -p slint-viewer.apks universal.apk > target/release/apk/slint-viewer.apk
-
             # A full-nightly goes to internal testing; a release goes to
             # production as a draft that a human publishes, so an accidental
             # `release` run never reaches users.
@@ -871,6 +854,7 @@ jobs:
               run: |
                   mkdir -p android-demos
                   cp -a target/release/apk/*.apk android-demos/ || true
+                  cp -a tools/viewer/android/app/build/outputs/apk/release/slint-viewer-*.apk android-demos/ || true
                   cp -a tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab android-demos/ || true
             - name: "upload APK artifact"
               if: always()
