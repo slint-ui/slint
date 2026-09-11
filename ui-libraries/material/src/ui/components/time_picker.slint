@@ -191,6 +191,8 @@ component TimePickerInput {
             padding: MaterialStyleMetrics.padding_8;
 
             text_input := TextInput {
+                // Disable TextInput's built-in accessibility support as the component takes care of that.
+                accessible_role: none;
                 vertical_alignment: center;
                 horizontal_alignment: center;
                 color: MaterialPalette.on_surface;
