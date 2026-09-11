@@ -706,6 +706,17 @@ impl Instance {
         if let Some((parent, idx)) = embedded_in {
             let _ = vrc.embedded_in.set((parent, idx));
         }
+        // Register the languages before the bindings are installed, on the context of the window
+        // this instance ends up in.
+        #[cfg(feature = "bundle-translations")]
+        if let Some(translations) = &compilation_unit.translations
+            && let Some(context) =
+                i_slint_core::window::context_for_root(&vtable::VRc::into_dyn(vrc.clone()))
+        {
+            context.set_bundled_languages(
+                translations.languages.iter().map(|(l, s)| (l.to_string(), *s)),
+            );
+        }
         finalize_instance(&vrc);
         vrc
     }

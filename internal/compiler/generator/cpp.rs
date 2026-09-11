@@ -2177,17 +2177,7 @@ fn generate_item_tree(
         #[cfg(feature = "bundle-translations")]
         if let Some(translations) = &root.translations {
             let lang_len = translations.languages.len();
-            create_code.push(format!(
-                "std::array<slint::cbindgen_private::Slice<uint8_t>, {lang_len}> languages {{ {} }};",
-                translations
-                    .languages
-                    .iter()
-                    .map(|(l, _)| format!("slint::private_api::string_to_slice({l:?})"))
-                    .join(", ")
-            ));
-            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)), \
-                                                                                                     slint::private_api::make_slice(reinterpret_cast<uint32_t *>(slint_translation_bundle_decimal_separators), {}));",
-                                                                                                     translations.languages.len()));
+            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(slint_translation_bundle_languages, {lang_len}));"));
         }
 
         create_code.push("self->globals = &self->m_globals;".into());
@@ -6431,16 +6421,21 @@ fn generate_translation(
             ..Default::default()
         }));
     }
+    // The runtime keeps this array by reference, so it must have static storage duration.
     declarations.push(Declaration::Var(Var {
-        ty: "uint32_t".into(),
-        name: "slint_translation_bundle_decimal_separators".into(),
+        ty: "const slint::cbindgen_private::TranslationsBundled".into(),
+        name: "slint_translation_bundle_languages".into(),
         array_size: Some(translations.languages.len()),
         init: Some(format!(
             "{{ {} }}",
             translations
                 .languages
                 .iter()
-                .map(|(_, s)| format_smolstr!("{}", *s as u32),)
+                .map(|(l, s)| format_smolstr!(
+                    "{{ slint::private_api::string_to_slice({:?}), {} }}",
+                    l.as_str(),
+                    *s as u32
+                ))
                 .join(", ")
         )),
         ..Default::default()

@@ -215,6 +215,19 @@ pub struct CompilerConfiguration {
 }
 
 impl CompilerConfiguration {
+    /// The absolute path of the directory the translations are bundled from, if any.
+    pub fn translation_bundle_path(&self) -> Option<String> {
+        #[cfg(feature = "bundle-translations")]
+        return self.translation_path_bundle.as_ref().map(|path| {
+            std::path::absolute(path)
+                .unwrap_or_else(|_| path.clone())
+                .to_string_lossy()
+                .into_owned()
+        });
+        #[cfg(not(feature = "bundle-translations"))]
+        return None;
+    }
+
     pub fn new(output_format: OutputFormat) -> Self {
         let embed_resources = if std::env::var_os("SLINT_EMBED_TEXTURES").is_some()
             || std::env::var_os("DEP_MCU_BOARD_SUPPORT_MCU_EMBED_TEXTURES").is_some()
