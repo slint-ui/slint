@@ -677,7 +677,16 @@ impl ItemRc {
         p: LogicalPoint,
         item_tree: &vtable::VRc<ItemTreeVTable>,
     ) -> LogicalPoint {
-        self.map_to_item_tree_impl(p, |current| current.is_root_item_of(item_tree))
+        self.transform_to_item_tree(item_tree).transform_point(p.cast()).cast()
+    }
+
+    /// Returns the transform mapping this item's coordinate system to the `ItemTree`'s
+    /// (does not add this item's x and y).
+    ///
+    /// Use this over repeated [`Self::map_to_item_tree`] calls when mapping more than one point:
+    /// each of those walks the ancestor chain to build this transform and then drops it.
+    pub fn transform_to_item_tree(&self, item_tree: &vtable::VRc<ItemTreeVTable>) -> ItemTransform {
+        self.transform_to_ancestor_impl(|current| current.is_root_item_of(item_tree))
     }
 
     /// Returns an absolute position of `p` in the `ancestor`'s coordinate system
@@ -692,10 +701,14 @@ impl ItemRc {
         p: LogicalPoint,
         stop_condition: impl Fn(&Self) -> bool,
     ) -> LogicalPoint {
+        self.transform_to_ancestor_impl(stop_condition).transform_point(p.cast()).cast()
+    }
+
+    fn transform_to_ancestor_impl(&self, stop_condition: impl Fn(&Self) -> bool) -> ItemTransform {
         if stop_condition(self) {
-            return p;
+            return ItemTransform::identity();
         }
-        self.local_to_window_transform(stop_condition).transform_point(p.cast()).cast()
+        self.local_to_window_transform(stop_condition)
     }
 
     /// Return the index of the item within the ItemTree

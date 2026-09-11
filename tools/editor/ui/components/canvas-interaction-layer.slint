@@ -110,10 +110,10 @@ component SelectedCanvasFrame inherits Rectangle {
         top-right-radius: root.current-corner-radius("border-top-right-radius");
         bottom-right-radius: root.current-corner-radius("border-bottom-right-radius");
         bottom-left-radius: root.current-corner-radius("border-bottom-left-radius");
-        // Only allow move/resize for elements that have geometry outside a layout, and only
-        // when the element is not rotated (we don't support rotating + repositioning at once).
-        resizable: root.primary && Api.selection.is-resizable && root.selection.angle == 0deg;
-        moveable: root.primary && Api.selection.is-moveable && root.selection.angle == 0deg;
+        // Only allow move/resize for elements that have geometry outside a layout, and whose
+        // frame describes them.
+        resizable: root.primary && Api.selection.is-resizable && root.selection.describes-element;
+        moveable: root.primary && Api.selection.is-moveable && root.selection.describes-element;
         accessible-role: AccessibleRole.region;
         accessible-label: "Selected " + Api.current-element.type-name;
 
@@ -203,7 +203,7 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     height: root.geometry.height;
     rotation: root.geometry.angle;
     active: !root.gesture-active || root.move-pressed;
-    moveable: root.geometry.angle == 0deg;
+    moveable: root.geometry.describes-element;
     resizable: false;
     show-resize-handles: false;
     show-rotation-handles: false;

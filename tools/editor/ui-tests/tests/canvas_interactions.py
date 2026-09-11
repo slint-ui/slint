@@ -11,12 +11,28 @@ from ui_driver import elements_with_label, wait_until, window_element_with_label
 Frame = tuple[float, float, float, float]
 
 
-def center(element: slint_testing.Element) -> slint_testing.LogicalPosition:
+def center(
+    element: slint_testing.Element, rotation: float = 0.0
+) -> slint_testing.LogicalPosition:
+    """The center of `element` in window coordinates, `rotation` in radians.
+
+    `absolute_position` maps the element's origin through the rotation of its ancestors, while
+    `size` is measured along the element's own axes.
+    So the offset from that origin to the center has to be rotated as well.
+    """
     position = element.absolute_position
     size = element.size
+    return offset_position(position, size.width / 2, size.height / 2, rotation)
+
+
+def offset_position(
+    position: slint_testing.LogicalPosition, dx: float, dy: float, rotation: float
+) -> slint_testing.LogicalPosition:
+    cosine = math.cos(rotation)
+    sine = math.sin(rotation)
     return slint_testing.LogicalPosition(
-        x=position.x + size.width / 2,
-        y=position.y + size.height / 2,
+        x=position.x + dx * cosine - dy * sine,
+        y=position.y + dx * sine + dy * cosine,
     )
 
 
@@ -33,6 +49,20 @@ def selection_frame(window: slint_testing.Window, kind: str) -> Frame:
     position = selected.absolute_position
     size = selected.size
     return (position.x, position.y, size.width, size.height)
+
+
+def frame_rotation(window: slint_testing.Window, kind: str) -> float:
+    """The rotation of the selection frame of `kind`, in radians.
+
+    The move handle covers the whole frame, so its reported origin is the frame's top-left
+    corner mapped through the rotation, and the angle to it from the frame's center recovers
+    the rotation.
+    """
+    x, y, width, height = selection_frame(window, kind)
+    origin = window_element_with_label(window, f"{kind} move handle").absolute_position
+    return math.atan2(
+        origin.y - (y + height / 2), origin.x - (x + width / 2)
+    ) - math.atan2(-height / 2, -width / 2)
 
 
 def fixture_element(window: slint_testing.Window, kind: str) -> slint_testing.Element:
@@ -68,13 +98,14 @@ def manual_drag(
     require_multiple_transient_states: bool = True,
     fixed_handle_label: str | None = None,
 ) -> slint_testing.LogicalPosition | None:
-    start = center(handle)
-    end = slint_testing.LogicalPosition(x=start.x + dx, y=start.y + dy)
     button = slint_testing.PointerEventButton.Left
     kind = handle.accessible_label.split(" ", 1)[0]
+    rotation = frame_rotation(window, kind)
+    start = center(handle, rotation)
+    end = slint_testing.LogicalPosition(x=start.x + dx, y=start.y + dy)
     initial_frame = selection_frame(window, kind)
     fixed_handle_center = (
-        center(window_element_with_label(window, fixed_handle_label))
+        center(window_element_with_label(window, fixed_handle_label), rotation)
         if fixed_handle_label is not None
         else None
     )
@@ -100,13 +131,16 @@ def manual_drag(
         assert fixed_handle_label is not None
         assert (
             position_distance(
-                center(window_element_with_label(window, handle.accessible_label)), end
+                center(
+                    window_element_with_label(window, handle.accessible_label), rotation
+                ),
+                end,
             )
             < 1.5
         )
         assert (
             position_distance(
-                center(window_element_with_label(window, fixed_handle_label)),
+                center(window_element_with_label(window, fixed_handle_label), rotation),
                 fixed_handle_center,
             )
             < 1.5
@@ -149,11 +183,13 @@ def manual_rotation_drag(
     start = rotation_start(handle)
     end = slint_testing.LogicalPosition(x=start.x + dx, y=start.y + dy)
     button = slint_testing.PointerEventButton.Left
-    initial_frame = selection_frame(window, kind)
+    # A rotation turns the element around its center, so the position and the size of the
+    # selection frame stay where they are and its rotation is what follows the drag.
+    initial_rotation = frame_rotation(window, kind)
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
     window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
     angles = [_rotation_tooltip_value(window)]
-    frames = []
+    rotations = []
     for step in range(1, 4):
         fraction = step / 3
         position = slint_testing.LogicalPosition(
@@ -162,12 +198,13 @@ def manual_rotation_drag(
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(position))
         angles.append(_rotation_tooltip_value(window))
-        frames.append(selection_frame(window, kind))
+        rotations.append(frame_rotation(window, kind))
     snapshot.assert_unchanged_now()
 
     assert all(0 <= angle < 360 for angle in angles)
     assert angles[-1] == target_angle or crosses_zero
-    assert frames[-1] != initial_frame
+    turned = (rotations[-1] - initial_rotation + math.pi) % (2 * math.pi) - math.pi
+    assert abs(turned) > math.radians(1)
     if crosses_zero:
         assert any(angle >= 345 for angle in angles)
         assert any(angle <= 15 for angle in angles)
@@ -371,17 +408,8 @@ OrientedFrame = tuple[float, float, float, float, float]
 def rotated_handle_center(
     element: slint_testing.Element, angle: float = 0
 ) -> tuple[float, float]:
-    midpoint = center(element)
-    size = element.size
-    radians = math.radians(angle)
-    return (
-        midpoint.x
-        + size.width / 2 * (math.cos(radians) - 1)
-        - size.height / 2 * math.sin(radians),
-        midpoint.y
-        + size.width / 2 * math.sin(radians)
-        + size.height / 2 * (math.cos(radians) - 1),
-    )
+    midpoint = center(element, math.radians(angle))
+    return (midpoint.x, midpoint.y)
 
 
 def oriented_selection_frame(

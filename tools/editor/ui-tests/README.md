@@ -83,8 +83,6 @@ Set `SLINT_EDITOR_BINARY` to test a different editor binary.
 The suite retains skipped cases for behavior that needs changes in the Rust
 preview implementation:
 
-- resizing elements that have their own rotation
-- moving rotated elements, including a rotated child under rotated ancestors
 - persisting moves of selected Rectangle previews
 - moving selected Text elements beyond the artboard bounds
 - canceling transient preview overrides when the pointer exits

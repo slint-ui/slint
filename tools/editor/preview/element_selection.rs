@@ -228,6 +228,7 @@ fn selection_rectangles(
             x: geometry.rect.origin.x,
             y: geometry.rect.origin.y,
             angle: geometry.angle,
+            describes_element: geometry.renders_as_rectangle,
         })
         .collect()
 }

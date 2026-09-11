@@ -14,7 +14,7 @@ use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::graphics::euclid;
 use i_slint_core::item_tree::ItemTreeVTable;
 use i_slint_core::items::ItemRc;
-use i_slint_core::lengths::{LogicalPoint, LogicalRect};
+use i_slint_core::lengths::{ItemTransform, LogicalPoint, LogicalRect, LogicalVector};
 use std::path::Path;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -27,23 +27,27 @@ pub struct HighlightedRect {
     pub rect: LogicalRect,
     /// In degrees, around the center of the element.
     pub angle: f32,
-    /// Absolute origin of this instance's parent coordinate system (in root coordinates).
+    /// Whether `rect` and `angle` describe the element's rendered shape.
     ///
-    /// `rect.origin - parent_origin` yields the element's position relative to its parent,
-    /// which matches the `x`/`y` properties written to the source. This is computed from the
-    /// instance's own ancestors, so it stays correct even if the element is positioned outside
-    /// of (or with a negative offset relative to) its parent.
+    /// The two of them describe a rotated rectangle.
+    /// An element renders as one while its own and its ancestors' transforms keep its two axes
+    /// at a right angle.
+    /// A non-uniform scale combined with a rotation shears it into a parallelogram instead,
+    /// which only `local_rect` still describes.
+    pub renders_as_rectangle: bool,
+    /// The element's rectangle in its parent's coordinate system.
     ///
-    /// Both values are in root coordinates, so the subtraction only recovers the source `x`/`y`
-    /// while the parent frame is axis-aligned and unscaled — recovering it under a rotated or
-    /// scaled ancestor would additionally need to map the delta through the inverse ancestor
-    /// transform.
-    pub parent_origin: LogicalPoint,
-    /// Absolute rotation (in degrees) of this instance's parent coordinate system.
+    /// This is what the source `x`, `y`, `width` and `height` describe.
+    /// Unlike `rect`, no transform of the element or of any of its ancestors applies to it.
+    pub local_rect: LogicalRect,
+    /// Maps this instance's parent coordinate system to root coordinates.
     ///
-    /// `angle - parent_rotation` yields the element's own rotation relative to its parent, which
-    /// matches `transform-rotation` modulo complete turns. Use `transform_rotation` to retain those turns.
-    pub parent_rotation: f32,
+    /// Invert it to turn a position picked in root coordinates into one that can be written to
+    /// the source.
+    /// It is composed from the instance's own ancestors,
+    /// so it stays correct even if the element is positioned outside of
+    /// (or with a negative offset relative to) its parent.
+    pub parent_transform: ItemTransform,
     /// Evaluated parent-relative rotation in degrees, including complete turns.
     pub transform_rotation: f32,
     /// Evaluated corner radii in logical pixels.
@@ -63,6 +67,20 @@ pub struct CornerRadii {
 }
 
 impl HighlightedRect {
+    /// Absolute origin of this instance's parent coordinate system, in root coordinates.
+    pub fn parent_origin(&self) -> LogicalPoint {
+        self.parent_transform.transform_point(LogicalPoint::default().cast()).cast()
+    }
+
+    /// Absolute rotation (in degrees) of this instance's parent coordinate system.
+    ///
+    /// `angle - parent_rotation()` yields the element's own rotation relative to its parent,
+    /// which matches `transform-rotation` modulo complete turns.
+    /// Use `transform_rotation` to retain those turns.
+    pub fn parent_rotation(&self) -> f32 {
+        self.parent_transform.m12.atan2(self.parent_transform.m11).to_degrees()
+    }
+
     /// Returns true if `position` lies inside the (potentially rotated) rectangle.
     pub fn contains(&self, position: LogicalPoint) -> bool {
         let center = self.rect.center();
@@ -377,45 +395,41 @@ fn item_flat_index_to_rect(
         anchor = parent;
     }
 
-    let origin = item_rc.map_to_item_tree(geometry.origin, &root_vrc);
-    // `map_to_item_tree` does not add the item's own x/y, so mapping the zero point of
-    // the anchor yields the absolute origin of the element's source-parent coordinate
-    // system.
-    let parent_origin = anchor.map_to_item_tree(LogicalPoint::default(), &root_vrc);
-    // The source parent's absolute rotation: map a unit x-vector of the anchor's frame.
-    // `map_to_item_tree` applies the ancestors' transforms but not the anchor's own, so
-    // this excludes the element's own rotation (applied by its injected `Transform`).
-    let parent_rotation = {
-        let frame_x_axis = anchor.map_to_item_tree(LogicalPoint::new(1.0, 0.0), &root_vrc);
-        let delta = frame_x_axis - parent_origin;
-        delta.y.atan2(delta.x).to_degrees()
-    };
-    let top_right = item_rc
-        .map_to_item_tree(geometry.origin + euclid::vec2(geometry.size.width, 0.), &root_vrc);
-    let delta = top_right - origin;
-    let width = delta.length();
-    let height = if geometry.size.width == 0.0 {
-        0.0
-    } else {
-        geometry.size.height * width / geometry.size.width
-    };
-    let angle_rad = delta.y.atan2(delta.x);
-    let (sin, cos) = angle_rad.sin_cos();
-    let center = euclid::point2(
-        origin.x + (width / 2.0) * cos - (height / 2.0) * sin,
-        origin.y + (width / 2.0) * sin + (height / 2.0) * cos,
-    );
+    // Neither transform adds its item's own x/y, so `parent_transform` maps the element's
+    // source-parent coordinate system, and `to_root` the coordinate system the injected
+    // wrappers place the element in — the element's own transform included.
+    let to_root = item_rc.transform_to_item_tree(&root_vrc);
+    let parent_transform = anchor.transform_to_item_tree(&root_vrc);
+    let map_axis = |axis: euclid::Vector2D<f32, _>| to_root.transform_vector(axis).cast();
+
+    let origin: LogicalPoint = to_root.transform_point(geometry.origin.cast()).cast();
+    // Both edges are measured, so a scale along one axis is not assumed to match the other.
+    let size = geometry.size.cast::<f32>();
+    let x_axis = map_axis(euclid::vec2(size.width, 0.));
+    let y_axis = map_axis(euclid::vec2(0., size.height));
+    let width = x_axis.length();
+    let height = y_axis.length();
+    let center = origin + (x_axis + y_axis) / 2.0;
     Some(HighlightedRect {
         rect: LogicalRect {
             origin: center - euclid::vec2(width / 2.0, height / 2.0),
             size: euclid::size2(width, height),
         },
-        angle: angle_rad.to_degrees(),
-        parent_origin,
-        parent_rotation,
+        angle: x_axis.y.atan2(x_axis.x).to_degrees(),
+        renders_as_rectangle: are_perpendicular(x_axis, y_axis),
+        local_rect: if anchor == item_rc { geometry } else { anchor.geometry() },
+        parent_transform,
         transform_rotation,
         corner_radii: item_corner_radii(item_rc.borrow()),
     })
+}
+
+/// Whether two axes still meet at a right angle.
+/// The cosine between them is compared, so the tolerance does not depend on how long they are.
+fn are_perpendicular(x: LogicalVector, y: LogicalVector) -> bool {
+    let squared_lengths = x.square_length() * y.square_length();
+    let dot = x.dot(y);
+    squared_lengths == 0. || dot * dot < 1.0e-6 * squared_lengths
 }
 
 fn positions_by_source(
@@ -562,8 +576,8 @@ export component Win inherits Window {
 
         let check = |id: &str, expected: (f32, f32)| {
             let geometry = geometry_of(&instance, code, id);
-            let x = geometry.rect.origin.x - geometry.parent_origin.x;
-            let y = geometry.rect.origin.y - geometry.parent_origin.y;
+            let x = geometry.rect.origin.x - geometry.parent_origin().x;
+            let y = geometry.rect.origin.y - geometry.parent_origin().y;
             assert!(
                 (x - expected.0).abs() < 0.5 && (y - expected.1).abs() < 0.5,
                 "{id}: source-relative position ({x}, {y}) should be {expected:?}"
@@ -573,6 +587,90 @@ export component Win inherits Window {
         check("plain", (30.0, 40.0));
         check("faded", (70.0, 80.0));
         check("nested", (5.0, 7.0));
+    }
+
+    #[test]
+    fn debug_hooks_local_rect() {
+        let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 300px;
+    outer := Rectangle {
+        x: 50px;
+        y: 60px;
+        width: 160px;
+        height: 140px;
+        transform-rotation: 30deg;
+        inner := Rectangle {
+            x: 20px;
+            y: 25px;
+            width: 40px;
+            height: 30px;
+            transform-rotation: 15deg;
+            transform-origin: { x: 0px, y: 0px };
+        }
+    }
+}"#;
+        let instance = compile_with_debug_hooks(code);
+
+        let check = |id: &str, expected: (f32, f32, f32, f32)| {
+            let rect = geometry_of(&instance, code, id).local_rect;
+            let actual = (rect.origin.x, rect.origin.y, rect.width(), rect.height());
+            assert!(
+                (actual.0 - expected.0).abs() < 0.5
+                    && (actual.1 - expected.1).abs() < 0.5
+                    && (actual.2 - expected.2).abs() < 0.5
+                    && (actual.3 - expected.3).abs() < 0.5,
+                "{id}: parent-relative rectangle {actual:?} should be {expected:?}"
+            );
+        };
+
+        check("outer", (50.0, 60.0, 160.0, 140.0));
+        check("inner", (20.0, 25.0, 40.0, 30.0));
+    }
+
+    #[test]
+    fn scaled_geometry_is_measured_per_axis() {
+        let code = r#"
+export component Win inherits Window {
+    width: 400px;
+    height: 400px;
+    stretched := Rectangle {
+        x: 20px;
+        y: 20px;
+        width: 80px;
+        height: 40px;
+        transform-scale-x: 3;
+    }
+    wide := Rectangle {
+        x: 20px;
+        y: 200px;
+        width: 200px;
+        height: 100px;
+        transform-scale-x: 3;
+        sheared := Rectangle {
+            width: 80px;
+            height: 40px;
+            transform-rotation: 30deg;
+        }
+    }
+}"#;
+        let instance = compile_with_debug_hooks(code);
+
+        // Both axes are measured, so a scale along one of them doesn't stretch the other.
+        let stretched = geometry_of(&instance, code, "stretched");
+        assert!(
+            (stretched.rect.width() - 240.).abs() < 0.5
+                && (stretched.rect.height() - 40.).abs() < 0.5,
+            "stretched: {:?}",
+            stretched.rect
+        );
+        assert!(stretched.renders_as_rectangle);
+
+        // A rotation below a non-uniform scale is a parallelogram, which `rect` can't express.
+        let sheared = geometry_of(&instance, code, "sheared");
+        assert!(!sheared.renders_as_rectangle);
+        assert!((sheared.angle - 30.).abs() > 1., "sheared angle: {}", sheared.angle);
     }
 
     #[test]
@@ -600,7 +698,7 @@ export component Win inherits Window {
 
         let check = |id: &str, expected: f32| {
             let geometry = geometry_of(&instance, code, id);
-            let rotation = geometry.angle - geometry.parent_rotation;
+            let rotation = geometry.angle - geometry.parent_rotation();
             assert!(
                 (rotation - expected).abs() < 0.5,
                 "{id}: source-relative rotation {rotation} should be {expected}"
@@ -647,7 +745,7 @@ export component Win inherits Window {
         assert_eq!(geometries.len(), 2);
         for (geometry, expected) in geometries.iter().zip([382.25, -397.5]) {
             assert_eq!(geometry.transform_rotation, expected);
-            assert!((geometry.parent_rotation - 30.).abs() < 0.001);
+            assert!((geometry.parent_rotation() - 30.).abs() < 0.001);
             let radii = geometry.corner_radii;
             assert_eq!(
                 [radii.top_left, radii.top_right, radii.bottom_left, radii.bottom_right],
