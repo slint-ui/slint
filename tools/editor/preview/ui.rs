@@ -1657,7 +1657,7 @@ mod tests {
         request.target.key = "second".into();
         session.invoke_begin(request.clone());
         assert_eq!(commits.get(), 1);
-        assert_eq!(session.get_target_key(), "second");
+        assert_eq!(session.get_request().target.key, "second");
         assert_eq!(
             api.invoke_fill_brush(session.get_working_fill()),
             api.invoke_fill_brush(request.fill.clone())
@@ -1669,99 +1669,53 @@ mod tests {
     }
 
     #[test]
-    fn linear_fill_overlay_requires_an_editable_rectangle_session() {
+    fn fill_overlay_requires_an_editable_rectangle_session() {
         i_slint_backend_testing::init_no_event_loop();
-        let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        let session = editor.global::<super::FillSession>();
-        let mut element = api.get_current_element();
-        element.type_name = "Rectangle".into();
-        api.set_current_element(element);
-        let mut selection = api.get_selection();
-        selection.highlight_index = 0;
-        api.set_selection(selection);
-        session.set_canvas_target(true);
-        session.set_working_fill(super::FillData {
-            kind: super::BrushKind::Linear,
-            ..Default::default()
-        });
-        session.set_session_active(true);
-        assert!(!session.get_canvas_active());
-        session.set_open(true);
-        assert!(session.get_canvas_active());
-        session.set_unsupported(true);
-        assert!(!session.get_canvas_active());
-        session.set_unsupported(false);
-        api.set_inspector_fill_refresh_pending(true);
-        assert!(!session.get_canvas_active());
-        api.set_inspector_fill_refresh_pending(false);
-        session.set_working_fill(super::FillData {
-            kind: super::BrushKind::Solid,
-            ..Default::default()
-        });
-        assert!(!session.get_canvas_active());
-        session.set_working_fill(super::FillData {
-            kind: super::BrushKind::Linear,
-            ..Default::default()
-        });
-        session.set_canvas_target(false);
-        assert!(!session.get_canvas_active());
-    }
-
-    #[test]
-    fn circular_fill_overlay_requires_an_editable_rectangle_session() {
-        i_slint_backend_testing::init_no_event_loop();
-        let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        let session = editor.global::<super::FillSession>();
-        let mut element = api.get_current_element();
-        element.type_name = "Rectangle".into();
-        api.set_current_element(element);
-        let mut selection = api.get_selection();
-        selection.highlight_index = 0;
-        api.set_selection(selection);
-        session.set_canvas_target(true);
-        session.set_session_active(true);
-        session.set_working_fill(super::FillData {
-            kind: super::BrushKind::Radial,
-            ..Default::default()
-        });
-        assert!(!session.get_radial_active());
-        session.set_open(true);
-        assert!(session.get_radial_active());
-        assert!(session.get_canvas_active());
-        session.set_unsupported(true);
-        assert!(!session.get_canvas_active());
-        session.set_unsupported(false);
-        session.set_working_fill(super::FillData {
-            kind: super::BrushKind::Conic,
-            ..Default::default()
-        });
-        assert!(session.get_conic_active());
-        assert!(session.get_canvas_active());
-        assert!(!session.get_radial_active());
-        session.set_open(false);
-        assert!(!session.get_conic_active());
-        session.set_open(true);
-        api.set_inspector_fill_refresh_pending(true);
-        assert!(!session.get_conic_active());
-        api.set_inspector_fill_refresh_pending(false);
-        let mut element = api.get_current_element();
-        element.type_name = "Text".into();
-        api.set_current_element(element.clone());
-        assert!(!session.get_conic_active());
-        element.type_name = "Rectangle".into();
-        api.set_current_element(element);
-        assert!(session.get_conic_active());
-        session.set_canvas_target(false);
-        assert!(!session.get_conic_active());
-        session.set_canvas_target(true);
-        session.set_working_fill(super::FillData {
-            kind: super::BrushKind::Radial,
-            ..Default::default()
-        });
-        session.set_canvas_target(false);
-        assert!(!session.get_radial_active());
+        for kind in [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic] {
+            let editor = super::EditorUi::new().unwrap();
+            let api = editor.global::<super::Api>();
+            super::brushes::setup(&api);
+            api.on_inspector_fill_preview(|_, _, _| true);
+            let session = editor.global::<super::FillSession>();
+            let mut element = api.get_current_element();
+            element.type_name = "Rectangle".into();
+            api.set_current_element(element.clone());
+            let mut selection = api.get_selection();
+            selection.highlight_index = 0;
+            api.set_selection(selection);
+            let mut request = super::FillSessionRequest {
+                fill: super::FillData { kind, ..Default::default() },
+                target: super::FillSessionTarget { canvas: true, ..Default::default() },
+                ..Default::default()
+            };
+            assert!(!session.get_canvas_active());
+            session.invoke_begin(request.clone());
+            assert!(session.get_canvas_active());
+            assert_eq!(session.get_radial_active(), kind == super::BrushKind::Radial);
+            assert_eq!(session.get_conic_active(), kind == super::BrushKind::Conic);
+            api.set_inspector_fill_refresh_pending(true);
+            assert!(!session.get_canvas_active());
+            api.set_inspector_fill_refresh_pending(false);
+            element.type_name = "Text".into();
+            api.set_current_element(element.clone());
+            assert!(!session.get_canvas_active());
+            element.type_name = "Rectangle".into();
+            api.set_current_element(element);
+            assert!(session.get_canvas_active());
+            request.unsupported = true;
+            session.invoke_begin(request.clone());
+            assert!(!session.get_canvas_active());
+            request.unsupported = false;
+            request.target.canvas = false;
+            session.invoke_begin(request.clone());
+            assert!(!session.get_canvas_active());
+            request.target.canvas = true;
+            session.invoke_begin(request);
+            assert!(session.invoke_select_kind(super::BrushKind::Solid));
+            assert!(!session.get_canvas_active());
+            session.invoke_close_picker(false, false);
+            assert!(!session.get_open());
+        }
     }
 
     #[test]
@@ -1771,24 +1725,29 @@ mod tests {
         let api = editor.global::<super::Api>();
         super::brushes::setup(&api);
         let session = editor.global::<super::FillSession>();
-        session.set_session_key(":0:0:0:".into());
-        session.set_anchor_width(24.);
-        session.set_open(true);
         editor.show().unwrap();
         slint::platform::update_timers_and_animations();
-        let panel = i_slint_backend_testing::ElementHandle::find_by_element_id(
-            &editor,
-            "InspectorFillPicker::picker-panel",
-        )
-        .next()
-        .unwrap();
         for (width, anchor, paired) in
             [(1360., 1200., false), (1360., 1200., true), (1040., 330., true), (540., 330., true)]
         {
             editor.global::<super::EditorMetrics>().set_window_width(width);
-            session.set_anchor_position(LogicalPosition::new(anchor, 100.));
+            session.invoke_begin(super::FillSessionRequest {
+                target: super::FillSessionTarget {
+                    session_key: ":0:0:0:".into(),
+                    ..Default::default()
+                },
+                anchor_width: 24.,
+                anchor_position: LogicalPosition::new(anchor, 100.),
+                ..Default::default()
+            });
             session.set_stop_panel_open(paired);
             slint::platform::update_timers_and_animations();
+            let panel = i_slint_backend_testing::ElementHandle::find_by_element_id(
+                &editor,
+                "InspectorFillPicker::picker-panel",
+            )
+            .next()
+            .unwrap();
             let position = panel.absolute_position();
             let size = panel.size();
             assert!(position.x >= 8.);
@@ -1810,21 +1769,24 @@ mod tests {
             let count = canceled.clone();
             api.on_inspector_cancel(move || count.set(count.get() + 1));
             let session = editor.global::<super::FillSession>();
-            session.set_property_name("background".into());
             let mut element = api.get_current_element();
             element.source_uri = "file:///scene.slint".into();
             api.set_current_element(element.clone());
-            session.set_session_key(
-                format!(
-                    "{}:{}:{}:{}:background",
-                    element.source_uri,
-                    element.offset,
-                    api.get_selection().highlight_index,
-                    api.get_inspector_fill_generation()
-                )
-                .into(),
-            );
-            session.set_open(true);
+            session.invoke_begin(super::FillSessionRequest {
+                target: super::FillSessionTarget {
+                    property_name: "background".into(),
+                    session_key: format!(
+                        "{}:{}:{}:{}:background",
+                        element.source_uri,
+                        element.offset,
+                        api.get_selection().highlight_index,
+                        api.get_inspector_fill_generation()
+                    )
+                    .into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
             slint::platform::update_timers_and_animations();
             assert!(session.get_open());
             assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(255, 0, 0)));
@@ -1843,7 +1805,10 @@ mod tests {
             slint::platform::update_timers_and_animations();
             assert!(!session.get_open());
             assert_eq!(canceled.get(), 1);
-            assert_eq!(session.get_working_fill(), session.get_original_fill());
+            assert_eq!(
+                api.invoke_fill_brush(session.get_working_fill()),
+                api.invoke_fill_brush(session.get_request().fill)
+            );
         }
     }
 
@@ -1855,18 +1820,28 @@ mod tests {
         super::brushes::setup(&api);
         api.on_inspector_fill_preview(|_, _, _| true);
         let session = editor.global::<super::FillSession>();
-        session.set_value(super::FillData {
-            kind: super::BrushKind::Linear,
-            stops: std::rc::Rc::new(VecModel::from(vec![
-                super::GradientStop { position: 0., color: slint::Color::from_rgb_u8(255, 0, 0) },
-                super::GradientStop { position: 0.5, color: slint::Color::from_rgb_u8(0, 255, 0) },
-                super::GradientStop { position: 1., color: slint::Color::from_rgb_u8(0, 0, 255) },
-            ]))
-            .into(),
+        session.invoke_begin(super::FillSessionRequest {
+            fill: super::FillData {
+                kind: super::BrushKind::Linear,
+                stops: std::rc::Rc::new(VecModel::from(vec![
+                    super::GradientStop {
+                        position: 0.,
+                        color: slint::Color::from_rgb_u8(255, 0, 0),
+                    },
+                    super::GradientStop {
+                        position: 0.5,
+                        color: slint::Color::from_rgb_u8(0, 255, 0),
+                    },
+                    super::GradientStop {
+                        position: 1.,
+                        color: slint::Color::from_rgb_u8(0, 0, 255),
+                    },
+                ]))
+                .into(),
+                ..Default::default()
+            },
             ..Default::default()
         });
-        session.set_open(true);
-        session.invoke_show_picker();
         let snapshot = session.get_working_fill();
         let stops = snapshot.stops.iter().collect::<Vec<_>>();
         session.set_selected_stop(1);
@@ -1888,16 +1863,20 @@ mod tests {
             super::brushes::setup(&api);
             let session = editor.global::<super::FillSession>();
             let target = slint::SharedString::from("rectangle:background");
-            session.set_target_key(target.clone());
-            session.set_property_name("background".into());
             let original = super::FillData {
                 kind: super::BrushKind::Solid,
                 color: slint::Color::from_rgb_u8(255, 0, 0),
                 ..Default::default()
             };
-            session.set_value(original.clone());
-            session.set_open(true);
-            session.invoke_show_picker();
+            session.invoke_begin(super::FillSessionRequest {
+                fill: original.clone(),
+                target: super::FillSessionTarget {
+                    key: target.clone(),
+                    property_name: "background".into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
             let expected = target.clone();
             api.on_inspector_fill_preview(move |key, property, _| {
                 assert_eq!(key, expected);
@@ -1923,8 +1902,7 @@ mod tests {
             }
             assert_eq!(canceled.get(), 1);
             assert!(!session.get_open());
-            assert!(!session.get_session_active());
-            assert_eq!(session.get_target_key(), target);
+            assert_eq!(session.get_request().target.key, target);
             assert_eq!(session.get_working_fill().color, original.color);
         }
     }

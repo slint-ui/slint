@@ -12,7 +12,7 @@ import { GradientStopMarker } from "../../../../lsp/ui/components/widgets/gradie
 
 export component InspectorGradientStops inherits Rectangle {
     private property <FillData> value: FillSession.working-fill;
-    private property <string> session-key: FillSession.session-key;
+    private property <string> session-key: FillSession.request.target.session-key;
     in-out property <int> selected-index <=> FillSession.selected-stop;
     callback edit-color();
     private property <int> focus-generation: FillSession.focus-stop-generation;

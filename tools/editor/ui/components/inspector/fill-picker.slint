@@ -18,9 +18,9 @@ export component InspectorFillPicker inherits Rectangle {
     private property <length> panel-step: InspectorTokens.picker-width + InspectorTokens.picker-gap;
     private property <length> pair-width: InspectorTokens.picker-width + root.panel-step;
     private property <length> margin: InspectorTokens.picker-margin;
-    private property <length> main-x: (FillSession.anchor-position.x >= root.panel-step + root.margin
-        ? FillSession.anchor-position.x - root.panel-step
-        : FillSession.anchor-position.x + FillSession.anchor-width + InspectorTokens.picker-gap)
+    private property <length> main-x: (FillSession.request.anchor-position.x >= root.panel-step + root.margin
+        ? FillSession.request.anchor-position.x - root.panel-step
+        : FillSession.request.anchor-position.x + FillSession.request.anchor-width + InspectorTokens.picker-gap)
         .clamp(root.margin, max(root.margin, EditorMetrics.window-width - InspectorTokens.picker-width - root.margin));
     private property <bool> stop-on-left: root.main-x >= root.panel-step + root.margin;
     private property <bool> stacked: FillSession.stop-panel-open && !root.stop-on-left
@@ -29,7 +29,7 @@ export component InspectorFillPicker inherits Rectangle {
     picker-panel := Rectangle {
         width: FillSession.stop-panel-open && !root.stacked ? root.pair-width : InspectorTokens.picker-width;
         x: root.main-x - (FillSession.stop-panel-open && root.stop-on-left && !root.stacked ? root.panel-step : 0px) - root.absolute-position.x;
-        y: FillSession.anchor-position.y.clamp(root.margin, max(root.margin, EditorMetrics.window-height - self.height - root.margin)) - root.absolute-position.y;
+        y: FillSession.request.anchor-position.y.clamp(root.margin, max(root.margin, EditorMetrics.window-height - self.height - root.margin)) - root.absolute-position.y;
         height: group-content.height;
 
         picker-focus := FocusScope {
@@ -59,10 +59,10 @@ export component InspectorFillPicker inherits Rectangle {
                     closed => {
                         FillSession.close-picker(true, true);
                     }
-                    if FillSession.unsupported: VerticalLayout {
+                    if FillSession.request.unsupported: VerticalLayout {
                         spacing: 5px;
                         Text {
-                            text: FillSession.expression;
+                            text: FillSession.request.expression;
                             color: InspectorTokens.text;
                             font-size: 12px;
                             overflow: elide;
@@ -75,7 +75,7 @@ export component InspectorFillPicker inherits Rectangle {
                         }
                     }
 
-                    if FillSession.allow-gradient && FillSession.editable: HorizontalLayout {
+                    if FillSession.request.allow-gradient && FillSession.editable: HorizontalLayout {
                         spacing: 4px;
                         InspectorSegment {
                             kind: "text";
@@ -99,7 +99,7 @@ export component InspectorFillPicker inherits Rectangle {
                     if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid: InspectorGradientGeometry {
                         value: FillSession.working-fill;
                         canvas-active: FillSession.canvas-active;
-                        session-key: FillSession.session-key;
+                        session-key: FillSession.request.target.session-key;
                         preview(fill) => {
                             return FillSession.preview-fill(fill);
                         }
@@ -122,17 +122,17 @@ export component InspectorFillPicker inherits Rectangle {
                             FillSession.stop-panel-open = true;
                         }
                     }
-                    if !FillSession.unsupported && FillSession.working-fill.kind == BrushKind.solid: InspectorColorControls {
+                    if !FillSession.request.unsupported && FillSession.working-fill.kind == BrushKind.solid: InspectorColorControls {
                         value: FillSession.working-color;
                         editable: FillSession.editable;
-                        session-key: FillSession.session-key + ":" + FillSession.selected-stop;
+                        session-key: FillSession.request.target.session-key + ":" + FillSession.selected-stop;
                         preview(c) => {
                             return FillSession.preview-color(c);
                         }
                     }
 
-                    if !FillSession.unsupported: InspectorRecentFills {
-                        allow-gradient: FillSession.allow-gradient;
+                    if !FillSession.request.unsupported: InspectorRecentFills {
+                        allow-gradient: FillSession.request.allow-gradient;
                         editable: FillSession.editable;
                         chosen(fill) => {
                             picker-focus.focus();
@@ -153,12 +153,12 @@ export component InspectorFillPicker inherits Rectangle {
                     InspectorColorControls {
                         value: FillSession.working-color;
                         editable: FillSession.editable && FillSession.stop-panel-open;
-                        session-key: FillSession.session-key + ":" + FillSession.selected-stop + ":" + (FillSession.stop-panel-open ? "open" : "closed");
+                        session-key: FillSession.request.target.session-key + ":" + FillSession.selected-stop + ":" + (FillSession.stop-panel-open ? "open" : "closed");
                         preview(c) => {
                             return FillSession.preview-color(c);
                         }
                     }
-                    if !FillSession.unsupported: InspectorRecentFills {
+                    if !FillSession.request.unsupported: InspectorRecentFills {
                         editable: FillSession.editable;
                         chosen(fill) => {
                             FillSession.preview-color(fill.color);

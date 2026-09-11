@@ -111,7 +111,7 @@ export component InspectorColorField inherits Rectangle {
 
     private property <int> focus-generation: FillSession.focus-generation;
     changed focus-generation => {
-        if FillSession.target-key == root.preview-key { swatch-focus.focus(); }
+        if FillSession.request.target.key == root.preview-key { swatch-focus.focus(); }
     }
 
 }

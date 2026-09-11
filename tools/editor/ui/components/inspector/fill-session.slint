@@ -22,41 +22,30 @@ export struct FillSessionRequest {
 }
 
 export global FillSession {
-    in-out property <FillData> value;
-    in-out property <bool> allow-gradient;
-    in-out property <float> target-width;
-    in-out property <float> target-height;
-    in-out property <FillData> linear-fill;
-    in-out property <FillData> radial-fill;
-    in-out property <FillData> conic-fill;
-    in-out property <bool> radial-center-initialized;
-    in-out property <bool> conic-center-initialized;
-    in-out property <bool> radius-initialized;
-    in-out property <BrushKind> last-gradient: BrushKind.linear;
-    in-out property <string> expression;
-    in-out property <string> session-key;
-    in-out property <string> target-key;
-    in-out property <bool> unsupported;
-    in-out property <bool> open;
+    out property <FillSessionRequest> request;
+    private property <FillData> linear-fill;
+    private property <FillData> radial-fill;
+    private property <FillData> conic-fill;
+    private property <bool> radial-center-initialized;
+    private property <bool> conic-center-initialized;
+    private property <bool> radius-initialized;
+    out property <BrushKind> last-gradient: BrushKind.linear;
+    out property <bool> open;
 
-    in-out property <Point> anchor-position;
-    in-out property <length> anchor-width;
 
-    in-out property <FillData> draft;
-    in-out property <FillData> working-fill;
+    private property <FillData> draft;
+    out property <FillData> working-fill;
     in-out property <int> selected-stop;
     in-out property <bool> stop-panel-open;
     in-out property <int> focus-stop-generation;
 
-    in-out property <color> working-color: FillSession.working-fill.kind == BrushKind.solid ? FillSession.working-fill.color : FillSession.working-fill.stops[FillSession.selected-stop].color;
-    in-out property <bool> has-preview;
-    in-out property <bool> session-active;
-    in-out property <FillData> original-fill: FillSession.value;
-    out property <bool> editable: open && !Api.inspector-fill-refresh-pending && !unsupported;
-    in-out property <string> property-name;
-    in-out property <bool> canvas-target;
-    in-out property <int> focus-generation;
-    private property <bool> canvas-editable: open && editable && session-active && canvas-target
+    out property <color> working-color: FillSession.working-fill.kind == BrushKind.solid ? FillSession.working-fill.color : FillSession.working-fill.stops[FillSession.selected-stop].color;
+    private property <bool> has-preview;
+    private property <bool> session-active;
+    private property <FillData> original-fill;
+    out property <bool> editable: open && !Api.inspector-fill-refresh-pending && !request.unsupported;
+    out property <int> focus-generation;
+    private property <bool> canvas-editable: open && editable && session-active && request.target.canvas
         && Api.current-element.type-name == "Rectangle"
         && Api.selection.highlight-index >= 0;
     out property <bool> radial-active: canvas-editable && working-fill.kind == BrushKind.radial;
@@ -68,20 +57,19 @@ export global FillSession {
     in-out property <Point> canvas-origin;
     in-out property <Size> canvas-size;
     in-out property <SelectionRectangle> selection;
-    out property <Size> target-size: { width: target-width * 1px, height: target-height * 1px };
-    private property <string> current-session-key: Api.current-element.source-uri + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-fill-generation + ":" + property-name;
+    private property <string> current-session-key: Api.current-element.source-uri + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-fill-generation + ":" + request.target.property-name;
     changed current-session-key => {
-        if FillSession.open && FillSession.session-key != FillSession.current-session-key {
+        if FillSession.open && FillSession.request.target.session-key != FillSession.current-session-key {
             FillSession.close-picker(false, false);
         }
     }
 
     public function reset-axis() {
         FillSession.axis = FillSession.working-fill.kind == BrushKind.conic
-            ? Api.conic-gradient-axis(FillSession.working-fill, FillSession.target-size)
+            ? Api.conic-gradient-axis(FillSession.working-fill, FillSession.request.target.size)
             : FillSession.working-fill.kind == BrushKind.radial
-            ? Api.radial-gradient-axis(FillSession.working-fill, FillSession.target-size, FillSession.radial-direction / 1deg)
-            : Api.linear-gradient-axis(FillSession.working-fill, FillSession.target-size);
+            ? Api.radial-gradient-axis(FillSession.working-fill, FillSession.request.target.size, FillSession.radial-direction / 1deg)
+            : Api.linear-gradient-axis(FillSession.working-fill, FillSession.request.target.size);
     }
     public function move-axis(fill: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) {
         let dx = (next.end.x - next.start.x) / 1px;
@@ -91,7 +79,7 @@ export global FillSession {
             ? Api.remap-conic-gradient(fill, previous, next)
             : fill.kind == BrushKind.radial
             ? Api.remap-radial-gradient(fill, previous, next)
-            : Api.remap-linear-gradient(fill, FillSession.target-size, previous, next);
+            : Api.remap-linear-gradient(fill, FillSession.request.target.size, previous, next);
         if FillSession.preview-fill(updated) {
             if fill.kind == BrushKind.radial {
                 FillSession.radial-direction = atan2(dy, dx);
@@ -104,14 +92,14 @@ export global FillSession {
             ? Api.conic-gradient-point(FillSession.axis, position)
             : FillSession.working-fill.kind == BrushKind.radial
             ? Api.gradient-axis-point(FillSession.axis, position)
-            : Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.target-size, position);
+            : Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.request.target.size, position);
     }
     public pure function stop-position(point: Point) -> float {
         return FillSession.working-fill.kind == BrushKind.conic
             ? Api.conic-gradient-position(FillSession.axis, point)
             : FillSession.working-fill.kind == BrushKind.radial
             ? Api.gradient-axis-position(FillSession.axis, point)
-            : Api.linear-gradient-position(FillSession.working-fill.angle, FillSession.target-size, point);
+            : Api.linear-gradient-position(FillSession.working-fill.angle, FillSession.request.target.size, point);
     }
     public function add-stop(point: Point) {
         if !FillSession.canvas-active { return; }
@@ -158,7 +146,7 @@ export global FillSession {
         if !FillSession.session-active || !FillSession.editable {
             return false;
         }
-        if Api.inspector-fill-preview(FillSession.target-key, FillSession.property-name, fill) {
+        if Api.inspector-fill-preview(FillSession.request.target.key, FillSession.request.target.property-name, fill) {
             if fill.kind == BrushKind.radial {
                 FillSession.radial-center-initialized = FillSession.radial-center-initialized || fill.custom-center;
                 FillSession.radius-initialized = FillSession.radius-initialized || fill.custom-radius;
@@ -215,8 +203,8 @@ export global FillSession {
         let initialized = FillSession.draft.kind == BrushKind.radial
             ? FillSession.radial-center-initialized : FillSession.conic-center-initialized;
         if custom && !initialized {
-            FillSession.draft.center-x = FillSession.target-width / 2;
-            FillSession.draft.center-y = FillSession.target-height / 2;
+            FillSession.draft.center-x = (FillSession.request.target.size.width / 1px) / 2;
+            FillSession.draft.center-y = (FillSession.request.target.size.height / 1px) / 2;
         }
         return FillSession.preview-fill(FillSession.draft);
     }
@@ -225,7 +213,7 @@ export global FillSession {
         FillSession.draft = FillSession.working-fill;
         FillSession.draft.custom-radius = custom;
         if custom && !FillSession.radius-initialized {
-            FillSession.draft.radius = max(1, sqrt(FillSession.target-width * FillSession.target-width + FillSession.target-height * FillSession.target-height) / 2);
+            FillSession.draft.radius = max(1, sqrt((FillSession.request.target.size.width / 1px) * (FillSession.request.target.size.width / 1px) + (FillSession.request.target.size.height / 1px) * (FillSession.request.target.size.height / 1px)) / 2);
         }
         return FillSession.preview-fill(FillSession.draft);
     }
@@ -248,44 +236,33 @@ export global FillSession {
 
     public function begin(request: FillSessionRequest) {
         FillSession.close-picker(true, false);
-        FillSession.value = request.fill;
-        FillSession.property-name = request.target.property-name;
-        FillSession.target-key = request.target.key;
-        FillSession.session-key = request.target.session-key;
-        FillSession.target-width = request.target.size.width / 1px;
-        FillSession.target-height = request.target.size.height / 1px;
-        FillSession.canvas-target = request.target.canvas;
-        FillSession.expression = request.expression;
-        FillSession.unsupported = request.unsupported;
-        FillSession.allow-gradient = request.allow-gradient;
-        FillSession.anchor-position = request.anchor-position;
-        FillSession.anchor-width = request.anchor-width;
-        FillSession.show-picker();
+        FillSession.request = request;
+        FillSession.initialize();
         FillSession.open = true;
     }
 
-    public function show-picker() {
+    function initialize() {
         FillSession.radial-direction = 35deg;
         FillSession.stop-panel-open = false;
         FillSession.selected-stop = 0;
-        FillSession.working-fill = FillSession.value;
-        FillSession.original-fill = FillSession.value;
-        FillSession.original-fill.stops = Api.clone-gradient-stops(FillSession.value.stops);
-        FillSession.working-fill.stops = Api.clone-gradient-stops(FillSession.value.stops);
-        FillSession.radial-center-initialized = FillSession.value.kind == BrushKind.radial && FillSession.value.custom-center;
-        FillSession.conic-center-initialized = FillSession.value.kind == BrushKind.conic && FillSession.value.custom-center;
-        FillSession.radius-initialized = FillSession.value.kind == BrushKind.radial && FillSession.value.custom-radius;
+        FillSession.working-fill = FillSession.request.fill;
+        FillSession.original-fill = FillSession.request.fill;
+        FillSession.original-fill.stops = Api.clone-gradient-stops(FillSession.request.fill.stops);
+        FillSession.working-fill.stops = Api.clone-gradient-stops(FillSession.request.fill.stops);
+        FillSession.radial-center-initialized = FillSession.request.fill.kind == BrushKind.radial && FillSession.request.fill.custom-center;
+        FillSession.conic-center-initialized = FillSession.request.fill.kind == BrushKind.conic && FillSession.request.fill.custom-center;
+        FillSession.radius-initialized = FillSession.request.fill.kind == BrushKind.radial && FillSession.request.fill.custom-radius;
         FillSession.linear-fill = {kind: BrushKind.linear, angle: 90};
         FillSession.radial-fill = {kind: BrushKind.radial};
         FillSession.conic-fill = {kind: BrushKind.conic};
-        FillSession.last-gradient = FillSession.value.kind == BrushKind.solid ? BrushKind.linear : FillSession.value.kind;
-        if FillSession.value.kind == BrushKind.linear {
+        FillSession.last-gradient = FillSession.request.fill.kind == BrushKind.solid ? BrushKind.linear : FillSession.request.fill.kind;
+        if FillSession.request.fill.kind == BrushKind.linear {
             FillSession.linear-fill = FillSession.working-fill;
         }
-        if FillSession.value.kind == BrushKind.radial {
+        if FillSession.request.fill.kind == BrushKind.radial {
             FillSession.radial-fill = FillSession.working-fill;
         }
-        if FillSession.value.kind == BrushKind.conic {
+        if FillSession.request.fill.kind == BrushKind.conic {
             FillSession.conic-fill = FillSession.working-fill;
         }
         FillSession.has-preview = false;
@@ -301,7 +278,7 @@ export global FillSession {
         FillSession.session-active = false;
         FillSession.stop-panel-open = false;
         let changed = Api.fill-brush(FillSession.working-fill) != Api.fill-brush(FillSession.original-fill);
-        if !accept || !changed || !Api.inspector-fill-commit(FillSession.target-key, FillSession.property-name, FillSession.working-fill) {
+        if !accept || !changed || !Api.inspector-fill-commit(FillSession.request.target.key, FillSession.request.target.property-name, FillSession.working-fill) {
             if FillSession.has-preview {
                 Api.inspector-cancel();
             }
@@ -314,20 +291,5 @@ export global FillSession {
         }
     }
 
-    changed value => {
-        if !FillSession.session-active {
-            FillSession.working-fill = FillSession.value;
-        }
-    }
-
-
-
-    changed open => {
-        if FillSession.open && !FillSession.session-active {
-            FillSession.show-picker();
-        } else if !FillSession.open {
-            FillSession.close-picker(false, false);
-        }
-    }
 
 }
