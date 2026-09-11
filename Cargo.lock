@@ -7650,6 +7650,7 @@ dependencies = [
  "itertools 0.15.0",
  "proc-macro2",
  "spin_on",
+ "tempfile",
  "tikv-jemallocator",
 ]
 
