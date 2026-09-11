@@ -567,6 +567,7 @@ rustup
 Rustybuzz
 safeui
 Schukat
+scanout
 sclk
 scopeguard
 sdkconfig
