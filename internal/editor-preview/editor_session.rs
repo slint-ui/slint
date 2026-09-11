@@ -288,10 +288,8 @@ impl EditorSession {
         let Some(document_path) = crate::uri_to_file(url) else {
             return Ok(DiscoveredProjectFile::None);
         };
-        let Some(candidate) =
-            crate::project_file_discovery::find_project_file_path_for_document_path(
-                &document_path,
-            )?
+        let directory = i_slint_compiler::pathutils::dirname(&document_path);
+        let Some(candidate) = i_slint_compiler::project_file::find_project_file_path(&directory)?
         else {
             return Ok(DiscoveredProjectFile::None);
         };
