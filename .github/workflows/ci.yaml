@@ -344,7 +344,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v7
-            - uses: pnpm/action-setup@v6.0.10
+            - uses: pnpm/action-setup@v6.1.0
             - uses: Swatinem/rust-cache@v2
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
@@ -642,7 +642,7 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v6.0.10
+            - uses: pnpm/action-setup@v6.1.0
             - name: Run pnpm install
               working-directory: tools/figma-inspector
               run: pnpm install --frozen-lockfile
