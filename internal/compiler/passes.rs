@@ -6,6 +6,7 @@ mod binding_analysis;
 mod border_radius;
 mod check_drag_area;
 mod check_expressions;
+mod check_nested_text_inputs;
 mod check_public_api;
 mod clip;
 mod collect_custom_fonts;
@@ -213,6 +214,11 @@ pub async fn run_passes(
     });
     for root_component in doc.exported_roots() {
         lower_layout::check_window_layout(&root_component);
+    }
+    // After the loop above: needs the roles `lower_accessibility_properties` gives the
+    // built-in elements, in every component the walk reaches.
+    if type_loader.compiler_config.accessibility {
+        check_nested_text_inputs::check_nested_text_inputs(doc, diag);
     }
     // After the loop above: needs every component's `layoutinfo-h-with-constraint`
     // and the wrapper elements the `lower_property_to_element` passes inject.
