@@ -28,7 +28,7 @@ set +e
 cargo run -p slint-doc-generator -- --slint-sc \
     --coverage-json "$coverage_dir/coverage.json" \
     --coverage-html "$coverage_dir/html" \
-    --slint-lcov "$coverage_dir/slint-lcov.info" \
+    --slint-coverage "$coverage_dir/slint-sc-coverage" \
     --test-results "$coverage_dir/test-results" \
     --fail-on-gaps \
     generate-mdx

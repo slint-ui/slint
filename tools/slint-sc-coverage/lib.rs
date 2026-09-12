@@ -7,7 +7,8 @@
 //! element, binding, callback handler and call, and both outcomes of every
 //! `?:`, `&&` and `||`. However the points are counted, a [`Report`] gathers
 //! their hit counts by source location and writes them as lcov, as a
-//! summary, or as what the test driver compares with a case's expectations.
+//! summary, as what the test driver compares with a case's expectations, or
+//! as the measurement itself, which lcov cannot hold.
 
 pub mod expectations;
 pub mod source_map;
@@ -86,12 +87,16 @@ struct LineCoverage {
 /// The outcomes, in the order lcov numbers the branches of a decision.
 const ARMS: [&str; 2] = ["true", "false"];
 
-/// A point of a line, or a decision with both its outcomes, with whether it
-/// was reached.
-#[derive(Clone, PartialEq, Eq, Debug)]
+/// What a run measured, by file path and line: the form [`Report::measured`]
+/// keeps it in, and the one [`expectations::annotate`] renders a file from.
+pub type Measured = BTreeMap<String, BTreeMap<usize, Vec<Entry>>>;
+
+/// A point of a line, or a decision with both its outcomes, with how often
+/// a run reached it.
+#[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Entry {
-    Point { column: usize, label: String, reached: bool },
-    Decision { column: usize, operator: String, reached: [bool; 2] },
+    Point { column: usize, label: String, count: u64 },
+    Decision { column: usize, operator: String, counts: [u64; 2] },
 }
 
 impl Entry {
@@ -102,12 +107,13 @@ impl Entry {
     }
 
     /// What the entry states, one item per point and outcome: what it is,
-    /// like `binding pick` or `branch ? false`, and whether it was reached.
-    fn items(&self) -> Vec<(String, bool)> {
+    /// like `binding pick` or `branch ? false`, and how often a run reached
+    /// it. A decision is two points, one per outcome.
+    pub fn items(&self) -> Vec<(String, u64)> {
         match self {
-            Entry::Point { label, reached, .. } => vec![(label.clone(), *reached)],
-            Entry::Decision { operator, reached, .. } => (0..2)
-                .map(|arm| (format!("branch {operator} {}", ARMS[arm]), reached[arm]))
+            Entry::Point { label, count, .. } => vec![(label.clone(), *count)],
+            Entry::Decision { operator, counts, .. } => (0..2)
+                .map(|arm| (format!("branch {operator} {}", ARMS[arm]), counts[arm]))
                 .collect(),
         }
     }
@@ -123,12 +129,12 @@ impl LineCoverage {
         let points = self.points.iter().map(|((column, label), &count)| Entry::Point {
             column: *column,
             label: label.clone(),
-            reached: count > 0,
+            count,
         });
         let branches = self.branches.iter().map(|(&column, (operator, arms))| Entry::Decision {
             column,
             operator: operator.clone(),
-            reached: [arms[0] > 0, arms[1] > 0],
+            counts: *arms,
         });
         let mut entries: Vec<_> = points.chain(branches).collect();
         entries.sort_by_key(Entry::column);
@@ -194,8 +200,8 @@ impl Report {
             );
             for (line, coverage) in lines {
                 for entry in coverage.entries() {
-                    for (what, reached) in entry.items() {
-                        if !reached {
+                    for (what, count) in entry.items() {
+                        if count == 0 {
                             eprintln!("  {path}:{line}:{}: {what} never reached", entry.column());
                             gaps += 1;
                         }
@@ -204,6 +210,20 @@ impl Report {
             }
         }
         gaps
+    }
+
+    /// Every point and decision of every file, by path relative to
+    /// `base_dir` and by line, in column order. This is the whole report,
+    /// serializable, for keeping a run's measurement beside its lcov: lcov
+    /// carries a count per line, and not what the points on it are.
+    pub fn measured(&self, base_dir: &Path) -> Measured {
+        self.files
+            .iter()
+            .map(|(path, lines)| {
+                let lines = lines.iter().map(|(line, c)| (*line, c.entries())).collect();
+                (display(path, base_dir), lines)
+            })
+            .collect()
     }
 
     /// Every point and decision of `file`, by line, in column order.
@@ -222,8 +242,8 @@ impl Report {
             let path = display(path, case_dir);
             for (line, coverage) in lines {
                 for entry in coverage.entries() {
-                    for (what, reached) in entry.items() {
-                        let status = if reached { '+' } else { '-' };
+                    for (what, count) in entry.items() {
+                        let status = if count > 0 { '+' } else { '-' };
                         listing.push(format!("{status} {path}:{line}:{} {what}", entry.column()));
                     }
                 }
@@ -309,6 +329,30 @@ end_of_record
     }
 
     #[test]
+    fn measured() {
+        let measured = report().measured(Path::new("/src"));
+        assert_eq!(
+            measured.keys().map(String::as_str).collect::<Vec<_>>(),
+            ["a.slint", "lib/b.slint"]
+        );
+        // The counts are kept, not just whether the point was reached: a
+        // consumer of the kept measurement reports how often a run took a
+        // decision, which lcov's line count cannot say.
+        assert_eq!(
+            measured["a.slint"][&13],
+            [
+                Entry::Point { column: 30, label: "binding pick".into(), count: 4 },
+                Entry::Decision { column: 37, operator: "?".into(), counts: [4, 0] },
+                Entry::Point { column: 50, label: "binding len".into(), count: 3 },
+            ]
+        );
+
+        // The driver keeps it as JSON and the safety manual reads it back.
+        let json = serde_json::to_string(&measured).unwrap();
+        assert_eq!(serde_json::from_str::<Measured>(&json).unwrap(), measured);
+    }
+
+    #[test]
     fn listing() {
         let case = Path::new("/src/a.slint");
         assert_eq!(report().listing(case), ["+ lib/b.slint:2:1 element Led"]);
@@ -317,9 +361,9 @@ end_of_record
         assert_eq!(
             lines[&13],
             [
-                Entry::Point { column: 30, label: "binding pick".into(), reached: true },
-                Entry::Decision { column: 37, operator: "?".into(), reached: [true, false] },
-                Entry::Point { column: 50, label: "binding len".into(), reached: true },
+                Entry::Point { column: 30, label: "binding pick".into(), count: 4 },
+                Entry::Decision { column: 37, operator: "?".into(), counts: [4, 0] },
+                Entry::Point { column: 50, label: "binding len".into(), count: 3 },
             ]
         );
     }

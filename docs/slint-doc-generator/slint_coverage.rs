@@ -2,60 +2,87 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Slint Code Coverage chapter of the qualification report, reporting which
-//! parts of the `.slint` test cases the runs reached, from the lcov that
-//! `slint-sc-coverage` writes.
+//! parts of the `.slint` test cases the runs reached, from the measurement
+//! the test driver keeps beside each case's lcov.
+//!
+//! The summary names every file; a page per file shows the source with the
+//! points measured on each line.
 
 use crate::Config;
 use crate::coverage::Counts;
 use crate::traceability::REPO_URL;
 use anyhow::Context;
+use slint_sc_coverage::{Entry, Measured};
 use std::collections::BTreeMap;
 use std::io::Write;
+use std::path::Path;
 
-/// Name of the page this module writes into
-/// [`Config::qualification_report_dir`], the section it belongs to.
+/// Name of the summary page this module writes into
+/// [`Config::qualification_report_dir`], and the prefix of the per-file
+/// pages below it. Both match the slugs the pages declare.
 const PAGE_FILE: &str = "slint-coverage.mdx";
+const SLUG: &str = "qualification-report/slint-coverage";
 
-/// The coverage of one `.slint` file, summed over the runs that measured it.
-/// Each case is measured on its own, so a file several cases import is
+/// Extension of the per-case measurements the driver keeps, next to the
+/// lcov of the same run.
+const MEASUREMENT_EXTENSION: &str = "points.json";
+
+/// The coverage of one `.slint` file, merged over the cases that measured
+/// it: each case is measured on its own, so a file several cases import is
 /// reported once with their counts added up.
-#[derive(Default)]
 struct FileCoverage {
-    /// Execution count of every line that holds a coverage point.
-    lines: BTreeMap<u64, u64>,
-    /// Taken count of every outcome, by line, decision within the line, and
-    /// outcome within the decision.
-    outcomes: BTreeMap<(u64, u64, u64), u64>,
+    /// Repository-relative path with `/` separators.
+    path: String,
+    /// The points of each line, in column order.
+    lines: BTreeMap<usize, Vec<Entry>>,
 }
 
 impl FileCoverage {
-    fn line_counts(&self) -> Counts {
-        Counts {
-            count: self.lines.len() as u64,
-            covered: self.lines.values().filter(|c| **c > 0).count() as u64,
-        }
+    /// Every point of the file, with how often the runs reached it. A
+    /// decision contributes one per outcome.
+    fn points(&self) -> impl Iterator<Item = (String, u64)> + '_ {
+        self.lines.values().flatten().flat_map(Entry::items)
     }
 
-    fn outcome_counts(&self) -> Counts {
-        Counts {
-            count: self.outcomes.len() as u64,
-            covered: self.outcomes.values().filter(|c| **c > 0).count() as u64,
-        }
+    fn point_counts(&self) -> Counts {
+        counts(self.points())
     }
+
+    /// Only the outcomes of decisions, the metric a structural coverage
+    /// argument calls branch coverage.
+    fn branch_counts(&self) -> Counts {
+        counts(
+            self.lines
+                .values()
+                .flatten()
+                .filter(|e| matches!(e, Entry::Decision { .. }))
+                .flat_map(Entry::items),
+        )
+    }
+
+    /// Slug of the page showing this file's source, the path under the
+    /// summary's own slug.
+    fn page_slug(&self) -> String {
+        format!("{SLUG}/{}", self.path.trim_end_matches(".slint"))
+    }
+}
+
+/// What a point is, as a table cell: `|` ends a cell, so the `||` of a
+/// decision has to be escaped to survive one.
+fn cell(what: &str) -> String {
+    what.replace('|', "\\|")
+}
+
+fn counts(points: impl Iterator<Item = (String, u64)>) -> Counts {
+    points.fold(Counts { count: 0, covered: 0 }, |acc, (_, count)| Counts {
+        count: acc.count + 1,
+        covered: acc.covered + u64::from(count > 0),
+    })
 }
 
 /// The files and their coverage, ordered by the directory they are grouped
 /// under and by path within it.
-type Files = Vec<(String, FileCoverage)>;
-
-/// A point of the `.slint` source that no run reached.
-struct Unreached {
-    path: String,
-    line: u64,
-    /// What sits there, as far as lcov says: a line, or one outcome of one
-    /// of the decisions on it.
-    what: String,
-}
+type Files = Vec<FileCoverage>;
 
 pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let mut out = cfg.qualification_page(PAGE_FILE)?;
@@ -65,7 +92,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         r#"---
 title: Slint Code Coverage
 description: Coverage of the .slint test cases, measured at the level of the Slint language.
-slug: qualification-report/slint-coverage
+slug: {SLUG}
 ---
 
 The tests of the `slint-sc` runtime are written in Slint: each case is a `.slint` file that the driver compiles, runs, and measures.
@@ -77,64 +104,107 @@ and [Coverage Tool Verification](/qualification-plan/slint-coverage/) how the to
 This chapter is the evidence that a test traced to a requirement in the [Traceability Matrix](/qualification-report/traceability-matrix/) reached the code it is traced for.
 The [Test Coverage](/qualification-report/test-coverage/) chapter reports the same runs at the level of the Rust code.
 
-A line counts below when it holds at least one coverage point, and it is covered when a point on it was reached.
-A branch is one outcome of one decision, so a decision contributes two.
+A point is one element, binding, handler, call, or one outcome of one decision.
+The branch column counts the outcomes alone, and every one of them is also a point.
+Each row links a page showing that file's source with the points measured on every line.
 Complete coverage isn't asked of the cases, unlike the runtime's.
 A case that reads properties without rendering never reaches the code of its root element.
 The cases under `coverage/` exist to pin what an unreached point looks like."#
     )?;
 
-    match &cfg.slint_lcov {
+    match &cfg.slint_coverage {
         None => crate::coverage::write_placeholder(&mut out)?,
-        Some(path) => {
-            let text = std::fs::read_to_string(path)
-                .context(format!("error reading lcov report {path:?}"))?;
-            let files = parse_lcov(&text).context(format!("error parsing lcov report {path:?}"))?;
+        Some(dir) => {
+            let files = read_measurements(dir)?;
             let sha = crate::traceability::git_head(&crate::root_dir());
-            write_report(&mut out, &files, &sha)?;
+            write_summary(&mut out, &files, &sha)?;
+            for file in &files {
+                write_source_page(cfg, file, &sha)?;
+            }
         }
     }
     Ok(())
 }
 
-/// Parse the `SF`, `DA` and `BRDA` records of an lcov file into the coverage
-/// of each file it names. The suite concatenates one report per case, so a
-/// file occurs once per case that reached it and the counts are summed.
-fn parse_lcov(text: &str) -> anyhow::Result<Files> {
-    let mut files: BTreeMap<String, FileCoverage> = BTreeMap::new();
-    let mut current = String::new();
-    for (number, record) in text.lines().enumerate() {
-        let at = |what: &str| format!("line {}: {record}: {what}", number + 1);
-        let Some((tag, value)) = record.split_once(':') else { continue };
-        if tag == "SF" {
-            current = value.replace('\\', "/");
-            files.entry(current.clone()).or_default();
+/// Read every per-case measurement in `dir` and merge them into one entry
+/// per file.
+fn read_measurements(dir: &Path) -> anyhow::Result<Files> {
+    let mut merged: BTreeMap<String, BTreeMap<usize, BTreeMap<Key, Entry>>> = BTreeMap::new();
+    let mut read = 0;
+    for entry in walkdir::WalkDir::new(dir) {
+        let path = entry.with_context(|| format!("error reading {dir:?}"))?.into_path();
+        if !path.to_string_lossy().ends_with(MEASUREMENT_EXTENSION) {
             continue;
         }
-        if tag != "DA" && tag != "BRDA" {
-            continue;
-        }
-        let file = files.get_mut(&current).with_context(|| at("no `SF` record"))?;
-        // lcov spells a count that was never instrumented `-`.
-        let fields: Vec<u64> = value
-            .split(',')
-            .map(|f| if f == "-" { Ok(0) } else { f.parse() })
-            .collect::<Result<_, _>>()
-            .with_context(|| at("malformed count"))?;
-        match (tag, fields.as_slice()) {
-            ("DA", &[line, count, ..]) => *file.lines.entry(line).or_default() += count,
-            ("BRDA", &[line, block, outcome, count]) => {
-                *file.outcomes.entry((line, block, outcome)).or_default() += count
+        let text = std::fs::read_to_string(&path)
+            .with_context(|| format!("error reading measurement {path:?}"))?;
+        let measured: Measured = serde_json::from_str(&text)
+            .with_context(|| format!("error parsing measurement {path:?}"))?;
+        merge(measured, &mut merged);
+        read += 1;
+    }
+    anyhow::ensure!(read > 0, "no *.{MEASUREMENT_EXTENSION} measurement in {dir:?}");
+
+    let mut files: Files = merged
+        .into_iter()
+        .map(|(path, lines)| FileCoverage {
+            path,
+            lines: lines
+                .into_iter()
+                .map(|(line, entries)| (line, entries.into_values().collect()))
+                .collect(),
+        })
+        .collect();
+    // Ordered by the directory the summary groups by: sorted by path alone,
+    // a subdirectory's files sort in between the files of its parent.
+    files.sort_by(|a, b| (group(&a.path), &a.path).cmp(&(group(&b.path), &b.path)));
+    Ok(files)
+}
+
+/// What makes two entries of a line the same point: its column, and what
+/// sits there. A decision and a point never share a column, but keying on
+/// both keeps a merge from folding them together if one ever did.
+type Key = (usize, bool, String);
+
+fn key(entry: &Entry) -> Key {
+    match entry {
+        Entry::Point { column, label, .. } => (*column, false, label.clone()),
+        Entry::Decision { column, operator, .. } => (*column, true, operator.clone()),
+    }
+}
+
+/// Add a case's measurement to the merge, summing the counts of the points
+/// both reached.
+fn merge(measured: Measured, into: &mut BTreeMap<String, BTreeMap<usize, BTreeMap<Key, Entry>>>) {
+    for (path, lines) in measured {
+        let file = into.entry(path).or_default();
+        for (line, entries) in lines {
+            let line = file.entry(line).or_default();
+            for entry in entries {
+                match line.entry(key(&entry)) {
+                    std::collections::btree_map::Entry::Vacant(slot) => {
+                        slot.insert(entry);
+                    }
+                    std::collections::btree_map::Entry::Occupied(mut slot) => {
+                        add(slot.get_mut(), &entry)
+                    }
+                }
             }
-            _ => anyhow::bail!("{}", at("malformed record")),
         }
     }
-    anyhow::ensure!(!files.is_empty(), "no file in the lcov report");
-    let mut files: Files = files.into_iter().collect();
-    // Ordered by the directory the report groups by: sorted by path alone, a
-    // subdirectory's files sort in between the files of its parent.
-    files.sort_by(|(a, _), (b, _)| (group(a), a).cmp(&(group(b), b)));
-    Ok(files)
+}
+
+fn add(into: &mut Entry, from: &Entry) {
+    match (into, from) {
+        (Entry::Point { count, .. }, Entry::Point { count: more, .. }) => *count += more,
+        (Entry::Decision { counts, .. }, Entry::Decision { counts: more, .. }) => {
+            for (count, more) in counts.iter_mut().zip(more) {
+                *count += more;
+            }
+        }
+        // `key` puts a point and a decision in different slots.
+        _ => unreachable!("merging a point with a decision"),
+    }
 }
 
 /// The directory a file is reported under; the cases are grouped in one
@@ -145,173 +215,244 @@ fn group(path: &str) -> &str {
 
 /// Sum of one metric across the given files.
 fn sum<'a>(
-    files: impl IntoIterator<Item = &'a (String, FileCoverage)>,
-    metric: impl Fn(&FileCoverage) -> Counts,
+    files: impl IntoIterator<Item = &'a FileCoverage>,
+    metric: fn(&FileCoverage) -> Counts,
 ) -> Counts {
-    files.into_iter().fold(Counts { count: 0, covered: 0 }, |acc, (_, f)| {
+    files.into_iter().fold(Counts { count: 0, covered: 0 }, |acc, f| {
         let c = metric(f);
         Counts { count: acc.count + c.count, covered: acc.covered + c.covered }
     })
 }
 
-/// The outcomes of a decision, in the order lcov numbers them.
-const ARMS: [&str; 2] = ["true", "false"];
-
-/// Every point that no run reached, in path and line order.
-fn unreached(files: &Files) -> Vec<Unreached> {
-    let mut out = Vec::new();
-    for (path, coverage) in files {
-        let mut points: Vec<Unreached> = coverage
-            .lines
-            .iter()
-            .filter(|(_, count)| **count == 0)
-            .map(|(line, _)| Unreached { path: path.clone(), line: *line, what: "line".into() })
-            .collect();
-        points.extend(coverage.outcomes.iter().filter(|(_, count)| **count == 0).map(
-            |((line, block, outcome), _)| Unreached {
-                path: path.clone(),
-                line: *line,
-                what: format!(
-                    "decision {}, {} outcome",
-                    block + 1,
-                    ARMS.get(*outcome as usize).copied().unwrap_or("further")
-                ),
-            },
-        ));
-        points.sort_by(|a, b| (a.line, &a.what).cmp(&(b.line, &b.what)));
-        out.extend(points);
-    }
-    out
-}
-
-/// The headline totals, one table per directory with a row per file and a sum
-/// row, and the points no run reached.
-fn write_report(out: &mut impl Write, files: &Files, sha: &str) -> std::io::Result<()> {
+/// The headline totals, one table per directory with a row per file, its
+/// source page and a sum row, and the points no run reached.
+fn write_summary(out: &mut impl Write, files: &Files, sha: &str) -> std::io::Result<()> {
     writeln!(
         out,
-        "\n{commit}\n\n**Line coverage: {lines}. Branch coverage: {branches}.**",
+        "\n{commit}\n\n**Points reached: {points}. Branch outcomes taken: {branches}.**",
         commit = crate::traceability::commit_line(sha),
-        lines = sum(files, FileCoverage::line_counts).cell(),
-        branches = sum(files, FileCoverage::outcome_counts).cell(),
+        points = sum(files, FileCoverage::point_counts).cell(),
+        branches = sum(files, FileCoverage::branch_counts).cell(),
     )?;
 
-    // `parse_lcov` orders by directory, so the files of one are contiguous.
-    for chunk in files.chunk_by(|(a, _), (b, _)| group(a) == group(b)) {
-        writeln!(out, "\n## {}\n", group(&chunk[0].0))?;
-        writeln!(out, "| File | Lines | Branches |\n| --- | --- | --- |")?;
-        for (path, coverage) in chunk {
-            let name = path.rsplit('/').next().unwrap_or(path);
+    // `read_measurements` orders by directory, so the files of one are contiguous.
+    for chunk in files.chunk_by(|a, b| group(&a.path) == group(&b.path)) {
+        writeln!(out, "\n## {}\n", group(&chunk[0].path))?;
+        writeln!(out, "| File | Points | Branches | Per-line |\n| --- | --- | --- | --- |")?;
+        for file in chunk {
+            let name = file.path.rsplit('/').next().unwrap_or(&file.path);
             writeln!(
                 out,
-                "| [`{name}`]({REPO_URL}/blob/{sha}/{path}) | {} | {} |",
-                coverage.line_counts().cell(),
-                coverage.outcome_counts().cell(),
+                "| [`{name}`]({REPO_URL}/blob/{sha}/{}) | {} | {} | [view](/{}/) |",
+                file.path,
+                file.point_counts().cell(),
+                file.branch_counts().cell(),
+                file.page_slug(),
             )?;
         }
         writeln!(
             out,
-            "| **Sum** | **{}** | **{}** |",
-            sum(chunk, FileCoverage::line_counts).cell(),
-            sum(chunk, FileCoverage::outcome_counts).cell(),
+            "| **Sum** | **{}** | **{}** | |",
+            sum(chunk, FileCoverage::point_counts).cell(),
+            sum(chunk, FileCoverage::branch_counts).cell(),
         )?;
     }
 
-    let unreached = unreached(files);
     writeln!(out, "\n## Never Reached\n")?;
-    if unreached.is_empty() {
-        return writeln!(out, "Every coverage point of the cases was reached.");
+    let mut any = false;
+    for file in files {
+        for (line, entries) in &file.lines {
+            for entry in entries {
+                for (what, _) in entry.items().iter().filter(|(_, count)| *count == 0) {
+                    if !any {
+                        writeln!(
+                            out,
+                            "The points below exist in the source and no run reached them.\n\n\
+                             | Location | Point |\n| --- | --- |"
+                        )?;
+                        any = true;
+                    }
+                    writeln!(
+                        out,
+                        "| [`{path}:{line}:{column}`]({REPO_URL}/blob/{sha}/{path}#L{line}) | {what} |",
+                        path = file.path,
+                        column = entry.column(),
+                        what = cell(what),
+                    )?;
+                }
+            }
+        }
     }
-    writeln!(
-        out,
-        "The points below exist in the source and no run reached them.\n\
-         A `line` row is a line whose coverage points were all missed, and a decision row is one outcome that was never taken.\n\n\
-         | Location | Point |\n| --- | --- |"
-    )?;
-    for point in &unreached {
-        writeln!(
-            out,
-            "| [`{path}:{line}`]({REPO_URL}/blob/{sha}/{path}#L{line}) | {what} |",
-            path = point.path,
-            line = point.line,
-            what = point.what,
-        )?;
+    if !any {
+        writeln!(out, "Every coverage point of the cases was reached.")?;
     }
     Ok(())
+}
+
+/// The page of one file: its source with the points measured on each line,
+/// and a table naming every point.
+fn write_source_page(
+    cfg: &Config,
+    file: &FileCoverage,
+    sha: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let name = file.path.rsplit('/').next().unwrap_or(&file.path);
+    let mut out = cfg.qualification_page(&format!(
+        "{}.mdx",
+        file.page_slug().trim_start_matches("qualification-report/")
+    ))?;
+    writeln!(
+        out,
+        r#"---
+title: {name}
+description: The coverage points of {path} and which of them the runs reached.
+slug: {slug}
+---
+
+The coverage of [`{path}`]({REPO_URL}/blob/{sha}/{path}), from the runs reported in [Slint Code Coverage](/{SLUG}/).
+Points reached: {points}. Branch outcomes taken: {branches}."#,
+        path = file.path,
+        slug = file.page_slug(),
+        points = file.point_counts().cell(),
+        branches = file.branch_counts().cell(),
+    )?;
+
+    let source = std::fs::read_to_string(crate::root_dir().join(&file.path))
+        .with_context(|| format!("error reading {}", file.path))?;
+    write_source(&mut out, file, &source)?;
+
+    writeln!(out, "\n## Points\n\n| Line | Column | Point | Count |\n| --- | --- | --- | --- |")?;
+    for (line, entries) in &file.lines {
+        for entry in entries {
+            for (what, count) in entry.items() {
+                writeln!(out, "| {line} | {} | {} | {count} |", entry.column(), cell(&what))?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The source, with a caret line under every line that holds points: `^+`
+/// where a run reached the point and `^-` where none did, and for a
+/// decision the status of its true and its false outcome. This is the
+/// notation the cases state their coverage in, so the page and the source
+/// read the same way.
+fn write_source(out: &mut impl Write, file: &FileCoverage, source: &str) -> std::io::Result<()> {
+    let annotated = slint_sc_coverage::expectations::annotate(source, &file.lines);
+    // A point in one of the first columns leaves no room for a caret; the
+    // Points table below the source states those either way.
+    let legend = if annotated.is_ok() {
+        "\nA `//#c` line marks the points of the line above it, `^+` where a run reached the point and `^-` where none did.\n\
+         A decision carries the status of its true and of its false outcome, like `^+-`.\n"
+    } else {
+        ""
+    };
+    let body = annotated.as_deref().unwrap_or(source);
+    let fence = fence(body);
+    writeln!(out, "{legend}\n{fence}slint\n{}\n{fence}", body.trim_end())
+}
+
+/// A code fence longer than the longest run of backticks in the source, so
+/// that a case carrying a code block of its own -- every case ends in one,
+/// holding the Rust of the test -- doesn't close the block early.
+fn fence(source: &str) -> String {
+    let longest = source.split(|c| c != '`').map(str::len).max().unwrap_or(0);
+    "`".repeat(longest.saturating_add(1).max(3))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// Two cases, the second importing the file of a third record: `a.slint`
-    /// has a line that was never reached and a decision that only ever took
-    /// its true outcome, `b.slint` is completely covered, and `lib.slint` is
-    /// measured once per case that imports it.
-    const LCOV: &str = "TN:
-SF:cases/a.slint
-BRDA:13,0,0,4
-BRDA:13,0,1,0
-BRF:2
-BRH:1
-DA:7,3
-DA:13,4
-DA:20,0
-LF:3
-LH:2
-end_of_record
-TN:
-SF:cases/b.slint
-DA:2,1
-LF:1
-LH:1
-end_of_record
-TN:
-SF:cases/lib/lib.slint
-DA:5,2
-LF:1
-LH:1
-end_of_record
-TN:
-SF:cases/lib/lib.slint
-DA:5,1
-LF:1
-LH:1
-end_of_record
-";
+    fn point(column: usize, label: &str, count: u64) -> Entry {
+        Entry::Point { column, label: label.into(), count }
+    }
 
-    #[test]
-    fn parse() {
-        let files = parse_lcov(LCOV).unwrap();
-        let paths: Vec<&str> = files.iter().map(|(path, _)| path.as_str()).collect();
-        assert_eq!(paths, ["cases/a.slint", "cases/b.slint", "cases/lib/lib.slint"]);
+    fn decision(column: usize, counts: [u64; 2]) -> Entry {
+        Entry::Decision { column, operator: "?".into(), counts }
+    }
 
-        assert_eq!(files[0].1.line_counts().cell(), "66.7% (2/3)");
-        assert_eq!(files[0].1.outcome_counts().cell(), "50.0% (1/2)");
-        // A file without a decision has no branch to report.
-        assert_eq!(files[1].1.outcome_counts().cell(), "-");
-        // The two records of the imported file are one row, their counts added.
-        assert_eq!(files[2].1.lines[&5], 3);
-
-        assert_eq!(sum(&files, FileCoverage::line_counts).cell(), "80.0% (4/5)");
-        assert_eq!(sum(&files, FileCoverage::outcome_counts).cell(), "50.0% (1/2)");
-
-        // A report without a file is an error, not an empty page.
-        assert!(parse_lcov("TN:\n").is_err());
-        // So is a record before any `SF`, and a malformed one.
-        assert!(parse_lcov("DA:1,1\n").is_err());
-        assert!(parse_lcov("SF:a.slint\nDA:1\n").is_err());
-        assert!(parse_lcov("SF:a.slint\nDA:1,x\n").is_err());
+    fn file() -> FileCoverage {
+        FileCoverage {
+            path: "cases/a.slint".into(),
+            lines: BTreeMap::from([
+                (7, vec![point(1, "element Window", 1)]),
+                (13, vec![point(30, "binding pick", 4), decision(37, [4, 0])]),
+                (20, vec![point(5, "handler clicked", 0)]),
+            ]),
+        }
     }
 
     #[test]
-    fn never_reached() {
-        let points = unreached(&parse_lcov(LCOV).unwrap());
-        let rows: Vec<(&str, u64, &str)> =
-            points.iter().map(|p| (p.path.as_str(), p.line, p.what.as_str())).collect();
-        assert_eq!(
-            rows,
-            [("cases/a.slint", 13, "decision 1, false outcome"), ("cases/a.slint", 20, "line"),]
-        );
+    fn metrics() {
+        // Five points: three plain ones and the two outcomes of the
+        // decision. The handler and the false outcome were never reached.
+        assert_eq!(file().point_counts().cell(), "60.0% (3/5)");
+        // The branch column counts the outcomes alone.
+        assert_eq!(file().branch_counts().cell(), "50.0% (1/2)");
+        assert_eq!(file().page_slug(), "qualification-report/slint-coverage/cases/a");
+    }
+
+    #[test]
+    fn merging() {
+        // The same file measured by two cases: the counts of a point both
+        // reached add up, and an outcome only one took counts as taken.
+        let one: Measured = BTreeMap::from([(
+            "cases/a.slint".into(),
+            BTreeMap::from([(13, vec![point(30, "binding pick", 2), decision(37, [1, 0])])]),
+        )]);
+        let two: Measured = BTreeMap::from([(
+            "cases/a.slint".into(),
+            BTreeMap::from([(13, vec![point(30, "binding pick", 3), decision(37, [0, 5])])]),
+        )]);
+        let mut merged = BTreeMap::new();
+        merge(one, &mut merged);
+        merge(two, &mut merged);
+        let line = &merged["cases/a.slint"][&13];
+        let entries: Vec<&Entry> = line.values().collect();
+        assert_eq!(*entries[0], point(30, "binding pick", 5));
+        assert_eq!(*entries[1], decision(37, [1, 5]));
+    }
+
+    #[test]
+    fn source_page_marks_the_points() {
+        let source = "Window {\n    property <int> p: c ? 1 : 2;\n}\n";
+        let file = FileCoverage {
+            path: "cases/a.slint".into(),
+            lines: BTreeMap::from([(2, vec![point(23, "binding p", 3), decision(25, [3, 0])])]),
+        };
+        let mut out = Vec::new();
+        write_source(&mut out, &file, source).unwrap();
+        let out = String::from_utf8(out).unwrap();
+        // The caret sits under the point it describes: the binding was
+        // evaluated, and its decision never took the false outcome.
+        assert!(out.contains("\n//#c                  ^+^+-\n"), "{out}");
+        assert!(out.contains("```slint\n"), "{out}");
+    }
+
+    #[test]
+    fn source_with_its_own_code_block() {
+        // Every case ends in a ```rust block holding the test code; the
+        // fence around the source has to outlast it.
+        let source = "Window { }\n\n/*\n```rust\nlet x = 1;\n```\n*/\n";
+        let file = FileCoverage {
+            path: "cases/a.slint".into(),
+            lines: BTreeMap::from([(1, vec![point(1, "element Window", 1)])]),
+        };
+        let mut out = Vec::new();
+        write_source(&mut out, &file, source).unwrap();
+        let out = String::from_utf8(out).unwrap();
+        assert!(out.contains("````slint\n"), "{out}");
+        assert!(out.trim_end().ends_with("\n````"), "{out}");
+        // The case's own block is left as it is, inside the longer fence.
+        assert!(out.contains("```rust\n"), "{out}");
+    }
+
+    #[test]
+    fn a_decision_survives_a_table_cell() {
+        // `||` would otherwise end the cell and split the row.
+        assert_eq!(cell("branch || false"), "branch \\|\\| false");
+        assert_eq!(cell("binding width"), "binding width");
     }
 
     #[test]

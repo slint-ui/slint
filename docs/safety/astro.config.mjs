@@ -184,6 +184,7 @@ export default defineConfig({
                     },
                     {
                         label: "Qualification Report",
+                        id: "qualification-report",
                         link: "/qualification-report/traceability-matrix/",
                         items: [
                             {
@@ -328,6 +329,14 @@ export default defineConfig({
                     // The landing page lists the documents and belongs to none
                     // of them.
                     exclude: ["/"],
+                    topics: {
+                        // The per-file source pages of the Slint Code Coverage
+                        // chapter. Its tables link them; listing 50 cases in
+                        // the sidebar would bury the chapters around them.
+                        "qualification-report": [
+                            "/qualification-report/slint-coverage/**",
+                        ],
+                    },
                 }),
             ],
             social: slintStarlightSocial,
