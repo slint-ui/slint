@@ -670,6 +670,18 @@ fn convert_event_dispatch_result(
 // ============================================================================
 
 pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPropertiesResponse {
+    let declared = element.declared_properties();
+    let declared_properties_available = declared.is_some();
+    let declared_properties = declared
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(name, type_name)| proto::DeclaredProperty {
+            value: element.declared_property_value(&name).map(|v| v.to_string()),
+            name: name.to_string(),
+            type_name: type_name.to_string(),
+        })
+        .collect();
+
     let type_names_and_ids = core::iter::once(proto::ElementTypeNameAndId {
         type_name: element.type_name().unwrap_or_default().into(),
         id: element.id().unwrap_or_default().into(),
@@ -729,6 +741,8 @@ pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPrope
         )
         .unwrap_or_default()
         .into(),
+        declared_properties,
+        declared_properties_available,
     }
 }
 
