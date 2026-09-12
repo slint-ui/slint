@@ -30,7 +30,7 @@ use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
 pub(crate) mod forward_inherited_expression;
-mod interfaces;
+pub(crate) mod interfaces;
 
 macro_rules! unwrap_or_continue {
     ($e:expr ; $diag:expr) => {
@@ -1322,6 +1322,8 @@ pub struct Element {
     pub default_fill_parent: (bool, bool),
 
     pub accessibility_props: AccessibilityProps,
+
+    pub(crate) implement_statements: Vec<interfaces::ImplementedInterface>,
 
     /// Reference to the property.
     /// This is always initialized from the element constructor, but is Option because it references itself
@@ -2767,8 +2769,9 @@ impl Element {
             }
         }
 
-        interfaces::validate_self_implement_statements(&r.borrow(), &implemented_interfaces, diag);
-        interfaces::apply_child_implement_statements(&r, child_implements, diag);
+        interfaces::apply_child_implement_statements(&r, &child_implements, diag);
+        r.borrow_mut().implement_statements =
+            implemented_interfaces.into_iter().chain(child_implements).collect();
 
         r
     }
