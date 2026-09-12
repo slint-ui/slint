@@ -69,6 +69,8 @@ export default defineConfig({
             },
             sidebar: [
                 { label: "Getting Started", link: "getting-started" },
+                { label: "Releases", link: "releases" },
+                { label: "Changelog", link: "changelog" },
                 {
                     label: "Components",
                     items: [{ autogenerate: { directory: "components" } }],

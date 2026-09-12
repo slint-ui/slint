@@ -1,0 +1,50 @@
+---
+title: Changelog
+description: New features, fixes, and breaking changes in Slint Material Components.
+---
+
+## 1.1.0 - Unreleased
+
+Material Components 1.1 requires Slint 1.18 or newer.
+
+### New APIs
+
+- Added [`Switch.checked-state-changed(checked)`](/components/switch/#checked_state_changedchecked-bool).
+- Added [`SearchBar.item-activated(index)`](/components/appbars/search_bar/#item-activatedindex-int---bool) so applications can handle search result activation.
+- Added [`SearchBar.close-popup()`](/components/appbars/search_bar/#close-popup).
+- Added [`TextField.input-type`](/components/text_field/#input-type) for password, number, decimal, search, and other input purposes.
+- Added [`ModalNavigationDrawer.selected(group-index, item-index)`](/components/navigation/modal_navigation_drawer/#selectedgroup-index-int-item-index-int).
+- Added [`ModalNavigationDrawer.item-pointer-event`](/components/navigation/modal_navigation_drawer/#item_pointer_event).
+- Made [`NavigationDrawer.select(group-index, item-index)`](/components/navigation/navigation_drawer/#selectgroup-index-int-item-index-int) and [`ModalNavigationDrawer.select(group-index, item-index)`](/components/navigation/modal_navigation_drawer/#selectgroup-index-int-item-index-int) public.
+- Added [`content-width`](/components/scroll_view/#content-width), [`content-height`](/components/scroll_view/#content-height), [`content-x`](/components/scroll_view/#content-x), and [`content-y`](/components/scroll_view/#content-y) to [`ScrollView`](/components/scroll_view/).
+
+### Fixes
+
+- Fixed continuous and stepped [`Slider`](/components/slider/) interaction, dragging, thumb positioning, and stop rendering.
+- Fixed [`CheckBox`](/components/checkboxes/check_box/) initialization and updates with a partially checked state.
+- Preserved [`ModalNavigationDrawer`](/components/navigation/modal_navigation_drawer/) selection when its popup is recreated.
+- Prevented a crash when [`ModalNavigationDrawer`](/components/navigation/modal_navigation_drawer/) closes during selection.
+- Added the missing year 2030 to [`DatePickerPopup`](/components/date_picker/).
+- Hid the [`TimePickerPopup`](/components/time_picker/) selection indicator when no clock item is selected.
+- Made [`TextField.label`](/components/text_field/#label) an alias for the former `placeholder-text` property.
+
+### Accessibility
+
+- Added search input semantics and editable value actions to [`SearchBar`](/components/appbars/search_bar/).
+- Added set-value, increment, and decrement actions to [`Slider`](/components/slider/).
+- Added accessible values to [linear](/components/progress/linear_progress_indicator/) and [circular](/components/progress/circular_progress_indicator/) progress indicators.
+- Used the dedicated [`Switch`](/components/switch/) and [`RadioButton`](/components/radiobutton/radio_button/) roles.
+- Reported the enabled state of [`IconButton`](/components/buttons/icon_button/) correctly.
+- Prevented the accessibility default action from toggling a disabled [`Switch`](/components/switch/#enabled).
+
+### Migration
+
+- Replace [`viewport-width`, `viewport-height`, `viewport-x`, and `viewport-y`](/components/scroll_view/) with [`content-width`](/components/scroll_view/#content-width), [`content-height`](/components/scroll_view/#content-height), [`content-x`](/components/scroll_view/#content-x), and [`content-y`](/components/scroll_view/#content-y) on [`ScrollView`](/components/scroll_view/).
+  The former names remain available as compatibility aliases.
+- Replace `placeholder-text` with [`label`](/components/text_field/#label) on [`TextField`](/components/text_field/).
+  The former name remains available as a compatibility alias.
+- Update projects to Slint 1.18 or newer before replacing Material Components 1.0.
+
+## 1.0
+
+- Published the first stable Slint Material Components release.

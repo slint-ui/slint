@@ -1,15 +1,17 @@
 // Copyright © onWidget <https://github.com/onwidget>
 // SPDX-License-Identifier: MIT
 
+import { getAsset, getPermalink } from "~/utils/permalinks";
+
 export const headerData = {
     links: [
         {
             text: "Documentation",
-            href: "/getting-started/",
+            href: getPermalink("getting-started"),
         },
         {
             text: "Demo",
-            href: "/wasm/index.html",
+            href: getAsset("wasm/index.html"),
         },
         {
             text: "Slint Home",
