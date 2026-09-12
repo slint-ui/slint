@@ -163,6 +163,11 @@ Most take element/window handles returned by `list_windows`/the tree calls.
 
 - Give elements ids (`foo := Rectangle {}`), then target them via
   `find_elements_by_id` (`ComponentName::id`).
+- To verify state, read `declaredProperties` from `get_element_properties`:
+  it lists an element's `in`/`out`/`in-out` properties with typed current
+  values, which beats diffing screenshots.
+  Properties the compiler optimized out (constant, or never read) are not
+  listed.
 - Drive a flow (`click_element`, `dispatch_key_event`), then `take_screenshot`
   to verify the result.
 - Claude Code reads a project-level `.mcp.json`; declaring the server there

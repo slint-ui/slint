@@ -47,6 +47,19 @@ The lazy start via `OnceCell` ensures the server only binds the port once the ap
 
 ## Shared Introspection Layer (`introspection/`)
 
+### Declared Properties
+
+`element_properties()` fills `declaredProperties` from `ElementHandle::declared_properties()`
+and `declared_property_value()`, which read the compiler-emitted per-element property table
+through `ItemTreeVTable::element_declared_properties` / `element_property_value`
+(see `SubComponent::element_properties` in the compiler's LLR).
+Values cross the vtable as strings in the `i_slint_core::debug_info` encoding;
+`mcp_server.rs::convert_declared_property_values` retypes them into JSON booleans and
+numbers for both `get_element_properties` and `get_element_tree`.
+The table exists only when the application was compiled with debug info, and an item tree
+whose generator does not implement the entries (generated C++ today) reports "unsupported",
+which surfaces as a `note` instead of an empty list.
+
 ### IntrospectionState
 
 The central data structure, stored as a thread-local `Rc<IntrospectionState>`. `windows` and
