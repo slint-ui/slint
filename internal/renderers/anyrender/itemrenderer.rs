@@ -1206,9 +1206,8 @@ fn load_image(
                 ImageVariant::Sized { width: render_size.width, height: render_size.height },
                 || {
                     let pixels = match svg.render(Some(render_size)).ok()? {
-                        SharedImageBuffer::RGB8(_) => unreachable!(),
-                        SharedImageBuffer::RGBA8(_) => unreachable!(),
                         SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
+                        _ => unreachable!(),
                     };
 
                     let width = pixels.width();
@@ -1313,6 +1312,23 @@ fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::Im
                 height,
             });
         }
+        #[cfg(feature = "image-pixel-format-rgb565")]
+        SharedImageBuffer::RGB565(shared_pixel_buffer) => {
+            let rgba: Vec<u8> = shared_pixel_buffer
+                .as_slice()
+                .iter()
+                .flat_map(|p| [p.red(), p.green(), p.blue(), 255])
+                .collect();
+            let width = shared_pixel_buffer.width();
+            let height = shared_pixel_buffer.height();
+            return Some(peniko::ImageData {
+                data: peniko::Blob::new(Arc::new(rgba)),
+                format: peniko::ImageFormat::Rgba8,
+                alpha_type: peniko::ImageAlphaType::Alpha,
+                width,
+                height,
+            });
+        }
         SharedImageBuffer::RGBA8(shared_pixel_buffer) => (
             Arc::new(PixelBufferWrap(shared_pixel_buffer.clone()))
                 as Arc<dyn AsRef<[u8]> + Send + Sync>,
@@ -1325,6 +1341,9 @@ fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::Im
             peniko::ImageFormat::Rgba8,
             peniko::ImageAlphaType::AlphaPremultiplied,
         ),
+        #[cfg(not(feature = "image-pixel-format-rgb565"))]
+        #[allow(unreachable_patterns)]
+        _ => return None,
     };
 
     Some(peniko::ImageData {

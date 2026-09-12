@@ -54,6 +54,11 @@ image-decoders = ["dep:image", "dep:clru"]
 image-default-formats = ["image?/default-formats"]
 svg = ["dep:resvg", "i-slint-common/svg-text"]
 
+# Support for images in the RGB565 pixel format, the native format of many
+# embedded displays. Disabled by default so that applications that don't
+# need it don't pay for the extra rendering code.
+image-pixel-format-rgb565 = []
+
 box-shadow-cache = []
 
 testing = []
@@ -104,6 +109,7 @@ vtable = { workspace = true }
 
 portable-atomic = { version = "1", features = ["critical-section"] }
 cfg-if = "1"
+bytemuck = { workspace = true, features = ["derive"] }
 derive_more = { workspace = true, features = ["error", "deref", "deref_mut"] }
 euclid = { workspace = true }
 lyon_algorithms = { version = "1.0", optional = true, default-features = false }
@@ -184,7 +190,7 @@ web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator", "Blob
 
 
 [dev-dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software", "image-pixel-format-rgb565"] }
 i-slint-backend-testing = { path = "../backends/testing", features = ["internal"] }
 rustybuzz = { workspace = true }
 ttf-parser = { workspace = true }

@@ -379,6 +379,10 @@ fn default_config() -> cbindgen::Config {
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
         // Disable Rust WGPU specific API feature
+        (
+            "feature = image-pixel-format-rgb565".into(),
+            "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565".into(),
+        ),
         ("feature = unstable-wgpu-29".into(), "SLINT_DISABLED_CODE".into()),
         ("feature = unstable-wgpu-30".into(), "SLINT_DISABLED_CODE".into()),
     ]
@@ -672,7 +676,7 @@ fn gen_corelib(
                 "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
+            "#include \"private/slint_color.h\"\n#include \"private/slint_rgb565pixel.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -818,6 +822,8 @@ fn gen_corelib(
             "slint_windowrc_nsview_appkit",
             "GradientStop",
             "ConicGradientBrush",
+            // Handwritten in private/slint_rgb565pixel.h
+            "Rgb565Pixel",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",
@@ -1192,9 +1198,9 @@ fn gen_platform(
         .with_include("private/slint_internal.h")
         .with_after_include(
             r"
-namespace slint::platform { struct Rgb565Pixel; }
+namespace slint { struct Rgb565Pixel; }
 namespace slint::cbindgen_private {
-    struct WindowProperties; using slint::platform::Rgb565Pixel;
+    struct WindowProperties; using slint::Rgb565Pixel;
     using slint::cbindgen_private::types::TexturePixelFormat;
     struct DrawTextureArgs;
     struct DrawRectangleArgs;
@@ -1344,6 +1350,7 @@ declare_features! {
     renderer_skia_vulkan
     renderer_software
     gettext
+    image_pixel_format_rgb565
     accessibility
     system_testing
     mcp

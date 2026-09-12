@@ -14,6 +14,7 @@ version.workspace = true
 links = "i_slint_backend_qt"                   # just so we can pass metadata to the dependencies's build script
 
 [features]
+image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 rtti = ["i-slint-core/rtti"]
 default = ["enable"]
 enable = ["dep:cpp", "dep:lyon_path", "dep:pin-project", "dep:pin-weak", "dep:qttypes", "dep:cpp_build"]

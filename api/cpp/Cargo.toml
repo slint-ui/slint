@@ -48,6 +48,11 @@ renderer-vello = ["i-slint-backend-selector/renderer-vello"]
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 software-renderer-path = ["i-slint-renderer-software/path"]
 gettext = ["i-slint-core/gettext-rs"]
+image-pixel-format-rgb565 = [
+  "i-slint-core/image-pixel-format-rgb565",
+  "i-slint-backend-selector?/image-pixel-format-rgb565",
+  "i-slint-renderer-software?/image-pixel-format-rgb565",
+]
 accessibility = ["i-slint-backend-selector/accessibility"]
 # Enable the `SystemTrayIcon` element (pulls `ksni` on Linux/BSD).
 system-tray = ["i-slint-core/system-tray"]

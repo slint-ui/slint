@@ -16,6 +16,7 @@ version.workspace = true
 path = "lib.rs"
 
 [features]
+image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 default = []
 opengl = []
 # wgpu-30 enables the wgpu backend for internal use (e.g. linuxkms DRM rendering).
