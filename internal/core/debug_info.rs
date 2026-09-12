@@ -50,3 +50,17 @@ pub fn format_brush(brush: &crate::Brush) -> Option<SharedString> {
     }
 }
 
+#[cfg(feature = "ffi")]
+pub(crate) mod ffi {
+    #![allow(unsafe_code)]
+
+    use super::*;
+
+    /// Generated C++ delegates float encoding here rather than formatting locally:
+    /// no C++ float-to-string routine on the supported toolchains reproduces Rust's
+    /// `f32` `Display` digits (GCC 10 has no floating-point `std::to_chars`).
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_debug_info_format_float(out: *mut SharedString, value: f32) {
+        unsafe { core::ptr::write(out, format_float(value)) }
+    }
+}

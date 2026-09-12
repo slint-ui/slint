@@ -14,7 +14,9 @@
 #include "private/slint_data_transfer.h"
 
 #include <vector>
+#include <charconv>
 #include <chrono>
+#include <cstdio>
 #include <span>
 #include <concepts>
 #include <limits>
@@ -93,6 +95,50 @@ upgrade_item_weak(const cbindgen_private::ItemWeak &item_weak)
 inline void debug(const SharedString &str)
 {
     cbindgen_private::slint_debug(&str);
+}
+
+/// Value formatting for the declared-property debug channel
+/// (`ItemTreeVTable::element_property_value`).
+/// Mirrors the Rust `i_slint_core::debug_info` encoding,
+/// so both code generators produce the same string for the same value.
+inline SharedString debug_info_format_bool(bool value)
+{
+    return SharedString(value ? "true" : "false");
+}
+
+/// See `debug_info_format_bool`.
+inline SharedString debug_info_format_integer(int64_t value)
+{
+    char buf[24];
+    auto r = std::to_chars(buf, buf + sizeof(buf), value);
+    return SharedString(std::string_view(buf, r.ptr - buf));
+}
+
+/// See `debug_info_format_bool`.
+/// Formatted by the Rust runtime, so the digits are exactly what `f32` `Display` produces there.
+inline SharedString debug_info_format_float(float value)
+{
+    SharedString result;
+    cbindgen_private::slint_debug_info_format_float(&result, value);
+    return result;
+}
+
+/// See `debug_info_format_bool`. `#rrggbbaa`.
+inline SharedString debug_info_format_color(const Color &color)
+{
+    char buf[10];
+    std::snprintf(buf, sizeof(buf), "#%02x%02x%02x%02x", color.red(), color.green(), color.blue(),
+                  color.alpha());
+    return SharedString(buf);
+}
+
+/// See `debug_info_format_bool`.
+/// A solid color formats as `#rrggbbaa`; gradients have no encoding.
+inline std::optional<SharedString> debug_info_format_brush(const Brush &brush)
+{
+    if (brush != Brush(brush.color()))
+        return std::nullopt;
+    return debug_info_format_color(brush.color());
 }
 
 } // namespace private_api
