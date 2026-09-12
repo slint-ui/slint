@@ -178,14 +178,31 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
     }
 
     let move_properties = &mut |elem: &ElementRc| {
+        // take_from_element clears shadowing_members; keep the effective-shadow index
+        // so the moved list can rank the winning declaration of each source name first
+        // (the first entry per name wins in the LLR's collect_element_properties).
+        let shadowing = std::mem::take(&mut elem.borrow_mut().shadowing_members);
         let elem_decl = Declarations::take_from_element(&mut elem.borrow_mut());
+        let mut moved = Vec::new();
         decl.property_declarations.extend(elem_decl.property_declarations.into_iter().map(
             |(p, mut d)| {
                 let name = moved_name(renames, elem, &p);
+                let source = d.declared_name(&p).clone();
+                let rank: u8 = if shadowing.get(&source).is_some_and(|key| key == &p) {
+                    0 // the effective shadowing declaration
+                } else if d.shadowed_name.is_none() {
+                    1
+                } else {
+                    2 // a shadowing declaration itself shadowed further down
+                };
+                moved.push((rank, source, name.clone()));
                 d.moved_from = Some(p);
                 (name, d)
             },
         ));
+        moved.sort();
+        elem.borrow_mut().moved_property_declarations =
+            moved.into_iter().map(|(_, source, name)| (source, name)).collect();
     };
 
     recurse_elem(&component.root_element, &(), &mut |elem, _| move_properties(elem));

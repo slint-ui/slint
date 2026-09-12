@@ -1210,6 +1210,12 @@ pub struct Element {
     /// `property_declarations`.
     pub shadowing_members: BTreeMap<SmolStr, SmolStr>,
 
+    /// For each declaration the move_declarations pass hoisted off this element:
+    /// the name as declared in the source, and the root-element key it lives under now.
+    /// Debug info uses it to attribute a component's properties back to the declaring
+    /// element (see `SubComponent::element_properties` in the LLR).
+    pub moved_property_declarations: Vec<(SmolStr, SmolStr)>,
+
     /// Main owner for a reference to a property.
     pub named_references: crate::namedreference::NamedReferenceContainer,
 

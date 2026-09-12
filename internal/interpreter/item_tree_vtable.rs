@@ -424,6 +424,60 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         }
     }
 
+    fn element_declared_properties(
+        self: Pin<&Self>,
+        item_index: u32,
+        result: &mut SharedString,
+    ) -> bool {
+        let this = self.get_ref();
+        let cu = this.root_sub_component.compilation_unit.clone();
+        if !cu.has_debug_info {
+            return false;
+        }
+        if let Some((owner, local_idx)) = resolve_element_properties_owner(this, item_index) {
+            let sc = &cu.sub_components[owner.sub_component_idx];
+            if let Some(props) = sc.element_properties.get(&local_idx) {
+                let mut encoded = String::new();
+                for p in props {
+                    use std::fmt::Write;
+                    writeln!(encoded, "{}:{}", p.name, p.ty).unwrap();
+                }
+                *result = encoded.as_str().into();
+            }
+        }
+        true
+    }
+
+    fn element_property_value(
+        self: Pin<&Self>,
+        item_index: u32,
+        property_name: Slice<u8>,
+        result: &mut SharedString,
+    ) -> bool {
+        let this = self.get_ref();
+        let cu = this.root_sub_component.compilation_unit.clone();
+        if !cu.has_debug_info {
+            return false;
+        }
+        let Ok(name) = core::str::from_utf8(property_name.as_slice()) else {
+            return false;
+        };
+        let Some((owner, local_idx)) = resolve_element_properties_owner(this, item_index) else {
+            return false;
+        };
+        let sc = &cu.sub_components[owner.sub_component_idx];
+        let Some(prop) = sc
+            .element_properties
+            .get(&local_idx)
+            .and_then(|props| props.iter().find(|p| p.name == name))
+        else {
+            return false;
+        };
+        let ctx = crate::eval::EvalContext::new(owner);
+        let value = crate::eval::load_property(&ctx, &prop.prop);
+        format_element_property_value(&value, &prop.ty, result)
+    }
+
     fn window_adapter(self: Pin<&Self>, do_create: bool, result: &mut Option<WindowAdapterRc>) {
         // A repeated instance's own `window_adapter` is unset; walk up via
         // `parent_instance` to the root `Instance` and read its adapter.
@@ -463,6 +517,87 @@ fn resolve_accessible_item(
     let sc = &cu.sub_components[owner.sub_component_idx];
     let local_idx = sc.items[entry.1].index_in_tree;
     Some((owner, local_idx))
+}
+
+/// Resolve a flat tree index to the sub-component instance whose `element_properties`
+/// table has an entry for it, plus the local key.
+/// Walks like `item_element_infos`; first match wins.
+fn resolve_element_properties_owner(
+    instance: &Instance,
+    item_index: u32,
+) -> Option<(Pin<std::rc::Rc<crate::instance::SubComponentInstance>>, u32)> {
+    let entry = instance.item_table.get(item_index as usize).and_then(Option::as_ref)?;
+    let cu = instance.root_sub_component.compilation_unit.clone();
+    let mut owner = instance.root_sub_component.clone();
+    let mut local_idx = item_index;
+    for &sub_step in entry.0.iter() {
+        let sc = &cu.sub_components[owner.sub_component_idx];
+        if sc.element_properties.contains_key(&local_idx) {
+            return Some((owner, local_idx));
+        }
+        let nested = &sc.sub_components[sub_step];
+        // Translate `local_idx` into the nested sub-component's tree.
+        if local_idx == nested.index_in_tree {
+            local_idx = 0;
+        } else if nested.index_of_first_child_in_tree > 0 {
+            local_idx = local_idx + 1 - nested.index_of_first_child_in_tree;
+        }
+        let next = owner.sub_components[sub_step].clone();
+        owner = next;
+    }
+    let sc = &cu.sub_components[owner.sub_component_idx];
+    let item_local_idx = sc.items[entry.1].index_in_tree;
+    sc.element_properties.contains_key(&item_local_idx).then_some((owner, item_local_idx))
+}
+
+/// Encode `value` per [`i_slint_core::debug_info`],
+/// dispatching on the declared type exactly like the generated code does,
+/// so both runtimes produce the same string.
+fn format_element_property_value(
+    value: &crate::Value,
+    ty: &i_slint_compiler::langtype::Type,
+    result: &mut SharedString,
+) -> bool {
+    use i_slint_compiler::langtype::Type;
+    use i_slint_core::debug_info;
+    match ty {
+        Type::Bool => {
+            let crate::Value::Bool(b) = value else { return false };
+            *result = debug_info::format_bool(*b);
+        }
+        Type::Int32 => {
+            let crate::Value::Number(n) = value else { return false };
+            *result = debug_info::format_integer(*n as i32 as i64);
+        }
+        Type::Duration => {
+            let crate::Value::Number(n) = value else { return false };
+            *result = debug_info::format_integer(*n as i64);
+        }
+        Type::Float32
+        | Type::Angle
+        | Type::Percent
+        | Type::PhysicalLength
+        | Type::LogicalLength
+        | Type::Rem => {
+            let crate::Value::Number(n) = value else { return false };
+            *result = debug_info::format_float(*n as f32);
+        }
+        Type::String => {
+            let crate::Value::String(s) = value else { return false };
+            *result = s.clone();
+        }
+        Type::Color | Type::Brush => {
+            let crate::Value::Brush(b) = value else { return false };
+            let Some(formatted) = debug_info::format_brush(b) else { return false };
+            *result = formatted;
+        }
+        Type::Enumeration(_) => {
+            let crate::Value::EnumerationValue(_, v) = value else { return false };
+            *result = v.replace('_', "-").as_str().into();
+        }
+        _ => return false,
+    }
+    true
 }
 
 /// Returns the candidates to look up an accessible property for a given
