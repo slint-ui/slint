@@ -104,6 +104,7 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 /// component C { property<int> xx; }
 /// component C inherits D { }
 /// interface I { property<int> xx; }
+/// interface I inherits J { property<int> xx; }
 /// ```
 pub fn parse_component(p: &mut impl Parser) -> bool {
     let simple_component = p.nth(1).kind() == SyntaxKind::ColonEqual;
@@ -124,6 +125,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
         drop(p.start_node(SyntaxKind::Element));
         return false;
     }
+    let mut interface_inherits = false;
     if is_global {
         if p.peek().kind() == SyntaxKind::ColonEqual {
             p.warning("':=' to declare a global is deprecated. Remove the ':='");
@@ -135,9 +137,8 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
             p.consume();
         }
         if p.peek().as_str() == "inherits" {
-            p.error("Interface inheritance is not supported");
-            drop(p.start_node(SyntaxKind::Element));
-            return false;
+            p.consume();
+            interface_inherits = true;
         }
     } else if !is_new_component {
         if p.peek().kind() == SyntaxKind::ColonEqual {
@@ -160,7 +161,8 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
         return false;
     }
 
-    if (is_global || is_interface) && p.peek().kind() == SyntaxKind::LBrace {
+    if (is_global || (is_interface && !interface_inherits)) && p.peek().kind() == SyntaxKind::LBrace
+    {
         let mut p = p.start_node(SyntaxKind::Element);
         p.consume();
         parse_element_content(&mut *p);

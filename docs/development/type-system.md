@@ -119,6 +119,7 @@ Elements (components/items) have their own type hierarchy.
 component, `Builtin` for a built-in item such as `Rectangle` or `Text`, `Native` once the
 `resolve_native_classes` pass has run, `Error` when the base type couldn't be looked up, and
 `Global` / `Interface` for the root element of a global or an interface.
+`Interface` carries the interface it inherits, if any.
 
 ### Property Lookup on Elements
 

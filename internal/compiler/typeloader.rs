@@ -643,6 +643,12 @@ impl Snapshotter {
                         .expect("I can unwrap at this point"),
                 )
             }
+            langtype::ElementType::Interface(base) => {
+                langtype::ElementType::Interface(base.as_ref().map(|component| {
+                    Weak::upgrade(&self.use_component(component))
+                        .expect("I can unwrap at this point")
+                }))
+            }
             _ => element_type.clone(),
         }
     }
