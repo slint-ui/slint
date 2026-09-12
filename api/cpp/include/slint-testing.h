@@ -227,9 +227,9 @@ public:
     /// Returns the current value of the declared property \a name on this element,
     /// encoded as a string:
     /// booleans as `true`/`false`,
-    /// numbers in decimal (`length` in logical pixels, `duration` in milliseconds, `angle` in degrees),
-    /// colors and solid brushes as `#rrggbbaa`,
-    /// and enums as the `.slint` spelling of the value.
+    /// numbers in decimal (`length` in logical pixels, `duration` in milliseconds, `angle` in
+    /// degrees), colors and solid brushes as `#rrggbbaa`, and enums as the `.slint` spelling of the
+    /// value.
     ///
     /// Returns std::nullopt when the element is not valid anymore,
     /// the property does not exist (see declared_properties()),
