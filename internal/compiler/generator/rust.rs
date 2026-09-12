@@ -6012,11 +6012,10 @@ fn generate_with_flexbox_layout_item_info(
 /// `flexbox_layout_info_cross_axis_with_measure` calls, bound to a `measure`
 /// local. For each static height-for-width cell, `measure_cells[i]` carries
 /// its vertical `LayoutInfo` expression, which reads the `measure_known_w`
-/// local. taffy calls the callback with at most one of width/height known
-/// (the cross axis): with the width known we recompute that cell's height at
-/// it, with the height known no dimension changes. A call with neither
-/// dimension known is a content-size probe (see `FlexboxMeasureFn` in
-/// i-slint-core): it measures the height at the default width.
+/// local. For a height-for-width cell the closure recomputes its height at the width
+/// it is given, and hands any other cell straight back.
+/// See `FlexboxMeasureFn` in i-slint-core for when it is called and what the
+/// sizes mean.
 fn generate_flexbox_measure_closure(
     measure_cells: &[llr::FlexboxMeasureCell],
     ctx: &EvaluationContext,
@@ -6072,13 +6071,8 @@ fn generate_flexbox_measure_closure(
         quote!(let mut cursor = 0usize; #(#steps)* let _ = cursor;)
     };
 
-    // A dimension taffy didn't assign (`known_* == false`) arrives pre-resolved
-    // to the cell's preferred size by resolve_measure_defaults in i-slint-core.
     quote! {
-        let mut measure = |index: usize, w: f32, h: f32, _known_w: bool, known_h: bool| -> (f32, f32) {
-            if known_h {
-                return (w, h);
-            }
+        let mut measure = |index: usize, w: f32, h: f32| -> (f32, f32) {
             let #known_w_ident = w;
             let _ = #known_w_ident;
             #v_body
