@@ -1628,7 +1628,6 @@ fn public_properties(
         .collect()
 }
 
-
 #[cfg(test)]
 mod tests {
     /// A shadowing declaration and the `@shadowable` base declaration share a source name;

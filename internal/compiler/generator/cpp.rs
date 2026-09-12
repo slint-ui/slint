@@ -1445,7 +1445,9 @@ fn element_property_value_expression(
                         &EnumerationValue { value: value_idx, enumeration: e.clone() }
                             .to_pascal_case(),
                     );
-                    format!("case {enum_ty}::{variant}: return slint::SharedString(\"{spelling}\");")
+                    format!(
+                        "case {enum_ty}::{variant}: return slint::SharedString(\"{spelling}\");"
+                    )
                 })
                 .join(" ");
             format!(
@@ -2987,7 +2989,10 @@ fn generate_sub_component(
     element_declared_properties_cases.extend(component.element_properties.iter().map(
         |(index, props)| {
             let encoded: String = props.iter().map(|p| format!("{}:{}\n", p.name, p.ty)).collect();
-            format!("    case {index}: return slint::SharedString(u8\"{}\");", escape_string(&encoded))
+            format!(
+                "    case {index}: return slint::SharedString(u8\"{}\");",
+                escape_string(&encoded)
+            )
         },
     ));
     element_declared_properties_cases.push("}".into());
