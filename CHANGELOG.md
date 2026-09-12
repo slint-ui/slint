@@ -65,6 +65,8 @@ All notable changes to this project are documented in this file.
  - esp-idf: Added `SlintPlatformConfiguration::panel_type` so MIPI-DSI panels no longer use RGB-panel APIs. (#13180)
  - LinuxKMS: Improved software rendering performance, and the `mouse-cursor` property is now honored.
  - Skia: Improved performance when rendering opaque images.
+ - Skia: Font files are no longer copied into the heap when creating typefaces; the memory-mapped
+   file is passed to Skia instead.
  - Skia: Fixed partially drawn frames, Vulkan validation errors, and window transparency when
    rendering with WGPU.
  - Skia: Fixed changes to `Window.background` not triggering a repaint with partial rendering.
