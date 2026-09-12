@@ -497,6 +497,26 @@ pub trait RenderString: HasFont {
     }
 }
 
+/// Returns the text box's alignment anchor in physical pixels.
+/// Renderers can snap this point while preserving the box dimensions used for layout.
+pub fn text_alignment_anchor(
+    size: euclid::Size2D<f32, PhysicalPx>,
+    horizontal: TextHorizontalAlignment,
+    vertical: TextVerticalAlignment,
+) -> euclid::Point2D<f32, PhysicalPx> {
+    let x = match horizontal {
+        TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => 0.0,
+        TextHorizontalAlignment::Center => size.width / 2.0,
+        TextHorizontalAlignment::End | TextHorizontalAlignment::Right => size.width,
+    };
+    let y = match vertical {
+        TextVerticalAlignment::Top => 0.0,
+        TextVerticalAlignment::Center => size.height / 2.0,
+        TextVerticalAlignment::Bottom => size.height,
+    };
+    euclid::Point2D::new(x, y)
+}
+
 /// Trait for an item that represents an Text towards the renderer
 #[allow(missing_docs)]
 pub trait RenderText: RenderString {
