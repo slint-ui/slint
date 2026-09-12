@@ -135,7 +135,7 @@ class WindowAdapter
 
     cbindgen_private::WindowAdapterRcOpaque initialize()
     {
-        cbindgen_private::slint_window_adapter_new(
+        cbindgen_private::slint_window_adapter_new2(
                 this, [](void *wa) { delete reinterpret_cast<WindowAdapter *>(wa); },
                 [](void *wa) {
                     return reinterpret_cast<WindowAdapter *>(wa)->renderer().renderer_handle();
@@ -166,6 +166,18 @@ class WindowAdapter
                 [](void *wa, cbindgen_private::Point2D<int32_t> point) {
                     reinterpret_cast<WindowAdapter *>(wa)->set_position(
                             slint::PhysicalPosition({ point.x, point.y }));
+                },
+                [](void *wa) -> bool {
+                    return reinterpret_cast<WindowAdapter *>(wa)->supports_native_menu_bar();
+                },
+                [](void *wa, const vtable::VRc<cbindgen_private::MenuVTable> *menu,
+                   LogicalPosition position) -> bool {
+                    return reinterpret_cast<WindowAdapter *>(wa)->show_native_popup_menu(*menu,
+                                                                                         position);
+                },
+                [](void *wa, cbindgen_private::InputMethodRequestKind kind,
+                   const cbindgen_private::InputMethodPropertiesReprC *properties) {
+                    reinterpret_cast<WindowAdapter *>(wa)->input_method_request(kind, properties);
                 },
                 &self);
         was_initialized = true;
@@ -318,6 +330,57 @@ public:
     /// properties that were queried on the last call are changed. If you do not query any
     /// properties, it may not be called again.
     virtual void update_window_properties(const WindowProperties &) { }
+
+    /// Re-implement this function to report that the platform can host a native menu bar.
+    ///
+    /// The default implementation returns false, and Slint renders any menu bar itself.
+    virtual bool supports_native_menu_bar() { return false; }
+
+    /// Dispatch an input method event to the scene, updating or committing composed text.
+    ///
+    /// Call this while driving a platform input method in response to
+    /// input_method_request(): a key press cannot express a pre-edit. Send
+    /// `UpdateComposition` while the text is still being composed, and `CommitComposition`
+    /// once the input method settles on text.
+    void dispatch_composition_event(const cbindgen_private::CompositionEvent &event)
+    {
+        cbindgen_private::slint_windowrc_dispatch_composition_event(&self, &event);
+    }
+
+    /// Re-implement this function to drive the platform's input method.
+    ///
+    /// Slint calls this when a text input gains focus (\a kind Enable), changes while
+    /// composing (Update), or loses focus (Disable). \a properties describes the field
+    /// being edited and is null for Disable.
+    ///
+    /// A platform that implements this is expected to feed composition back with
+    /// slint::Window's input-method events. Offsets in the properties are byte offsets
+    /// into the text, so a platform counting in UTF-16 must convert.
+    ///
+    /// The default implementation does nothing, which leaves the platform's input method
+    /// uninvolved and limits text entry to whatever arrives as plain key events.
+    virtual void
+    input_method_request(cbindgen_private::InputMethodRequestKind kind,
+                         const cbindgen_private::InputMethodPropertiesReprC *properties)
+    {
+        (void)kind;
+        (void)properties;
+    }
+
+    /// Re-implement this function to show a context menu using the platform's own menus.
+    ///
+    /// \a menu is the menu tree to display and \a position is where to show it, in
+    /// logical coordinates relative to the window. Walk the menu with
+    /// `cbindgen_private::MenuVTable`'s `sub_menu` and report a selection with `activate`.
+    ///
+    /// Return false — the default — to let Slint draw the menu inside the window instead.
+    virtual bool show_native_popup_menu(const vtable::VRc<cbindgen_private::MenuVTable> &menu,
+                                        LogicalPosition position)
+    {
+        (void)menu;
+        (void)position;
+        return false;
+    }
 
     /// Re-implement this function to provide a reference to the renderer for use with the window
     /// adapter.

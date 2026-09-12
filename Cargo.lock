@@ -7640,6 +7640,7 @@ dependencies = [
  "raw-window-handle",
  "slint-interpreter",
  "unicode-segmentation",
+ "vtable",
 ]
 
 [[package]]
