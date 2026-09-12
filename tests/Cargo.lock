@@ -5699,6 +5699,7 @@ dependencies = [
  "i-slint-backend-testing",
  "i-slint-compiler",
  "i-slint-core",
+ "libtest-mimic",
  "rayon",
  "slint",
  "slint-interpreter",
