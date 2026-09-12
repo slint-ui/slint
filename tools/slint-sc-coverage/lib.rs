@@ -87,8 +87,8 @@ struct LineCoverage {
 /// The outcomes, in the order lcov numbers the branches of a decision.
 const ARMS: [&str; 2] = ["true", "false"];
 
-/// What a run measured, by file path and line: the form [`Report::measured`]
-/// keeps it in, and the one [`expectations::annotate`] renders a file from.
+/// What a run measured, by file path and line: the form
+/// [`Report::measured`] keeps it in.
 pub type Measured = BTreeMap<String, BTreeMap<usize, Vec<Entry>>>;
 
 /// A point of a line, or a decision with both its outcomes, with how often
