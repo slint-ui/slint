@@ -1,0 +1,196 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
+// Reading declared properties back through the debug-info channel.
+// The same source and expectations run under the interpreter in
+// internal/interpreter/tests/declared_properties.rs, keeping the
+// generated-code and interpreter encodings identical.
+
+enum Mood { happy, grumpy }
+
+component Base inherits Rectangle {
+    in property <string> base-text: "from-base";
+    property <int> base-private: 42;
+    Text { text: root.base-text; }
+}
+
+component Widget inherits Base {
+    in-out property <bool> flag: true;
+    out property <float> ratio: flag ? 0.5 : 0.25;
+    changed ratio => { }
+    in property <float> big: 0.0;
+    changed big => { }
+    in property <length> len: 12px;
+    in property <duration> dur: 250ms;
+    in property <angle> ang: 90deg;
+    in property <percent> pct: 25%;
+    in property <color> tint: #112233;
+    in property <brush> solid: #445566;
+    in property <Mood> mood: Mood.grumpy;
+    in property <{a: int, b: string}> record: { a: 1, b: "x" };
+    in property <int> gone-unread: 4;
+    in-out property <string> aliased <=> inner.text;
+    inner := Text { text: "hello"; }
+    Rectangle {
+        x: root.len;
+        background: root.tint;
+        border-color: root.solid;
+        opacity: root.flag && root.mood == Mood.grumpy && root.record.a == 1 ? root.ratio : 0.0;
+        border-width: root.dur > 100ms && root.ang > 45deg ? 1px : 2px;
+        width: root.pct * 1px;
+        height: root.ratio * 100px;
+    }
+}
+
+component Row inherits Rectangle {
+    in property <bool> selected;
+    background: selected ? #ff0000 : #00ff00;
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+    in-out property <bool> toggle: true;
+    VerticalLayout {
+        w := Widget {
+            property <int> use-site-private: 7;
+            in property <int> extra: root.toggle ? 8 : 9;
+            changed extra => { }
+            flag: root.toggle;
+            big: root.toggle ? 0.1 : 100000000000000000000.0;
+            len: root.toggle ? 12px : 13px;
+            dur: root.toggle ? 250ms : 100ms;
+            ang: root.toggle ? 90deg : 45deg;
+            pct: root.toggle ? 25% : 75%;
+            tint: root.toggle ? #112233 : #445566;
+            solid: root.toggle ? #445566 : #112233;
+            mood: root.toggle ? Mood.grumpy : Mood.happy;
+            record: root.toggle ? { a: 1, b: "x" } : { a: 2, b: "y" };
+            base-text: root.toggle ? "from-base" : "other";
+        }
+        for item in [true, false]: Row { selected: item; }
+    }
+    out property <int> read-extra: w.extra + w.use-site-private;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let widget = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::w").next().unwrap();
+
+let mut props = widget.declared_properties().unwrap();
+props.sort();
+let props: Vec<(&str, &str)> = props.iter().map(|(name, ty)| (name.as_str(), ty.as_str())).collect();
+assert_eq!(props, [
+    ("aliased", "string"),
+    ("ang", "angle"),
+    ("base-text", "string"),
+    ("big", "float"),
+    ("dur", "duration"),
+    ("extra", "int"),
+    ("flag", "bool"),
+    ("len", "length"),
+    ("mood", "Mood"),
+    ("pct", "percent"),
+    ("ratio", "float"),
+    ("record", "{ a: int,b: string,}"),
+    ("solid", "brush"),
+    ("tint", "color"),
+]);
+
+let value = |name: &str| widget.declared_property_value(name).map(|v| v.to_string());
+assert_eq!(value("flag").as_deref(), Some("true"));
+assert_eq!(value("ratio").as_deref(), Some("0.5"));
+assert_eq!(value("big").as_deref(), Some("0.1"));
+assert_eq!(value("len").as_deref(), Some("12"));
+assert_eq!(value("dur").as_deref(), Some("250"));
+assert_eq!(value("ang").as_deref(), Some("90"));
+assert_eq!(value("pct").as_deref(), Some("25"));
+assert_eq!(value("tint").as_deref(), Some("#112233ff"));
+assert_eq!(value("solid").as_deref(), Some("#445566ff"));
+assert_eq!(value("mood").as_deref(), Some("grumpy"));
+assert_eq!(value("extra").as_deref(), Some("8"));
+assert_eq!(value("base-text").as_deref(), Some("from-base"));
+assert_eq!(value("aliased").as_deref(), Some("hello"));
+// A struct value has no string encoding; the property is only listed.
+assert_eq!(value("record"), None);
+// Unknown or optimized-out names read as None; private declarations are not listed.
+assert_eq!(value("gone-unread"), None);
+assert_eq!(value("use-site-private"), None);
+assert_eq!(value("no-such-property"), None);
+
+let rows: Vec<_> = slint_testing::ElementHandle::find_by_element_type_name(&instance, "Row").collect();
+assert_eq!(rows.len(), 2);
+let selected: Vec<_> = rows.iter().map(|r| r.declared_property_value("selected").unwrap().to_string()).collect();
+assert_eq!(selected, ["true", "false"]);
+
+instance.set_toggle(false);
+assert_eq!(value("flag").as_deref(), Some("false"));
+assert_eq!(value("len").as_deref(), Some("13"));
+assert_eq!(value("mood").as_deref(), Some("happy"));
+assert_eq!(value("big").as_deref(), Some("100000000000000000000"));
+```
+
+```cpp
+auto handle = TestCase::create();
+
+auto widget_search = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::w");
+assert_eq(widget_search.size(), 1);
+auto widget = widget_search[0];
+
+// Flattened (name, type) pairs; 14 readable properties. Private declarations
+// (base-private, use-site-private) and optimized-out ones (gone-unread) are not listed.
+auto props = widget.declared_properties().value();
+assert_eq(props.size(), 28);
+auto has_prop = [&](const char *name, const char *type) {
+    for (std::size_t i = 0; i + 1 < props.size(); i += 2) {
+        if (props[i] == name)
+            return props[i + 1] == type;
+    }
+    return false;
+};
+assert(has_prop("flag", "bool"));
+assert(has_prop("ratio", "float"));
+assert(has_prop("len", "length"));
+assert(has_prop("mood", "Mood"));
+assert(has_prop("extra", "int"));
+assert(has_prop("base-text", "string"));
+assert(has_prop("aliased", "string"));
+assert(has_prop("record", "{ a: int,b: string,}"));
+
+auto value = [&](const char *name) { return widget.declared_property_value(name); };
+assert_eq(value("flag").value(), "true");
+assert_eq(value("ratio").value(), "0.5");
+assert_eq(value("big").value(), "0.1");
+assert_eq(value("len").value(), "12");
+assert_eq(value("dur").value(), "250");
+assert_eq(value("ang").value(), "90");
+assert_eq(value("pct").value(), "25");
+assert_eq(value("tint").value(), "#112233ff");
+assert_eq(value("solid").value(), "#445566ff");
+assert_eq(value("mood").value(), "grumpy");
+assert_eq(value("extra").value(), "8");
+assert_eq(value("base-text").value(), "from-base");
+assert_eq(value("aliased").value(), "hello");
+// A struct value has no string encoding; the property is only listed.
+assert(!value("record").has_value());
+// Unknown or optimized-out names read as nullopt; private declarations are not listed.
+assert(!value("gone-unread").has_value());
+assert(!value("use-site-private").has_value());
+assert(!value("no-such-property").has_value());
+
+auto rows = slint::testing::ElementHandle::find_by_element_type_name(handle, "Row");
+assert_eq(rows.size(), 2);
+assert_eq(rows[0].declared_property_value("selected").value(), "true");
+assert_eq(rows[1].declared_property_value("selected").value(), "false");
+
+handle->set_toggle(false);
+assert_eq(value("flag").value(), "false");
+assert_eq(value("len").value(), "13");
+assert_eq(value("mood").value(), "happy");
+assert_eq(value("big").value(), "100000000000000000000");
+```
+*/
