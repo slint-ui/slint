@@ -135,7 +135,7 @@ fn check_caret_line(line: &str) -> Result<(), String> {
 /// measured on it. Fails when a point sits in a column a caret cannot
 /// reach, which is why a case states such a point in its ```` ```coverage ````
 /// block instead.
-pub fn annotate(source: &str, lines: &BTreeMap<usize, Vec<Entry>>) -> Result<String, String> {
+fn annotate(source: &str, lines: &BTreeMap<usize, Vec<Entry>>) -> Result<String, String> {
     let mut out = String::with_capacity(source.len());
     for (i, line) in source.split_inclusive('\n').enumerate() {
         let (line, newline) = match line.strip_suffix('\n') {

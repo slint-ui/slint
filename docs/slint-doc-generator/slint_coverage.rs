@@ -289,8 +289,8 @@ fn write_summary(out: &mut impl Write, files: &Files, sha: &str) -> std::io::Res
     Ok(())
 }
 
-/// The page of one file: its source with the points measured on each line,
-/// and a table naming every point.
+/// The page of one file: its source, annotated with what the runs measured
+/// on each line.
 fn write_source_page(
     cfg: &Config,
     file: &FileCoverage,
@@ -319,42 +319,109 @@ Points reached: {points}. Branch outcomes taken: {branches}."#,
 
     let source = std::fs::read_to_string(crate::root_dir().join(&file.path))
         .with_context(|| format!("error reading {}", file.path))?;
+    writeln!(
+        out,
+        "\nEach line shows its number, the count the coverage reports for it, and the source.\n\
+         A line holding several points, or a decision, names them below itself at their columns.\n\
+         A line with a point no run reached is marked."
+    )?;
     write_source(&mut out, file, &source)?;
-
-    writeln!(out, "\n## Points\n\n| Line | Column | Point | Count |\n| --- | --- | --- | --- |")?;
-    for (line, entries) in &file.lines {
-        for entry in entries {
-            for (what, count) in entry.items() {
-                writeln!(out, "| {line} | {} | {} | {count} |", entry.column(), cell(&what))?;
-            }
-        }
-    }
     Ok(())
 }
 
-/// The source, with a caret line under every line that holds points: `^+`
-/// where a run reached the point and `^-` where none did, and for a
-/// decision the status of its true and its false outcome. This is the
-/// notation the cases state their coverage in, so the page and the source
-/// read the same way.
+/// The source as a coverage report reads: a gutter of the line number and
+/// the line's count, then the line, and the lines holding a point no run
+/// reached marked. A line whose count doesn't account for what is on it --
+/// several points, or a decision, whose outcomes count towards the branches
+/// and not towards the line -- carries a note naming each point.
 fn write_source(out: &mut impl Write, file: &FileCoverage, source: &str) -> std::io::Result<()> {
-    let annotated = slint_sc_coverage::expectations::annotate(source, &file.lines);
-    // A point in one of the first columns leaves no room for a caret; the
-    // Points table below the source states those either way.
-    let legend = if annotated.is_ok() {
-        "\nA `//#c` line marks the points of the line above it, `^+` where a run reached the point and `^-` where none did.\n\
-         A decision carries the status of its true and of its false outcome, like `^+-`.\n"
-    } else {
-        ""
-    };
-    let body = annotated.as_deref().unwrap_or(source);
-    let fence = fence(body);
-    writeln!(out, "{legend}\n{fence}slint\n{}\n{fence}", body.trim_end())
+    let lines: Vec<&str> = source.lines().collect();
+    let rendered: Vec<(String, Option<String>)> = lines
+        .iter()
+        .enumerate()
+        .map(|(i, text)| {
+            let entries = file.lines.get(&(i + 1));
+            (line_count(entries), note(entries, i + 1, text))
+        })
+        .collect();
+
+    // Right-aligned like any coverage report, each column wide enough for
+    // the largest number in it.
+    let numbers = lines.len().to_string().len().max(4);
+    let counts = rendered.iter().map(|(count, _)| count.len()).max().unwrap_or(0).max(5);
+
+    // The marked lines are numbered within the block, which the notes shift.
+    let mut marked = Vec::new();
+    let mut in_block = 0;
+    for (i, (_, note)) in rendered.iter().enumerate() {
+        in_block += 1;
+        if unreached(file.lines.get(&(i + 1))) {
+            marked.push(in_block.to_string());
+        }
+        in_block += usize::from(note.is_some());
+    }
+    let mark =
+        if marked.is_empty() { String::new() } else { format!(" del={{{}}}", marked.join(",")) };
+
+    let fence = fence(source);
+    writeln!(out, "\n{fence}text{mark}")?;
+    for (i, (text, (count, note))) in lines.iter().zip(&rendered).enumerate() {
+        writeln!(out, "{:>numbers$}|{count:>counts$}|{text}", i + 1)?;
+        if let Some(note) = note {
+            writeln!(out, "{:>numbers$}|{:>counts$}|{note}", "", "")?;
+        }
+    }
+    writeln!(out, "{fence}")
+}
+
+/// Whether a point on the line was never reached, which is what marks it.
+fn unreached(entries: Option<&Vec<Entry>>) -> bool {
+    entries.into_iter().flatten().flat_map(Entry::items).any(|(_, count)| count == 0)
+}
+
+/// The count of a line, as the lcov of the same run reports it: how often
+/// the points on it were reached. A line with none is blank, like a line
+/// that holds no code in a coverage report.
+fn line_count(entries: Option<&Vec<Entry>>) -> String {
+    let points: Vec<&Entry> =
+        entries.into_iter().flatten().filter(|e| matches!(e, Entry::Point { .. })).collect();
+    if points.is_empty() {
+        return String::new();
+    }
+    points.iter().flat_map(|e| e.items()).map(|(_, count)| count).sum::<u64>().to_string()
+}
+
+/// What sits on a line, when its count doesn't say: each point at its
+/// location, `binding both (12:31): 4, branch && (12:35): [true: 2, false:
+/// 2]`, indented under the code.
+fn note(entries: Option<&Vec<Entry>>, line: usize, text: &str) -> Option<String> {
+    let entries = entries?;
+    let decides = |e: &Entry| matches!(e, Entry::Decision { .. });
+    if entries.len() < 2 && !entries.iter().any(decides) {
+        return None;
+    }
+    let indent = &text[..text.len() - text.trim_start().len()];
+    let named: Vec<String> = entries.iter().map(|entry| described(entry, line)).collect();
+    Some(format!("{indent}{}", named.join(", ")))
+}
+
+/// One point of a note. A decision keeps its outcomes together, the way
+/// `llvm-cov` states a branch.
+fn described(entry: &Entry, line: usize) -> String {
+    match entry {
+        Entry::Point { column, label, count } => format!("{label} ({line}:{column}): {count}"),
+        Entry::Decision { column, operator, counts } => {
+            format!(
+                "branch {operator} ({line}:{column}): [true: {}, false: {}]",
+                counts[0], counts[1]
+            )
+        }
+    }
 }
 
 /// A code fence longer than the longest run of backticks in the source, so
-/// that a case carrying a code block of its own -- every case ends in one,
-/// holding the Rust of the test -- doesn't close the block early.
+/// that a case carrying a code block of its own doesn't close the block
+/// early.
 fn fence(source: &str) -> String {
     let longest = source.split(|c| c != '`').map(str::len).max().unwrap_or(0);
     "`".repeat(longest.saturating_add(1).max(3))
@@ -415,19 +482,37 @@ mod tests {
     }
 
     #[test]
-    fn source_page_marks_the_points() {
-        let source = "Window {\n    property <int> p: c ? 1 : 2;\n}\n";
+    fn source_reads_as_a_coverage_report() {
+        let source = "Window {\n    property <int> p: c ? 1 : 2;\n    x: 1px;\n}\n";
         let file = FileCoverage {
             path: "cases/a.slint".into(),
-            lines: BTreeMap::from([(2, vec![point(23, "binding p", 3), decision(25, [3, 0])])]),
+            lines: BTreeMap::from([
+                (1, vec![point(1, "element Window", 2)]),
+                (2, vec![point(23, "binding p", 3), decision(25, [3, 0])]),
+            ]),
         };
         let mut out = Vec::new();
         write_source(&mut out, &file, source).unwrap();
         let out = String::from_utf8(out).unwrap();
-        // The caret sits under the point it describes: the binding was
-        // evaluated, and its decision never took the false outcome.
-        assert!(out.contains("\n//#c                  ^+^+-\n"), "{out}");
-        assert!(out.contains("```slint\n"), "{out}");
+        // The body starts after the blank line and the opening fence.
+        let line = |n: usize| out.lines().nth(n + 2).unwrap();
+
+        // Gutter of the line number and the line's count, then the source.
+        assert_eq!(line(0), "   1|    2|Window {");
+        // A decision's outcomes count towards the branches, so the line's
+        // count is its binding's alone and a note attributes the rest.
+        assert_eq!(line(1), "   2|    3|    property <int> p: c ? 1 : 2;");
+        assert_eq!(
+            line(2),
+            "    |     |    binding p (2:23): 3, branch ? (2:25): [true: 3, false: 0]"
+        );
+        // A line with no point has no count, like any coverage report.
+        assert_eq!(line(3), "   3|     |    x: 1px;");
+        // One point that isn't a decision needs no note: the count is its own.
+        assert!(!out.contains("element Window ("), "{out}");
+        // The line whose decision never took an outcome is marked, numbered
+        // within the block, where the note of line 2 shifts what follows.
+        assert!(out.starts_with("\n```text del={2}\n"), "{out}");
     }
 
     #[test]
@@ -442,7 +527,7 @@ mod tests {
         let mut out = Vec::new();
         write_source(&mut out, &file, source).unwrap();
         let out = String::from_utf8(out).unwrap();
-        assert!(out.contains("````slint\n"), "{out}");
+        assert!(out.contains("````text\n"), "{out}");
         assert!(out.trim_end().ends_with("\n````"), "{out}");
         // The case's own block is left as it is, inside the longer fence.
         assert!(out.contains("```rust\n"), "{out}");
