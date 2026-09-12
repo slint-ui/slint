@@ -139,6 +139,45 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     }
 }
 
+/// Tokens evaluating to `Option<SharedString>`: the value expression encoded per
+/// `i_slint_core::debug_info`, or `None` for a type without a debug encoding.
+fn element_property_value_tokens(
+    ty: &Type,
+    value: proc_macro2::TokenStream,
+) -> Option<proc_macro2::TokenStream> {
+    Some(match ty {
+        Type::Bool => quote!(sp::Some(sp::debug_info::format_bool(#value))),
+        Type::Int32 | Type::Duration => {
+            quote!(sp::Some(sp::debug_info::format_integer(#value as i64)))
+        }
+        Type::Float32
+        | Type::Angle
+        | Type::Percent
+        | Type::Rem
+        | Type::PhysicalLength
+        | Type::LogicalLength => quote!(sp::Some(sp::debug_info::format_float(#value as f32))),
+        Type::String => quote!(sp::Some(#value)),
+        Type::Color => quote!(sp::Some(sp::debug_info::format_color(#value))),
+        Type::Brush => quote!(sp::debug_info::format_brush(&(#value))),
+        Type::Enumeration(e) => {
+            let enum_ty = rust_primitive_type(ty)?;
+            let arms = e.values.iter().enumerate().map(|(value, s)| {
+                let variant =
+                    ident(&EnumerationValue { value, enumeration: e.clone() }.to_pascal_case());
+                let s = s.as_str();
+                quote!(#enum_ty::#variant => #s,)
+            });
+            // The catch-all arm covers non_exhaustive builtin enums; an enum value
+            // is never an empty string.
+            quote!({
+                let value_name = match #value { #(#arms)* _ => "" };
+                if value_name.is_empty() { sp::None } else { sp::Some(value_name.into()) }
+            })
+        }
+        _ => return None,
+    })
+}
+
 fn rust_property_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
         Type::LogicalLength => Some(quote!(sp::LogicalLength)),
@@ -1564,6 +1603,30 @@ fn generate_sub_component(
         .map(|(item_index, ids)| quote!(#item_index => { return sp::Some(#ids.into()); }))
         .collect::<Vec<_>>();
 
+    let mut element_declared_properties_branch = component
+        .element_properties
+        .iter()
+        .map(|(item_index, props)| {
+            let encoded: String = props.iter().map(|p| format!("{}:{}\n", p.name, p.ty)).collect();
+            quote!(#item_index => { return sp::Some(#encoded.into()); })
+        })
+        .collect::<Vec<_>>();
+
+    let mut element_property_value_branch = component
+        .element_properties
+        .iter()
+        .map(|(item_index, props)| {
+            let name_arms = props.iter().filter_map(|p| {
+                let name = p.name.as_str();
+                let value =
+                    compile_expression(&Expression::PropertyReference(p.prop.clone()), &ctx);
+                let encoded = element_property_value_tokens(&p.ty, value)?;
+                Some(quote!(#name => #encoded,))
+            });
+            quote!(#item_index => { return match property_name { #(#name_arms)* _ => sp::None }; })
+        })
+        .collect::<Vec<_>>();
+
     let mut user_init_code: Vec<TokenStream> = Vec::new();
 
     let mut sub_component_names: Vec<Ident> = Vec::new();
@@ -1657,6 +1720,12 @@ fn generate_sub_component(
             ));
             item_element_infos_branch.push(quote!(
                 #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_element_infos(index - #range_begin + 1),
+            ));
+            element_declared_properties_branch.push(quote!(
+                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_declared_properties(index - #range_begin + 1),
+            ));
+            element_property_value_branch.push(quote!(
+                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_property_value(index - #range_begin + 1, property_name),
             ));
         }
 
@@ -2042,6 +2111,24 @@ fn generate_sub_component(
                 let _self = self;
                 match index {
                     #(#item_element_infos_branch)*
+                    _ => { ::core::default::Default::default() }
+                }
+            }
+
+            fn element_declared_properties(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
+                #![allow(unused)]
+                let _self = self;
+                match index {
+                    #(#element_declared_properties_branch)*
+                    _ => { ::core::default::Default::default() }
+                }
+            }
+
+            fn element_property_value(self: ::core::pin::Pin<&Self>, index: u32, property_name: &str) -> sp::Option<sp::SharedString> {
+                #![allow(unused, unreachable_patterns)]
+                let _self = self;
+                match index {
+                    #(#element_property_value_branch)*
                     _ => { ::core::default::Default::default() }
                 }
             }
@@ -2464,6 +2551,31 @@ fn generate_item_tree(
         quote!(false)
     };
 
+    let element_declared_properties_body = if root.has_debug_info {
+        quote!(
+            *_result = self.element_declared_properties(_index).unwrap_or_default();
+            true
+        )
+    } else {
+        quote!(false)
+    };
+
+    let element_property_value_body = if root.has_debug_info {
+        quote!(
+            let sp::Ok(name) = ::core::str::from_utf8(_property_name.as_slice()) else {
+                return false;
+            };
+            if let sp::Some(r) = self.element_property_value(_index, name) {
+                *_result = r;
+                true
+            } else {
+                false
+            }
+        )
+    } else {
+        quote!(false)
+    };
+
     // SystemTrayIcon-only compilation units don't have a `WindowAdapter` on
     // SharedGlobals, so the per-tree register / unregister / vtable hooks
     // skip the adapter-touching paths and bottom out at None. Without a
@@ -2702,6 +2814,23 @@ fn generate_item_tree(
                 _result: &mut sp::SharedString,
             ) -> bool {
                 #element_info_body
+            }
+
+            fn element_declared_properties(
+                self: ::core::pin::Pin<&Self>,
+                _index: u32,
+                _result: &mut sp::SharedString,
+            ) -> bool {
+                #element_declared_properties_body
+            }
+
+            fn element_property_value(
+                self: ::core::pin::Pin<&Self>,
+                _index: u32,
+                _property_name: sp::Slice<'_, u8>,
+                _result: &mut sp::SharedString,
+            ) -> bool {
+                #element_property_value_body
             }
 
             fn window_adapter(

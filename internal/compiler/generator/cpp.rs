@@ -2101,6 +2101,34 @@ fn generate_item_tree(
         }),
     ));
 
+    // Stubs until the C++ generator implements declared-property introspection;
+    // returning false reports "unsupported" through the vtable's tri-state contract.
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "element_declared_properties".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] slint::SharedString *result) -> bool"
+                    .into(),
+            is_static: true,
+            statements: Some(vec!["return false;".into()]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "element_property_value".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] slint::cbindgen_private::Slice<uint8_t> property_name, [[maybe_unused]] slint::SharedString *result) -> bool"
+                    .into(),
+            is_static: true,
+            statements: Some(vec!["return false;".into()]),
+            ..Default::default()
+        }),
+    ));
+
     let window_adapter_vtable_statements = if needs_window_adapter {
         vec![format!(
             "*reinterpret_cast<slint::private_api::WindowAdapterRc*>(result) = reinterpret_cast<const {item_tree_class_name}*>(component.instance)->globals->window().window_handle();"
@@ -2142,7 +2170,8 @@ fn generate_item_tree(
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
                 ensure_instantiated, \
                 item_geometry, accessible_role, accessible_string_property, accessibility_action, \
-                supported_accessibility_actions, element_infos, window_adapter, \
+                supported_accessibility_actions, element_infos, \
+                element_declared_properties, element_property_value, window_adapter, \
                 slint::private_api::drop_in_place<{item_tree_class_name}>, slint::private_api::dealloc }}"
         )),
         ..Default::default()
