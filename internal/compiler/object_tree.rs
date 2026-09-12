@@ -895,6 +895,20 @@ fn from_base(mut r: PropertyLookupResult<'_>) -> PropertyLookupResult<'_> {
     r
 }
 
+fn implement_is_allowed(node: &syntax_nodes::Element) -> bool {
+    let mut candidate = node.parent();
+    while let Some(declaration) = candidate {
+        if declaration.kind() == SyntaxKind::Component {
+            return !matches!(
+                declaration.child_text(SyntaxKind::Identifier).as_deref(),
+                Some("global" | "interface")
+            );
+        }
+        candidate = declaration.parent();
+    }
+    true
+}
+
 fn disallow_non_member_content(
     node: &syntax_nodes::Element,
     declaration: &ElementType,
@@ -910,6 +924,7 @@ fn disallow_non_member_content(
     };
     node.SubElement().for_each(|n| error_on(&n, "sub elements"));
     node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
+    node.ConditionalElement().for_each(|n| error_on(&n, "sub elements"));
     if let Some(n) = node.ChildrenPlaceholder() {
         error_on(&n, "sub elements");
     }
@@ -1698,15 +1713,25 @@ impl Element {
                     ElementType::Error
                 }
                 Ok(ElementType::Component(c)) if c.is_interface() => {
-                    let message = if is_component_root {
-                        "Components cannot inherit from interfaces".into()
+                    if is_component_root {
+                        diag.push_error(
+                            "Components cannot inherit from interfaces".into(),
+                            &base_node,
+                        );
+                    } else if implement_is_allowed(&node) {
+                        diag.push_error(
+                            format!(
+                                "Cannot create an instance of an interface; write 'implement {} <=> self;' to implement it",
+                                c.id
+                            ),
+                            &base_node,
+                        );
                     } else {
-                        format!(
-                            "Cannot create an instance of an interface; write 'implement {} <=> self;' to implement it",
-                            c.id
-                        )
-                    };
-                    diag.push_error(message, &base_node);
+                        debug_assert!(
+                            diag.has_errors(),
+                            "`disallow_non_member_content` should have caught the other cases"
+                        );
+                    }
                     ElementType::Error
                 }
                 Ok(ty) => {

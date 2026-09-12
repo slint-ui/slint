@@ -12,6 +12,8 @@ export interface InvalidContent {
 //  >           <error{An interface cannot have sub elements}
     for x in 2: Text { }
 //  >                  <error{An interface cannot have sub elements}
+    if true: Text { }
+//  >               <error{An interface cannot have sub elements}
 
     animate i { duration: 100ms; }
 //  >                            <error{An interface cannot have animations}
@@ -114,4 +116,10 @@ export component ComponentInheritsInterface inherits Other {
 export component ComponentInstantiatesInterface {
     Other { }
 //  >    <error{Cannot create an instance of an interface; write 'implement Other <=> self;' to implement it}
+}
+
+// A global cannot implement an interface, so the hint has nothing to suggest there.
+global GlobalInstantiatesInterface {
+    Other { }
+//  >       <error{A global component cannot have sub elements}
 }
