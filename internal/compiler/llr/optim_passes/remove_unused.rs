@@ -82,6 +82,10 @@ pub fn remove_unused(root: &mut CompilationUnit) {
             keep(x)
         });
         sc.animations.retain(|x, _| keep(&x.clone().into()));
+        for props in sc.element_properties.values_mut() {
+            props.retain(|p| keep(&p.prop));
+        }
+        sc.element_properties.retain(|_, v| !v.is_empty());
     }
     for (idx, g) in root.globals.iter_mut_enumerated() {
         g.init_values.retain(|x, _| mappings.glob_mappings[idx].keep(x));
@@ -339,6 +343,7 @@ mod visitor {
             grid_layout_children,
             accessible_prop,
             element_infos: _,
+            element_properties,
             row_child_templates: _,
             prop_analysis,
             debug_info: _,
@@ -467,6 +472,10 @@ mod visitor {
 
         for a in accessible_prop.values_mut() {
             visit_expression(a.get_mut(), &scope, state, visitor);
+        }
+
+        for p in element_properties.values_mut().flatten() {
+            visit_member_reference(&mut p.prop, &scope, state, visitor);
         }
 
         *prop_analysis = std::mem::take(prop_analysis)

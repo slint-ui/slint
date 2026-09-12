@@ -145,6 +145,29 @@ pub struct ItemTreeVTable {
         result: &mut SharedString,
     ) -> bool,
 
+    /// Writes the names and types of the given item's declared properties into `result`,
+    /// one `name:type` pair per line.
+    /// Returns false when the item tree carries no declared-property debug info
+    /// (built without `SLINT_EMIT_DEBUG_INFO`).
+    /// An empty `result` with a true return means the item declares no readable property.
+    pub element_declared_properties: extern "C" fn(
+        ::core::pin::Pin<VRef<ItemTreeVTable>>,
+        item_index: u32,
+        result: &mut SharedString,
+    ) -> bool,
+
+    /// Writes the current value of the given item's declared property `property_name`
+    /// (UTF-8 encoded) into `result`, in the encoding of [`crate::debug_info`].
+    /// Returns false when the property does not exist,
+    /// its value has no debug encoding,
+    /// or the item tree carries no declared-property debug info.
+    pub element_property_value: extern "C" fn(
+        ::core::pin::Pin<VRef<ItemTreeVTable>>,
+        item_index: u32,
+        property_name: Slice<u8>,
+        result: &mut SharedString,
+    ) -> bool,
+
     /// Returns a Window, creating a fresh one if `do_create` is true.
     pub window_adapter: extern "C" fn(
         ::core::pin::Pin<VRef<ItemTreeVTable>>,
@@ -598,6 +621,39 @@ impl ItemRc {
                 })
                 .collect()
         })
+    }
+
+    /// The properties declared on this item's element and its base components,
+    /// as `(name, type)` pairs.
+    /// `None` when the item tree carries no declared-property debug info.
+    pub fn element_declared_properties(&self) -> Option<Vec<(SharedString, SharedString)>> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        let mut result = SharedString::new();
+        comp_ref_pin.as_ref().element_declared_properties(self.index, &mut result).then(|| {
+            result
+                .as_str()
+                .lines()
+                .filter(|line| !line.is_empty())
+                .map(|line| {
+                    let (name, ty) = line.split_once(':').unwrap_or((line, ""));
+                    (name.into(), ty.into())
+                })
+                .collect()
+        })
+    }
+
+    /// The current value of the declared property `name` on this item's element,
+    /// in the string encoding of [`crate::debug_info`].
+    /// `None` when the property does not exist,
+    /// its value has no debug encoding,
+    /// or the item tree carries no declared-property debug info.
+    pub fn element_property_value(&self, name: &str) -> Option<SharedString> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        let mut result = SharedString::new();
+        comp_ref_pin
+            .as_ref()
+            .element_property_value(self.index, Slice::from_slice(name.as_bytes()), &mut result)
+            .then_some(result)
     }
 
     pub fn element_layout_kind(&self, element_index: usize) -> Option<SharedString> {
@@ -1863,6 +1919,19 @@ mod tests {
             false
         }
 
+        fn element_declared_properties(self: Pin<&Self>, _: u32, _: &mut SharedString) -> bool {
+            false
+        }
+
+        fn element_property_value(
+            self: Pin<&Self>,
+            _: u32,
+            _: Slice<u8>,
+            _: &mut SharedString,
+        ) -> bool {
+            false
+        }
+
         fn window_adapter(
             self: Pin<&Self>,
             _do_create: bool,
@@ -2829,6 +2898,23 @@ mod tests {
         }
 
         fn item_element_infos(self: Pin<&Self>, _index: u32, _result: &mut SharedString) -> bool {
+            false
+        }
+
+        fn element_declared_properties(
+            self: Pin<&Self>,
+            _index: u32,
+            _result: &mut SharedString,
+        ) -> bool {
+            false
+        }
+
+        fn element_property_value(
+            self: Pin<&Self>,
+            _index: u32,
+            _property_name: Slice<u8>,
+            _result: &mut SharedString,
+        ) -> bool {
             false
         }
 

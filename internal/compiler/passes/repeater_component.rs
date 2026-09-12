@@ -43,6 +43,9 @@ fn create_repeater_components(component: &Rc<Component>) {
                 bindings: std::mem::take(&mut original_elem.bindings),
                 change_callbacks: std::mem::take(&mut original_elem.change_callbacks),
                 property_analysis: std::mem::take(&mut original_elem.property_analysis),
+                moved_property_declarations: std::mem::take(
+                    &mut original_elem.moved_property_declarations,
+                ),
                 children: std::mem::take(&mut original_elem.children),
                 property_declarations: std::mem::take(&mut original_elem.property_declarations),
                 shadowing_members: std::mem::take(&mut original_elem.shadowing_members),
