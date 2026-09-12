@@ -9,7 +9,7 @@ component ColorSlider inherits Rectangle {
     in property <float> position;
     in property <bool> enabled;
     in property <bool> dragging;
-    in property <color> thumb-shadow: transparent;
+    in property <color> thumb-shadow;
     callback started();
     callback moved(float);
     callback finished();
@@ -38,13 +38,11 @@ component ColorSlider inherits Rectangle {
     }
     Rectangle {
         x: root.position * parent.width - 7px;
-        y: 1px;
         width: 14px;
         height: 14px;
         border-radius: 7px;
         border-width: 2px;
         border-color: white;
-        background: transparent;
         drop-shadow-color: root.thumb-shadow;
         drop-shadow-blur: 2px;
     }
@@ -163,7 +161,6 @@ export component InspectorColorControls inherits Rectangle {
                 border-radius: 6px;
                 border-width: 2px;
                 border-color: white;
-                background: transparent;
                 drop-shadow-color: #00000080;
                 drop-shadow-blur: 3px;
             }
@@ -200,12 +197,10 @@ export component InspectorColorControls inherits Rectangle {
             Rectangle {
                 for row in 2: Rectangle {
                     y: row * 8px;
-                    width: 100%;
                     height: 8px;
                     for col in ceil(parent.width / 8px): Rectangle {
                         x: col * 8px;
                         width: 8px;
-                        height: 8px;
                         background: (row + col).mod(2) == 0 ? InspectorTokens.panel-bg : InspectorTokens.field-border;
                     }
                 }
@@ -224,7 +219,6 @@ export component InspectorColorControls inherits Rectangle {
                 enabled: root.editable;
                 value: Api.color-to-data(root.working-color).text;
                 commit-key: root.session-key;
-                horizontal-stretch: 1;
                 accepted(text) => { return root.commit-text(text); }
             }
             HorizontalLayout {

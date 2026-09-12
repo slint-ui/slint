@@ -230,6 +230,16 @@ export struct GradientStop {
     color: color,
 }
 
+export struct LinearGradientAxis {
+    start: Point,
+    end: Point,
+}
+
+export struct GradientStopOrder {
+    indices: [int],
+    selected: int,
+}
+
 export struct FillData {
     kind: BrushKind,
     color: color,
@@ -723,6 +733,7 @@ export global Api {
     callback inspector-cancel();
     callback inspector-fill-preview(key: string, name: string, value: FillData) -> bool;
     callback inspector-fill-commit(key: string, name: string, value: FillData) -> bool;
+    callback dismiss-fill-picker(position: Point, button: PointerEventButton);
 
     // ## Property Editor
     pure callback test-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
@@ -734,6 +745,19 @@ export global Api {
 
     pure callback fill-brush(value: FillData) -> brush;
     pure callback fill-expression(value: FillData) -> string;
+    pure callback linear-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
+    pure callback radial-gradient-axis(value: FillData, size: Size, direction: float) -> LinearGradientAxis;
+    pure callback remap-radial-gradient(value: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
+    pure callback conic-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
+    pure callback remap-conic-gradient(value: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
+    pure callback conic-gradient-point(axis: LinearGradientAxis, position: float) -> Point;
+    pure callback conic-gradient-position(axis: LinearGradientAxis, point: Point) -> float;
+    pure callback gradient-angular-delta(center: Point, previous: Point, next: Point) -> float;
+    pure callback gradient-axis-point(axis: LinearGradientAxis, position: float) -> Point;
+    pure callback gradient-axis-position(axis: LinearGradientAxis, point: Point) -> float;
+    pure callback linear-gradient-point(angle: float, size: Size, position: float) -> Point;
+    pure callback linear-gradient-position(angle: float, size: Size, point: Point) -> float;
+    pure callback remap-linear-gradient(value: FillData, size: Size, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
 
 
     // ## preview data
@@ -749,11 +773,11 @@ export global Api {
 
     pure callback sample-fill-stop(fill: FillData, position: float) -> GradientStop;
     pure callback nearest-gradient-stop(stops: [GradientStop], position: float) -> int;
+    pure callback nearest-conic-gradient-stop(stops: [GradientStop], position: float) -> int;
     pure callback gradient-stop-gap(stops: [GradientStop]) -> float;
     pure callback add-gradient-stop(stops: [GradientStop], value: GradientStop) -> int;
     pure callback remove-gradient-stop(stops: [GradientStop], row: int);
-    // returns the new index of the gradient stop in the sorted list of GradientStops
-    pure callback move-gradient-stop(stops: [GradientStop], row: int, new_position: float) -> int;
+    pure callback gradient-stop-order(stops: [GradientStop], selected: int) -> GradientStopOrder;
     pure callback clone-gradient-stops(stops: [GradientStop]) -> [GradientStop];
 
     pure callback create-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> brush;

@@ -4,11 +4,15 @@
 import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, Hover } from "api.slint";
+import { InspectorFillPicker } from "components/inspector/fill-picker.slint";
+import { FillSession } from "components/inspector/fill-session.slint";
+export { FillSessionRequest, FillSessionTarget } from "components/inspector/fill-session.slint";
 import { Project } from "project.slint";
 import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
 import { AppState, ElementKind, SidebarToggleButton, StudioTheme } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
+import { GradientOverlay } from "components/gradient-overlay.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { EditorTopBar } from "components/top-bar.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
@@ -17,7 +21,7 @@ import { LeftPane } from "components/left-pane.slint";
 import { EditorMetrics } from "components/common.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
-export { Api, Hover, Preview, Project }
+export { Api, Hover, Preview, Project, FillSession }
 export { EditorCursors, EditorMetrics } from "components/common.slint";
 
 export component EditorUi inherits Window {
@@ -57,14 +61,7 @@ export component EditorUi inherits Window {
         root.close-startup-wizard();
     }
     function apply-history(redo: bool) {
-        Api.inspector-cancel();
-        Api.inspector-generation += 1;
-        Api.inspector-fill-generation += 1;
-        if redo {
-            if Api.redo-enabled { Api.redo(); }
-        } else {
-            if Api.undo-enabled { Api.undo(); }
-        }
+        FillSession.apply-history(redo);
     }
 
     MenuBar {
@@ -254,6 +251,24 @@ export component EditorUi inherits Window {
         }
 
         if UpdateStatus.shows-bar(): UpdateStatusBar { }
+    }
+
+    fill-layer := TouchArea {
+        visible: FillSession.open;
+        enabled: FillSession.open;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                Api.dismiss-fill-picker({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y }, event.button);
+            }
+        }
+        if FillSession.canvas-active: GradientOverlay {
+            x: FillSession.canvas-origin.x - fill-layer.absolute-position.x;
+            y: FillSession.canvas-origin.y - fill-layer.absolute-position.y;
+            width: FillSession.canvas-size.width;
+            height: FillSession.canvas-size.height;
+            selection: FillSession.selection;
+        }
+        InspectorFillPicker { }
     }
 
     if UpdateStatus.in-titlebar() && UpdateStatus.has-news(): UpdateStatusPill {
