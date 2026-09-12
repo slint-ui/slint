@@ -923,6 +923,9 @@ fn duplicate_transition(
                 )
             })
             .collect(),
+        catch_all_property_animation: t.catch_all_property_animation.clone().map(|(loc, anim)| {
+            (loc, duplicate_element_with_mapping(&anim, mapping, root_component, priority_delta))
+        }),
         node: t.node.clone(),
     }
 }

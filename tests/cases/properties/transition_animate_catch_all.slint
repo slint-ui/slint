@@ -1,0 +1,151 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    in-out property <int> idx: 0;
+    in-out property <int> prop_1: 0;
+    in-out property <int> prop_2: 0;
+    in-out property <float> prop_3: 100.0;
+    in-out property <color> prop_4: #000000;
+    in-out property <length> prop_5: 0px;
+    in-out property <bool> not_animatable: false;
+
+    states [
+        a when idx == 1: {
+            prop_1: 100;
+            prop_2: 100;
+            prop_3: 0.0;
+            prop_4: #ffffff;
+            prop_5: 100px;
+            not_animatable: true;
+            in {
+                animate prop_1 { duration: 300ms; }
+                animate * { duration: 100ms; }
+            }
+        }
+    ]
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_prop_1(), 0);
+assert_eq!(instance.get_prop_2(), 0);
+assert_eq!(instance.get_prop_3(), 100.0);
+assert_eq!(instance.get_prop_4(), slint::Color::from_rgb_u8(0x00, 0x00, 0x00));
+assert_eq!(instance.get_prop_5(), 0.0);
+assert!(!instance.get_not_animatable());
+
+instance.set_idx(1);
+assert_eq!(instance.get_prop_1(), 0);
+assert_eq!(instance.get_prop_2(), 0);
+assert_eq!(instance.get_prop_3(), 100.0);
+assert_eq!(instance.get_prop_4(), slint::Color::from_rgb_u8(0x00, 0x00, 0x00));
+assert_eq!(instance.get_prop_5(), 0.0);
+assert!(instance.get_not_animatable()); // switched instantly, not animated
+
+slint_testing::mock_elapsed_time(50); // prop_1: ~17% of 300ms, prop_2/prop_3: 50% of 100ms
+assert_eq!(instance.get_prop_1(), 17);
+assert_eq!(instance.get_prop_2(), 50);
+assert_eq!(instance.get_prop_3(), 50.0);
+assert_eq!(instance.get_prop_4(), slint::Color::from_rgb_u8(0x7f, 0x7f, 0x7f));
+assert_eq!(instance.get_prop_5(), 50.0);
+
+slint_testing::mock_elapsed_time(100); // prop_1: 50% of 300ms, prop_2: past its 100ms
+assert_eq!(instance.get_prop_1(), 50);
+assert_eq!(instance.get_prop_2(), 100);
+assert_eq!(instance.get_prop_3(), 0.0);
+assert_eq!(instance.get_prop_4(), slint::Color::from_rgb_u8(0xff, 0xff, 0xff));
+assert_eq!(instance.get_prop_5(), 100.0);
+
+slint_testing::mock_elapsed_time(150); // prop_1: 100% of 300ms
+assert_eq!(instance.get_prop_1(), 100);
+assert_eq!(instance.get_prop_2(), 100);
+assert_eq!(instance.get_prop_3(), 0.0);
+assert_eq!(instance.get_prop_4(), slint::Color::from_rgb_u8(0xff, 0xff, 0xff));
+assert_eq!(instance.get_prop_5(), 100.0);
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_prop_1(), 0);
+assert_eq(instance.get_prop_2(), 0);
+assert_eq(instance.get_prop_3(), 100.0);
+assert_eq(instance.get_prop_4(), slint::Color::from_rgb_uint8(0x00, 0x00, 0x00));
+assert_eq(instance.get_prop_5(), 0.0);
+assert(!instance.get_not_animatable());
+
+instance.set_idx(1);
+assert_eq(instance.get_prop_1(), 0);
+assert_eq(instance.get_prop_2(), 0);
+assert_eq(instance.get_prop_3(), 100.0);
+assert_eq(instance.get_prop_4(), slint::Color::from_rgb_uint8(0x00, 0x00, 0x00));
+assert_eq(instance.get_prop_5(), 0.0);
+assert(instance.get_not_animatable()); // switched instantly, not animated
+
+slint_testing::mock_elapsed_time(50); // prop_1: ~17% of 300ms, prop_2/prop_3: 50% of 100ms
+assert_eq(instance.get_prop_1(), 17);
+assert_eq(instance.get_prop_2(), 50);
+assert_eq(instance.get_prop_3(), 50.0);
+assert_eq(instance.get_prop_4(), slint::Color::from_rgb_uint8(0x7f, 0x7f, 0x7f));
+assert_eq(instance.get_prop_5(), 50.0);
+
+slint_testing::mock_elapsed_time(100); // prop_1: 50% of 300ms, prop_2: past its 100ms
+assert_eq(instance.get_prop_1(), 50);
+assert_eq(instance.get_prop_2(), 100);
+assert_eq(instance.get_prop_3(), 0.0);
+assert_eq(instance.get_prop_4(), slint::Color::from_rgb_uint8(0xff, 0xff, 0xff));
+assert_eq(instance.get_prop_5(), 100.0);
+
+slint_testing::mock_elapsed_time(150); // prop_1: 100% of 300ms
+assert_eq(instance.get_prop_1(), 100);
+assert_eq(instance.get_prop_2(), 100);
+assert_eq(instance.get_prop_3(), 0.0);
+assert_eq(instance.get_prop_4(), slint::Color::from_rgb_uint8(0xff, 0xff, 0xff));
+assert_eq(instance.get_prop_5(), 100.0);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.prop_1, 0);
+assert.equal(instance.prop_2, 0);
+assert.equal(instance.prop_3, 100.0);
+assert.equal(instance.prop_4.toString(), "#000000");
+assert.equal(instance.prop_5, 0.0);
+assert(!instance.not_animatable);
+
+instance.idx = 1;
+assert.equal(instance.prop_1, 0);
+assert.equal(instance.prop_2, 0);
+assert.equal(instance.prop_3, 100.0);
+assert.equal(instance.prop_4.toString(), "#000000");
+assert.equal(instance.prop_5, 0.0);
+assert(instance.not_animatable); // switched instantly, not animated
+
+slintlib.private_api.mock_elapsed_time(50); // prop_1: ~17% of 300ms, prop_2/prop_3: 50% of 100ms
+assert.equal(instance.prop_1, 17);
+assert.equal(instance.prop_2, 50);
+assert.equal(instance.prop_3, 50.0);
+assert.equal(instance.prop_4.toString(), "#7f7f7f");
+assert.equal(instance.prop_5, 50.0);
+
+slintlib.private_api.mock_elapsed_time(100); // prop_1: 50% of 300ms, prop_2: past its 100ms
+assert.equal(instance.prop_1, 50);
+assert.equal(instance.prop_2, 100);
+assert.equal(instance.prop_3, 0.0);
+assert.equal(instance.prop_4.toString(), "#ffffff");
+assert.equal(instance.prop_5, 100.0);
+
+slintlib.private_api.mock_elapsed_time(150); // prop_1: 100% of 300ms
+assert.equal(instance.prop_1, 100);
+assert.equal(instance.prop_2, 100);
+assert.equal(instance.prop_3, 0.0);
+assert.equal(instance.prop_4.toString(), "#ffffff");
+assert.equal(instance.prop_5, 100.0);
+```
+
+*/
