@@ -265,8 +265,7 @@ fn convert_declared_property_values(element_node: &mut Value) {
                 _ => None,
             },
             "int" | "duration" => value.parse::<i64>().ok().map(Value::from),
-            "float" | "length" | "angle" | "percent" | "relative-font-size"
-            | "physical-length" => {
+            "float" | "length" | "angle" | "percent" | "relative-font-size" | "physical-length" => {
                 value.parse::<f64>().ok().and_then(serde_json::Number::from_f64).map(Value::Number)
             }
             _ => None,
