@@ -408,8 +408,15 @@ pub struct WinitWindowAdapter {
     /// Indicate whether we've ever received a resize event from winit after showing the window.
     pending_resize_event_after_show: Cell<bool>,
 
+    /// Whether the current winit window has presented a frame.
+    first_frame_presented: Cell<bool>,
+
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
+
+    /// Set while a shown window waits for its first frame, see [`crate::macos::RevealOnFirstFrame`].
+    #[cfg(target_os = "macos")]
+    reveal_on_first_frame: RefCell<Option<crate::macos::RevealOnFirstFrame>>,
 
     #[cfg(any(enable_accesskit, muda))]
     event_loop_proxy: EventLoopProxy<SlintEvent>,
@@ -481,9 +488,12 @@ impl WinitWindowAdapter {
             physical_size_before_scale_factor: Cell::new(None),
             has_explicit_size: Default::default(),
             pending_resize_event_after_show: Default::default(),
+            first_frame_presented: Default::default(),
             renderer,
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
+            #[cfg(target_os = "macos")]
+            reveal_on_first_frame: Default::default(),
             #[cfg(any(enable_accesskit, muda))]
             event_loop_proxy: proxy,
             window_event_filter: Cell::new(None),
@@ -603,6 +613,7 @@ impl WinitWindowAdapter {
 
         let winit_window =
             self.renderer.resume(active_event_loop, window_attributes, self.self_weak.clone())?;
+        self.first_frame_presented.set(false);
 
         // Push the host shell's color scheme and accent color to the SlintContext.
         // With `xdg_desktop_settings` the backend-wide portal watcher (spawned in
@@ -839,7 +850,15 @@ impl WinitWindowAdapter {
         }
 
         let renderer = self.renderer();
-        if !matches!(renderer.render(self.window())?, DrawOutcome::Success) {
+        let outcome = renderer.render(self.window());
+        // A timeout or an error ends the wait as well, so that the window can't stay invisible.
+        #[cfg(target_os = "macos")]
+        if !matches!(outcome, Ok(DrawOutcome::Occluded | DrawOutcome::Skipped)) {
+            self.reveal_on_first_frame.take();
+        }
+        if matches!(outcome?, DrawOutcome::Success) {
+            self.first_frame_presented.set(true);
+        } else {
             // Frame was skipped (e.g. surface occluded). pending_redraw was already
             // cleared above, so re-arm it so we try again.
             self.request_redraw();
@@ -1536,8 +1555,15 @@ impl WinitWindowAdapter {
                 });
                 self.update_accent_color();
             }
-            WinitWindowEvent::Occluded(x) => {
-                self.renderer.occluded(x);
+            WinitWindowEvent::Occluded(occluded) => {
+                self.renderer.occluded(occluded);
+
+                // wgpu hands out no drawable while the window isn't visible, see
+                // `macos::RevealOnFirstFrame`. Draw now instead of at the next display link tick.
+                #[cfg(target_os = "macos")]
+                if !occluded && self.pending_redraw.get() {
+                    self.draw()?;
+                }
 
                 // Same hack as in the Resized arm above, so that we handle Minimized changes
                 self.window_state_event();
@@ -1641,10 +1667,13 @@ impl WinitWindowAdapter {
             // Pre-render the first frame before mapping the window to avoid a flash of
             // uninitialized VRAM on X11 (no background_pixmap). Skipped on Wayland, where
             // rendering before the initial configure makes the compositor mis-size the window.
-            if matches!(visibility, WindowVisibility::ShownFirstTime)
-                && !self.shared_backend_data.is_wayland
-            {
+            if !self.first_frame_presented.get() && !self.shared_backend_data.is_wayland {
                 let _ = self.draw();
+                #[cfg(target_os = "macos")]
+                if !self.first_frame_presented.get() {
+                    *self.reveal_on_first_frame.borrow_mut() =
+                        crate::macos::RevealOnFirstFrame::new(&winit_window);
+                }
             }
 
             winit_window.set_visible(true);
@@ -1697,6 +1726,11 @@ impl WinitWindowAdapter {
             if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
                 existing_blinker.stop();
             }*/
+
+            // After the window is ordered out, so that the reveal can't show it.
+            #[cfg(target_os = "macos")]
+            self.reveal_on_first_frame.take();
+
             Ok(())
         }
     }
