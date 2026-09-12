@@ -8,6 +8,7 @@ mod element_docs;
 mod headless;
 mod mdx;
 mod screenshots;
+mod slint_coverage;
 mod test_results;
 mod traceability;
 
@@ -37,6 +38,12 @@ struct Cli {
     /// and link its per-line pages from the Test Coverage chapter.
     #[arg(long, value_name = "DIR", requires = "coverage_json")]
     coverage_html: Option<PathBuf>,
+
+    /// Report the coverage of the `.slint` test cases in the safety manual's
+    /// Slint Code Coverage chapter, from the per-case measurements the test
+    /// driver kept in this directory. Without it the chapter is a placeholder.
+    #[arg(long, value_name = "DIR")]
+    slint_coverage: Option<PathBuf>,
 
     /// Report the test outcomes collected in this directory by
     /// scripts/slint_sc_test_suite.sh in the safety manual's Test Results
@@ -96,6 +103,10 @@ pub struct Config {
     /// `cargo llvm-cov report --html` report to ship with the manual for
     /// per-line detail.
     pub coverage_html: Option<PathBuf>,
+    /// Per-case measurements of the `.slint` test cases, kept by the test
+    /// driver, to report in the safety manual's Slint Code Coverage chapter;
+    /// without them the chapter is a placeholder.
+    pub slint_coverage: Option<PathBuf>,
     /// Test outcomes collected by scripts/slint_sc_test_suite.sh, for the
     /// safety manual's Test Results chapter; without them the chapter is a
     /// placeholder.
@@ -118,6 +129,7 @@ impl Config {
             include_experimental,
             coverage_json: None,
             coverage_html: None,
+            slint_coverage: None,
             test_results: None,
         }
     }
@@ -131,6 +143,7 @@ impl Config {
             include_experimental,
             coverage_json: None,
             coverage_html: None,
+            slint_coverage: None,
             test_results: None,
         }
     }
@@ -145,15 +158,18 @@ impl Config {
         self.generated_dir.join("qualification-report")
     }
 
-    /// Create a page of the qualification report, ready for writing.
+    /// Create a page of the qualification report, ready for writing. The
+    /// name may carry directories, for a chapter that writes a page per
+    /// file of what it reports.
     pub fn qualification_page(
         &self,
         file_name: &str,
     ) -> anyhow::Result<std::io::BufWriter<std::fs::File>> {
         use anyhow::Context;
         let dir = self.qualification_report_dir();
-        std::fs::create_dir_all(&dir).with_context(|| format!("error creating {dir:?}"))?;
         let path = dir.join(file_name);
+        let dir = path.parent().unwrap_or(&dir);
+        std::fs::create_dir_all(dir).with_context(|| format!("error creating {dir:?}"))?;
         Ok(std::io::BufWriter::new(
             std::fs::File::create(&path).with_context(|| format!("error creating {path:?}"))?,
         ))
@@ -187,6 +203,7 @@ fn main() -> Result<std::process::ExitCode, Box<dyn std::error::Error>> {
     };
     cfg.coverage_json = args.coverage_json;
     cfg.coverage_html = args.coverage_html;
+    cfg.slint_coverage = args.slint_coverage;
     cfg.test_results = args.test_results;
 
     let mut gaps = Vec::new();

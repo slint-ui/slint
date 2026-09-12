@@ -209,7 +209,7 @@ jobs:
                       # --fail-on-gaps holds the runtime at complete coverage and
                       # every requirement paragraph at one test or more. It needs
                       # the coverage export, so it only applies to these runs.
-                      COVERAGE_FLAGS="--coverage-json coverage/coverage.json --coverage-html coverage/html --test-results coverage/test-results --fail-on-gaps"
+                      COVERAGE_FLAGS="--coverage-json coverage/coverage.json --coverage-html coverage/html --slint-coverage coverage/slint-sc-coverage --test-results coverage/test-results --fail-on-gaps"
                   fi
                   # A gap exits 2 with the chapters written, so record it and let
                   # the job build and upload the manual. The last step fails the

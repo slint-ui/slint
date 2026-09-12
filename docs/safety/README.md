@@ -8,7 +8,7 @@ gitignored, with one subdirectory per section of the site: `reference/` holds
 the API reference of the items annotated with `\sc` in
 `internal/compiler/builtin_elements.rs` (and later in
 `internal/common/{enums,builtin_structs}.rs`), `qualification-report/` the
-traceability matrix. The pages set their own `slug`, so their location under
+traceability matrix and the measured test results and coverage. The pages set their own `slug`, so their location under
 `generated/` doesn't affect their URL.
 
 The language specification under `src/content/docs/language/` is also
