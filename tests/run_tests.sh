@@ -5,6 +5,9 @@
 set -eu
 unset CDPATH
 export RUSTFLAGS='-D warnings'
+# Qt widget tests open a real window unless told otherwise, which hangs
+# indefinitely on a machine with no display.
+export QT_QPA_PLATFORM=offscreen
 
 usage() {
   echo "Usage: $0 <all|rust|cpp|interpreter|python|nodejs> [<filter>] [<cargo test args>...]" >&2
