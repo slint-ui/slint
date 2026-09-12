@@ -174,6 +174,7 @@ pub mod re_exports {
     pub use i_slint_core::cursor::MouseCursorInner;
     pub use i_slint_core::data_transfer::DataTransfer;
     pub use i_slint_core::date_time::*;
+    pub use i_slint_core::debug_info;
     pub use i_slint_core::detect_operating_system;
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{

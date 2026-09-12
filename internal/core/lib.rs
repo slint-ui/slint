@@ -38,6 +38,7 @@ pub mod context;
 pub mod cursor;
 pub mod data_transfer;
 pub mod date_time;
+pub mod debug_info;
 pub mod debug_log;
 #[doc(hidden)]
 pub mod font_collection;

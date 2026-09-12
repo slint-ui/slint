@@ -132,11 +132,13 @@ fn generate_public_component(
     file.definitions.push(Declaration::Var(Var {
         ty: "const slint::private_api::ItemTreeVTable".into(),
         name: format_smolstr!("{component_id}::static_vtable"),
+        // One nullptr per function entry of `ItemTreeVTable`; keep the count
+        // in sync with `i_slint_core::item_tree::ItemTreeVTable`.
         init: Some(format!(
             "{{ nullptr, nullptr, nullptr, nullptr, \
                 nullptr, nullptr, nullptr, nullptr, nullptr, \
                 nullptr, nullptr, nullptr, nullptr, \
-                nullptr, nullptr, nullptr, nullptr, \
+                nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, \
                 slint::private_api::drop_in_place<{component_id}>, slint::private_api::dealloc }}"
         )),
         ..Default::default()
