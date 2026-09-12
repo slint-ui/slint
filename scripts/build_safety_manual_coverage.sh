@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 #
 # Build the Slint SC Safety Manual with the slint-sc test results and the
-# measured code coverage in its Test Results and Test Coverage chapters.
+# measured code coverage of the runtime and of the `.slint` test cases in its
+# Test Results, Test Coverage and Slint Code Coverage chapters.
 #
 # Runs the test suites, exports the results and coverage, generates the
 # manual's content, and builds the site into docs/safety/dist/.
@@ -27,6 +28,7 @@ set +e
 cargo run -p slint-doc-generator -- --slint-sc \
     --coverage-json "$coverage_dir/coverage.json" \
     --coverage-html "$coverage_dir/html" \
+    --slint-lcov "$coverage_dir/slint-lcov.info" \
     --test-results "$coverage_dir/test-results" \
     --fail-on-gaps \
     generate-mdx

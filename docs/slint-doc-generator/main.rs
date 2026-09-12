@@ -8,6 +8,7 @@ mod element_docs;
 mod headless;
 mod mdx;
 mod screenshots;
+mod slint_coverage;
 mod test_results;
 mod traceability;
 
@@ -37,6 +38,12 @@ struct Cli {
     /// and link its per-line pages from the Test Coverage chapter.
     #[arg(long, value_name = "DIR", requires = "coverage_json")]
     coverage_html: Option<PathBuf>,
+
+    /// Report the coverage of the `.slint` test cases from this lcov file,
+    /// written by `slint-sc-coverage`, in the safety manual's Slint Code
+    /// Coverage chapter. Without it the chapter is a placeholder.
+    #[arg(long, value_name = "FILE")]
+    slint_lcov: Option<PathBuf>,
 
     /// Report the test outcomes collected in this directory by
     /// scripts/slint_sc_test_suite.sh in the safety manual's Test Results
@@ -96,6 +103,10 @@ pub struct Config {
     /// `cargo llvm-cov report --html` report to ship with the manual for
     /// per-line detail.
     pub coverage_html: Option<PathBuf>,
+    /// lcov of the `.slint` test cases, written by `slint-sc-coverage`, to
+    /// report in the safety manual's Slint Code Coverage chapter; without it
+    /// the chapter is a placeholder.
+    pub slint_lcov: Option<PathBuf>,
     /// Test outcomes collected by scripts/slint_sc_test_suite.sh, for the
     /// safety manual's Test Results chapter; without them the chapter is a
     /// placeholder.
@@ -118,6 +129,7 @@ impl Config {
             include_experimental,
             coverage_json: None,
             coverage_html: None,
+            slint_lcov: None,
             test_results: None,
         }
     }
@@ -131,6 +143,7 @@ impl Config {
             include_experimental,
             coverage_json: None,
             coverage_html: None,
+            slint_lcov: None,
             test_results: None,
         }
     }
@@ -187,6 +200,7 @@ fn main() -> Result<std::process::ExitCode, Box<dyn std::error::Error>> {
     };
     cfg.coverage_json = args.coverage_json;
     cfg.coverage_html = args.coverage_html;
+    cfg.slint_lcov = args.slint_lcov;
     cfg.test_results = args.test_results;
 
     let mut gaps = Vec::new();

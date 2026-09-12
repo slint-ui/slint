@@ -195,6 +195,10 @@ export default defineConfig({
                                 slug: "qualification-report/test-coverage",
                             },
                             {
+                                label: "Slint Code Coverage",
+                                slug: "qualification-report/slint-coverage",
+                            },
+                            {
                                 label: "Test Results",
                                 slug: "qualification-report/test-results",
                             },

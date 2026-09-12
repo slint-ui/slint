@@ -65,6 +65,7 @@ pub fn generate(cfg: &Config) -> Result<Vec<String>, Box<dyn std::error::Error>>
     if cfg.sc_only {
         gaps = crate::traceability::generate(cfg)?;
         gaps.extend(crate::coverage::generate(cfg)?);
+        crate::slint_coverage::generate(cfg)?;
         crate::test_results::generate(cfg)?;
     }
 
