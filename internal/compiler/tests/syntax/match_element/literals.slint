@@ -1,6 +1,39 @@
 // Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nicholas Turner <nicholas.turner@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+export component LiteralSubjects {
+    match 1 {
+//        ><warning{Match subject is a literal, so the same case always applies}
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match -1 {
+//        > <warning{Match subject is a literal, so the same case always applies}
+        -1: Rectangle { }
+        *: Rectangle { }
+    }
+    match "a" {
+//        >  <warning{Match subject is a literal, so the same case always applies}
+        "a": Rectangle { }
+        *: Rectangle { }
+    }
+    match #123 {
+//        >   <warning{Match subject is a literal, so the same case always applies}
+        #123: Rectangle { }
+        *: Rectangle { }
+    }
+    match 10px {
+//        >   <warning{Match subject is a literal, so the same case always applies}
+        10px: Rectangle { }
+        *: Rectangle { }
+    }
+    match true {
+//        >   <warning{Match subject is a literal, so the same case always applies}
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+}
+
 export component Foo {
     out property <int> case0: 0;
     out property <int> case1: 1;
@@ -68,5 +101,97 @@ export component TypeBasedLookupOfEnumCases {
         apple: Text { text: "unqualified Fruit"; }
         Fruit.pear: Text { text: "fully qualified Fruit"; }
         * : { }
+    }
+}
+
+export component ConstantExpressionSubjects {
+    match !true {
+//        >    <warning{Match subject is a constant expression, so the same case always applies}
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+    match -(1 + 1) {
+//        >       <warning{Match subject is a constant expression, so the same case always applies}
+        -2: Rectangle { }
+        *: Rectangle { }
+    }
+    match 3 * 6 {
+//        >    <warning{Match subject is a constant expression, so the same case always applies}
+        18: Rectangle { }
+        *: Rectangle { }
+    }
+    match 5px * 2 {
+//        >      <warning{Match subject is a constant expression, so the same case always applies}
+        10px: Rectangle { }
+        *: Rectangle { }
+    }
+    match (1 < 2) {
+//        >      <warning{Match subject is a constant expression, so the same case always applies}
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+    match (true && false) {
+//        >              <warning{Match subject is a constant expression, so the same case always applies}
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+    match "a" + "b" {
+//        >        <warning{Match subject is a constant expression, so the same case always applies}
+        "ab": Rectangle { }
+        *: Rectangle { }
+    }
+    match "\{1}" {
+//        >     <warning{Match subject is a constant expression, so the same case always applies}
+        "1": Rectangle { }
+        *: Rectangle { }
+    }
+    match (true ? 1 : 2) {
+//        >             <warning{Match subject is a constant expression, so the same case always applies}
+        1: Rectangle { }
+        2: Rectangle { }
+        *: Rectangle { }
+    }
+}
+
+export component NonConstantSubjects {
+    in property <bool> flag: true;
+    in property <int> given: 1;
+    in property <int> count: 1;
+    in property <string> label: "a";
+    property <int> pending;
+    callback go();
+    go => { pending = 5; }
+
+    match !flag {
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+    match (true ? given : 2) {
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match (given > 2 ? 1 : 2) {
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match 1 + given {
+        2: Rectangle { }
+        *: Rectangle { }
+    }
+    match -count {
+        -1: Rectangle { }
+        *: Rectangle { }
+    }
+    match "a\{label}" {
+        "aa": Rectangle { }
+        *: Rectangle { }
+    }
+    match @tr("hello") {
+        "hello": Rectangle { }
+        *: Rectangle { }
+    }
+    match pending {
+        5: Rectangle { }
+        *: Rectangle { }
     }
 }

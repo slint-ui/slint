@@ -147,6 +147,17 @@ fn resolve_match_elements(
             diag,
         );
         let case_type = match_element.subject.ty();
+        if CaseValue::new(&match_element.subject).is_some() {
+            diag.push_warning(
+                "Match subject is a literal, so the same case always applies".into(),
+                &match_element.node.Expression(),
+            );
+        } else if is_literal_only(&match_element.subject) {
+            diag.push_warning(
+                "Match subject is a constant expression, so the same case always applies".into(),
+                &match_element.node.Expression(),
+            );
+        }
         for case in &mut match_element.cases {
             resolve_expression(
                 elem,
@@ -212,6 +223,24 @@ fn as_number_literal(value: &Expression) -> Option<(f64, Unit)> {
         Expression::NumberLiteral(number, unit) => Some((*number, *unit)),
         Expression::UnaryOp { sub, op: '-' } => as_number_literal(sub).map(|(n, u)| (-n, u)),
         _ => None,
+    }
+}
+
+fn is_literal_only(expr: &Expression) -> bool {
+    match expr {
+        Expression::NumberLiteral(..)
+        | Expression::StringLiteral(..)
+        | Expression::BoolLiteral(..)
+        | Expression::EnumerationValue(..) => true,
+        Expression::Cast { from, .. } => is_literal_only(from),
+        Expression::UnaryOp { sub, .. } => is_literal_only(sub),
+        Expression::BinaryExpression { lhs, rhs, .. } => {
+            is_literal_only(lhs) && is_literal_only(rhs)
+        }
+        Expression::Condition { condition, true_expr, false_expr } => {
+            is_literal_only(condition) && is_literal_only(true_expr) && is_literal_only(false_expr)
+        }
+        _ => false,
     }
 }
 
