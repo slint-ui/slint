@@ -3353,6 +3353,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "file-open"
+version = "1.18.0"
+dependencies = [
+ "slint",
+ "slint-build",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
