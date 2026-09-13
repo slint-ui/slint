@@ -54,11 +54,14 @@ i-slint-backend-winit = { version = "=1.18.0", path = "../internal/backends/wini
 i-slint-compiler = { version = "=1.18.0", path = "../internal/compiler", default-features = false }
 i-slint-core = { version = "=1.18.0", path = "../internal/core", default-features = false }
 i-slint-renderer-anyrender = { version = "=1.18.0", path = "../internal/renderers/anyrender", default-features = false }
-# Keep the default `softbuffer` backend enabled: in the monolithic workspace
-# `--all-features` enabled a skia backend (skia was a member), but here skia is
-# only a dependency, so without a backend `skia_windowed` is unset and the
-# renderer fails to compile.
-i-slint-renderer-skia = { version = "=1.18.0", path = "../internal/renderers/skia" }
+# skia is only a dependency here, so nothing enables a backend and
+# `skia_windowed` stays unset — keep the default `softbuffer` backend on.
+# softbuffer 0.4 additionally fails to compile with no platform enabled
+# (empty dispatch enum, E0392), and `x11`/`wayland` otherwise come only via
+# the winit backend, which the screenshot driver does not use. Enable both:
+# the display server is picked at runtime, `dlopen` needs nothing
+# system-level to build, and the flags are no-ops off Linux.
+i-slint-renderer-skia = { version = "=1.18.0", path = "../internal/renderers/skia", features = ["x11", "wayland"] }
 
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 itertools = { version = "0.15" }
