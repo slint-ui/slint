@@ -215,7 +215,11 @@ impl i_slint_core::platform::Platform for TestingBackend {
             #[cfg(supports_headless)]
             renderer,
         });
-        ALL_TESTING_WINDOWS.with(|list| list.borrow_mut().push(Rc::downgrade(&window)));
+        ALL_TESTING_WINDOWS.with(|list| {
+            let mut list = list.borrow_mut();
+            list.retain(|w| w.upgrade().is_some());
+            list.push(Rc::downgrade(&window));
+        });
         Ok(window)
     }
 
@@ -325,6 +329,17 @@ pub struct TestingWindow {
     /// it. `None` keeps the mock renderer with its fixed test font metrics.
     #[cfg(supports_headless)]
     renderer: Option<Box<dyn Renderer>>,
+}
+
+impl Drop for TestingWindow {
+    fn drop(&mut self) {
+        let self_ptr = self as *const TestingWindow;
+        ALL_TESTING_WINDOWS
+            .try_with(|list| {
+                list.borrow_mut().retain(|w| w.as_ptr() != self_ptr);
+            })
+            .ok();
+    }
 }
 
 impl TestingWindow {
@@ -763,5 +778,41 @@ impl i_slint_core::platform::EventLoopProxy for Queue {
         self.0.lock().unwrap().push_back(Event::Event(event));
         self.1.unpark();
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use i_slint_core::platform::Platform;
+
+    /// Windows that were created and dropped must leave no trace in the
+    /// `ALL_TESTING_WINDOWS` registry, so their backing allocation is returned
+    /// to the allocator immediately. Previously the dead weak reference stayed
+    /// in the registry until the next `mock_elapsed_time` call, pinning the
+    /// allocation for the whole process lifetime.
+    #[test]
+    fn dropped_windows_are_removed_from_the_registry() {
+        let backend = TestingBackend::new(TestingBackendOptions::default());
+
+        let adapter = backend.create_window_adapter().unwrap();
+        assert_eq!(
+            ALL_TESTING_WINDOWS.with(|list| list.borrow().len()),
+            1,
+            "the live window is tracked"
+        );
+
+        drop(adapter);
+        assert_eq!(
+            ALL_TESTING_WINDOWS.with(|list| list.borrow().len()),
+            0,
+            "the dropped window must be untracked"
+        );
+
+        // A later window creation immediately reuses the empty slot.
+        let adapter = backend.create_window_adapter().unwrap();
+        assert_eq!(ALL_TESTING_WINDOWS.with(|list| list.borrow().len()), 1);
+        drop(adapter);
+        assert_eq!(ALL_TESTING_WINDOWS.with(|list| list.borrow().len()), 0);
     }
 }
