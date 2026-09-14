@@ -50,11 +50,11 @@ overrides:
   'deepmerge-ts@<8.0.0': '>=8.0.0'
 
 catalog:
-  '@astrojs/check': 0.9.9
-  '@astrojs/sitemap': 3.7.3
+  '@astrojs/check': 0.9.10
+  '@astrojs/sitemap': 3.7.4
   '@astrojs/starlight': 0.41.4
-  '@biomejs/biome': 2.5.5
-  '@expressive-code/plugin-line-numbers': 0.44.1
+  '@biomejs/biome': 2.5.13
+  '@expressive-code/plugin-line-numbers': 0.44.2
   '@pagefind/default-ui': 1.5.2
   '@playwright/test': 1.61.1
   '@types/node': 24.12.0
@@ -63,7 +63,7 @@ catalog:
   cspell: 10.0.1
   playwright-ctrf-json-reporter: 0.0.29
   rehype-external-links: 3.0.0
-  sharp: 0.35.3
+  sharp: 0.35.4
   starlight-links-validator: 0.25.2
   remark-parse: 11.0.0
   typescript: 6.0.3
