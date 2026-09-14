@@ -1,0 +1,24 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "file-open"
+version = "1.18.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+build = "build.rs"
+publish = false
+license = "MIT"
+
+[[bin]]
+path = "src/main.rs"
+name = "file-open"
+
+[dependencies]
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-18", "std"] }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
+
+[features]
+default = ["slint/default"]

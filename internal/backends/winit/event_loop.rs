@@ -33,6 +33,10 @@ pub enum CustomEvent {
     UserEventWithEventLoop(Box<dyn FnOnce(&ActiveEventLoop) + Send>),
     /// Emitted from quit_event_loop with the current event loop generation
     Exit(usize),
+    /// On macOS, AppKit asks the application to open files. The paths are queued in the
+    /// backend; this event drains the queue and dispatches them to the open-file handler.
+    #[cfg(target_os = "macos")]
+    OpenFiles,
     #[cfg(enable_accesskit)]
     Accesskit(accesskit_winit::Event),
     #[cfg(muda)]
@@ -47,6 +51,8 @@ impl std::fmt::Debug for CustomEvent {
             Self::UserEvent(_) => write!(f, "UserEvent"),
             Self::UserEventWithEventLoop(_) => write!(f, "UserEventWithEventLoop"),
             Self::Exit(_) => write!(f, "Exit"),
+            #[cfg(target_os = "macos")]
+            Self::OpenFiles => write!(f, "OpenFiles"),
             #[cfg(enable_accesskit)]
             Self::Accesskit(a) => write!(f, "AccessKit({a:?})"),
             #[cfg(muda)]
@@ -94,6 +100,14 @@ impl EventLoopState {
             let _ = window.suspend();
         }
     }
+
+    #[cfg(target_os = "macos")]
+    fn dispatch_pending_open_files(&self) {
+        let ctx = self.shared_backend_data.context();
+        for paths in ctx.take_pending_open_files() {
+            ctx.dispatch_open_files(&paths);
+        }
+    }
 }
 
 impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
@@ -106,6 +120,8 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         ) {
             return;
         }
+        #[cfg(target_os = "macos")]
+        self.dispatch_pending_open_files();
         if let Err(err) = self.shared_backend_data.create_inactive_windows(event_loop) {
             self.loop_error = Some(err);
             event_loop.exit();
@@ -166,6 +182,8 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 }
                 // else ignore the event, since it's from a previous run of the event loop
             }
+            #[cfg(target_os = "macos")]
+            CustomEvent::OpenFiles => self.dispatch_pending_open_files(),
             #[cfg(enable_accesskit)]
             CustomEvent::Accesskit(accesskit_winit::Event { window_id, window_event }) => {
                 if let Some(window) = self.shared_backend_data.window_by_id(window_id) {

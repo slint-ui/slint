@@ -20,6 +20,42 @@ use pin_weak::rc::PinWeak;
 pub type WindowEventHook =
     Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, crate::platform::WindowEventDispatchResult)>;
 
+/// Type alias for the closure type installed via [`SlintContext::set_open_file_handler`].
+/// The closure receives the paths of the files that the operating system asked the
+/// application to open (e.g. via macOS file associations and "Open With").
+pub type OpenFileHandler = Box<dyn Fn(&[crate::SharedString])>;
+
+/// The handler installed with [`SlintContext::set_open_file_handler`] together with the
+/// file-open requests that arrived before a handler was around to receive them.
+///
+/// The requests are kept here, next to the handler they are destined for, so that a
+/// handler installed late (e.g. after a cold launch where the operating system already
+/// asked the app to open files) still receives them, in order.
+#[derive(Default)]
+pub(crate) struct OpenFileState {
+    handler: Option<OpenFileHandler>,
+    pending: alloc::vec::Vec<alloc::vec::Vec<crate::SharedString>>,
+}
+
+/// Restores the open-file handler that [`SlintContext::dispatch_open_files`] takes out of
+/// its state while it runs the user callback. The handler is put back, unless the callback
+/// installed a (new) handler itself. Restoring on drop also covers a panicking callback.
+struct OpenFileHandlerGuard<'a> {
+    state: &'a core::cell::RefCell<OpenFileState>,
+    handler: Option<OpenFileHandler>,
+}
+
+impl Drop for OpenFileHandlerGuard<'_> {
+    fn drop(&mut self) {
+        if let Some(handler) = self.handler.take() {
+            let mut state = self.state.borrow_mut();
+            if state.handler.is_none() {
+                state.handler = Some(handler);
+            }
+        }
+    }
+}
+
 crate::thread_local! {
     pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
         = const { once_cell::unsync::OnceCell::new() }
@@ -62,6 +98,11 @@ pub(crate) struct SlintContextInner {
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     pub(crate) window_event_hook: core::cell::RefCell<Option<WindowEventHook>>,
     pub(crate) log_message_handler: RefCell<Option<crate::debug_log::LogMessageHandler>>,
+    /// State of the "open files" feature: the handler installed with
+    /// [`SlintContext::set_open_file_handler`] plus the file-open requests that arrived
+    /// before a handler was around to receive them. Kept together so that a late handler
+    /// still gets the requests it missed.
+    pub(crate) open_file_state: RefCell<OpenFileState>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "shared-parley")]
@@ -115,6 +156,7 @@ impl SlintContext {
             window_shown_hook: Default::default(),
             window_event_hook: Default::default(),
             log_message_handler: Default::default(),
+            open_file_state: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "shared-parley")]
@@ -311,6 +353,70 @@ impl SlintContext {
         core::mem::replace(&mut *slot, handler)
     }
 
+    /// Set the handler invoked when the operating system asks the application to open
+    /// files, for example because the user opened a file by double-clicking it or via
+    /// "Open With". The handler receives the paths of the files that were opened.
+    ///
+    /// Returns the previously-installed handler, if any.
+    ///
+    /// If the operating system already asked the application to open files before this
+    /// handler was installed, those requests are delivered to the new handler
+    /// immediately, in order of arrival.
+    #[doc(hidden)]
+    pub fn set_open_file_handler(
+        &self,
+        handler: Option<OpenFileHandler>,
+    ) -> Option<OpenFileHandler> {
+        let previous;
+        let pending;
+        {
+            let mut state = self.0.open_file_state.borrow_mut();
+            previous = core::mem::replace(&mut state.handler, handler);
+            pending = if state.handler.is_some() {
+                core::mem::take(&mut state.pending)
+            } else {
+                alloc::vec::Vec::new()
+            };
+        }
+        for paths in pending {
+            self.dispatch_open_files(&paths);
+        }
+        previous
+    }
+
+    /// Queue a file-open request from the operating system that cannot be dispatched to
+    /// the handler yet, for example because the event loop isn't running. The requests
+    /// are delivered when a handler is installed with [`Self::set_open_file_handler`] or
+    /// when the backend forwards them after taking them with
+    /// [`Self::take_pending_open_files`].
+    #[doc(hidden)]
+    pub fn queue_open_files(&self, paths: &[crate::SharedString]) {
+        self.0.open_file_state.borrow_mut().pending.push(paths.to_vec());
+    }
+
+    /// Take the file-open requests queued with [`Self::queue_open_files`], in order,
+    /// leaving the queue empty.
+    #[doc(hidden)]
+    pub fn take_pending_open_files(&self) -> alloc::vec::Vec<alloc::vec::Vec<crate::SharedString>> {
+        core::mem::take(&mut self.0.open_file_state.borrow_mut().pending)
+    }
+
+    #[doc(hidden)]
+    pub fn dispatch_open_files(&self, paths: &[crate::SharedString]) {
+        let handler = self.0.open_file_state.borrow_mut().handler.take();
+        let Some(handler) = handler else {
+            crate::debug_log!(
+                "Slint: ignoring a request to open {:?} because no open-file handler is installed (see slint::set_open_file_handler)",
+                paths
+            );
+            return;
+        };
+        let guard = OpenFileHandlerGuard { state: &self.0.open_file_state, handler: Some(handler) };
+        if let Some(handler) = guard.handler.as_ref() {
+            handler(paths);
+        }
+    }
+
     /// Add one to the counter of "things keeping the event loop alive".
     /// Visible windows and visible system tray icons are the canonical
     /// callers; they pair with [`Self::release_keepalive`].
@@ -443,4 +549,85 @@ pub fn set_window_event_hook(
         }
         None => Err(PlatformError::NoPlatform),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TestPlatform;
+
+    impl crate::platform::Platform for TestPlatform {
+        fn create_window_adapter(
+            &self,
+        ) -> Result<std::rc::Rc<dyn crate::platform::WindowAdapter>, crate::api::PlatformError>
+        {
+            todo!()
+        }
+    }
+
+    #[test]
+    fn open_file_handler_is_dispatched() {
+        crate::platform::set_platform(Box::new(TestPlatform)).unwrap();
+        let ctx = GLOBAL_CONTEXT.with(|c| c.get().unwrap().clone());
+
+        let dispatched: Rc<core::cell::RefCell<alloc::vec::Vec<crate::SharedString>>> =
+            Rc::default();
+        let dispatched2 = dispatched.clone();
+        ctx.set_open_file_handler(Some(Box::new(move |paths| {
+            *dispatched2.borrow_mut() = paths.to_vec();
+        })));
+
+        ctx.dispatch_open_files(&[
+            crate::SharedString::from("a.txt"),
+            crate::SharedString::from("b.txt"),
+        ]);
+        assert_eq!(dispatched.borrow().len(), 2);
+        assert_eq!(dispatched.borrow()[0], crate::SharedString::from("a.txt"));
+
+        ctx.set_open_file_handler(None);
+        ctx.dispatch_open_files(&[crate::SharedString::from("c.txt")]);
+        assert_eq!(dispatched.borrow().len(), 2);
+    }
+
+    #[test]
+    fn queued_open_files_are_delivered_to_a_late_handler() {
+        crate::platform::set_platform(Box::new(TestPlatform)).unwrap();
+        let ctx = GLOBAL_CONTEXT.with(|c| c.get().unwrap().clone());
+
+        ctx.queue_open_files(&[crate::SharedString::from("a.txt")]);
+        ctx.queue_open_files(&[
+            crate::SharedString::from("b.txt"),
+            crate::SharedString::from("c.txt"),
+        ]);
+
+        let received: Rc<
+            core::cell::RefCell<alloc::vec::Vec<alloc::vec::Vec<crate::SharedString>>>,
+        > = Rc::default();
+        let received2 = received.clone();
+        ctx.set_open_file_handler(Some(Box::new(move |paths| {
+            received2.borrow_mut().push(paths.to_vec());
+        })));
+
+        assert_eq!(
+            received.borrow().as_slice(),
+            &[
+                [crate::SharedString::from("a.txt")].to_vec(),
+                [crate::SharedString::from("b.txt"), crate::SharedString::from("c.txt")].to_vec(),
+            ]
+        );
+    }
+
+    #[test]
+    fn take_pending_open_files_drains_the_queue() {
+        crate::platform::set_platform(Box::new(TestPlatform)).unwrap();
+        let ctx = GLOBAL_CONTEXT.with(|c| c.get().unwrap().clone());
+
+        ctx.queue_open_files(&[crate::SharedString::from("a.txt")]);
+        let pending = ctx.take_pending_open_files();
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].as_slice(), &[crate::SharedString::from("a.txt")]);
+
+        assert!(ctx.take_pending_open_files().is_empty());
+    }
 }

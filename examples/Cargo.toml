@@ -16,6 +16,7 @@ members = [
   'carousel/rust',
   'dnd-kanban',
   'ffmpeg',
+  'file-open',
   'gallery',
   'gstreamer-player',
   'imagefilter/rust',

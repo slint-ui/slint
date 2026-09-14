@@ -359,6 +359,39 @@ pub fn spawn_local<F: core::future::Future + 'static>(
         .map_err(|_| EventLoopError::NoEventLoopProvider)?
 }
 
+/// Set a callback that is invoked when the operating system asks the application to
+/// open files. That covers double-clicking a file of an associated type or choosing
+/// "Open With" in Finder. The callback receives the paths of the files that were
+/// requested to be opened. Currently, this is only supported on macOS.
+///
+/// This function can only be called from the main thread. On other platforms, the
+/// callback is never invoked. If the operating system already asked the application to
+/// open files before the callback was installed, those requests are delivered once the
+/// callback is set.
+///
+/// Calling this function initializes the default platform backend if none is set
+/// yet, just like [`spawn_local`] does.
+///
+/// Returns the previously-installed handler, if any.
+///
+/// # Example
+///
+/// ```no_run
+/// slint::set_open_file_handler(|paths| {
+///     for path in paths {
+///         println!("Opening {path}");
+///     }
+/// })
+/// .unwrap();
+/// ```
+pub fn set_open_file_handler(
+    handler: impl Fn(&[SharedString]) + 'static,
+) -> Result<Option<alloc::boxed::Box<dyn Fn(&[SharedString]) + 'static>>, PlatformError> {
+    i_slint_backend_selector::with_global_context(|ctx| {
+        ctx.set_open_file_handler(Some(alloc::boxed::Box::new(handler)))
+    })
+}
+
 #[i_slint_core_macros::slint_doc]
 /// Include the code generated with the slint-build crate from the build script. After calling `slint_build::compile`
 /// in your `build.rs` build script, the use of this macro includes the generated Rust code and makes the exported types
