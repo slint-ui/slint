@@ -58,7 +58,8 @@ pub fn find_project_file_path(directory: &Path) -> std::io::Result<Option<PathBu
 impl ProjectFile {
     pub fn load(path: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
         let source_path = normalize_project_file_path(path.as_ref());
-        let source = fs::read(&source_path)?;
+        let mut source = fs::read(&source_path)?;
+        blank_out_comments(&mut source);
         let data = if source.iter().all(u8::is_ascii_whitespace) {
             ProjectFileData::default()
         } else {
@@ -174,6 +175,57 @@ impl Overrides {
     }
 }
 
+/// Overwrites `//` and `/* */` comments with spaces, so that serde_json accepts the file.
+/// Newlines are kept, so the line and column of a parse error stay correct.
+///
+/// Scanning bytes is enough: every byte of a multi-byte UTF-8 character has the high bit set.
+fn blank_out_comments(source: &mut [u8]) {
+    let mut index = 0;
+
+    while index < source.len() {
+        match source[index] {
+            // Skip over string literals, a slash inside one is content.
+            b'"' => {
+                index += 1;
+                while index < source.len() {
+                    match source[index] {
+                        b'\\' => index += 2,
+                        b'"' => {
+                            index += 1;
+                            break;
+                        }
+                        _ => index += 1,
+                    }
+                }
+            }
+            b'/' if source.get(index + 1) == Some(&b'/') => {
+                while index < source.len() && source[index] != b'\n' {
+                    source[index] = b' ';
+                    index += 1;
+                }
+            }
+            b'/' if source.get(index + 1) == Some(&b'*') => {
+                source[index] = b' ';
+                source[index + 1] = b' ';
+                index += 2;
+                while index < source.len() {
+                    if source[index] == b'*' && source.get(index + 1) == Some(&b'/') {
+                        source[index] = b' ';
+                        source[index + 1] = b' ';
+                        index += 2;
+                        break;
+                    }
+                    if source[index] != b'\n' {
+                        source[index] = b' ';
+                    }
+                    index += 1;
+                }
+            }
+            _ => index += 1,
+        }
+    }
+}
+
 fn normalize_project_file_path(path: &Path) -> PathBuf {
     if crate::pathutils::is_absolute(path) {
         crate::pathutils::clean_path(path)
@@ -254,6 +306,80 @@ mod tests {
 
         assert_eq!(parsed.style(), None);
         assert_eq!(parsed.include_directories(), None);
+    }
+
+    #[test]
+    fn line_comments_are_accepted() {
+        let parsed = load_project_file(
+            r#"{
+                // The widget style for this project.
+                "style": "fluent" // trailing comment
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(parsed.style(), Some("fluent"));
+    }
+
+    #[test]
+    fn block_comments_are_accepted() {
+        let parsed = load_project_file(
+            r#"{
+                /* Disabled until the upgrade:
+                   "style": "material",
+                */
+                "include-directories": ["include"] /* here too */
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(parsed.style(), None);
+        assert_eq!(parsed.include_directories(), Some(&vec![PathBuf::from("include")]));
+    }
+
+    #[test]
+    fn comment_markers_inside_strings_are_kept() {
+        let parsed = load_project_file(
+            r#"{
+                "include-directories": ["not//a/comment", "not/*a*/comment"],
+                "style": "with \" quote // and slashes"
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            parsed.include_directories(),
+            Some(&vec![PathBuf::from("not//a/comment"), PathBuf::from("not/*a*/comment")])
+        );
+        assert_eq!(parsed.style(), Some(r#"with " quote // and slashes"#));
+    }
+
+    #[test]
+    fn a_file_of_only_comments_is_empty() {
+        let parsed = load_project_file(
+            "// nothing set yet
+/* not even this */
+",
+        )
+        .unwrap();
+
+        assert_eq!(parsed.style(), None);
+        assert_eq!(parsed.include_directories(), None);
+    }
+
+    #[test]
+    fn a_comment_keeps_the_line_of_a_later_error() {
+        let error = load_project_file(
+            r#"{
+                // one
+                // two
+                "style": nonsense
+            }"#,
+        )
+        .unwrap_err();
+
+        // The blanked comments keep the offsets, so the error names line 4.
+        assert!(error.to_string().contains("line 4"), "{error}");
     }
 
     #[test]
