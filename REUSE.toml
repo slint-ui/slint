@@ -115,7 +115,6 @@ path = [
   "internal/core-macros/link-data.json",
   "internal/**.md",
   "package.json",
-  "**/slint.project.json",
   "pnpm-lock.yaml",
   "rustfmt.toml",
   "*.md",
