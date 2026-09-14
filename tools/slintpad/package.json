@@ -56,6 +56,6 @@
         "vscode-languageserver": "10.0.1",
         "vscode-languageserver-protocol": "3.18.3",
         "vscode-languageserver-types": "3.18.3",
-        "vscode-uri": "3.1.0"
+        "vscode-uri": "3.2.0"
     }
 }
