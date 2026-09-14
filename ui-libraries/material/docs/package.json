@@ -31,7 +31,7 @@
         "unpic": "4.2.2"
     },
     "devDependencies": {
-        "@astrojs/markdown-remark": "7.2.1",
+        "@astrojs/markdown-remark": "7.3.1",
         "@astrojs/mdx": "7.0.3",
         "@astrojs/partytown": "2.1.7",
         "@astrojs/tailwind": "6.0.2",

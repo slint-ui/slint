@@ -52,22 +52,22 @@ overrides:
 catalog:
   '@astrojs/check': 0.9.10
   '@astrojs/sitemap': 3.7.4
-  '@astrojs/starlight': 0.41.4
+  '@astrojs/starlight': 0.42.0
   '@biomejs/biome': 2.5.13
   '@expressive-code/plugin-line-numbers': 0.44.2
   '@pagefind/default-ui': 1.5.2
-  '@playwright/test': 1.61.1
+  '@playwright/test': 1.63.0
   '@types/node': 24.12.0
-  astro: 7.1.3
-  astro-embed: 0.13.1
-  cspell: 10.0.1
+  astro: 7.3.2
+  astro-embed: 0.14.0
+  cspell: 10.3.0
   playwright-ctrf-json-reporter: 0.0.29
   rehype-external-links: 3.0.0
   sharp: 0.35.4
-  starlight-links-validator: 0.25.2
+  starlight-links-validator: 0.26.0
   remark-parse: 11.0.0
   typescript: 6.0.3
   unified: 11.0.5
   unist-util-visit: 5.1.0
-  vite: 8.1.5
+  vite: 8.3.0
   vitest: 4.1.10
