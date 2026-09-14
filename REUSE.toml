@@ -214,6 +214,7 @@ path = [
   "ui-libraries/material/docs/src/config.yaml",
   "ui-libraries/material/examples/gallery/ui/themes/**.json",
 
+  "ai-plugins/*.json",
   "ai-plugins/.claude-plugin/*.json",
   "ai-plugins/.cursor-plugin/*.json",
   "ai-plugins/**/*.md",
