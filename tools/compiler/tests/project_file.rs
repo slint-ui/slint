@@ -4,6 +4,10 @@
 //! The compiler picks up `slint.project.json` next to the compiled `.slint` file,
 //! and the command line still wins over it.
 
+// These drive the compiler through its C++ output. The Slint SC subset builds
+// without that format, and rejects the arguments a project file could set anyway.
+#![cfg(feature = "cpp")]
+
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
