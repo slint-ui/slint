@@ -117,6 +117,14 @@ export component TextEdit {
         text-input.paste();
     }
 
+    public function undo() {
+        text-input.undo();
+    }
+
+    public function redo() {
+        text-input.redo();
+    }
+
     forward-focus: text-input;
     horizontal-stretch: 1;
     vertical-stretch: 1;
@@ -146,21 +154,35 @@ export component TextEdit {
     }
 
     ContextMenuArea {
+        enabled: root.enabled;
         Menu {
+            if !root.read-only && root.enabled: MenuItem {
+                title: @tr("Undo");
+                activated => { text-input.undo(); }
+            }
+            if !root.read-only && root.enabled: MenuItem {
+                title: @tr("Redo");
+                activated => { text-input.redo(); }
+            }
+            if !root.read-only && root.enabled: MenuSeparator { }
             MenuItem {
                 title: @tr("Cut");
+                enabled: !root.read-only && root.enabled;
                 activated => { text-input.cut(); }
             }
             MenuItem {
                 title: @tr("Copy");
+                enabled: !root.text.is-empty;
                 activated => { text-input.copy(); }
             }
             MenuItem {
                 title: @tr("Paste");
+                enabled: !root.read-only && root.enabled;
                 activated => { text-input.paste(); }
             }
             MenuItem {
                 title: @tr("Select All");
+                enabled: !root.text.is-empty;
                 activated => { text-input.select-all(); }
             }
         }
