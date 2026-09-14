@@ -51,6 +51,12 @@ export component SpinBoxBase {
         root.set-text-to-value();
     }
 
+    changed has-focus => {
+        if !root.has-focus {
+            root.set-text-to-value();
+        }
+    }
+
     function set-text-to-value() {
         text-input.text = root.value;
     }
@@ -105,9 +111,9 @@ export component SpinBoxBase {
         }
 
         accepted => {
-            if !self.text.is-float() {
-                root.set-text-to-value();
-            }
+            // 'update-value' ignores an edit that leaves the minimum/maximum range,
+            // so the text can hold a number the value never took.
+            root.update-text-and-cursor();
         }
 
         edited => {
