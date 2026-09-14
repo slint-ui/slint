@@ -18,16 +18,16 @@ const PAGE_FILE: &str = "test-coverage.mdx";
 
 /// Covered/total counts of one metric, from the `count`/`covered` pairs of
 /// the export's `summary` objects.
-struct Counts {
-    count: u64,
-    covered: u64,
+pub(crate) struct Counts {
+    pub(crate) count: u64,
+    pub(crate) covered: u64,
 }
 
 impl Counts {
     /// Table cell like `95.2% (240/252)`, or `-` when nothing was
     /// instrumented. The percentage is computed from the counts rather than
     /// taken from the export's float fields.
-    fn cell(&self) -> String {
+    pub(crate) fn cell(&self) -> String {
         if self.count == 0 {
             "-".into()
         } else {
@@ -185,10 +185,10 @@ fn shortfalls(files: &[FileCoverage]) -> Vec<String> {
     gaps
 }
 
-/// Body of the chapter in a build without a coverage export, e.g. the
+/// Body of a coverage chapter in a build without a measurement, e.g. the
 /// regular docs build. The page must exist in every build because the
 /// sidebar links it.
-fn write_placeholder(out: &mut impl Write) -> std::io::Result<()> {
+pub(crate) fn write_placeholder(out: &mut impl Write) -> std::io::Result<()> {
     writeln!(
         out,
         "\nThis build of the manual doesn't include coverage data.\n\

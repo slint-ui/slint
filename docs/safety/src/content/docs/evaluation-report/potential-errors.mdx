@@ -52,8 +52,8 @@ A constraint is something we ask the integrator to do, and it exists only becaus
 | `slint.compiler.avd.subset-check` | The compiler rejects any construct outside the qualified subset and reports an error naming it. |
 | `slint.compiler.avd.opaque-window` | The compiler rejects a window whose background it can't prove is opaque, so a frame can't depend on what the buffer held beforehand. |
 | `slint.compiler.avd.resource-check` | The compiler resolves every referenced asset at compile time and fails if one is missing or doesn't decode. |
-| `slint.compiler.avd.spec-tests` | Every paragraph of the language specification is traced to at least one test. See the [Traceability Matrix](/qualification-report/traceability-matrix/). |
-| `slint.runtime.avd.spec-tests` | Every paragraph of the rendering model and the generated code contract is traced to at least one test, and the runtime is held at complete structural coverage. See [Test Coverage](/qualification-report/test-coverage/). |
+| `slint.compiler.avd.spec-tests` | Every paragraph of the language specification is traced to at least one test, and the coverage of the test run shows what that test reached. See the [Traceability Matrix](/qualification-report/traceability-matrix/) and [Slint Code Coverage](/qualification-report/slint-coverage/). |
+| `slint.runtime.avd.spec-tests` | Every paragraph of the rendering model and the generated code contract is traced to at least one test, and the runtime is held at complete structural coverage. See [Test Coverage](/qualification-report/test-coverage/) for the runtime and [Slint Code Coverage](/qualification-report/slint-coverage/) for the `.slint` code of the tests. |
 | `slint.runtime.avd.buffer-size-check` | `render_rgb8` checks the frame buffer length and paints nothing if it doesn't match, per `sls.gen.render-error`. |
 | `slint.runtime.avd.no-allocator` | The runtime is `no_std`, doesn't use `alloc`, and has no dependencies, so there's no allocator to fail and no dynamic allocation to make timing unpredictable. |
 

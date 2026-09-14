@@ -39,10 +39,15 @@ cargo test -p slint-compiler --features slint-sc --no-default-features
 
 cargo llvm-cov clean --workspace
 
+# The driver adds a file per case and removes none, so clear what it kept
+# before: a case that was renamed or deleted would otherwise keep reporting
+# coverage, and the safety manual reads whatever is in here.
+rm -rf "$out/slint-sc-coverage"
+
 # --remap-path-prefix makes the reports use workspace-relative paths, so the
 # safety manual's per-line links don't depend on the checkout location.
-# The driver measures the coverage of each .slint case and keeps it as lcov in
-# SLINT_SC_COVERAGE_DIR.
+# The driver measures the coverage of each .slint case and keeps it in
+# SLINT_SC_COVERAGE_DIR, as lcov and as the measurement the manual reads.
 SLINT_TEST_REPORT="$PWD/$results/driver.json" CARGO_TERM_COLOR=never \
     SLINT_SC_COVERAGE_DIR="$PWD/$out/slint-sc-coverage" \
     cargo llvm-cov --no-report --remap-path-prefix -p slint-sc 2>&1 \

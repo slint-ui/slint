@@ -55,6 +55,7 @@ achieved, would hide exactly the errors those measures claim to catch.)
 `slint-sc-coverage` reports which parts of the `.slint` code the tests reached, from the map the Slint SC compiler writes and LLVM's coverage of the generated code,
 see [Coverage of Slint Code](/safety-manual/slint-coverage/).
 It doesn't ship, and its output is evidence: a report of coverage that wasn't achieved hides untested code.
+Its output for the qualification test runs is the [Slint Code Coverage](/qualification-report/slint-coverage/) chapter.
 
 * **Tool Impact (TI2):** the tool can fail to detect an error, by reporting a point as reached that wasn't, or by leaving a point out.
 * **Tool Error Detection:** the runtime test cases that test the reporting state their expected coverage in the source and fail on any difference, on every run;

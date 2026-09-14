@@ -19,3 +19,6 @@ The `.slint` code of an application is measured as well, at the level of the lan
 which elements, bindings, handlers and calls the tests reached, and which outcomes of every `?:`, `&&` and `||` they took.
 [Coverage of Slint Code](/safety-manual/slint-coverage/) describes the measurement,
 and [Coverage Tool Verification](/qualification-plan/slint-coverage/) how the tool that takes it is tested.
+The runtime's own test cases are written in Slint and measured this way on every run.
+The [Slint Code Coverage](/qualification-report/slint-coverage/) chapter of the qualification report holds the result.
+Complete coverage isn't asked of them: the cases under `coverage/` exist to pin what an unreached point looks like.

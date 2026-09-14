@@ -7656,6 +7656,7 @@ dependencies = [
  "itertools 0.15.0",
  "serde_json",
  "slint-interpreter",
+ "slint-sc-coverage",
  "spin_on",
  "termcolor",
  "walkdir",

@@ -52,14 +52,22 @@ pub fn measure(
     Ok(report)
 }
 
-/// Keep the case's coverage as lcov at `kept` (a path without extension,
-/// one per case), the paths relative to the repository: the code the
-/// binary's coverage refers to is gone with the case's directory.
+/// Keep the case's coverage at `kept`, the case's own path under the
+/// coverage directory, with the paths inside relative to the repository:
+/// the code the binary's coverage refers to is gone with the case's
+/// directory.
+///
+/// Two files: the lcov any coverage tool reads, and the whole measurement
+/// as JSON, which lcov cannot hold, since it has a count per line and not
+/// what the points on it are. The safety manual reads the latter.
 pub fn keep(report: &slint_sc_coverage::Report, kept: &Path) -> Result<(), String> {
     static REPOSITORY: OnceLock<PathBuf> = OnceLock::new();
     let repository = REPOSITORY.get_or_init(|| {
         let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         repository.canonicalize().unwrap_or(repository)
     });
-    std::fs::write(kept.with_extension("lcov"), report.lcov(repository)).map_err(|e| e.to_string())
+    std::fs::write(kept.with_extension("lcov"), report.lcov(repository))
+        .map_err(|e| e.to_string())?;
+    let measured = serde_json::to_vec(&report.measured(repository)).map_err(|e| e.to_string())?;
+    std::fs::write(kept.with_extension("points.json"), measured).map_err(|e| e.to_string())
 }

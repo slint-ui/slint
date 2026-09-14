@@ -132,7 +132,9 @@ fn check_caret_line(line: &str) -> Result<(), String> {
 }
 
 /// The source with the caret line of each line rewritten from the points
-/// measured on it.
+/// measured on it. Fails when a point sits in a column a caret cannot
+/// reach, which is why a case states such a point in its ```` ```coverage ````
+/// block instead.
 fn annotate(source: &str, lines: &BTreeMap<usize, Vec<Entry>>) -> Result<String, String> {
     let mut out = String::with_capacity(source.len());
     for (i, line) in source.split_inclusive('\n').enumerate() {
@@ -164,8 +166,8 @@ fn caret_line(entries: &[Entry]) -> Result<String, String> {
     for entry in entries {
         let column = entry.column();
         let marks: String = match entry {
-            Entry::Point { reached, .. } => status(*reached).into(),
-            Entry::Decision { reached, .. } => reached.iter().map(|&r| status(r)).collect(),
+            Entry::Point { count, .. } => status(*count > 0).into(),
+            Entry::Decision { counts, .. } => counts.iter().map(|&c| status(c > 0)).collect(),
         };
         if column <= out.len() {
             return Err(format!(
