@@ -28,8 +28,8 @@ function writeMain(directory: string, source: string): string {
     return main;
 }
 
-test("include directories come from the project file", () => {
-    const directory = projectDirectory({ "include-directories": ["include"] });
+test("include paths come from the project file", () => {
+    const directory = projectDirectory({ "include-paths": ["include"] });
     fs.mkdirSync(path.join(directory, "include"));
     fs.writeFileSync(
         path.join(directory, "include", "shared.slint"),
