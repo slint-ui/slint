@@ -4974,29 +4974,34 @@ impl std::iter::IntoIterator for Exports {
     }
 }
 
-/// Re-declare the constrained layout-info function on an injected wrapper, forwarding
-/// to the element that carries it.
+/// Re-declare constrained layout info on an injected wrapper.
 ///
-/// `inherited_layout_info_v_with_constraint` walks the base-type chain, but the element
-/// declaring the function is now the wrapper's *child*, so without this the wrapper
-/// reports "not height-for-width" and the layout falls back to reading
-/// the cell's own width — which the parent layout is still computing (binding loop).
-///
-/// The function must be re-declared rather than the `NamedReference` copied: callers
-/// assert it points at the component's root element, which the wrapper now is.
+/// Forward an existing function when the child has one. A builtin root may depend
+/// on width without a synthetic function, so rebuild its implicit vertical info
+/// with the wrapper's width parameter.
 fn forward_layout_info_with_constraint(new_root: &ElementRc, old_root: &ElementRc) {
-    if let Some(nr) = old_root.borrow().inherited_layout_info_v_with_constraint() {
+    let width = Expression::FunctionParameterReference { index: 0, ty: Type::LogicalLength };
+    let body = if let Some(nr) = old_root.borrow().inherited_layout_info_v_with_constraint() {
+        Some(Expression::FunctionCall {
+            function: Callable::Function(NamedReference::new(old_root, nr.name().clone())),
+            arguments: vec![width],
+            source_location: None,
+        })
+    } else if old_root.borrow().is_builtin_height_for_width() {
+        crate::layout::implicit_layout_info_call(
+            old_root,
+            Orientation::Vertical,
+            crate::layout::BuiltinFilter::All,
+            Some(width),
+        )
+    } else {
+        None
+    };
+    if let Some(body) = body {
         crate::passes::lower_layout::synthesize_layoutinfo_v_with_constraint_on(
             new_root,
             old_root.borrow().to_source_location(),
-            Expression::FunctionCall {
-                function: Callable::Function(NamedReference::new(old_root, nr.name().clone())),
-                arguments: vec![Expression::FunctionParameterReference {
-                    index: 0,
-                    ty: Type::LogicalLength,
-                }],
-                source_location: None,
-            },
+            body,
         );
     }
 }
