@@ -59,8 +59,8 @@ export component Main inherits Window { Shared { } }"#;
 const PLAIN: &str = "export component Main inherits Window { }";
 
 #[test]
-fn include_directories_come_from_the_project_file() {
-    let project = Project::new(Some(r#"{ "include-directories": ["include"] }"#));
+fn include_paths_come_from_the_project_file() {
+    let project = Project::new(Some(r#"{ "include-paths": ["include"] }"#));
     project.write("include/shared.slint", "export component Shared { }");
     let main = project.write("main.slint", IMPORTS_SHARED);
 
@@ -70,7 +70,7 @@ fn include_directories_come_from_the_project_file() {
 
 #[test]
 fn an_include_path_argument_wins_over_the_project_file() {
-    let project = Project::new(Some(r#"{ "include-directories": ["unusable"] }"#));
+    let project = Project::new(Some(r#"{ "include-paths": ["unusable"] }"#));
     project.write("other/shared.slint", "export component Shared { }");
     let main = project.write("main.slint", IMPORTS_SHARED);
 
