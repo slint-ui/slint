@@ -507,7 +507,7 @@ impl Instance {
                 // core calls `RepeatedItemTree::init` on each row, so the
                 // height/width/geometry bindings must be in place
                 // immediately; `init_code` stays deferred to `init()`.
-                install_bindings_for_repeated_row(&vrc);
+                init_items_and_bindings(&vrc);
             }
             vrc
         };
@@ -798,7 +798,7 @@ fn build_instance(
 /// Idempotent: separate `OnceCell` flags guard the bindings install and
 /// the `init_code` step so each side can be called independently.
 pub(crate) fn finalize_instance(vrc: &VRc<ItemTreeVTable, Instance>) {
-    install_bindings_for_repeated_row(vrc);
+    init_items_and_bindings(vrc);
     if vrc.init_code_run.get().is_some() {
         return;
     }
@@ -818,7 +818,7 @@ pub(crate) fn finalize_instance(vrc: &VRc<ItemTreeVTable, Instance>) {
 
 /// Everything [`finalize_instance`] does except running `init_code`:
 /// `Item::init()`, bindings, two-way links and timers.
-pub(crate) fn install_bindings_for_repeated_row(vrc: &VRc<ItemTreeVTable, Instance>) {
+pub(crate) fn init_items_and_bindings(vrc: &VRc<ItemTreeVTable, Instance>) {
     if vrc.bindings_installed.get().is_some() {
         return;
     }
