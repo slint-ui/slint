@@ -24,6 +24,12 @@ export component TestCase inherits Window {
     public function cut() {
         edit1.cut();
     }
+    public function undo() {
+        edit1.undo();
+    }
+    public function redo() {
+        edit1.redo();
+    }
 
     callback edited <=> edit1.edited;
 }
@@ -32,6 +38,18 @@ export component TestCase inherits Window {
 /*
 
 ```rust
+
+// Opens the context menu with the menu key and activates the `n`th entry,
+// counting from 1 and skipping separators the way the menu's arrow keys do.
+// Activating a disabled entry leaves the menu open, so this closes it.
+fn menu_activate(instance: &TestCase, n: usize) {
+    slint_testing::send_keyboard_string_sequence(instance, &SharedString::from(slint::platform::Key::Menu));
+    for _ in 0..n {
+        slint_testing::send_keyboard_string_sequence(instance, &SharedString::from(slint::platform::Key::DownArrow));
+    }
+    slint_testing::send_keyboard_string_sequence(instance, "\n");
+    slint_testing::send_keyboard_string_sequence(instance, &SharedString::from(slint::platform::Key::Escape));
+}
 
 fn ctrl_key(instance: &TestCase, key: &str) {
     slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
@@ -109,6 +127,50 @@ edit1.set_accessible_value("Hello👋");
 assert_eq!(instance.get_text(), "Hello👋");
 assert_eq!(edited_emitted.get(), 1);
 
+// undo and redo, through the public functions
+instance.set_enabled(true);
+instance.set_text("".into());
+slint_testing::send_mouse_click(&instance, 25., 15.);
+slint_testing::send_keyboard_string_sequence(&instance, "abc");
+assert_eq!(instance.get_text(), "abc");
+instance.invoke_undo();
+assert_eq!(instance.get_text(), "");
+instance.invoke_redo();
+assert_eq!(instance.get_text(), "abc");
+
+// and through the first two entries of the context menu
+menu_activate(&instance, 1);
+assert_eq!(instance.get_text(), "");
+menu_activate(&instance, 2);
+assert_eq!(instance.get_text(), "abc");
+
+// neither the menu nor Ctrl+Z reaches a read-only or a disabled LineEdit
+instance.invoke_select_all();
+instance.invoke_cut();
+assert_eq!(instance.get_text(), "");
+// the menu above took the keyboard focus away from the LineEdit, so click it back
+slint_testing::send_mouse_click(&instance, 25., 15.);
+instance.set_read_only(true);
+ctrl_key(&instance, "z");
+assert_eq!(instance.get_text(), "");
+menu_activate(&instance, 1);
+assert_eq!(instance.get_text(), "");
+instance.set_read_only(false);
+slint_testing::send_mouse_click(&instance, 25., 15.);
+instance.set_enabled(false);
+ctrl_key(&instance, "z");
+assert_eq!(instance.get_text(), "");
+instance.set_enabled(true);
+
+// with neither in the way, the same shortcut undoes the cut
+ctrl_key(&instance, "z");
+assert_eq!(instance.get_text(), "abc");
+
+// and redo stays out of reach of a read-only LineEdit that still has text
+instance.set_read_only(true);
+menu_activate(&instance, 2);
+assert_eq!(instance.get_text(), "abc");
+instance.set_read_only(false);
 
 ```
 

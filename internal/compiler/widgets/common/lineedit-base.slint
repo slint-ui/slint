@@ -65,6 +65,14 @@ export component LineEditBase inherits Rectangle {
         text-input.paste();
     }
 
+    public function undo() {
+        text-input.undo();
+    }
+
+    public function redo() {
+        text-input.redo();
+    }
+
     // on width < 1px or if the `TextInput` is clipped it cannot be focused therefore min-width 1px
     min-width: 1px;
     min-height: text-input.preferred-height;
@@ -89,6 +97,24 @@ export component LineEditBase inherits Rectangle {
     ContextMenuArea {
         enabled: root.enabled;
         Menu {
+            MenuItem {
+                title: @tr("Undo");
+                enabled: !root.read-only && root.enabled;
+                activated => {
+                    text-input.undo();
+                }
+            }
+
+            MenuItem {
+                title: @tr("Redo");
+                enabled: !root.read-only && root.enabled;
+                activated => {
+                    text-input.redo();
+                }
+            }
+
+            MenuSeparator { }
+
             MenuItem {
                 title: @tr("Cut");
                 enabled: !root.read-only && root.enabled;
