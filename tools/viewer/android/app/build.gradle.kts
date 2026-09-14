@@ -8,8 +8,7 @@ plugins {
     id("com.android.application")
 }
 
-// versionName comes from Cargo.toml unless SLINT_VERSION overrides it; the
-// versionCode is the Play build's SLINT_BUILD_NUMBER, else derived from it.
+// versionName comes from Cargo.toml unless SLINT_VERSION overrides it.
 val slintVersion = System.getenv("SLINT_VERSION")
     ?: Regex("""(?m)^version = "([^"]+)"""")
         .find(file("../../../../Cargo.toml").readText())!!.groupValues[1]
@@ -21,6 +20,12 @@ val releaseVersionCode = major * 10000 + minor * 100 + patch
 // armeabi-v7a) installs the highest, i.e. arm64. The build entries of the
 // F-Droid recipe (fdroid/dev.slint.viewer.yml) follow this order.
 val abiVersionCodeOffset = mapOf("armeabi-v7a" to 1, "x86_64" to 2, "arm64-v8a" to 3)
+
+// Play takes no version code twice, and no release below the one a track
+// already serves. It holds 118001, an APK code a bundle went out with, so
+// the bundle counts the build number from a million up.
+val bundleVersionCode = System.getenv("SLINT_BUILD_NUMBER")?.toIntOrNull()?.plus(1_000_000)
+    ?: releaseVersionCode
 
 // -Pslint.abi=<abi> restricts the APKs to one ABI; F-Droid builds one ABI
 // per version code that way.
@@ -37,7 +42,7 @@ android {
         applicationId = "dev.slint.viewer"
         minSdk = 26
         targetSdk = 36
-        versionCode = System.getenv("SLINT_BUILD_NUMBER")?.toIntOrNull() ?: releaseVersionCode
+        versionCode = releaseVersionCode
         versionName = slintVersion
     }
 
@@ -69,23 +74,27 @@ android {
     }
 
     // One APK per ABI so a download carries only its architecture's native
-    // libraries (Skia dominates the size). `bundleRelease` ignores `splits`
-    // and keeps every ABI in the bundle.
+    // libraries (Skia dominates the size). The bundle carries every ABI either
+    // way, but takes its version code from the first split, so build-aab.sh
+    // builds it with -Pslint.no-abi-splits.
     splits {
         abi {
-            isEnable = true
+            isEnable = !project.hasProperty("slint.no-abi-splits")
             reset()
             include(*abis.toTypedArray())
         }
     }
 }
 
-// The bundle has no ABI filter and keeps `defaultConfig`'s versionCode.
+// An ABI filter marks a split APK. Without the splits the one output is the
+// bundle's.
 androidComponents {
     onVariants { variant ->
         variant.outputs.forEach { output ->
-            val abi = output.filters.find { it.filterType == ABI }?.identifier ?: return@forEach
-            output.versionCode.set(releaseVersionCode * 10 + abiVersionCodeOffset.getValue(abi))
+            val abi = output.filters.find { it.filterType == ABI }?.identifier
+            output.versionCode.set(
+                if (abi == null) bundleVersionCode else releaseVersionCode * 10 + abiVersionCodeOffset.getValue(abi)
+            )
         }
     }
 }
