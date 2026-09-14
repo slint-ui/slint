@@ -37,7 +37,7 @@
     "vitest": "catalog:"
   },
   "dependencies": {
-    "figma-kit": "1.0.0-beta.23",
+    "figma-kit": "1.0.0-beta.26",
     "html-react-parser": "6.1.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",
