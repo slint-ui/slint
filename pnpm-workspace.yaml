@@ -66,7 +66,7 @@ catalog:
   sharp: 0.35.4
   starlight-links-validator: 0.26.0
   remark-parse: 11.0.0
-  typescript: 7.0.2
+  typescript: 6.0.3
   unified: 11.0.5
   unist-util-visit: 5.1.0
   vite: 8.3.0
