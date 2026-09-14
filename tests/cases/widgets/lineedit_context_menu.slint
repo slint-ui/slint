@@ -1,4 +1,4 @@
-// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Laurent Montel <laurent.montel@kdab.com>
+// Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore hunter
@@ -32,6 +32,7 @@ export component TestCase inherits Window {
     public function select-all-plain() { plain.focus(); plain.select-all(); }
     public function select-all-secret() { secret.focus(); secret.select-all(); }
     public function focus-target() { target.focus(); }
+    public function cut-secret() { secret.cut(); }
 }
 
 /*
@@ -73,6 +74,10 @@ instance.invoke_select_all_secret();
 open_menu("TestCase::secret");
 click_entry("Cut");
 assert_eq!(instance.get_secret_text(), "hunter2", "Cut must not empty a password LineEdit");
+
+// A programmatic cut() is a no-op on a password field too.
+instance.invoke_cut_secret();
+assert_eq!(instance.get_secret_text(), "hunter2", "cut() must not empty a password LineEdit");
 
 // Copy is disabled too, so the clipboard still holds "plain" and not the password.
 click_entry("Copy");
