@@ -336,7 +336,7 @@ export component DatePickerBase {
             IconButton {
                 icon: root.selection-mode ? root.style.input-icon : root.style.calendar-icon;
                 style: root.style.icon-button-style;
-                accessible-label: "Toggle selection mode";
+                accessible-label: @tr("Toggle selection mode");
 
                 clicked => {
                     root.toggle-selection-mode();
@@ -369,7 +369,7 @@ export component DatePickerBase {
             IconButton {
                 icon: root.style.previous-icon;
                 style: root.style.icon-button-style;
-                accessible-label: "Previous month";
+                accessible-label: @tr("Previous month");
 
                 clicked => {
                     root.show-previous();
@@ -379,7 +379,7 @@ export component DatePickerBase {
             IconButton {
                 icon: root.style.next-icon;
                 style: root.style.icon-button-style;
-                accessible-label: "Next month";
+                accessible-label: @tr("Next month");
 
                 clicked => {
                     root.show-next();
