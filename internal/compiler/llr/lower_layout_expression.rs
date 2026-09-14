@@ -613,7 +613,7 @@ pub(super) fn solve_flexbox_layout(
 fn cell_is_height_for_width(elem: &ElementRc) -> bool {
     if elem.borrow().repeated.is_some() {
         let root = elem.borrow().base_type.as_component().root_element.clone();
-        return root.borrow().inherited_layout_info_v_with_constraint().is_some();
+        return is_height_for_width_cell(&root);
     }
     is_height_for_width_cell(elem)
 }
@@ -2162,18 +2162,16 @@ pub fn get_flexbox_layout_item_info_for_repeated(
 }
 
 /// Vertical `LayoutInfo` for a repeated element, computed with the element's
-/// preferred width as the cross-axis constraint. Routes through the element's
-/// `layoutinfo-v-with-constraint` (via [`get_layout_info`]), so a
-/// height-for-width instance in a column FlexboxLayout computes its height from
-/// that width instead of reading `self.width` — which would cycle through the
-/// parent flex's layout cache. Returns `None` when the element has no
-/// constrained vertical layout-info (nothing to break).
+/// preferred width as the cross-axis constraint. A height-for-width instance
+/// in a column FlexboxLayout computes its height from that width instead of
+/// reading `self.width`, which would cycle through the parent flex's layout
+/// cache. Returns `None` when the element isn't height-for-width.
 pub fn get_layout_info_v_constrained_for_repeated(
     ctx: &mut ExpressionLoweringCtx,
     element: &ElementRc,
     constraints: &crate::layout::LayoutConstraints,
 ) -> Option<llr_Expression> {
-    if !element.borrow().has_inherited_layout_info_v_with_constraint() {
+    if !is_height_for_width_cell(element) {
         return None;
     }
     // Use the preferred width as the cross-axis constraint, the same default
@@ -2209,8 +2207,8 @@ pub const CROSS_WIDTH_LOCAL: &str = "cross_width";
 /// element's preferred width. A column FlexboxLayout (or a box layout)
 /// supplies the width it assigns the instance here at solve time, so a
 /// repeated height-for-width instance gets the same wrapped height as an
-/// equivalent static cell. Returns `None` when the element has no constrained
-/// vertical layout-info.
+/// equivalent static cell. Returns `None` when the element isn't
+/// height-for-width.
 ///
 /// `for_flex_cell` selects [`get_flex_cell_layout_info`] (flexbox:
 /// re-reading inherited constraints unconstrained would reintroduce the
@@ -2222,7 +2220,7 @@ pub fn get_layout_info_v_at_cross_width_for_repeated(
     constraints: &crate::layout::LayoutConstraints,
     for_flex_cell: bool,
 ) -> Option<llr_Expression> {
-    if !element.borrow().has_inherited_layout_info_v_with_constraint() {
+    if !is_height_for_width_cell(element) {
         return None;
     }
     let width_constraint = crate::expression_tree::Expression::ReadLocalVariable {
