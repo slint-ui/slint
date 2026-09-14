@@ -12,6 +12,10 @@ use std::{
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
 struct ProjectFileData {
+    /// The schema that editors validate the file against. The compiler ignores it.
+    #[serde(rename = "$schema")]
+    schema: Option<String>,
+
     #[serde(alias = "library-paths")]
     library_paths: Option<HashMap<String, PathBuf>>,
 
@@ -227,6 +231,29 @@ mod tests {
         );
         assert_eq!(parsed.include_directories(), Some(&vec![PathBuf::from("include")]));
         assert_eq!(parsed.enable_experimental_features(), Some(true));
+    }
+
+    #[test]
+    fn a_schema_reference_is_accepted() {
+        let parsed = load_project_file(
+            r#"{
+                "$schema": "https://slint.dev/slint-project.schema.json",
+                "style": "fluent"
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(parsed.style(), Some("fluent"));
+    }
+
+    #[test]
+    fn a_schema_reference_alone_is_accepted() {
+        let parsed =
+            load_project_file(r#"{"$schema": "https://slint.dev/slint-project.schema.json"}"#)
+                .unwrap();
+
+        assert_eq!(parsed.style(), None);
+        assert_eq!(parsed.include_directories(), None);
     }
 
     #[test]
