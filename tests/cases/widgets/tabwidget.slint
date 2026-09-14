@@ -4,12 +4,19 @@
 import { Button, GroupBox, TabWidget, VerticalBox } from "std-widgets.slint";
 
 export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
     out property <int> current-index <=> tab-widget.current-index;
+    // The qt style once measured a tab bar of 0 and drew no tab at all, leaving
+    // the content to fill the widget. 15px is under the bar's height in every
+    // style.
+    out property <bool> test: first-content.height > 0
+        && first-content.height < tab-widget.height - 15px;
     tab-widget := TabWidget {
         Tab {
             title: "First Tab";
 
-            VerticalBox {
+            first-content := VerticalBox {
                 alignment: start;
 
                 GroupBox {
@@ -142,5 +149,16 @@ assert_eq!(instance.get_current_index(), 1, "horizontal scroll changed the curre
 // A vertical scroll below the dead zone must not change the selection either.
 tab_bar.scroll(0., 1.);
 assert_eq!(instance.get_current_index(), 1, "tiny scroll changed the current tab");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
 ```
 */

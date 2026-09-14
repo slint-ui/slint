@@ -507,7 +507,7 @@ impl Instance {
                 // core calls `RepeatedItemTree::init` on each row, so the
                 // height/width/geometry bindings must be in place
                 // immediately; `init_code` stays deferred to `init()`.
-                install_bindings_for_repeated_row(&vrc);
+                init_items_and_bindings(&vrc);
             }
             vrc
         };
@@ -796,13 +796,9 @@ fn build_instance(
 /// instance, then run `init_code`.
 ///
 /// Idempotent: separate `OnceCell` flags guard the bindings install and
-/// the `init_code` step so each side can be called independently. The
-/// listview virtualization path uses
-/// [`install_bindings_for_repeated_row`] to install bindings before the
-/// first measurement and defers `init_code` to the core's
-/// `init_instances` callback (`<Instance as RepeatedItemTree>::init`).
+/// the `init_code` step so each side can be called independently.
 pub(crate) fn finalize_instance(vrc: &VRc<ItemTreeVTable, Instance>) {
-    install_bindings_for_repeated_row(vrc);
+    init_items_and_bindings(vrc);
     if vrc.init_code_run.get().is_some() {
         return;
     }
@@ -817,29 +813,22 @@ pub(crate) fn finalize_instance(vrc: &VRc<ItemTreeVTable, Instance>) {
     if vrc.public_component_index.is_some() && vrc.embedded_in.get().is_none() {
         vrc.attach_to_window();
     }
-    // Call Item::init() on every native item and register the item tree
-    // with the window adapter. Registration matters: the rendering backend
-    // keeps per-component caches (text shaping, bounding rects) released
-    // only by the matching `unregister_item_tree` on Drop, and skipping
-    // the pair leaks entries until the renderer serves stale data for
-    // reused item addresses.
-    {
-        let dyn_rc = vtable::VRc::into_dyn(vrc.self_weak.get().unwrap().upgrade().unwrap());
-        let adapter = vrc.window_adapter_or_default();
-        i_slint_core::item_tree::register_item_tree(&dyn_rc, adapter);
-    }
     crate::bindings::run_init_code_for_instance(vrc);
 }
 
-/// Install bindings, two-way links and timers on `vrc` without running
-/// `init_code`. Used by the listview row factory; safe to call from any
-/// other path that needs bindings in place but doesn't want to fire user
-/// init handlers yet.
-pub(crate) fn install_bindings_for_repeated_row(vrc: &VRc<ItemTreeVTable, Instance>) {
+/// Everything [`finalize_instance`] does except running `init_code`:
+/// `Item::init()`, bindings, two-way links and timers.
+pub(crate) fn init_items_and_bindings(vrc: &VRc<ItemTreeVTable, Instance>) {
     if vrc.bindings_installed.get().is_some() {
         return;
     }
     let _ = vrc.bindings_installed.set(());
+    // `register_item_tree` calls `Item::init()`, which `ItemVTable::init`
+    // requires to run before the bindings below.
+    i_slint_core::item_tree::register_item_tree(
+        &vtable::VRc::into_dyn(vrc.clone()),
+        vrc.window_adapter_or_default(),
+    );
     let is_root = vrc.parent_instance.upgrade().is_none();
     if is_root {
         crate::globals::install_global_bindings(&vrc.globals);
