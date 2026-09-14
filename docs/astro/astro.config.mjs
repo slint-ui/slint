@@ -117,6 +117,7 @@ export default defineConfig({
                                         ],
                                     },
                                     "guide/tooling/live-preview",
+                                    "guide/tooling/project-file",
                                     "guide/tooling/slint-viewer",
                                     "guide/tooling/figma-inspector",
                                     "guide/tooling/ai-coding-assistants",
