@@ -2627,8 +2627,8 @@ mod project_file_tests {
     }
 
     #[test]
-    fn the_project_file_include_directories_are_used() {
-        with_project(r#"{ "include-directories": ["include"] }"#, |root| {
+    fn the_project_file_include_paths_are_used() {
+        with_project(r#"{ "include-paths": ["include"] }"#, |root| {
             let include = root.join("include");
             std::fs::create_dir_all(&include).unwrap();
             std::fs::write(include.join("shared.slint"), "export component Shared { }").unwrap();

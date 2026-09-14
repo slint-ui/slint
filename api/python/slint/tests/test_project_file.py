@@ -26,10 +26,10 @@ def messages(result: native.CompilationResult) -> list[str]:
     return [diagnostic.message for diagnostic in result.diagnostics]
 
 
-def test_include_directories_come_from_the_project_file(
+def test_include_paths_come_from_the_project_file(
     tmp_path: pathlib.Path,
 ) -> None:
-    directory = project_directory(tmp_path, {"include-directories": ["include"]})
+    directory = project_directory(tmp_path, {"include-paths": ["include"]})
     (directory / "include").mkdir()
     (directory / "include" / "shared.slint").write_text("export component Shared { }")
 

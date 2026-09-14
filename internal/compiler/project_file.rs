@@ -10,22 +10,19 @@ use std::{
 };
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct ProjectFileData {
     /// Points an editor at the schema to validate the file against.
     /// Read and ignored: it is there for editors, not for the compiler.
     #[serde(rename = "$schema")]
     schema: Option<String>,
 
-    #[serde(alias = "library-paths")]
     library_paths: Option<HashMap<String, PathBuf>>,
 
-    #[serde(alias = "include-directories")]
-    include_directories: Option<Vec<PathBuf>>,
+    include_paths: Option<Vec<PathBuf>>,
 
     style: Option<String>,
 
-    #[serde(alias = "enable-experimental-features")]
     enable_experimental_features: Option<bool>,
 }
 
@@ -81,8 +78,8 @@ impl ProjectFile {
         self.data.library_paths.as_ref()
     }
 
-    pub fn include_directories(&self) -> Option<&Vec<PathBuf>> {
-        self.data.include_directories.as_ref()
+    pub fn include_paths(&self) -> Option<&Vec<PathBuf>> {
+        self.data.include_paths.as_ref()
     }
 
     pub fn style(&self) -> Option<&str> {
@@ -107,8 +104,8 @@ impl ProjectFile {
     pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
         let project_directory = crate::pathutils::dirname(&self.source_path);
 
-        if let Some(include_directories) = &self.data.include_directories {
-            compiler_config.include_paths = include_directories
+        if let Some(include_paths) = &self.data.include_paths {
+            compiler_config.include_paths = include_paths
                 .iter()
                 .cloned()
                 .map(|path| resolve_relative_path(&project_directory, path))
@@ -216,7 +213,7 @@ mod tests {
         let parsed = load_project_file(
             r#"{
                 "style": "fluent",
-                "enable_experimental_features": true
+                "enable-experimental-features": true
             }"#,
         )
         .unwrap();
@@ -224,7 +221,13 @@ mod tests {
         assert_eq!(parsed.style(), Some("fluent"));
         assert_eq!(parsed.enable_experimental_features(), Some(true));
         assert_eq!(parsed.library_paths(), None);
-        assert_eq!(parsed.include_directories(), None);
+        assert_eq!(parsed.include_paths(), None);
+    }
+
+    #[test]
+    fn snake_case_keys_are_rejected() {
+        let error = load_project_file(r#"{"include_paths": ["include"]}"#).unwrap_err();
+        assert!(error.to_string().contains("unknown field"), "{error}");
     }
 
     #[test]
@@ -232,7 +235,7 @@ mod tests {
         let parsed = load_project_file(
             r#"{
                 "library-paths": {"widgets": "libs"},
-                "include-directories": ["include"],
+                "include-paths": ["include"],
                 "enable-experimental-features": true
             }"#,
         )
@@ -242,7 +245,7 @@ mod tests {
             parsed.library_paths(),
             Some(&HashMap::from([("widgets".into(), PathBuf::from("libs"))]))
         );
-        assert_eq!(parsed.include_directories(), Some(&vec![PathBuf::from("include")]));
+        assert_eq!(parsed.include_paths(), Some(&vec![PathBuf::from("include")]));
         assert_eq!(parsed.enable_experimental_features(), Some(true));
     }
 
@@ -266,7 +269,7 @@ mod tests {
                 .unwrap();
 
         assert_eq!(parsed.style(), None);
-        assert_eq!(parsed.include_directories(), None);
+        assert_eq!(parsed.include_paths(), None);
     }
 
     #[test]
@@ -289,27 +292,27 @@ mod tests {
                 /* Disabled until the upgrade:
                    "style": "material",
                 */
-                "include-directories": ["include"] /* here too */
+                "include-paths": ["include"] /* here too */
             }"#,
         )
         .unwrap();
 
         assert_eq!(parsed.style(), None);
-        assert_eq!(parsed.include_directories(), Some(&vec![PathBuf::from("include")]));
+        assert_eq!(parsed.include_paths(), Some(&vec![PathBuf::from("include")]));
     }
 
     #[test]
     fn comment_markers_inside_strings_are_kept() {
         let parsed = load_project_file(
             r#"{
-                "include-directories": ["not//a/comment", "not/*a*/comment"],
+                "include-paths": ["not//a/comment", "not/*a*/comment"],
                 "style": "with \" quote // and slashes"
             }"#,
         )
         .unwrap();
 
         assert_eq!(
-            parsed.include_directories(),
+            parsed.include_paths(),
             Some(&vec![PathBuf::from("not//a/comment"), PathBuf::from("not/*a*/comment")])
         );
         assert_eq!(parsed.style(), Some(r#"with " quote // and slashes"#));
@@ -325,7 +328,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(parsed.style(), None);
-        assert_eq!(parsed.include_directories(), None);
+        assert_eq!(parsed.include_paths(), None);
     }
 
     #[test]
@@ -356,7 +359,7 @@ mod tests {
         for case in cases {
             let parsed = load_project_file(case).unwrap();
             assert_eq!(parsed.library_paths(), None);
-            assert_eq!(parsed.include_directories(), None);
+            assert_eq!(parsed.include_paths(), None);
             assert_eq!(parsed.style(), None);
             assert_eq!(parsed.enable_experimental_features(), None);
         }
@@ -374,10 +377,10 @@ mod tests {
     fn project_file_converts_to_compiler_configuration() {
         with_project_file_contents(
             r#"{
-                "library_paths": {"widgets": "libraries/widgets.slint"},
-                "include_directories": ["include", "../shared"],
+                "library-paths": {"widgets": "libraries/widgets.slint"},
+                "include-paths": ["include", "../shared"],
                 "style": "fluent",
-                "enable_experimental_features": true
+                "enable-experimental-features": true
             }"#,
             |path| {
                 let project = ProjectFile::load(path).unwrap();
