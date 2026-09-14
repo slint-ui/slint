@@ -42,7 +42,6 @@ pub struct NativeSpinBox {
 cpp! {{
 void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, bool enabled, bool read_only, int active_controls) {
 auto style = qApp->style();
-option.activeSubControls = QStyle::SC_None;
 option.subControls = QStyle::SC_SpinBoxEditField | QStyle::SC_SpinBoxUp | QStyle::SC_SpinBoxDown;
 if (style->styleHint(QStyle::SH_SpinBox_ButtonsInsideFrame, nullptr, nullptr))
     option.subControls |= QStyle::SC_SpinBoxFrame;
