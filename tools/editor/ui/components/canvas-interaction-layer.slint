@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { FillSession } from "inspector/fill-session.slint";
 import { Api, Hover, SelectionRectangle } from "../api.slint";
 import { EditorAngles, EditorCursors, StudioTheme } from "common.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
@@ -278,10 +279,22 @@ export component CanvasInteractionLayer inherits Rectangle {
         ? Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset)
         : [];
 
+    private property <Point> canvas-origin: root.absolute-position;
+    private property <Size> canvas-size: { width: root.width, height: root.height };
+    private property <SelectionRectangle> primary-selection: root.selections[Api.selection.highlight-index];
+    init => {
+        FillSession.canvas-origin = root.canvas-origin;
+        FillSession.canvas-size = root.canvas-size;
+        FillSession.selection = root.primary-selection;
+    }
+    changed canvas-origin => { FillSession.canvas-origin = root.canvas-origin; }
+    changed canvas-size => { FillSession.canvas-size = root.canvas-size; }
+    changed primary-selection => { FillSession.selection = root.primary-selection; }
+
     callback real-element-selected();
 
     function update-hover(position: Point) {
-        if root.hover-selection-active || selection-area.pressed {
+        if FillSession.canvas-active || root.hover-selection-active || selection-area.pressed {
             return;
         }
         Hover.element = Hover.element-at(position.x, position.y, false);
@@ -310,13 +323,13 @@ export component CanvasInteractionLayer inherits Rectangle {
         selection: selection;
         primary: idx == Api.selection.highlight-index;
         shift-pressed: root.shift-pressed;
-        interaction-disabled: root.hover-selection-active;
+        interaction-disabled: root.hover-selection-active || FillSession.canvas-active;
         pointer-hovered(position) => {
             root.update-hover(position);
         }
     }
 
-    for geometry in Hover.element.geometry: HoverCanvasFrame {
+    for geometry in (FillSession.canvas-active ? [] : Hover.element.geometry): HoverCanvasFrame {
         geometry: geometry;
         gesture-active: root.hover-selection-active;
         selection-area-has-hover: selection-area.has-hover;

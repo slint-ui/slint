@@ -48,6 +48,22 @@ def fixture_project(tmp_path: Path) -> Path:
     return destination
 
 
+@pytest.fixture
+def radial_scene(tmp_path: Path) -> Path:
+    path = tmp_path / "RadialGradientScene.slint"
+    path.write_text("""export component RadialGradientScene inherits Window {
+    width: 400px;
+    height: 400px;
+    fill := Rectangle {
+        width: 200px;
+        height: 200px;
+        background: @radial-gradient(circle, #7e3b66 0%, #264052 45%, #568fb8 100%);
+    }
+}
+""")
+    return path
+
+
 def replay_pause_seconds(value: str) -> float:
     seconds = float(value)
     if not math.isfinite(seconds) or seconds < 0:
