@@ -40,14 +40,14 @@ allowBuilds:
 
 # Security overrides. Each key pins the vulnerable range to a fixed version.
 overrides:
-  'svgo@>=4.0.0 <4.0.2': '>=4.0.2'
-  'yaml@>=2.0.0 <2.8.3': '>=2.8.3'
-  'uuid@<14.0.0': '>=14.0.0'
-  'qs@>=6.11.1 <=6.15.1': '>=6.15.2'
-  'js-yaml@<=4.1.1': '>=4.2.0 <5.0.0'
-  'sharp@<0.35.0': '>=0.35.0'
-  'nanoid@<3.3.17': '>=3.3.17 <4.0.0'
-  'deepmerge-ts@<8.0.0': '>=8.0.0'
+  deepmerge-ts@<8.0.0: 8.0.0
+  js-yaml@>=4.0.0 <4.3.2: 4.3.2
+  lodash-es@<=4.17.23: 4.18.1
+  lodash-es@>=4.0.0 <=4.17.23: 4.18.1
+  qs@>=2.2.5 <6.16.0: 6.16.0
+  qs@>=6.14.2 <=6.15.3: 6.16.0
+  sharp@<0.35.4: 0.35.4
+  svgo@>=4.0.0 <4.1.0: 4.1.0
 
 catalog:
   '@astrojs/check': 0.9.10
@@ -70,4 +70,4 @@ catalog:
   unified: 11.0.5
   unist-util-visit: 5.1.0
   vite: 8.3.0
-  vitest: 4.1.10
+  vitest: 5.0.0
