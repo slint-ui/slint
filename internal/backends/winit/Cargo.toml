@@ -42,7 +42,12 @@ x11 = [
   "softbuffer?/x11",
   "softbuffer?/x11-dlopen",
 ]
-renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "dep:glutin", "dep:glutin-winit"]
+renderer-femtovg = [
+  "i-slint-renderer-femtovg/opengl",
+  "dep:glutin",
+  "dep:glutin-winit",
+  "windows/Win32_Graphics_OpenGL",
+]
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-30"]
 renderer-skia = ["i-slint-renderer-skia"]
 renderer-vello = ["dep:i-slint-renderer-anyrender", "i-slint-renderer-anyrender/vello", "unstable-wgpu-29"]
