@@ -782,7 +782,7 @@ fn project_file_defaults_use_project_file_directory_for_relative_paths() {
         fs::write(
             &project_file,
             r#"{
-                "include-directories": ["project-include"],
+                "include-paths": ["project-include"],
                 "library-paths": {"widgets": "project-lib.slint"},
                 "style": "project-style"
             }"#,
@@ -814,7 +814,7 @@ fn project_file_defaults_are_overridden_by_explicit_settings() {
         fs::write(
             &project_file,
             r#"{
-                "include-directories": ["project-include"],
+                "include-paths": ["project-include"],
                 "library-paths": {"widgets": "project-lib.slint"},
                 "style": "project-style"
             }"#,

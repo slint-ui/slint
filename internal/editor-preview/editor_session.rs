@@ -226,7 +226,7 @@ impl EditorSession {
     }
 
     fn project_baseline(project_file: ProjectFile) -> ProjectCompilerBaseline {
-        let has_include_paths = project_file.include_directories().is_some();
+        let has_include_paths = project_file.include_paths().is_some();
         let has_library_paths = project_file.library_paths().is_some();
         let has_style = project_file.style().is_some();
         let enable_experimental = project_file.enable_experimental_features();
@@ -1101,7 +1101,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
         let document_path = temp.path().join("main.slint");
-        std::fs::write(&project_path, r#"{ "include-directories": ["include"] }"#).unwrap();
+        std::fs::write(&project_path, r#"{ "include-paths": ["include"] }"#).unwrap();
         write_document(&document_path);
 
         let mut session = session();
@@ -1180,12 +1180,12 @@ mod tests {
         let document_b = project_b.join("main.slint");
         std::fs::write(
             project_a.join(FILE_NAME),
-            r#"{ "include-directories": ["include-a"], "style": "material" }"#,
+            r#"{ "include-paths": ["include-a"], "style": "material" }"#,
         )
         .unwrap();
         std::fs::write(
             project_b.join(FILE_NAME),
-            r#"{ "include-directories": ["include-b"], "library-paths": {"widgets": "lib.slint"} }"#,
+            r#"{ "include-paths": ["include-b"], "library-paths": {"widgets": "lib.slint"} }"#,
         )
         .unwrap();
         write_document(&document_a);
