@@ -97,23 +97,21 @@ export component LineEditBase inherits Rectangle {
     ContextMenuArea {
         enabled: root.enabled;
         Menu {
-            MenuItem {
+            if !root.read-only && root.enabled: MenuItem {
                 title: @tr("Undo");
-                enabled: !root.read-only && root.enabled;
                 activated => {
                     text-input.undo();
                 }
             }
 
-            MenuItem {
+            if !root.read-only && root.enabled: MenuItem {
                 title: @tr("Redo");
-                enabled: !root.read-only && root.enabled;
                 activated => {
                     text-input.redo();
                 }
             }
 
-            MenuSeparator { }
+            if !root.read-only && root.enabled: MenuSeparator { }
 
             MenuItem {
                 title: @tr("Cut");
