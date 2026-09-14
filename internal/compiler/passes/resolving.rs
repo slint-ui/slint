@@ -157,6 +157,12 @@ fn resolve_match_elements(
                 "Match subject is a constant expression, so the same case always applies".into(),
                 &match_element.node.Expression(),
             );
+        } else if matches!(case_type, Type::Float32) && !match_element.cases.is_empty() {
+            let subject_text = match_element.node.Expression().text().to_string();
+            diag.push_error(
+                format!("Cannot match on '{}', which is of type {case_type}", subject_text.trim()),
+                &match_element.node.child_token(SyntaxKind::Identifier).unwrap(),
+            );
         }
         for case in &mut match_element.cases {
             resolve_expression(
@@ -169,10 +175,17 @@ fn resolve_match_elements(
                 type_loader,
                 diag,
             );
-            check_case_value(&case.value, &case.node, diag);
         }
-        let values: Vec<Option<CaseValue>> =
-            match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
+        let values: Vec<Option<CaseValue>> = match_element
+            .cases
+            .iter()
+            .map(|case| {
+                check_case_value(&case.value, &case.node, diag)
+                    // only add cases that don't already have an error
+                    .then(|| CaseValue::new(&case.value))
+                    .flatten()
+            })
+            .collect();
         check_duplicate_cases(&match_element.cases, &values, diag);
         check_exhaustiveness(match_element, &values, diag);
 
@@ -187,8 +200,7 @@ fn resolve_match_elements(
     }
 }
 
-/// Confirms that each case is a literal value and matches the type of the subject
-fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagnostics) {
+fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagnostics) -> bool {
     let is_literal = as_number_literal(value).is_some()
         || matches!(
             value,
@@ -196,25 +208,24 @@ fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagn
                 | Expression::BoolLiteral(..)
                 | Expression::EnumerationValue(..)
         );
-    let is_valid_cast = matches!(
-        value,
-        Expression::Cast { from, to, .. }
-            if as_number_literal(from).is_some()
-                && matches!(to, Type::Color | Type::Int32)
-    );
-
-    if let Some((number, Unit::None)) = as_number_literal(value)
-        && number.fract() != 0.0
-    {
-        diag.push_warning("Floating point comparison is not recommended".into(), node);
-    }
+    let is_valid_cast = match value {
+        Expression::Cast { from, to: Type::Color, .. } => as_number_literal(from).is_some(),
+        Expression::Cast { from, to: Type::Int32, .. } => {
+            // 1.0 and 1 parse to the same number literal, so this checks the case's
+            // written form to reject the float spelling.
+            as_number_literal(from).is_some() && crate::literals::is_integer_literal(node)
+        }
+        _ => false,
+    };
 
     if is_literal || is_valid_cast {
-        // pass
+        true
     } else if matches!(value, Expression::Cast { .. }) {
         diag.push_error("Cannot perform type conversion".into(), node);
+        false
     } else {
         diag.push_error("Cases must be literal values".into(), node);
+        false
     }
 }
 
