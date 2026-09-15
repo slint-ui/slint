@@ -48,6 +48,7 @@ const ASSUME_POINTER_MOVE_STOPPED: Duration = Duration::from_millis(40);
 
 pub(crate) struct VelocityEstimate {
     pub(crate) velocity: LogicalVector,
+    #[expect(unused, reason = "Confidence is not yet considered")]
     pub(crate) confidence: Coord,
 }
 

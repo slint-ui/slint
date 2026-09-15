@@ -89,7 +89,6 @@ pub struct IOsFlick {
     /// spring phase pulls the position back to it.
     limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
     data: IOsFlickParameters,
-    direction: Direction,
     start_value: f32,
     start_time: Instant,
     /// Elapsed time (since `start_time`) at which the friction curve would
@@ -165,7 +164,6 @@ impl IOsFlick {
         Self {
             limit_value,
             data,
-            direction,
             start_value,
             start_time,
             spring_time,

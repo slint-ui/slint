@@ -446,6 +446,7 @@ enum CaptureEvents {
 
 struct RunningSimulation {
     start_time: Instant,
+    #[expect(unused, reason = "Will be used in a future pr for the listview")]
     weak: ItemWeak,
     x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>>,
     y_simulation: Option<Rc<RefCell<dyn PositionSimulation>>>,

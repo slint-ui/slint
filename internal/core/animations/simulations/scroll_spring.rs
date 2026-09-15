@@ -25,7 +25,6 @@ const ZERO_TOLERANCE: f32 = 1e-3;
 
 #[derive(Debug)]
 pub struct SpringSimulation {
-    limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
     start_time: Instant,
     traveled: f32,
     data: SpringRegime,
@@ -47,13 +46,7 @@ impl SpringSimulation {
         let init_pos = l - start_value;
         let spring = SpringRegime::new(init_pos, 0., w_n, zeta);
 
-        Self {
-            limit_value,
-            start_time: crate::animations::current_tick(),
-            traveled: 0.,
-            data: spring,
-            init_pos,
-        }
+        Self { start_time: crate::animations::current_tick(), traveled: 0., data: spring, init_pos }
     }
 
     fn step_internal(&mut self, current: &mut f32, new_tick: Instant) -> bool {

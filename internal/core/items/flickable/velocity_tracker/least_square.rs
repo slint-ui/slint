@@ -24,7 +24,7 @@
 
 use core::iter::Sum;
 use core::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
-use num_traits::{Float, NumCast, One, Zero};
+use num_traits::Float;
 
 /// Values at or below this magnitude are treated as zero when checking for a
 /// degenerate (linearly dependent) fit.
@@ -88,11 +88,6 @@ pub struct PolynomialFit<T, const MAX_COEFFS: usize> {
 }
 
 impl<T, const MAX_COEFFS: usize> PolynomialFit<T, MAX_COEFFS> {
-    /// The degree of the fit polynomial.
-    pub fn degree(&self) -> usize {
-        self.degree
-    }
-
     /// The polynomial coefficients of the fit.
     ///
     /// For each `i`, `coefficients()[i]` is the coefficient of the `i`-th

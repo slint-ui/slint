@@ -3,7 +3,9 @@
 
 // cSpell: ignore signum underdamped
 
+#[cfg(test)]
 use crate::animations::simulations::{Direction, Parameter, PositionSimulation, Simulation};
+#[cfg(test)]
 use crate::{Coord, animations::Instant};
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
@@ -12,12 +14,14 @@ use num_traits::Float;
 use crate::animations::simulations::{assert_approx_eq, test_limit_property};
 
 /// Input parameters for the `ConstantDeceleration` simulation
+#[cfg(test)]
 #[derive(Debug, Clone)]
 pub struct ConstantDecelerationParameters {
     pub initial_velocity: f32,
     pub deceleration: f32,
 }
 
+#[cfg(test)]
 impl ConstantDecelerationParameters {
     pub fn new(initial_velocity: f32, deceleration: f32) -> Self {
         Self { initial_velocity, deceleration }
@@ -90,6 +94,7 @@ impl ConstantDecelerationParameters {
     }
 }
 
+#[cfg(test)]
 impl Parameter for ConstantDecelerationParameters {
     type Output = ConstantDeceleration;
     fn simulation(
@@ -103,6 +108,7 @@ impl Parameter for ConstantDecelerationParameters {
 
 /// This simulation simulates a constant deceleration of a point starting at position `start_value` with
 /// an initial velocity of `initial_velocity`. When the point reaches the limit value `limit_value` it stops there
+#[cfg(test)]
 #[derive(Debug)]
 pub struct ConstantDeceleration {
     /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
@@ -114,6 +120,7 @@ pub struct ConstantDeceleration {
     start_time: Instant,
 }
 
+#[cfg(test)]
 impl ConstantDeceleration {
     /// Create a new ConstantDeceleration simulation
     ///
@@ -199,12 +206,14 @@ impl ConstantDeceleration {
     }
 }
 
+#[cfg(test)]
 impl Simulation for ConstantDeceleration {
     fn step(&mut self, current: &mut f32, new_tick: Instant) -> bool {
         self.step_internal(current, new_tick)
     }
 }
 
+#[cfg(test)]
 impl PositionSimulation for ConstantDeceleration {
     fn remaining_distance(&self, time_elapsed: core::time::Duration) -> f32 {
         self.data.remaining_distance(time_elapsed) as f32
