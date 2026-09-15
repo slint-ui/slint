@@ -87,6 +87,7 @@ mod renderer {
 
         // The window's transparency changed after the window was created. Renderers that pick
         // their surface's alpha mode up front have to reconfigure it to match.
+        #[cfg(target_os = "macos")]
         fn set_transparent(&self, _transparent: bool) -> Result<(), PlatformError> {
             Ok(())
         }

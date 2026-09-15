@@ -208,6 +208,7 @@ impl WGPUFemtoVGRenderer {
 
 #[cfg(feature = "renderer-femtovg-wgpu")]
 impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
+    #[cfg(target_os = "macos")]
     fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
         self.renderer.set_transparent(transparent);
         Ok(())
