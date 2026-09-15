@@ -1511,7 +1511,7 @@ impl WinitWindowAdapter {
                 let position = euclid::point2(location.x, location.y);
                 let finger_id = match touch.phase {
                     winit::event::TouchPhase::Started | winit::event::TouchPhase::Moved => {
-                        self.touch_finger_ids.borrow_mut().id_for(touch.id)
+                        Some(self.touch_finger_ids.borrow_mut().id_for(touch.id))
                     }
                     winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
                         self.touch_finger_ids.borrow_mut().take(touch.id)
