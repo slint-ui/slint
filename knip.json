@@ -1,6 +1,10 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "ignore": ["api/wasm-interpreter/pkg/**"],
+  "ignoreDependencies": [
+    "@interpreter/slint_wasm_interpreter.js",
+    "@interpreter/slint_wasm_interpreter_bg.wasm"
+  ],
   "ignoreExportsUsedInFile": { "interface": true, "type": true },
   "workspaces": {
     ".": {
@@ -32,10 +36,6 @@
     },
     "tools/figma-inspector": {
       "ignoreBinaries": ["wasm-pack"],
-      "ignoreDependencies": [
-        "@interpreter/slint_wasm_interpreter.js",
-        "@interpreter/slint_wasm_interpreter_bg.wasm"
-      ],
       "vitest": {
         "config": [
           "vitest.config.ts"
