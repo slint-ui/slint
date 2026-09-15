@@ -66,6 +66,14 @@ export component EditorUi inherits Window {
 
     MenuBar {
         Menu {
+            title: @tr("File");
+            MenuItem {
+                title: @tr("New Slint File");
+                enabled: Project.file-tree.length > 0;
+                activated => { Project.create-new-slint-file(); }
+            }
+        }
+        Menu {
             title: @tr("Edit");
             MenuItem {
                 title: @tr("Undo");
