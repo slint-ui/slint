@@ -634,6 +634,7 @@ subcomponents
 subelement
 subfolders
 submod
+subpaths
 subprinters
 surfman
 svgz
