@@ -257,7 +257,7 @@ impl SlintAccessibleItemData {
         let p = self.project_ref();
         p.focus_delegation_tracker.evaluate_as_dependency_root(move || {
             if let Some(item_rc) = item.upgrade() {
-                item_rc.accessible_string_property(AccessibleStringProperty::DelegateFocus);
+                i_slint_core::accessibility::accessible_focus_delegate_position(&item_rc);
             }
         });
     }
@@ -644,8 +644,11 @@ cpp! {{
 
             auto index = rust!(Slint_accessible_item_delegate_focus [m_data: Pin<&SlintAccessibleItemData> as "void*"] -> i32 as "int" {
                 m_data.item.upgrade()
-                    .and_then(|i| { i.accessible_string_property(AccessibleStringProperty::DelegateFocus) })
-                    .and_then(|s| s.as_str().parse::<i32>().ok()).unwrap_or(-1)
+                    .and_then(|item| {
+                        i_slint_core::accessibility::accessible_focus_delegate_position(&item)
+                    })
+                    .and_then(|position| i32::try_from(position).ok())
+                    .unwrap_or(-1)
             });
 
             if (index >= 0 && index < rawChildCount()) {
