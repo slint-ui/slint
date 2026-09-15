@@ -8,6 +8,8 @@ export component SpinBoxBase {
     in property <brush> color <=> text-input.color;
     in property <length> font-size <=> text-input.font-size;
     in property <int> font-weight <=> text-input.font-weight;
+    in property <string> font-family <=> text-input.font-family;
+    in property <bool> font-italic <=> text-input.font-italic;
     in property <color> selection-background-color <=> text-input.selection-background-color;
     in property <color> selection-foreground-color <=> text-input.selection-foreground-color;
     in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
@@ -31,15 +33,15 @@ export component SpinBoxBase {
 
     public function increment() {
         if !root.read-only {
-           root.update-value(root.value + root.step-size);
-           root.update-text-and-cursor();
+            root.update-value(root.value + root.step-size);
+            root.update-text-and-cursor();
         }
     }
 
     public function decrement() {
         if !root.read-only {
-           root.update-value(root.value - root.step-size);
-           root.update-text-and-cursor();
+            root.update-value(root.value - root.step-size);
+            root.update-text-and-cursor();
         }
     }
 
