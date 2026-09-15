@@ -95,6 +95,7 @@ endif()
 define_cargo_dependent_feature(backend-linuxkms-libseat "Add libseat to the LinuxKMS backend, for GPU and input device access without root privileges. Enables the backend on its own and combines with SLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT" ${_slint_default_backend_linuxkms_capability} "NOT SLINT_FEATURE_FREESTANDING")
 define_compat_option(BACKEND_LINUXKMS_NOSEAT BACKEND_LINUXKMS_LIBINPUT)
 define_cargo_dependent_feature(backend-linuxkms-libinput "Add libinput to the LinuxKMS backend, to react to mouse, touch and keyboard input. Enables the backend on its own and combines with SLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT" ${_slint_default_backend_linuxkms_capability} "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-linuxkms-libdlmclient "Add libdlmclient to the LinuxKMS backend, to obtain a DRM lease by name from the AGL drm-lease-manager. Enables the backend on its own" OFF "NOT SLINT_FEATURE_FREESTANDING")
 
 if(SLINT_FEATURE_BACKEND_LINUXKMS OR SLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT OR SLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT)
     message(STATUS "LinuxKMS backend: libseat=${SLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT}, libinput=${SLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT}")

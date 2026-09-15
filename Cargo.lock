@@ -3387,6 +3387,7 @@ dependencies = [
  "libseat",
  "memmap2",
  "nix",
+ "pkg-config",
  "raw-window-handle",
  "wgpu 30.0.1",
  "xkbcommon",
