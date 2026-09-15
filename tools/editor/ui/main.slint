@@ -20,7 +20,6 @@ import { InspectorPane } from "components/inspector-pane.slint";
 import { LeftPane } from "components/left-pane.slint";
 import { EditorMetrics } from "components/common.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
-import { StandardButton } from "std-widgets.slint";
 
 export { Api, Hover, Preview, Project, FillSession }
 export { EditorCursors, EditorMetrics } from "components/common.slint";
@@ -29,46 +28,124 @@ component NewFileErrorPopup inherits PopupWindow {
     in property <string> error;
     callback dismissed();
 
-    width: 400px;
-    height: 190px;
+    width: 360px;
+    height: 230px;
     close-policy: no-auto-close;
 
-    Dialog {
-        width: 100%;
-        height: 100%;
-        background: StudioTheme.panel-bg;
+    Rectangle {
+        border-width: 1px;
+        border-color: StudioTheme.dark ? #4a4d55 : #c8cbd2;
+        border-radius: 9px;
+        background: StudioTheme.dark ? #292a30 : #ffffff;
+        clip: true;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 12px;
+        drop-shadow-color: StudioTheme.dark ? #00000085 : #161b233d;
 
         VerticalLayout {
-            padding: 20px;
-            spacing: 10px;
+            Rectangle {
+                vertical-stretch: 1;
 
-            Text {
-                text: @tr("Couldn’t create file");
-                color: StudioTheme.text;
-                font-size: 16px;
-                font-weight: 700;
+                VerticalLayout {
+                    padding: 20px;
+                    spacing: 14px;
+
+                    HorizontalLayout {
+                        spacing: 12px;
+                        cross-axis-alignment: start;
+
+                        Rectangle {
+                            width: 30px;
+                            height: 30px;
+                            border-radius: 15px;
+                            background: StudioTheme.dark ? #542a2c : #fce6e5;
+
+                            Text {
+                                text: "×";
+                                color: StudioTheme.dark ? #ffb4ab : #b3261e;
+                                font-size: 20px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 4px;
+
+                            Text {
+                                text: @tr("Couldn’t create file");
+                                color: StudioTheme.text;
+                                font-size: 16px;
+                                font-weight: 700;
+                            }
+
+                            Text {
+                                text: @tr("A new Slint file couldn’t be created in the project root.");
+                                color: StudioTheme.muted;
+                                font-size: 13px;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 46px;
+                        border-width: 1px;
+                        border-color: StudioTheme.dark ? #63373a : #e0c5c2;
+                        border-radius: 6px;
+                        background: StudioTheme.dark ? #342426 : #fff7f6;
+
+                        Text {
+                            x: 11px;
+                            width: parent.width - 22px;
+                            text: root.error;
+                            color: StudioTheme.dark ? #f1b8b4 : #7a2925;
+                            font-size: 11px;
+                            wrap: word-wrap;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
             }
 
-            Text {
-                text: @tr("A new Slint file couldn’t be created in the project root.");
-                color: StudioTheme.muted;
-                font-size: 13px;
-                wrap: word-wrap;
-            }
+            Rectangle {
+                height: 56px;
+                background: StudioTheme.dark ? #25262b : #fafafa;
 
-            Text {
-                text: root.error;
-                color: StudioTheme.dark ? #f1b8b4 : #7a2925;
-                font-size: 12px;
-                wrap: word-wrap;
-            }
-        }
+                Rectangle {
+                    height: 1px;
+                    background: StudioTheme.dark ? #3b3d43 : #e1e2e6;
+                }
 
-        StandardButton {
-            kind: close;
-            clicked => {
-                root.close();
-                root.dismissed();
+                Rectangle {
+                    width: 68px;
+                    height: 32px;
+                    x: parent.width - self.width - 16px;
+                    y: (parent.height - self.height) / 2;
+                    border-width: 1px;
+                    border-color: close-touch.has-hover ? StudioTheme.accent-strong : StudioTheme.accent;
+                    border-radius: 5px;
+                    background: close-touch.has-hover ? StudioTheme.accent-strong : StudioTheme.accent;
+
+                    Text {
+                        text: @tr("Close");
+                        color: white;
+                        font-size: 13px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    close-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        accessible-role: AccessibleRole.button;
+                        accessible-label: @tr("Close");
+                        clicked => {
+                            root.close();
+                            root.dismissed();
+                        }
+                    }
+                }
             }
         }
     }
