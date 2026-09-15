@@ -3,28 +3,6 @@
 
 import type { SourceBytes, SourceCapture, SourceNode } from "./plugin/source";
 
-export type CaptureAssets = {
-    readonly captureAssetVersion: 1;
-    readonly captureJson: string;
-    readonly captureAssets: readonly Uint8Array[];
-};
-
-// Keep the fixture/capture contract JSON-based, but carry bytes separately on
-// the live transport. Only known image fields can contain asset references.
-export function packCaptureAssets(
-    source: SourceCapture<SourceBytes>,
-): CaptureAssets {
-    const captureAssets: Uint8Array[] = [];
-    const captureJson = serializeCapture(source, (bytes) => {
-        const index = captureAssets.length;
-        captureAssets.push(
-            bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes),
-        );
-        return index;
-    });
-    return { captureAssetVersion: 1, captureJson, captureAssets };
-}
-
 function serializeCapture(
     source: SourceCapture<SourceBytes>,
     asset: (bytes: SourceBytes, key: string) => number,
@@ -88,7 +66,6 @@ function serializeCapture(
 export function unpackCaptureAssets(
     captureJson: string,
     assets: readonly Uint8Array[],
-    representation: "json" | "binary" = "json",
 ): unknown {
     const source = JSON.parse(captureJson);
     const bytes = (value: unknown): SourceBytes => {
@@ -103,9 +80,7 @@ export function unpackCaptureAssets(
             index >= assets.length
         )
             throw Error("Invalid captured image asset reference");
-        return representation === "binary"
-            ? assets[index]
-            : Array.from(assets[index]);
+        return assets[index];
     };
     const node = (value: SourceNode<SourceBytes>) => {
         if (value.exports?.png?.value !== undefined)
@@ -127,7 +102,7 @@ export function isCaptureAssets(value: {
     captureAssets?: unknown;
 }): boolean {
     return (
-        (value.captureAssetVersion === 1 || value.captureAssetVersion === 2) &&
+        value.captureAssetVersion === 2 &&
         Array.isArray(value.captureAssets) &&
         value.captureAssets.every(
             (asset) =>
@@ -232,22 +207,14 @@ function isByteArray(value: unknown): value is Uint8Array {
     );
 }
 
-// Versioned transport only. Reconstructs the original Slint and snapshot JSON
-// byte-for-byte; no image decoding, resizing, or renderer changes.
 type Parts = readonly (string | number)[];
 export type AssetPreview = {
     readonly assetVersion: 1;
     readonly assets: readonly string[];
     readonly source: Parts;
-    readonly snapshotJson: Parts;
-    readonly renderSource?: Parts;
 };
 
-export function packPreviewAssets(
-    source: string,
-    snapshotJson = "",
-    renderSource?: string,
-): AssetPreview {
+export function packPreviewAssets(source: string): AssetPreview {
     const assets: string[] = [];
     const indices = new Map<string, number>();
     function split(text: string, pattern: RegExp): Parts {
@@ -282,22 +249,11 @@ export function packPreviewAssets(
         assetVersion: 1,
         assets,
         source: split(source, /data:image\/(?:png|jpeg|gif|svg\+xml);base64,/g),
-        snapshotJson: split(snapshotJson, /"data":"/g),
-        ...(renderSource === undefined
-            ? {}
-            : {
-                  renderSource: split(
-                      renderSource,
-                      /data:image\/(?:png|jpeg|gif|svg\+xml);base64,/g,
-                  ),
-              }),
     };
 }
 
 export function unpackPreviewAssets(value: unknown): {
     source: string;
-    snapshotJson: string;
-    renderSource?: string;
 } {
     if (!isAssetPreview(value)) throw Error("Invalid asset preview");
     const packed = value;
@@ -318,10 +274,6 @@ export function unpackPreviewAssets(value: unknown): {
     }
     return {
         source: join(packed.source),
-        snapshotJson: join(packed.snapshotJson),
-        ...(packed.renderSource === undefined
-            ? {}
-            : { renderSource: join(packed.renderSource) }),
     };
 }
 
@@ -332,11 +284,7 @@ export function isAssetPreview(value: unknown): value is AssetPreview {
         return false;
     for (const asset of packed.assets)
         if (typeof asset !== "string") return false;
-    for (const parts of [
-        packed.source,
-        packed.snapshotJson,
-        ...(packed.renderSource === undefined ? [] : [packed.renderSource]),
-    ]) {
+    for (const parts of [packed.source]) {
         if (!Array.isArray(parts)) return false;
         for (const part of parts)
             if (

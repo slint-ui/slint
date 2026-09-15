@@ -28,6 +28,7 @@ for (const file of [
                 type: "preview-source",
                 revision,
                 source: converted.source,
+                exportPackage: { source: converted.source, files: [] },
             });
             await p.ready(revision);
             pixels.push(await canvasPixels(p));
@@ -47,7 +48,12 @@ test("render source is internal; copy stays reusable and failed or stale revisio
         "export component Readable inherits Window { width: 50px; height: 40px; background: red; }";
     const renderSource =
         "export component Specialized inherits Window { width: 50px; height: 40px; background: blue; }";
-    p.send({ type: "preview-source", revision: 1, source, renderSource });
+    p.send({
+        type: "preview-source",
+        revision: 1,
+        source: renderSource,
+        exportPackage: { source: source, files: [] },
+    });
     await p.ready(1);
     const pixels = await canvasPixels(p);
     expect([...pixels.data.slice(0, 4)]).toEqual([0, 0, 255, 255]);
@@ -62,11 +68,16 @@ test("render source is internal; copy stays reusable and failed or stale revisio
     p.send({
         type: "preview-source",
         revision: 2,
-        source,
-        renderSource: "invalid Slint",
+        source: "invalid Slint",
+        exportPackage: { source: source, files: [] },
     });
     await expect.poll(() => p.element("#status").dataset.state).toBe("error");
     expect(p.element<HTMLButtonElement>("#copy-button").disabled).toBe(true);
-    p.send({ type: "preview-source", revision: 1, source, renderSource });
+    p.send({
+        type: "preview-source",
+        revision: 1,
+        source: renderSource,
+        exportPackage: { source: source, files: [] },
+    });
     expect(p.element<HTMLButtonElement>("#copy-button").disabled).toBe(true);
 });

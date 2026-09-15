@@ -5,7 +5,11 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, test } from "vitest";
 import { normalizeSource } from "../src/plugin/normalize";
 import { captureSelectionSource, captureSource } from "../src/plugin/capture";
-import { packCaptureAssets, unpackCaptureAssets } from "../src/asset-transport";
+import {
+    CaptureAssetReceiver,
+    CaptureAssetSender,
+    unpackCaptureAssets,
+} from "../src/asset-transport";
 import {
     decodeValue,
     SOURCE_MIXED,
@@ -142,9 +146,20 @@ describe("generator", () => {
     test("component graph survives binary capture transport and does not mutate its input", async () => {
         const source = await fixture();
         const before = JSON.stringify(source);
-        const packed = packCaptureAssets(source);
+        const packed = new CaptureAssetSender().pack(source);
         expect(
-            unpackCaptureAssets(packed.captureJson, packed.captureAssets),
+            JSON.parse(
+                JSON.stringify(
+                    unpackCaptureAssets(
+                        packed.captureJson,
+                        new CaptureAssetReceiver().resolve(
+                            packed.captureAssets,
+                        ),
+                    ),
+                    (_key, value) =>
+                        value instanceof Uint8Array ? Array.from(value) : value,
+                ),
+            ),
         ).toEqual(source);
         await convert(source);
         expect(JSON.stringify(source)).toBe(before);
@@ -158,10 +173,21 @@ describe("generator", () => {
                 ),
             },
         };
-        const withAsset = packCaptureAssets(source);
+        const withAsset = new CaptureAssetSender().pack(source);
         expect(withAsset.captureAssets).toHaveLength(1);
         expect(
-            unpackCaptureAssets(withAsset.captureJson, withAsset.captureAssets),
+            JSON.parse(
+                JSON.stringify(
+                    unpackCaptureAssets(
+                        withAsset.captureJson,
+                        new CaptureAssetReceiver().resolve(
+                            withAsset.captureAssets,
+                        ),
+                    ),
+                    (_key, value) =>
+                        value instanceof Uint8Array ? Array.from(value) : value,
+                ),
+            ),
         ).toEqual(source);
     });
 

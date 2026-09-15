@@ -64,7 +64,7 @@ export function externalizeImages(source: string): {
 export function generateExport(
     snapshot: FigmaSnapshot,
     warnings: readonly Diagnostic[] = [],
-): ExportPackage {
+): { exportPackage: ExportPackage; warnings: readonly Diagnostic[] } {
     const converted = convertSnapshot(snapshot, { target: "export" });
     if (!converted.ok)
         throw Error(converted.diagnostics.map((d) => d.message).join("\n"));
@@ -103,36 +103,40 @@ export function generateExport(
         }));
     const external = externalizeImages(converted.source);
     const imports = requiredFonts.map((font) => `// import "${font.path}";`);
+    const diagnostics = [...warnings, ...converted.warnings];
     return {
-        source: imports.length
-            ? `${imports.join("\n")}\n\n${external.source}`
-            : external.source,
-        files: [
-            ...external.files,
-            {
-                path: "fonts/README.txt",
-                encoding: "utf8",
-                data: requiredFonts.length
-                    ? "Font imports at the top of main.slint are commented out so the export can run in Slint development tools without the font files. Font binaries are not included; fallback fonts may change the text appearance and layout.\nAdd the following real font files, then uncomment their import lines in main.slint by removing the leading // to enable them.\nNames below are expected filenames, not original Figma file paths. For OTF/TTC fonts, change the import extension to match.\n\n" +
-                      requiredFonts
-                          .map(
-                              (font) =>
-                                  `${font.path}: ${font.family} / ${font.style}`,
-                          )
-                          .join("\n") +
-                      "\n"
-                    : "This export requires no font files.\n",
-            },
-            {
-                path: "README.txt",
-                encoding: "utf8",
-                data:
-                    "Open main.slint in your Slint project. Keep assets/ and fonts/ beside it.\nFont imports are commented out so you can run the export without the font files. See fonts/README.txt for the font checklist and instructions to enable the imports after adding the real fonts.\nText remains native; images are stored in assets/.\n\n" +
-                    warningSummaries([...warnings, ...converted.warnings])
-                        .map((d) => `${d.code}: ${d.message}`)
-                        .join("\n") +
-                    "\n",
-            },
-        ],
+        warnings: diagnostics,
+        exportPackage: {
+            source: imports.length
+                ? `${imports.join("\n")}\n\n${external.source}`
+                : external.source,
+            files: [
+                ...external.files,
+                {
+                    path: "fonts/README.txt",
+                    encoding: "utf8",
+                    data: requiredFonts.length
+                        ? "Font imports at the top of main.slint are commented out so the export can run in Slint development tools without the font files. Font binaries are not included; fallback fonts may change the text appearance and layout.\nAdd the following real font files, then uncomment their import lines in main.slint by removing the leading // to enable them.\nNames below are expected filenames, not original Figma file paths. For OTF/TTC fonts, change the import extension to match.\n\n" +
+                          requiredFonts
+                              .map(
+                                  (font) =>
+                                      `${font.path}: ${font.family} / ${font.style}`,
+                              )
+                              .join("\n") +
+                          "\n"
+                        : "This export requires no font files.\n",
+                },
+                {
+                    path: "README.txt",
+                    encoding: "utf8",
+                    data:
+                        "Open main.slint in your Slint project. Keep assets/ and fonts/ beside it.\nFont imports are commented out so you can run the export without the font files. See fonts/README.txt for the font checklist and instructions to enable the imports after adding the real fonts.\nText remains native; images are stored in assets/.\n\n" +
+                        warningSummaries(diagnostics)
+                            .map((d) => `${d.code}: ${d.message}`)
+                            .join("\n") +
+                        "\n",
+                },
+            ],
+        },
     };
 }

@@ -196,15 +196,6 @@ body {
     padding: 16px 20px 12px;
     position: relative;
 }
-#output-provenance {
-    position: absolute;
-    left: 24px;
-    right: 24px;
-    top: 18px;
-    background: var(--figma-color-bg, #fff);
-    padding: 4px;
-    z-index: 1;
-}
 #diagnostics-workspace {
     flex: 1;
     min-height: 0;

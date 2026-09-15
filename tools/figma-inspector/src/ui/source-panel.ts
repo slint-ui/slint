@@ -104,17 +104,10 @@ export class SourcePanelController {
         this.sourceView.textContent = "";
     }
 
-    public copy(text: string, button?: HTMLButtonElement): void {
+    public copy(text: string): void {
         if (text === "") return;
         const success = writeTextToClipboard(text);
         this.options.reportClipboardResult(success);
-        if (success && button !== undefined) {
-            const label = button.textContent;
-            button.textContent = "Copied";
-            setTimeout(() => {
-                button.textContent = label;
-            }, 1000);
-        }
     }
 
     public dispose(): void {

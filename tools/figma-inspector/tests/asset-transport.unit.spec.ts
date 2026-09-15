@@ -4,7 +4,11 @@
 import { describe, expect, test } from "vitest";
 
 import { readFile } from "node:fs/promises";
-import { packCaptureAssets, unpackCaptureAssets } from "../src/asset-transport";
+import {
+    CaptureAssetReceiver,
+    CaptureAssetSender,
+    unpackCaptureAssets,
+} from "../src/asset-transport";
 import { isPluginToUiMessage } from "../src/protocol";
 import { convertCapture } from "../src/preview/convert-capture";
 import { packPreviewAssets, unpackPreviewAssets } from "../src/asset-transport";
@@ -21,10 +25,23 @@ describe("capture-assets", () => {
                 await readFile(`fixtures/source/${file}.json`, "utf8"),
             );
             const original = JSON.stringify(source);
-            const packed = packCaptureAssets(source);
+            const packed = new CaptureAssetSender().pack(source);
             expect(JSON.stringify(source)).toBe(original);
             expect(
-                unpackCaptureAssets(packed.captureJson, packed.captureAssets),
+                JSON.parse(
+                    JSON.stringify(
+                        unpackCaptureAssets(
+                            packed.captureJson,
+                            new CaptureAssetReceiver().resolve(
+                                packed.captureAssets,
+                            ),
+                        ),
+                        (_key, value) =>
+                            value instanceof Uint8Array
+                                ? Array.from(value)
+                                : value,
+                    ),
+                ),
             ).toEqual(source);
             const common = { type: "preview-capture" as const, revision: 2 };
             expect(isPluginToUiMessage({ ...common, ...packed })).toBe(true);
@@ -37,7 +54,7 @@ describe("capture-assets", () => {
                 ...json,
                 trace: undefined,
             });
-            if (packed.captureAssets.length)
+            if (new CaptureAssetReceiver().resolve(packed.captureAssets).length)
                 expect(packed.captureJson.length).toBeLessThan(original.length);
         }
     });
@@ -46,8 +63,10 @@ describe("capture-assets", () => {
         const source = JSON.parse(
             await readFile("fixtures/source/png-first.json", "utf8"),
         );
-        const packed = packCaptureAssets(source);
-        expect(packed.captureAssets.length).toBeGreaterThan(0);
+        const packed = new CaptureAssetSender().pack(source);
+        expect(
+            new CaptureAssetReceiver().resolve(packed.captureAssets).length,
+        ).toBeGreaterThan(0);
         const common = { type: "preview-capture", revision: 2, ...packed };
         for (const bad of [
             { captureAssetVersion: 3 },
@@ -87,9 +106,15 @@ describe("capture-assets", () => {
             repeat.captureAssets.every((asset) => typeof asset === "number"),
         ).toBe(true);
         expect(
-            unpackCaptureAssets(
-                repeat.captureJson,
-                receiver.resolve(repeat.captureAssets),
+            JSON.parse(
+                JSON.stringify(
+                    unpackCaptureAssets(
+                        repeat.captureJson,
+                        receiver.resolve(repeat.captureAssets),
+                    ),
+                    (_key, value) =>
+                        value instanceof Uint8Array ? Array.from(value) : value,
+                ),
             ),
         ).toEqual(source);
         const changed = structuredClone(source);
@@ -108,9 +133,15 @@ describe("capture-assets", () => {
             ),
         ).toHaveLength(1);
         expect(
-            unpackCaptureAssets(
-                updated.captureJson,
-                receiver.resolve(updated.captureAssets),
+            JSON.parse(
+                JSON.stringify(
+                    unpackCaptureAssets(
+                        updated.captureJson,
+                        receiver.resolve(updated.captureAssets),
+                    ),
+                    (_key, value) =>
+                        value instanceof Uint8Array ? Array.from(value) : value,
+                ),
             ),
         ).toEqual(changed);
         // A restarted receiver can be repopulated with the UI's retained bytes.
@@ -135,14 +166,13 @@ describe("capture-assets", () => {
             const source = JSON.parse(
                 await readFile(`fixtures/source/${fixture}.json`, "utf8"),
             );
-            const packed = packCaptureAssets(source);
-            const originals = packed.captureAssets.map((asset) =>
-                asset.slice(),
-            );
+            const packed = new CaptureAssetSender().pack(source);
+            const originals = new CaptureAssetReceiver()
+                .resolve(packed.captureAssets)
+                .map((asset) => asset.slice());
             const binary = unpackCaptureAssets(
                 packed.captureJson,
-                packed.captureAssets,
-                "binary",
+                new CaptureAssetReceiver().resolve(packed.captureAssets),
             ) as import("../src/plugin/source").SourceCapture<
                 import("../src/plugin/source").SourceBytes
             >;
@@ -158,15 +188,32 @@ describe("capture-assets", () => {
             expect(retained.length).toBeGreaterThan(0);
             for (const bytes of retained)
                 expect(
-                    packed.captureAssets.some((asset) => asset === bytes),
+                    new CaptureAssetReceiver()
+                        .resolve(packed.captureAssets)
+                        .some((asset) => asset === bytes),
                 ).toBe(true);
             expect(() => validateSource(binary)).not.toThrow();
             expect(await normalizeSource(binary)).toEqual(
                 await normalizeSource(source),
             );
-            expect(packed.captureAssets).toEqual(originals);
             expect(
-                unpackCaptureAssets(packed.captureJson, packed.captureAssets),
+                new CaptureAssetReceiver().resolve(packed.captureAssets),
+            ).toEqual(originals);
+            expect(
+                JSON.parse(
+                    JSON.stringify(
+                        unpackCaptureAssets(
+                            packed.captureJson,
+                            new CaptureAssetReceiver().resolve(
+                                packed.captureAssets,
+                            ),
+                        ),
+                        (_key, value) =>
+                            value instanceof Uint8Array
+                                ? Array.from(value)
+                                : value,
+                    ),
+                ),
             ).toEqual(source);
         }
     });
@@ -197,15 +244,19 @@ describe("capture-assets", () => {
         if (!source.ok || source.empty) throw Error("Expected capture");
         expect(source.source.root.exports?.png?.value).toBe(bytes);
         const packed = new CaptureAssetSender().pack(source.source);
-        expect(packed.captureAssets[0]).toBe(bytes);
+        expect(
+            new CaptureAssetReceiver().resolve(packed.captureAssets)[0],
+        ).toBe(bytes);
         const replay = unpackCaptureAssets(
             packed.captureJson,
-            packed.captureAssets as Uint8Array[],
+            new CaptureAssetReceiver().resolve(
+                packed.captureAssets,
+            ) as Uint8Array[],
         );
         expect(
             (replay as { root: { exports: { png: { value: number[] } } } }).root
                 .exports.png.value,
-        ).toEqual(Array.from(bytes));
+        ).toBe(bytes);
     });
 
     test("binary asset reuse checks complete words, trailing bytes and unaligned views", async () => {
@@ -236,27 +287,18 @@ describe("capture-assets", () => {
 });
 
 describe("preview-assets", () => {
-    test("shares assets across source and snapshot without altering either string", () => {
+    test("deduplicates assets without altering the source", () => {
         const data = Buffer.from("asset bytes".repeat(100)).toString("base64");
         const source = `Image { source: @image-url("data:image/png;base64,${data}"); }\nImage { source: @image-url("data:image/png;base64,${data}"); }`;
-        const snapshotJson = JSON.stringify({
-            fills: [
-                { data, opacity: 0.25 },
-                { data, opacity: 0.75 },
-            ],
-            text: '"data":"literal"',
-        });
-        const packed = packPreviewAssets(source, snapshotJson);
+        const packed = packPreviewAssets(source);
         expect(packed.assets).toEqual([data]);
         expect(unpackPreviewAssets(JSON.parse(JSON.stringify(packed)))).toEqual(
             {
                 source,
-                snapshotJson,
             },
         );
         expect(
-            packPreviewAssets(source.replaceAll(data, "A".repeat(128)), "")
-                .assets,
+            packPreviewAssets(source.replaceAll(data, "A".repeat(128))).assets,
         ).toEqual(["A".repeat(128)]);
     });
 
@@ -267,11 +309,8 @@ describe("preview-assets", () => {
             '"data":"hello"',
             'text: "雪\\n";',
         ]) {
-            expect(
-                unpackPreviewAssets(packPreviewAssets(source, source)),
-            ).toEqual({
+            expect(unpackPreviewAssets(packPreviewAssets(source))).toEqual({
                 source,
-                snapshotJson: source,
             });
         }
     });
@@ -304,39 +343,4 @@ describe("preview-assets", () => {
             expect(() => unpackPreviewAssets(value)).toThrow();
         }
     });
-});
-
-test("display and render programs share one asset table with validated references", () => {
-    const data = "a".repeat(256);
-    const source = `// readable\n@image-url("data:image/png;base64,${data}")`;
-    const renderSource = `// specialized\n@image-url("data:image/png;base64,${data}")`;
-    const packed = packPreviewAssets(source, "", renderSource);
-    expect(packed.assets).toEqual([data]);
-    expect(unpackPreviewAssets(packed)).toEqual({
-        source,
-        snapshotJson: "",
-        renderSource,
-    });
-    expect(
-        isPluginToUiMessage({
-            type: "preview-source",
-            revision: 1,
-            source: packed,
-        }),
-    ).toBe(true);
-    expect(
-        isPluginToUiMessage({
-            type: "preview-source",
-            revision: 1,
-            source: { ...packed, renderSource: [1] },
-        }),
-    ).toBe(false);
-    expect(
-        isPluginToUiMessage({
-            type: "preview-source",
-            revision: 1,
-            source,
-            renderSource: 4,
-        }),
-    ).toBe(false);
 });

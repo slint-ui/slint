@@ -45,7 +45,7 @@ export type PluginToUiMessage =
           readonly type: "preview-capture";
           readonly revision: number;
           readonly captureJson: string;
-          readonly captureAssetVersion?: 1 | 2;
+          readonly captureAssetVersion?: 2;
           readonly captureAssets?: readonly (Uint8Array | number)[];
           readonly selection?: { nodeId: string; nodeName: string };
           readonly trigger?: PreviewTrigger;
@@ -64,11 +64,8 @@ export type PluginToUiMessage =
           readonly type: "preview-source";
           readonly revision: number;
           readonly source: string | AssetPreview;
-          readonly renderSource?: string;
           readonly warnings?: readonly Diagnostic[];
-          readonly snapshotJson?: string;
-          readonly exportPackage?: ExportPackage;
-          readonly exportError?: string;
+          readonly exportPackage: ExportPackage;
           readonly selection?: {
               readonly nodeId: string;
               readonly nodeName: string;
@@ -190,15 +187,9 @@ export function isPluginToUiMessage(
                 : "source" in value &&
                   (typeof value.source === "string" ||
                       isAssetPreview(value.source))) &&
-            (!("renderSource" in value) ||
-                value.renderSource === undefined ||
-                typeof value.renderSource === "string") &&
-            (!("exportPackage" in value) ||
-                value.exportPackage === undefined ||
-                isExportPackage(value.exportPackage)) &&
-            (!("exportError" in value) ||
-                value.exportError === undefined ||
-                typeof value.exportError === "string") &&
+            (value.type !== "preview-source" ||
+                ("exportPackage" in value &&
+                    isExportPackage(value.exportPackage))) &&
             (!("warnings" in value) ||
                 (Array.isArray(value.warnings) &&
                     value.warnings.every(isDiagnostic))) &&
@@ -267,20 +258,6 @@ function isDiagnostic(value: unknown): value is Diagnostic {
     );
 }
 
-export type ExportRequest = {
-    kind: "export-request";
-    revision: number;
-    requestId: number;
-};
-
-export type ExportReply = {
-    kind: "export-result";
-    revision: number;
-    requestId: number;
-    workerMs: number;
-    exportPackage?: ExportPackage;
-    exportError?: string;
-};
 export type SnapshotRequest = {
     kind: "snapshot-request";
     revision: number;
@@ -295,24 +272,15 @@ export type SnapshotReply = {
     snapshotError?: string;
 };
 
-export function isExportRequest(value: unknown): value is ExportRequest {
-    if (!value || typeof value !== "object") return false;
-    const candidate = value as Record<string, unknown>;
-    return (
-        candidate.kind === "export-request" &&
-        Number.isSafeInteger(candidate.revision) &&
-        (candidate.revision as number) > 0 &&
-        Number.isSafeInteger(candidate.requestId) &&
-        (candidate.requestId as number) > 0
-    );
-}
-
 export function isSnapshotRequest(value: unknown): value is SnapshotRequest {
     if (!value || typeof value !== "object") return false;
     const v = value as Record<string, unknown>;
     return (
         v.kind === "snapshot-request" &&
-        isExportRequest({ ...v, kind: "export-request" })
+        Number.isSafeInteger(v.revision) &&
+        (v.revision as number) > 0 &&
+        Number.isSafeInteger(v.requestId) &&
+        (v.requestId as number) > 0
     );
 }
 export function isSnapshotReply(value: unknown): value is SnapshotReply {
@@ -328,26 +296,6 @@ export function isSnapshotReply(value: unknown): value is SnapshotReply {
             v.snapshotError === undefined) ||
             (typeof v.snapshotError === "string" &&
                 v.snapshotJson === undefined))
-    );
-}
-
-export function isExportReply(value: unknown): value is ExportReply {
-    if (!value || typeof value !== "object") return false;
-    const candidate = value as Record<string, unknown>;
-    const hasPackage = candidate.exportPackage !== undefined;
-    const hasError = typeof candidate.exportError === "string";
-    return (
-        candidate.kind === "export-result" &&
-        Number.isSafeInteger(candidate.revision) &&
-        (candidate.revision as number) > 0 &&
-        Number.isSafeInteger(candidate.requestId) &&
-        (candidate.requestId as number) > 0 &&
-        typeof candidate.workerMs === "number" &&
-        Number.isFinite(candidate.workerMs) &&
-        (candidate.workerMs as number) >= 0 &&
-        hasPackage !== hasError &&
-        (!hasPackage || candidate.exportError === undefined) &&
-        (!hasPackage || isExportPackage(candidate.exportPackage))
     );
 }
 

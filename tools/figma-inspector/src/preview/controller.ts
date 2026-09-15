@@ -15,7 +15,6 @@ import {
 import type { TimingTrace } from "../performance/timing";
 import type { Diagnostic } from "../plugin/snapshot";
 import { warningSummaries } from "../plugin/snapshot";
-import { FIRST_BUTTON_SOURCE } from "./sources";
 
 type PreviewState = "initializing" | "compiling" | "ready" | "error";
 type RenderRequest = {
@@ -93,7 +92,7 @@ export class PreviewController {
     }
 
     public initialize(
-        source: string = FIRST_BUTTON_SOURCE,
+        source: string,
         revision = this.nextRevision + 1,
         trace?: TimingTrace,
         warnings: readonly Diagnostic[] = [],
