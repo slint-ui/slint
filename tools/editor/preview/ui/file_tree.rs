@@ -54,11 +54,39 @@ pub fn setup(
     });
 
     let controller_for_toggle = controller.clone();
+    let project_weak_for_toggle = project_weak.clone();
     api.on_file_tree_toggle(move |path| {
-        if let Some(project) = project_weak.upgrade()
+        if let Some(project) = project_weak_for_toggle.upgrade()
             && let Some(controller) = controller_for_toggle.borrow_mut().as_mut()
         {
             controller.toggle(Path::new(path.as_str()), &project);
+        }
+    });
+
+    let controller_for_rename = controller.clone();
+    api.on_file_tree_rename(move |path, name| {
+        let Some(api) = api_weak.upgrade() else { return "No editor available".into() };
+        let Some(project) = project_weak.upgrade() else { return "No project available".into() };
+        let mut controller = controller_for_rename.borrow_mut();
+        let Some(controller) = controller.as_mut() else {
+            return "No project available".into();
+        };
+        match controller.rename_file(Path::new(path.as_str()), name.as_str()) {
+            Ok((path, selected)) => {
+                controller.publish(&project);
+                if selected {
+                    if is_slint_file(&path) {
+                        super::super::request_preview_path(&path, None);
+                    } else if is_image_file(&path) {
+                        api.set_selected_image_asset(load_image_asset_preview(
+                            &controller.root,
+                            &path,
+                        ));
+                    }
+                }
+                SharedString::default()
+            }
+            Err(error) => error.into(),
         }
     });
 
@@ -160,6 +188,36 @@ impl FileTreeController {
             self.expanded.insert(path);
         }
         self.publish(project);
+    }
+
+    fn rename_file(&mut self, path: &Path, name: &str) -> Result<(PathBuf, bool), String> {
+        let path = self.path_in_root(path).ok_or("File is outside the project")?;
+        if !std::fs::symlink_metadata(&path).is_ok_and(|metadata| metadata.file_type().is_file()) {
+            return Err("Only files can be renamed".into());
+        }
+        if name.is_empty() {
+            return Err("Enter a file name".into());
+        }
+        if name == "." || name == ".." || name.contains(['/', '\\']) {
+            return Err("Enter a valid file name".into());
+        }
+
+        let target = path.parent().ok_or("File has no parent folder")?.join(name);
+        if target == path {
+            return Ok((path, self.selected_path.as_ref() == Some(&target)));
+        }
+        if target.exists() && std::fs::canonicalize(&target).ok().as_ref() != Some(&path) {
+            return Err("A file with that name already exists".into());
+        }
+
+        std::fs::rename(&path, &target)
+            .map_err(|error| format!("Could not rename file: {error}"))?;
+        let target = std::fs::canonicalize(&target).unwrap_or(target);
+        let selected = self.selected_path.as_ref() == Some(&path);
+        if selected {
+            self.selected_path = Some(target.clone());
+        }
+        Ok((target, selected))
     }
 
     fn publish(&self, project: &Project<'_>) {
@@ -384,6 +442,7 @@ fn append_node(
     let children = if is_folder { read_directory_entries(path) } else { Vec::new() };
     rows.push(FileTreeNode {
         label: label_for_path(path),
+        rename_selection_end: rename_selection_end(path, is_folder),
         path: path_to_shared_string(path),
         parent_path: parent.map(path_to_shared_string).unwrap_or_default(),
         indent_level,
@@ -448,6 +507,14 @@ fn label_for_path(path: &Path) -> SharedString {
     path.file_name()
         .map(|name| name.to_string_lossy().to_shared_string())
         .unwrap_or_else(|| path.display().to_string().into())
+}
+
+fn rename_selection_end(path: &Path, is_folder: bool) -> i32 {
+    let name = path.file_name().map(|name| name.to_string_lossy()).unwrap_or_default();
+    if is_folder {
+        return name.len() as i32;
+    }
+    path.file_stem().map(|stem| stem.to_string_lossy().len() as i32).unwrap_or(name.len() as i32)
 }
 
 fn path_to_shared_string(path: &Path) -> SharedString {
@@ -779,6 +846,64 @@ mod tests {
 
         assert!(is_directory(&dir));
         assert!(!is_directory(&file));
+    }
+
+    #[test]
+    fn rename_file_moves_file_and_selection() {
+        let tree = TempTree::new();
+        let source = tree.file("old.slint");
+        fs::write(&source, "original").unwrap();
+        let mut controller = FileTreeController::new(tree.root.clone(), Some(source.clone()));
+
+        let (target, selected) = controller.rename_file(&source, "new.slint").unwrap();
+
+        assert!(selected);
+        assert!(!source.exists());
+        assert_eq!(fs::read_to_string(&target).unwrap(), "original");
+        assert_eq!(controller.selected_path, Some(target));
+    }
+
+    #[test]
+    fn rename_file_does_not_replace_existing_file() {
+        let tree = TempTree::new();
+        let source = tree.file("source.slint");
+        let target = tree.file("target.slint");
+        fs::write(&target, "keep").unwrap();
+        let mut controller = FileTreeController::new(tree.root.clone(), None);
+
+        assert_eq!(
+            controller.rename_file(&source, "target.slint").unwrap_err(),
+            "A file with that name already exists"
+        );
+        assert!(source.exists());
+        assert_eq!(fs::read_to_string(target).unwrap(), "keep");
+    }
+
+    #[test]
+    fn rename_file_rejects_folders_and_paths() {
+        let tree = TempTree::new();
+        let folder = tree.dir("folder");
+        let source = tree.file("source.slint");
+        let mut controller = FileTreeController::new(tree.root.clone(), None);
+
+        assert_eq!(
+            controller.rename_file(&folder, "renamed").unwrap_err(),
+            "Only files can be renamed"
+        );
+        for name in ["", ".", "..", "nested/name.slint", "nested\\name.slint"] {
+            assert!(controller.rename_file(&source, name).is_err());
+        }
+    }
+
+    #[test]
+    fn rename_selection_excludes_only_the_last_extension() {
+        let path = Path::new("archive.tar.gz");
+        let dot_file = Path::new(".gitignore");
+        let unicode = Path::new("föö.slint");
+
+        assert_eq!(rename_selection_end(path, false), "archive.tar".len() as i32);
+        assert_eq!(rename_selection_end(dot_file, false), ".gitignore".len() as i32);
+        assert_eq!(rename_selection_end(unicode, false), "föö".len() as i32);
     }
 
     #[test]

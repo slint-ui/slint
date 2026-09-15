@@ -1,9 +1,11 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import sys
 from pathlib import Path
 
 import slint_testing
+from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     PALETTE_KINDS,
@@ -12,9 +14,35 @@ from ui_driver import (
     first_window,
     launch_editor,
     palette_row,
+    press_key,
+    press_keys,
     wait_until,
     window_element_with_label,
 )
+
+
+def test_file_tree_renames_file_inline(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source = fixture_project / "Main.slint"
+    target = fixture_project / "Renamed.slint"
+    expected = source.read_text()
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        file_row(window, source).invoke_accessible_default_action()
+        press_key(window, keys.Return if sys.platform == "darwin" else keys.F2)
+        window_element_with_label(
+            window, "Rename Main.slint", slint_testing.AccessibleRole.TextInput
+        )
+
+        press_key(window, keys.Backspace)
+        press_keys(window, "Renamed")
+        press_key(window, keys.Return)
+
+        wait_until(lambda: True if target.is_file() and not source.exists() else None)
+        assert target.read_text() == expected
 
 
 def test_file_tree_opens_sibling_component(
