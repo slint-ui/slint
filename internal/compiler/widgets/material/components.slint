@@ -99,6 +99,8 @@ export component ListItem {
     in property <int> index;
     in property <length> pressed-x;
     in property <length> pressed-y;
+    in property <string> font-family;
+    in property <bool> font-italic;
 
     min-width: i-layout.min-width;
     min-height: max(MaterialSizeSettings.item-height, i-layout.min-height);
@@ -159,6 +161,8 @@ export component ListItem {
             //font-family: MaterialFontSettings.label-large.font;
             font-size: MaterialFontSettings.label-large.font-size;
             font-weight: MaterialFontSettings.label-large.font-weight;
+            font-family: root.font-family;
+            font-italic: root.font-italic;
             accessible-role: none;
         }
     }

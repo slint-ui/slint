@@ -19,6 +19,8 @@ pub struct NativeStandardListViewItem {
     pub pressed: Property<bool>,
     pub pressed_x: Property<LogicalLength>,
     pub pressed_y: Property<LogicalLength>,
+    pub font_family: Property<SharedString>,
+    pub font_italic: Property<bool>,
 
     /// Specify that this item is in fact used in a ComboBox
     pub combobox: Property<bool>,
@@ -48,22 +50,33 @@ impl Item for NativeStandardListViewItem {
         let item = self.item();
         let text: qttypes::QString = item.text.as_str().into();
         let combobox: bool = self.combobox();
+        let font_family: qttypes::QString = self.font_family().as_str().into();
+        let font_italic = self.font_italic();
+        let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let s = cpp!(unsafe [
             index as "int",
             text as "QString",
-            combobox as "bool"
+            combobox as "bool",
+            font_family as "QString",
+            font_italic as "bool",
+            widget as "QWidget*"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
 
+            QFont font = itemFont(widget, font_family, font_italic);
             QStyleOptionComboBox cb_opt;
             if (combobox && qApp->style()->styleHint(QStyle::SH_ComboBox_Popup, &cb_opt, nullptr)) {
                 QStyleOptionMenuItem option;
+                option.font = font;
+                option.fontMetrics = QFontMetrics(font);
                 option.text = text;
                 option.text.replace(QChar('&'), QLatin1String("&&"));
                 return qApp->style()->sizeFromContents(QStyle::CT_MenuItem, &option, QSize{}, nullptr);
             } else {
                 QStyleOptionViewItem option;
+                option.font = font;
+                option.fontMetrics = QFontMetrics(font);
                 option.decorationPosition = QStyleOptionViewItem::Left;
                 option.decorationAlignment = Qt::AlignCenter;
                 option.displayAlignment = Qt::AlignLeft|Qt::AlignVCenter;
@@ -138,6 +151,8 @@ impl Item for NativeStandardListViewItem {
         let has_focus: bool = this.has_focus();
         let item = this.item();
         let text: qttypes::QString = item.text.as_str().into();
+        let font_family: qttypes::QString = this.font_family().as_str().into();
+        let font_italic = this.font_italic();
         cpp!(unsafe [
             painter as "QPainterPtr*",
             widget as "QWidget*",
@@ -149,12 +164,18 @@ impl Item for NativeStandardListViewItem {
             has_focus as "bool",
             text as "QString",
             initial_state as "int",
-            combobox as "bool"
+            combobox as "bool",
+            font_family as "QString",
+            font_italic as "bool"
         ] {
+            QFont font = itemFont(widget, font_family, font_italic);
+            (*painter)->setFont(font);
             QStyleOptionComboBox cb_opt;
             if (combobox && qApp->style()->styleHint(QStyle::SH_ComboBox_Popup, &cb_opt, widget)) {
                 widget->setProperty("_q_isComboBoxPopupItem", true);
                 QStyleOptionMenuItem option;
+                option.font = font;
+                option.fontMetrics = QFontMetrics(font);
                 option.styleObject = widget;
                 option.state |= QStyle::State(initial_state);
                 option.rect = QRect(QPoint(), size / dpr);
@@ -180,6 +201,8 @@ impl Item for NativeStandardListViewItem {
                 widget->setProperty("_q_isComboBoxPopupItem", {});
             } else {
                 QStyleOptionViewItem option;
+                option.font = font;
+                option.fontMetrics = QFontMetrics(font);
                 option.styleObject = widget;
                 option.state |= QStyle::State(initial_state);
                 option.rect = QRect(QPoint(), size / dpr);

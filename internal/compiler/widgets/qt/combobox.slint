@@ -7,6 +7,8 @@ import { ScrollView } from "./scrollview.slint";
 export component ComboBox {
     in property <[string]> model <=> base.model;
     in property <bool> enabled <=> base.enabled;
+    in property <string> font-family;
+    in property <bool> font-italic;
     out property <bool> has-focus <=> base.has-focus;
     in-out property <int> current-index <=> base.current-index;
     in-out property <string> current-value <=> base.current-value;
@@ -31,6 +33,8 @@ export component ComboBox {
             current-value <=> root.current-value;
             has-focus <=> root.has-focus;
             enabled <=> root.enabled;
+            font-family: root.font-family;
+            font-italic: root.font-italic;
         }
     }
 
@@ -81,6 +85,8 @@ export component ComboBox {
                         is-selected: root.current-index == index;
                         has-hover: ta2.has-hover;
                         combobox: true;
+                        font-family: root.font-family;
+                        font-italic: root.font-italic;
 
                         ta2 := TouchArea {
                             clicked => {
@@ -123,6 +129,8 @@ export component ComboBox {
                     is-selected: root.current-index == index;
                     has-hover: ta.has-hover;
                     combobox: true;
+                    font-family: root.font-family;
+                    font-italic: root.font-italic;
 
                     ta := TouchArea {
                         clicked => {

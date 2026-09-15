@@ -16,6 +16,8 @@ pub struct NativeComboBox {
     pub has_hover: Property<bool>,
     pub is_open: Property<bool>,
     pub current_value: Property<SharedString>,
+    pub font_family: Property<SharedString>,
+    pub font_italic: Property<bool>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
     animation_tracker: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
@@ -40,9 +42,16 @@ impl Item for NativeComboBox {
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
         let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
-        let size = cpp!(unsafe [widget as "QWidget*"] -> qttypes::QSize as "QSize" {
+        let font_family: qttypes::QString = self.font_family().as_str().into();
+        let font_italic = self.font_italic();
+        let size = cpp!(unsafe [
+            widget as "QWidget*",
+            font_family as "QString",
+            font_italic as "bool"
+        ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionComboBox option;
+            option.fontMetrics = QFontMetrics(itemFont(widget, font_family, font_italic));
             // FIXME
             option.rect = option.fontMetrics.boundingRect("******************");
             option.subControls = QStyle::SC_All;
@@ -114,6 +123,8 @@ impl Item for NativeComboBox {
         let enabled = this.enabled();
         let has_focus = this.has_focus();
         let has_hover = this.has_hover();
+        let font_family: qttypes::QString = this.font_family().as_str().into();
+        let font_italic = this.font_italic();
         cpp!(unsafe [
             painter as "QPainterPtr*",
             widget as "QWidget*",
@@ -125,10 +136,14 @@ impl Item for NativeComboBox {
             has_focus as "bool",
             has_hover as "bool",
             dpr as "float",
-            initial_state as "int"
+            initial_state as "int",
+            font_family as "QString",
+            font_italic as "bool"
         ] {
             ensure_initialized();
+            QFont font = itemFont(widget, font_family, font_italic);
             QStyleOptionComboBox option;
+            option.fontMetrics = QFontMetrics(font);
             option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             option.currentText = std::move(text);
@@ -153,6 +168,7 @@ impl Item for NativeComboBox {
             //    option.state |= QStyle::State_On;
             }
             option.subControls = QStyle::SC_All;
+            (*painter)->setFont(font);
             qApp->style()->drawComplexControl(QStyle::CC_ComboBox, &option, painter->get(), widget);
             qApp->style()->drawControl(QStyle::CE_ComboBoxLabel, &option, painter->get(), widget);
         });
