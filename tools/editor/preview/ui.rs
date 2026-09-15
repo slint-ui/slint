@@ -2021,6 +2021,28 @@ mod tests {
         );
     }
 
+    #[test]
+    fn title_area_double_click_toggles_maximized() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor.show().unwrap();
+
+        let title_touch_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
+            &editor,
+            "EditorUi::title-touch-area",
+        )
+        .next()
+        .expect("the title touch area must be inside the window move area");
+
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert!(editor.window().is_maximized());
+
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert!(!editor.window().is_maximized());
+    }
+
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {
         PropertyInformation {
             name: name.into(),
