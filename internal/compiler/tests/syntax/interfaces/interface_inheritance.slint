@@ -1,0 +1,129 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A derived interface gains the base's members, and may only redeclare one the base marked
+// `@shadowable`. Inheriting an interface counts as a use of it, so a base needs no export.
+
+interface Base {
+    in-out property <string> text;
+    callback base-callback();
+    public pure function base-function() -> int;
+}
+
+export interface Derived inherits Base {
+    out property <int> foo;
+    callback derived-callback();
+    public pure function derived-function() -> int;
+}
+
+export component Implementer {
+    implement Derived <=> self;
+
+    in-out property <string> text;
+    out property <int> foo;
+    callback base-callback();
+    callback derived-callback();
+    public pure function base-function() -> int {
+        1
+    }
+    public pure function derived-function() -> int {
+        2
+    }
+}
+
+// Redeclaring an inherited member is an error, whatever its kind.
+export interface Redeclares inherits Base {
+    in-out property <string> text;
+//                           >  <error{Cannot override property 'text' declared in 'Base'}
+    callback base-callback();
+//           >           <error{Cannot override callback 'base-callback' declared in 'Base'}
+    public pure function base-function() -> int;
+//                       >           <error{Cannot override 'base-function' declared in 'Base'}
+}
+
+// `@shadowable` on the base declaration opts into shadowing, which warns instead.
+interface Shadowable {
+    @shadowable in-out property <string> text;
+}
+
+export interface Shadows inherits Shadowable {
+    in-out property <string> text;
+//                           >  <warning{'text' shadows the inherited property of the same name}
+}
+
+// Through three levels, the message names the interface that declares the member.
+interface Level1 {
+    in-out property <string> text;
+}
+
+interface Level2 inherits Level1 {
+    out property <int> two;
+}
+
+export interface Level3 inherits Level2 {
+    in-out property <string> text;
+//                           >  <error{Cannot override property 'text' declared in 'Level1'}
+}
+
+// An interface can only inherit another interface.
+export component SomeComponent { }
+
+export interface InheritsBuiltin inherits Rectangle { }
+//                                        >        <error{An interface can only inherit another interface}
+
+export interface InheritsComponent inherits SomeComponent { }
+//                                          >            <error{An interface can only inherit another interface}
+
+export interface InheritsUnknown inherits NoSuchThing { }
+//                                        >          <error{Unknown element 'NoSuchThing'}
+
+// An inheriting interface is policed like any other: its body may only list members.
+export interface InheritingBody inherits Base {
+    out property <int> bound;
+    bound: 1;
+//  >       <error{An interface cannot have bindings}
+
+    Rectangle { }
+//  >           <error{An interface cannot have sub elements}
+
+    states [
+//  >error{An interface cannot have states}
+    ]
+//  <error{An interface cannot have states}
+
+    implement Base <=> self;
+//  >                      <error{Interfaces cannot implement another interface, use 'inherits' instead}
+}
+
+// The member rules apply on the inherits path too, where the base type used to be an error.
+export interface InheritingMembers inherits Base {
+    in property <int> with-default: 42;
+//                                  > <error{Interface properties cannot have default values}
+    out property <int> with-binding <=> self.with-default;
+//                                  >                    <error{Interface properties cannot have default bindings}
+    private property <int> private-property;
+//  >                                      <error{'private' properties are inaccessible in an interface}
+    function not-public();
+//  >                    <error{Function declarations in an interface must be public}
+    public function with-body() {
+//                              >error{Function declarations in interfaces must not have a body}
+    }
+//  <error{Function declarations in interfaces must not have a body}
+}
+
+// An interface cannot inherit itself.
+export interface SelfInherits inherits SelfInherits { }
+//                                     >           <error{Unknown element 'SelfInherits'}
+
+// An interface a cannot inherit an interface not declared yet.
+export interface InheritsLater inherits DeclaredLater { }
+//                                      >            <error{Unknown element 'DeclaredLater'}
+
+export interface DeclaredLater { }
+
+// An interface is not an element, inside another interface no more than anywhere else.
+export interface InstantiatesInterface {
+    Base { }
+//  >      <error{An interface cannot have sub elements}
+//  >   <^error{Cannot create an instance of an interface; write 'implement Base <=> self;' to implement it}
+}
