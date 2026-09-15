@@ -516,9 +516,6 @@ importers:
       cspell:
         specifier: 'catalog:'
         version: 10.3.0
-      esbuild:
-        specifier: 0.28.2
-        version: 0.28.2
       jszip:
         specifier: 3.10.2
         version: 3.10.2
