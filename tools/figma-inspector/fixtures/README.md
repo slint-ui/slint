@@ -74,7 +74,6 @@ and consumer here when adding one.
 | `image-size-unavailable.json` | `image-normalization.unit.spec.ts` |
 | `inner-shadow.json` | `appearance-normalization.unit.spec.ts` |
 | `multiple-failures.json` | `recovery.unit.spec.ts` |
-| `native-overlap.json` | `source.unit.spec.ts` |
 | `negative-gap.json` | `layout-normalization.unit.spec.ts`, `capture.unit.spec.ts` |
 | `nested-container.json` | `recovery.unit.spec.ts` |
 | `png-first.json` | `source.unit.spec.ts`, `asset-transport.unit.spec.ts` |
