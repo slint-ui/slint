@@ -17,7 +17,7 @@ import {
 import { convertSnapshot } from "../src/preview/converter";
 import { uniqueDiagnostics, warningSummaries } from "../src/plugin/snapshot";
 import type { Diagnostic } from "../src/plugin/snapshot";
-import { parseSnapshot } from "../src/plugin/snapshot";
+import { validateSnapshot } from "../src/plugin/snapshot";
 
 describe("source", () => {
     test("saved source replays deterministically without a Figma host", async () => {
@@ -90,7 +90,6 @@ describe("source", () => {
                 undefined,
                 undefined,
                 4,
-                false,
                 undefined,
                 undefined,
                 planned,
@@ -404,46 +403,38 @@ describe("milestone7", () => {
         const badSideWeight = structuredClone(fixture);
         badSideWeight.root.children[0].strokes[0].strokeRightWeight = -1;
         expect(
-            parseSnapshot(
-                JSON.stringify({
-                    ...badSideWeight,
-                    schemaVersion: 8,
-                    selection: { nodeId: "x", nodeName: "x" },
-                }),
-            ).ok,
+            validateSnapshot({
+                ...badSideWeight,
+                schemaVersion: 8,
+                selection: { nodeId: "x", nodeName: "x" },
+            }).ok,
         ).toBe(false);
         const badShadow = structuredClone(fixture);
         badShadow.root.children[0].shadows[0].spread = "wide";
         expect(
-            parseSnapshot(
-                JSON.stringify({
-                    ...badShadow,
-                    schemaVersion: 8,
-                    selection: { nodeId: "x", nodeName: "x" },
-                }),
-            ).ok,
+            validateSnapshot({
+                ...badShadow,
+                schemaVersion: 8,
+                selection: { nodeId: "x", nodeName: "x" },
+            }).ok,
         ).toBe(false);
         const negativeSpread = structuredClone(fixture);
         negativeSpread.root.children[0].shadows[0].spread = -2;
         expect(
-            parseSnapshot(
-                JSON.stringify({
-                    ...negativeSpread,
-                    schemaVersion: 8,
-                    selection: { nodeId: "x", nodeName: "x" },
-                }),
-            ).ok,
+            validateSnapshot({
+                ...negativeSpread,
+                schemaVersion: 8,
+                selection: { nodeId: "x", nodeName: "x" },
+            }).ok,
         ).toBe(true);
         const badRotation = structuredClone(fixture);
         badRotation.root.rotation = Number.NaN;
         expect(
-            parseSnapshot(
-                JSON.stringify({
-                    ...badRotation,
-                    schemaVersion: 8,
-                    selection: { nodeId: "x", nodeName: "x" },
-                }),
-            ).ok,
+            validateSnapshot({
+                ...badRotation,
+                schemaVersion: 8,
+                selection: { nodeId: "x", nodeName: "x" },
+            }).ok,
         ).toBe(false);
         const badRun = structuredClone(fixture);
         const badRunNode = badRun.root.children[0].children[1] as unknown as {
@@ -451,13 +442,11 @@ describe("milestone7", () => {
         };
         badRunNode.runs[0].range = [0, 999];
         expect(
-            parseSnapshot(
-                JSON.stringify({
-                    ...badRun,
-                    schemaVersion: 8,
-                    selection: { nodeId: "x", nodeName: "x" },
-                }),
-            ).ok,
+            validateSnapshot({
+                ...badRun,
+                schemaVersion: 8,
+                selection: { nodeId: "x", nodeName: "x" },
+            }).ok,
         ).toBe(false);
     });
 });

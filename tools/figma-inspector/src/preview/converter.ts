@@ -450,10 +450,7 @@ function nodeSource(
         return lines;
     }
     const styledText = node.kind === "text" && textRunNeedsStyled(node);
-    const paintBounds =
-        node.kind === "svg"
-            ? (node.paintBounds ?? node.raster?.bounds)
-            : undefined;
+    const paintBounds = node.kind === "svg" ? node.raster?.bounds : undefined;
     const element =
         node.kind === "text"
             ? styledText
@@ -715,9 +712,7 @@ export function convertSnapshot(
           }
         : { top: 0, right: 0, bottom: 0, left: 0 };
     const rootPaint =
-        snapshot.root.kind === "svg"
-            ? (snapshot.root.paintBounds ?? snapshot.root.raster?.bounds)
-            : undefined;
+        snapshot.root.kind === "svg" ? snapshot.root.raster?.bounds : undefined;
     if (rootPaint) {
         rootOutsets.left = Math.max(0, -rootPaint.x);
         rootOutsets.top = Math.max(0, -rootPaint.y);

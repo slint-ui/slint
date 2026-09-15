@@ -1,14 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { normalizeSource } from "../src/plugin/normalize";
+import { convertSnapshot } from "../src/preview/converter";
 import { readFile } from "node:fs/promises";
 import { describe, expect, test } from "vitest";
 import {
     type CaptureInstrumentation,
-    captureSelection,
+    captureSelectionSource,
     captureSource,
 } from "../src/plugin/capture";
-import { parseSnapshot } from "../src/plugin/snapshot";
+import { validateSnapshot } from "../src/plugin/snapshot";
 
 const solid = (r: number, g: number, b: number): SolidPaint => ({
     type: "SOLID",
@@ -23,8 +25,8 @@ test("validates real malformed snapshot fixtures at the JSON boundary", async ()
         ["gradient-stop-count.json", "INVALID_SNAPSHOT"],
     ] as const;
     for (const [name, code] of fixtures) {
-        const result = parseSnapshot(
-            await readFile(`fixtures/errors/${name}`, "utf8"),
+        const result = validateSnapshot(
+            JSON.parse(await readFile(`fixtures/errors/${name}`, "utf8")),
         );
         expect(result.ok, name).toBe(false);
         if (result.ok) continue;
@@ -36,12 +38,12 @@ test("validates real malformed snapshot fixtures at the JSON boundary", async ()
 
 test("accepts the v8 auto-layout fixture and rejects previous schema versions", async () => {
     const json = await readFile("fixtures/auto-layout.snapshot.json", "utf8");
-    const parsed = parseSnapshot(json);
+    const parsed = validateSnapshot(JSON.parse(json));
     expect(parsed.ok).toBe(true);
     const oldVersion = JSON.parse(json) as { schemaVersion: number };
     for (const schemaVersion of [1, 2, 3, 4, 5, 6, 7]) {
         oldVersion.schemaVersion = schemaVersion;
-        expect(parseSnapshot(JSON.stringify(oldVersion))).toMatchObject({
+        expect(validateSnapshot(oldVersion)).toMatchObject({
             ok: false,
             diagnostics: [
                 expect.objectContaining({ code: "INVALID_SNAPSHOT" }),
@@ -64,7 +66,7 @@ test("requires fields introduced by the strict v8 snapshot contract", async () =
     ]) {
         const root = structuredClone(canonical.root);
         delete root[property];
-        const result = parseSnapshot(JSON.stringify({ ...canonical, root }));
+        const result = validateSnapshot({ ...canonical, root });
         expect(result.ok, property).toBe(false);
         if (result.ok) continue;
         expect(result.diagnostics, property).toContainEqual(
@@ -85,9 +87,10 @@ test("requires fields introduced by the strict v8 snapshot contract", async () =
             ) as Record<string, unknown>;
             if (value === undefined) invalidTextNode.textAutoResize = undefined;
             else invalidTextNode.textAutoResize = value;
-            const result = parseSnapshot(
-                JSON.stringify({ ...canonical, root: invalidTextRoot }),
-            );
+            const result = validateSnapshot({
+                ...canonical,
+                root: invalidTextRoot,
+            });
             expect(result.ok, String(value)).toBe(false);
             if (result.ok) continue;
             expect(result.diagnostics, String(value)).toContainEqual(
@@ -106,9 +109,10 @@ test("requires fields introduced by the strict v8 snapshot contract", async () =
         delete (missingFieldRoot.autoLayout as Record<string, unknown>)[
             property
         ];
-        const result = parseSnapshot(
-            JSON.stringify({ ...canonical, root: missingFieldRoot }),
-        );
+        const result = validateSnapshot({
+            ...canonical,
+            root: missingFieldRoot,
+        });
         expect(result.ok, property).toBe(false);
         if (result.ok) continue;
         expect(result.diagnostics, property).toContainEqual(
@@ -126,14 +130,14 @@ test("uses selection fixtures for empty and multiple-selection outcomes", async 
     const multiple = JSON.parse(
         await readFile("fixtures/errors/multiple-selection.json", "utf8"),
     ) as { selection: string[]; expectedDiagnostics: { code: string }[] };
-    expect(await captureSelection([], Symbol())).toMatchObject({
+    expect(await captureSelectionSource([], Symbol())).toMatchObject({
         ok: true,
         empty: true,
         nodeIds: [],
     });
     expect(empty.expectedOutcome).toBe("clear");
     expect(
-        await captureSelection(
+        await captureSelectionSource(
             [group as unknown as SceneNode, group as unknown as SceneNode],
             Symbol(),
         ),
@@ -148,34 +152,53 @@ test("uses selection fixtures for empty and multiple-selection outcomes", async 
 test("approximates rotated, layered, and mixed text styles while warning on stroke alignment", async () => {
     const rotated = { ...rectangle, rotation: 15 };
     expect(
-        await captureSelection([rotated as unknown as SceneNode], Symbol()),
+        await normalizeSource(
+            (await captureSource(rotated as unknown as SceneNode, Symbol()))
+                .source,
+        ),
     ).toMatchObject({ ok: true });
     expect(
-        await captureSelection(
-            [
-                {
-                    ...rectangle,
-                    fills: [solid(1, 0, 0), solid(0, 0, 1)],
-                } as unknown as SceneNode,
-            ],
-            Symbol(),
+        await normalizeSource(
+            (
+                await captureSource(
+                    {
+                        ...rectangle,
+                        fills: [solid(1, 0, 0), solid(0, 0, 1)],
+                    } as unknown as SceneNode,
+                    Symbol(),
+                )
+            ).source,
         ),
     ).toMatchObject({
         ok: true,
         warnings: [{ code: "MULTIPLE_VISIBLE_PAINTS_APPROXIMATED" }],
     });
     expect(
-        await captureSelection(
-            [{ ...text, fontSize: Symbol("mixed") } as unknown as SceneNode],
-            Symbol(),
+        await normalizeSource(
+            (
+                await captureSource(
+                    {
+                        ...text,
+                        fontSize: Symbol("mixed"),
+                    } as unknown as SceneNode,
+                    Symbol(),
+                )
+            ).source,
         ),
     ).toMatchObject({
         ok: true,
         warnings: [{ code: "MIXED_TEXT_STYLE_APPROXIMATED" }],
     });
-    const strokeResult = await captureSelection(
-        [{ ...rectangle, strokeAlign: "OUTSIDE" } as unknown as SceneNode],
-        Symbol(),
+    const strokeResult = await normalizeSource(
+        (
+            await captureSource(
+                {
+                    ...rectangle,
+                    strokeAlign: "OUTSIDE",
+                } as unknown as SceneNode,
+                Symbol(),
+            )
+        ).source,
     );
     expect(strokeResult).toMatchObject({
         ok: true,
@@ -238,9 +261,13 @@ const group = {
 };
 
 test("captures only JSON-safe values for the supported button shape", async () => {
-    const result = await captureSelection(
-        [group as unknown as SceneNode],
-        Symbol("figma.mixed"),
+    const result = await normalizeSource(
+        (
+            await captureSource(
+                group as unknown as SceneNode,
+                Symbol("figma.mixed"),
+            )
+        ).source,
     );
     expect(result.ok).toBe(true);
     if (!result.ok || result.empty) return;
@@ -285,33 +312,54 @@ test("instruments only text-bearing SVG exports, including failed exports", asyn
         ["SHAPE_WITH_TEXT", "shape:instrumented"],
         ["VECTOR", "vector:uninstrumented"],
     ]) {
-        const result = await captureSelection(
-            [svgNode(type, id)],
-            Symbol("figma.mixed"),
-            exporter,
-            undefined,
-            instrumentation,
+        const result = await normalizeSource(
+            (
+                await captureSource(
+                    svgNode(type, id),
+                    Symbol("figma.mixed"),
+                    exporter,
+                    undefined,
+                    undefined,
+                    1,
+                    false,
+                    instrumentation,
+                )
+            ).source,
         );
         expect(result.ok, type).toBe(true);
     }
-    const textResult = await captureSelection(
-        [{ ...text, id: "text:uninstrumented" } as unknown as SceneNode],
-        Symbol("figma.mixed"),
-        exporter,
-        undefined,
-        instrumentation,
+    const textResult = await normalizeSource(
+        (
+            await captureSource(
+                { ...text, id: "text:uninstrumented" } as unknown as SceneNode,
+                Symbol("figma.mixed"),
+                exporter,
+                undefined,
+                undefined,
+                1,
+                false,
+                instrumentation,
+            )
+        ).source,
     );
     expect(textResult.ok).toBe(true);
     expect(instrumentedTypes).toEqual(["font-to-image", "font-to-image"]);
 
-    const failedResult = await captureSelection(
-        [svgNode("CONNECTOR", "connector:failed")],
-        Symbol("figma.mixed"),
-        async () => {
-            throw new Error("expected export failure");
-        },
-        undefined,
-        instrumentation,
+    const failedResult = await normalizeSource(
+        (
+            await captureSource(
+                svgNode("CONNECTOR", "connector:failed"),
+                Symbol("figma.mixed"),
+                async () => {
+                    throw new Error("expected export failure");
+                },
+                undefined,
+                undefined,
+                1,
+                false,
+                instrumentation,
+            )
+        ).source,
     );
     expect(failedResult.ok).toBe(false);
     expect(instrumentedTypes).toHaveLength(3);
@@ -403,9 +451,13 @@ test("captures a styled Frame through the shared appearance subset", async () =>
         children: [child],
     });
 
-    const result = await captureSelection(
-        [frame as unknown as SceneNode],
-        Symbol("figma.mixed"),
+    const result = await normalizeSource(
+        (
+            await captureSource(
+                frame as unknown as SceneNode,
+                Symbol("figma.mixed"),
+            )
+        ).source,
     );
     expect(result.ok).toBe(true);
     if (!result.ok || result.empty) return;
@@ -458,17 +510,21 @@ test("captures arbitrary gradient stops and image paints into a self-contained s
         ...rectangle,
         fills: [gradient, image],
     });
-    const result = await captureSelection(
-        [node as unknown as SceneNode],
-        Symbol("mixed"),
-        undefined,
-        async () => ({
-            bytes: new Uint8Array([
-                0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-            ]),
-            width: 16,
-            height: 8,
-        }),
+    const result = await normalizeSource(
+        (
+            await captureSource(
+                node as unknown as SceneNode,
+                Symbol("mixed"),
+                undefined,
+                async () => ({
+                    bytes: new Uint8Array([
+                        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+                    ]),
+                    width: 16,
+                    height: 8,
+                }),
+            )
+        ).source,
     );
     expect(result).toMatchObject({
         ok: true,
@@ -476,9 +532,13 @@ test("captures arbitrary gradient stops and image paints into a self-contained s
     });
 
     const gradientNode = strictObject({ ...rectangle, fills: [gradient] });
-    const gradientResult = await captureSelection(
-        [gradientNode as unknown as SceneNode],
-        Symbol("mixed"),
+    const gradientResult = await normalizeSource(
+        (
+            await captureSource(
+                gradientNode as unknown as SceneNode,
+                Symbol("mixed"),
+            )
+        ).source,
     );
     expect(gradientResult).toMatchObject({
         ok: true,
@@ -490,17 +550,21 @@ test("captures arbitrary gradient stops and image paints into a self-contained s
     });
 
     const imageNode = strictObject({ ...rectangle, fills: [image] });
-    const imageResult = await captureSelection(
-        [imageNode as unknown as SceneNode],
-        Symbol("mixed"),
-        undefined,
-        async () => ({
-            bytes: new Uint8Array([
-                0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-            ]),
-            width: 16,
-            height: 8,
-        }),
+    const imageResult = await normalizeSource(
+        (
+            await captureSource(
+                imageNode as unknown as SceneNode,
+                Symbol("mixed"),
+                undefined,
+                async () => ({
+                    bytes: new Uint8Array([
+                        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+                    ]),
+                    width: 16,
+                    height: 8,
+                }),
+            )
+        ).source,
     );
     expect(imageResult).toMatchObject({
         ok: true,
@@ -536,20 +600,24 @@ test("resolves each image hash once per capture", async () => {
         }),
     );
     let resolutions = 0;
-    const result = await captureSelection(
-        [{ ...group, children } as unknown as SceneNode],
-        Symbol("mixed"),
-        undefined,
-        async () => {
-            resolutions += 1;
-            return {
-                bytes: new Uint8Array([
-                    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-                ]),
-                width: 16,
-                height: 8,
-            };
-        },
+    const result = await normalizeSource(
+        (
+            await captureSource(
+                { ...group, children } as unknown as SceneNode,
+                Symbol("mixed"),
+                undefined,
+                async () => {
+                    resolutions += 1;
+                    return {
+                        bytes: new Uint8Array([
+                            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+                        ]),
+                        width: 16,
+                        height: 8,
+                    };
+                },
+            )
+        ).source,
     );
     expect(result.ok).toBe(true);
     expect(resolutions).toBe(1);
@@ -667,11 +735,12 @@ test("captures Components and resolved Instance children as styled containers", 
     const instanceChild = componentText("5:2", "Override");
     const instance = componentLikeNode("INSTANCE", "5:1", [instanceChild]);
 
-    const componentResult = await captureSelection(
-        [component],
-        Symbol("mixed"),
+    const componentResult = await normalizeSource(
+        (await captureSource(component, Symbol("mixed"))).source,
     );
-    const instanceResult = await captureSelection([instance], Symbol("mixed"));
+    const instanceResult = await normalizeSource(
+        (await captureSource(instance, Symbol("mixed"))).source,
+    );
     expect(componentResult.ok).toBe(true);
     expect(instanceResult.ok).toBe(true);
     if (
@@ -741,7 +810,6 @@ test("captures only the referenced private component variant", async () => {
         undefined,
         undefined,
         1,
-        true,
     );
     expect(result.source.components?.definitions).toHaveLength(1);
     expect(result.source.components?.definitions[0].scope).toBe("private");
@@ -772,7 +840,6 @@ test("captures only the referenced private component variant", async () => {
         undefined,
         undefined,
         1,
-        true,
     );
     expect(publicResult.source.components?.definitions[0].scope).toBe(
         "complete",
@@ -801,7 +868,6 @@ test("captures only the referenced private component variant", async () => {
         undefined,
         undefined,
         1,
-        true,
     );
     expect(selectedVariantResult.source.components?.definitions[0].scope).toBe(
         "complete",
@@ -855,7 +921,6 @@ test("rejects a component reference whose required variant is unavailable", asyn
             undefined,
             undefined,
             1,
-            true,
         ),
     ).rejects.toThrow(/Component reachability failed/);
 });
@@ -890,13 +955,87 @@ test("retains hidden children bound to a component visibility property", async (
         undefined,
         undefined,
         1,
-        true,
     );
     const captured = result.source.components?.definitions[0].variants[0].root;
     expect(captured?.children?.map((child) => child.id)).toContain(
         "visibility:hidden",
     );
 });
+
+test.each([false, true])(
+    "captures image assets below a boolean visibility binding (nested=%s)",
+    async (nested) => {
+        const bytes = new Uint8Array(
+            await readFile("fixtures/authored/square.png"),
+        );
+        const image = {
+            ...rectangle,
+            id: "visibility:image",
+            fills: [
+                {
+                    type: "IMAGE",
+                    imageHash: "needed",
+                    scaleMode: "FILL",
+                    opacity: 1,
+                    visible: true,
+                },
+                {
+                    type: "IMAGE",
+                    imageHash: "disabled",
+                    scaleMode: "FILL",
+                    opacity: 1,
+                    visible: false,
+                },
+            ],
+        };
+        const hidden = {
+            ...(nested ? { ...group, children: [image] } : image),
+            visible: false,
+            componentPropertyReferences: { visible: "Show content" },
+        };
+        const component = componentLikeNode(
+            "COMPONENT",
+            "visibility:component",
+            [hidden],
+            {
+                parent: null,
+                variantProperties: null,
+                componentPropertyDefinitions: {
+                    "Show content": { type: "BOOLEAN", defaultValue: false },
+                },
+            },
+        );
+        const requested: string[] = [];
+        const captured = await captureSelectionSource(
+            [component],
+            Symbol("mixed"),
+            undefined,
+            async (hash) => {
+                requested.push(hash);
+                return { bytes, width: 20, height: 20 };
+            },
+        );
+        if (!captured.ok || captured.empty)
+            throw Error(JSON.stringify(captured));
+        expect(requested).toEqual(["needed"]);
+        expect(captured.source.images.needed.value?.bytes).toBe(bytes);
+        const normalized = await normalizeSource(captured.source, "export");
+        if (!normalized.ok || normalized.empty)
+            throw Error(JSON.stringify(normalized));
+        expect(
+            normalized.warnings.map((warning) => warning.code),
+            JSON.stringify(normalized.warnings),
+        ).not.toContain("UNSUPPORTED_PAINT");
+        const converted = convertSnapshot(normalized.snapshot, {
+            target: "export",
+        });
+        if (!converted.ok) throw Error(JSON.stringify(converted));
+        expect(converted.source).toContain(
+            "in property <bool> show-content: false;",
+        );
+        expect(converted.source).toContain("@image-url(");
+    },
+);
 
 test("captures nested Instances and reports stable component diagnostics", async () => {
     const nestedChild = componentText("6:3", "Nested override");
@@ -908,7 +1047,9 @@ test("captures nested Instances and reports stable component diagnostics", async
     const root = componentLikeNode("INSTANCE", "6:1", [nested], {
         scaleFactor: 1,
     });
-    const nestedResult = await captureSelection([root], Symbol("mixed"));
+    const nestedResult = await normalizeSource(
+        (await captureSource(root, Symbol("mixed"))).source,
+    );
     expect(nestedResult.ok).toBe(true);
     if (!nestedResult.ok || nestedResult.empty) return;
     expect(nestedResult.snapshot.root).toMatchObject({
@@ -922,9 +1063,13 @@ test("captures nested Instances and reports stable component diagnostics", async
     });
     expect(nestedResult.nodeIds).toEqual(["6:1", "6:2", "6:3"]);
 
-    const scaled = await captureSelection(
-        [componentLikeNode("INSTANCE", "7:1", [], { scaleFactor: 2 })],
-        Symbol("mixed"),
+    const scaled = await normalizeSource(
+        (
+            await captureSource(
+                componentLikeNode("INSTANCE", "7:1", [], { scaleFactor: 2 }),
+                Symbol("mixed"),
+            )
+        ).source,
     );
     expect(scaled).toMatchObject({ ok: true, warnings: [] });
     const variants = [
@@ -962,9 +1107,13 @@ test("captures nested Instances and reports stable component diagnostics", async
         children: variants,
     });
     expect(
-        await captureSelection(
-            [componentSet as unknown as SceneNode],
-            Symbol("mixed"),
+        await normalizeSource(
+            (
+                await captureSource(
+                    componentSet as unknown as SceneNode,
+                    Symbol("mixed"),
+                )
+            ).source,
         ),
     ).toMatchObject({
         ok: true,
@@ -1021,15 +1170,12 @@ test("captures Vector and Boolean-operation nodes as complete injected SVG leave
         return `<svg viewBox="0 0 24 24"><path data-node="${node.id}" /></svg>`;
     };
 
-    const vectorResult = await captureSelection(
-        [vector],
-        Symbol("mixed"),
-        exporter,
+    const vectorResult = await normalizeSource(
+        (await captureSource(vector, Symbol("mixed"), exporter)).source,
     );
-    const booleanResult = await captureSelection(
-        [booleanOperation],
-        Symbol("mixed"),
-        exporter,
+    const booleanResult = await normalizeSource(
+        (await captureSource(booleanOperation, Symbol("mixed"), exporter))
+            .source,
     );
     expect(vectorResult).toMatchObject({
         ok: true,
@@ -1067,10 +1213,8 @@ test("captures basic Figma shape nodes through the same SVG boundary", async () 
             visible: true,
             rotation: 0,
         } as unknown as SceneNode;
-        const result = await captureSelection(
-            [shape],
-            Symbol("mixed"),
-            exporter,
+        const result = await normalizeSource(
+            (await captureSource(shape, Symbol("mixed"), exporter)).source,
         );
         expect(result, type).toMatchObject({
             ok: true,
@@ -1089,7 +1233,9 @@ test("captures text typography and truncation metadata", async () => {
         textTruncation: "ENDING",
         maxLines: 2,
     } as unknown as SceneNode;
-    const result = await captureSelection([styledText], Symbol("mixed"));
+    const result = await normalizeSource(
+        (await captureSource(styledText, Symbol("mixed"))).source,
+    );
     expect(result).toMatchObject({
         ok: true,
         snapshot: {
@@ -1137,10 +1283,8 @@ test("captures conservative icon-font text as outlined SVG leaves", async () => 
     } as unknown as SceneNode;
 
     for (const node of [icon, supplementary, ligature]) {
-        const result = await captureSelection(
-            [node],
-            Symbol("mixed"),
-            exporter,
+        const result = await normalizeSource(
+            (await captureSource(node, Symbol("mixed"), exporter)).source,
         );
         expect(result).toMatchObject({
             ok: true,
@@ -1194,19 +1338,22 @@ test.each([false, true])(
             name: "Raster-backed icon",
             characters: String.fromCodePoint(0xe8b6),
         } as unknown as SceneNode;
-        const result = await captureSelection(
-            [icon],
-            Symbol("mixed"),
-            async () => {
-                svgCalls += 1;
-                return '<svg width="23" height="17" viewBox="0 0 23 17"><path /></svg>';
-            },
-            undefined,
-            undefined,
-            async () => {
-                pngCalls += 1;
-                return pngBytes;
-            },
+        const result = await normalizeSource(
+            (
+                await captureSource(
+                    icon,
+                    Symbol("mixed"),
+                    async () => {
+                        svgCalls += 1;
+                        return '<svg width="23" height="17" viewBox="0 0 23 17"><path /></svg>';
+                    },
+                    undefined,
+                    async () => {
+                        pngCalls += 1;
+                        return pngBytes;
+                    },
+                )
+            ).source,
         );
 
         expect(result).toMatchObject({
@@ -1254,11 +1401,15 @@ test("captures Material Symbols ligatures when node-level weight is mixed", asyn
             },
         ],
     } as unknown as SceneNode;
-    const result = await captureSelection(
-        [icon],
-        mixedValue,
-        async () =>
-            '<svg width="23" height="17" viewBox="0 0 23 17"><path /></svg>',
+    const result = await normalizeSource(
+        (
+            await captureSource(
+                icon,
+                mixedValue,
+                async () =>
+                    '<svg width="23" height="17" viewBox="0 0 23 17"><path /></svg>',
+            )
+        ).source,
     );
 
     expect(result).toMatchObject({
@@ -1304,10 +1455,8 @@ test("restores node-sized SVG viewports for vector and text exports", async () =
         fontName: { family: "Material Symbols Rounded", style: "Regular" },
     } as unknown as SceneNode;
     for (const node of [vector, textIcon]) {
-        const result = await captureSelection(
-            [node],
-            Symbol("mixed"),
-            exporter,
+        const result = await normalizeSource(
+            (await captureSource(node, Symbol("mixed"), exporter)).source,
         );
         expect(result.ok, node.id).toBe(true);
         if (!result.ok || result.empty) continue;
@@ -1401,10 +1550,8 @@ test("keeps ordinary, mixed-style, and multiline text on the text path", async (
     } as unknown as SceneNode;
 
     for (const node of [ordinary, mixed, multiline]) {
-        const result = await captureSelection(
-            [node],
-            Symbol("mixed"),
-            exporter,
+        const result = await normalizeSource(
+            (await captureSource(node, Symbol("mixed"), exporter)).source,
         );
         expect(result).toMatchObject({
             ok: true,
@@ -1413,10 +1560,9 @@ test("keeps ordinary, mixed-style, and multiline text on the text path", async (
     }
     expect(exported).toEqual([]);
     expect(ordinarySegmentReads).toBe(1);
-    const mixedResult = await captureSelection(
-        [mixedIconAndOrdinary],
-        Symbol("mixed"),
-        exporter,
+    const mixedResult = await normalizeSource(
+        (await captureSource(mixedIconAndOrdinary, Symbol("mixed"), exporter))
+            .source,
     );
     expect(mixedResult).toMatchObject({
         ok: true,
@@ -1431,30 +1577,33 @@ test("rejects icon-font SVG output that is malformed or still contains text", as
         id: "8:11",
         characters: String.fromCodePoint(0xe8b6),
     } as unknown as SceneNode;
-    const malformed = await captureSelection(
-        [icon],
-        Symbol("mixed"),
-        async () => "<path />",
+    const malformed = await normalizeSource(
+        (await captureSource(icon, Symbol("mixed"), async () => "<path />"))
+            .source,
     );
     expect(malformed).toMatchObject({
         ok: false,
         diagnostics: [{ code: "TEXT_SVG_EXPORT_INVALID" }],
     });
-    const unoutlined = await captureSelection(
-        [icon],
-        Symbol("mixed"),
-        async () => '<svg viewBox="0 0 24 24"><text>cloud</text></svg>',
+    const unoutlined = await normalizeSource(
+        (
+            await captureSource(
+                icon,
+                Symbol("mixed"),
+                async () => '<svg viewBox="0 0 24 24"><text>cloud</text></svg>',
+            )
+        ).source,
     );
     expect(unoutlined).toMatchObject({
         ok: false,
         diagnostics: [{ code: "TEXT_SVG_EXPORT_INVALID" }],
     });
-    const rejected = await captureSelection(
-        [icon],
-        Symbol("mixed"),
-        async () => {
-            throw new Error("font export rejected");
-        },
+    const rejected = await normalizeSource(
+        (
+            await captureSource(icon, Symbol("mixed"), async () => {
+                throw new Error("font export rejected");
+            })
+        ).source,
     );
     expect(rejected).toMatchObject({
         ok: false,
@@ -1468,16 +1617,23 @@ test("does not call a failing SVG exporter when PNG succeeds", async () => {
         id: "8:11-png-fallback",
         characters: String.fromCodePoint(0xe8b6),
     } as unknown as SceneNode;
-    const result = await captureSelection(
-        [icon],
-        Symbol("mixed"),
-        async () => {
-            throw new Error("This node may not have any visible layers");
-        },
-        undefined,
-        undefined,
-        async () =>
-            new Uint8Array(await readFile("fixtures/authored/square.png")),
+    const result = await normalizeSource(
+        (
+            await captureSource(
+                icon,
+                Symbol("mixed"),
+                async () => {
+                    throw new Error(
+                        "This node may not have any visible layers",
+                    );
+                },
+                undefined,
+                async () =>
+                    new Uint8Array(
+                        await readFile("fixtures/authored/square.png"),
+                    ),
+            )
+        ).source,
     );
 
     expect(result).toMatchObject({
@@ -1513,21 +1669,26 @@ test.each(["rejected", "empty", "invalid-header"])(
             width: 24,
             height: 24,
         } as unknown as SceneNode;
-        const result = await captureSelection(
-            [vector],
-            Symbol("mixed"),
-            async () => {
-                calls.push("svg");
-                return '<svg viewBox="0 0 24 24"><path /></svg>';
-            },
-            undefined,
-            undefined,
-            async () => {
-                calls.push("png");
-                if (failure === "rejected")
-                    throw new Error("PNG export unavailable");
-                return new Uint8Array(failure === "empty" ? [] : [1, 2, 3]);
-            },
+        const result = await normalizeSource(
+            (
+                await captureSource(
+                    vector,
+                    Symbol("mixed"),
+                    async () => {
+                        calls.push("svg");
+                        return '<svg viewBox="0 0 24 24"><path /></svg>';
+                    },
+                    undefined,
+                    async () => {
+                        calls.push("png");
+                        if (failure === "rejected")
+                            throw new Error("PNG export unavailable");
+                        return new Uint8Array(
+                            failure === "empty" ? [] : [1, 2, 3],
+                        );
+                    },
+                )
+            ).source,
         );
 
         expect(calls).toEqual(["png"]);
@@ -1575,17 +1736,21 @@ test("skips invisible descendants before attempting visual exports", async () =>
         children: [hiddenIcon, hiddenVector, hiddenGroup],
     } as unknown as SceneNode;
 
-    const result = await captureSelection([root], Symbol("mixed"), async () => {
-        exportCalls += 1;
-        throw new Error("hidden node should never reach exportAsync");
-    });
+    const result = await normalizeSource(
+        (
+            await captureSource(root, Symbol("mixed"), async () => {
+                exportCalls += 1;
+                throw new Error("hidden node should never reach exportAsync");
+            })
+        ).source,
+    );
 
     expect(result).toMatchObject({
         ok: true,
         snapshot: { root: { children: [] } },
         captureMetrics: { requests: 0, exports: 0, cacheHits: 0 },
     });
-    expect(result.nodeIds).toEqual(["8:15", "8:12", "8:13", "8:14", "8:16"]);
+    expect(result.nodeIds).toEqual(["8:15"]);
     expect(exportCalls).toBe(0);
 });
 
@@ -1625,7 +1790,9 @@ test("exports every icon node independently within one capture", async () => {
         name: "Repeated icons",
         children: icons,
     } as unknown as SceneNode;
-    const result = await captureSelection([root], Symbol("mixed"), exporter);
+    const result = await normalizeSource(
+        (await captureSource(root, Symbol("mixed"), exporter)).source,
+    );
 
     expect(result).toMatchObject({
         ok: true,
@@ -1666,25 +1833,28 @@ test("does not reuse an icon raster that can contain another node's background",
     } as unknown as SceneNode;
     let svgExports = 0;
     let pngExports = 0;
-    const result = await captureSelection(
-        [root],
-        Symbol("mixed"),
-        async () => {
-            svgExports += 1;
-            return '<svg viewBox="0 0 24 24"><path /></svg>';
-        },
-        undefined,
-        undefined,
-        async () => {
-            pngExports += 1;
-            return new Uint8Array(
-                await readFile(
-                    pngExports === 1
-                        ? "fixtures/authored/square.png"
-                        : "fixtures/authored/asymmetric.png",
-                ),
-            );
-        },
+    const result = await normalizeSource(
+        (
+            await captureSource(
+                root,
+                Symbol("mixed"),
+                async () => {
+                    svgExports += 1;
+                    return '<svg viewBox="0 0 24 24"><path /></svg>';
+                },
+                undefined,
+                async () => {
+                    pngExports += 1;
+                    return new Uint8Array(
+                        await readFile(
+                            pngExports === 1
+                                ? "fixtures/authored/square.png"
+                                : "fixtures/authored/asymmetric.png",
+                        ),
+                    );
+                },
+            )
+        ).source,
     );
 
     expect(result).toMatchObject({
@@ -1730,7 +1900,9 @@ test("exports icons when styled segments are unavailable without cross-node dedu
         children: [icon("8:32"), icon("8:33")],
     } as unknown as SceneNode;
 
-    const result = await captureSelection([root], Symbol("mixed"), exporter);
+    const result = await normalizeSource(
+        (await captureSource(root, Symbol("mixed"), exporter)).source,
+    );
 
     expect(result).toMatchObject({
         ok: true,
@@ -1785,7 +1957,9 @@ test("keeps icon export signatures distinct for visual and variable-mode changes
         name: "Distinct icons",
         children: variants,
     } as unknown as SceneNode;
-    const result = await captureSelection([root], Symbol("mixed"), exporter);
+    const result = await normalizeSource(
+        (await captureSource(root, Symbol("mixed"), exporter)).source,
+    );
 
     expect(result).toMatchObject({
         ok: true,
@@ -1831,7 +2005,9 @@ test("does not deduplicate icons with different per-run fills", async () => {
         children: icons,
     } as unknown as SceneNode;
 
-    const result = await captureSelection([root], Symbol("mixed"), exporter);
+    const result = await normalizeSource(
+        (await captureSource(root, Symbol("mixed"), exporter)).source,
+    );
 
     expect(result).toMatchObject({
         ok: true,
@@ -1853,8 +2029,12 @@ test("does not retain icon exports between captures and counts failed attempts",
         exportCalls += 1;
         return '<svg viewBox="0 0 24 24"><path /></svg>';
     };
-    const first = await captureSelection([icon], Symbol("mixed"), exporter);
-    const second = await captureSelection([icon], Symbol("mixed"), exporter);
+    const first = await normalizeSource(
+        (await captureSource(icon, Symbol("mixed"), exporter)).source,
+    );
+    const second = await normalizeSource(
+        (await captureSource(icon, Symbol("mixed"), exporter)).source,
+    );
     expect(first).toMatchObject({
         ok: true,
         captureMetrics: { requests: 1, exports: 1, cacheHits: 0 },
@@ -1865,12 +2045,16 @@ test("does not retain icon exports between captures and counts failed attempts",
     });
     expect(exportCalls).toBe(2);
 
-    const failed = await captureSelection(
-        [icon],
-        Symbol("mixed"),
-        async (_node: VectorNode | BooleanOperationNode | TextNode) => {
-            throw new Error("temporary export failure");
-        },
+    const failed = await normalizeSource(
+        (
+            await captureSource(
+                icon,
+                Symbol("mixed"),
+                async (_node: VectorNode | BooleanOperationNode | TextNode) => {
+                    throw new Error("temporary export failure");
+                },
+            )
+        ).source,
     );
     expect(failed).toMatchObject({
         ok: false,
@@ -1888,15 +2072,17 @@ test("normalizes every Figma text auto-resize mode and mixed values", async () =
         ["TRUNCATE", "truncate"],
     ] as const;
     for (const [value, expected] of values) {
-        const result = await captureSelection(
-            [
-                {
-                    ...text,
-                    id: `resize:${value}`,
-                    textAutoResize: value,
-                } as unknown as SceneNode,
-            ],
-            Symbol("mixed"),
+        const result = await normalizeSource(
+            (
+                await captureSource(
+                    {
+                        ...text,
+                        id: `resize:${value}`,
+                        textAutoResize: value,
+                    } as unknown as SceneNode,
+                    Symbol("mixed"),
+                )
+            ).source,
         );
         expect(result, value).toMatchObject({
             ok: true,
@@ -1904,9 +2090,13 @@ test("normalizes every Figma text auto-resize mode and mixed values", async () =
         });
     }
     const mixedValue = Symbol("figma.mixed");
-    const mixed = await captureSelection(
-        [{ ...text, textAutoResize: mixedValue } as unknown as SceneNode],
-        mixedValue,
+    const mixed = await normalizeSource(
+        (
+            await captureSource(
+                { ...text, textAutoResize: mixedValue } as unknown as SceneNode,
+                mixedValue,
+            )
+        ).source,
     );
     expect(mixed).toMatchObject({
         ok: true,
@@ -1920,9 +2110,13 @@ test("normalizes every Figma text auto-resize mode and mixed values", async () =
     });
     const unavailable = { ...text } as Record<string, unknown>;
     unavailable.textAutoResize = undefined;
-    const unavailableResult = await captureSelection(
-        [unavailable as unknown as SceneNode],
-        Symbol("mixed"),
+    const unavailableResult = await normalizeSource(
+        (
+            await captureSource(
+                unavailable as unknown as SceneNode,
+                Symbol("mixed"),
+            )
+        ).source,
     );
     expect(unavailableResult).toMatchObject({
         ok: true,
@@ -1949,12 +2143,12 @@ test("turns SVG export rejection and malformed output into stable diagnostics", 
         visible: true,
         rotation: 0,
     } as unknown as SceneNode;
-    const rejected = await captureSelection(
-        [vector],
-        Symbol("mixed"),
-        async () => {
-            throw new Error("removed during export");
-        },
+    const rejected = await normalizeSource(
+        (
+            await captureSource(vector, Symbol("mixed"), async () => {
+                throw new Error("removed during export");
+            })
+        ).source,
     );
     expect(rejected).toMatchObject({
         ok: false,
@@ -1966,10 +2160,9 @@ test("turns SVG export rejection and malformed output into stable diagnostics", 
             },
         ],
     });
-    const malformed = await captureSelection(
-        [vector],
-        Symbol("mixed"),
-        async () => "<path />",
+    const malformed = await normalizeSource(
+        (await captureSource(vector, Symbol("mixed"), async () => "<path />"))
+            .source,
     );
     expect(malformed).toMatchObject({
         ok: false,
@@ -1978,7 +2171,9 @@ test("turns SVG export rejection and malformed output into stable diagnostics", 
 });
 
 test("captures fixed horizontal auto-layout metadata and direct-child sizing", async () => {
-    const result = await captureSelection([autoLayoutFrame()], Symbol("mixed"));
+    const result = await normalizeSource(
+        (await captureSource(autoLayoutFrame(), Symbol("mixed"))).source,
+    );
     expect(result.ok).toBe(true);
     if (!result.ok || result.empty) return;
     expect(result.snapshot.schemaVersion).toBe(8);
@@ -2006,15 +2201,17 @@ test("captures fixed horizontal auto-layout metadata and direct-child sizing", a
 });
 
 test("captures wrapped auto-layout gaps and line distribution", async () => {
-    const result = await captureSelection(
-        [
-            autoLayoutFrame({
-                layoutWrap: "WRAP",
-                counterAxisSpacing: 20,
-                counterAxisAlignContent: "SPACE_BETWEEN",
-            }),
-        ],
-        Symbol("mixed"),
+    const result = await normalizeSource(
+        (
+            await captureSource(
+                autoLayoutFrame({
+                    layoutWrap: "WRAP",
+                    counterAxisSpacing: 20,
+                    counterAxisAlignContent: "SPACE_BETWEEN",
+                }),
+                Symbol("mixed"),
+            )
+        ).source,
     );
     expect(result).toMatchObject({
         ok: true,
@@ -2055,9 +2252,13 @@ test("warns for unsupported layout properties while retaining invalid geometry e
             ["INVALID_GEOMETRY", { width: -1 }, {}],
         ];
     for (const [code, updates, childUpdates] of cases) {
-        const result = await captureSelection(
-            [autoLayoutFrame(updates, childUpdates)],
-            Symbol("mixed"),
+        const result = await normalizeSource(
+            (
+                await captureSource(
+                    autoLayoutFrame(updates, childUpdates),
+                    Symbol("mixed"),
+                )
+            ).source,
         );
         const warningCase = code.endsWith("APPROXIMATED");
         expect(result.ok, code).toBe(warningCase);
@@ -2077,15 +2278,19 @@ test("warns for unsupported layout properties while retaining invalid geometry e
 });
 
 test("keeps Groups transparent while validating Frame appearance boundaries", async () => {
-    const frame = parseSnapshot(
-        await readFile("fixtures/frame.snapshot.json", "utf8"),
+    const frame = validateSnapshot(
+        JSON.parse(await readFile("fixtures/frame.snapshot.json", "utf8")),
     );
     expect(frame.ok).toBe(true);
     if (!frame.ok) return;
     expect(frame.snapshot.root.kind).toBe("frame");
-    const groupResult = await captureSelection(
-        [group as unknown as SceneNode],
-        Symbol("figma.mixed"),
+    const groupResult = await normalizeSource(
+        (
+            await captureSource(
+                group as unknown as SceneNode,
+                Symbol("figma.mixed"),
+            )
+        ).source,
     );
     expect(groupResult.ok).toBe(true);
     if (groupResult.ok && !groupResult.empty) {
@@ -2097,18 +2302,18 @@ test("keeps Groups transparent while validating Frame appearance boundaries", as
         root: { fills: unknown[] };
     };
     malformed.root.fills.push(malformed.root.fills[0]);
-    expect(parseSnapshot(JSON.stringify(malformed))).toMatchObject({
+    expect(validateSnapshot(malformed)).toMatchObject({
         ok: true,
     });
 });
 
 test("returns stable diagnostics for selection and unsupported-node failures", async () => {
-    expect(await captureSelection([], Symbol())).toMatchObject({
+    expect(await captureSelectionSource([], Symbol())).toMatchObject({
         ok: true,
         empty: true,
     });
     expect(
-        await captureSelection(
+        await captureSelectionSource(
             [group as unknown as SceneNode, group as unknown as SceneNode],
             Symbol(),
         ),
@@ -2117,22 +2322,24 @@ test("returns stable diagnostics for selection and unsupported-node failures", a
         diagnostics: [{ code: "MULTIPLE_SELECTION" }],
     });
     expect(
-        await captureSelection(
-            [
-                {
-                    type: "SLICE",
-                    id: "1:4",
-                    name: "Circle",
-                    x: 0,
-                    y: 0,
-                    width: 10,
-                    height: 10,
-                    opacity: 1,
-                    visible: true,
-                    rotation: 0,
-                } as unknown as SceneNode,
-            ],
-            Symbol(),
+        await normalizeSource(
+            (
+                await captureSource(
+                    {
+                        type: "SLICE",
+                        id: "1:4",
+                        name: "Circle",
+                        x: 0,
+                        y: 0,
+                        width: 10,
+                        height: 10,
+                        opacity: 1,
+                        visible: true,
+                        rotation: 0,
+                    } as unknown as SceneNode,
+                    Symbol(),
+                )
+            ).source,
         ),
     ).toMatchObject({
         ok: true,
@@ -2153,23 +2360,24 @@ test("unavailable fonts always export complete text layers", async () => {
         ["Material Symbols Outlined", "Regular", "home", "svg"],
     ] as const) {
         let exports = 0;
-        const result = await captureSelection(
-            [
-                {
-                    ...text,
-                    characters,
-                    fontName: { family, style },
-                } as unknown as SceneNode,
-            ],
-            mixed,
-            async () => {
-                exports++;
-                return '<svg width="240" height="72"><path d="M0 0h20v20z"/></svg>';
-            },
-            undefined,
-            undefined,
-            undefined,
-            2,
+        const result = await normalizeSource(
+            (
+                await captureSource(
+                    {
+                        ...text,
+                        characters,
+                        fontName: { family, style },
+                    } as unknown as SceneNode,
+                    mixed,
+                    async () => {
+                        exports++;
+                        return '<svg width="240" height="72"><path d="M0 0h20v20z"/></svg>';
+                    },
+                    undefined,
+                    undefined,
+                    2,
+                )
+            ).source,
         );
         expect(result).toMatchObject({
             ok: true,
@@ -2206,15 +2414,15 @@ test("unavailable font conversion reads mixed fonts once and exports the entire 
                 ];
             },
         } as unknown as unknown as SceneNode;
-        const result = await captureSelection(
-            [node],
-            mixed,
-            async () =>
-                '<svg width="240" height="72"><path d="M0 0h20v20z"/></svg>',
-            undefined,
-            undefined,
-            undefined,
-            1,
+        const result = await normalizeSource(
+            (
+                await captureSource(
+                    node,
+                    mixed,
+                    async () =>
+                        '<svg width="240" height="72"><path d="M0 0h20v20z"/></svg>',
+                )
+            ).source,
         );
         expect(result).toMatchObject({
             ok: true,
@@ -2232,40 +2440,35 @@ test("unavailable font conversion reads mixed fonts once and exports the entire 
 
 test("unavailable font conversion reports unresolved mixed fonts and invalid image exports", async () => {
     const mixed = Symbol("mixed");
-    const unresolved = await captureSelection(
-        [
-            {
-                ...text,
-                fontName: mixed,
-                getStyledTextSegments: () => {
-                    throw new Error("unavailable");
-                },
-            } as unknown as unknown as SceneNode,
-        ],
-        mixed,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        1,
+    const unresolved = await normalizeSource(
+        (
+            await captureSource(
+                {
+                    ...text,
+                    fontName: mixed,
+                    getStyledTextSegments: () => {
+                        throw new Error("unavailable");
+                    },
+                } as unknown as unknown as SceneNode,
+                mixed,
+            )
+        ).source,
     );
     expect(unresolved).toMatchObject({
         ok: false,
         diagnostics: [{ code: "TEXT_FONT_UNRESOLVED" }],
     });
-    const invalid = await captureSelection(
-        [
-            {
-                ...text,
-                fontName: { family: "Roboto", style: "Regular" },
-            } as unknown as SceneNode,
-        ],
-        mixed,
-        async () => "<svg><text>Hello</text></svg>",
-        undefined,
-        undefined,
-        undefined,
-        1,
+    const invalid = await normalizeSource(
+        (
+            await captureSource(
+                {
+                    ...text,
+                    fontName: { family: "Roboto", style: "Regular" },
+                } as unknown as SceneNode,
+                mixed,
+                async () => "<svg><text>Hello</text></svg>",
+            )
+        ).source,
     );
     expect(invalid).toMatchObject({
         ok: false,
@@ -2451,28 +2654,32 @@ describe("milestone7", () => {
                 },
             ],
         } as unknown as SceneNode;
-        const result = await captureSelection([section], Symbol("mixed"));
+        const result = await normalizeSource(
+            (await captureSource(section, Symbol("mixed"))).source,
+        );
         expect(result).toMatchObject({
             ok: true,
             snapshot: { root: { kind: "section", children: [] } },
             warnings: [{ code: "NON_VISUAL_NODE_SKIPPED" }],
         });
-        const unknownLeaf = await captureSelection(
-            [
-                {
-                    type: "UNKNOWN_LEAF",
-                    id: "unknown:leaf",
-                    name: "Unknown leaf",
-                    x: 0,
-                    y: 0,
-                    width: 20,
-                    height: 20,
-                    opacity: 1,
-                    visible: true,
-                    rotation: 0,
-                } as unknown as SceneNode,
-            ],
-            Symbol("mixed"),
+        const unknownLeaf = await normalizeSource(
+            (
+                await captureSource(
+                    {
+                        type: "UNKNOWN_LEAF",
+                        id: "unknown:leaf",
+                        name: "Unknown leaf",
+                        x: 0,
+                        y: 0,
+                        width: 20,
+                        height: 20,
+                        opacity: 1,
+                        visible: true,
+                        rotation: 0,
+                    } as unknown as SceneNode,
+                    Symbol("mixed"),
+                )
+            ).source,
         );
         expect(unknownLeaf).toMatchObject({
             ok: false,
@@ -2512,9 +2719,8 @@ describe("milestone7", () => {
                 },
             ],
         } as unknown as SceneNode;
-        const tableResult = await captureSelection(
-            [structuralTable],
-            Symbol("mixed"),
+        const tableResult = await normalizeSource(
+            (await captureSource(structuralTable, Symbol("mixed"))).source,
         );
         expect(tableResult).toMatchObject({
             ok: true,
@@ -2573,9 +2779,8 @@ describe("milestone7", () => {
                 };
             },
         } as unknown as SceneNode;
-        const apiTableResult = await captureSelection(
-            [apiTable],
-            Symbol("mixed"),
+        const apiTableResult = await normalizeSource(
+            (await captureSource(apiTable, Symbol("mixed"))).source,
         );
         expect(apiTableResult).toMatchObject({
             ok: true,
@@ -2611,9 +2816,9 @@ describe("milestone7", () => {
                 };
             },
         } as unknown as SceneNode;
-        const tableWithoutNodeGeometryResult = await captureSelection(
-            [apiTableWithoutNodeGeometry],
-            Symbol("mixed"),
+        const tableWithoutNodeGeometryResult = await normalizeSource(
+            (await captureSource(apiTableWithoutNodeGeometry, Symbol("mixed")))
+                .source,
         );
         expect(tableWithoutNodeGeometryResult).toMatchObject({
             ok: true,
@@ -2640,9 +2845,8 @@ describe("milestone7", () => {
             strokes: [],
             children: [],
         } as unknown as SceneNode;
-        const corruptSectionResult = await captureSelection(
-            [corruptSection],
-            Symbol("mixed"),
+        const corruptSectionResult = await normalizeSource(
+            (await captureSource(corruptSection, Symbol("mixed"))).source,
         );
         expect(corruptSectionResult).toMatchObject({
             ok: false,
@@ -2667,9 +2871,8 @@ describe("milestone7", () => {
                 fills: [],
             },
         } as unknown as SceneNode;
-        const standaloneCellResult = await captureSelection(
-            [standaloneCell],
-            Symbol("mixed"),
+        const standaloneCellResult = await normalizeSource(
+            (await captureSource(standaloneCell, Symbol("mixed"))).source,
         );
         expect(standaloneCellResult).toMatchObject({
             ok: true,
@@ -2689,11 +2892,15 @@ describe("milestone7", () => {
             visible: true,
             rotation: 0,
         } as unknown as SceneNode;
-        const connectorResult = await captureSelection(
-            [connector],
-            Symbol("mixed"),
-            async (node) =>
-                `<svg viewBox="0 0 120 80"><path data-node="${node.id}" /></svg>`,
+        const connectorResult = await normalizeSource(
+            (
+                await captureSource(
+                    connector,
+                    Symbol("mixed"),
+                    async (node) =>
+                        `<svg viewBox="0 0 120 80"><path data-node="${node.id}" /></svg>`,
+                )
+            ).source,
         );
         expect(connectorResult).toMatchObject({
             ok: true,
@@ -2719,7 +2926,9 @@ describe("milestone7", () => {
             strokes: [],
             children: [],
         } as unknown as SceneNode;
-        const result = await captureSelection([section], Symbol("mixed"));
+        const result = await normalizeSource(
+            (await captureSource(section, Symbol("mixed"))).source,
+        );
         expect(result).toMatchObject({
             ok: true,
             snapshot: {
@@ -2829,9 +3038,8 @@ describe("milestone7", () => {
                 },
             ],
         } as unknown as SceneNode;
-        const result = await captureSelection(
-            [rectangle],
-            Symbol("figma.mixed"),
+        const result = await normalizeSource(
+            (await captureSource(rectangle, Symbol("figma.mixed"))).source,
         );
         expect(result.ok).toBe(true);
         if (!result.ok || result.empty) return;
@@ -2869,15 +3077,17 @@ describe("milestone7", () => {
                     warning.propertyPath === "fills",
             )?.message,
         ).toContain("all supported layers are preserved");
-        const mixedPaintResult = await captureSelection(
-            [
-                {
-                    ...rectangle,
-                    fills: Symbol("figma.mixed"),
-                    strokes: [],
-                } as unknown as SceneNode,
-            ],
-            Symbol("figma.mixed"),
+        const mixedPaintResult = await normalizeSource(
+            (
+                await captureSource(
+                    {
+                        ...rectangle,
+                        fills: Symbol("figma.mixed"),
+                        strokes: [],
+                    } as unknown as SceneNode,
+                    Symbol("figma.mixed"),
+                )
+            ).source,
         );
         expect(mixedPaintResult).toMatchObject({
             ok: true,
@@ -2885,25 +3095,27 @@ describe("milestone7", () => {
                 expect.objectContaining({ code: "MIXED_PAINT_APPROXIMATED" }),
             ]),
         });
-        const imageStrokeResult = await captureSelection(
-            [
-                {
-                    ...rectangle,
-                    id: "resilience:image-stroke",
-                    fills: [],
-                    effects: [],
-                    strokes: [
-                        {
-                            type: "IMAGE",
-                            visible: true,
-                            opacity: 1,
-                            imageHash: "image-stroke",
-                            scaleMode: "FILL",
-                        },
-                    ],
-                } as unknown as SceneNode,
-            ],
-            Symbol("figma.mixed"),
+        const imageStrokeResult = await normalizeSource(
+            (
+                await captureSource(
+                    {
+                        ...rectangle,
+                        id: "resilience:image-stroke",
+                        fills: [],
+                        effects: [],
+                        strokes: [
+                            {
+                                type: "IMAGE",
+                                visible: true,
+                                opacity: 1,
+                                imageHash: "image-stroke",
+                                scaleMode: "FILL",
+                            },
+                        ],
+                    } as unknown as SceneNode,
+                    Symbol("figma.mixed"),
+                )
+            ).source,
         );
         expect(imageStrokeResult).toMatchObject({
             ok: true,

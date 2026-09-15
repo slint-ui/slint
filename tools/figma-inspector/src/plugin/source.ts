@@ -45,7 +45,6 @@ export type SourceNode<Bytes extends SourceBytes = number[]> = {
         svg: SourceResult<string>;
         png?: SourceResult<Bytes>;
         rasterBounds?: VisualBounds;
-        svgBounds?: VisualBounds;
         // A successful raster makes SVG unnecessary; this is not an export failure.
         svgOmitted?: "png";
     };
@@ -73,6 +72,13 @@ export function sourceImageHashes(value: unknown): Set<string> {
     const hashes = new Set<string>();
     function visit(value: unknown): void {
         if (!value || typeof value !== "object") return;
+        if (
+            "type" in value &&
+            value.type === "IMAGE" &&
+            "visible" in value &&
+            value.visible === false
+        )
+            return;
         if ("imageHash" in value && typeof value.imageHash === "string")
             hashes.add(value.imageHash);
         for (const child of Object.values(value)) visit(child);
@@ -215,8 +221,6 @@ export function validateSource(value: SourceCapture<SourceBytes>): void {
             (node.exports !== undefined &&
                 (!result(node.exports.svg, (v) => typeof v === "string") ||
                     !result(node.exports.png, bytes) ||
-                    (node.exports.svgBounds !== undefined &&
-                        !validVisualBounds(node.exports.svgBounds)) ||
                     (node.exports.rasterBounds !== undefined &&
                         !validVisualBounds(node.exports.rasterBounds)) ||
                     (node.exports.svgOmitted !== undefined &&

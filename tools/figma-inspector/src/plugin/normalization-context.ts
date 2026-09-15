@@ -84,7 +84,6 @@ export type MaterializedNode = {
     readonly text?: unknown;
     readonly sourceCells?: readonly unknown[];
     readonly sourceSvgOmitted?: boolean;
-    readonly sourceSvgBounds?: VisualBounds;
     readonly sourceRasterBounds?: VisualBounds;
     readonly sourceMaskRaster?: boolean;
 };
