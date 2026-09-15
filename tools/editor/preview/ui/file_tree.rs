@@ -65,14 +65,16 @@ pub fn setup(
 
     let controller_for_rename = controller.clone();
     api.on_file_tree_rename(move |path, name| {
-        let Some(api) = api_weak.upgrade() else { return "No editor available".into() };
-        let Some(project) = project_weak.upgrade() else { return "No project available".into() };
+        let Some(api) = api_weak.upgrade() else { return tr::tr!("No editor available").into() };
+        let Some(project) = project_weak.upgrade() else {
+            return tr::tr!("No project available").into();
+        };
         if super::super::file_edit_pending() {
-            return "Wait for the pending edit to finish".into();
+            return tr::tr!("Wait for the pending edit to finish").into();
         }
         let mut controller = controller_for_rename.borrow_mut();
         let Some(controller) = controller.as_mut() else {
-            return "No project available".into();
+            return tr::tr!("No project available").into();
         };
         match controller.rename_file(Path::new(path.as_str()), name.as_str()) {
             Ok((path, selected)) => {
@@ -197,33 +199,36 @@ impl FileTreeController {
     }
 
     fn rename_file(&mut self, path: &Path, name: &str) -> Result<(PathBuf, bool), String> {
-        let path = self.path_in_root(path).ok_or("File is outside the project")?;
+        let path = self.path_in_root(path).ok_or_else(|| tr::tr!("File is outside the project"))?;
         if !std::fs::symlink_metadata(&path).is_ok_and(|metadata| metadata.file_type().is_file()) {
-            return Err("Only files can be renamed".into());
+            return Err(tr::tr!("Only files can be renamed"));
         }
         let mut components = Path::new(name).components();
         if !matches!(components.next(), Some(Component::Normal(_)))
             || components.next().is_some()
             || name.contains('\\')
         {
-            return Err("Enter a valid file name".into());
+            return Err(tr::tr!("Enter a valid file name"));
         }
 
-        let target = path.parent().ok_or("File has no parent folder")?.join(name);
+        let target = path.parent().ok_or_else(|| tr::tr!("File has no parent folder"))?.join(name);
         if target == path {
             return Ok((path, self.selected_path.as_ref() == Some(&target)));
         }
         let selected = self.selected_path.as_ref() == Some(&path);
         if selected && file_surface_kind(&path) != file_surface_kind(&target) {
-            return Err("Keep the file type when renaming the open file".into());
+            return Err(tr::tr!("Keep the file type when renaming the open file"));
         }
 
-        match rename_file_no_replace(&path, &target) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                return Err("A file with that name already exists".into());
+        match std::fs::symlink_metadata(&target) {
+            Ok(_) => return Err(tr::tr!("A file with that name already exists")),
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                return Err(tr::tr!("Could not rename file: {}", error));
             }
-            Err(error) => return Err(format!("Could not rename file: {error}")),
+            Err(_) => {}
+        }
+        if let Err(error) = std::fs::rename(&path, &target) {
+            return Err(tr::tr!("Could not rename file: {}", error));
         }
         let target = std::fs::canonicalize(&target).unwrap_or(target);
         if selected {
@@ -249,15 +254,6 @@ impl FileTreeController {
         let path = std::fs::canonicalize(path).ok()?;
         (path == self.root || path.starts_with(&self.root)).then_some(path)
     }
-}
-
-fn rename_file_no_replace(source: &Path, target: &Path) -> std::io::Result<()> {
-    std::fs::hard_link(source, target)?;
-    if let Err(error) = std::fs::remove_file(source) {
-        let _ = std::fs::remove_file(target);
-        return Err(error);
-    }
-    Ok(())
 }
 
 fn create_new_component_file(root: &Path) -> std::io::Result<PathBuf> {

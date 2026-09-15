@@ -21,7 +21,6 @@ component FileTreeRow inherits Rectangle {
     property <int> level-safe: max(1, node.indent-level + 1);
     property <int> gutter-segments: max(0, level-safe - 1);
     property <bool> row-has-hover: touch.has-hover;
-    property <bool> rename-input-focused: false;
     property <int> selected-guide-index: node.show-selected-guide ? root.level-safe - 2 : -1;
     property <color> selected-guide-color: Palette.color-scheme == ColorScheme.dark ? #474747 : #c4c4c4;
     property <color> guide-color: Palette.color-scheme == ColorScheme.dark ? #303030 : #e2e2e2;
@@ -214,9 +213,8 @@ component FileTreeRow inherits Rectangle {
                 }
                 accepted => { root.rename-submitted(); }
                 changed has-focus => {
-                    root.rename-input-focused = self.has-focus;
-                    if !self.has-focus {
-                        rename-blur-timer.start();
+                    if root.editing && !self.has-focus {
+                        root.rename-submitted();
                     }
                 }
                 key-pressed(event) => {
@@ -241,16 +239,6 @@ component FileTreeRow inherits Rectangle {
         font-size: EditorTreeTokens.row-font-size;
         overflow: elide;
         wrap: no-wrap;
-    }
-
-    rename-blur-timer := Timer {
-        interval: 0ms;
-        triggered => {
-            self.stop();
-            if root.editing && !root.rename-input-focused {
-                root.rename-submitted();
-            }
-        }
     }
 
     touch := TouchArea {
