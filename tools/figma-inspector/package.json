@@ -38,7 +38,7 @@
     "@vitest/browser-playwright": "catalog:",
     "cross-env": "10.1.0",
     "esbuild": "0.28.2",
-    "jszip": "3.10.1",
+    "jszip": "3.10.2",
     "playwright": "catalog:",
     "shiki": "4.4.3",
     "typescript": "catalog:",
@@ -46,6 +46,6 @@
     "vitest": "catalog:",
     "cspell": "catalog:",
     "vite-plugin-singlefile": "2.3.3",
-    "concurrently": "9.2.1"
+    "concurrently": "10.0.5"
   }
 }
