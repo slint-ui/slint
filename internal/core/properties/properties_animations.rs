@@ -56,7 +56,6 @@ where
                     let mut value: f32 = *target as f32;
                     let finished =
                         simulation.borrow_mut().step(&mut value, crate::animations::current_tick());
-                    println!("Properties animation step: {value}");
                     *target = value as crate::Coord;
                     if finished {
                         self.state = AnimationState::Done { iteration_count: 0 };

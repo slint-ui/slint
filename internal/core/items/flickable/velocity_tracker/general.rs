@@ -127,47 +127,47 @@ mod tests_general_velocity_tracker {
     fn test() {
         let base_time = crate::animations::current_tick();
         let test_cases = [
-            // (
-            //     "x only",
-            //     vec![
-            //         (base_time, LogicalVector::new(0.0, 0.0)),
-            //         (base_time + Duration::from_millis(10), LogicalVector::new(1.0, 0.0)),
-            //         (base_time + Duration::from_millis(20), LogicalVector::new(2.0, 0.0)),
-            //     ],
-            //     LogicalVector::new(2. / 20e-3, 0.),
-            // ),
-            // (
-            //     "y only",
-            //     vec![
-            //         (base_time, LogicalVector::new(0.0, 0.0)),
-            //         (base_time + Duration::from_millis(15), LogicalVector::new(0.0, 4.0)),
-            //         (base_time + Duration::from_millis(30), LogicalVector::new(0.0, 8.0)),
-            //     ],
-            //     LogicalVector::new(0., 8. / 30e-3),
-            // ),
-            // (
-            //     "x and y",
-            //     vec![
-            //         (base_time, LogicalVector::new(0.0, 0.0)),
-            //         (base_time + Duration::from_millis(15), LogicalVector::new(3., 4.0)),
-            //         (base_time + Duration::from_millis(30), LogicalVector::new(6., 8.0)),
-            //     ],
-            //     LogicalVector::new(6. / 30e-3, 8. / 30e-3),
-            // ),
-            // (
-            //     // (x(t) = t^2 -> tau = t - 3 (age from newest) -> x(tau) = (tau + 3)^2 = tau ^2 + 6tau + 9
-            //     // dx(tau)/dtau = 2 * tau + 6, at tau = 0 (newest point) -> dx(tau)/dtau = 6
-            //     //
-            //     // y(t) = 4*t^2 -> dy(t)/dt = 8 * t, at t = 3 (tau = 0): 24
-            //     "square x and y",
-            //     vec![
-            //         (base_time, LogicalVector::new(0.0, 0.0)),
-            //         (base_time + Duration::from_millis(10), LogicalVector::new(1. * 1., 4. * 1.)),
-            //         (base_time + Duration::from_millis(20), LogicalVector::new(1. * 4., 4. * 4.)),
-            //         (base_time + Duration::from_millis(30), LogicalVector::new(1. * 9., 4. * 9.)),
-            //     ],
-            //     LogicalVector::new(600., 2.4e3),
-            // ),
+            (
+                "x only",
+                vec![
+                    (base_time, LogicalVector::new(0.0, 0.0)),
+                    (base_time + Duration::from_millis(10), LogicalVector::new(1.0, 0.0)),
+                    (base_time + Duration::from_millis(20), LogicalVector::new(2.0, 0.0)),
+                ],
+                LogicalVector::new(2. / 20e-3, 0.),
+            ),
+            (
+                "y only",
+                vec![
+                    (base_time, LogicalVector::new(0.0, 0.0)),
+                    (base_time + Duration::from_millis(15), LogicalVector::new(0.0, 4.0)),
+                    (base_time + Duration::from_millis(30), LogicalVector::new(0.0, 8.0)),
+                ],
+                LogicalVector::new(0., 8. / 30e-3),
+            ),
+            (
+                "x and y",
+                vec![
+                    (base_time, LogicalVector::new(0.0, 0.0)),
+                    (base_time + Duration::from_millis(15), LogicalVector::new(3., 4.0)),
+                    (base_time + Duration::from_millis(30), LogicalVector::new(6., 8.0)),
+                ],
+                LogicalVector::new(6. / 30e-3, 8. / 30e-3),
+            ),
+            (
+                // (x(t) = t^2 -> tau = t - 3 (age from newest) -> x(tau) = (tau + 3)^2 = tau ^2 + 6tau + 9
+                // dx(tau)/dtau = 2 * tau + 6, at tau = 0 (newest point) -> dx(tau)/dtau = 6
+                //
+                // y(t) = 4*t^2 -> dy(t)/dt = 8 * t, at t = 3 (tau = 0): 24
+                "square x and y",
+                vec![
+                    (base_time, LogicalVector::new(0.0, 0.0)),
+                    (base_time + Duration::from_millis(10), LogicalVector::new(1. * 1., 4. * 1.)),
+                    (base_time + Duration::from_millis(20), LogicalVector::new(1. * 4., 4. * 4.)),
+                    (base_time + Duration::from_millis(30), LogicalVector::new(1. * 9., 4. * 9.)),
+                ],
+                LogicalVector::new(600., 2.4e3),
+            ),
             (
                 "Real with mouse",
                 vec![

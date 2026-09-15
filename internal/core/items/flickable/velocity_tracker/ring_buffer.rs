@@ -26,7 +26,7 @@ impl<const N: usize> Default for VelocityRingBuffer<N> {
 
 impl<const N: usize> core::fmt::Debug for VelocityRingBuffer<N> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "VelocityRingBuffer: ")?;
+        write!(f, "VelocityRingBuffer({}): ", self.len())?;
         if self.empty() {
             writeln!(f, "Empty")
         } else {
