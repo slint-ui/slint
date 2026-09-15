@@ -210,6 +210,20 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
             }
             _ => {
                 let buffer = image.render_to_buffer(target_size_for_scalable_source)?;
+                // femtovg has no 16-bit texture format; expand to RGB8 for the upload.
+                #[cfg(feature = "image-pixel-format-rgb565")]
+                let buffer = match buffer {
+                    SharedImageBuffer::RGB565(b) => {
+                        let mut rgb = i_slint_core::graphics::SharedPixelBuffer::<
+                            i_slint_core::graphics::Rgb8Pixel,
+                        >::new(b.width(), b.height());
+                        for (dst, src) in rgb.make_mut_slice().iter_mut().zip(b.as_slice()) {
+                            *dst = (*src).into();
+                        }
+                        SharedImageBuffer::RGB8(rgb)
+                    }
+                    other => other,
+                };
                 let (image_source, flags) = image_buffer_to_image_source(&buffer);
                 canvas.borrow_mut().create_image(image_source, image_flags | flags).unwrap()
             }
@@ -304,6 +318,11 @@ fn image_buffer_to_image_source(
     buffer: &SharedImageBuffer,
 ) -> (femtovg::ImageSource<'_>, femtovg::ImageFlags) {
     match buffer {
+        // Expanded to RGB8 before upload; see Texture::new_from_image.
+        #[cfg(feature = "image-pixel-format-rgb565")]
+        SharedImageBuffer::RGB565(..) => {
+            unreachable!("RGB565 buffers are converted to RGB8 before the femtovg upload")
+        }
         SharedImageBuffer::RGB8(buffer) => (
             {
                 imgref::ImgRef::new(buffer.as_slice(), buffer.width() as _, buffer.height() as _)
@@ -324,6 +343,11 @@ fn image_buffer_to_image_source(
                     .into()
             },
             femtovg::ImageFlags::PREMULTIPLIED,
+        ),
+        #[cfg(not(feature = "image-pixel-format-rgb565"))]
+        #[allow(unreachable_patterns)]
+        _ => unimplemented!(
+            "enable the image-pixel-format-rgb565 feature of i-slint-renderer-femtovg"
         ),
     }
 }
