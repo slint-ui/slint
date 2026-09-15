@@ -48,6 +48,7 @@ export component EditorUi inherits Window {
     callback outline-pane-resized(length);
     callback elements-pane-reset();
     callback outline-pane-reset();
+    callback perform-native-window-zoom() -> bool;
 
     function open-startup-wizard() {
         Api.open-startup-wizard();
@@ -62,6 +63,12 @@ export component EditorUi inherits Window {
     }
     function apply-history(redo: bool) {
         FillSession.apply-history(redo);
+    }
+
+    function toggle-maximized() {
+        if !root.perform-native-window-zoom() {
+            root.maximized = !root.maximized;
+        }
     }
 
     MenuBar {
@@ -91,7 +98,11 @@ export component EditorUi inherits Window {
     Rectangle {
         y: 0;
         height: EditorMetrics.top-bar-height;
-        WindowMoveArea { }
+        WindowMoveArea {
+            TouchArea {
+                double-clicked => { root.toggle-maximized(); }
+            }
+        }
     }
 
     VerticalLayout {
@@ -155,6 +166,10 @@ export component EditorUi inherits Window {
                 VerticalLayout {
                     title-move-area := WindowMoveArea {
                         height: EditorMetrics.top-bar-height;
+
+                        title-touch-area := TouchArea {
+                            double-clicked => { root.toggle-maximized(); }
+                        }
 
                         EditorTopBar { }
                     }

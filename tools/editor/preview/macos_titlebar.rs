@@ -27,14 +27,49 @@ pub fn apply_unified_titlebar(attributes: WindowAttributes) -> WindowAttributes 
 
 /// Configures the unified title bar once the winit window exists.
 pub fn setup(editor: slint::Weak<EditorUi>) {
-    use objc2::{MainThreadMarker, MainThreadOnly};
+    use objc2::{MainThreadMarker, MainThreadOnly, sel};
     use objc2_app_kit::{
         NSToolbar, NSView, NSWindowStyleMask, NSWindowTitleVisibility, NSWindowToolbarStyle,
     };
-    use objc2_foundation::NSString;
+    use objc2_foundation::{NSObjectNSDelayedPerforming, NSString};
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use slint::ComponentHandle;
     use slint::winit_030::WinitWindowAccessor;
+
+    let editor_weak = editor.clone();
+    if let Some(editor) = editor.upgrade() {
+        editor.on_perform_native_window_zoom(move || {
+            editor_weak
+                .upgrade()
+                .and_then(|editor| {
+                    editor.window().with_winit_window(|winit_window| {
+                        let Ok(window_handle) = winit_window.window_handle() else {
+                            return false;
+                        };
+                        let RawWindowHandle::AppKit(handle) = window_handle.as_raw() else {
+                            return false;
+                        };
+                        // SAFETY: `ns_view` is valid for the lifetime of the winit window, and this
+                        // callback only runs on the main UI thread.
+                        let ns_view: &NSView = unsafe { handle.ns_view.cast().as_ref() };
+                        let Some(ns_window) = ns_view.window() else {
+                            return false;
+                        };
+                        // SAFETY: `performZoom:` is an `NSWindow` selector and accepts a nullable
+                        // sender argument.
+                        unsafe {
+                            ns_window.performSelector_withObject_afterDelay(
+                                sel!(performZoom:),
+                                None,
+                                0.0,
+                            );
+                        }
+                        true
+                    })
+                })
+                .unwrap_or(false)
+        });
+    }
 
     slint::spawn_local(async move {
         let editor = editor.upgrade()?;

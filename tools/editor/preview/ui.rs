@@ -2021,6 +2021,39 @@ mod tests {
         );
     }
 
+    #[test]
+    fn title_area_double_click_toggles_maximized() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor.show().unwrap();
+
+        let title_touch_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
+            &editor,
+            "EditorUi::title-touch-area",
+        )
+        .next()
+        .expect("the title touch area must be inside the window move area");
+
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert!(editor.window().is_maximized());
+
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert!(!editor.window().is_maximized());
+
+        let native_zoom_count = std::rc::Rc::new(std::cell::Cell::new(0));
+        let count = native_zoom_count.clone();
+        editor.on_perform_native_window_zoom(move || {
+            count.set(count.get() + 1);
+            true
+        });
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert_eq!(native_zoom_count.get(), 1);
+        assert!(!editor.window().is_maximized());
+    }
+
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {
         PropertyInformation {
             name: name.into(),
