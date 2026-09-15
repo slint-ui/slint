@@ -246,8 +246,6 @@ jobs:
             ]
         runs-on: macos-14
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
-        env:
-            PUBLISH: ${{ github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release' }}
         steps:
             - uses: actions/checkout@v7
             - uses: pnpm/action-setup@v6.0.10
@@ -315,25 +313,40 @@ jobs:
                   name: slint-vscode.zip
                   path: |
                       ${{ steps.package.outputs.vsixPath }}
+
+    # Separate from the packaging job so that a registry timeout can be retried
+    # with "Re-run failed jobs" instead of rebuilding every LSP binary. Publishes
+    # from an Ubicloud runner because uploads from GitHub's runners time out often.
+    publish_vscode_extension:
+        needs: [build_vscode_extension]
+        runs-on: ubicloud-standard-2-arm
+        if: ${{ github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release' }}
+        steps:
+            - uses: actions/download-artifact@v8
+              with:
+                  name: slint-vscode.zip
+                  path: vsix
+            - name: Locate the extension
+              id: vsix
+              run: echo "path=$PWD/$(ls vsix/*.vsix)" >> "$GITHUB_OUTPUT"
             - name: Publish to Visual Studio Marketplace
-              if: ${{ env.PUBLISH == 'true' }}
               uses: HaaLeo/publish-vscode-extension@v2
               with:
                   pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
                   registryUrl: https://marketplace.visualstudio.com
-                  extensionFile: ${{ steps.package.outputs.vsixPath }}
+                  extensionFile: ${{ steps.vsix.outputs.path }}
                   packagePath: ""
             # The marketplace times out regularly, so publish to Open VSX even when it failed.
             - name: Publish to Open VSX Registry
-              if: ${{ !cancelled() && env.PUBLISH == 'true' && steps.package.outcome == 'success' }}
+              if: ${{ !cancelled() && steps.vsix.outcome == 'success' }}
               uses: HaaLeo/publish-vscode-extension@v2
               with:
                   pat: ${{ secrets.OPENVSX_PAT }}
-                  extensionFile: ${{ steps.package.outputs.vsixPath }}
+                  extensionFile: ${{ steps.vsix.outputs.path }}
                   packagePath: ""
             - name: Explain how to publish manually
-              if: ${{ failure() && steps.package.outcome == 'success' }}
-              run: echo "::error::Download the slint-vscode.zip artifact of this run and upload the .vsix by hand"
+              if: ${{ failure() }}
+              run: echo "::error::Re-run this job, or download the slint-vscode.zip artifact of this run and upload the .vsix by hand"
 
     build-figma-plugin:
         runs-on: ubuntu-latest
