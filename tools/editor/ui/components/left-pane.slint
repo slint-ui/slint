@@ -360,19 +360,14 @@ export component LeftPane inherits Rectangle {
         }
 
         VerticalLayout {
-            padding-left: 14px;
-            padding-right: 14px;
+            padding: 14px;
             padding-bottom: 0px;
-            HorizontalLayout {
-                height: 28px;
-                cross-axis-alignment: center;
-
-                SectionTitle {
-                    label: "FILES";
-                    horizontal-stretch: 1;
-                }
+            SectionTitle {
+                label: "FILES";
 
                 NewSlintFileButton {
+                    x: parent.width - self.width;
+                    y: -14px;
                     enabled: Project.file-tree.length > 0;
                     clicked => { root.create-new-slint-file(); }
                 }
