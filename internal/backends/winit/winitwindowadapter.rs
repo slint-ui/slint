@@ -456,9 +456,8 @@ pub struct WinitWindowAdapter {
     /// separately via `process_touch_input` and does not affect this flag.
     pressed: Cell<bool>,
     current_resize_direction: Cell<Option<ResizeDirection>>,
-    /// Allocates small i32 finger ids for iOS's pointer-valued touch ids.
-    #[cfg(target_os = "ios")]
-    touch_finger_ids: RefCell<crate::ios::TouchFingerIdAllocator>,
+    /// Allocates small i32 finger ids for winit's u64 touch ids.
+    touch_finger_ids: RefCell<crate::touch_finger_id::TouchFingerIdAllocator>,
 }
 
 impl WinitWindowAdapter {
@@ -510,7 +509,6 @@ impl WinitWindowAdapter {
             cursor_pos: Default::default(),
             pressed: Default::default(),
             current_resize_direction: Default::default(),
-            #[cfg(target_os = "ios")]
             touch_finger_ids: Default::default(),
         });
 
@@ -1511,14 +1509,6 @@ impl WinitWindowAdapter {
             WinitWindowEvent::Touch(touch) => {
                 let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
                 let position = euclid::point2(location.x, location.y);
-                // winit types the touch id as u64, but on all platforms except
-                // iOS it is in fact a small integer that fits in i32. Only iOS
-                // stores a UITouch pointer address in it, which
-                // TouchFingerIdAllocator maps to a small id instead.
-                #[cfg(not(target_os = "ios"))]
-                let finger_id =
-                    Some(i32::try_from(touch.id).expect("winit touch id out of i32 range"));
-                #[cfg(target_os = "ios")]
                 let finger_id = match touch.phase {
                     winit::event::TouchPhase::Started | winit::event::TouchPhase::Moved => {
                         self.touch_finger_ids.borrow_mut().id_for(touch.id)
