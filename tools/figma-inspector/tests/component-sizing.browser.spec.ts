@@ -92,6 +92,18 @@ for (const target of ["preview", "export"] as const) {
                                 }
                             }
                         }`,
+                        exportPackage: {
+                            source: `${prefix}
+                        export component Geometry inherits Window {
+                            width: 220px; height: 80px; background: white;
+                            FlexboxLayout { alignment: start; cross-axis-alignment: start;
+                                ${name} { ${nested ? "width: 160px;" : "horizontal-stretch: 0;"}
+                                    vertical-stretch: 0; variant-position: ${name}Position.${position};
+                                }
+                            }
+                        }`,
+                            files: [],
+                        },
                     });
                     await p.ready(revision);
                     const pixels = await canvasPixels(p);
@@ -135,6 +147,10 @@ for (const target of ["preview", "export"] as const) {
             type: "preview-source",
             revision: 1,
             source: await generate(capture, target, true),
+            exportPackage: {
+                source: await generate(capture, target, true),
+                files: [],
+            },
         });
         await p.ready(1);
         expect(bounds(await canvasPixels(p), 2)).toEqual({
@@ -155,6 +171,17 @@ for (const target of ["preview", "export"] as const) {
                     ${["leading", "trailing", "both", "leading", "trailing", "both"].map((position) => `RootSizing {horizontal-stretch:0;vertical-stretch:0;variant-position:RootSizingPosition.${position};}`).join("\n")}
                 }
             }`,
+            exportPackage: {
+                source: `${prefix}
+            export component Wrapped inherits Window {
+                width:230px; height:130px; background:white;
+                FlexboxLayout { flex-wrap:wrap; spacing:10px; spacing-vertical:8px;
+                    alignment:start; cross-axis-alignment:start; cross-axis-line-alignment:start;
+                    ${["leading", "trailing", "both", "leading", "trailing", "both"].map((position) => `RootSizing {horizontal-stretch:0;vertical-stretch:0;variant-position:RootSizingPosition.${position};}`).join("\n")}
+                }
+            }`,
+                files: [],
+            },
         });
         await p.ready(2);
         const pixels = await canvasPixels(p);
@@ -221,6 +248,22 @@ for (const target of ["preview", "export"] as const) {
                 }
                 TouchArea { clicked => { root.step = mod(root.step + 1, 4); } }
             }`,
+            exportPackage: {
+                source: `${prefix}
+            export component Interactive inherits Window {
+                width: 320px; height: 80px; background: white;
+                private property <int> step: 0;
+                FlexboxLayout { alignment: start; cross-axis-alignment: start;
+                    RootSizing { horizontal-stretch: 0; vertical-stretch: 0;
+                        label: root.step == 0 ? "Hi" : "A much longer label";
+                        icons: root.step != 2;
+                        variant-position: root.step == 3 ? RootSizingPosition.both : RootSizingPosition.leading;
+                    }
+                }
+                TouchArea { clicked => { root.step = mod(root.step + 1, 4); } }
+            }`,
+                files: [],
+            },
         });
         await p.ready(1);
         const widths: number[] = [];

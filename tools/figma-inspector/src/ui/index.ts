@@ -21,7 +21,6 @@ import {
 } from "../protocol";
 import { unpackPreviewAssets } from "../asset-transport";
 import { PreviewController } from "../preview/controller";
-import { FIRST_BUTTON_SOURCE } from "../preview/sources";
 import { mountWorkspace, mountDialogFrame } from "./workspace";
 import { SourcePanelController } from "./source-panel";
 import { ConversionClient } from "./conversion-client";
@@ -39,27 +38,16 @@ const canvas = document.querySelector<HTMLCanvasElement>("#preview-canvas");
 const diagnostics = document.querySelector<HTMLElement>("#diagnostics");
 const selection = document.querySelector<HTMLElement>("#selection");
 const sourceView = document.querySelector<HTMLElement>("#source-view");
-const timingTotal =
-    document.querySelector<HTMLElement>("#timing-total") ??
-    document.createElement("span");
-const timingLabel =
-    document.querySelector<HTMLElement>("#timing-label") ??
-    document.createElement("p");
-const timingPhases =
-    document.querySelector<HTMLElement>("#timing-phases") ??
-    document.createElement("dl");
+const timingTotal = document.querySelector<HTMLElement>("#timing-total");
+const timingLabel = document.querySelector<HTMLElement>("#timing-label");
+const timingPhases = document.querySelector<HTMLElement>("#timing-phases");
 const copyButton = document.querySelector<HTMLButtonElement>("#copy-button");
 const copySnapshot =
-    document.querySelector<HTMLButtonElement>("#copy-snapshot") ??
-    document.createElement("button");
-const copySource =
-    document.querySelector<HTMLButtonElement>("#copy-source") ??
-    document.createElement("button");
+    document.querySelector<HTMLButtonElement>("#copy-snapshot");
+const copySource = document.querySelector<HTMLButtonElement>("#copy-source");
 const exportButton =
     document.querySelector<HTMLButtonElement>("#export-button");
-const copyTrace =
-    document.querySelector<HTMLButtonElement>("#copy-trace") ??
-    document.createElement("button");
+const copyTrace = document.querySelector<HTMLButtonElement>("#copy-trace");
 const pinButton = document.querySelector<HTMLButtonElement>("#pin-button");
 
 if (
@@ -68,14 +56,8 @@ if (
     diagnostics === null ||
     selection === null ||
     sourceView === null ||
-    timingTotal === null ||
-    timingLabel === null ||
-    timingPhases === null ||
     exportButton === null ||
     copyButton === null ||
-    copySnapshot === null ||
-    copySource === null ||
-    copyTrace === null ||
     pinButton === null
 ) {
     throw new Error("Preview UI is missing required elements");
@@ -134,14 +116,13 @@ keepaliveCanvas.setAttribute("aria-hidden", "true");
 keepaliveCanvas.style.cssText =
     "position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none;";
 document.body.append(keepaliveCanvas);
-const provenance = document.querySelector<HTMLElement>("#output-provenance");
 let successfulOutput:
     | {
           source: string;
           json: string;
           revision: number;
           name: string;
-          exportPackage?: ExportPackage;
+          exportPackage: ExportPackage;
       }
     | undefined;
 const pendingOutputs = new Map<
@@ -151,22 +132,16 @@ const pendingOutputs = new Map<
         json: string;
         revision: number;
         name: string;
-        exportPackage?: ExportPackage;
+        exportPackage: ExportPackage;
     }
 >();
 let latestInputRevision = 0;
-let codeDemand = false;
-let codeActivation: ReturnType<typeof setTimeout> | undefined;
 const previewBusy = document.querySelector<HTMLElement>("#preview-busy");
 function setPreviewBusy(busy: boolean): void {
     if (previewBusy) previewBusy.hidden = !busy;
     document
         .querySelector(".preview-shell")
         ?.setAttribute("aria-busy", String(busy));
-    if (busy) {
-        clearTimeout(codeActivation);
-        sourcePanel.setSource(latestSource);
-    }
 }
 
 function updateOutputProvenance(trace: TimingTrace): void {
@@ -196,18 +171,7 @@ function updateOutputProvenance(trace: TimingTrace): void {
                 latestSnapshotJson.length,
             );
             renderCopyState();
-            clearTimeout(codeActivation);
-            codeActivation = setTimeout(() => {
-                if (
-                    successfulOutput?.revision !== trace.revision ||
-                    latestInputRevision !== trace.revision ||
-                    renderingSource
-                )
-                    return;
-                codeDemand = true;
-                renderCopyState();
-                void showNativeCode();
-            }, 20);
+            sourcePanel.setSource(latestSource);
         }
     } else if (trace.outcome?.endsWith("error")) {
         conversionClient.fail(trace.revision);
@@ -217,12 +181,8 @@ function updateOutputProvenance(trace: TimingTrace): void {
         document.getElementById("diagnostics-tab")?.click();
     }
 
-    if (provenance && successfulOutput) {
-        provenance.hidden = true;
-        provenance.textContent = `Preview, source and JSON: ${successfulOutput.name} · revision ${successfulOutput.revision}`;
-        if (copySnapshot)
-            copySnapshot.title = `Copy JSON: ${successfulOutput.name}, revision ${successfulOutput.revision}`;
-    }
+    if (DEVELOPMENT && copySnapshot && successfulOutput)
+        copySnapshot.title = `Copy JSON: ${successfulOutput.name}, revision ${successfulOutput.revision}`;
 }
 let latestSnapshotJson = "";
 let latestSource = "";
@@ -241,16 +201,10 @@ let pinState: {
 } = { pinned: false, canPin: false };
 
 function renderCopyState(): void {
-    const hasWorker =
-        successfulOutput !== undefined &&
-        conversionClient.has(successfulOutput.revision);
-    exportButtonElement.disabled =
-        exporting ||
-        !successfulOutput ||
-        (!successfulOutput.exportPackage &&
-            !conversionClient.has(successfulOutput.revision));
-    copyButtonElement.disabled = !hasWorker && !successfulOutput?.source;
-    copySourceElement.disabled = !hasWorker && !successfulOutput?.source;
+    exportButtonElement.disabled = exporting || !successfulOutput;
+    copyButtonElement.disabled = !successfulOutput;
+    if (copySourceElement) copySourceElement.disabled = !successfulOutput;
+    if (copySnapshot) copySnapshot.disabled = !successfulOutput;
 }
 
 type SourceTheme = "light-slint" | "dark-slint";
@@ -260,7 +214,7 @@ const darkModeQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
 if (darkModeQuery?.matches === true) sourceTheme = "dark-slint";
 const sourcePanel = new SourcePanelController(sourceViewElement, {
     createWorker: () => new HighlightWorker(),
-    canHighlight: () => codeDemand && !renderingSource && latestSource !== "",
+    canHighlight: () => !renderingSource && latestSource !== "",
     getRevision: () => latestSourceRevision,
     reportClipboardResult: (success) => {
         if (isFigmaUi)
@@ -321,7 +275,13 @@ function showTrace(trace: TimingTrace, acknowledge = true): void {
         // sandbox-finalized trace is the sole complete history entry.
         return;
     }
-    if (!DEVELOPMENT) return;
+    if (
+        !DEVELOPMENT ||
+        !timingTotalElement ||
+        !timingLabelElement ||
+        !timingPhasesElement
+    )
+        return;
     console.info("[slint-preview] completed trace", readonlyTrace);
     const existingTrace = traceHistory.findIndex(
         (item) => item.revision === readonlyTrace.revision,
@@ -454,18 +414,17 @@ function freezeTrace(trace: TimingTrace): TimingTrace {
     });
 }
 
-const debugInterface = Object.freeze({
-    getPendingOutputCount: (): number => pendingOutputs.size,
-    getLatestTrace: (): TimingTrace | undefined => latestTrace,
-    getTraces: (): readonly TimingTrace[] =>
-        Object.freeze(traceHistory.slice()),
-});
 if (DEVELOPMENT)
     Object.defineProperty(window, "__slintPreviewDebug", {
         configurable: false,
         enumerable: false,
-        value: debugInterface,
         writable: false,
+        value: Object.freeze({
+            getPendingOutputCount: (): number => pendingOutputs.size,
+            getLatestTrace: (): TimingTrace | undefined => latestTrace,
+            getTraces: (): readonly TimingTrace[] =>
+                Object.freeze(traceHistory.slice()),
+        }),
     });
 
 const controller = new PreviewController(
@@ -513,19 +472,10 @@ function receivedTrace(
 function acceptSource(
     source: string,
     revision: number,
+    exportPackage: ExportPackage,
     trace?: TimingTrace,
-    snapshotJson?: string,
-    warnings: readonly {
-        severity: "error" | "warning";
-        code: string;
-        message: string;
-        propertyPath?: string;
-    }[] = [],
-    exportPackage?: ExportPackage,
-    exportError?: string,
-    renderSource = source,
+    warnings: readonly import("../plugin/snapshot").Diagnostic[] = [],
 ): void {
-    void exportError;
     if (
         !Number.isSafeInteger(revision) ||
         revision <= controller.currentRevision ||
@@ -535,22 +485,18 @@ function acceptSource(
     }
     beginPreview(revision);
     pendingOutputs.set(revision, {
-        source:
-            exportPackage?.source ??
-            (conversionClient.has(revision) ? "" : source),
+        source: exportPackage.source,
         exportPackage,
-        json: snapshotJson ?? "",
+        json: "",
         revision,
         name: selectionElement.textContent ?? "Preview",
     });
     generatedSourceMetrics = {
         revision,
-        lineCount: sourceLineCount(source),
+        lineCount: sourceLineCount(exportPackage.source),
     };
     renderingSource = true;
     setPreviewBusy(true);
-    // Freeze both the displayed code and copy payload until render success.
-    sourcePanel.setSource(latestSource);
     const renderTrace = trace ?? receivedTrace(undefined);
     const withRevision = {
         ...renderTrace,
@@ -559,7 +505,7 @@ function acceptSource(
     };
     if (interpreterInitialization === undefined) {
         interpreterInitialization = controller.initialize(
-            renderSource,
+            source,
             revision,
             withRevision,
             warnings,
@@ -568,12 +514,7 @@ function acceptSource(
             interpreterInitialization = undefined;
         });
     } else {
-        controller.requestRender(
-            renderSource,
-            revision,
-            withRevision,
-            warnings,
-        );
+        controller.requestRender(source, revision, withRevision, warnings);
     }
 }
 
@@ -627,10 +568,8 @@ function clearOutput(): void {
     latestSource = "";
     latestSnapshotJson = "";
     generatedSourceMetrics = undefined;
-    clearTimeout(codeActivation);
     sourcePanel.clear();
     delete sourceViewElement.dataset.snapshotBytes;
-    if (provenance) provenance.hidden = true;
     renderCopyState();
 }
 
@@ -657,21 +596,11 @@ function acceptClear(
         return;
     }
     latestInputRevision = revision;
-    conversionClient.fail(revision);
     renderingSource = false;
-    clearTimeout(codeActivation);
     setPreviewBusy(false);
-    successfulOutput = undefined;
-    pendingOutputs.clear();
+    clearOutput();
     conversionClient.clear();
-    if (provenance) provenance.hidden = true;
-    latestSource = "";
     latestSourceRevision = revision;
-    generatedSourceMetrics = undefined;
-    sourcePanel.clear();
-    latestSnapshotJson = "";
-    renderCopyState();
-    delete sourceViewElement.dataset.snapshotBytes;
     acceptSelection(undefined);
     const clearTrace = receivedTrace(trace, trigger);
     void controller.clearPreview(revision, {
@@ -691,7 +620,6 @@ function convertInWorker(
     controller.reserveRevision(message.revision);
     renderingSource = true;
     setPreviewBusy(true);
-    sourcePanel.setSource(latestSource);
     acceptSelection(message.selection);
     const trace = {
         ...receivedTrace(message.trace, message.trigger),
@@ -750,46 +678,6 @@ function convertInWorker(
 }
 window.addEventListener("pagehide", () => conversionClient.clear());
 
-async function requestNativeExport(
-    revision: number,
-): Promise<ExportPackage | undefined> {
-    const output = successfulOutput;
-    if (output?.revision !== revision) return;
-    if (output.exportPackage) return output.exportPackage;
-    if (!conversionClient.has(revision)) return;
-    const packageValue = await conversionClient.export(revision);
-    if (successfulOutput === output) {
-        output.exportPackage = packageValue;
-        output.source = packageValue.source;
-        latestSource = packageValue.source;
-        latestSourceRevision = revision;
-        renderCopyState();
-    }
-    return packageValue;
-}
-async function showNativeCode(): Promise<void> {
-    const output = successfulOutput;
-    if (!codeDemand || !output) return;
-    sourceViewElement.hidden = true;
-    sourceViewElement.setAttribute("aria-busy", "true");
-    try {
-        const packageValue = await requestNativeExport(output.revision);
-        if (!codeDemand || successfulOutput !== output) return;
-        if (packageValue) latestSource = packageValue.source;
-        // Direct-source harness outputs have no captured native target.
-        if (!latestSource) throw Error("Native code is unavailable");
-        sourcePanel.setSource(latestSource);
-    } catch (error) {
-        if (codeDemand && successfulOutput === output) {
-            sourceViewElement.hidden = false;
-            sourceViewElement.textContent = `Code unavailable: ${error instanceof Error ? error.message : String(error)}.`;
-        }
-    } finally {
-        if (successfulOutput === output)
-            sourceViewElement.setAttribute("aria-busy", "false");
-    }
-}
-
 window.addEventListener("message", (event: MessageEvent<unknown>) => {
     const message =
         typeof event.data === "object" &&
@@ -837,11 +725,7 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
             const started = defaultClock.monotonicNow();
             const decoded =
                 typeof message.source === "string"
-                    ? {
-                          source: message.source,
-                          renderSource: message.renderSource,
-                          snapshotJson: message.snapshotJson,
-                      }
+                    ? { source: message.source }
                     : unpackPreviewAssets(message.source);
             if (typeof message.source !== "string")
                 trace.phases.assetUnpacking =
@@ -850,12 +734,9 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
             acceptSource(
                 decoded.source,
                 message.revision,
-                trace,
-                decoded.snapshotJson,
-                message.warnings ?? [],
                 message.exportPackage,
-                message.exportError,
-                decoded.renderSource,
+                trace,
+                message.warnings ?? [],
             );
         } else if (message.type === "preview-diagnostics") {
             acceptSelection(message.selection);
@@ -908,115 +789,56 @@ if (isFigmaUi) {
         armDensityMediaQuery();
         window.addEventListener("resize", reportDensityChange);
     }
-} else {
-    acceptSource(FIRST_BUTTON_SOURCE, 1);
 }
 
-copyButtonElement.addEventListener("click", () => {
-    const output = successfulOutput;
-    const inputAtRequest = latestInputRevision;
-    if (!output) return;
-    if (output.source) {
-        sourcePanel.copy(output.source, copyButtonElement);
-        return;
-    }
-    void requestNativeExport(output.revision)
-        .then((packageValue) =>
-            inputAtRequest === latestInputRevision &&
-            successfulOutput?.revision === output.revision
-                ? sourcePanel.copy(
-                      packageValue?.source ?? output.source,
-                      copyButtonElement,
-                  )
-                : undefined,
-        )
-        .catch(() => undefined);
-});
-
-copySnapshot.addEventListener("click", () => {
-    const output = successfulOutput;
-    if (!output) return;
-    if (output.json) {
-        sourcePanel.copy(output.json, copySnapshot);
-        return;
-    }
-    const inputAtRequest = latestInputRevision;
-    copySnapshot.disabled = true;
-    const label = copySnapshot.textContent;
-    copySnapshot.textContent = "Preparing JSON…";
-    const request = output.json
-        ? Promise.resolve(output.json)
-        : conversionClient.snapshot(output.revision);
-    void request
-        .then((json) => {
-            if (
-                successfulOutput !== output ||
-                latestInputRevision !== inputAtRequest
-            )
-                return;
-            output.json = json;
-            latestSnapshotJson = json;
-            sourceViewElement.dataset.snapshotBytes = String(json.length);
-            return sourcePanel.copy(json);
-        })
-        .catch((error) => {
-            copySnapshot.title = `Copy failed: ${error instanceof Error ? error.message : String(error)}`;
-        })
-        .finally(() => {
-            copySnapshot.disabled = false;
-            copySnapshot.textContent = label;
-        });
-});
-copySource.addEventListener("click", () => {
-    const output = successfulOutput;
-    const inputAtRequest = latestInputRevision;
-    if (!output) return;
-    if (output.source) {
-        sourcePanel.copy(output.source, copySource);
-        return;
-    }
-    void requestNativeExport(output.revision)
-        .then((packageValue) =>
-            inputAtRequest === latestInputRevision &&
-            successfulOutput?.revision === output.revision
-                ? sourcePanel.copy(
-                      packageValue?.source ?? output.source,
-                      copySource,
-                  )
-                : undefined,
-        )
-        .catch(() => undefined);
-});
-copyTrace.addEventListener("click", () =>
-    sourcePanel.copy(
-        latestTrace === undefined ? "" : JSON.stringify(latestTrace, null, 2),
-        copyTrace,
-    ),
-);
-
+const copySlint = () => {
+    if (successfulOutput) sourcePanel.copy(successfulOutput.source);
+};
+copyButtonElement.addEventListener("click", copySlint);
+if (DEVELOPMENT) {
+    copySource?.addEventListener("click", copySlint);
+    copyTrace?.addEventListener("click", () =>
+        sourcePanel.copy(
+            latestTrace ? JSON.stringify(latestTrace, null, 2) : "",
+        ),
+    );
+    copySnapshot?.addEventListener("click", () => {
+        const output = successfulOutput;
+        if (!output) return;
+        if (output.json) {
+            sourcePanel.copy(output.json);
+            return;
+        }
+        copySnapshot.disabled = true;
+        void conversionClient
+            .snapshot(output.revision)
+            .then((json) => {
+                if (successfulOutput !== output) return;
+                output.json = json;
+                latestSnapshotJson = json;
+                sourceViewElement.dataset.snapshotBytes = String(json.length);
+                sourcePanel.copy(json);
+            })
+            .catch((error) => {
+                if (successfulOutput !== output) return;
+                copySnapshot.title = `Copy failed: ${error instanceof Error ? error.message : String(error)}`;
+            })
+            .finally(() => {
+                if (successfulOutput === output) copySnapshot.disabled = false;
+            });
+    });
+}
 exportButtonElement.addEventListener("click", async () => {
     const output = successfulOutput;
     if (!output || exporting) return;
-    const inputAtRequest = latestInputRevision;
     exporting = true;
     exportButtonElement.textContent = "Preparing ZIP…";
     renderCopyState();
     try {
-        const packageValue =
-            output.exportPackage ??
-            (await requestNativeExport(output.revision));
-        if (!packageValue) throw Error("Export is unavailable");
-        if (
-            successfulOutput?.revision !== output.revision ||
-            latestInputRevision !== inputAtRequest
-        )
-            return;
         await downloadExport(
-            packageValue,
+            output.exportPackage,
             output.name,
-            () =>
-                successfulOutput === output &&
-                latestInputRevision === inputAtRequest,
+            () => successfulOutput === output,
         );
         exportButtonElement.title = "Export ZIP";
     } catch (error) {

@@ -4,10 +4,11 @@
 import { expect, test } from "vitest";
 import { page, server } from "vitest/browser";
 import JSZip from "jszip";
-import { convertExport } from "../src/preview/convert-capture";
-import { FIRST_BUTTON_SOURCE } from "../src/preview/sources";
+import { convertCapture } from "../src/preview/convert-capture";
 import { mountPreview, readFixture } from "./browser-harness";
 import type { Diagnostic } from "../src/plugin/snapshot";
+
+const buttonSource = await readFixture("fixtures/button.slint");
 
 test.each([true, false])(
     "diagnostics groups warnings across nodes (production=%s)",
@@ -33,8 +34,9 @@ test.each([true, false])(
         p.send({
             type: "preview-source",
             revision: 1,
-            source: FIRST_BUTTON_SOURCE,
+            source: buttonSource,
             warnings,
+            exportPackage: { source: buttonSource, files: [] },
         });
         await p.ready(1);
         p.element("#diagnostics-tab").click();
@@ -60,16 +62,18 @@ test.each([true, false])(
         p.send({
             type: "preview-source",
             revision: 2,
-            source: FIRST_BUTTON_SOURCE,
+            source: buttonSource,
             warnings,
+            exportPackage: { source: buttonSource, files: [] },
         });
         await p.ready(2);
         expect(p.doc.querySelectorAll("#diagnostics p")).toHaveLength(2);
         p.send({
             type: "preview-source",
             revision: 3,
-            source: FIRST_BUTTON_SOURCE,
+            source: buttonSource,
             warnings: [warnings[0]],
+            exportPackage: { source: buttonSource, files: [] },
         });
         await p.ready(3);
         expect(p.doc.querySelectorAll("#diagnostics p")).toHaveLength(1);
@@ -79,8 +83,9 @@ test.each([true, false])(
         p.send({
             type: "preview-source",
             revision: 4,
-            source: FIRST_BUTTON_SOURCE,
+            source: buttonSource,
             warnings: [],
+            exportPackage: { source: buttonSource, files: [] },
         });
         await p.ready(4);
         expect(p.element("#diagnostics").hidden).toBe(true);
@@ -95,7 +100,11 @@ test("real conversion worker supplies native source, raw clipboard text and the 
         captureJson: await readFixture("fixtures/source/export-fonts.json"),
         selection: { nodeId: "export:root", nodeName: "Export sample" },
     };
-    const expected = await convertExport(request);
+    const expected = await convertCapture(request).then((result) => {
+        if (result.type !== "preview-source")
+            throw Error(JSON.stringify(result));
+        return result.exportPackage;
+    });
     p.send(request);
     await p.ready(1);
     await expect
@@ -110,9 +119,18 @@ test("real conversion worker supplies native source, raw clipboard text and the 
         return true;
     };
     const copy = p.element<HTMLButtonElement>("#copy-button");
+    const copyMarkup = copy.innerHTML;
     copy.focus();
     copy.click();
-    await expect.poll(() => copied).toEqual([expected.source]);
+    copy.click();
+    await expect.poll(() => copied).toEqual([expected.source, expected.source]);
+    expect(copy.innerHTML).toBe(copyMarkup);
+    expect(copy.querySelector("svg")).not.toBeNull();
+    await server.commands.writeFile(
+        ".vitest/attachments/native-export.png",
+        await page.elementLocator(p.iframe).screenshot({ save: false }),
+        "base64",
+    );
     expect(p.doc.activeElement).toBe(copy);
     expect(p.doc.querySelector("textarea")).toBeNull();
     p.doc.execCommand = () => false;
@@ -158,7 +176,8 @@ test("pin controls send typed messages and diagnostics tabs support keyboard nav
     p.send({
         type: "preview-source",
         revision: 1,
-        source: FIRST_BUTTON_SOURCE,
+        source: buttonSource,
+        exportPackage: { source: buttonSource, files: [] },
     });
     await p.ready(1);
     p.send({ type: "pin-state", pinned: false, canPin: true });
@@ -200,16 +219,62 @@ test("pin controls send typed messages and diagnostics tabs support keyboard nav
         .toBe("true");
 });
 
+test("native variant failure blanks the previous preview and disables all output", async () => {
+    const p = await mountPreview();
+    p.send({
+        type: "preview-source",
+        revision: 1,
+        source: buttonSource,
+        exportPackage: { source: buttonSource, files: [] },
+    });
+    await p.ready(1);
+    const capture = JSON.parse(
+        await readFixture("fixtures/source/component-tokens.json"),
+    );
+    capture.root.children = capture.root.children.filter(
+        (node: { id: string }) => node.id !== "hug:Pressed",
+    );
+    capture.variables.variables.pressed.values.light = {
+        type: "VARIABLE_ALIAS",
+        id: "pressed",
+    };
+    p.send({
+        type: "preview-capture",
+        revision: 2,
+        captureJson: JSON.stringify(capture),
+    });
+    await expect.poll(() => p.element("#status").dataset.state).toBe("error");
+    expect(p.element("#diagnostics").textContent).toContain(
+        "Cyclic variable alias",
+    );
+    expect(p.element("#diagnostics-tab").getAttribute("aria-selected")).toBe(
+        "true",
+    );
+    expect(p.element("#source-view").textContent).toBe("");
+    expect(p.element<HTMLButtonElement>("#copy-button").disabled).toBe(true);
+    expect(p.element<HTMLButtonElement>("#export-button").disabled).toBe(true);
+    expect(
+        p
+            .element("#preview-canvas")
+            .checkVisibility({ visibilityProperty: true }),
+    ).toBe(false);
+});
+
 test("highlighted source keeps long lines and the last line reachable", async () => {
     const p = await mountPreview();
     const source =
-        FIRST_BUTTON_SOURCE +
+        buttonSource +
         "\n" +
         Array.from(
             { length: 30 },
             (_, i) => `// line ${i} ${"x".repeat(150)}`,
         ).join("\n");
-    p.send({ type: "preview-source", revision: 1, source });
+    p.send({
+        type: "preview-source",
+        revision: 1,
+        source,
+        exportPackage: { source: source, files: [] },
+    });
     await p.ready(1);
     await expect.poll(() => p.element("#source-view").textContent).toBe(source);
     const view = p.element("#source-view");

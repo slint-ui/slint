@@ -33,6 +33,7 @@ test("local 144-variant family preserves pixels and measures both emission modes
                 type: "preview-source",
                 revision,
                 source: `${converted.source}\n// replacement ${revision}`,
+                exportPackage: { source: `${converted.source}\n// replacement ${revision}`, files: [] },
             });
             await p.ready(revision);
             samples.push(performance.now() - started);

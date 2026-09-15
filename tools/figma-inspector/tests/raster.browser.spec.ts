@@ -24,7 +24,12 @@ for (const name of ["asymmetric", "stroke", "mask-shadow"])
             throw Error("Expected authored capture");
         const result = convertSnapshot(normalized.snapshot);
         if (!result.ok) throw Error(JSON.stringify(result.diagnostics));
-        p.send({ type: "preview-source", revision: 1, source: result.source });
+        p.send({
+            type: "preview-source",
+            revision: 1,
+            source: result.source,
+            exportPackage: { source: result.source, files: [] },
+        });
         await p.ready(1);
         const actual = await canvasPixels(p);
         const expected = await decodePng(

@@ -5,7 +5,7 @@ import { requireValue } from "../src/preview/slint-ir";
 import { readFile } from "node:fs/promises";
 import { expect, test } from "vitest";
 import JSZip from "jszip";
-import { convertCapture, convertExport } from "../src/preview/convert-capture";
+import { convertCapture } from "../src/preview/convert-capture";
 import { unpackPreviewAssets } from "../src/asset-transport";
 import { exportZip } from "../src/ui/export-download";
 import { externalizeImages } from "../src/export/generate";
@@ -22,14 +22,7 @@ async function result(captureJson?: string) {
         captureJson: json,
     });
     if (output.type !== "preview-source") throw Error(JSON.stringify(output));
-    return {
-        ...output,
-        exportPackage: await convertExport({
-            type: "preview-capture",
-            revision: 5,
-            captureJson: json,
-        }),
-    };
+    return output;
 }
 
 test("README lists a shared blend-mode limitation once across captured nodes", async () => {

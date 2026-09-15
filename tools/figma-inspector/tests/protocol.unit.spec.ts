@@ -4,11 +4,7 @@
 import { describe, expect, test } from "vitest";
 
 import { isPluginToUiMessage, isUiToPluginMessage } from "../src/protocol";
-import {
-    isExportRequest,
-    isSnapshotRequest,
-    isSnapshotReply,
-} from "../src/protocol";
+import { isSnapshotRequest, isSnapshotReply } from "../src/protocol";
 
 describe("protocol-validation", () => {
     test("diagnostics reject malformed elements and revisions", () => {
@@ -43,36 +39,36 @@ describe("protocol-validation", () => {
 describe("conversion-protocol", () => {
     test("validates positive safe revision and request ids", () => {
         expect(
-            isExportRequest({
-                kind: "export-request",
+            isSnapshotRequest({
+                kind: "snapshot-request",
                 revision: 1,
                 requestId: 2,
             }),
         ).toBe(true);
         expect(
-            isExportRequest({
-                kind: "export-request",
+            isSnapshotRequest({
+                kind: "snapshot-request",
                 revision: 0,
                 requestId: 2,
             }),
         ).toBe(false);
         expect(
-            isExportRequest({
-                kind: "export-request",
+            isSnapshotRequest({
+                kind: "snapshot-request",
                 revision: 1,
                 requestId: 0,
             }),
         ).toBe(false);
         expect(
-            isExportRequest({
-                kind: "export-request",
+            isSnapshotRequest({
+                kind: "snapshot-request",
                 revision: 1.5,
                 requestId: 2,
             }),
         ).toBe(false);
         expect(
-            isExportRequest({
-                kind: "export-request",
+            isSnapshotRequest({
+                kind: "snapshot-request",
                 revision: Number.MAX_SAFE_INTEGER + 1,
                 requestId: 2,
             }),
