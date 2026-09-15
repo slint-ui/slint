@@ -160,7 +160,7 @@ impl FlickAnimation {
     }
 
     pub fn carried_momentum(
-        new_estimaged_velocity: f32,
+        new_estimated_velocity: f32,
         current_velocity: f32,
         carry_momentum: AutoBool,
     ) -> f32 {
@@ -182,9 +182,9 @@ impl FlickAnimation {
             return 0.;
         }
 
-        let is_velocity_not_substantially_less_than_carried_momentum = new_estimaged_velocity.abs()
+        let is_velocity_not_substantially_less_than_carried_momentum = new_estimated_velocity.abs()
             > current_velocity.abs() * MOMENTUM_RETAIN_VELOCITY_THRESHOLD_FACTOR;
-        let same_direction = new_estimaged_velocity.signum() == current_velocity.signum();
+        let same_direction = new_estimated_velocity.signum() == current_velocity.signum();
 
         if is_velocity_not_substantially_less_than_carried_momentum && same_direction {
             // On Android this momentum carry on does not exist
