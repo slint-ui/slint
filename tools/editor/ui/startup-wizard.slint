@@ -100,7 +100,7 @@ component WelcomeAction inherits Rectangle {
             text: root.label;
             color: WizardTheme.text;
             font-size: 14px;
-            font-weight: 800;
+            font-weight: FontWeight.extra-bold;
             vertical-alignment: center;
             overflow: elide;
         }
@@ -159,7 +159,7 @@ component RecentProjectRow inherits Rectangle {
                 text: root.title;
                 color: root.selected ? white : WizardTheme.text;
                 font-size: 13px;
-                font-weight: 800;
+                font-weight: FontWeight.extra-bold;
                 overflow: elide;
             }
 
@@ -245,7 +245,7 @@ export component StartupWizard inherits Rectangle {
             text: "Slint Visual Editor";
             color: WizardTheme.text;
             font-size: 34px;
-            font-weight: 600;
+            font-weight: FontWeight.semi-bold;
             horizontal-alignment: center;
             vertical-alignment: center;
         }

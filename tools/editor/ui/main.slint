@@ -76,7 +76,7 @@ component NewFileErrorPopup inherits PopupWindow {
                                 text: @tr("Couldn’t create file");
                                 color: StudioTheme.text;
                                 font-size: 16px;
-                                font-weight: 700;
+                                font-weight: FontWeight.bold;
                             }
 
                             Text {
@@ -118,7 +118,7 @@ component NewFileErrorPopup inherits PopupWindow {
                 }
 
                 Rectangle {
-                    width: 68px;
+                    width: bt.width + 16px;
                     height: 32px;
                     x: parent.width - self.width - 16px;
                     y: (parent.height - self.height) / 2;
@@ -127,11 +127,11 @@ component NewFileErrorPopup inherits PopupWindow {
                     border-radius: 5px;
                     background: close-touch.has-hover ? StudioTheme.accent-strong : StudioTheme.accent;
 
-                    Text {
+                    bt := Text {
                         text: @tr("Close");
                         color: white;
                         font-size: 13px;
-                        font-weight: 600;
+                        font-weight: FontWeight.bold;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                     }
@@ -364,7 +364,7 @@ export component EditorUi inherits Window {
                             text: Project.selected-project-file;
                             color: StudioTheme.text;
                             font-size: 13px;
-                            font-weight: 800;
+                            font-weight: FontWeight.extra-bold;
                             vertical-alignment: center;
                             overflow: elide;
                         }
