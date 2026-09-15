@@ -60,7 +60,8 @@ Widget libraries shipped separately from the compiler's built-in widgets, curren
 ### `xtask`
 
 Repository maintenance tasks run via `cargo xtask <task>`: license-header checks, REUSE
-compliance, generating the cbindgen headers the C++ docs need, and Node package prep.
+compliance, generating the cbindgen headers the C++ docs need, Node package prep, and the
+benchmark comparison described below.
 Run `cargo xtask --help` for the full list.
 
 ### `ai-plugins`
@@ -69,6 +70,26 @@ The Slint skill and marketplace manifests shipped to AI coding assistants (Claud
 Cursor, Antigravity); see [ai-plugins/skills/slint/SKILL.md](../ai-plugins/skills/slint/SKILL.md).
 Each assistant reads its own manifest: `.claude-plugin/`, `.cursor-plugin/`, and, for
 Antigravity, `plugin.json` and `mcp_config.json` at the `ai-plugins` root.
+
+## Benchmarks
+
+The compiler and core crates carry benchmarks: `cargo bench -p i-slint-compiler --features rust`
+and `cargo bench -p i-slint-core`.
+Adjust how long they run with `--sample-count` for divan and `--sample-size` for criterion.
+
+`cargo xtask check_benchmarks` runs both suites and compares every median against
+`xtask/benchmark-baseline.toml`, which stores nanoseconds per benchmark.
+A median fails the check when it exceeds its baseline entry by more than the tolerance in that file.
+A benchmark without a baseline entry only warns, so adding one doesn't fail CI before the baseline is refreshed.
+
+The `benchmarks` job runs this check in full CI only, because the numbers depend on the machine.
+When it fails, download the job's `benchmark-results` artifact and refresh the baseline:
+
+```
+cargo xtask check_benchmarks --from-results benchmark-results.toml --save-baseline
+```
+
+`--report-only` compares without failing, and `mise run test:bench` is shorthand for a plain comparison run.
 
 ## Documentation
 

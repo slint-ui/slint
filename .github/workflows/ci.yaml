@@ -754,6 +754,33 @@ jobs:
             update: true
             save_if: false
 
+    # Compare benchmark medians against xtask/benchmark-baseline.toml. The
+    # numbers depend on the machine, so this only runs on the pinned full-CI
+    # runner. Seed or refresh the baseline from the uploaded results artifact
+    # (see docs/development.md).
+    benchmarks:
+        if: ${{ inputs.full }}
+        name: Benchmark regression check
+        runs-on: ubuntu-22.04
+        timeout-minutes: 60
+        env:
+            RUSTFLAGS: -D warnings
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: x-benchmarks
+            - name: Check benchmark medians against the baseline
+              run: cargo xtask check_benchmarks
+            - name: Upload benchmark results
+              if: always()
+              uses: actions/upload-artifact@v7
+              with:
+                  name: benchmark-results
+                  path: target/benchmark-results.toml
+                  if-no-files-found: ignore
+
     # Cross-compiled build for 32-bit Windows, to catch Win32-specific compilation errors,
     # e.g. packed struct alignment. Build only, no tests, default features only,
     # and skia excluded:
