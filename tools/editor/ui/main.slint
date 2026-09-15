@@ -48,6 +48,7 @@ export component EditorUi inherits Window {
     callback outline-pane-resized(length);
     callback elements-pane-reset();
     callback outline-pane-reset();
+    callback perform-native-window-zoom() -> bool;
 
     function open-startup-wizard() {
         Api.open-startup-wizard();
@@ -65,7 +66,9 @@ export component EditorUi inherits Window {
     }
 
     function toggle-maximized() {
-        root.maximized = !root.maximized;
+        if !root.perform-native-window-zoom() {
+            root.maximized = !root.maximized;
+        }
     }
 
     MenuBar {
