@@ -188,6 +188,16 @@ cpp! {{
         qApp->setQuitOnLastWindowClosed(false);
     }
 
+    QFont itemFont(const QWidget *widget, const QString &family, bool italic)
+    {
+        QFont font = widget->font();
+        if (!family.isEmpty()) {
+            font.setFamily(family);
+        }
+        font.setItalic(italic);
+        return font;
+    }
+
     // HACK ALERT: This struct declaration is duplicated in api/cpp/bindgen.rs - keep in sync.
     struct SlintTypeErasedWidget
     {
