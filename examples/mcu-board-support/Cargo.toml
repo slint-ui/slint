@@ -74,6 +74,25 @@ pico2-st7789 = [
   "embedded-graphics",
   "euclid/libm",
 ]
+pico2-restouch-lcd-3-5 = [
+  "slint/unsafe-single-threaded",
+  "rp235x-hal/binary-info",
+  "rp235x-hal/critical-section-impl",
+  "rp235x-hal/rt",
+  "rp235x-hal/defmt",
+  "embedded-hal",
+  "embedded-hal-nb",
+  "cortex-m-rt",
+  "embedded-alloc",
+  "fugit",
+  "cortex-m",
+  "defmt",
+  "defmt-rtt",
+  "slint/libm",
+  "embedded-dma",
+  "embedded-graphics",
+  "euclid/libm",
+]
 pico2-touch-lcd-2-8 = [
   "slint/unsafe-single-threaded",
   "dep:embassy-executor",

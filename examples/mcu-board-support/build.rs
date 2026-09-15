@@ -12,6 +12,8 @@ fn main() -> std::io::Result<()> {
             board_config_path = Some([env!("CARGO_MANIFEST_DIR"), "pico_st7789", "board_config.toml"].iter().collect());
         } else if #[cfg(feature = "pico2-st7789")] {
             board_config_path = Some([env!("CARGO_MANIFEST_DIR"), "pico2_st7789", "board_config.toml"].iter().collect());
+        } else if #[cfg(feature = "pico2-restouch-lcd-3-5")] {
+            board_config_path = Some([env!("CARGO_MANIFEST_DIR"), "pico2_restouch_lcd_3_5", "board_config.toml"].iter().collect());
         } else if #[cfg(feature = "pico2-touch-lcd-2-8")] {
             board_config_path = Some([env!("CARGO_MANIFEST_DIR"), "pico2_touch_lcd_2_8", "board_config.toml"].iter().collect());
             memory_x_source = Some([env!("CARGO_MANIFEST_DIR"), "pico2_touch_lcd_2_8", "memory.x"].iter().collect());
