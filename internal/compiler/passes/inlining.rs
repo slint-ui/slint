@@ -592,6 +592,7 @@ fn duplicate_element_with_mapping(
         is_injected_wrapper_element: elem.is_injected_wrapper_element,
         property_declarations: elem.property_declarations.clone(),
         shadowing_members: elem.shadowing_members.clone(),
+        implement_statements: Default::default(),
         // We will do the fixup of the references in bindings later
         bindings: elem
             .bindings_including_synthetic()

@@ -49,6 +49,7 @@ pub fn ensure_window(
         enclosing_component: win_elem_mut.enclosing_component.clone(),
         property_declarations: Default::default(),
         shadowing_members: Default::default(),
+        implement_statements: Default::default(),
         named_references: Default::default(),
         repeated: Default::default(),
         states: Default::default(),
