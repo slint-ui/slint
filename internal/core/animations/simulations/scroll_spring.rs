@@ -60,7 +60,7 @@ impl SpringSimulation {
         *current += new_traveled - self.traveled;
         self.traveled = new_traveled;
 
-        
+
 
         new_pos.abs() < ZERO_TOLERANCE && new_vel.abs() < ZERO_TOLERANCE
     }
@@ -79,9 +79,5 @@ impl PositionSimulation for SpringSimulation {
 
     fn remaining_velocity(&self, time_elapsed: core::time::Duration) -> f32 {
         self.data.current_velocity(time_elapsed.as_secs_f32())
-    }
-
-    fn overshoot_allowed(&self) -> bool {
-        false
     }
 }

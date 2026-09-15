@@ -207,7 +207,7 @@ impl IOsFlick {
     /// Position, velocity, and whether the simulation has settled, at
     /// elapsed time `t` since `start_time`.
     fn evaluate(&self, t: f32) -> (f32, f32, bool) {
-        
+
         if t < self.spring_time {
             let (position, velocity) = self.friction_at(t);
             (position, velocity, f32::abs(velocity) < VELOCITY_TOLERANCE)
@@ -250,10 +250,6 @@ impl PositionSimulation for IOsFlick {
     fn remaining_velocity(&self, time_elapsed: Duration) -> f32 {
         let (_position, velocity, _done) = self.evaluate(time_elapsed.as_secs_f32());
         velocity
-    }
-
-    fn overshoot_allowed(&self) -> bool {
-        true
     }
 }
 

@@ -29,7 +29,6 @@ enum Direction {
 pub trait PositionSimulation {
     fn remaining_distance(&self, time_elapsed: core::time::Duration) -> f32;
     fn remaining_velocity(&self, time_elapsed: core::time::Duration) -> f32;
-    fn overshoot_allowed(&self) -> bool;
 }
 
 /// Common simulation trait

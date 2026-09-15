@@ -70,13 +70,6 @@ impl PositionSimulation for FlickAnimation {
             FlickAnimation::Ios(s) => s.remaining_velocity(time_elapsed),
         }
     }
-
-    fn overshoot_allowed(&self) -> bool {
-        match self {
-            FlickAnimation::Android(s) => s.overshoot_allowed(),
-            FlickAnimation::Ios(s) => s.overshoot_allowed(),
-        }
-    }
 }
 
 /// `BouncingScrollPhysics.frictionFactor`: the further past the edge

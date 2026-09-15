@@ -301,8 +301,6 @@ use core::cell::{Cell, RefCell, UnsafeCell};
 use core::ffi::c_void;
 use core::marker::PhantomPinned;
 use core::pin::Pin;
-#[cfg(slint_debug_property)]
-use std::println;
 
 /// if a DependencyListHead points to that value, it is because the property is actually
 /// constant and cannot have dependencies

@@ -216,10 +216,6 @@ impl PositionSimulation for ConstantDeceleration {
             Direction::Decreasing => self.velocity.min(0.),
         }
     }
-
-    fn overshoot_allowed(&self) -> bool {
-        false
-    }
 }
 
 #[cfg(test)]
