@@ -142,12 +142,12 @@ depends = ["prepare:pnpm-install"]
 ["lint:ts:typecheck"]
 description = "Run pnpm format:fix"
 run = "pnpm type-check:ci"
-depends = ["prepare:pnpm-install"]
+depends = ["build:interpreter:wasm"]
 
 ["lint:ts:knip"]
 description = "Run knip"
 run = "pnpm knip"
-depends = ["prepare:pnpm-install"]
+depends = ["build:interpreter:wasm"]
 
 ### Build
 
