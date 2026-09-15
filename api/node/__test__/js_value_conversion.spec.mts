@@ -12,6 +12,7 @@ import {
     StyledText,
     type ImageData,
     ArrayModel,
+    MapModel,
     type Model,
 } from "../dist/index.js";
 
@@ -704,7 +705,7 @@ test("MapModel", () => {
         { first: "Roman", last: "Tisch" },
     ]);
 
-    const mapModel = new private_api.MapModel(nameModel, (data) => {
+    const mapModel = new MapModel(nameModel, (data) => {
         return data.last + ", " + data.first;
     });
 
@@ -723,13 +724,10 @@ test("MapModel undefined rowData sourcemodel", () => {
     const nameModel: ArrayModel<number> = new ArrayModel([1, 2, 3]);
 
     let mapFunctionCallCount = 0;
-    const mapModel = new private_api.MapModel<number, string>(
-        nameModel,
-        (data) => {
-            mapFunctionCallCount++;
-            return data.toString();
-        },
-    );
+    const mapModel = new MapModel<number, string>(nameModel, (data) => {
+        mapFunctionCallCount++;
+        return data.toString();
+    });
 
     for (let i = 0; i < mapModel.rowCount(); ++i) {
         mapModel.rowData(i);
