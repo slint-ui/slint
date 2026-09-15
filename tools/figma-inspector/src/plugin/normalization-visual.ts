@@ -44,8 +44,7 @@ export async function exportVisual(
     encode: (bytes: Uint8Array) => string = bytesToBase64,
 ): Promise<VisualExport> {
     const bounds = node.sourceRasterBounds;
-    const pngExporter =
-        node.sourceSvgBounds && !bounds ? undefined : exportPngNode;
+    const pngExporter = exportPngNode;
     const pngRequested = pngExporter !== undefined;
     const [svgResult, pngResult] = await Promise.allSettled([
         Promise.resolve().then(() => exportSvgNode(node)),
@@ -405,17 +404,13 @@ export async function normalizeVisual(
                     "exportAsync",
                 ),
             };
-        const paintBounds =
-            policy === "vector" ? node.sourceSvgBounds : undefined;
         const svg =
             typeof exported.svg === "string"
-                ? paintBounds
-                    ? exported.svg.trim()
-                    : normalizeSvgToNodeBounds(
-                          exported.svg,
-                          base.width,
-                          base.height,
-                      )
+                ? normalizeSvgToNodeBounds(
+                      exported.svg,
+                      base.width,
+                      base.height,
+                  )
                 : "";
         const validSvg =
             validSvgDocument(svg) &&
@@ -462,7 +457,6 @@ export async function normalizeVisual(
             node: {
                 ...base,
                 kind: "svg",
-                ...(paintBounds && validSvg ? { paintBounds } : {}),
                 sourceType: policy === "text" ? "TEXT" : node.type,
                 ...(validSvg ? { svg } : {}),
                 ...(exported.raster === undefined

@@ -7,7 +7,6 @@ import { readFile } from "node:fs/promises";
 import { normalizeSource } from "../src/plugin/normalize";
 import type { SourceCapture } from "../src/plugin/source";
 import { convertSnapshot } from "../src/preview/converter";
-import { validateSnapshot } from "../src/plugin/snapshot";
 
 describe("image-crop-normalization", () => {
     test("authored crop removes the bitmap border instead of inverting the transform", async () => {
@@ -148,82 +147,6 @@ describe("image-tiling", () => {
         expect(normalized.warnings).toContainEqual(
             expect.objectContaining({ code: "IMAGE_TILE_SCALE_APPROXIMATED" }),
         );
-    });
-});
-
-describe("painted-bounds", () => {
-    test("painted SVG bounds preserve the icon layout box and expand a directly selected vector", async () => {
-        {
-            const source = JSON.parse(
-                await readFile("fixtures/source/painted-bounds.json", "utf8"),
-            );
-            const result = await normalizeSource(source);
-            expect(result.ok).toBe(true);
-            if (
-                !result.ok ||
-                result.empty ||
-                !("children" in result.snapshot.root)
-            )
-                throw Error("Missing snapshot");
-            const vector = result.snapshot.root.children[0];
-            expect(vector.width).toBe(source.root.children[0].properties.width);
-            expect(vector.x).toBe(source.root.children[0].properties.x);
-            if (vector.kind !== "svg") throw Error("Missing SVG");
-            expect(vector.paintBounds).toEqual(
-                source.root.children[0].exports.svgBounds,
-            );
-            expect(vector.svg).toContain('stroke-linecap="round"');
-            expect(vector.svg).toContain('stroke-linejoin="round"');
-            expect(vector.raster).toBeUndefined();
-            expect(
-                result.warnings.some(
-                    (warning) => warning.code === "PNG_EXPORT_FAILED",
-                ),
-            ).toBe(false);
-            const selected = convertSnapshot({
-                ...result.snapshot,
-                root: vector,
-            });
-            expect(selected.ok).toBe(true);
-            if (!selected.ok) throw Error("Conversion failed");
-            expect(selected.width).toBe(vector.paintBounds?.width);
-            expect(selected.height).toBe(vector.paintBounds?.height);
-            const invalid = {
-                ...result.snapshot,
-                root: {
-                    ...vector,
-                    paintBounds: { x: 0, y: 0, width: -1, height: 10 },
-                },
-            };
-            expect(validateSnapshot(invalid).ok).toBe(false);
-        }
-    });
-
-    test("painted PNG fallback retains its offset when SVG is unavailable", async () => {
-        const source = JSON.parse(
-            await readFile("fixtures/source/painted-bounds.json", "utf8"),
-        );
-        source.root.children[0].exports = {
-            svg: { error: "SVG export unavailable" },
-            png: {
-                value: Array.from(
-                    await readFile("fixtures/authored/odd-size.png"),
-                ),
-            },
-            rasterBounds: { x: -1, y: -1, width: 18.5, height: 18.5 },
-        };
-        const result = await normalizeSource(source);
-        if (!result.ok || result.empty || !("children" in result.snapshot.root))
-            throw Error("Missing snapshot");
-        const vector = result.snapshot.root.children[0];
-        if (vector.kind !== "svg") throw Error("Missing image");
-        expect(vector.raster?.bounds).toEqual(
-            source.root.children[0].exports.rasterBounds,
-        );
-        const converted = convertSnapshot(result.snapshot);
-        if (!converted.ok) throw Error("Conversion failed");
-        expect(converted.source).toContain("width: 18.5px;");
-        expect(converted.source).toContain("x: -1px;");
     });
 });
 

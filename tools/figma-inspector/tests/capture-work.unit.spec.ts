@@ -142,7 +142,6 @@ describe("capture-cache", () => {
                 undefined,
                 undefined,
                 4,
-                true,
                 cache,
             );
         const first = await capture();
@@ -336,7 +335,6 @@ test("vector reuse requires complete geometry and unchanged paint context", asyn
             undefined,
             undefined,
             4,
-            true,
             cache,
         );
     await capture();

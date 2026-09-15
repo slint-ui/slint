@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { pngDimensions as readPngDimensions } from "../images";
+
 import {
     type VariableLibrary,
     validateVariableLibrary,
@@ -216,7 +218,6 @@ type SnapshotSvgNode = SnapshotGeometry &
         readonly svg?: string;
         /** Figma's raster export, retained with its density and bounds. */
         readonly raster?: SnapshotRaster;
-        readonly paintBounds?: VisualBounds;
     };
 
 export type SnapshotTextRun = {
@@ -401,26 +402,7 @@ function pngDimensions(
     value: string,
 ): { readonly width: number; readonly height: number } | undefined {
     const bytes = decodeBase64(value);
-    if (
-        bytes === undefined ||
-        bytes.length < 33 ||
-        ![137, 80, 78, 71, 13, 10, 26, 10].every(
-            (byte, index) => bytes[index] === byte,
-        ) ||
-        bytes[8] !== 0 ||
-        bytes[9] !== 0 ||
-        bytes[10] !== 0 ||
-        bytes[11] !== 13 ||
-        bytes[12] !== 73 ||
-        bytes[13] !== 72 ||
-        bytes[14] !== 68 ||
-        bytes[15] !== 82
-    )
-        return undefined;
-    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    const width = view.getUint32(16);
-    const height = view.getUint32(20);
-    return width > 0 && height > 0 ? { width, height } : undefined;
+    return bytes === undefined ? undefined : readPngDimensions(bytes);
 }
 
 function validateRaster(value: unknown, path: string): Diagnostic[] {
@@ -1117,13 +1099,6 @@ function validateNode(value: unknown, path: string): Diagnostic[] {
                     ),
                 );
         }
-        if (
-            value.paintBounds !== undefined &&
-            !validVisualBounds(value.paintBounds)
-        )
-            errors.push(
-                diagnostic("Invalid SVG painted bounds", `${path}.paintBounds`),
-            );
         if (value.raster !== undefined)
             errors.push(...validateRaster(value.raster, `${path}.raster`));
         if (value.svg === undefined && value.raster === undefined)
@@ -1294,30 +1269,6 @@ export function validateSnapshot(value: unknown): SnapshotValidationResult {
     return errors.length === 0
         ? { ok: true, snapshot: value as FigmaSnapshot }
         : { ok: false, diagnostics: errors };
-}
-
-export function parseSnapshot(json: string): SnapshotValidationResult {
-    try {
-        return validateSnapshot(JSON.parse(json) as unknown);
-    } catch (error) {
-        return {
-            ok: false,
-            diagnostics: [
-                diagnostic(
-                    `Snapshot JSON could not be parsed: ${error instanceof Error ? error.message : String(error)}`,
-                ),
-            ],
-        };
-    }
-}
-
-export function serializeSnapshot(snapshot: FigmaSnapshot): string {
-    const validation = validateSnapshot(snapshot);
-    if (!validation.ok)
-        throw new Error(
-            validation.diagnostics.map((item) => item.message).join("; "),
-        );
-    return JSON.stringify(snapshot);
 }
 
 // These messages embed node names or generated identifiers in the raw

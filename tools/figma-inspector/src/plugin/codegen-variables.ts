@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import type { SourceNode } from "./source";
+import type { SourceNode, SourceBytes } from "./source";
 
 /** Serialized variable metadata needed by native code snippets. */
 export type CodegenVariable = {
@@ -13,7 +13,7 @@ export type CodegenVariable = {
 };
 
 export function codegenAliases(
-    root: SourceNode,
+    root: SourceNode<SourceBytes>,
 ): { field: string; id: string }[] {
     const result: { field: string; id: string }[] = [];
     function alias(field: string, value: unknown) {

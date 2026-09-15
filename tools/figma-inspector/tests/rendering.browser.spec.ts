@@ -36,7 +36,6 @@ test("authored layouts, images and component families compile through the built 
         "empty-flex-spacers",
         "group-positioning",
         "image-crop",
-        "painted-bounds",
     ]) {
         const normalized = await normalizeSource(
             JSON.parse(await readFixture(`fixtures/source/${name}.json`)),

@@ -77,7 +77,6 @@ and consumer here when adding one.
 | `native-overlap.json` | `source.unit.spec.ts` |
 | `negative-gap.json` | `layout-normalization.unit.spec.ts`, `capture.unit.spec.ts` |
 | `nested-container.json` | `recovery.unit.spec.ts` |
-| `painted-bounds.json` | `image-normalization.unit.spec.ts` |
 | `png-first.json` | `source.unit.spec.ts`, `asset-transport.unit.spec.ts` |
 | `rectangular-mask.json` | `image-normalization.unit.spec.ts`, `source.unit.spec.ts` |
 | `reverse-paint-order.json` | `layout-normalization.unit.spec.ts` |

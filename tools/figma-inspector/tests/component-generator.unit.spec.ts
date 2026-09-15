@@ -10,6 +10,7 @@ import {
     decodeValue,
     SOURCE_MIXED,
     type SourceCapture,
+    type SourceBytes,
     type SourceNode,
 } from "../src/plugin/source";
 import { convertSnapshot } from "../src/preview/converter";
@@ -20,7 +21,7 @@ describe("generator", () => {
             await readFile("fixtures/source/component-variants.json", "utf8"),
         ) as SourceCapture;
     }
-    async function convert(source: SourceCapture) {
+    async function convert(source: SourceCapture<SourceBytes>) {
         const normalized = await normalizeSource(source);
         if (!normalized.ok || normalized.empty)
             throw Error("Normalization failed");
