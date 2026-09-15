@@ -366,7 +366,11 @@ pub fn draw_text_input(
                 let selection_spans = if selection_range.is_empty() {
                     SelectionSpans::default()
                 } else {
-                    layout.selection_geometry(selection_range, &draw::visible_band(item_renderer))
+                    layout.selection_geometry(
+                        selection_range,
+                        &draw::visible_band(item_renderer),
+                        |x| item_renderer.snap_selection_x(x),
+                    )
                 };
                 // Inside the clip, like the glyphs it sits under: a line box taller than the item
                 // would otherwise paint the highlight over whatever follows the input.
