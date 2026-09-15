@@ -473,6 +473,7 @@ ospi
 othercomp
 ovmf
 PAKE
+pannable
 Pantone
 partytown
 PATCHLEVEL
@@ -681,6 +682,7 @@ typedoc
 typeregister
 Tzimabazafi
 uart
+ubruhin
 udisksctl
 udivdi
 uintptr
