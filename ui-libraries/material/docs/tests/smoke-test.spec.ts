@@ -3,7 +3,9 @@
 import { test, expect } from "@playwright/test";
 
 test("smoke test", async ({ page }) => {
-    await page.goto("/getting-started/");
+    await page.goto("/");
+    await page.getByRole("link", { name: "Get Started" }).click();
+    await expect(page).toHaveURL(/getting-started\/$/);
     await expect(page.locator('[id="_top"]')).toContainText("Getting Started");
     await expect(page.getByRole("main")).toContainText(
         "Material 3 Design System",
