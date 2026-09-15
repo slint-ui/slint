@@ -13,6 +13,9 @@ const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const { version } = JSON.parse(
     await readFile(resolve(projectRoot, "package.json"), "utf8"),
 );
+const runtimePin = JSON.parse(
+    await readFile(resolve(projectRoot, "runtime-pin.json"), "utf8"),
+);
 const packageDir = `Figma to Slint_${version}`;
 const archivePath = resolve(projectRoot, "zip", "figma-plugin.zip");
 const expectedFiles = [
@@ -97,6 +100,7 @@ assert.equal(provenance.channel, "nightly");
 assert.equal(provenance.repository, "https://github.com/slint-ui/slint.git");
 assert.equal(provenance.manifest, "api/wasm-interpreter/Cargo.toml");
 assert.match(provenance.revision, /^[a-f0-9]{40}$/);
+assert.equal(provenance.revision, runtimePin.revision);
 assert.equal(provenance.version, version);
 assert.equal(manifest.id, "1474418299182276871");
 assert.deepEqual(manifest.networkAccess.allowedDomains, ["none"]);
