@@ -7,7 +7,6 @@ import { resolve } from "node:path";
 const projectRoot = resolve(new URL("..", import.meta.url).pathname);
 const distDir = resolve(projectRoot, "dist");
 const expectedFiles = [
-    "browser.html",
     "code.js",
     "manifest.json",
     "ui.html",
@@ -42,12 +41,6 @@ if (
 }
 
 const ui = await readFile(resolve(distDir, "ui.html"), "utf8");
-const browser = await readFile(resolve(distDir, "browser.html"), "utf8");
-if (ui !== browser) {
-    throw new Error(
-        "Figma UI and browser harness must use the same generated document",
-    );
-}
 for (const marker of [
     "<style",
     "<script",

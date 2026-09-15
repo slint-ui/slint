@@ -15,8 +15,7 @@
             "!**/zip",
             "!**/.vitest-attachments",
             "!**/.vitest",
-            "!**/dist-dev",
-            "!**/.package-test"
+            "!**/dist-dev"
         ],
         "ignoreUnknown": true
     },
