@@ -20,9 +20,59 @@ import { InspectorPane } from "components/inspector-pane.slint";
 import { LeftPane } from "components/left-pane.slint";
 import { EditorMetrics } from "components/common.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
+import { StandardButton } from "std-widgets.slint";
 
 export { Api, Hover, Preview, Project, FillSession }
 export { EditorCursors, EditorMetrics } from "components/common.slint";
+
+component NewFileErrorPopup inherits PopupWindow {
+    in property <string> error;
+    callback dismissed();
+
+    width: 400px;
+    height: 190px;
+    close-policy: no-auto-close;
+
+    Dialog {
+        width: 100%;
+        height: 100%;
+        background: StudioTheme.panel-bg;
+
+        VerticalLayout {
+            padding: 20px;
+            spacing: 10px;
+
+            Text {
+                text: @tr("Couldn’t create file");
+                color: StudioTheme.text;
+                font-size: 16px;
+                font-weight: 700;
+            }
+
+            Text {
+                text: @tr("A new Slint file couldn’t be created in the project root.");
+                color: StudioTheme.muted;
+                font-size: 13px;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: root.error;
+                color: StudioTheme.dark ? #f1b8b4 : #7a2925;
+                font-size: 12px;
+                wrap: word-wrap;
+            }
+        }
+
+        StandardButton {
+            kind: close;
+            clicked => {
+                root.close();
+                root.dismissed();
+            }
+        }
+    }
+}
 
 export component EditorUi inherits Window {
     preferred-width: 1360px;
@@ -48,6 +98,14 @@ export component EditorUi inherits Window {
     callback outline-pane-resized(length);
     callback elements-pane-reset();
     callback outline-pane-reset();
+    private property <string> new-file-error;
+
+    function create-new-slint-file() {
+        root.new-file-error = Project.create-new-slint-file();
+        if root.new-file-error != "" {
+            new-file-error-popup.show();
+        }
+    }
 
     function open-startup-wizard() {
         Api.open-startup-wizard();
@@ -70,7 +128,7 @@ export component EditorUi inherits Window {
             MenuItem {
                 title: @tr("New Slint File");
                 enabled: Project.file-tree.length > 0;
-                activated => { Project.create-new-slint-file(); }
+                activated => { root.create-new-slint-file(); }
             }
         }
         Menu {
@@ -175,6 +233,7 @@ export component EditorUi inherits Window {
                             elements-pane-reset => {
                                 root.elements-pane-reset();
                             }
+                            create-new-slint-file => { root.create-new-slint-file(); }
                         }
 
                         if Api.editor-surface-mode == EditorSurfaceMode.component: EditorCanvas {
@@ -259,6 +318,13 @@ export component EditorUi inherits Window {
         }
 
         if UpdateStatus.shows-bar(): UpdateStatusBar { }
+    }
+
+    new-file-error-popup := NewFileErrorPopup {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        error: root.new-file-error;
+        dismissed => { root.new-file-error = ""; }
     }
 
     fill-layer := TouchArea {
