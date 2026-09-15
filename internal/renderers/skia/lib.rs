@@ -610,6 +610,15 @@ impl SkiaRenderer {
         Ok(())
     }
 
+    /// Adjusts the surface for a window that became transparent or opaque after it was created,
+    /// so that the scene's alpha is kept or discarded to match.
+    pub fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
+        match self.surface.borrow().as_ref() {
+            Some(surface) => surface.set_transparent(transparent),
+            None => Ok(()),
+        }
+    }
+
     /// Render the scene in the previously associated window.
     pub fn render(&self) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         let window_adapter = self.window_adapter()?;

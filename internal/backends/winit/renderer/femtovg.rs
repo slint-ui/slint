@@ -208,6 +208,11 @@ impl WGPUFemtoVGRenderer {
 
 #[cfg(feature = "renderer-femtovg-wgpu")]
 impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
+    fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
+        self.renderer.set_transparent(transparent);
+        Ok(())
+    }
+
     fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
         // Use the Ext entry point so we get the `DrawOutcome` back without changing
         // `FemtoVGRenderer::render`'s public `Result<(), _>` signature.

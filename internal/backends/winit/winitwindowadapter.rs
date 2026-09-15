@@ -1881,13 +1881,16 @@ impl WindowAdapter for WinitWindowAdapter {
             !window_item.no_frame() || winit_window_or_none.fullscreen().is_some(),
         );
 
-        // Follow a background brush that changes while the window is up. Only the window
-        // itself: the renderer's surface picks its alpha mode when it is created.
+        // Follow a background brush that changes while the window is up. The renderer has to
+        // come along: its surface keeps or discards the scene's alpha to match the window.
         #[cfg(target_os = "macos")]
         if let WinitWindowOrNone::HasWindow { window, .. } = &*winit_window_or_none {
             let transparent = Self::wants_transparent(window_item);
             if self.transparent.replace(transparent) != transparent {
                 window.set_transparent(transparent);
+                if let Err(err) = self.renderer.set_transparent(transparent) {
+                    i_slint_core::debug_log!("Error adjusting the surface transparency: {err}");
+                }
             }
         }
 
