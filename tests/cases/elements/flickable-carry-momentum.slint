@@ -206,12 +206,16 @@ slint_testing::mock_elapsed_time(1);
 let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
 assert!((velocity - (130. - 5.) / 10e-3).abs() < 100., "Received: {velocity}");
 
-// Flick again while the other is ongoing
-send_wheel_scroll(&instance, 5., 5., 0., -(130. - 5.)); // Scrolling down.
+for i in 0..3 {
+    // Flick again while the other is ongoing
+    send_wheel_scroll(&instance, 5., 5., 0., -(130. - 5.)); // Scrolling down.
 
-let content_y = instance.get_fli_content_y();
-slint_testing::mock_elapsed_time(1);
-let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
-assert!(velocity.abs() > (2_f32 * (130. - 5.) / 10e-3).abs(), "Received: {velocity}. There is a large velocity increase because the previous velocity is added to the newly estimated one");
+    let content_y = instance.get_fli_content_y();
+    slint_testing::mock_elapsed_time(1);
+    let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
+    assert!(velocity.abs() > (2_f32 * (130. - 5.) / 10e-3).abs(), "Received: {velocity}. There is a large velocity increase because the previous velocity is added to the newly estimated one");
+}
+
+
 ```
 */

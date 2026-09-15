@@ -190,6 +190,17 @@ impl FlickAnimation {
             // On Android this momentum carry on does not exist
             return current_velocity.signum()
                 * f32::min(0.000816 * f32::powf(current_velocity.abs(), 1.967), 40000.0);
+        } else {
+            if !same_direction {
+                println!("Carried momentum. same direction: FALSE");
+            }
+            if !is_velocity_not_substantially_less_than_carried_momentum {
+                println!(
+                    "Carried momentum. Velocities different: {:?} vs. {:?}",
+                    new_estimated_velocity.abs(),
+                    current_velocity.abs()
+                );
+            }
         }
         0.
     }
