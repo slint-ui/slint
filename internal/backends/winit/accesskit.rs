@@ -404,13 +404,13 @@ impl NodeCollection {
                         self.focused_node_tracker
                             .as_ref()
                             .evaluate(|| {
-                                parent.accessible_string_property(
-                                    AccessibleStringProperty::DelegateFocus,
+                                i_slint_core::accessibility::accessible_focus_delegate_position(
+                                    &parent,
                                 )
                             })
-                            .and_then(|s| s.parse::<usize>().ok())
-                            .and_then(|i| {
-                                i_slint_core::accessibility::accessible_descendents(&parent).nth(i)
+                            .and_then(|position| {
+                                i_slint_core::accessibility::accessible_descendents(&parent)
+                                    .nth(position)
                             })
                             .unwrap_or(parent)
                     })

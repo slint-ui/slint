@@ -900,3 +900,85 @@ fn text_runs_belong_to_the_nearest_accessible_item() {
         assert_eq!(find_exposed_text_input(&input).is_some(), !wrapper_exposes, "{label}");
     }
 }
+
+#[test]
+fn accessible_delegate_focus_uses_virtualized_item_index() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, ComponentHandle, Value};
+    use i_slint_core::accessibility::{
+        AccessibleStringProperty, accessible_descendents, accessible_focus_delegate_position,
+    };
+    use i_slint_core::items::ItemRc;
+    use i_slint_core::window::WindowInner;
+
+    let code = r#"
+        import { ListView } from "std-widgets.slint";
+
+        export component App inherits Window {
+            width: 200px;
+            height: 100px;
+            in-out property <int> focus-index: 52;
+
+            list := ListView {
+                accessible-label: "virtualized list";
+                accessible-delegate-focus: root.focus-index;
+                content-y: -1040px;
+
+                for _[index] in 100: Rectangle {
+                    height: 20px;
+                    accessible-role: list-item;
+                    accessible-label: "item " + index;
+                    accessible-item-index: index;
+                }
+            }
+
+            legacy := Rectangle {
+                accessible-role: AccessibleRole.list;
+                accessible-label: "positional list";
+                accessible-delegate-focus: 1;
+
+                Rectangle { accessible-role: list-item; }
+                Rectangle { accessible-role: list-item; }
+            }
+        }
+    "#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let instance = result.component("App").unwrap().create().unwrap();
+    instance.show().unwrap();
+
+    let window_adapter = WindowInner::from_pub(instance.window()).window_adapter();
+    i_slint_backend_testing::testing_backend::send_mouse_click(1., 1., &window_adapter);
+
+    let root = ItemRc::new_root(WindowInner::from_pub(instance.window()).component());
+    let list = accessible_descendents(&root)
+        .find(|item| {
+            item.accessible_string_property(AccessibleStringProperty::Label)
+                .is_some_and(|label| label == "virtualized list")
+        })
+        .expect("accessible list");
+    let materialized_indices = accessible_descendents(&list)
+        .filter_map(|item| {
+            item.accessible_string_property(AccessibleStringProperty::ItemIndex)
+                .and_then(|index| index.parse::<usize>().ok())
+        })
+        .collect::<Vec<_>>();
+
+    assert!(materialized_indices.len() < 100);
+    assert!(!materialized_indices.contains(&0));
+    let delegate_position = accessible_focus_delegate_position(&list).expect("focus delegate");
+    assert_eq!(materialized_indices[delegate_position], 52);
+
+    instance.set_property("focus-index", Value::from(0)).unwrap();
+    assert_eq!(accessible_focus_delegate_position(&list), None);
+
+    let legacy = accessible_descendents(&root)
+        .find(|item| {
+            item.accessible_string_property(AccessibleStringProperty::Label)
+                .is_some_and(|label| label == "positional list")
+        })
+        .expect("positional list");
+    assert_eq!(accessible_focus_delegate_position(&legacy), Some(1));
+}
