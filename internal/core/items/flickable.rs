@@ -519,6 +519,8 @@ impl FlickableDataInner {
         allowed_x || allowed_y
     }
 
+    /// Calculate the position offset of this scroll move. If we would go beyond the limits and bouncing is enabled
+    /// a friction will be applied so the user cannot go far beyond the limits
     fn calculate_move_offset(
         &self,
         current_pos: LogicalPoint,
@@ -533,6 +535,37 @@ impl FlickableDataInner {
         let _delta_old = delta;
 
         FlickAnimation::apply_friction(current_pos, new_pos - current_pos, flick, flick_rc)
+    }
+
+    /// Execute a scroll move
+    fn scroll_move(
+        &mut self,
+        flick: Pin<&Flickable>,
+        flick_rc: &ItemRc,
+        position: LogicalPoint,
+        delta: LogicalVector,
+        content_x: &Pin<&Property<LogicalLength>>,
+        content_y: &Pin<&Property<LogicalLength>>,
+    ) -> bool {
+        let current_tick = crate::animations::current_tick();
+        let current_pos = LogicalPoint::from_lengths(content_x.get(), content_y.get());
+
+        self.maybe_lose_momentum(&current_tick);
+        self.velocity_rb.push(current_tick, delta);
+
+        // We calculate the new content position by adding the mouse delta in the flickable
+        // coordinate system to the current content position.
+        // Do not rely on the existing content position to be stable, as e.g. the
+        // ListView will continuously update it.
+        // So we cannot calculate the delta in content coordinates.
+        let new_pos = current_pos + self.calculate_move_offset(current_pos, delta, flick, flick_rc);
+        content_x.set(new_pos.x_length());
+        content_y.set(new_pos.y_length());
+
+        self.last_scroll_event = Some((crate::animations::current_tick(), position));
+
+        // Indicate if flicked
+        current_pos.x_length() != new_pos.x_length() || current_pos.y_length() != new_pos.y_length()
     }
 
     fn process_wheel_event(
@@ -557,7 +590,6 @@ impl FlickableDataInner {
 
         let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
         let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
-        let current_pos = LogicalPoint::from_lengths(content_x.get(), content_y.get());
 
         if self.capture_events.is_none()
             && matches!(phase, TouchPhase::Moved)
@@ -575,8 +607,6 @@ impl FlickableDataInner {
             }
         }
 
-        let new_pos = current_pos + self.calculate_move_offset(current_pos, delta, flick, flick_rc);
-
         if phase == TouchPhase::Started {
             self.capture_momentum();
         }
@@ -586,11 +616,11 @@ impl FlickableDataInner {
             self.running_animation = None;
         }
 
+        let mut flicked = false;
         match phase {
             TouchPhase::Cancelled => {
-                content_x.set(new_pos.x_length());
-                content_y.set(new_pos.y_length());
-                self.last_scroll_event = Some((crate::animations::current_tick(), position));
+                flicked =
+                    self.scroll_move(flick, flick_rc, position, delta, &content_x, &content_y);
             }
             TouchPhase::Started => {
                 self.velocity_rb = Default::default();
@@ -600,14 +630,8 @@ impl FlickableDataInner {
             TouchPhase::Moved => {
                 if self.capture_events.is_some_and(|capture| capture == CaptureEvents::MouseWheel) {
                     // Touchpad case with different phases
-
-                    let current_tick = crate::animations::current_tick();
-
-                    self.maybe_lose_momentum(&current_tick);
-
-                    self.velocity_rb.push(current_tick, new_pos - current_pos);
-                    content_x.set(new_pos.x_length());
-                    content_y.set(new_pos.y_length());
+                    flicked =
+                        self.scroll_move(flick, flick_rc, position, delta, &content_x, &content_y);
                 } else {
                     // Mousewheel case with no phase
                     // Add a short animation that covers the delta for smooth scrolling
@@ -669,8 +693,8 @@ impl FlickableDataInner {
                         y_simulation,
                         weak: flick_rc.downgrade(),
                     });
+                    self.last_scroll_event = Some((crate::animations::current_tick(), position));
                 }
-                self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Ended => {
                 if self.capture_events.is_some_and(|capture| capture == CaptureEvents::MouseWheel) {
@@ -685,8 +709,6 @@ impl FlickableDataInner {
             }
         }
 
-        let flicked = current_pos.x_length() != new_pos.x_length()
-            || current_pos.y_length() != new_pos.y_length();
         if flicked {
             (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
             InputEventResult::EventAccepted
@@ -1126,32 +1148,20 @@ impl FlickableData {
                     if is_capturing
                         || self.should_capture_mouse_direction(mouse_delta, flick, flick_rc)
                     {
-                        let current_tick = crate::animations::current_tick();
-                        inner.maybe_lose_momentum(&current_tick);
-                        inner.velocity_rb.push(current_tick, mouse_delta);
                         // The drag event is meant to move the content, set it to the new position
                         // and start capturing mouse events.
                         let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
                         let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
-                        let current_content_position =
-                            LogicalPoint::from_lengths(content_x.get(), content_y.get());
 
-                        // We calculate the new content position by adding the mouse delta in the flickable
-                        // coordinate system to the current content position.
-                        // Do not rely on the existing content position to be stable, as e.g. the
-                        // ListView will continuously update it.
-                        // So we cannot calculate the delta in content coordinates.
-                        let new_content_position = current_content_position
-                            + inner.calculate_move_offset(
-                                current_content_position,
-                                mouse_delta,
-                                flick,
-                                flick_rc,
-                            );
-
-                        content_x.set(new_content_position.x_length());
-                        content_y.set(new_content_position.y_length());
-                        if current_content_position != new_content_position {
+                        let flicked = inner.scroll_move(
+                            flick,
+                            flick_rc,
+                            *position,
+                            mouse_delta,
+                            &content_x,
+                            &content_y,
+                        );
+                        if flicked {
                             (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
                         }
 
