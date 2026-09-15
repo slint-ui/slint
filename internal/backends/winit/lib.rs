@@ -39,6 +39,7 @@ mod frame_throttle;
 mod ios;
 #[cfg(target_os = "macos")]
 mod macos;
+mod touch_finger_id;
 
 /// Re-export of the winit crate.
 pub use winit;
