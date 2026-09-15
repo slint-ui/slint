@@ -6,17 +6,13 @@
 //!
 //! Original: <https://github.com/flutter/flutter/blob/d6bed8ff6135cdd414f14edc3063f761d47ca846/packages/flutter/lib/src/widgets/scroll_physics.dart>
 
-/// Spring simulation to be used with the `set_physic_animation_value` function call
-use super::spring;
 use crate::animations::Instant;
 use crate::animations::simulations::spring::{
     SpringParameters, SpringPhysicalParameters, SpringRegime,
 };
-use crate::animations::simulations::{Direction, Parameter, PositionSimulation, Simulation};
-use core::time::Duration;
+use crate::animations::simulations::{PositionSimulation, Simulation};
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
-use std::println;
 
 const DEFAULT_MASS: f32 = 0.5;
 const DEFAULT_STIFFNESS: f32 = 100.;
@@ -64,9 +60,9 @@ impl SpringSimulation {
         *current += new_traveled - self.traveled;
         self.traveled = new_traveled;
 
-        let done = new_pos.abs() < ZERO_TOLERANCE && new_vel.abs() < ZERO_TOLERANCE;
+        
 
-        done
+        new_pos.abs() < ZERO_TOLERANCE && new_vel.abs() < ZERO_TOLERANCE
     }
 }
 

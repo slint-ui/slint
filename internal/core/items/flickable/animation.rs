@@ -8,7 +8,7 @@
 use alloc::boxed::Box;
 use core::pin::Pin;
 use core::time::Duration;
-use std::{print, println};
+use std::println;
 
 use crate::Property;
 use crate::animations::Instant;

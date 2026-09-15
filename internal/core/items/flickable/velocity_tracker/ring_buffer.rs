@@ -28,7 +28,7 @@ impl<const N: usize> core::fmt::Debug for VelocityRingBuffer<N> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "VelocityRingBuffer: ")?;
         if self.empty() {
-            write!(f, "Empty\n")
+            writeln!(f, "Empty")
         } else {
             write!(f, "[")?;
             for e in self.iter() {

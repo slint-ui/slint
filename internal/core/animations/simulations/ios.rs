@@ -19,7 +19,6 @@
 //! mass/spring/damper ODE Flutter's own `SpringSimulation` solves.
 
 use core::time::Duration;
-use std::println;
 
 use crate::animations::Instant;
 use crate::animations::simulations::spring::SpringRegime;
@@ -208,7 +207,8 @@ impl IOsFlick {
     /// Position, velocity, and whether the simulation has settled, at
     /// elapsed time `t` since `start_time`.
     fn evaluate(&self, t: f32) -> (f32, f32, bool) {
-        let res = if t < self.spring_time {
+        
+        if t < self.spring_time {
             let (position, velocity) = self.friction_at(t);
             (position, velocity, f32::abs(velocity) < VELOCITY_TOLERANCE)
         } else {
@@ -217,8 +217,7 @@ impl IOsFlick {
             let done = f32::abs(position - limit) < DISTANCE_TOLERANCE
                 && f32::abs(velocity) < VELOCITY_TOLERANCE;
             (position, velocity, done)
-        };
-        res
+        }
     }
 
     fn step_internal(&mut self, current: &mut f32, new_tick: Instant) -> bool {

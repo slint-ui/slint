@@ -138,15 +138,15 @@ impl Item for Flickable {
                 }
                 let flick = flick.as_pin_ref();
                 let use_bounce_x =
-                    FlickAnimation::use_bounce(effective_bounce(flick, &geo, Dimension::X));
+                    FlickAnimation::use_bounce(effective_bounce(flick, geo, Dimension::X));
                 let use_bounce_y =
-                    FlickAnimation::use_bounce(effective_bounce(flick, &geo, Dimension::Y));
+                    FlickAnimation::use_bounce(effective_bounce(flick, geo, Dimension::Y));
                 let vpx = flick.content_x();
                 let vpy = flick.content_y();
                 let p = ensure_in_bound(
                     flick,
                     LogicalPoint::from_lengths(vpx, vpy),
-                    &geo,
+                    geo,
                     use_bounce_x,
                     use_bounce_y,
                 );
@@ -530,10 +530,9 @@ impl FlickableDataInner {
         let use_bounce_x = FlickAnimation::use_bounce(effective_bounce(flick, &geo, Dimension::X));
         let use_bounce_y = FlickAnimation::use_bounce(effective_bounce(flick, &geo, Dimension::Y));
         let new_pos = ensure_in_bound(flick, current_pos + delta, &geo, use_bounce_x, use_bounce_y);
-        let delta_old = delta;
-        let delta =
-            FlickAnimation::apply_friction(current_pos, new_pos - current_pos, flick, flick_rc);
-        delta
+        let _delta_old = delta;
+        
+        FlickAnimation::apply_friction(current_pos, new_pos - current_pos, flick, flick_rc)
     }
 
     fn process_wheel_event(
@@ -746,7 +745,9 @@ impl FlickableDataInner {
                 })
         };
 
-        let limit = if flick_velocity < 0 as Coord {
+        
+
+        if flick_velocity < 0 as Coord {
             let property = Box::pin(Property::new(0.0));
             property.set_binding({
                 let calculate_limits = calculate_limits.clone();
@@ -762,9 +763,7 @@ impl FlickableDataInner {
             property
         } else {
             Box::pin(Property::new(0.0))
-        };
-
-        limit
+        }
     }
 
     fn animate(&mut self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {

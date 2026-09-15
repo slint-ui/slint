@@ -184,13 +184,13 @@ impl AndroidFlick {
         deceleration_rate: f32,
         data: &AndroidFlickParameters,
     ) -> f32 {
-        let distance = data.initial_velocity * fling_duration.as_secs_f32() / deceleration_rate;
-        distance
+        
+        data.initial_velocity * fling_duration.as_secs_f32() / deceleration_rate
     }
 
     fn clamped_time_diff(&self, duration: Duration) -> f32 {
-        let clamped = (duration.as_secs_f32() / self.duration.as_secs_f32()).clamp(0., 1.);
-        clamped
+        
+        (duration.as_secs_f32() / self.duration.as_secs_f32()).clamp(0., 1.)
     }
 }
 
