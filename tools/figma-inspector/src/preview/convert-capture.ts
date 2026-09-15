@@ -2,17 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 import { generateExport } from "../export/generate";
-import { CaptureAssetReceiver, unpackCaptureAssets } from "../asset-transport";
+import { unpackCaptureAssets } from "../asset-transport";
 import {
     defaultClock,
     TimingTraceBuilder,
     type TimingPhase,
 } from "../performance/timing";
 import type { PluginToUiMessage } from "../protocol";
-import {
-    createSourceNormalizer,
-    type SourceNormalizer,
-} from "../plugin/normalize";
+import { createSourceNormalizer } from "../plugin/normalize";
 import type { FigmaSnapshot } from "../plugin/snapshot";
 import type { SourceBytes, SourceCapture } from "../plugin/source";
 import { packPreviewAssets } from "../asset-transport";
@@ -28,57 +25,17 @@ export type ConvertedMessage = Extract<
 >;
 
 export type CaptureConversionState = {
-    source?: SourceCapture<SourceBytes>;
-    normalizer?: SourceNormalizer;
     snapshot?: FigmaSnapshot;
-    snapshotJson?: string;
 };
 
 export function captureSnapshotJson(state: CaptureConversionState): string {
     if (!state.snapshot) throw Error("Snapshot is unavailable");
-    state.snapshotJson ??= JSON.stringify(state.snapshot);
-    return state.snapshotJson;
-}
-
-function parseCapture(
-    request: CaptureMessage,
-    assetCache: CaptureAssetReceiver,
-    state: CaptureConversionState,
-): SourceCapture<SourceBytes> {
-    if (state.source) return state.source;
-    state.source = (
-        request.captureAssetVersion !== undefined
-            ? unpackCaptureAssets(
-                  request.captureJson,
-                  assetCache.resolve(request.captureAssets ?? []),
-                  "binary",
-              )
-            : JSON.parse(request.captureJson)
-    ) as SourceCapture<SourceBytes>;
-    return state.source;
-}
-
-export async function convertExport(
-    request: CaptureMessage,
-    assetCache = new CaptureAssetReceiver(),
-    state: CaptureConversionState = {},
-): Promise<import("../protocol").ExportPackage> {
-    const source = parseCapture(request, assetCache, state);
-    state.normalizer ??= createSourceNormalizer(source);
-    const native = await state.normalizer.normalize("export");
-    if (!native.ok || native.empty)
-        throw Error(
-            native.ok
-                ? "Export contains no nodes"
-                : native.diagnostics.map((d) => d.message).join("\n"),
-        );
-    return generateExport(native.snapshot, native.warnings);
+    return JSON.stringify(state.snapshot);
 }
 
 // Pure captured-data pipeline. This module cannot access Figma or the DOM.
 export async function convertCapture(
     request: CaptureMessage,
-    assetCache = new CaptureAssetReceiver(),
     state: CaptureConversionState = {},
 ): Promise<ConvertedMessage> {
     const original =
@@ -103,12 +60,21 @@ export async function convertCapture(
         }
     };
     try {
-        const source = measure("captureParse", () =>
-            parseCapture(request, assetCache, state),
+        const source = measure(
+            "captureParse",
+            () =>
+                (request.captureAssetVersion !== undefined
+                    ? unpackCaptureAssets(
+                          request.captureJson,
+                          request.captureAssets as readonly Uint8Array[],
+                      )
+                    : JSON.parse(
+                          request.captureJson,
+                      )) as SourceCapture<SourceBytes>,
         );
         const start = defaultClock.monotonicNow();
-        state.normalizer ??= createSourceNormalizer(source);
-        const normalized = await state.normalizer.normalize();
+        const normalizer = createSourceNormalizer(source);
+        const normalized = await normalizer.normalize();
         trace.phases.normalization = defaultClock.monotonicNow() - start;
         trace.captureMetrics = {
             ...normalized.captureMetrics,
@@ -126,17 +92,33 @@ export async function convertCapture(
             };
         if (normalized.empty) return { ...common, type: "preview-clear" };
         state.snapshot = normalized.snapshot;
-        const [converted, render] = measure("slintConversion", () => [
-            convertSnapshot(normalized.snapshot),
-            convertSnapshot(normalized.snapshot, { specialize: true }),
-        ]);
-        if (!converted.ok)
+        const nativeStarted = defaultClock.monotonicNow();
+        const native = await normalizer.normalize("export");
+        trace.phases.normalization +=
+            defaultClock.monotonicNow() - nativeStarted;
+        if (!native.ok || native.empty)
             return {
                 ...common,
                 type: "preview-diagnostics",
-                diagnostics: converted.diagnostics,
+                diagnostics: !native.ok
+                    ? native.diagnostics
+                    : [
+                          {
+                              severity: "error",
+                              code: "EMPTY_EXPORT",
+                              message: "Export contains no nodes",
+                          },
+                      ],
                 trace: { ...trace, outcome: "conversion-error" },
             };
+        const [render, exported] = measure(
+            "slintConversion",
+            () =>
+                [
+                    convertSnapshot(normalized.snapshot, { specialize: true }),
+                    generateExport(native.snapshot, native.warnings),
+                ] as const,
+        );
         if (!render.ok)
             return {
                 ...common,
@@ -145,14 +127,22 @@ export async function convertCapture(
                 trace: { ...trace, outcome: "conversion-error" },
             };
         const packed = measure("assetPacking", () =>
-            packPreviewAssets(converted.source, "", render.source),
+            packPreviewAssets(render.source),
         );
         return {
             ...common,
             type: "preview-source",
-            source: packed.assets.length ? packed : converted.source,
-            ...(packed.assets.length ? {} : { renderSource: render.source }),
-            warnings: [...normalized.warnings, ...converted.warnings],
+            source: packed.assets.length ? packed : render.source,
+            exportPackage: exported.exportPackage,
+            warnings: [
+                ...new Map(
+                    [
+                        ...normalized.warnings,
+                        ...render.warnings,
+                        ...exported.warnings,
+                    ].map((warning) => [JSON.stringify(warning), warning]),
+                ).values(),
+            ],
         };
     } catch (error) {
         return {

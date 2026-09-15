@@ -2,18 +2,18 @@
 // SPDX-License-Identifier: MIT
 
 import { expect, test } from "vitest";
-import {
-    FIRST_BUTTON_SOURCE,
-    SECOND_BUTTON_SOURCE,
-} from "../src/preview/sources";
-import { mountPreview, canvasPixels } from "./browser-harness";
+import { mountPreview, canvasPixels, readFixture } from "./browser-harness";
+
+const firstSource = await readFixture("fixtures/button.slint");
+const secondSource = await readFixture("fixtures/frame.slint");
 
 test("built production preview clears busy, failed and empty selections and rejects stale output", async () => {
     const p = await mountPreview();
     p.send({
         type: "preview-source",
         revision: 1,
-        source: FIRST_BUTTON_SOURCE,
+        source: firstSource,
+        exportPackage: { source: firstSource, files: [] },
     });
     await p.ready(1);
     expect(p.doc.querySelector("#timing-panel")).toBeNull();
@@ -50,17 +50,19 @@ test("built production preview clears busy, failed and empty selections and reje
     p.send({
         type: "preview-source",
         revision: 1,
-        source: FIRST_BUTTON_SOURCE,
+        source: firstSource,
+        exportPackage: { source: firstSource, files: [] },
     });
     p.send({
         type: "preview-source",
         revision: 3,
-        source: SECOND_BUTTON_SOURCE,
+        source: secondSource,
+        exportPackage: { source: secondSource, files: [] },
     });
     await p.ready(3);
     await expect
         .poll(() => p.element("#source-view").textContent)
-        .toBe(SECOND_BUTTON_SOURCE);
+        .toBe(secondSource);
     p.send({ type: "preview-clear", revision: 4 });
     await expect
         .poll(() =>
@@ -88,13 +90,22 @@ test("rapid revisions settle on the newest source and recover after compiler err
         p.send({
             type: "preview-source",
             revision,
-            source: `// ${revision}\n${FIRST_BUTTON_SOURCE}`,
+            source: `// ${revision}\n${firstSource}`,
+            exportPackage: {
+                source: `// ${revision}\n${firstSource}`,
+                files: [],
+            },
         });
     await p.ready(12);
     await expect
         .poll(() => p.element("#source-view").textContent)
         .toContain("// 12");
-    p.send({ type: "preview-source", revision: 13, source: "not valid Slint" });
+    p.send({
+        type: "preview-source",
+        revision: 13,
+        source: "not valid Slint",
+        exportPackage: { source: "not valid Slint", files: [] },
+    });
     await expect
         .poll(() => p.element("#diagnostics-tab").getAttribute("aria-selected"))
         .toBe("true");
@@ -108,7 +119,8 @@ test("rapid revisions settle on the newest source and recover after compiler err
     p.send({
         type: "preview-source",
         revision: 14,
-        source: FIRST_BUTTON_SOURCE,
+        source: firstSource,
+        exportPackage: { source: firstSource, files: [] },
     });
     await p.ready(14);
     p.element("#preview-tab").click();

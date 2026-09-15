@@ -125,6 +125,7 @@ test("validates display density changes as a timing trigger", () => {
             type: "preview-source",
             revision: trace.revision,
             source: "",
+            exportPackage: { source: "", files: [] },
             trace,
         }),
     ).toBe(true);

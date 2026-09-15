@@ -31,20 +31,8 @@ class WorkerStub implements ConversionWorker {
                 type: "preview-source",
                 revision,
                 source: "export component Preview inherits Window {}",
+                exportPackage: pkg,
             },
-        });
-    }
-    complete(
-        revision: number,
-        result: { exportPackage: ExportPackage } | { exportError: string },
-    ) {
-        const message = this.messages.at(-1) as { requestId: number };
-        this.reply({
-            kind: "export-result",
-            revision,
-            requestId: message.requestId,
-            workerMs: 4,
-            ...result,
         });
     }
 }
@@ -75,34 +63,6 @@ function setup() {
     };
 }
 
-test("preview alone never requests native export; demand coalesces and caches", async () => {
-    const s = setup();
-    s.submit(1);
-    s.workers[0].ready(1);
-    s.client.present(1);
-    expect(s.workers[0].messages).toHaveLength(1);
-    const one = s.client.export(1),
-        two = s.client.export(1);
-    expect(one).toBe(two);
-    expect(s.workers[0].messages).toHaveLength(2);
-    s.workers[0].complete(1, { exportPackage: pkg });
-    expect(await one).toEqual(pkg);
-    expect(await s.client.export(1)).toEqual(pkg);
-    expect(s.workers[0].messages).toHaveLength(2);
-});
-test("native failure rejects all coalesced callers and retries", async () => {
-    const s = setup();
-    s.submit(1);
-    s.workers[0].ready(1);
-    s.client.present(1);
-    const pending = s.client.export(1);
-    const rejection = expect(pending).rejects.toThrow("native failed");
-    s.workers[0].complete(1, { exportError: "native failed" });
-    await rejection;
-    const retry = s.client.export(1);
-    s.workers[0].complete(1, { exportPackage: pkg });
-    expect(await retry).toEqual(pkg);
-});
 test("obsolete candidate is terminated and its late reply cannot replace newer work", () => {
     const s = setup();
     s.submit(1);
@@ -112,89 +72,6 @@ test("obsolete candidate is terminated and its late reply cannot replace newer w
     expect(s.preview).not.toHaveBeenCalled();
     s.workers[1].ready(2);
     expect(s.preview).toHaveBeenCalledOnce();
-});
-test("multiple failed new revisions retain the previously ungenerated export", async () => {
-    const s = setup();
-    s.submit(1);
-    s.workers[0].ready(1);
-    s.client.present(1);
-    for (const rev of [2, 3, 4]) {
-        s.submit(rev);
-        s.workers.at(-1)?.ready(rev);
-        s.client.fail(rev);
-    }
-    expect(s.client.has(1)).toBe(true);
-    expect(s.workers[0].terminated).toBe(false);
-    const pending = s.client.export(1);
-    s.workers[0].complete(1, { exportPackage: pkg });
-    expect(await pending).toEqual(pkg);
-});
-test("new capture interrupts old export; retained input can recover without presenting again", async () => {
-    const s = setup();
-    s.submit(1);
-    s.workers[0].ready(1);
-    s.client.present(1);
-    const old = s.client.export(1);
-    const rejected = expect(old).rejects.toThrow("Selection changed");
-    s.submit(2);
-    await rejected;
-    expect(s.workers[0].terminated).toBe(true);
-    s.client.fail(2);
-    const retry = s.client.export(1);
-    expect(s.workers[2].messages[0]).toEqual(capture(1));
-    s.workers[2].ready(1);
-    expect(s.preview).toHaveBeenCalledOnce();
-    s.workers[2].complete(1, { exportPackage: pkg });
-    expect(await retry).toEqual(pkg);
-});
-test("promotion retires previous context and clear rejects pending work", async () => {
-    const s = setup();
-    s.submit(1);
-    s.workers[0].ready(1);
-    s.client.present(1);
-    s.submit(2);
-    s.workers[1].ready(2);
-    s.client.present(2);
-    expect(s.workers[0].terminated).toBe(true);
-    expect(s.client.has(1)).toBe(false);
-    const pending = s.client.export(2);
-    const rejected = expect(pending).rejects.toThrow("Capture retired");
-    s.client.clear();
-    await rejected;
-    expect(s.client.has(2)).toBe(false);
-    expect(s.workers[1].terminated).toBe(true);
-});
-test("malformed export replies reject requests and allow recovery", async () => {
-    const s = setup();
-    s.submit(1);
-    s.workers[0].ready(1);
-    s.client.present(1);
-    const pending = s.client.export(1);
-    const rejected = expect(pending).rejects.toThrow("Invalid export result");
-    s.workers[0].reply({
-        kind: "export-result",
-        revision: 1,
-        requestId: 1,
-        workerMs: -1,
-        exportPackage: pkg,
-    });
-    await rejected;
-    const retry = s.client.export(1);
-    s.workers[1].ready(1);
-    s.workers[1].complete(1, { exportPackage: pkg });
-    expect(await retry).toEqual(pkg);
-});
-test("presented worker errors reject export promises rather than leaving controls busy", async () => {
-    const s = setup();
-    s.submit(1);
-    s.workers[0].ready(1);
-    s.client.present(1);
-    const pending = s.client.export(1);
-    const rejected = expect(pending).rejects.toThrow(
-        "Conversion worker failed",
-    );
-    s.workers[0].onerror?.({} as ErrorEvent);
-    await rejected;
 });
 
 test("snapshot JSON is lazy, coalesced, cached and rejected when its capture retires", async () => {
@@ -225,4 +102,53 @@ test("snapshot JSON is lazy, coalesced, cached and rejected when its capture ret
         rejected = expect(pending).rejects.toThrow("Capture retired");
     s.client.clear();
     await rejected;
+});
+
+test("malformed snapshots reject pending work and recover only the current capture", async () => {
+    const s = setup();
+    s.submit(1);
+    s.workers[0].ready(1);
+    s.client.present(1);
+    const pending = s.client.snapshot(1);
+    const rejected = expect(pending).rejects.toThrow("Invalid snapshot result");
+    s.workers[0].reply({
+        kind: "snapshot-result",
+        revision: 1,
+        requestId: 1,
+        workerMs: -1,
+        snapshotJson: "{}",
+    });
+    await rejected;
+    expect(s.workers[0].terminated).toBe(true);
+    const retry = s.client.snapshot(1);
+    expect(s.workers[1].messages[0]).toEqual(capture(1));
+    s.workers[1].ready(1);
+    expect(s.preview).toHaveBeenCalledOnce();
+    const request = s.workers[1].messages.at(-1) as { requestId: number };
+    s.workers[1].reply({
+        kind: "snapshot-result",
+        revision: 1,
+        requestId: request.requestId,
+        workerMs: 1,
+        snapshotJson: "{}",
+    });
+    expect(await retry).toBe("{}");
+    s.submit(2);
+    s.client.fail(2);
+    await expect(s.client.snapshot(1)).rejects.toThrow("unavailable");
+});
+
+test("new capture rejects pending snapshot work and ignores retired worker errors", async () => {
+    const s = setup();
+    s.submit(1);
+    s.workers[0].ready(1);
+    s.client.present(1);
+    const pending = s.client.snapshot(1);
+    const rejected = expect(pending).rejects.toThrow("Capture retired");
+    s.submit(2);
+    await rejected;
+    s.workers[0].onerror?.({} as ErrorEvent);
+    expect(s.error).not.toHaveBeenCalled();
+    s.workers[1].ready(2);
+    expect(s.preview).toHaveBeenCalledTimes(2);
 });

@@ -26,6 +26,7 @@ test("authored layouts, images and component families compile through the built 
             type: "preview-source",
             revision: ++revision,
             source: result.source,
+            exportPackage: { source: result.source, files: [] },
         });
         await p.ready(revision);
     }
@@ -48,6 +49,7 @@ test("authored layouts, images and component families compile through the built 
             type: "preview-source",
             revision: ++revision,
             source: result.source,
+            exportPackage: { source: result.source, files: [] },
         });
         await p.ready(revision);
     }
@@ -74,6 +76,10 @@ test("root-only snippets compile with native text and appearance helpers without
             type: "preview-source",
             revision: ++revision,
             source: `export component Snippet inherits Window { width: 640px; height: 480px; ${result.source} }`,
+            exportPackage: {
+                source: `export component Snippet inherits Window { width: 640px; height: 480px; ${result.source} }`,
+                files: [],
+            },
         });
         await p.ready(revision);
     }
@@ -99,6 +105,10 @@ test("root-only snippets compile with native text and appearance helpers without
             type: "preview-source",
             revision: ++revision,
             source: `export component Snippet inherits Window { width: 640px; height: 480px; ${result.source} }`,
+            exportPackage: {
+                source: `export component Snippet inherits Window { width: 640px; height: 480px; ${result.source} }`,
+                files: [],
+            },
         });
         await p.ready(revision);
     }

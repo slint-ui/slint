@@ -1706,7 +1706,6 @@ export function createSourceNormalizer(source: SourceCapture) {
             normalizeValidatedSource(source, target, assets),
     };
 }
-export type SourceNormalizer = ReturnType<typeof createSourceNormalizer>;
 export async function normalizeSource(
     source: SourceCapture,
     target: GenerationTarget = "preview",
