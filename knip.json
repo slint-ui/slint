@@ -32,6 +32,10 @@
     },
     "tools/figma-inspector": {
       "ignoreBinaries": ["wasm-pack"],
+      "ignoreDependencies": [
+        "@interpreter/slint_wasm_interpreter.js",
+        "@interpreter/slint_wasm_interpreter_bg.wasm"
+      ],
       "vitest": {
         "config": [
           "vitest.config.ts"
