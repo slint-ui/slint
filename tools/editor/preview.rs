@@ -884,7 +884,7 @@ fn set_code_binding(
     element_offset: i32,
     property_name: slint::SharedString,
     property_value: slint::SharedString,
-) {
+) -> bool {
     let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
     lsp.send_telemetry(&mut [(
         "type".to_string(),
@@ -915,13 +915,13 @@ fn set_color_binding(
         + ((rgba.blue as u32) << 8)
         + (rgba.alpha as u32);
 
-    set_binding(
+    let _ = set_binding(
         element_url,
         element_version,
         element_offset,
         property_name,
         format!("#{value:08x}"),
-    )
+    );
 }
 
 /// Internal function called by all the `set_*_binding` functions
@@ -931,16 +931,17 @@ fn set_binding(
     element_offset: i32,
     property_name: slint::SharedString,
     property_value: String,
-) {
-    if let Some(edit) = evaluate_binding(
+) -> bool {
+    let Some(edit) = evaluate_binding(
         element_url,
         element_version,
         element_offset,
         property_name,
         property_value,
-    ) {
-        send_workspace_edit("Edit property".to_string(), edit, true);
-    }
+    ) else {
+        return false;
+    };
+    send_workspace_edit("Edit property".to_string(), edit, true)
 }
 
 fn set_element_id(
@@ -1341,6 +1342,30 @@ fn override_selected_element_rotation(angle: f32) {
         element_selection.instance_index,
         angle,
     );
+}
+
+fn override_element_text(
+    override_id: slint::SharedString,
+    text: slint::SharedString,
+) -> slint::SharedString {
+    let id = if override_id.is_empty() {
+        let Some(element_selection) = selected_element() else { return Default::default() };
+        let Some(element) = element_selection.as_element_node() else { return Default::default() };
+        let hash = element.with_element_debug(|debug| debug.element_hash);
+        i_slint_compiler::passes::property_id(hash, &SmolStr::from("text"))
+    } else {
+        SmolStr::from(override_id.as_str())
+    };
+    let overrides = PREVIEW_STATE.with_borrow(|state| state.debug_hook_overrides.clone());
+    let mut overrides = (*overrides).borrow_mut();
+    let text_override =
+        overrides.entry(id.clone()).or_insert_with(|| Box::pin(i_slint_core::Property::new(None)));
+    text_override.as_ref().set(Some(slint_interpreter::Value::String(text)));
+    drop(overrides);
+    if let Some(instance) = component_instance() {
+        instance.window().request_redraw();
+    }
+    id.as_str().into()
 }
 
 /// Returns the applied parent-relative rotation in degrees, which the caller can commit to the
@@ -2943,6 +2968,41 @@ mod tests {
             *state = PreviewState::default();
             state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
         });
+    }
+
+    #[test]
+    fn set_binding_rejects_an_edit_while_another_edit_is_pending() {
+        const SOURCE: &str = r#"
+export component Main {
+    text := Text { text: "Old"; }
+}
+"#;
+        let path = i_slint_editor_preview::test::main_test_file_name();
+        let url = Url::from_file_path(&path).unwrap();
+        let mut document_cache = i_slint_editor_preview::test::empty_document_cache();
+        let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
+        spin_on::spin_on(document_cache.load_url(
+            &url,
+            Some(1),
+            SOURCE.to_owned(),
+            &mut diagnostics,
+        ))
+        .unwrap();
+        assert!(!diagnostics.has_errors());
+
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.document_cache.replace(Some(Rc::new(document_cache)));
+            state.workspace_edit_sent = true;
+        });
+
+        let offset = SOURCE.find("Text {").unwrap() as i32;
+        let accepted =
+            set_binding(url.as_str().into(), 1, offset, "text".into(), r#""New""#.to_owned());
+        assert!(!accepted);
+        assert!(messages.borrow().is_empty());
+        reset_preview_state(Default::default());
     }
 
     #[test]
