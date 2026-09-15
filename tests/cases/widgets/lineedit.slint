@@ -18,6 +18,7 @@ export component TestCase inherits Window {
     in-out property <bool> enabled <=> edit1.enabled;
     in-out property <bool> font-italic <=> edit1.font-italic;
     in-out property <string> font-family <=> edit1.font-family;
+    in-out property <int> font-weight <=> edit1.font-weight;
     public function select-all() {
         edit1.select-all();
     }
@@ -95,6 +96,10 @@ assert_eq!(instance.get_font_family(), "sans-sherif");
 assert_eq!(instance.get_font_italic(), false);
 instance.set_font_italic(true);
 assert_eq!(instance.get_font_italic(), true);
+
+// Font Weight
+instance.set_font_weight(700);
+assert_eq!(instance.get_font_weight(), 700);
 
 // Invoking accessible-action-set-value should update the value and invoke edited
 let edited_emitted = std::rc::Rc::new(std::cell::Cell::new(0));
