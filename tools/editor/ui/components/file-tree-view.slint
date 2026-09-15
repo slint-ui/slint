@@ -110,13 +110,14 @@ component FileTreeRow inherits Rectangle {
         }
 
         HorizontalLayout {
-            alignment: start;
+            alignment: stretch;
             cross-axis-alignment: center;
             padding-left: EditorTreeTokens.row-padding-inline;
             padding-right: EditorTreeTokens.row-padding-inline;
             spacing: 0px;
 
             if root.gutter-segments > 0: HorizontalLayout {
+                horizontal-stretch: 0;
                 alignment: start;
 
                 for slot[index] in root.max-gutter-columns: Rectangle {
@@ -134,6 +135,7 @@ component FileTreeRow inherits Rectangle {
             }
 
             Rectangle {
+                horizontal-stretch: 0;
                 width: EditorTreeTokens.disclosure-hit-size;
                 height: EditorTreeTokens.row-height;
 
@@ -149,13 +151,15 @@ component FileTreeRow inherits Rectangle {
             }
 
             HorizontalLayout {
+                horizontal-stretch: 1;
                 spacing: EditorTreeTokens.content-gap;
-                alignment: start;
+                alignment: stretch;
                 cross-axis-alignment: center;
                 padding-right: EditorTreeTokens.row-padding-inline;
                 min-height: EditorTreeTokens.row-height;
 
                 Image {
+                    horizontal-stretch: 0;
                     width: EditorTreeTokens.icon-size;
                     height: EditorTreeTokens.icon-size;
                     vertical-alignment: center;
@@ -166,45 +170,55 @@ component FileTreeRow inherits Rectangle {
                     colorize: root.folder ? EditorTreeTokens.directory-icon : EditorTreeTokens.muted-text;
                 }
 
-                if !root.editing: Text {
+                Rectangle {
                     horizontal-stretch: 1;
-                    vertical-alignment: center;
-                    text: root.node.label;
-                    color: EditorTreeTokens.text;
-                    font-size: EditorTreeTokens.row-font-size;
-                    overflow: elide;
-                    wrap: no-wrap;
-                }
+                    height: EditorTreeTokens.row-height;
 
-                if root.editing: Rectangle {
-                    horizontal-stretch: 1;
-                    height: EditorTreeTokens.row-height - 4px;
-                    border-width: 1px;
-                    border-color: root.rename-error == "" ? EditorTreeTokens.accent : root.error-color;
-                    background: Palette.control-background;
-
-                    input := TextInput {
+                    Text {
+                        visible: !root.editing;
                         width: parent.width;
                         height: parent.height;
-                        text <=> root.rename-name;
+                        vertical-alignment: center;
+                        text: root.node.label;
                         color: EditorTreeTokens.text;
                         font-size: EditorTreeTokens.row-font-size;
-                        single-line: true;
+                        overflow: elide;
                         wrap: no-wrap;
-                        accessible-label: "Rename " + root.node.label;
-                        init => {
-                            self.focus();
-                            self.set-selection-offsets(0, root.node.rename-selection-end);
-                        }
-                        accepted => { root.submit-rename(); }
-                        key-pressed(event) => {
-                            if event.text == Key.Escape {
-                                root.rename-error = "";
-                                root.rename-finished();
-                                row-focus.focus();
-                                return accept;
+                    }
+
+                    if root.editing: Rectangle {
+                        y: (parent.height - self.height) / 2;
+                        width: parent.width;
+                        height: EditorTreeTokens.row-height - 4px;
+                        border-width: 1px;
+                        border-color: root.rename-error == "" ? Palette.border : root.error-color;
+                        background: Palette.control-background;
+
+                        input := TextInput {
+                            x: 1px;
+                            width: parent.width - 2px;
+                            height: parent.height;
+                            text <=> root.rename-name;
+                            color: EditorTreeTokens.text;
+                            font-size: EditorTreeTokens.row-font-size;
+                            vertical-alignment: center;
+                            single-line: true;
+                            wrap: no-wrap;
+                            accessible-label: "Rename " + root.node.label;
+                            init => {
+                                self.focus();
+                                self.set-selection-offsets(0, root.node.rename-selection-end);
                             }
-                            return reject;
+                            accepted => { root.submit-rename(); }
+                            key-pressed(event) => {
+                                if event.text == Key.Escape {
+                                    root.rename-error = "";
+                                    root.rename-finished();
+                                    row-focus.focus();
+                                    return accept;
+                                }
+                                return reject;
+                            }
                         }
                     }
                 }
