@@ -32,6 +32,8 @@ pub struct NativeSpinBox {
     pub maximum: Property<i32>,
     pub step_size: Property<i32>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
+    pub font_family: Property<SharedString>,
+    pub font_italic: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
     pub edited: Callback<IntArg>,
     data: Property<NativeSpinBoxData>,
@@ -63,6 +65,14 @@ if (pressed) {
 option.stepEnabled = QAbstractSpinBox::StepDownEnabled | QAbstractSpinBox::StepUpEnabled;
 option.frame = true;
 }
+
+QFont spinBoxFont(const QWidget *widget, const QString &family, bool italic) {
+QFont font = widget->font();
+if (!family.isEmpty())
+    font.setFamily(family);
+font.setItalic(italic);
+return font;
+}
 }}
 
 impl Item for NativeSpinBox {
@@ -89,6 +99,8 @@ impl Item for NativeSpinBox {
         let pressed = data.pressed;
         let enabled = self.enabled();
         let read_only = self.read_only();
+        let font_family: qttypes::QString = self.font_family().as_str().into();
+        let font_italic = self.font_italic();
         let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let size = cpp!(unsafe [
@@ -97,12 +109,15 @@ impl Item for NativeSpinBox {
             pressed as "bool",
             enabled as "bool",
             read_only as "bool",
+            font_family as "QString",
+            font_italic as "bool",
             widget as "QWidget*"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             auto style = qApp->style();
 
             QStyleOptionSpinBox option;
+            option.fontMetrics = QFontMetrics(spinBoxFont(widget, font_family, font_italic));
             initQSpinBoxOptions(option, pressed, enabled, read_only, active_controls);
 
             QStyleOptionFrame frame;
@@ -327,6 +342,8 @@ impl Item for NativeSpinBox {
         let active_controls = data.active_controls;
         let pressed = data.pressed;
         let read_only = this.read_only();
+        let font_family: qttypes::QString = this.font_family().as_str().into();
+        let font_italic = this.font_italic();
 
         let horizontal_alignment = match this.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
@@ -347,10 +364,14 @@ impl Item for NativeSpinBox {
             pressed as "bool",
             dpr as "float",
             initial_state as "int",
-            horizontal_alignment as "int"
+            horizontal_alignment as "int",
+            font_family as "QString",
+            font_italic as "bool"
         ] {
             auto style = qApp->style();
+            QFont font = spinBoxFont(widget, font_family, font_italic);
             QStyleOptionSpinBox option;
+            option.fontMetrics = QFontMetrics(font);
             option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             if (enabled && has_focus) {
@@ -372,6 +393,7 @@ impl Item for NativeSpinBox {
             QRect text_rect = qApp->style()->subElementRect(QStyle::SE_LineEditContents, &frame, widget);
             text_rect.adjust(1, 2, 1, 2);
             (*painter)->setPen(option.palette.color(QPalette::Text));
+            (*painter)->setFont(font);
             (*painter)->drawText(text_rect, QString::number(value), QTextOption(static_cast<Qt::AlignmentFlag>(horizontal_alignment)));
         });
     }

@@ -3748,6 +3748,8 @@ fn build(l: &mut Loader) {
         in property <int> step-size: 1;
         in property <TextHorizontalAlignment> horizontal-alignment;
         in property <bool> read-only;
+        in property <string> font-family;
+        in property <bool> font-italic;
         callback edited(value: int);
     } }
 
