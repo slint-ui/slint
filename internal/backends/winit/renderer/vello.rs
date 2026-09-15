@@ -53,6 +53,11 @@ impl WinitCompatibleRenderer for WinitVelloRenderer {
         Ok(())
     }
 
+    fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
+        self.renderer.set_transparent(transparent);
+        Ok(())
+    }
+
     fn resume(
         &self,
         active_event_loop: &ActiveEventLoop,

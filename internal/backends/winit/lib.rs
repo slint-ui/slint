@@ -84,6 +84,12 @@ mod renderer {
 
         fn suspend(&self) -> Result<(), PlatformError>;
 
+        // The window's transparency changed after the window was created. Renderers that pick
+        // their surface's alpha mode up front have to reconfigure it to match.
+        fn set_transparent(&self, _transparent: bool) -> Result<(), PlatformError> {
+            Ok(())
+        }
+
         // Got winit::Event::Resumed
         fn resume(
             &self,

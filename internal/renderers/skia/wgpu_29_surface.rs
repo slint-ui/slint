@@ -459,22 +459,23 @@ impl crate::Surface for WGPUSurface {
     }
 
     fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
-        if transparent {
-            // The default `Opaque` discards the scene's alpha; pick a translucent mode if offered.
-            // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
-            use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
-            if let Some(mode) =
-                [PreMultiplied, PostMultiplied].into_iter().find(|m| self.alpha_modes.contains(m))
-            {
-                let mut surface_config_opt = self.surface_config.borrow_mut();
-                let (Some(surface_config), Some(surface)) =
-                    (surface_config_opt.as_mut(), &self.surface)
-                else {
-                    return Ok(());
-                };
-                surface_config.alpha_mode = mode;
-                surface.configure(&self.wgpu.device, surface_config);
-            }
+        // `Opaque` discards the scene's alpha; pick a translucent mode if offered.
+        // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
+        use wgpu::CompositeAlphaMode::{Opaque, PostMultiplied, PreMultiplied};
+        let wanted: &[wgpu::CompositeAlphaMode] =
+            if transparent { &[PreMultiplied, PostMultiplied] } else { &[Opaque] };
+        let Some(mode) = wanted.iter().copied().find(|m| self.alpha_modes.contains(m)) else {
+            return Ok(());
+        };
+
+        let mut surface_config_opt = self.surface_config.borrow_mut();
+        let (Some(surface_config), Some(surface)) = (surface_config_opt.as_mut(), &self.surface)
+        else {
+            return Ok(());
+        };
+        if surface_config.alpha_mode != mode {
+            surface_config.alpha_mode = mode;
+            surface.configure(&self.wgpu.device, surface_config);
         }
         Ok(())
     }
