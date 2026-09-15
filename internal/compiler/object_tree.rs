@@ -8,7 +8,9 @@
 // cSpell: ignore qualname
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::expression_tree::{self, BindingExpression, Callable, Expression, Unit};
+use crate::expression_tree::{
+    self, BindingExpression, Callable, ConditionLocation, Expression, Unit,
+};
 use crate::langtype::{
     BuiltinElement, Enumeration, EnumerationValue, Function, NativeClass, Struct, StructName, Type,
 };
@@ -2664,6 +2666,9 @@ impl Element {
 
         for state in node.States().flat_map(|s| s.State()) {
             let condition = state.Expression();
+            // `when` is a contextual keyword, so it is the state's only
+            // `Identifier` token: its name is a `DeclaredIdentifier`.
+            let when = state.child_token(SyntaxKind::Identifier).filter(|t| t.text() == "when");
             // Without a condition a state is never selected, so its property
             // changes are code that can't run.
             #[cfg(feature = "slint-sc")]
@@ -2685,6 +2690,10 @@ impl Element {
                             })
                     })
                     .collect(),
+                selection: when.map(|when| ConditionLocation::StateSelection {
+                    name: state.DeclaredIdentifier().to_source_location(),
+                    when: when.to_source_location(),
+                }),
             };
             for trs in state.Transition() {
                 #[cfg(feature = "slint-sc")]
@@ -4641,6 +4650,9 @@ pub struct State {
     pub id: SmolStr,
     pub condition: Option<Expression>,
     pub property_changes: Vec<(NamedReference, Expression, syntax_nodes::StatePropertyChange)>,
+    /// Where the source writes this state's selection. `None` for a state
+    /// without a condition, which is never selected.
+    pub selection: Option<ConditionLocation>,
 }
 
 #[derive(Debug, Clone)]
