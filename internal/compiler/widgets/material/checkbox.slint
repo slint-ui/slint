@@ -159,7 +159,7 @@ export component CheckBox {
         enabled <=> root.enabled;
 
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
+            if (event.text == Key.Space || event.text == Key.Return) {
                  i-touch-area.clicked();
                  return accept;
             }
