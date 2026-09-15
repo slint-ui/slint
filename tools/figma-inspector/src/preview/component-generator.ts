@@ -17,10 +17,7 @@ import {
     childRoles,
     structuralSignature,
 } from "./component-structure";
-import {
-    buttonBehavior,
-    type ComponentGenerationOptions,
-} from "./component-behavior";
+export type ComponentGenerationOptions = { specialize?: boolean };
 import type { VariableLibrary } from "../plugin/variable-library";
 import { componentTokens } from "./component-tokens";
 import type { ComponentLibrary, ComponentContract } from "../plugin/components";
@@ -50,7 +47,6 @@ type Definition = ComponentLibrary<SnapshotNode>["definitions"][number];
 type ComponentUse = {
     name: string;
     bindings: Binding[];
-    templateBindings: Binding[];
 };
 export type ComponentUses = Map<SnapshotNode, ComponentUse>;
 type Sample = { tree: Element; values: Record<string, string> };
@@ -144,7 +140,7 @@ function normalizeBindingOrder(tree: Element): Element {
 export function generateComponents(
     root: SnapshotNode,
     library: ComponentLibrary<SnapshotNode> | undefined,
-    render: (node: SnapshotNode, uses: ComponentUses) => SlintLine[],
+    render: (node: SnapshotNode) => SlintLine[],
     variables?: VariableLibrary,
     options: ComponentGenerationOptions = {},
 ): { source: string[]; uses: ComponentUses; warnings: Diagnostic[] } {
@@ -212,10 +208,9 @@ export function generateComponents(
         if (!d) throw Error(`Missing component definition: ${id}`);
         for (const v of d.variants) check(id, v.id);
     }
-    const emptyUses: ComponentUses = new Map();
     const rendered = (node: SnapshotNode) =>
         normalizeBindingOrder(
-            assets.apply(tokens.apply(elementTree(render(node, emptyUses)))),
+            assets.apply(tokens.apply(elementTree(render(node)))),
         );
     if (options.specialize) {
         const specialized = new Map<string, string>();
@@ -264,7 +259,7 @@ export function generateComponents(
                         "",
                     );
                 }
-                uses.set(node, { name, bindings: [], templateBindings: [] });
+                uses.set(node, { name, bindings: [] });
             }
         }
         return {
@@ -352,12 +347,7 @@ export function generateComponents(
                     message: `${d.name}.${key}: the authored property has no editable native binding in this capture (for example, rasterized text)`,
                 });
         }
-        const behavior = buttonBehavior(
-            options.behaviors?.[id],
-            axes,
-            publicNames,
-        );
-        const declarations: string[] = [...(behavior?.declarations ?? [])];
+        const declarations: string[] = [];
         for (const a of axes) {
             if (a.type !== "int" && a.type !== "bool")
                 source.push(
@@ -374,16 +364,12 @@ export function generateComponents(
             declarations.push(
                 ...declaration(
                     `    in property <${a.type}> ${a.property}: `,
-                    behavior?.axis === a.key
-                        ? behavior.expression
-                        : optionValue(a, d.axes[a.key].defaultValue),
+                    optionValue(a, d.axes[a.key].defaultValue),
                 ),
             );
         }
         for (const axis of axes.filter(
-            (axis) =>
-                axis.key === behavior?.axis ||
-                axis.key.toLowerCase() === "state",
+            (axis) => axis.key.toLowerCase() === "state",
         )) {
             const stateNames = new Map(
                 [...axis.options.keys()].map((value) => [
@@ -606,26 +592,7 @@ export function generateComponents(
             );
             const opposite = conditions.get(inverse);
             if (opposite) return `!${opposite}`;
-            const relevant = axes.filter((axis) =>
-                expression.includes(`root.${axis.property} `),
-            );
-            const state =
-                relevant.length === 1 &&
-                relevant[0].key.toLowerCase() === "state";
-            const values = state
-                ? [
-                      ...new Set(
-                          selected.map(
-                              (sample) => sample.values[relevant[0].key],
-                          ),
-                      ),
-                  ].sort()
-                : [];
-            const property = allocateProperty(
-                state
-                    ? `state-${values.map(identifier).join("-or-")}`
-                    : `has-${identifier(role)}`,
-            );
+            const property = allocateProperty(`has-${identifier(role)}`);
             declarations.push(
                 ...declaration(
                     `    private property <bool> ${property}: `,
@@ -843,9 +810,7 @@ export function generateComponents(
                     // Each binding depends only on axes that change this property.
                     // Slint states are reserved for an explicit authored state axis.
                     const stateAxis = axes.find(
-                        (axis) =>
-                            axis.key === behavior?.axis ||
-                            axis.key.toLowerCase() === "state",
+                        (axis) => axis.key.toLowerCase() === "state",
                     );
                     const stateValues = new Map<string, string>();
                     const stateOnly =
@@ -885,9 +850,7 @@ export function generateComponents(
                 }
             }
             const stateAxis = axes.find(
-                (axis) =>
-                    axis.key === behavior?.axis ||
-                    axis.key.toLowerCase() === "state",
+                (axis) => axis.key.toLowerCase() === "state",
             );
             if (stateAxis)
                 lines.push(
@@ -936,7 +899,6 @@ export function generateComponents(
             `export component ${name} inherits Rectangle {`,
             ...declarations,
             ...body,
-            ...(behavior?.body ?? []),
             "}",
             "",
         );
@@ -959,9 +921,7 @@ export function generateComponents(
             const model = applyContract(original, d.contract, publicNames);
             const bindings = axes
                 .filter(
-                    (a) =>
-                        behavior?.axis === a.key ||
-                        variant.values[a.key] !== d.axes[a.key].defaultValue,
+                    (a) => variant.values[a.key] !== d.axes[a.key].defaultValue,
                 )
                 .map((a) =>
                     binding(
@@ -1031,7 +991,7 @@ export function generateComponents(
                 structuralSignature(visibleTree(bound)) ===
                 structuralSignature(visibleTree(model))
             )
-                uses.set(node, { name, bindings, templateBindings: bindings });
+                uses.set(node, { name, bindings });
             else {
                 const sig = structuralSignature(actual);
                 let specialized = specializations.get(sig);
@@ -1062,7 +1022,6 @@ export function generateComponents(
                 uses.set(node, {
                     name: specialized,
                     bindings: [],
-                    templateBindings: [],
                 });
             }
         }
