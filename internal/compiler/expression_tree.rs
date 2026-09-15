@@ -757,6 +757,17 @@ pub enum MinMaxOp {
     Max,
 }
 
+/// The three places a `.slint` file writes a conditional.
+#[derive(Debug, Clone)]
+pub enum ConditionLocation {
+    /// The `?` of a `?:`.
+    Question(SourceLocation),
+    /// A state's name, and the `when` of its condition.
+    StateSelection { name: SourceLocation, when: SourceLocation },
+    /// The property a state changes.
+    StateChange(SourceLocation),
+}
+
 /// The Expression is held by properties, so it should not hold any strong references to node from the object_tree
 #[derive(Debug, Clone, Default)]
 pub enum Expression {
@@ -879,8 +890,8 @@ pub enum Expression {
         condition: Box<Expression>,
         true_expr: Box<Expression>,
         false_expr: Box<Expression>,
-        /// The `?` token, when written in the source.
-        source_location: Option<SourceLocation>,
+        /// Where the source writes the conditional, when it writes one.
+        source_location: Option<ConditionLocation>,
     },
 
     Array {

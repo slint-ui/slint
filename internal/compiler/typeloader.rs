@@ -508,6 +508,7 @@ impl Snapshotter {
                         (nr, expr, spc.clone())
                     })
                     .collect(),
+                selection: s.selection.clone(),
             })
             .collect();
         target_element.repeated =

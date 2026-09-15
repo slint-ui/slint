@@ -5,7 +5,7 @@ description: What the coverage of .slint code measures, how to measure it for an
 
 The Rust code of an application, and the runtime inside it, are measured by LLVM's source-based coverage with `cargo llvm-cov`.
 The `.slint` code of the application is compiled into Rust code, so LLVM measures that code as well, but line by line of the generated code.
-`slint-sc-coverage` states the coverage in terms of the `.slint` source instead: which elements, bindings, handlers and calls the tests reached, and which outcomes of each decision they took.
+`slint-sc-coverage` states the coverage in terms of the `.slint` source instead: which elements, bindings, handlers, calls and states the tests reached, and which outcomes of each decision they took.
 This chapter says what that measures, how to measure it, and what the numbers rest on.
 
 ## What Is Measured
@@ -15,12 +15,15 @@ A coverage point is a place in the `.slint` source, and it is reached when the g
 | Point | Where | Reached when |
 |---|---|---|
 | element | the type name of an element, `Rectangle { ... }` | the code that draws the element ran, whether it painted anything or not |
-| binding | the expression of a property binding, `background: red;` | the expression was evaluated |
+| binding | the expression of a property binding, `background: red;`, on an element or in a state | the expression was evaluated |
 | handler | the body of a callback handler, `clicked => { ... }` | the handler ran |
 | call | a callback invocation, `root.pressed()` | the invocation ran, whether the callback has a handler or not |
+| state | the name of a state, `alarm when ...` | the state was entered |
+| condition | the `when` of a state, `alarm when ...` | the condition was evaluated, which an earlier state being the one selected skips |
 | branch | the `?`, `&&` or `||` of a decision, one point per outcome | the outcome came about |
 
 A decision's true outcome is its `?:` taking the first arm, or its `&&` evaluating its right operand, or its `||` short-circuiting; the false outcome is the other one.
+A state is measured by three kinds of point: its name and its `when`, the decisions its condition is written with, and the binding of each property it changes.
 A binding whose expression the generated code inlines in several places is one point, whose hits add up.
 A binding the generated code never evaluates, such as the size of an element that is neither drawn nor touched, is a point that is never reached.
 The measurement is at the level of the language: it does not measure the operators inside a binding beyond its decisions, and it is not MC/DC.
