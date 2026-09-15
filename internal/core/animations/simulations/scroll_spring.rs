@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 //! Ported from Flutter's `ClampingScrollSimulation`
 //! (scroll_simulation.dart.dart), which is:
 //! Copyright 2014 The Flutter Authors. All rights reserved.
@@ -59,8 +62,6 @@ impl SpringSimulation {
         let new_traveled = self.init_pos - new_pos;
         *current += new_traveled - self.traveled;
         self.traveled = new_traveled;
-
-
 
         new_pos.abs() < ZERO_TOLERANCE && new_vel.abs() < ZERO_TOLERANCE
     }
