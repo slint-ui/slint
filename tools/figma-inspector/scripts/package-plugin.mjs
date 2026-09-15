@@ -2,28 +2,21 @@
 // SPDX-License-Identifier: MIT
 
 import { createHash } from "node:crypto";
-import { execFile as execFileCallback } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import JSZip from "jszip";
 
-const execFile = promisify(execFileCallback);
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
-if (
-    args.some((arg) => !["--test", "--nightly"].includes(arg)) ||
-    args.length > 1
-)
+if (args.some((arg) => arg !== "--nightly") || args.length > 1)
     throw Error(
-        "Choose exactly one packaging mode: release (no flag), --nightly, or --test",
+        "Choose exactly one packaging mode: release (no flag) or --nightly",
     );
-const testing = args.includes("--test");
 const nightly = args.includes("--nightly");
-const channel = testing ? "test" : nightly ? "nightly" : "release";
-const distDir = resolve(projectRoot, testing ? ".package-test/dist" : "dist");
-const zipDir = resolve(projectRoot, testing ? ".package-test/zip" : "zip");
+const channel = nightly ? "nightly" : "release";
+const distDir = resolve(projectRoot, "dist");
+const zipDir = resolve(projectRoot, "zip");
 const { version } = JSON.parse(
     await readFile(resolve(projectRoot, "package.json"), "utf8"),
 );
@@ -33,34 +26,23 @@ const outputPath = resolve(
     nightly ? "figma-plugin.zip" : `${packageDir}.zip`,
 );
 const placeholderPluginId = "000000000000000000";
-const pluginId = testing
-    ? "123456789012345678"
-    : (process.env.FIGMA_PLUGIN_ID ?? "1474418299182276871");
+const pluginId = process.env.FIGMA_PLUGIN_ID ?? "1474418299182276871";
 
 if (
     pluginId === undefined ||
     !/^\d{10,}$/.test(pluginId) ||
     pluginId === placeholderPluginId ||
-    (!testing && pluginId === "123456789012345678")
+    pluginId === "123456789012345678"
 ) {
     throw new Error(
         "FIGMA_PLUGIN_ID must be an assigned Figma plugin ID; the placeholder is not allowed for ZIP packaging",
     );
 }
 
-const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-await execFile(pnpm, ["build"], {
-    cwd: projectRoot,
-    env: {
-        ...process.env,
-        FIGMA_PLUGIN_ID: pluginId,
-        PLUGIN_BUILD_CHANNEL: channel,
-        PLUGIN_OUTPUT_DIR: distDir,
-    },
-    stdio: "inherit",
-});
-
-const manifest = await readFile(resolve(distDir, "manifest.json"));
+const manifest = JSON.parse(
+    await readFile(resolve(distDir, "manifest.json"), "utf8"),
+);
+manifest.id = pluginId;
 const code = await readFile(resolve(distDir, "code.js"));
 const ui = await readFile(resolve(distDir, "ui.html"));
 
@@ -83,15 +65,22 @@ await mkdir(zipDir, { recursive: true });
 
 const zip = new JSZip();
 zip.file("readme.txt", readme);
-zip.file(`${packageDir}/manifest.json`, manifest);
+zip.file(
+    `${packageDir}/manifest.json`,
+    JSON.stringify(manifest, null, 4) + "\n",
+);
 zip.file(`${packageDir}/code.js`, code);
 zip.file(`${packageDir}/ui.html`, ui);
-for (const file of [
-    "THIRD_PARTY_NOTICES.txt",
-    "dependencies.json",
-    "provenance.json",
-])
+for (const file of ["THIRD_PARTY_NOTICES.txt", "dependencies.json"])
     zip.file(`${packageDir}/${file}`, await readFile(resolve(distDir, file)));
+const provenance = JSON.parse(
+    await readFile(resolve(distDir, "provenance.json"), "utf8"),
+);
+provenance.channel = channel;
+zip.file(
+    `${packageDir}/provenance.json`,
+    JSON.stringify(provenance, null, 4) + "\n",
+);
 zip.file(
     `${packageDir}/LICENSE.txt`,
     await readFile(resolve(projectRoot, "../../LICENSES/MIT.txt")),

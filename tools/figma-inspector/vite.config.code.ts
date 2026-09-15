@@ -22,12 +22,8 @@ export default defineConfig(({ mode }) => ({
         },
     ],
     build: {
-        outDir: resolve(
-            root,
-            process.env.PLUGIN_OUTPUT_DIR ??
-                (mode === "development" ? "dist-dev" : "dist"),
-        ),
-        emptyOutDir: mode !== "development",
+        outDir: resolve(root, mode === "development" ? "dist-dev" : "dist"),
+        emptyOutDir: true,
         minify: false,
         target: "es2020",
         lib: {
