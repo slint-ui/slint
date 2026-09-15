@@ -1047,22 +1047,10 @@ impl<T: Clone> Property<T> {
     /// If other properties have binding depending of this property, these properties will
     /// be marked as dirty.
     // FIXME  pub fn set(self: Pin<&Self>, t: T) {
-    #[cfg(not(slint_debug_property))]
     pub fn set(&self, t: T)
     where
         T: PartialEq,
     {
-        self.set_impl(t)
-    }
-
-    /// Same as [`Self::set`], but also requires `T: 'static` so the set-logging
-    /// above can inspect the value through [`core::any::Any`].
-    #[cfg(slint_debug_property)]
-    pub fn set(&self, t: T)
-    where
-        T: PartialEq + 'static,
-    {
-        self.debug_print_set(&t);
         self.set_impl(t)
     }
 
@@ -1095,16 +1083,6 @@ impl<T: Clone> Property<T> {
                 #[cfg(slint_debug_property)]
                 self.debug_name.borrow().as_str(),
             );
-        }
-    }
-
-    #[cfg(slint_debug_property)]
-    fn debug_print_set(&self, t: &T)
-    where
-        T: 'static,
-    {
-        if self.debug_name.borrow().ends_with("content-y") {
-            // println!("Set property {}: {}", self.debug_name.borrow(), format_property_value(t));
         }
     }
 

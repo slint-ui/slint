@@ -53,7 +53,6 @@ use euclid::num::Zero;
 use i_slint_core_macros::*;
 #[allow(unused)]
 use num_traits::Float;
-use std::println;
 mod animation;
 mod velocity_tracker;
 use animation::{FlickAnimation, FlickAnimationParameter};
@@ -531,7 +530,7 @@ impl FlickableDataInner {
         let use_bounce_y = FlickAnimation::use_bounce(effective_bounce(flick, &geo, Dimension::Y));
         let new_pos = ensure_in_bound(flick, current_pos + delta, &geo, use_bounce_x, use_bounce_y);
         let _delta_old = delta;
-        
+
         FlickAnimation::apply_friction(current_pos, new_pos - current_pos, flick, flick_rc)
     }
 
@@ -745,8 +744,6 @@ impl FlickableDataInner {
                 })
         };
 
-        
-
         if flick_velocity < 0 as Coord {
             let property = Box::pin(Property::new(0.0));
             property.set_binding({
@@ -773,7 +770,6 @@ impl FlickableDataInner {
                 LogicalPoint::new(flick.content_x().get(), flick.content_y().get()),
                 flick_rc,
             );
-            println!("RB: {:?}", self.velocity_rb);
             let velocity_estimation = self.velocity_rb.estimate_velocity();
             let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
 
