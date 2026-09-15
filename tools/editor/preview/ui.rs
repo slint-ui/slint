@@ -242,6 +242,7 @@ pub fn initialize_editor(
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
     api.on_set_element_id(super::set_element_id);
+    api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));
     api.on_property_declaration_ranges(super::property_declaration_ranges);
     let property_api_weak = api_weak.clone();
     api.on_current_property_value_data(move |property_name| {

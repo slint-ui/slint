@@ -108,3 +108,32 @@ def test_inline_text_focus_loss_without_change_restores_text(
         window_element_with_label(
             window, "Fixture text", slint_testing.AccessibleRole.Text
         )
+
+
+@pytest.mark.parametrize(
+    "text_declaration",
+    [
+        b'        text: "Fixture\\ntext";',
+        b'        text: "Fixture text";\n        wrap: word-wrap;',
+        b'        text: "Fixture text";\n        transform-scale-x: 200%;',
+    ],
+)
+def test_inline_text_rejects_unsupported_layouts(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    text_declaration: bytes,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    source = source_file.read_bytes()
+    source_file.write_bytes(
+        source.replace(b'        text: "Fixture text";', text_declaration)
+    )
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_fixture_element(window, "Text")
+        window_element_with_label(window, "Text move handle").double_click(
+            slint_testing.PointerEventButton.Left
+        )
+        assert not elements_with_label(window.root_element, "Inline text editor")
