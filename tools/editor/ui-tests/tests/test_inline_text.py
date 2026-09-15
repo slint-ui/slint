@@ -25,9 +25,13 @@ def begin_inline_edit(window: slint_testing.Window) -> slint_testing.Element:
     window_element_with_label(window, "Text move handle").double_click(
         slint_testing.PointerEventButton.Left
     )
-    return window_element_with_label(
+    editor = window_element_with_label(
         window, "Inline text editor", slint_testing.AccessibleRole.TextInput
     )
+    assert not elements_with_label(
+        window.root_element, "Fixture text", slint_testing.AccessibleRole.Text
+    )
+    return editor
 
 
 def edited_source(source_file: Path, text: str) -> bytes:
