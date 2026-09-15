@@ -7,6 +7,7 @@ import { InspectorTextFieldBase } from "text-field-base.slint";
 export component InspectorValueField inherits Rectangle {
     in property <string> accessible-name: "";
     in property <string> prefix;
+    in property <int> corner-index: -1;
     in property <string> value;
     in property <bool> enabled: true;
     in property <string> commit-key: "";
@@ -25,7 +26,18 @@ export component InspectorValueField inherits Rectangle {
             return root.accepted(text);
         }
 
-        Text {
+        if root.corner-index >= 0: Path {
+            width: 12px;
+            height: 12px;
+            // Top-left, top-right, bottom-left, and bottom-right corner outlines.
+            commands: root.corner-index == 0 ? "M 2 11 L 2 6 Q 2 2 6 2 L 11 2"
+                : root.corner-index == 1 ? "M 1 2 L 6 2 Q 10 2 10 6 L 10 11"
+                : root.corner-index == 2 ? "M 2 1 L 2 6 Q 2 10 6 10 L 11 10"
+                : "M 1 10 L 6 10 Q 10 10 10 6 L 10 1";
+            stroke: InspectorTokens.muted;
+            stroke-width: 1px;
+        }
+        if root.corner-index < 0: Text {
             text: root.prefix;
             color: root.enabled ? InspectorTokens.text : InspectorTokens.muted;
             font-size: 11px;

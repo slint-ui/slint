@@ -2499,7 +2499,6 @@ dependencies = [
 name = "i-slint-renderer-skia"
 version = "1.18.0"
 dependencies = [
- "ash",
  "bytemuck",
  "cfg-if",
  "cfg_aliases",

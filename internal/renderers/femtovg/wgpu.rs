@@ -64,10 +64,6 @@ fn wgpu_take_snapshot_pixels(
 > {
     use i_slint_core::graphics::{Rgba8Pixel, SharedPixelBuffer};
 
-    if width == 0 || height == 0 {
-        return Err("take_snapshot: window size is zero".into());
-    }
-
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("slint_take_snapshot_wgpu"),
         size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },

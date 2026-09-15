@@ -59,6 +59,7 @@ boing
 boolprop
 bootsel
 boxlayout
+BRDA
 briefcasex
 brushprop
 brushval
@@ -211,6 +212,8 @@ fabstyle
 Farbfeld
 Fcntl
 fdiagnostics
+fdroid
+fdroiddata
 FEFF
 FELGO
 fetchpriority
@@ -248,6 +251,7 @@ fullsize
 Fullwidth
 fvar
 Fwww
+genhtml
 getattr
 getifs
 getpid
@@ -493,6 +497,8 @@ premultiply
 PRIMASK
 printk
 println
+profdata
+profraw
 Programiv
 progressindicator
 propref
@@ -501,6 +507,7 @@ protoc
 protox
 Pseudonymized
 psram
+punct
 purelib
 pyclass
 pyftsubset
@@ -544,6 +551,7 @@ rfind
 Rgbx
 Ringbuffer
 rlib
+rlibs
 Roboto
 RODATA
 rowcol
@@ -583,6 +591,7 @@ SIGUSR
 singlefile
 singleshot
 skrifa
+slintcov
 slintlib
 Smartwin
 smol
@@ -701,6 +710,7 @@ vecmodel
 vello
 veniam
 venv
+VercodeOperation
 verticalbox
 verticallayout
 VGWGPU

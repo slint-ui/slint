@@ -86,6 +86,10 @@ export default defineConfig({
                                 slug: "safety-manual/known-problems",
                             },
                             {
+                                label: "Coverage of Slint Code",
+                                slug: "safety-manual/slint-coverage",
+                            },
+                            {
                                 label: "Slint Compiler",
                                 items: [
                                     {
@@ -137,6 +141,10 @@ export default defineConfig({
                             {
                                 label: "Test Coverage",
                                 slug: "qualification-plan/test-coverage",
+                            },
+                            {
+                                label: "Coverage Tool Verification",
+                                slug: "qualification-plan/slint-coverage",
                             },
                             {
                                 label: "Verification",

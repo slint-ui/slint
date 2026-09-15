@@ -174,7 +174,7 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
     // Note that Rectangles and Empties are similarly optimized in layout_constraint_prop, and
     // we rely on struct field access simplification for those.
     if elem.borrow().builtin_type().is_some_and(|n| n.name == "Image") {
-        if elem.borrow().layout_info_prop(Orientation::Horizontal).is_none() {
+        if elem.borrow().effective_layout_info_prop(Orientation::Horizontal).is_none() {
             match name {
                 "min-width" => return Some(Expression::NumberLiteral(0., Unit::Px)),
                 "max-width" => return Some(Expression::NumberLiteral(f32::MAX as _, Unit::Px)),
@@ -183,7 +183,7 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
             }
         }
 
-        if elem.borrow().layout_info_prop(Orientation::Vertical).is_none() {
+        if elem.borrow().effective_layout_info_prop(Orientation::Vertical).is_none() {
             match name {
                 "min-height" => return Some(Expression::NumberLiteral(0., Unit::Px)),
                 "max-height" => return Some(Expression::NumberLiteral(f32::MAX as _, Unit::Px)),
@@ -214,7 +214,7 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
 }
 
 fn layout_constraint_prop(elem: &ElementRc, field: &str, orient: Orientation) -> Expression {
-    let expr = match elem.borrow().layout_info_prop(orient) {
+    let expr = match elem.borrow().effective_layout_info_prop(orient) {
         Some(e) => Expression::PropertyReference(e.clone()),
         None => crate::layout::implicit_layout_info_call(
             elem,
@@ -232,5 +232,6 @@ fn size_div_2(elem: &ElementRc, field: &str) -> Expression {
         lhs: Expression::PropertyReference(NamedReference::new(elem, field.into())).into(),
         op: '/',
         rhs: Expression::NumberLiteral(2., Unit::None).into(),
+        source_location: None,
     }
 }

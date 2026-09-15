@@ -273,6 +273,12 @@ fn analyze_element(
             process_property(&lv.listview_width.clone().into(), P, context, reverse_aliases, diag);
         }
     }
+    // `layout_info_h_at_own_height` is deliberately not analyzed here. It exists
+    // on every component root that is a column flex, whether or not an instance
+    // reads it, and it reads `self.height` — on a root whose height an instance
+    // overrides, that read is a loop nobody takes. It is analyzed where it is
+    // actually read instead, through `visit_layout_items_dependencies`.
+    // `flexbox_column_wrap_width_override.slint` stops compiling if it is added.
     if let Some((h, v)) = &elem.borrow().layout_info_prop {
         process_property(&h.clone().into(), P, context, reverse_aliases, diag);
         process_property(&v.clone().into(), P, context, reverse_aliases, diag);
@@ -727,16 +733,10 @@ fn recurse_expression(
                         // when the element has a parametrized layout-info
                         // function — callers that would otherwise cycle go
                         // through it instead, so the bare binding's read of
-                        // `self.{w,h}` is a fallback only.
+                        // `self.width` is a fallback only.
                         if orientation == Orientation::Vertical
                             && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
                             && nr.element().borrow().layout_info_v_with_constraint.is_none()
-                        {
-                            vis(&nr.clone().into(), P);
-                        }
-                        if orientation == Orientation::Horizontal
-                            && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
-                            && nr.element().borrow().layout_info_h_with_constraint.is_none()
                         {
                             vis(&nr.clone().into(), P);
                         }
@@ -889,14 +889,13 @@ fn visit_layout_items_dependencies<'a>(
             element = it.element.borrow().base_type.as_component().root_element.clone();
         }
 
-        if let Some(nr) = element.borrow().layout_info_prop(orientation) {
+        if let Some(nr) = element.borrow().effective_layout_info_prop(orientation) {
             vis(&nr.clone().into(), ReadType::PropertyRead);
         } else {
-            if let ElementType::Component(base) = &element.borrow().base_type
-                && let Some(nr) = base.root_element.borrow().layout_info_prop(orientation)
-            {
+            let height_settled = element.borrow().height_is_literal;
+            if let Some(nr) = element.borrow().base_layout_info_prop(orientation, height_settled) {
                 vis(
-                    &PropertyPath { elements: vec![ByAddress(element.clone())], prop: nr.clone() },
+                    &PropertyPath { elements: vec![ByAddress(element.clone())], prop: nr },
                     ReadType::PropertyRead,
                 );
             }
@@ -920,7 +919,7 @@ fn visit_layout_items_dependencies<'a>(
 /// them. Elements that *do* set `layout_info_prop` run an ordinary property
 /// binding that may transitively depend on the cross-axis dimension.
 /// `implicit_layout_info_call` dispatches via the parametrized
-/// `layoutinfo-{v,h}-with-constraint` function when the child carries one, so
+/// `layoutinfo-v-with-constraint` function when the child carries one, so
 /// the property dependency only exists at runtime for cells without that
 /// function — mirror that here.
 fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
@@ -931,24 +930,19 @@ fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
     for it in items {
         let element = it.element.clone();
         // Parent dispatches via the parametrized function, not the property.
-        let bypassed = match cross_axis {
-            Orientation::Vertical => {
-                element.borrow().inherited_layout_info_v_with_constraint().is_some()
-            }
-            Orientation::Horizontal => {
-                element.borrow().inherited_layout_info_h_with_constraint().is_some()
-            }
-        };
-        if bypassed {
+        if cross_axis == Orientation::Vertical
+            && element.borrow().inherited_layout_info_v_with_constraint().is_some()
+        {
             continue;
         }
-        if let Some(nr) = element.borrow().layout_info_prop(cross_axis) {
+        if let Some(nr) = element.borrow().effective_layout_info_prop(cross_axis) {
             vis(&nr.clone().into(), ReadType::PropertyRead);
-        } else if let ElementType::Component(base) = &element.borrow().base_type
-            && let Some(nr) = base.root_element.borrow().layout_info_prop(cross_axis)
-        {
+        } else if let Some(nr) = {
+            let height_settled = element.borrow().height_is_literal;
+            element.borrow().base_layout_info_prop(cross_axis, height_settled)
+        } {
             vis(
-                &PropertyPath { elements: vec![ByAddress(element.clone())], prop: nr.clone() },
+                &PropertyPath { elements: vec![ByAddress(element.clone())], prop: nr },
                 ReadType::PropertyRead,
             );
         } else {
@@ -1105,7 +1099,7 @@ fn visit_builtin_property(
                     }
                     root = e.0.clone();
                 }
-                if let Some(p) = root.borrow().layout_info_prop(orientation) {
+                if let Some(p) = root.borrow().effective_layout_info_prop(orientation) {
                     let path = PropertyPath::from(p.clone());
                     let old_layout = context.window_layout_property.replace(path.clone());
                     process_property(&path, ReadType::NativeRead, context, reverse_aliases, diag);

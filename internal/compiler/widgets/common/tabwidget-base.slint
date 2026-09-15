@@ -26,7 +26,7 @@ export component TabBarBase inherits TouchArea {
             root.current = next-tab();
             return accept;
         }
-        if (event.delta-y > -root.scroll-delta) {
+        if (event.delta-y > root.scroll-delta) {
             root.current = previous-tab();
             return accept;
         }

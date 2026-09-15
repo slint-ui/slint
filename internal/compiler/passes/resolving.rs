@@ -164,6 +164,14 @@ fn resolve_match_elements(
             match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
         check_duplicate_cases(&match_element.cases, &values, diag);
         check_exhaustiveness(match_element, &values, diag);
+
+        let subject_ref = crate::layout::create_new_prop(elem, "match-subject".into(), case_type);
+        let subject = std::mem::replace(
+            &mut match_element.subject,
+            Expression::PropertyReference(subject_ref.clone()),
+        );
+        elem.borrow_mut().set_binding(subject_ref.name().clone(), subject.into());
+
         match_element.lower_to_conditional_elements();
     }
 }
@@ -1176,9 +1184,12 @@ impl Expression {
                     *e = Expression::BinaryExpression {
                         lhs: Box::new(begin.clone()),
                         rhs: Box::new(Expression::BinaryExpression {
+                            source_location: None,
                             lhs: Box::new(Expression::BinaryExpression {
+                                source_location: None,
                                 lhs: Box::new(Expression::NumberLiteral(i as f64 + 1., Unit::None)),
                                 rhs: Box::new(Expression::BinaryExpression {
+                                    source_location: None,
                                     lhs: Box::new(end.clone()),
                                     rhs: Box::new(begin.clone()),
                                     op: '-',
@@ -1189,6 +1200,7 @@ impl Expression {
                             op: '/',
                         }),
                         op: '+',
+                        source_location: None,
                     };
                 }
             }
@@ -1215,6 +1227,7 @@ impl Expression {
                             lhs: Box::new(angle_typed),
                             rhs: Box::new(Expression::NumberLiteral(360., Unit::Deg)),
                             op: '/',
+                            source_location: None,
                         };
                         (color, normalized_pos)
                     })
@@ -1989,24 +2002,27 @@ impl Expression {
         node: syntax_nodes::BinaryExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let op = node
+        let (op, operator) = node
             .children_with_tokens()
-            .find_map(|n| match n.kind() {
-                SyntaxKind::Plus => Some('+'),
-                SyntaxKind::Minus => Some('-'),
-                SyntaxKind::Star => Some('*'),
-                SyntaxKind::Div => Some('/'),
-                SyntaxKind::LessEqual => Some('≤'),
-                SyntaxKind::GreaterEqual => Some('≥'),
-                SyntaxKind::LAngle => Some('<'),
-                SyntaxKind::RAngle => Some('>'),
-                SyntaxKind::EqualEqual => Some('='),
-                SyntaxKind::NotEqual => Some('!'),
-                SyntaxKind::AndAnd => Some('&'),
-                SyntaxKind::OrOr => Some('|'),
-                _ => None,
+            .find_map(|n| {
+                let op = match n.kind() {
+                    SyntaxKind::Plus => '+',
+                    SyntaxKind::Minus => '-',
+                    SyntaxKind::Star => '*',
+                    SyntaxKind::Div => '/',
+                    SyntaxKind::LessEqual => '≤',
+                    SyntaxKind::GreaterEqual => '≥',
+                    SyntaxKind::LAngle => '<',
+                    SyntaxKind::RAngle => '>',
+                    SyntaxKind::EqualEqual => '=',
+                    SyntaxKind::NotEqual => '!',
+                    SyntaxKind::AndAnd => '&',
+                    SyntaxKind::OrOr => '|',
+                    _ => return None,
+                };
+                Some((op, Some(n.to_source_location())))
             })
-            .unwrap_or('_');
+            .unwrap_or(('_', None));
 
         // In Slint SC, arithmetic (`+`, `-`, `*`), logical (`&&`, `||`), and
         // comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) are in the subset; `/` is
@@ -2093,7 +2109,12 @@ impl Expression {
             Some(ty) => rhs.maybe_convert_to(ty, &rhs_n, ctx.diag, &ctx.symbol_counters),
             None => rhs,
         };
-        Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
+        Expression::BinaryExpression {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            op,
+            source_location: operator,
+        }
     }
 
     fn from_unaryop_expression_node(
@@ -2169,6 +2190,7 @@ impl Expression {
             condition: Box::new(condition),
             true_expr: Box::new(true_expr),
             false_expr: Box::new(false_expr),
+            source_location: node.child_token(SyntaxKind::Question).map(|t| t.to_source_location()),
         }
     }
 
@@ -2362,6 +2384,7 @@ impl Expression {
                     lhs: Box::new(result),
                     rhs: Box::new(expr),
                     op: '+',
+                    source_location: None,
                 }),
                 None => Some(expr),
             }

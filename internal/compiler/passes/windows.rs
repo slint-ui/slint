@@ -60,7 +60,8 @@ pub fn ensure_window(
         has_popup_child: false,
         layout_info_prop: Default::default(),
         layout_info_v_with_constraint: Default::default(),
-        layout_info_h_with_constraint: Default::default(),
+        layout_info_h_at_own_height: Default::default(),
+        height_is_literal: Default::default(),
         default_fill_parent: Default::default(),
         accessibility_props: Default::default(),
         geometry_props: Default::default(),
@@ -150,6 +151,10 @@ pub fn ensure_window(
             to: Type::Brush,
         }
     });
+
+    // The element only became a window here, so it missed the defaults that `Element::from_node`
+    // gives a window the source writes, such as the title
+    crate::object_tree::apply_default_type_properties(&mut component.root_element.borrow_mut());
 }
 
 pub fn inherits_window(component: &Rc<Component>) -> bool {

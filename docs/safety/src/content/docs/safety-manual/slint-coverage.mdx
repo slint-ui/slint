@@ -1,0 +1,71 @@
+---
+title: Coverage of Slint Code
+description: What the coverage of .slint code measures, how to measure it for an application, and what to keep in mind when reading it.
+---
+
+The Rust code of an application, and the runtime inside it, are measured by LLVM's source-based coverage with `cargo llvm-cov`.
+The `.slint` code of the application is compiled into Rust code, so LLVM measures that code as well, but line by line of the generated code.
+`slint-sc-coverage` states the coverage in terms of the `.slint` source instead: which elements, bindings, handlers and calls the tests reached, and which outcomes of each decision they took.
+This chapter says what that measures, how to measure it, and what the numbers rest on.
+
+## What Is Measured
+
+A coverage point is a place in the `.slint` source, and it is reached when the generated code for it ran:
+
+| Point | Where | Reached when |
+|---|---|---|
+| element | the type name of an element, `Rectangle { ... }` | the code that draws the element ran, whether it painted anything or not |
+| binding | the expression of a property binding, `background: red;` | the expression was evaluated |
+| handler | the body of a callback handler, `clicked => { ... }` | the handler ran |
+| call | a callback invocation, `root.pressed()` | the invocation ran, whether the callback has a handler or not |
+| branch | the `?`, `&&` or `||` of a decision, one point per outcome | the outcome came about |
+
+A decision's true outcome is its `?:` taking the first arm, or its `&&` evaluating its right operand, or its `||` short-circuiting; the false outcome is the other one.
+A binding whose expression the generated code inlines in several places is one point, whose hits add up.
+A binding the generated code never evaluates, such as the size of an element that is neither drawn nor touched, is a point that is never reached.
+The measurement is at the level of the language: it does not measure the operators inside a binding beyond its decisions, and it is not MC/DC.
+
+## How It Works
+
+The Slint SC compiler and `slint-sc-coverage` share the work, and the generated code carries nothing:
+
+1. Asked with `--coverage`, the Slint SC compiler writes, next to the generated Rust code, a map with the extension `.slintcov`.
+   The map declares every point with its location in the `.slint` source, and for each point the range of the generated code that is the point.
+   A decision is spelled out as an `if` so that each outcome is a range of its own.
+2. The test program is built with `-C instrument-coverage` and run, and `llvm-cov` exports the execution count of every region of the generated code, as for any Rust code.
+3. `slint-sc-coverage` takes, for each range of the map, the count of the region that holds the start of the range, or of the first region that starts within the range, as the hit count of the point.
+   A point without a range, the code for it never having been generated, is never reached.
+4. `slint-sc-coverage` writes the coverage of the `.slint` files in the lcov format: a line count per line that holds a point, and a branch count per outcome of a decision.
+   Any lcov consumer shows the result, and it merges with the Rust coverage of the same run into one report.
+
+The generated code is the same with and without `--coverage`, so the code measured is the code that ships, not an instrumented build of it.
+
+## Measuring an Application
+
+Have the build pass `--coverage` to `slint-compiler --slint-sc`, run the tests under `cargo llvm-cov`, and hand its export to `slint-sc-coverage`.
+The `examples/safe-ui` application does it this way, its build script passing the flag when `SLINT_COVERAGE` is set:
+
+```sh
+cargo build -p slint-compiler --no-default-features --features slint-sc
+cd examples/safe-ui
+SLINT_COVERAGE=1 SLINT_COMPILER=$PWD/../../target/debug/slint-compiler \
+    cargo llvm-cov --json --output-path coverage.json -p slint-safeui-app
+cargo run --manifest-path ../../Cargo.toml -p slint-sc-coverage -- --export coverage.json -o slint-lcov.info
+cargo llvm-cov report --lcov --output-path lcov.info
+genhtml lcov.info slint-lcov.info -o coverage
+```
+
+`slint-sc-coverage` finds the map next to every generated file the export names, prints the coverage of each `.slint` file and every point that was never reached, and exits with an error under `--fail-on-gaps` when there is one.
+For a binary `cargo llvm-cov` doesn't know of, pass the binary and its profiles with `--object` and `--profile` instead of `--export`.
+
+## Constraints
+
+- The measurement is taken on the host.
+  The LLVM profiler runtime has to be available for the target the test program runs on, which holds for the host and not for the bare-metal targets, like the Rust coverage it joins.
+- `llvm-cov` and `llvm-profdata` have to be installed, from the `llvm-tools` rustup component.
+- The map belongs to one generated file.
+  Keep it next to the code, and rebuild both together: a map of other code gives a report of nothing, and neither the compiler nor the tool can tell.
+- An element point says its code was reached, not that the element was visible: an element that paints nothing, or paints behind another, is reached all the same.
+- The measurement is not MC/DC, and it doesn't measure what a binding computes beyond its decisions.
+
+`slint-sc-coverage` is a tool that produces evidence; its classification is in [Tool Classification](/evaluation-report/tool-classification/), and how it is tested in [Coverage Tool Verification](/qualification-plan/slint-coverage/).

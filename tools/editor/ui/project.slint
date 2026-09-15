@@ -16,6 +16,7 @@ export global Project {
     in-out property <[RecentProject]> recent;
 
     callback create-new-project() -> bool;
+    callback create-new-slint-file();
     callback open-existing-project() -> bool;
     callback open-recent-project(RecentProject) -> bool;
 }

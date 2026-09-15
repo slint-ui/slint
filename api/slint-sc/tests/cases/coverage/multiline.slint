@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A decision written over several lines: both of its outcomes are points of
+// the line of its operator, whichever lines its operands are on.
+
+export component TestCase inherits Window {
+//#c                               ^-
+    in property <bool> a;
+    in property <bool> b;
+    out property <int> picked: a
+//#c                           ^+
+        ? 1
+//#c    ^++
+        : 2;
+    out property <bool> both: a
+//#c                          ^+
+        && b;
+//#c    ^++
+}
+
+/*
+```rust
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+x.set_a(true);
+for b in [false, true] {
+    x.set_b(b);
+    assert_eq!(x.get_picked(), 1);
+    assert_eq!(x.get_both(), b);
+}
+x.set_a(false);
+assert_eq!(x.get_picked(), 2);
+assert!(!x.get_both());
+```
+*/

@@ -919,10 +919,8 @@ export component Test { in property <Foobar> test1; }"#,
         assert_eq!(result.kind, ui::PropertyValueKind::Color);
         assert!(matches!(result.value_brush, slint::Brush::SolidColor(_)));
         assert_eq!(result.value_string, "Foo.red");
-        assert_eq!(result.value_brush.color().red(), 0x00);
-        assert_eq!(result.value_brush.color().green(), 0x00);
-        assert_eq!(result.value_brush.color().blue(), 0xff);
-        assert_eq!(result.value_brush.color().alpha(), 0xff);
+        assert!(!result.value_resolved);
+        assert_eq!(result.value_brush.color(), slint::Color::default());
 
         let result = property_conversion_test(
             r#"struct Bar {
@@ -939,10 +937,8 @@ export component Test { in property <Foobar> test1; }"#,
         assert_eq!(result.kind, ui::PropertyValueKind::Color);
         assert!(matches!(result.value_brush, slint::Brush::SolidColor(_)));
         assert_eq!(result.value_string, "Foo.s.foo");
-        assert_eq!(result.value_brush.color().red(), 0x00);
-        assert_eq!(result.value_brush.color().green(), 0x00);
-        assert_eq!(result.value_brush.color().blue(), 0xff);
-        assert_eq!(result.value_brush.color().alpha(), 0xff);
+        assert!(!result.value_resolved);
+        assert_eq!(result.value_brush.color(), slint::Color::default());
 
         let result = property_conversion_test(
             r#"struct Bar {
@@ -962,10 +958,8 @@ export component Test { in property <Foobar> test1; }"#,
         assert_eq!(result.kind, ui::PropertyValueKind::Color);
         assert!(matches!(result.value_brush, slint::Brush::SolidColor(_)));
         assert_eq!(result.value_string, "Foo.s.baz.bar");
-        assert_eq!(result.value_brush.color().red(), 0x00);
-        assert_eq!(result.value_brush.color().green(), 0x00);
-        assert_eq!(result.value_brush.color().blue(), 0xff);
-        assert_eq!(result.value_brush.color().alpha(), 0xff);
+        assert!(!result.value_resolved);
+        assert_eq!(result.value_brush.color(), slint::Color::default());
     }
 
     #[test]

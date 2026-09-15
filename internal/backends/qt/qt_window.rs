@@ -425,12 +425,25 @@ cpp! {{
             if (!rust_window)
                 return {};
             auto preferred_size = rust!(Slint_sizeHint [rust_window: &QtWindow as "void*"] -> qttypes::QSize as "QSize" {
-                let component_rc = WindowInner::from_pub(&rust_window.window).component();
+                let window_inner = WindowInner::from_pub(&rust_window.window);
+                let component_rc = window_inner.component();
                 let component = ItemTreeRc::borrow_pin(&component_rc);
                 let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
-                let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+                let width = layout_info_h.preferred_bounded();
+                let layout_info_v = match window_inner.window_item() {
+                    // The height may depend on the width, so query it at the preferred width.
+                    // Restore the width afterwards: it may hold a size set before the window is shown.
+                    Some(window_item) => {
+                        let current_width = window_item.as_pin_ref().width();
+                        window_item.width.set(LogicalLength::new(width));
+                        let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+                        window_item.width.set(current_width);
+                        layout_info_v
+                    }
+                    None => component.as_ref().layout_info(Orientation::Vertical),
+                };
                 qttypes::QSize {
-                    width: layout_info_h.preferred_bounded() as _,
+                    width: width as _,
                     height: layout_info_v.preferred_bounded() as _,
                 }
             });

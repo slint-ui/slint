@@ -62,6 +62,13 @@ struct Cli {
     #[arg(long = "slint-sc")]
     slint_sc: bool,
 
+    /// Write, next to the output file, the map of the coverage points of the .slint source
+    /// that `slint-sc-coverage` reports from, with the extension `.slintcov`.
+    /// Requires --slint-sc and an output file.
+    #[cfg(feature = "slint-sc")]
+    #[arg(long = "coverage", requires = "slint_sc")]
+    coverage: bool,
+
     /// Specify include paths for imported .slint files or image resources.
     /// This is used for including external .slint files or image resources referenced by '@image-url'.
     #[arg(short = 'I', name = "include path", number_of_values = 1)]
@@ -224,6 +231,14 @@ fn main() -> std::io::Result<()> {
     }
 
     let mut compiler_config = CompilerConfiguration::new(format.clone());
+    #[cfg(feature = "slint-sc")]
+    {
+        if args.coverage && args.output == std::path::Path::new("-") {
+            eprintln!("--coverage needs an output file to write the coverage map next to");
+            std::process::exit(1);
+        }
+        compiler_config.coverage = args.coverage;
+    }
     compiler_config.translation_domain = args.translation_domain;
     #[cfg(feature = "bundle-translations")]
     if args.no_default_translation_context {

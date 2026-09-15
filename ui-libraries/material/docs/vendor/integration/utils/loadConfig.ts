@@ -1,7 +1,7 @@
 // Copyright © onWidget <https://github.com/onwidget>
 // SPDX-License-Identifier: MIT
 import fs from "node:fs";
-import yaml from "js-yaml";
+import { load } from "js-yaml";
 
 const loadConfig = (configPathOrData: string | object) => {
     if (typeof configPathOrData === "string") {
@@ -10,7 +10,7 @@ const loadConfig = (configPathOrData: string | object) => {
             configPathOrData.endsWith(".yaml") ||
             configPathOrData.endsWith(".yml")
         ) {
-            return yaml.load(content);
+            return load(content);
         }
         return content;
     }

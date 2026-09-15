@@ -1,0 +1,152 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Claude Code
+
+# On a pull request from a fork, only the comment events reach Claude with the
+# secrets and the write token it needs. The two review events get neither, so
+# '@claude' there has to go in a plain comment rather than a review.
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  issues:
+    types: [opened]
+
+# One Claude run at a time per issue/PR. Later triggers wait rather than
+# piling up parallel runs against the same budget.
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  claude:
+    # Restrict who can trigger a run. The per-actor token below only selects
+    # whose subscription pays; it is not an authorization check, so without
+    # this any drive-by '@claude' would spend a run and leave a comment.
+    if: |
+      contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association) &&
+      github.event.sender.type != 'Bot' &&
+      ((github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))))
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      # Read-only on the tree: Claude reviews diffs and comments written by
+      # anyone, so treat all of it as untrusted input. Raise to write only if
+      # Claude should also push commits.
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+      # Lets Claude read CI status and job logs, to answer why a check failed.
+      # Only takes effect together with 'additional_permissions' below.
+      actions: read
+
+    steps:
+      # Derive the secret name from the triggering user. GitHub secret names
+      # allow only alphanumerics and underscores, so the hyphens a login may
+      # contain get flattened: ada-lovelace -> CLAUDE_TOKEN_ADA_LOVELACE
+      - name: Resolve secret name for actor
+        id: resolve
+        run: |
+          sanitized=$(printf '%s' "$GITHUB_ACTOR" \
+            | tr '[:lower:]' '[:upper:]' \
+            | tr -c '[:alnum:]' '_')
+          echo "secret_name=CLAUDE_TOKEN_${sanitized}" >> "$GITHUB_OUTPUT"
+          echo "Looking for secret CLAUDE_TOKEN_${sanitized}"
+
+      # Test for presence without ever putting the value in a step output,
+      # so GitHub's automatic log masking stays intact.
+      - name: Check that a token exists
+        id: check
+        env:
+          CLAUDE_TOKEN: ${{ secrets[steps.resolve.outputs.secret_name] }}
+        run: |
+          if [ -z "$CLAUDE_TOKEN" ]; then
+            echo "has_token=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No Claude token configured for $GITHUB_ACTOR"
+          else
+            echo "has_token=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Explain the missing token
+        if: steps.check.outputs.has_token != 'true'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const body = [
+              `@${context.actor}: Claude didn't run because you don't have a`,
+              `Claude token set up in this repository yet.`,
+              ``,
+              `Each person's \`@claude\` usage bills to their own Claude`,
+              `subscription, so you need your own token:`,
+              ``,
+              `1. Run \`claude setup-token\` locally (needs Pro, Max, Team or Enterprise).`,
+              `2. Ask a repo admin to add it as the secret`,
+              `   \`${{ steps.resolve.outputs.secret_name }}\`.`,
+              ``,
+              `Then tag me again.`,
+            ].join('\n');
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            } catch (error) {
+              // Reviewing a fork's pull request leaves the run unable to
+              // authenticate or to comment, so the log is the only channel.
+              core.warning(
+                `Could not comment: ${error.message}. Reviewing a pull request `
+                  + `from a fork withholds secrets and issues a read-only token, so `
+                  + `write '@claude' in a plain comment on it instead.`
+              );
+            }
+
+      # The comment above is the report, so end green rather than adding a
+      # failed run and its notifications on top.
+      - name: Stop here if unauthenticated
+        if: steps.check.outputs.has_token != 'true'
+        run: echo "No token for $GITHUB_ACTOR, see the comment on the issue."
+
+      - uses: actions/checkout@v7
+        if: steps.check.outputs.has_token == 'true'
+        with:
+          # The action fetches the diff it reviews over the API, so a shallow
+          # clone is enough. It does leave the run without a merge base, so
+          # 'git log' and 'git diff master...HEAD' find nothing.
+          fetch-depth: 1
+
+      - uses: ./.github/actions/install-linux-dependencies
+        if: steps.check.outputs.has_token == 'true'
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.check.outputs.has_token == 'true'
+        with:
+          # rust-cache keys on the job by default, which would never hit the
+          # caches the CI jobs write. Give these runs one slot of their own.
+          shared-key: claude
+
+      - uses: anthropics/claude-code-action@v1
+        if: steps.check.outputs.has_token == 'true'
+        with:
+          claude_code_oauth_token: ${{ secrets[steps.resolve.outputs.secret_name] }}
+          additional_permissions: |
+            actions: read
+          # Bounds a runaway loop. It caps turns, not tokens or spend, and a
+          # review that hits the cap stops unfinished, so keep it generous.
+          #
+          # The action restores only CLAUDE.md and .claude from the base branch,
+          # so instructions that must hold while reviewing a fork's pull request
+          # belong here rather than in AGENTS.md.
+          claude_args: |
+            --max-turns 40
+            --allowedTools "Bash(cargo:*)"
+            --append-system-prompt "When reviewing, pay attention to any change to the public API: added, removed or renamed items under api/, and any change to a .slint element's properties or callbacks. Say plainly whether it breaks compatibility. Write your review in plain English: short sentences, everyday words, and no jargon where a common word works."

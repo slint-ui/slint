@@ -15,7 +15,7 @@
 // The markers are authoring syntax, so no page ever renders one verbatim:
 // where a page carries no identifiers -- the same doc comments feed the main
 // documentation, which has no traceability -- the marker is dropped instead.
-// That keeps every producer of markers (the specification, builtins.slint doc
+// That keeps every producer of markers (the specification, the builtin element doc
 // comments, and whatever else grows one) free to write them unconditionally.
 //
 // The pages that do carry identifiers are the specification and property-type

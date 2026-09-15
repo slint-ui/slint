@@ -149,10 +149,11 @@ fn inline_element(
 
     // Ensure @children CIP exists if it's missing but the component is a builtin that accepts children.
     // This preserves the implicit-children behavior for builtins without explicit placeholders.
+    // Which children a builtin accepts was checked when the object tree was built, so a builtin
+    // restricted to specific child types, such as `Path`, gets the placeholder too.
     if !inlined_insertion_points.contains_key(DEFAULT_SLOT_NAME)
         && let Some(builtin) = inlined_component.root_element.borrow().builtin_type()
         && !builtin.is_non_item_type
-        && !builtin.disallow_global_types_as_child_elements
     {
         let cip_node = inlined_component
             .node
@@ -496,18 +497,18 @@ fn inline_element(
             elem_mut.layout_info_prop = Some(orig.clone());
         }
     }
+    if let Some(orig) = &inlined_component.root_element.borrow().layout_info_h_at_own_height {
+        if let Some(_new) = &mut elem_mut.layout_info_h_at_own_height {
+            todo!("Merge layout infos");
+        } else {
+            elem_mut.layout_info_h_at_own_height = Some(orig.clone());
+        }
+    }
     if let Some(orig) = &inlined_component.root_element.borrow().layout_info_v_with_constraint {
         if let Some(_new) = &mut elem_mut.layout_info_v_with_constraint {
             todo!("Merge layout infos");
         } else {
             elem_mut.layout_info_v_with_constraint = Some(orig.clone());
-        }
-    }
-    if let Some(orig) = &inlined_component.root_element.borrow().layout_info_h_with_constraint {
-        if let Some(_new) = &mut elem_mut.layout_info_h_with_constraint {
-            todo!("Merge layout infos");
-        } else {
-            elem_mut.layout_info_h_with_constraint = Some(orig.clone());
         }
     }
 
@@ -619,7 +620,8 @@ fn duplicate_element_with_mapping(
         parent_box_layout_orientation: elem.parent_box_layout_orientation,
         layout_info_prop: elem.layout_info_prop.clone(),
         layout_info_v_with_constraint: elem.layout_info_v_with_constraint.clone(),
-        layout_info_h_with_constraint: elem.layout_info_h_with_constraint.clone(),
+        layout_info_h_at_own_height: elem.layout_info_h_at_own_height.clone(),
+        height_is_literal: elem.height_is_literal,
         default_fill_parent: elem.default_fill_parent,
         accessibility_props: elem.accessibility_props.clone(),
         geometry_props: elem.geometry_props.clone(),

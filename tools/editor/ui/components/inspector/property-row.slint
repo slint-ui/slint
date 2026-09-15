@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorPropertyRow inherits HorizontalLayout {
+    in property <string> label;
+    spacing: InspectorTokens.row-gap;
+    padding-left: InspectorTokens.side-padding;
+    padding-right: InspectorTokens.side-padding;
+    cross-axis-alignment: center;
+    Text {
+        width: InspectorTokens.label-width;
+        text: root.label;
+        color: InspectorTokens.muted;
+        font-size: 12px;
+        vertical-alignment: center;
+    }
+    @children
+}

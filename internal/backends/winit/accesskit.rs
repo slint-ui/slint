@@ -12,11 +12,11 @@ use accesskit::{
 use i_slint_core::SharedString;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
-    find_text_input_with_rc,
+    find_exposed_text_input, nearest_accessible_item,
 };
 use i_slint_core::api::Window;
 use i_slint_core::input::FocusReason;
-use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak, ParentItemTraversalMode};
+use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
 use i_slint_core::items::{ItemRc, WindowItem};
 use i_slint_core::lengths::{LogicalPoint, ScaleFactor};
 use i_slint_core::window::{PopupWindowLocation, WindowInner};
@@ -182,7 +182,7 @@ impl AccessKitAdapter {
                 }
                 let wrapper_item = self.nodes.item_rc_for_node_id(wrapper_parent)?;
                 let window_adapter = self.window_adapter_weak.upgrade()?;
-                let (inner_item_rc, text_input) = find_text_input_with_rc(&wrapper_item)?;
+                let (inner_item_rc, text_input) = find_exposed_text_input(&wrapper_item)?;
                 let state = self
                     .nodes
                     .text_state
@@ -319,18 +319,6 @@ impl AccessKitAdapter {
     }
 }
 
-fn accessible_parent_for_item_rc(mut item: ItemRc) -> ItemRc {
-    while !item.is_accessible() {
-        if let Some(parent) = item.parent_item(ParentItemTraversalMode::StopAtPopups) {
-            item = parent;
-        } else {
-            break;
-        }
-    }
-
-    item
-}
-
 const NODE_ID_INDEX_BITS: u32 = 16;
 const NODE_ID_INDEX_MASK: u64 = (1 << NODE_ID_INDEX_BITS) - 1; // 0xFFFF
 const NODE_ID_COMPONENT_BITS: u32 = 22;
@@ -412,7 +400,7 @@ impl NodeCollection {
                     .borrow()
                     .upgrade()
                     .map(|focus_item| {
-                        let parent = accessible_parent_for_item_rc(focus_item);
+                        let parent = nearest_accessible_item(focus_item);
                         self.focused_node_tracker
                             .as_ref()
                             .evaluate(|| {
@@ -440,7 +428,7 @@ impl NodeCollection {
     }
 
     fn find_node_id_by_item_rc(&mut self, mut item: ItemRc) -> NodeId {
-        item = accessible_parent_for_item_rc(item);
+        item = nearest_accessible_item(item);
 
         self.encode_item_node_id(&item)
     }
@@ -564,7 +552,7 @@ impl NodeCollection {
         if !wraps_text_input(wrapper_node.role()) {
             return;
         }
-        let Some((inner_item_rc, text_input)) = find_text_input_with_rc(item) else {
+        let Some((inner_item_rc, text_input)) = find_exposed_text_input(item) else {
             return;
         };
         let mut state =
@@ -646,7 +634,7 @@ impl NodeCollection {
                     return None;
                 };
 
-                let parent_item = accessible_parent_for_item_rc(popup.parent_item.upgrade()?);
+                let parent_item = nearest_accessible_item(popup.parent_item.upgrade()?);
                 let parent_node = self.encode_item_node_id(if parent_item.is_accessible() {
                     &parent_item
                 } else {

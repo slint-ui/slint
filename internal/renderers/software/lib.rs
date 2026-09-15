@@ -882,7 +882,12 @@ impl RendererSealed for SoftwareRenderer {
 
         #[cfg(feature = "systemfonts")]
         if uses_parley(&font) {
-            return sharedparley::text_content_widths(self, text_item, item_rc);
+            return sharedparley::text_content_widths(
+                self,
+                text_item,
+                item_rc,
+                Some(&self.text_layout_cache),
+            );
         }
 
         let max_lines = text_item.line_limit();
@@ -1151,12 +1156,12 @@ impl RendererSealed for SoftwareRenderer {
 
     fn free_graphics_resources(
         &self,
-        _component: i_slint_core::item_tree::ItemTreeRef,
+        component: i_slint_core::item_tree::ItemTreeRef,
         items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         #[cfg(feature = "systemfonts")]
-        self.text_layout_cache.component_destroyed(_component);
-        self.partial_rendering_state.free_graphics_resources(items);
+        self.text_layout_cache.component_destroyed(component);
+        self.partial_rendering_state.free_graphics_resources(component, items);
         Ok(())
     }
 

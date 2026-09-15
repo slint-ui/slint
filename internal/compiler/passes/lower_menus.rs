@@ -504,6 +504,7 @@ fn process_window(
                 lhs: condition.into(),
                 rhs: supports_native_menu_bar.into(),
                 op: '&',
+                source_location: None,
             }),
             None => Some(supports_native_menu_bar),
         };

@@ -188,6 +188,10 @@ jobs:
                   EXTRA_FLAGS="--experimental"
                 fi
                 cargo run --release -p slint-doc-generator -- $EXTRA_FLAGS
+                # Make a second run to double check that the output is deterministic
+                cp -r docs/astro/src/content/docs/generated "$RUNNER_TEMP/generated-first-run"
+                cargo run --release -p slint-doc-generator -- $EXTRA_FLAGS generate-mdx
+                diff -r "$RUNNER_TEMP/generated-first-run" docs/astro/src/content/docs/generated
             - name: "Run the slint-sc test suites and measure coverage"
               if: ${{ inputs['slint-sc-coverage'] }}
               run: scripts/slint_sc_test_suite.sh coverage

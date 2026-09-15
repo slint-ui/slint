@@ -72,6 +72,7 @@ fn create_content_element(flickable: &ElementRc, native_empty: &Arc<NativeClass>
                     lhs: Expression::PropertyReference(new_y.clone()).into(),
                     rhs: Expression::PropertyReference(listview.content_y.clone()).into(),
                     op: '-',
+                    source_location: None,
                 }
                 .into(),
             );

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore dontcrash
+// cSpell: ignore descendents dontcrash
 
 #[allow(unused_imports)]
 use i_slint_core::api::ComponentHandle;
@@ -846,4 +846,57 @@ fn accent_color_reachable_from_global() {
     .unwrap();
     let after = instance.get_property("accent").unwrap();
     assert_ne!(before, after, "accent-background should follow the system accent color");
+}
+
+#[test]
+fn text_runs_belong_to_the_nearest_accessible_item() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, ComponentHandle};
+    use i_slint_core::accessibility::{
+        AccessibleStringProperty, accessible_descendents, find_exposed_text_input,
+        find_text_input_with_rc,
+    };
+    use i_slint_core::items::ItemRc;
+    use i_slint_core::window::WindowInner;
+
+    // `nested` leaves its TextInput accessible, `hidden` doesn't.
+    let code = r#"
+        export component App inherits Window {
+            HorizontalLayout {
+                nested := Rectangle {
+                    accessible-role: text-input;
+                    accessible-label: "nested";
+                    TextInput { text: "one"; }
+                }
+                hidden := Rectangle {
+                    accessible-role: text-input;
+                    accessible-label: "hidden";
+                    TextInput { text: "two"; accessible-role: none; }
+                }
+            }
+        }
+    "#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let instance = result.component("App").unwrap().create().unwrap();
+    instance.show().unwrap();
+
+    let root = ItemRc::new_root(WindowInner::from_pub(instance.window()).component());
+    let labeled = |label: &str| {
+        accessible_descendents(&root)
+            .find(|item| {
+                item.accessible_string_property(AccessibleStringProperty::Label)
+                    .is_some_and(|found| found == label)
+            })
+            .unwrap_or_else(|| panic!("no accessible item labeled {label}"))
+    };
+
+    for (label, wrapper_exposes) in [("nested", false), ("hidden", true)] {
+        let wrapper = labeled(label);
+        let (input, _) = find_text_input_with_rc(&wrapper).expect("input below the wrapper");
+        assert_eq!(find_exposed_text_input(&wrapper).is_some(), wrapper_exposes, "{label}");
+        assert_eq!(find_exposed_text_input(&input).is_some(), !wrapper_exposes, "{label}");
+    }
 }

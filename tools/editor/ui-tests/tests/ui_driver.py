@@ -5,9 +5,25 @@ import contextlib
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TypeVar
 
 import slint_testing
+from editor_sync import EditorSync, current_editor_sync
+from ui_reporting import capture_failure, current_report, replay_stage
+
+PALETTE_KINDS = ("Image", "Rectangle", "Text", "TouchArea")
+
+
+def press_key(window: slint_testing.Window, key: str) -> None:
+    window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
+    window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
+
+
+def press_keys(window: slint_testing.Window, text: str) -> None:
+    for key in text:
+        press_key(window, key)
+
 
 T = TypeVar("T")
 
@@ -110,7 +126,76 @@ def launch_editor(
     arguments = [str(binary)]
     if file is not None:
         arguments.append(str(file))
-    with slint_testing.Application(
-        arguments, env=environment, launch_timeout=20
-    ) as application:
-        yield application
+    with TemporaryDirectory(prefix="slint-editor-sync-") as directory:
+        sync = EditorSync(Path(directory))
+        token = current_editor_sync.set(sync)
+        try:
+            with slint_testing.Application(
+                arguments,
+                env=environment | {"SLINT_EDITOR_TEST_SYNC": directory},
+                launch_timeout=20,
+            ) as application:
+                try:
+                    yield application
+                    report = current_report.get()
+                    if report is not None and report.completed_stages == 0:
+                        with replay_stage("completed"):
+                            pass
+                except Exception as error:
+                    capture_failure(application, error)
+                    raise
+
+        finally:
+            current_editor_sync.reset(token)
+
+
+def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:
+    from canvas_interactions import center
+
+    tree = window_element_with_label(window, "Files", slint_testing.AccessibleRole.Tree)
+    scroll_step = max(1, min(250, tree.size.height / 2))
+    for delta in [0, 10000] + [-scroll_step] * 32:
+        if delta:
+            window.dispatch_event(
+                slint_testing.PointerScrolledEvent(
+                    center(tree), delta_x=0, delta_y=delta
+                )
+            )
+        rows = elements_with_label(
+            tree, str(path), slint_testing.AccessibleRole.ListItem
+        )
+        if rows:
+            return rows[0]
+    return window_element_with_label(
+        window, str(path), slint_testing.AccessibleRole.ListItem
+    )
+
+
+def palette_row(window: slint_testing.Window, kind: str) -> slint_testing.Element:
+    from canvas_interactions import center
+
+    pane = window_element_with_label(window, "Element library")
+    top = pane.absolute_position.y
+    bottom = top + pane.size.height
+    position = slint_testing.LogicalPosition(x=center(pane).x, y=(top + bottom) / 2)
+    step = max(1, (bottom - top) / 2)
+    for delta in [0, 10000] + [-step] * 16:
+        if delta:
+            window.dispatch_event(
+                slint_testing.PointerScrolledEvent(position, delta_x=0, delta_y=delta)
+            )
+        rows = elements_with_label(pane, kind, slint_testing.AccessibleRole.ListItem)
+        if len(rows) == 1 and top < center(rows[0]).y < bottom:
+            return rows[0]
+    raise AssertionError(f"No visible palette row for {kind!r}")
+
+
+def press_shortcut(window: slint_testing.Window, *keys: str) -> None:
+    pressed = []
+    try:
+        for key in keys:
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
+            pressed.append(key)
+    finally:
+        for key in reversed(pressed):
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))

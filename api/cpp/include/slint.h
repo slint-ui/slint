@@ -432,6 +432,13 @@ inline SharedString decimal_separator()
     return out;
 }
 
+inline SharedString default_window_title()
+{
+    SharedString out;
+    cbindgen_private::slint_default_window_title(&out);
+    return out;
+}
+
 inline StyledText parse_markdown(const SharedString &format_string,
                                  cbindgen_private::Slice<StyledText> args)
 {

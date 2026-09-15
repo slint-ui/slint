@@ -1,0 +1,201 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, FillData, BrushKind, GradientStop, GradientStopOrder } from "../../api.slint";
+import { FillSession } from "fill-session.slint";
+import { InspectorTokens } from "tokens.slint";
+import { InspectorSegment } from "segment.slint";
+import { InspectorTextFieldBase } from "text-field-base.slint";
+import { ScrollView } from "std-widgets.slint";
+
+import { GradientStopMarker } from "../../../../lsp/ui/components/widgets/gradient-stop-marker.slint";
+
+export component InspectorGradientStops inherits Rectangle {
+    private property <FillData> value: FillSession.working-fill;
+    private property <string> session-key: FillSession.request.target.session-key;
+    in-out property <int> selected-index <=> FillSession.selected-stop;
+    callback edit-color();
+    private property <int> focus-generation: FillSession.focus-stop-generation;
+    private property <GradientStopOrder> order: Api.gradient-stop-order(root.value.stops, root.selected-index);
+    private property <FillData> gesture-value;
+    private property <bool> dragging;
+    private property <float> units: root.value.kind == BrushKind.conic ? 360 : 100;
+    private property <string> suffix: root.value.kind == BrushKind.conic ? "°" : "%";
+    preferred-height: layout.preferred-height;
+    min-height: layout.min-height;
+    changed session-key => {
+        root.dragging = false;
+    }
+
+    layout := VerticalLayout {
+        spacing: 6px;
+        ramp := FocusScope {
+            height: 58px;
+            key-pressed(event) => {
+                if event.text == Key.LeftArrow || event.text == Key.RightArrow {
+                    let step = (event.modifiers.shift ? 10 : 1) / root.units;
+                    FillSession.move-stop-position((root.value.stops[root.selected-index].position + (event.text == Key.LeftArrow ? -step : step)).clamp(0, 1));
+                    return accept;
+                }
+                if event.text == Key.UpArrow || event.text == Key.DownArrow {
+                    root.selected-index = root.order.indices[(root.order.selected + (event.text == Key.UpArrow ? -1 : 1)).clamp(0, root.value.stops.length - 1)];
+                    return accept;
+                }
+                if event.text == Key.Delete || event.text == Key.Backspace {
+                    FillSession.remove-stop(root.selected-index);
+                    return accept;
+                }
+                return reject;
+            }
+            Rectangle {
+                x: 12px;
+                width: parent.width - 24px;
+                y: 4px;
+                height: 24px;
+                border-radius: 4px;
+                background: Api.create-brush(BrushKind.linear, 90, transparent, root.value.stops);
+                border-width: ramp.has-focus ? 1px : 0px;
+                border-color: InspectorTokens.accent;
+            }
+            for stop[index] in root.value.stops: GradientStopMarker {
+                x: stop.position.clamp(0, 1) * (parent.width - 24px);
+                y: 28px;
+                stop-color: stop.color;
+                active: index == root.selected-index;
+                z: self.active ? 1 : 0;
+                accessible-role: AccessibleRole.slider;
+                accessible-label: "Gradient stop " + (index + 1);
+                accessible-value: (stop.position * root.units).to-fixed(1);
+                accessible-action-set-value(text) => {
+                    if text.is-float() {
+                        root.selected-index = index;
+                        FillSession.move-stop-position(text.to-float() / root.units);
+                    }
+                }
+            }
+            TouchArea {
+                mouse-cursor: pointer;
+                pointer-event(event) => {
+                    let position = ((self.mouse-x - 12px) / max(1px, self.width - 24px)).clamp(0, 1);
+                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                        ramp.focus();
+                        root.gesture-value = root.value;
+                        let index = Api.nearest-gradient-stop(root.value.stops, position);
+                        if index >= 0 && abs(root.value.stops[index].position - position) * (self.width - 24px) <= 10px {
+                            root.selected-index = index;
+                        } else { FillSession.add-stop-position(position); }
+                        root.dragging = true;
+                    } else if event.kind == PointerEventKind.move && root.dragging {
+                        FillSession.move-stop-position(position);
+                    } else if event.kind == PointerEventKind.up {
+                        root.dragging = false;
+                    } else if event.kind == PointerEventKind.cancel && root.dragging {
+                        root.dragging = false;
+                        root.selected-index = min(root.selected-index, root.gesture-value.stops.length - 1);
+                        FillSession.preview-fill(root.gesture-value);
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            Text { text: "Stops"; color: InspectorTokens.text; font-size: 12px; vertical-alignment: center; }
+            Rectangle { }
+            InspectorSegment {
+                kind: "text";
+                label: "+";
+                width: 24px;
+                accessible-label: "Add gradient stop";
+                clicked => {
+                    FillSession.add-stop-position(Api.gradient-stop-gap(root.value.stops));
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            Text { text: "Position " + root.suffix; width: 66px; color: InspectorTokens.muted; font-size: 11px; }
+            Text { text: "Color"; horizontal-stretch: 1; color: InspectorTokens.muted; font-size: 11px; }
+            Text { text: "Opacity"; width: 48px; color: InspectorTokens.muted; font-size: 11px; }
+            Rectangle { width: 24px; }
+        }
+        ScrollView {
+            preferred-height: rows.preferred-height;
+            min-height: 28px;
+            max-height: self.preferred-height;
+            content-width: self.visible-width;
+            rows := VerticalLayout {
+                spacing: 2px;
+                for index in root.order.indices: Rectangle {
+                    private property <GradientStop> stop: root.value.stops[index];
+                    height: 28px;
+                    border-radius: 4px;
+                    background: index == root.selected-index ? InspectorTokens.accent.with-alpha(0.14) : transparent;
+                    HorizontalLayout {
+                        spacing: 6px;
+                        InspectorTextFieldBase {
+                            width: 66px;
+                            accessible-name: "Stop " + (index + 1) + " position";
+                            value: (stop.position * root.units).to-fixed(1);
+                            commit-key: root.session-key;
+                            accepted(text) => {
+                                let number = text;
+                                if !number.is-float() {
+                                    return false;
+                                }
+                                root.selected-index = index;
+                                return FillSession.move-stop-position(number.to-float() / root.units);
+                            }
+                        }
+                        Rectangle {
+                            color-focus := FocusScope {
+                                property <int> focus-generation: root.focus-generation;
+                                changed focus-generation => {
+                                    if root.selected-index == index {
+                                        self.focus();
+                                    }
+                                }
+                                key-pressed(event) => {
+                                    if event.text == Key.Return || event.text == Key.Space {
+                                        root.selected-index = index;
+                                        root.edit-color();
+                                        return accept;
+                                    }
+                                    return reject;
+                                }
+                                HorizontalLayout {
+                                    spacing: 5px;
+                                    cross-axis-alignment: center;
+                                    Rectangle { width: 14px; height: 14px; background: stop.color; border-radius: 3px; }
+                                    Text { text: Api.color-to-data(stop.color).short-text; color: InspectorTokens.text; font-size: 11px; vertical-alignment: center; }
+                                }
+                                TouchArea {
+                                    accessible-role: button;
+                                    accessible-label: "Edit stop " + (index + 1) + " color";
+                                    clicked => {
+                                        parent.focus();
+                                        root.selected-index = index;
+                                        root.edit-color();
+                                    }
+                                    accessible-action-default => {
+                                        root.selected-index = index;
+                                        root.edit-color();
+                                    }
+                                }
+                            }
+                        }
+                        Text { width: 48px; text: (stop.color.alpha * 100 / 255).to-fixed(0) + "%"; color: InspectorTokens.text; font-size: 11px; vertical-alignment: center; }
+                        if root.value.stops.length > 2: InspectorSegment {
+                            width: 24px;
+                            kind: "text";
+                            label: "−";
+                            accessible-label: "Remove stop " + (index + 1);
+                            clicked => {
+                                FillSession.remove-stop(index);
+                            }
+                        }
+                        if root.value.stops.length <= 2: Rectangle { width: 24px; }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -169,6 +169,19 @@ impl GlutinFemtoVGRenderer {
 }
 
 #[cfg(feature = "renderer-femtovg-wgpu")]
+fn wgpu_backends_to_avoid() -> i_slint_core::graphics::wgpu_30::wgpu::Backends {
+    // On WASM keep GL so wgpu can fall through to WebGL when WebGPU is missing.
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        i_slint_core::graphics::wgpu_30::default_backends_to_avoid()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        i_slint_core::graphics::wgpu_30::wgpu::Backends::empty()
+    }
+}
+
+#[cfg(feature = "renderer-femtovg-wgpu")]
 pub struct WGPUFemtoVGRenderer {
     renderer: FemtoVGRenderer<i_slint_renderer_femtovg::wgpu::WGPUBackend>,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
@@ -181,6 +194,7 @@ impl WGPUFemtoVGRenderer {
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
         if !i_slint_core::graphics::wgpu_30::any_wgpu30_adapters_with_gpu(
             shared_backend_data.requested_graphics_api.clone(),
+            wgpu_backends_to_avoid(),
         ) {
             return Err(PlatformError::from("WGPU: No GPU adapters found"));
         }
@@ -237,21 +251,11 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
             i_slint_core::window::WindowInner::from_pub(window_adapter.window()).context().clone()
         };
 
-        // On native we want a real GPU adapter, not an ANGLE/GL one (the WGPU
-        // FemtoVG renderer is meant to use modern backends). On WASM we *want*
-        // the GL backend to be available, so wgpu's
-        // `new_instance_with_webgpu_detection` can fall through to WebGL when no
-        // WebGPU adapter is reachable (e.g. headless Chromium on CI).
-        #[cfg(not(target_arch = "wasm32"))]
-        let backends_to_avoid = i_slint_core::graphics::wgpu_30::wgpu::Backends::GL;
-        #[cfg(target_arch = "wasm32")]
-        let backends_to_avoid = i_slint_core::graphics::wgpu_30::wgpu::Backends::empty();
-
         i_slint_core::graphics::wgpu_30::init_instance_adapter_device_queue_surface_then(
             &context,
             window_handle,
             requested_graphics_api,
-            backends_to_avoid,
+            wgpu_backends_to_avoid(),
             move |instance, adapter, device, queue, surface| {
                 finalize_wgpu_init(
                     &window_adapter_weak,

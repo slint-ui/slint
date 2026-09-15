@@ -146,10 +146,41 @@ pub mod api {
 
 use super::RequestedGraphicsAPI;
 
-/// Internal helper function see if there are any GPU adapters for hardware accelerated rendering.
+/// Backends the WGPU renderers do not use on this platform.
+/// Subtracted at instance creation so unused driver stacks are not loaded.
+#[doc(hidden)]
+pub fn default_backends_to_avoid() -> wgpu::Backends {
+    let mut avoid = wgpu::Backends::GL;
+    #[cfg(not(target_vendor = "apple"))]
+    avoid.insert(wgpu::Backends::METAL);
+    #[cfg(not(target_family = "windows"))]
+    avoid.insert(wgpu::Backends::DX12);
+    avoid
+}
+
+/// Subtract `backends_to_avoid` from `requested`.
+/// If that would leave no backends, keep `requested`.
+/// That honors an explicit choice such as `WGPU_BACKEND=gl`.
+#[doc(hidden)]
+pub fn mask_backends(
+    requested: wgpu::Backends,
+    backends_to_avoid: wgpu::Backends,
+) -> wgpu::Backends {
+    let masked = requested & !backends_to_avoid;
+    if masked.is_empty() { requested } else { masked }
+}
+
+/// Internal helper to see if there are any GPU adapters for hardware accelerated rendering.
 /// This is used to determine if we should fall back to software rendering (instead of using WGPU
-/// software rendering, such as DX12's Warp adapter)
-pub fn any_wgpu29_adapters_with_gpu(requested_graphics_api: Option<RequestedGraphicsAPI>) -> bool {
+/// software rendering, such as DX12's Warp adapter).
+///
+/// `backends_to_avoid` is subtracted from the instance backends the same way as in
+/// [`init_instance_adapter_device_queue_surface`].
+/// The throwaway probe then does not load stacks the renderer will not use.
+pub fn any_wgpu29_adapters_with_gpu(
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
+    backends_to_avoid: wgpu::Backends,
+) -> bool {
     // On WASM the wgpu init path uses
     // `wgpu::util::new_instance_with_webgpu_detection`, which probes
     // `navigator.gpu.requestAdapter()` asynchronously and falls through
@@ -170,18 +201,22 @@ pub fn any_wgpu29_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
             (instance, wgpu::Backends::all())
         }
         #[cfg(feature = "unstable-wgpu-29")]
-        Some(RequestedGraphicsAPI::WGPU29(api::WGPUConfiguration::Automatic(wgpu29_settings))) => (
-            wgpu::Instance::new(wgpu::InstanceDescriptor {
-                backends: wgpu29_settings.backends,
-                flags: wgpu29_settings.instance_flags,
-                backend_options: wgpu29_settings.backend_options,
-                memory_budget_thresholds: wgpu29_settings.instance_memory_budget_thresholds,
-                display: None,
-            }),
-            wgpu29_settings.backends,
-        ),
+        Some(RequestedGraphicsAPI::WGPU29(api::WGPUConfiguration::Automatic(wgpu29_settings))) => {
+            let backends = mask_backends(wgpu29_settings.backends, backends_to_avoid);
+            (
+                wgpu::Instance::new(wgpu::InstanceDescriptor {
+                    backends,
+                    flags: wgpu29_settings.instance_flags,
+                    backend_options: wgpu29_settings.backend_options,
+                    memory_budget_thresholds: wgpu29_settings.instance_memory_budget_thresholds,
+                    display: None,
+                }),
+                backends,
+            )
+        }
         None => {
-            let backends = wgpu::Backends::from_env().unwrap_or_default();
+            let backends =
+                mask_backends(wgpu::Backends::from_env().unwrap_or_default(), backends_to_avoid);
 
             (
                 wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -196,6 +231,9 @@ pub fn any_wgpu29_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
         }
         Some(_) => return false,
     };
+    if backends.is_empty() {
+        return false;
+    }
     poll_once(instance.enumerate_adapters(backends))
         .unwrap()
         .into_iter()
@@ -295,7 +333,7 @@ pub async fn async_init_instance_adapter_device_queue_surface(
         Some(RequestedGraphicsAPI::WGPU29(api::WGPUConfiguration::Automatic(wgpu29_settings))) => {
             let instance =
                 wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor {
-                    backends: wgpu29_settings.backends & !backends_to_avoid,
+                    backends: mask_backends(wgpu29_settings.backends, backends_to_avoid),
                     flags: wgpu29_settings.instance_flags,
                     backend_options: wgpu29_settings.backend_options.clone(),
                     memory_budget_thresholds: wgpu29_settings.instance_memory_budget_thresholds,
@@ -344,7 +382,11 @@ pub async fn async_init_instance_adapter_device_queue_surface(
                 Some(RequestedGraphicsAPI::Direct3D) => wgpu::Backends::DX12,
                 _ => wgpu::Backends::from_env().unwrap_or_default(),
             };
-            let backends = requested_backends & !backends_to_avoid;
+            let backends = if maybe_native_api.is_none() {
+                mask_backends(requested_backends, backends_to_avoid)
+            } else {
+                requested_backends & !backends_to_avoid
+            };
             if backends.is_empty() {
                 return Err(alloc::format!(
                     "The requested graphics API ({maybe_native_api:?}) is not supported under wgpu on this platform"
@@ -480,5 +522,25 @@ fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
     match future.poll(&mut ctx) {
         std::task::Poll::Ready(result) => Some(result),
         std::task::Poll::Pending => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mask_backends_keeps_explicit_choice_when_empty() {
+        let avoid = wgpu::Backends::GL | wgpu::Backends::METAL | wgpu::Backends::DX12;
+        assert_eq!(mask_backends(wgpu::Backends::GL, avoid), wgpu::Backends::GL);
+        assert!(mask_backends(wgpu::Backends::all(), avoid).contains(wgpu::Backends::VULKAN));
+        assert!(!mask_backends(wgpu::Backends::all(), avoid).contains(wgpu::Backends::GL));
+        assert_eq!(mask_backends(wgpu::Backends::empty(), avoid), wgpu::Backends::empty());
+        assert_eq!(mask_backends(wgpu::Backends::VULKAN, avoid), wgpu::Backends::VULKAN);
+    }
+
+    #[test]
+    fn default_avoid_includes_gl() {
+        assert!(default_backends_to_avoid().contains(wgpu::Backends::GL));
     }
 }

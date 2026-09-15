@@ -3,6 +3,8 @@
 
 use std::cell::RefCell;
 use std::collections::HashSet;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -15,6 +17,9 @@ use super::{Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPr
 
 pub(in crate::preview) type SharedFileTreeController = Rc<RefCell<Option<FileTreeController>>>;
 
+const NEW_COMPONENT_NAME: &str = "NewComponent";
+const NEW_COMPONENT_CONTENTS: &str = "export component NewComponent {\n}\n";
+
 pub fn setup(
     api: &Api<'_>,
     api_weak: slint::Weak<Api<'static>>,
@@ -25,6 +30,16 @@ pub fn setup(
     project.set_selected_project_file(Default::default());
 
     let controller: SharedFileTreeController = Rc::new(RefCell::new(None));
+
+    let controller_for_create = controller.clone();
+    let project_weak_for_create = project_weak.clone();
+    project.on_create_new_slint_file(move || {
+        if let Some(project) = project_weak_for_create.upgrade()
+            && let Some(controller) = controller_for_create.borrow_mut().as_mut()
+        {
+            controller.create_new_slint_file(&project);
+        }
+    });
 
     let controller_for_select = controller.clone();
     let api_weak_for_select = api_weak.clone();
@@ -106,6 +121,20 @@ impl FileTreeController {
         }
     }
 
+    fn create_new_slint_file(&mut self, project: &Project<'_>) {
+        match create_new_component_file(&self.root) {
+            Ok(path) => {
+                self.publish(project);
+                if !super::super::request_preview_path(&path, Some(NEW_COMPONENT_NAME.into())) {
+                    tracing::warn!("Failed to open new Slint file {}", path.display());
+                }
+            }
+            Err(error) => {
+                tracing::warn!("Failed to create a Slint file in {}: {error}", self.root.display());
+            }
+        }
+    }
+
     fn select(&mut self, path: &Path) {
         self.selected_path = Some(path.to_path_buf());
         self.active_folder_path = active_folder_for_path(path).unwrap_or(&self.root).to_path_buf();
@@ -150,6 +179,25 @@ impl FileTreeController {
         let path = std::fs::canonicalize(path).ok()?;
         (path == self.root || path.starts_with(&self.root)).then_some(path)
     }
+}
+
+fn create_new_component_file(root: &Path) -> std::io::Result<PathBuf> {
+    for index in 1.. {
+        let suffix = if index == 1 { String::new() } else { index.to_string() };
+        let path = root.join(format!("{NEW_COMPONENT_NAME}{suffix}.slint"));
+        let mut file = match OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(file) => file,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        };
+        if let Err(error) = file.write_all(NEW_COMPONENT_CONTENTS.as_bytes()) {
+            drop(file);
+            let _ = std::fs::remove_file(&path);
+            return Err(error);
+        }
+        return Ok(path);
+    }
+    unreachable!("unbounded file-name search must find a free path")
 }
 
 pub(in crate::preview) fn open_project(
@@ -475,6 +523,19 @@ mod tests {
 
     fn labels(rows: &[FileTreeNode]) -> Vec<String> {
         rows.iter().map(|row| row.label.to_string()).collect()
+    }
+
+    #[test]
+    fn new_component_files_use_unique_names_and_stub_contents() {
+        let tree = TempTree::new();
+
+        let first = create_new_component_file(&tree.root).unwrap();
+        let second = create_new_component_file(&tree.root).unwrap();
+
+        assert_eq!(first, tree.root.join("NewComponent.slint"));
+        assert_eq!(second, tree.root.join("NewComponent2.slint"));
+        assert_eq!(fs::read_to_string(first).unwrap(), NEW_COMPONENT_CONTENTS);
+        assert_eq!(fs::read_to_string(second).unwrap(), NEW_COMPONENT_CONTENTS);
     }
 
     #[test]

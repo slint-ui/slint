@@ -4,10 +4,15 @@
 import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, Hover } from "api.slint";
+import { InspectorFillPicker } from "components/inspector/fill-picker.slint";
+import { FillSession } from "components/inspector/fill-session.slint";
+export { FillSessionRequest, FillSessionTarget } from "components/inspector/fill-session.slint";
 import { Project } from "project.slint";
+import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
-import { AppState, PaletteComponentKind, SidebarToggleButton, StudioTheme } from "components/common.slint";
+import { AppState, ElementKind, SidebarToggleButton, StudioTheme } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
+import { GradientOverlay } from "components/gradient-overlay.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { EditorTopBar } from "components/top-bar.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
@@ -16,7 +21,8 @@ import { LeftPane } from "components/left-pane.slint";
 import { EditorMetrics } from "components/common.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
-export { Api, Hover, Project }
+export { Api, Hover, Preview, Project, FillSession }
+export { EditorCursors, EditorMetrics } from "components/common.slint";
 
 export component EditorUi inherits Window {
     preferred-width: 1360px;
@@ -27,8 +33,21 @@ export component EditorUi inherits Window {
     background: StudioTheme.app-bg;
     default-font-family: "Inter";
 
+    init => {
+        EditorMetrics.window-width = root.width;
+        EditorMetrics.window-height = root.height;
+    }
+    changed width => { EditorMetrics.window-width = root.width; }
+    changed height => { EditorMetrics.window-height = root.height; }
+
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
+    in property <length> elements-pane-height: 0px;
+    in property <length> outline-pane-height: 0px;
+    callback elements-pane-resized(length);
+    callback outline-pane-resized(length);
+    callback elements-pane-reset();
+    callback outline-pane-reset();
 
     function open-startup-wizard() {
         Api.open-startup-wizard();
@@ -41,6 +60,34 @@ export component EditorUi inherits Window {
     function open-project() {
         root.close-startup-wizard();
     }
+    function apply-history(redo: bool) {
+        FillSession.apply-history(redo);
+    }
+
+    MenuBar {
+        Menu {
+            title: @tr("File");
+            MenuItem {
+                title: @tr("New Slint File");
+                enabled: Project.file-tree.length > 0;
+                activated => { Project.create-new-slint-file(); }
+            }
+        }
+        Menu {
+            title: @tr("Edit");
+            MenuItem {
+                title: @tr("Undo");
+                enabled: Api.undo-enabled;
+                activated => { root.apply-history(false); }
+            }
+            MenuItem {
+                title: @tr("Redo");
+                enabled: Api.redo-enabled;
+                activated => { root.apply-history(true); }
+            }
+        }
+    }
+
     Rectangle {
         y: 0;
         height: EditorMetrics.top-bar-height;
@@ -58,7 +105,7 @@ export component EditorUi inherits Window {
             capture-key-pressed(event) => {
                 if event.text == Key.Shift || event.text == Key.ShiftR {
                     self.shift-pressed = true;
-                    return accept;
+                    return reject;
                 }
                 reject
             }
@@ -66,12 +113,17 @@ export component EditorUi inherits Window {
             capture-key-released(event) => {
                 if event.text == Key.Shift || event.text == Key.ShiftR {
                     self.shift-pressed = false;
-                    return accept;
+                    return reject;
                 }
                 reject
             }
 
             key-pressed(event) => {
+                let redo-y = Platform.os == OperatingSystemType.windows && (event.text == "y" || event.text == "Y");
+                if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z" || redo-y) {
+                    root.apply-history(event.modifiers.shift || redo-y);
+                    return accept;
+                }
                 if event.text == Key.Escape && AppState.has-active-drag() {
                     AppState.cancel-active-drags();
                     return accept;
@@ -90,8 +142,8 @@ export component EditorUi inherits Window {
 
             DropArea {
                 can-drop(event) => {
-                    if AppState.palette-drag-kind != PaletteComponentKind.none {
-                        AppState.update-palette-drag(AppState.palette-drag-kind, event.position);
+                    if AppState.palette-drag-kind != ElementKind.none {
+                        AppState.update-palette-drag(AppState.palette-drag-kind, { x: event.position.x + self.absolute-position.x, y: event.position.y + self.absolute-position.y });
                     }
                     return DragAction.none;
                 }
@@ -112,9 +164,16 @@ export component EditorUi inherits Window {
 
                         if !root.sidebars-collapsed: LeftPane {
                             can-collapse: true;
+                            elements-pane-height: root.elements-pane-height;
                             drag-started => { editor.focus(); }
                             panes-collapsed => {
                                 root.sidebars-collapsed = true;
+                            }
+                            elements-pane-resized(height) => {
+                                root.elements-pane-resized(height);
+                            }
+                            elements-pane-reset => {
+                                root.elements-pane-reset();
                             }
                         }
 
@@ -128,17 +187,22 @@ export component EditorUi inherits Window {
                         }
 
                         if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
-                            phone-background: StudioTheme.phone-bg;
-                            phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
+                            outline-pane-height: root.outline-pane-height;
                             element-information: Api.current-element;
                             inspector-scroll-y <=> root.inspector-scroll-y;
                             element-selected => { editor.focus(); }
                             outline-drag-started => { editor.focus(); }
+                            outline-pane-resized(height) => {
+                                root.outline-pane-resized(height);
+                            }
+                            outline-pane-reset => {
+                                root.outline-pane-reset();
+                            }
                         }
                     }
                 }
 
-                DragPreview { }
+                DragPreview { parent-origin: parent.absolute-position; }
 
                 if root.sidebars-collapsed: Rectangle {
                     x: 18px;
@@ -171,6 +235,8 @@ export component EditorUi inherits Window {
 
                         SidebarToggleButton {
                             active: true;
+                            accessible-role: AccessibleRole.button;
+                            accessible-label: "Expand sidebars";
                             clicked => {
                                 root.sidebars-collapsed = false;
                             }
@@ -193,6 +259,24 @@ export component EditorUi inherits Window {
         }
 
         if UpdateStatus.shows-bar(): UpdateStatusBar { }
+    }
+
+    fill-layer := TouchArea {
+        visible: FillSession.open;
+        enabled: FillSession.open;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                Api.dismiss-fill-picker({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y }, event.button);
+            }
+        }
+        if FillSession.canvas-active: GradientOverlay {
+            x: FillSession.canvas-origin.x - fill-layer.absolute-position.x;
+            y: FillSession.canvas-origin.y - fill-layer.absolute-position.y;
+            width: FillSession.canvas-size.width;
+            height: FillSession.canvas-size.height;
+            selection: FillSession.selection;
+        }
+        InspectorFillPicker { }
     }
 
     if UpdateStatus.in-titlebar() && UpdateStatus.has-news(): UpdateStatusPill {

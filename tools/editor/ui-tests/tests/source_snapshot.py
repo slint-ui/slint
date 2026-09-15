@@ -79,3 +79,20 @@ class SourceSnapshot:
         assert current == expected_sources, exact_source_mismatch(
             current, expected_sources
         )
+
+    def wait_for_applied(
+        self,
+        expected: bytes,
+        relative_path: Path | str = "Main.slint",
+        timeout: float = 15,
+    ) -> None:
+        """Check exact project source, then wait for this revision in the preview."""
+        from editor_sync import wait_for_source
+
+        self.wait_for_exact(expected, relative_path, timeout=timeout)
+        wait_for_source(self.project / relative_path, expected, timeout=timeout)
+        expected_sources = self.sources | {Path(relative_path): expected}
+        current = slint_sources(self.project)
+        assert current == expected_sources, exact_source_mismatch(
+            current, expected_sources
+        )

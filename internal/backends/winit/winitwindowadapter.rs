@@ -395,6 +395,11 @@ pub struct WinitWindowAdapter {
     size: Cell<PhysicalSize>,
     /// We requested a size to be set, but we didn't get the resize event from winit yet
     pending_requested_size: Cell<Option<winit::dpi::Size>>,
+    /// A physical size requested before the window exists. Winit resolves it against the
+    /// scale factor it knows at creation, which on Wayland is 1 until the window is mapped,
+    /// so the size is applied again when the scale factor changes. A newer request or a
+    /// resize to another size drops it.
+    physical_size_before_scale_factor: Cell<Option<winit::dpi::PhysicalSize<u32>>>,
 
     /// Whether the size has been set explicitly via `set_size`.
     /// If that's the case, we should't resize to the preferred size in set_visible
@@ -403,8 +408,15 @@ pub struct WinitWindowAdapter {
     /// Indicate whether we've ever received a resize event from winit after showing the window.
     pending_resize_event_after_show: Cell<bool>,
 
+    /// Whether the current winit window has presented a frame.
+    first_frame_presented: Cell<bool>,
+
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
+
+    /// Set while a shown window waits for its first frame, see [`crate::macos::RevealOnFirstFrame`].
+    #[cfg(target_os = "macos")]
+    reveal_on_first_frame: RefCell<Option<crate::macos::RevealOnFirstFrame>>,
 
     #[cfg(any(enable_accesskit, muda))]
     event_loop_proxy: EventLoopProxy<SlintEvent>,
@@ -473,11 +485,15 @@ impl WinitWindowAdapter {
             window_existence_wakers: RefCell::new(Vec::default()),
             size: Cell::default(),
             pending_requested_size: Cell::new(None),
+            physical_size_before_scale_factor: Cell::new(None),
             has_explicit_size: Default::default(),
             pending_resize_event_after_show: Default::default(),
+            first_frame_presented: Default::default(),
             renderer,
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
+            #[cfg(target_os = "macos")]
+            reveal_on_first_frame: Default::default(),
             #[cfg(any(enable_accesskit, muda))]
             event_loop_proxy: proxy,
             window_event_filter: Cell::new(None),
@@ -520,12 +536,18 @@ impl WinitWindowAdapter {
         let scale_factor = runtime_window.scale_factor() as f64;
         let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
         let width = round_up_logical(layout_info_h.preferred_bounded() as f64, scale_factor);
-        if let Some(window_item) = runtime_window.window_item() {
-            // Setting the width to its preferred size before querying the vertical layout info
-            // is important in case the height depends on the width
-            window_item.width.set(LogicalLength::new(width as Coord));
-        }
-        let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+        let layout_info_v = match runtime_window.window_item() {
+            // The height may depend on the width, so query it at the preferred width. Restore
+            // the width afterwards: it may hold a size set explicitly before the window is shown.
+            Some(window_item) => {
+                let current_width = window_item.as_pin_ref().width();
+                window_item.width.set(LogicalLength::new(width as Coord));
+                let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+                window_item.width.set(current_width);
+                layout_info_v
+            }
+            None => component.as_ref().layout_info(Orientation::Vertical),
+        };
         let height = round_up_logical(layout_info_v.preferred_bounded() as f64, scale_factor);
         let size = winit::dpi::LogicalSize::new(width as Coord, height as Coord);
         (size.width > 0 as Coord && size.height > 0 as Coord).then_some(size)
@@ -591,6 +613,7 @@ impl WinitWindowAdapter {
 
         let winit_window =
             self.renderer.resume(active_event_loop, window_attributes, self.self_weak.clone())?;
+        self.first_frame_presented.set(false);
 
         // Push the host shell's color scheme and accent color to the SlintContext.
         // With `xdg_desktop_settings` the backend-wide portal watcher (spawned in
@@ -780,7 +803,8 @@ impl WinitWindowAdapter {
     pub(crate) fn window_attributes() -> Result<WindowAttributes, PlatformError> {
         let mut attrs = WindowAttributes::default().with_transparent(true).with_visible(false);
 
-        attrs = attrs.with_title("Slint Window".to_string());
+        // Only until the component's own title reaches the window
+        attrs = attrs.with_title(i_slint_core::window::application_name().to_string());
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -826,7 +850,15 @@ impl WinitWindowAdapter {
         }
 
         let renderer = self.renderer();
-        if !matches!(renderer.render(self.window())?, DrawOutcome::Success) {
+        let outcome = renderer.render(self.window());
+        // A timeout or an error ends the wait as well, so that the window can't stay invisible.
+        #[cfg(target_os = "macos")]
+        if !matches!(outcome, Ok(DrawOutcome::Occluded | DrawOutcome::Skipped)) {
+            self.reveal_on_first_frame.take();
+        }
+        if matches!(outcome?, DrawOutcome::Success) {
+            self.first_frame_presented.set(true);
+        } else {
             // Frame was skipped (e.g. surface occluded). pending_redraw was already
             // cleared above, so re-arm it so we try again.
             self.request_redraw();
@@ -931,6 +963,7 @@ impl WinitWindowAdapter {
         }
         match &*self.winit_window_or_none.borrow() {
             WinitWindowOrNone::HasWindow { window, .. } => {
+                self.physical_size_before_scale_factor.set(None);
                 if let Some(size) = window.request_inner_size(size) {
                     // On wayland we might not get a WindowEvent::Resized, so resize the EGL surface right away.
                     self.resize_event(size)?;
@@ -942,12 +975,13 @@ impl WinitWindowAdapter {
                 }
             }
             WinitWindowOrNone::None(attributes) => {
+                attributes.borrow_mut().inner_size = Some(size);
+                if let winit::dpi::Size::Physical(physical) = size {
+                    self.physical_size_before_scale_factor.set(Some(physical));
+                }
+                // The scale factor is not known yet: the resize event after creation corrects
+                // the window item.
                 let scale_factor = self.window().scale_factor() as _;
-                // Avoid storing the physical size in the attributes. When creating a new window, we don't know the scale
-                // factor, so we've computed the desired size based on a factor of 1 and provided the physical size
-                // will be wrong when the window is created. So stick to a logical size.
-                attributes.borrow_mut().inner_size =
-                    Some(size.to_logical::<f64>(scale_factor).into());
                 self.resize_event(size.to_physical(scale_factor))?;
                 Ok(true)
             }
@@ -956,6 +990,9 @@ impl WinitWindowAdapter {
 
     pub fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) -> Result<(), PlatformError> {
         self.pending_resize_event_after_show.set(false);
+        if self.physical_size_before_scale_factor.get().is_some_and(|requested| requested != size) {
+            self.physical_size_before_scale_factor.set(None);
+        }
         // When a window is minimized on Windows, we get a move event to an off-screen position
         // and a resize even with a zero size. Don't forward that, especially not to the renderer,
         // which might panic when trying to create a zero-sized surface.
@@ -1498,15 +1535,17 @@ impl WinitWindowAdapter {
                     });
                 }
             }
-            WinitWindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
+            WinitWindowEvent::ScaleFactorChanged { scale_factor, mut inner_size_writer } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                     self.window().dispatch_event_with_result(
                         corelib::platform::WindowEvent::ScaleFactorChanged {
                             scale_factor: scale_factor as f32,
                         },
                     )?;
-                    // TODO: send a resize event or try to keep the logical size the same.
-                    //self.resize_event(inner_size_writer.???)?;
+                    if let Some(physical) = self.physical_size_before_scale_factor.take() {
+                        inner_size_writer.request_inner_size(physical).ok();
+                    }
+                    // TODO: otherwise send a resize event or try to keep the logical size the same.
                 }
             }
             WinitWindowEvent::ThemeChanged(theme) => {
@@ -1516,8 +1555,15 @@ impl WinitWindowAdapter {
                 });
                 self.update_accent_color();
             }
-            WinitWindowEvent::Occluded(x) => {
-                self.renderer.occluded(x);
+            WinitWindowEvent::Occluded(occluded) => {
+                self.renderer.occluded(occluded);
+
+                // wgpu hands out no drawable while the window isn't visible, see
+                // `macos::RevealOnFirstFrame`. Draw now instead of at the next display link tick.
+                #[cfg(target_os = "macos")]
+                if !occluded && self.pending_redraw.get() {
+                    self.draw()?;
+                }
 
                 // Same hack as in the Resized arm above, so that we handle Minimized changes
                 self.window_state_event();
@@ -1621,10 +1667,13 @@ impl WinitWindowAdapter {
             // Pre-render the first frame before mapping the window to avoid a flash of
             // uninitialized VRAM on X11 (no background_pixmap). Skipped on Wayland, where
             // rendering before the initial configure makes the compositor mis-size the window.
-            if matches!(visibility, WindowVisibility::ShownFirstTime)
-                && !self.shared_backend_data.is_wayland
-            {
+            if !self.first_frame_presented.get() && !self.shared_backend_data.is_wayland {
                 let _ = self.draw();
+                #[cfg(target_os = "macos")]
+                if !self.first_frame_presented.get() {
+                    *self.reveal_on_first_frame.borrow_mut() =
+                        crate::macos::RevealOnFirstFrame::new(&winit_window);
+                }
             }
 
             winit_window.set_visible(true);
@@ -1677,6 +1726,11 @@ impl WinitWindowAdapter {
             if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
                 existing_blinker.stop();
             }*/
+
+            // After the window is ordered out, so that the reveal can't show it.
+            #[cfg(target_os = "macos")]
+            self.reveal_on_first_frame.take();
+
             Ok(())
         }
     }
@@ -1844,6 +1898,11 @@ impl WindowAdapter for WinitWindowAdapter {
         // But not if there is a pending resize in flight as that resize will reset these properties back
         if ((existing_size.width - width).abs() > 1. || (existing_size.height - height).abs() > 1.)
             && self.pending_requested_size.get().is_none()
+            // Nor while the item still holds a physical size set before the window existed as
+            // its logical size: the scale factor to convert it is not known yet.
+            && self.physical_size_before_scale_factor.get().is_none_or(|requested| {
+                requested.width as f32 != width || requested.height as f32 != height
+            })
         {
             // If we're in fullscreen state, don't try to resize the window but maintain the surface
             // size we've been assigned to from the windowing system. Weston/Wayland don't like it

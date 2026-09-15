@@ -2589,7 +2589,6 @@ dependencies = [
 name = "i-slint-renderer-skia"
 version = "1.18.0"
 dependencies = [
- "ash",
  "bytemuck",
  "cfg-if",
  "cfg_aliases",
@@ -5664,6 +5663,7 @@ dependencies = [
 name = "test-driver-interpreter"
 version = "1.18.0"
 dependencies = [
+ "i-slint-backend-qt",
  "i-slint-backend-testing",
  "i-slint-core",
  "itertools 0.15.0",
