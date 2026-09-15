@@ -325,6 +325,18 @@ pub(in crate::preview) fn set_file_tree_controller(
         preview_state.file_tree_controller = Some(controller);
     });
 }
+
+fn file_edit_pending() -> bool {
+    PREVIEW_STATE.with_borrow(undo_redo::edit_pending)
+}
+
+fn invalidate_file_history() {
+    PREVIEW_STATE.with_borrow_mut(|state| {
+        state.undo_redo_stack.clear();
+        state.pending_history.clear();
+        undo_redo::set_undo_redo_enabled(state);
+    });
+}
 thread_local! {pub static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
 fn invalidate_contents(url: &lsp_types::Url) {

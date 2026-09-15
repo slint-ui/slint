@@ -78,6 +78,39 @@ def test_file_tree_saves_rename_when_focus_moves(
         assert target.read_text() == expected
 
 
+def test_file_tree_limits_rename_error_to_edited_row(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        file_row(window, source).invoke_accessible_default_action()
+        press_key(window, keys.Return if sys.platform == "darwin" else keys.F2)
+        window_element_with_label(
+            window, "Rename Main.slint", slint_testing.AccessibleRole.TextInput
+        )
+
+        press_key(window, keys.Backspace)
+        press_keys(window, "Sibling")
+        press_key(window, keys.Return)
+
+        wait_until(
+            lambda: (
+                True
+                if len(
+                    elements_with_label(
+                        window.root_element,
+                        "A file with that name already exists",
+                    )
+                )
+                == 1
+                else None
+            )
+        )
+
+
 def test_file_tree_opens_sibling_component(
     editor_binary: Path,
     editor_environment: dict[str, str],

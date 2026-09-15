@@ -15,7 +15,7 @@ component FileTreeRow inherits Rectangle {
     in property <bool> editing: false;
     in property <length> rename-right-extension;
     in-out property <string> rename-name;
-    in-out property <string> rename-error;
+    in property <string> rename-error;
 
     property <bool> folder: node.kind == FileTreeNodeKind.folder;
     property <int> level-safe: max(1, node.indent-level + 1);
@@ -84,7 +84,6 @@ component FileTreeRow inherits Rectangle {
     function begin-rename() {
         if !root.folder {
             root.rename-name = root.node.label;
-            root.rename-error = "";
             root.rename-started(root.node.path);
         }
     }
@@ -222,7 +221,6 @@ component FileTreeRow inherits Rectangle {
                 }
                 key-pressed(event) => {
                     if event.text == Key.Escape {
-                        root.rename-error = "";
                         root.rename-finished();
                         row-focus.focus();
                         return accept;
@@ -286,7 +284,7 @@ export component FileTreeView inherits ListView {
         editing: row.path == root.editing-row-key;
         rename-right-extension: root.rename-right-extension;
         rename-name <=> root.rename-name;
-        rename-error <=> root.rename-error;
+        rename-error: row.path == root.editing-row-key ? root.rename-error : "";
         row-hover-changed(path, has-hover) => { root.update-hovered-row(path, has-hover); }
         row-focus-requested(path) => {
             if root.editing-row-key != "" && root.editing-row-key != path {
@@ -294,8 +292,14 @@ export component FileTreeView inherits ListView {
             }
             root.focused-row-key = path;
         }
-        rename-started(path) => { root.editing-row-key = path; }
-        rename-finished => { root.editing-row-key = ""; }
+        rename-started(path) => {
+            root.rename-error = "";
+            root.editing-row-key = path;
+        }
+        rename-finished => {
+            root.rename-error = "";
+            root.editing-row-key = "";
+        }
         rename-submitted => { root.submit-rename(); }
     }
 

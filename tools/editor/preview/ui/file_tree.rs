@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
 use i_slint_core::platform::Clipboard;
@@ -67,12 +67,16 @@ pub fn setup(
     api.on_file_tree_rename(move |path, name| {
         let Some(api) = api_weak.upgrade() else { return "No editor available".into() };
         let Some(project) = project_weak.upgrade() else { return "No project available".into() };
+        if super::super::file_edit_pending() {
+            return "Wait for the pending edit to finish".into();
+        }
         let mut controller = controller_for_rename.borrow_mut();
         let Some(controller) = controller.as_mut() else {
             return "No project available".into();
         };
         match controller.rename_file(Path::new(path.as_str()), name.as_str()) {
             Ok((path, selected)) => {
+                super::super::invalidate_file_history();
                 controller.publish(&project);
                 if selected {
                     if is_slint_file(&path) {
@@ -197,10 +201,11 @@ impl FileTreeController {
         if !std::fs::symlink_metadata(&path).is_ok_and(|metadata| metadata.file_type().is_file()) {
             return Err("Only files can be renamed".into());
         }
-        if name.is_empty() {
-            return Err("Enter a file name".into());
-        }
-        if name == "." || name == ".." || name.contains(['/', '\\']) {
+        let mut components = Path::new(name).components();
+        if !matches!(components.next(), Some(Component::Normal(_)))
+            || components.next().is_some()
+            || name.contains('\\')
+        {
             return Err("Enter a valid file name".into());
         }
 
@@ -208,14 +213,19 @@ impl FileTreeController {
         if target == path {
             return Ok((path, self.selected_path.as_ref() == Some(&target)));
         }
-        if target.exists() && std::fs::canonicalize(&target).ok().as_ref() != Some(&path) {
-            return Err("A file with that name already exists".into());
+        let selected = self.selected_path.as_ref() == Some(&path);
+        if selected && file_surface_kind(&path) != file_surface_kind(&target) {
+            return Err("Keep the file type when renaming the open file".into());
         }
 
-        std::fs::rename(&path, &target)
-            .map_err(|error| format!("Could not rename file: {error}"))?;
+        match rename_file_no_replace(&path, &target) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                return Err("A file with that name already exists".into());
+            }
+            Err(error) => return Err(format!("Could not rename file: {error}")),
+        }
         let target = std::fs::canonicalize(&target).unwrap_or(target);
-        let selected = self.selected_path.as_ref() == Some(&path);
         if selected {
             self.selected_path = Some(target.clone());
         }
@@ -239,6 +249,15 @@ impl FileTreeController {
         let path = std::fs::canonicalize(path).ok()?;
         (path == self.root || path.starts_with(&self.root)).then_some(path)
     }
+}
+
+fn rename_file_no_replace(source: &Path, target: &Path) -> std::io::Result<()> {
+    std::fs::hard_link(source, target)?;
+    if let Err(error) = std::fs::remove_file(source) {
+        let _ = std::fs::remove_file(target);
+        return Err(error);
+    }
+    Ok(())
 }
 
 fn create_new_component_file(root: &Path) -> std::io::Result<PathBuf> {
@@ -321,6 +340,23 @@ fn is_image_file(path: &Path) -> bool {
     path.extension().and_then(|extension| extension.to_str()).is_some_and(|extension| {
         matches!(extension.to_ascii_lowercase().as_str(), "png" | "jpg" | "jpeg" | "svg")
     })
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum FileSurfaceKind {
+    Component,
+    Image,
+    Unsupported,
+}
+
+fn file_surface_kind(path: &Path) -> FileSurfaceKind {
+    if is_slint_file(path) {
+        FileSurfaceKind::Component
+    } else if is_image_file(path) {
+        FileSurfaceKind::Image
+    } else {
+        FileSurfaceKind::Unsupported
+    }
 }
 
 fn load_image_asset_preview(root: &Path, path: &Path) -> ImageAssetPreview {
@@ -881,6 +917,38 @@ mod tests {
         assert_eq!(fs::read_to_string(target).unwrap(), "keep");
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn rename_file_does_not_replace_dangling_symlink() {
+        use std::os::unix::fs::symlink;
+
+        let tree = TempTree::new();
+        let source = tree.file("source.slint");
+        let target = tree.root.join("target.slint");
+        symlink("missing.slint", &target).unwrap();
+        let mut controller = FileTreeController::new(tree.root.clone(), None);
+
+        assert_eq!(
+            controller.rename_file(&source, "target.slint").unwrap_err(),
+            "A file with that name already exists"
+        );
+        assert!(source.exists());
+        assert!(fs::symlink_metadata(target).unwrap().file_type().is_symlink());
+    }
+
+    #[test]
+    fn rename_file_rejects_surface_change_for_selected_file() {
+        let tree = TempTree::new();
+        let source = tree.file("source.slint");
+        let mut controller = FileTreeController::new(tree.root.clone(), Some(source.clone()));
+
+        assert_eq!(
+            controller.rename_file(&source, "source.png").unwrap_err(),
+            "Keep the file type when renaming the open file"
+        );
+        assert!(source.exists());
+    }
+
     #[test]
     fn rename_file_rejects_folders_and_paths() {
         let tree = TempTree::new();
@@ -895,6 +963,20 @@ mod tests {
         for name in ["", ".", "..", "nested/name.slint", "nested\\name.slint"] {
             assert!(controller.rename_file(&source, name).is_err());
         }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn rename_file_rejects_windows_prefix() {
+        let tree = TempTree::new();
+        let source = tree.file("source.slint");
+        let mut controller = FileTreeController::new(tree.root.clone(), None);
+
+        assert_eq!(
+            controller.rename_file(&source, "C:name.slint").unwrap_err(),
+            "Enter a valid file name"
+        );
+        assert!(source.exists());
     }
 
     #[test]
