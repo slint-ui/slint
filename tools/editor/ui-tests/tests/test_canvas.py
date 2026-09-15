@@ -415,7 +415,7 @@ def test_hover_outside_selected_element_can_select_and_drag_child(
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
 
 
-def test_selected_element_does_not_get_a_duplicate_hover_outline(
+def test_selected_element_shows_hover_outline(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
@@ -428,16 +428,19 @@ def test_selected_element_does_not_get_a_duplicate_hover_outline(
         window.dispatch_event(
             slint_testing.PointerMoveEvent(center(fixture_element(window, "Text")))
         )
-        assert not elements_with_label(window.root_element, "Hovered Text")
+        window_element_with_label(window, "Hovered Text")
+        window_element_with_label(window, "Selected Text")
         snapshot.assert_unchanged()
 
 
 @pytest.mark.parametrize("kind", MOVE_KINDS)
+@pytest.mark.parametrize("jitter", [0, 1])
 def test_unselected_element_click_selects_without_editing_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
     kind: str,
+    jitter: int,
 ) -> None:
     source_file = fixture_project / "Main.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
@@ -448,8 +451,8 @@ def test_unselected_element_click_selects_without_editing_source(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(target, button))
         below_threshold = slint_testing.LogicalPosition(
-            x=target.x + 1,
-            y=target.y + 1,
+            x=target.x + jitter,
+            y=target.y + jitter,
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(below_threshold))
         window.dispatch_event(
@@ -458,7 +461,8 @@ def test_unselected_element_click_selects_without_editing_source(
         window_element_with_label(
             window, f"Selected {kind}", slint_testing.AccessibleRole.Region
         )
-        assert not elements_with_label(window.root_element, f"Hovered {kind}")
+        # Releasing a click restores hover without another pointer move.
+        window_element_with_label(window, f"Hovered {kind}")
         snapshot.assert_unchanged()
 
 

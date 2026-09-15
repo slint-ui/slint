@@ -229,6 +229,10 @@ fn selection_rectangles(
             y: geometry.rect.origin.y,
             angle: geometry.angle,
             describes_element: geometry.renders_as_rectangle,
+            top_left_radius: geometry.corner_radii.top_left,
+            top_right_radius: geometry.corner_radii.top_right,
+            bottom_left_radius: geometry.corner_radii.bottom_left,
+            bottom_right_radius: geometry.corner_radii.bottom_right,
         })
         .collect()
 }

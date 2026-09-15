@@ -7,6 +7,8 @@ import { EditorCursors, EditorMetrics, StudioTheme } from "common.slint";
 
 export component MoveResizeFrame inherits Rectangle {
     in property <bool> enabled: true;
+    in property <bool> show-outline: true;
+    callback control-hovered();
     in property <string> accessible-prefix: "Selection";
     in property <bool> active;
     in property <bool> shift-pressed;
@@ -37,7 +39,7 @@ export component MoveResizeFrame inherits Rectangle {
     callback interaction-started();
     callback interaction-ended();
     callback pointer-moved(Point);
-    callback move-released();
+    callback move-released(Point);
     callback moved-to(Point);
     callback resized-to(CanvasCorner, Point, Size);
     callback rotated-to(angle);
@@ -253,7 +255,7 @@ export component MoveResizeFrame inherits Rectangle {
                     if root.move-dragging {
                         root.interaction-ended();
                     }
-                    root.move-released();
+                    root.move-released(root.local-point-to-parent({ x: self.mouse-x, y: self.mouse-y }));
                     root.move-dragging = false;
                 }
             }
@@ -295,8 +297,14 @@ export component MoveResizeFrame inherits Rectangle {
         @children
 
         if root.active && !root.move-dragging: Rectangle {
-            border-width: 1px;
-            border-color: StudioTheme.accent-strong;
+            if root.show-outline: Rectangle {
+                x: -EditorMetrics.selection-outline-width;
+                y: -EditorMetrics.selection-outline-width;
+                width: root.width + 2 * EditorMetrics.selection-outline-width;
+                height: root.height + 2 * EditorMetrics.selection-outline-width;
+                border-width: EditorMetrics.selection-outline-width;
+                border-color: StudioTheme.canvas-outline;
+            }
 
             if root.proportional-resizing(): Path {
                 stroke: StudioTheme.accent-strong;
@@ -330,6 +338,9 @@ export component MoveResizeFrame inherits Rectangle {
                     mouse-cursor: MouseCursor.custom(EditorCursors.rotation-image(root.rotation-cursor-angle(corner)), 12, 12);
                     accessible-role: AccessibleRole.button;
                     accessible-label: root.accessible-prefix + " rotate " + root.corner-name(corner);
+                    changed has-hover => {
+                        if self.has-hover { root.control-hovered(); }
+                    }
                     accessible-enabled: root.show-rotation-handles;
                     private property <bool> event-shift-pressed;
                     private property <angle> start-rotation;
@@ -394,17 +405,23 @@ export component MoveResizeFrame inherits Rectangle {
                     y: root.resize-handle-y(corner);
                     width: EditorMetrics.selection-handle-size;
                     height: EditorMetrics.selection-handle-size;
-                    border-radius: 2px;
                     background: white;
-                    border-width: 2px;
+                    border-width: 1px;
                     border-color: StudioTheme.accent-strong;
                     visible: root.show-resize-handles;
 
                     TouchArea {
                         enabled: root.enabled;
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        width: EditorMetrics.selection-handle-touch-size;
+                        height: EditorMetrics.selection-handle-touch-size;
                         mouse-cursor: !root.resizable ? default : root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
                         accessible-role: AccessibleRole.button;
                         accessible-label: root.accessible-prefix + " resize " + root.corner-name(corner);
+                        changed has-hover => {
+                            if self.has-hover { root.control-hovered(); }
+                        }
                         accessible-enabled: root.resizable;
                         private property <bool> event-shift-pressed;
 
@@ -419,7 +436,7 @@ export component MoveResizeFrame inherits Rectangle {
                         changed pressed => {
                             if self.pressed && root.resizable {
                                 let pointer = root.local-point-to-parent(root.child-local-point(
-                                    { x: parent.x, y: parent.y },
+                                    { x: parent.x + self.x, y: parent.y + self.y },
                                     { x: self.mouse-x, y: self.mouse-y },
                                 ));
 
@@ -452,7 +469,7 @@ export component MoveResizeFrame inherits Rectangle {
                                 return;
                             }
                             let pointer = root.local-point-to-parent(root.child-local-point(
-                                { x: parent.x, y: parent.y },
+                                { x: parent.x + self.x, y: parent.y + self.y },
                                 { x: self.mouse-x, y: self.mouse-y },
                             ));
                             let delta = {
