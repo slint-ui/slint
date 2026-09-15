@@ -78,6 +78,21 @@ All notable changes to this project are documented in this file.
  - wasm: Fixed keyboard modifiers being reset when the focus moves between elements. (#7347, #8606)
  - wasm: The system accent color is now picked up.
  - Fixed the IME not being updated when the position of a focused, editable `TextInput` changes.
+ - Partial rendering: Removing elements, such as an `if` that turns false, a shrinking repeater or a closing
+   popup, now repaints only the region they occupied instead of the whole window.
+ - A `Window` that does not set `title` is now named after the application instead of "Slint Window", and is
+   untitled on platforms that do not name the running program.
+ - The drop shadow of an element with `transform-rotation` or `transform-scale` is now transformed with it.
+ - WGPU: The `WGPU_BACKEND` environment variable is now honored. (#13261)
+ - winit: The frame rendered before a window is mapped is now also rendered for a window shown later, such as
+   a dialog opened from a callback.
+ - winit: Fixed a window width set before the window is shown being replaced by the preferred width. (#13245)
+ - FemtoVG: Fixed the position of `Path` elements at scale factors other than 1. (#13230)
+ - FemtoVG: Fixed `Window::take_snapshot()` returning the frame that was last presented instead of the
+   current state of the window.
+ - Skia: Fixed the image layout used when importing a Vulkan texture.
+ - Skia: Updated to skia-safe 0.153.3, built without Skia's own text layout module since Slint shapes text
+   with parley, and dropped the `ash` dependency.
 
 ### Slint language
 
@@ -157,6 +172,17 @@ All notable changes to this project are documented in this file.
  - Fixed conditional (ternary) expressions with arrays of structs and structs with array members. (#12845)
  - Fixed referencing a private property of the base component in a state's property value. (#1461)
  - Interpreter: Compound assignments (e.g. `x += v`) now run the property's animation.
+ - `Path`: A component inheriting `Path` without path elements, and `@children` inside an empty `Path`, now
+   take the path elements or `commands` from the instance. (#13274)
+ - Calling a native member function such as `TextInput.cut()` from a pure context is now reported as an error.
+ - Fixed a stale value when a function reads a property twice with a call in between that changes it.
+ - Fixed a component that overrides `forward-focus` losing the `focus()` and `clear-focus()` functions
+   of its base.
+ - Fixed a `PopupWindow` in a base component and one with the same id in the derived component sharing
+   their open state.
+ - `GridLayout`: Fixed a panic when the condition of a conditional cell folds to a constant false. (#13195)
+ - `GridLayout`: Fixed a row or column collapsing to its minimum height when a sibling cell has a fixed size
+   of zero. (#13158)
 
 ### Widgets
 
@@ -168,6 +194,14 @@ All notable changes to this project are documented in this file.
  - `SpinBox`: Fixed the up and down arrow keys not incrementing and decrementing the value.
  - `SpinBox`: The value text, the caret, and the selection are now exposed to assistive technologies.
  - Redundant inner elements of compound widgets are now hidden from the accessibility tree.
+ - `Slider`: `changed` is no longer emitted when the value is already at the minimum or the maximum. (#13352)
+ - `Slider`: The `pressed` property now follows the touch area. (#13385)
+ - `SpinBox`: Fixed a value outside the minimum/maximum range being accepted when pressing enter or when
+   the field loses the focus. (#13386)
+ - `TabWidget`: Fixed the mouse wheel over the tab bar always switching to the previous tab. (#13384)
+ - `DatePicker`: Fixed a missing year in the year list. (#13351)
+ - `RadioGroup`: Named the argument of the `selected` callback. (#13279)
+ - Qt style: Fixed the `LineEdit` text touching the frame with the Breeze style. (#13392)
 
 ### Rust
 
@@ -202,6 +236,12 @@ All notable changes to this project are documented in this file.
    is passed to a function. (#12880)
  - Fixed a panic in generated code when a `for` inside a `GridLayout` has its model emptied while
    a pointer grab is active. (#12944)
+ - winit: Added `invoke_from_active_event_loop()` to run a callback with the `ActiveEventLoop`. (#13187)
+ - Testing: `ElementHandle`'s click, hover, drag and scroll now aim at the transformed center of an element,
+   instead of landing outside an element that an ancestor scales or rotates.
+ - Fixed the WGPU-based Skia renderers never firing `RenderingState::RenderingSetup` and
+   `RenderingState::RenderingTeardown`.
+ - slint-build: Changing a bundled translation now triggers a rebuild. (#13329)
 
 ### C++
 
@@ -221,6 +261,9 @@ All notable changes to this project are documented in this file.
    the platform.
  - Fixed a crash when the item tree is walked while a repeated element is being removed, e.g. when
    deleting a model row from its own click handler.
+ - Added the `SLINT_FEATURE_SYSTEM_TRAY` CMake option. (#13237)
+ - live-preview: The generated C++ no longer triggers clang's `-Wunused-private-field` warning for a
+   global that isn't exported. (#13400)
 
 ### JavaScript
 
@@ -261,6 +304,18 @@ All notable changes to this project are documented in this file.
  - slint-viewer: Added an `mcp` Cargo feature so the viewer can serve the MCP server for the previewed file. (#13111)
  - slint-viewer: Fixed `--auto-reload` not reloading when the file was given as a relative path. (#12572)
  - SlintPad: Fixed a panic when loading demos with imports. (#12486)
+ - MCP: Added the `scroll_element` and `dispatch_pointer_scroll` tools, to send mouse wheel events.
+ - MCP: The pointer tools accept a `modifiers` object, so a shift-click or a ctrl+wheel zoom is one call.
+ - MCP: Element handles are now stable across queries, instead of a new one per mention.
+ - MCP: The server now reports that element type names and ids need `SLINT_EMIT_DEBUG_INFO`, instead of
+   returning an empty tree, and no longer reports stale element geometry after a model change.
+ - LSP: Hover, go to definition and auto-completion now work on struct fields and on `for` loop variables.
+ - LSP: The formatter now formats `import` and `export` statements, and puts every import on its own
+   line. (#13227)
+ - LSP: Fixed an intermittent freeze that lost semantic highlighting and the Show Preview code lenses. (#13280)
+ - slint-viewer: The window is now named after the previewed component and file.
+ - slint-viewer: The Android build ships one APK per ABI, and can be reproduced by F-Droid. (#13273, #13342)
+ - AI plugins: Added support for Antigravity.
 
 ## [1.17.1] - 2026-07-07
 
