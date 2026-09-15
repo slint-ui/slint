@@ -223,8 +223,8 @@ succeeds. `MyButton` will be imported from `otherlibrary`. Therefore `otherlibra
 must be declared to refer to a `.slint` file that exports `MyButton`.
 
 The path to each library, as file or directory, must be defined separately at compilation time.
-Use one of the following methods to help the Slint compiler resolve libraries to the correct
-path on disk:
+Set `library-paths` in a [project file](../../../../guide/tooling/project-file/) to cover
+your build and your editor at once, or use one of the following methods:
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">

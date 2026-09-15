@@ -1,0 +1,114 @@
+---
+title: Project File
+description: Configure the style, include paths and library paths of a project in one place.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
+
+A `slint.project.json` file holds the settings for the `.slint` files around it,
+such as the style and the include paths.
+Your build system and your editor both read it, so both use the same settings.
+
+Slint starts in the directory of the `.slint` file it compiles and walks up the
+directory tree until it finds one.
+Create it next to `ui/main.slint` for one UI, or in the repository root for all of them.
+
+## Example
+
+```json
+{
+    "style": "material",
+    "include-paths": ["ui/shared"],
+    "library-paths": {
+        "widgets": "ui/widgets"
+    }
+}
+```
+
+Comments are allowed, both `//` and `/* */`:
+
+```json
+{
+    // Everyone on the team builds with the same widgets.
+    "style": "material"
+}
+```
+
+## Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `style`   | string | The widget style, such as `material`. See [Widget Styles](../../../reference/std-widgets/style/). |
+| `include-paths` | array of strings | Directories to search for imported `.slint` files. |
+| `library-paths` | object | Maps a library name to a file or directory, for `@library` imports. |
+| `enable-experimental-features` | boolean | Turns on features that aren't stable yet. |
+
+Relative paths resolve against the directory of the project file.
+
+## Priority
+
+A setting can come from three places, each winning over the one before it:
+
+1. An environment variable, such as `SLINT_STYLE`.
+2. The project file.
+3. The API or the command line, such as `with_style` or `--style`.
+
+So `--style fluent` wins over a project file that asks for `material`,
+and that project file wins over `SLINT_STYLE`.
+
+## Usage
+
+Every way of compiling a `.slint` file finds the project file automatically.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+`build.rs` and the `slint!` macro both read it.
+Anything set on <LangRefLink lang="rust-slint-build" relpath="struct.CompilerConfiguration">`CompilerConfiguration`</LangRefLink> wins over it.
+
+```rust
+// build.rs
+fn main() {
+    // Picks up ui/slint.project.json, or one above it.
+    slint_build::compile("ui/main.slint").unwrap();
+}
+```
+
+Cargo rebuilds when the project file changes.
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+<LangRefLink lang="cpp" relpath="cmake-reference/slint-target-sources/">`slint_target_sources`</LangRefLink> reads it,
+and so does the interpreter when you load a `.slint` file at run-time.
+
+```cmake
+slint_target_sources(my_application ui/main.slint)
+```
+
+CMake rebuilds when the project file changes.
+Set `SLINT_STYLE` when configuring to override the style for the whole build.
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+<LangRefLink lang="nodejs" relpath="api/functions/loadFile/">`loadFile`</LangRefLink> reads it.
+The options you pass win over it.
+
+```javascript
+import * as slint from "slint-ui";
+
+// Picks up slint.project.json next to main.slint, or one above it.
+let ui = slint.loadFile("ui/main.slint");
+```
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+Loading a `.slint` file reads it.
+The arguments you pass win over it.
+
+```python
+import slint
+
+# Picks up slint.project.json next to app.slint, or one above it.
+class MainWindow(slint.loader.ui.app.AppWindow): ...
+```
+</TabItem>
+</Tabs>
+
+The Slint language server and the live preview read the project file too, with no setup.
