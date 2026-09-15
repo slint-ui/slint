@@ -456,7 +456,7 @@ pub struct WinitWindowAdapter {
     /// separately via `process_touch_input` and does not affect this flag.
     pressed: Cell<bool>,
     current_resize_direction: Cell<Option<ResizeDirection>>,
-    /// Allocates small i32 finger ids for winit's u64 touch ids.
+    /// Allocates small i32 finger ids for winit's per-device u64 touch ids.
     touch_finger_ids: RefCell<crate::touch_finger_id::TouchFingerIdAllocator>,
 }
 
@@ -1511,10 +1511,10 @@ impl WinitWindowAdapter {
                 let position = euclid::point2(location.x, location.y);
                 let finger_id = match touch.phase {
                     winit::event::TouchPhase::Started | winit::event::TouchPhase::Moved => {
-                        Some(self.touch_finger_ids.borrow_mut().id_for(touch.id))
+                        Some(self.touch_finger_ids.borrow_mut().id_for((touch.device_id, touch.id)))
                     }
                     winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
-                        self.touch_finger_ids.borrow_mut().take(touch.id)
+                        self.touch_finger_ids.borrow_mut().take((touch.device_id, touch.id))
                     }
                 };
                 if let Some(finger_id) = finger_id {
