@@ -82,9 +82,29 @@ def test_inline_text_focus_commit_selects_clicked_item(
         window.dispatch_event(slint_testing.PointerPressEvent(position, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
         snapshot.wait_for_applied(expected)
+        window_element_with_label(window, "Changed", slint_testing.AccessibleRole.Text)
         wait_until(
             lambda: next(
                 iter(elements_with_label(window.root_element, "Selected Rectangle")),
                 None,
             )
+        )
+
+
+def test_inline_text_focus_loss_without_change_restores_text(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        begin_inline_edit(window)
+        position = center(fixture_element(window, "Rectangle"))
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(position, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
+        window_element_with_label(
+            window, "Fixture text", slint_testing.AccessibleRole.Text
         )

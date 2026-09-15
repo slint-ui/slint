@@ -1343,21 +1343,28 @@ fn override_selected_element_rotation(angle: f32) {
     );
 }
 
-fn override_selected_element_text(text: slint::SharedString) -> bool {
-    let Some(element_selection) = selected_element() else { return false };
-    let Some(element) = element_selection.as_element_node() else { return false };
-    let hash = element.with_element_debug(|debug| debug.element_hash);
-    let id = i_slint_compiler::passes::property_id(hash, &SmolStr::from("text"));
+fn override_element_text(
+    override_id: slint::SharedString,
+    text: slint::SharedString,
+) -> slint::SharedString {
+    let id = if override_id.is_empty() {
+        let Some(element_selection) = selected_element() else { return Default::default() };
+        let Some(element) = element_selection.as_element_node() else { return Default::default() };
+        let hash = element.with_element_debug(|debug| debug.element_hash);
+        i_slint_compiler::passes::property_id(hash, &SmolStr::from("text"))
+    } else {
+        SmolStr::from(override_id.as_str())
+    };
     let overrides = PREVIEW_STATE.with_borrow(|state| state.debug_hook_overrides.clone());
     let mut overrides = (*overrides).borrow_mut();
     let text_override =
-        overrides.entry(id).or_insert_with(|| Box::pin(i_slint_core::Property::new(None)));
+        overrides.entry(id.clone()).or_insert_with(|| Box::pin(i_slint_core::Property::new(None)));
     text_override.as_ref().set(Some(slint_interpreter::Value::String(text)));
     drop(overrides);
     if let Some(instance) = component_instance() {
         instance.window().request_redraw();
     }
-    true
+    id.as_str().into()
 }
 
 /// Returns the applied parent-relative rotation in degrees, which the caller can commit to the

@@ -294,6 +294,7 @@ export component CanvasInteractionLayer inherits Rectangle {
     private property <string> text-edit-value;
     private property <string> text-edit-original;
     private property <string> text-edit-url;
+    private property <string> text-edit-override-id;
     private property <int> text-edit-version;
     private property <int> text-edit-offset;
     private property <Point> text-edit-position;
@@ -345,7 +346,8 @@ export component CanvasInteractionLayer inherits Rectangle {
             || text.code == "" {
             return;
         }
-        if !Api.override-selected-element-text("") {
+        root.text-edit-override-id = Api.override-element-text("", "");
+        if root.text-edit-override-id == "" {
             return;
         }
         let width = Api.current-property-value-data("width").value-float;
@@ -384,7 +386,8 @@ export component CanvasInteractionLayer inherits Rectangle {
             ) {
             return;
         }
-        Api.override-selected-element-text(root.text-edit-value);
+        Api.override-element-text(root.text-edit-override-id, root.text-edit-value);
+        root.text-edit-override-id = "";
         root.text-editing = false;
         if root.text-edit-value != root.text-edit-original {
             Api.set-code-binding(
