@@ -5,10 +5,9 @@
 #include <chrono>
 #include <slint-interpreter.h>
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 #include <fmt/chrono.h>
 #include <random>
-#include <time.h>
 
 class PlaceholderWidget : public Widget
 {
@@ -44,7 +43,8 @@ ClockWidget::ClockWidget() : clock_update_timer(std::chrono::seconds(1), [this] 
 
 void ClockWidget::update_clock()
 {
-    std::string current_time = fmt::format("{:%H:%M:%S}", fmt::localtime(std::time(nullptr)));
+    auto now = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
+    std::string current_time = fmt::format("{:%H:%M:%S}", now);
     set_property("time", slint::SharedString(current_time));
 }
 
