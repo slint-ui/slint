@@ -363,6 +363,7 @@
     "mousecursor"
   ],
   "ignorePaths": [
+    "**/.gitignore",
     ".github/**",
     "api/cpp/docs/conf.py",
     "CHANGELOG.md",
