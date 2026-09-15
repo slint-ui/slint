@@ -76,12 +76,16 @@ impl VisualEditorSettings {
     }
 }
 
+fn canonical_path(path: &Path) -> std::io::Result<PathBuf> {
+    Ok(i_slint_compiler::pathutils::clean_path(&std::fs::canonicalize(path)?))
+}
+
 impl Project {
     pub(crate) fn from_file(
         path: impl AsRef<Path>,
         component: Option<String>,
     ) -> i_slint_editor_preview::Result<Self> {
-        let path = std::fs::canonicalize(path.as_ref())?;
+        let path = canonical_path(path.as_ref())?;
         let root = path
             .parent()
             .ok_or_else(|| format!("Failed to determine project root for {}", path.display()))?;
@@ -93,11 +97,11 @@ impl Project {
         path: &Path,
         component: Option<String>,
     ) -> i_slint_editor_preview::Result<Self> {
-        let root = std::fs::canonicalize(root)?;
+        let root = canonical_path(root)?;
         if !root.is_dir() {
             return Err(format!("{} is not a directory", root.display()).into());
         }
-        let path = std::fs::canonicalize(path)?;
+        let path = canonical_path(path)?;
         if !path.is_file()
             || !path
                 .extension()
@@ -282,6 +286,10 @@ mod tests {
         assert_eq!(visible[0].component, "Visible");
     }
 
+    fn url_spelling(path: &Path) -> PathBuf {
+        Url::from_file_path(std::fs::canonicalize(path).unwrap()).unwrap().to_file_path().unwrap()
+    }
+
     fn project_file() -> (tempfile::TempDir, PathBuf) {
         let directory = tempfile::tempdir().unwrap();
         fs::create_dir(directory.path().join("ui")).unwrap();
@@ -297,7 +305,7 @@ mod tests {
 
         let project = Project::from_file(&path, Some("MainWindow".into())).unwrap();
 
-        assert_eq!(project.root, std::fs::canonicalize(directory.path().join("ui")).unwrap());
+        assert_eq!(project.root, url_spelling(&directory.path().join("ui")));
         assert_eq!(project.preview.url, expected_url);
         assert_eq!(project.preview.component.as_deref(), Some("MainWindow"));
     }
@@ -309,7 +317,7 @@ mod tests {
 
         let project = Project::from_root(directory.path(), &path, None).unwrap();
 
-        assert_eq!(project.root, std::fs::canonicalize(directory.path()).unwrap());
+        assert_eq!(project.root, url_spelling(directory.path()));
         assert_eq!(project.preview.url, expected_url);
     }
 }

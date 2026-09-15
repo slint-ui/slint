@@ -7,6 +7,7 @@
 //! This is not helped by us using URLs in place of paths *sometimes*.
 
 use smol_str::{SmolStr, SmolStrBuilder, format_smolstr};
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
 /// Return `true` if `path` has a font file extension supported by Slint
@@ -166,6 +167,50 @@ enum PathComponent<'a> {
     File(&'a str),
 }
 
+fn starts_with_disk_root(path: &str) -> bool {
+    let b = path.as_bytes();
+    b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && (b[2] == b'\\' || b[2] == b'/')
+}
+
+/// `std::fs::canonicalize` returns `\\?\` verbatim paths,
+/// while `url::Url::from_file_path` drops that prefix and rewrites `\\?\UNC\` to `\\`.
+/// Without this rewrite a canonicalized path never compares equal to the same path from a URL.
+///
+/// `\\?\Volume{...}` has no plain spelling and `url::Url::from_file_path` rejects it,
+/// so it is left unchanged.
+fn plain_verbatim_path(path: &str) -> Cow<'_, str> {
+    if let Some(share) = path.strip_prefix(r"\\?\UNC\") {
+        Cow::Owned(format!(r"\\{share}"))
+    } else if let Some(disk) = path.strip_prefix(r"\\?\").filter(|p| starts_with_disk_root(p)) {
+        Cow::Borrowed(disk)
+    } else {
+        Cow::Borrowed(path)
+    }
+}
+
+#[test]
+fn test_plain_verbatim_path() {
+    #[track_caller]
+    fn th(input: &str, expected: &str) {
+        assert_eq!(plain_verbatim_path(input), expected);
+    }
+
+    th(r"\\?\C:\Test\Foo.txt", r"C:\Test\Foo.txt");
+    th(r"\\?\C:\", r"C:\");
+    th(r"\\?\UNC\server\share\Foo.txt", r"\\server\share\Foo.txt");
+    // These have no plain spelling, so they stay as they are.
+    th(
+        r"\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\Foo.txt",
+        r"\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\Foo.txt",
+    );
+    th(r"\\.\C:\Test\Foo.txt", r"\\.\C:\Test\Foo.txt");
+    th(r"\\?\C:relative", r"\\?\C:relative");
+    // Untouched, because the verbatim prefix requires backslashes.
+    th("//?/C:/Test/Foo.txt", "//?/C:/Test/Foo.txt");
+    th(r"C:\Test\Foo.txt", r"C:\Test\Foo.txt");
+    th("/foo/bar", "/foo/bar");
+}
+
 /// Find which kind of path separator is used in the `str`
 fn find_path_separator(path: &str) -> char {
     for c in path.chars() {
@@ -193,11 +238,7 @@ fn components<'a>(
     let b = path.as_bytes();
 
     if offset == 0 {
-        if b.len() >= 3
-            && b[0].is_ascii_alphabetic()
-            && b[1] == b':'
-            && (b[2] == b'\\' || b[2] == b'/')
-        {
+        if starts_with_disk_root(path) {
             return Some((PC::Root(&path[0..3]), 3, b[2] as char));
         }
         if b.len() >= 2 && b[0] == b'\\' && b[1] == b'\\' {
@@ -325,6 +366,8 @@ impl<'a> Iterator for Components<'a> {
 fn clean_path_string(path: &str) -> SmolStr {
     use PathComponent as PC;
 
+    let path = plain_verbatim_path(path);
+    let path = path.as_ref();
     let separator = find_path_separator(path);
     let path = if separator == '\\' {
         path.replace('/', &format!("{separator}"))
@@ -400,9 +443,18 @@ fn test_clean_path_string() {
     th("ab/.././cb/././///./..", ".");
     th("ab/.././cb/.\\.\\\\\\\\./..", ".");
     th("ab\\..\\.\\cb\\././///./..", ".");
+    th(r"\\?\C:\ab\..\.\hello.txt", r"C:\hello.txt");
+    th(r"\\?\UNC\server\share\ab\..\hello.txt", r"\\server\share\hello.txt");
+    th(
+        r"\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\ab\..\hello.txt",
+        r"\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\hello.txt",
+    );
 }
 
 /// Return a clean up path without unnecessary `.` and `..` directories in it.
+///
+/// A Windows verbatim path is rewritten to its plain spelling,
+/// so that the result compares equal to the same path taken from a `Url`.
 ///
 /// This will *not* look at the file system, so symlinks will not get resolved.
 pub fn clean_path(path: &Path) -> PathBuf {
