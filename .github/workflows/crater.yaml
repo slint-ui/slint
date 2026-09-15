@@ -112,7 +112,7 @@ jobs:
                     - "https://github.com/remy2019/smtbr_gui"
                     # - "https://github.com/mrandal/PDFer" # assigns to the read-only 'has-focus' output property
                     - "https://github.com/dhasoft-rs/7Seg-Slint-Widget"
-                    # - "https://github.com/DraKraft/ozon-rs"  # Error: the trait `ToSql` is not implemented for `usize`
+                    # - "https://github.com/DraKraft/ozon-rs" # repo gone
                     # - "https://github.com/SUP2Ak/Lur-Slint" # repo gone?
                     # - "https://github.com/foxboxpdx/melonstt" # repo gone?
                     - "https://github.com/sanyexieai/me_chat"
@@ -390,10 +390,18 @@ jobs:
                       extra_packages: libarchive-dev
                     - git_url: "https://github.com/Enn3Developer/n_music"
                       extra_packages: libasound2-dev libfontconfig-dev libfreetype-dev
-                      sub_path: "n_player"
+                      sub_path: "n_music_desktop"
                       extra_commands: |
+                          # the android crate asks for the fontique 0.10 feature, so the patched slint is rejected
+                          sed -i 's/unstable-fontique-010/unstable-fontique-011/' ../n_music_android/Cargo.toml
                           cargo update
                           # zune-imageprocs 0.5.1 doesn't handle the enum variants added in 0.5.3
+                          cargo update zune-core --precise 0.5.1
+                    - git_url: "https://github.com/Enn3Developer/n_music"
+                      sub_path: "n_music_android"
+                      extra_commands: |
+                          sed -i 's/unstable-fontique-010/unstable-fontique-011/' Cargo.toml
+                          cargo update
                           cargo update zune-core --precise 0.5.1
                     - git_url: "https://github.com/TsaoLun/always-blue"
                       sub_path: "."
@@ -408,14 +416,11 @@ jobs:
                       extra_commands: |
                           git clone https://github.com/sloganking/speakstream ../speakstream --depth 1
                           cargo update
-                    - git_url: "https://github.com/laycookie/record"
-                      sub_path: "."
-                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev
-                      toolchain: nightly # uses #![feature]
-                      extra_commands: |
-                          cargo update
-                          # rc1 switched to num-bigint 0.5, which grammers-crypto doesn't accept
-                          cargo update -p glass_pumpkin --precise 2.0.0-rc0
+                    # the repo no longer contains any .slint file or slint dependency
+                    #- git_url: "https://github.com/laycookie/record"
+                    #  sub_path: "."
+                    #  extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev
+                    #  toolchain: nightly # uses #![feature]
                     - git_url: "https://github.com/qhua948/anubis"
                       sub_path: "."
                       toolchain: nightly # uses #![feature]
@@ -498,12 +503,17 @@ jobs:
                       extra_packages: protobuf-compiler
                     - git_url: "https://gitlab.com/floers/ordinary"
                       sub_path: "."
-                      # the last commit mistypes a struct field (icon -> iconName); pin before it
-                      git_rev: 4be6e53798fd13614b0e1ae4916f313fcfbf249b
-                      # zip = "*" in its Cargo.toml, but the bundled epub lib needs the old zip API
-                      extra_commands: "cargo update && cargo update zip --precise 0.5.13"
-                      # apps/remote calls SlintClient::new with one argument too few
-                      extra_args: "--workspace --exclude remote"
+                      extra_args: "--workspace"
+                      extra_commands: |
+                          # these four call SlintClient::new without the render mode their own library requires
+                          for f in store/src/ui.rs keyboard/src/main.rs apps/settings/src/main.rs apps/remote/src/main.rs; do
+                              perl -0pi -e 's/            None,\n            Default::default\(\),\n/            None,\n            Default::default(),\n            Default::default(),\n/' $f
+                          done
+                          # the Category struct spells this field 'icon'
+                          sed -i 's/iconName: "settings"/icon: "settings"/' apps/settings/ui/window.slint
+                          cargo update
+                          # zip = "*" in its Cargo.toml, but the bundled epub lib needs the old zip API
+                          cargo update zip --precise 0.5.13
                     - git_url: "https://github.com/ChenhuiZhang/envsensor-demo"
                       sub_path: "."
                       # strum 0.27 only re-exports AsRefStr with the derive feature
@@ -519,10 +529,6 @@ jobs:
                       sub_path: "examples/slint"
                     - git_url: "https://github.com/ancwrd1/snx-rs"
                       sub_path: "apps/snx-rs-gui"
-                      extra_commands: |
-                          cargo update
-                          # the unpinned isakmp git dep changed the Ikev1Service::new signature
-                          cargo update -p isakmp --precise 1b7640c736b681a017f9baf3f2891e659b828c2d
                     - git_url: "https://github.com/snolab/CapsLockX"
                       sub_path: "rs/tools/clx-prefs-slint"
                     # depends on core2 0.4, which can't be resolved
@@ -545,6 +551,10 @@ jobs:
                     #  sub_path: "app"
                     - git_url: "https://github.com/temidaradev/chast"
                       sub_path: "p2p-chat"
+                      extra_commands: |
+                          cargo update
+                          # precis-profiles 0.1.14 moved to precis-core 0.2, which stun-rs doesn't accept
+                          cargo update -p precis-profiles --precise 0.1.13
                     # the GUI is a Python (teczka) app, there is no rcompare_gui crate
                     #- git_url: "https://github.com/aecs4u/rcompare"
                     #  sub_path: "rcompare_gui"
@@ -607,6 +617,10 @@ jobs:
                     - git_url: "https://github.com/JeninSutradhar/ffmpeg-VideoPlayer-Rust_Slint"
                       sub_path: "."
                       extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                      extra_commands: |
+                          # derive_more 1.0 refuses to build without a derive feature, and nothing here uses it
+                          cargo remove derive_more
+                          cargo update
                     - git_url: "https://github.com/NateAGeek/SenToAni"
                       sub_path: "."
                       extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
@@ -634,8 +648,6 @@ jobs:
                           # unpin both slint and slint-build so the patched version applies to both
                           sed -i 's/"=1.7.2"/"*"/g' Cargo.toml
                           cargo update
-                          # smithay is written against beta.2; beta.3 removed WindowEvent::DragMoved
-                          cargo update -p winit@0.31.0-beta.3 --precise 0.31.0-beta.2
                     - git_url: "https://github.com/reciperium/temporis"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev
@@ -660,10 +672,10 @@ jobs:
                     #      sed -i 's/"=1.16.1"/"1.16.1"/g' Cargo.toml
                     #      cargo update
                     - git_url: "https://github.com/petiaccja/sed-manager-rs"
-                      sub_path: "sed_manager_config_ui"
+                      sub_path: "sed_manager_gui/sed_manager_gui"
                       extra_commands: |
-                          cargo add serde --features derive
-                          cargo add slint --features renderer-femtovg
+                          # =1.17.1 pins slint below the patched version
+                          sed -i 's/"=1.17.1"/"*"/g' ../../Cargo.toml
                           cargo update
                     - git_url: "https://github.com/closure-studio/arkhost-ui-slint"
                       sub_path: "."
@@ -676,6 +688,8 @@ jobs:
                       extra_args: "--features=linux-gpu"
                       extra_commands: |
                           export MAPTILER_API_KEY=ci_dummy_key
+                          # skia-bindings links the native skia, so only one skia-safe may be in the graph
+                          sed -i 's/^skia-safe = ".*"/skia-safe = "*"/' ../Cargo.toml
                           cargo update
                     - git_url: "https://github.com/gopher64/gopher64"
                       sub_path: "."
@@ -1029,8 +1043,6 @@ jobs:
                       files: "bin/tasker_gui/src/main_window.slint"
                     - git_url: "https://github.com/Davide255/LVIE"
                       files: "LVIE/ui/widgets/curve.slint"
-                    - git_url: "https://github.com/DraKraft/ozon-rs"
-                      files: "ui/app-window.slint"
                     - git_url: "https://github.com/ElevenJune/mastermind_Rust"
                       files: "ui/appwindow.slint"
                     - git_url: "https://github.com/GRX005/McModManager-rs"
