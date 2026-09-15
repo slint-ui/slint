@@ -2,7 +2,8 @@
 
 ## Community release
 
-1. Check out the Slint release revision you intend to publish.
+1. Check that `runtime-pin.json` identifies the Slint release revision you
+   intend to publish.
 2. Install dependencies and build tools as described in [README.md](README.md).
    Run `pnpm verify`, then `pnpm zip` from this directory.
 3. Extract the release ZIP from `zip/` and import its manifest in Figma Desktop.
@@ -22,5 +23,6 @@ pnpm build:slint
 pnpm zip:nightly
 ```
 
-This creates `zip/figma-plugin.zip` using the interpreter built from this checkout. Nightly archives record their channel and
-runtime revision; they must not be submitted as Community releases.
+This creates `zip/figma-plugin.zip` using the exact runtime pin. Nightly
+archives record their channel and runtime revision; they must not be submitted
+as Community releases.
