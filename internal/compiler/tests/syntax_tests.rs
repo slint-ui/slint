@@ -70,6 +70,11 @@ fn syntax_tests() -> std::io::Result<()> {
             for test_entry in path.read_dir()? {
                 let test_entry = test_entry?;
                 let path = test_entry.path();
+                // Skip any tests
+                #[cfg(feature = "slint-sc")]
+                if path.file_name().is_some_and(|n| n.to_str().unwrap().contains("skip-slint-sc")) {
+                    continue;
+                }
                 if let Some(ext) = path.extension()
                     && (ext == "60" || ext == "slint")
                     && pattern.as_ref().map(|p| p.is_match(&path.to_string_lossy())).unwrap_or(true)
