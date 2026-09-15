@@ -178,7 +178,7 @@ export component NavigationDrawer inherits Drawer {
     }
 }
 
-export component ModalNavigationDrawer inherits ModalDrawer {
+component ModalNavigationDrawerPopup inherits ModalDrawer {
     callback selected(group-index: int, item-index: int);
     callback item_pointer_event(group_index: int, item_index: int, event: PointerEvent, position: Point);
     in property <[NavigationGroup]> groups;
@@ -223,5 +223,62 @@ export component ModalNavigationDrawer inherits ModalDrawer {
         root.current_index = item_index;
         root.selected(group_index, item_index);
         close_timer.start();
+    }
+}
+
+export component ModalNavigationDrawer {
+    callback selected(group-index: int, item-index: int);
+    callback item_pointer_event(group_index: int, item_index: int, event: PointerEvent, position: Point);
+    in property <bool> position_right;
+    in property <string> title;
+    in property <[NavigationGroup]> groups;
+    in_out property <int> current_group;
+    in_out property <int> current_index;
+
+    close_timer := Timer {
+        interval: 0ms;
+        running: false;
+        triggered => {
+            popup.close();
+            self.stop();
+        }
+    }
+
+    public function show() {
+        popup.show();
+    }
+
+    public function close() {
+        popup.close();
+    }
+
+    public function select(group_index: int, item_index: int) {
+        if group_index < 0 || group_index >= root.groups.length || item_index < 0 || item_index >= root.groups[group_index].items.length {
+            return;
+        }
+
+        root.current_group = group_index;
+        root.current_index = item_index;
+        root.selected(group_index, item_index);
+        close_timer.start();
+    }
+
+    popup := ModalNavigationDrawerPopup {
+        x: root.x;
+        y: root.y;
+        width: root.width;
+        height: root.height;
+        position_right: root.position_right;
+        title: root.title;
+        groups: root.groups;
+        current_group <=> root.current_group;
+        current_index <=> root.current_index;
+
+        selected(group_index, item_index) => {
+            root.selected(group_index, item_index);
+        }
+        item_pointer_event(group_index, item_index, event, position) => {
+            root.item_pointer_event(group_index, item_index, event, position);
+        }
     }
 }
