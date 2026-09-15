@@ -36,7 +36,6 @@
     "@shikijs/types": "4.4.3",
     "@types/node": "catalog:",
     "@vitest/browser-playwright": "catalog:",
-    "cross-env": "10.1.0",
     "esbuild": "0.28.2",
     "jszip": "3.10.2",
     "playwright": "catalog:",
