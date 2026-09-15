@@ -1,5 +1,19 @@
+node_modules/
+.pnpm-store/
+.worktrees/
+dist/
+zip/
+.generated/
+test-results/
+playwright-report/
+.vitest-attachments/
+.vitest/
+.cache/
+.DS_Store
+*.local
 
-dist
-dist.zip
-.tmp
-!*.d.ts
+
+dist-dev/
+.package-test/
+
+tests/__screenshots__/

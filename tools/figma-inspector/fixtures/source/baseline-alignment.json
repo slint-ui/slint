@@ -1,0 +1,314 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "baseline-row",
+    "name": "Baseline percentage regression",
+    "type": "FRAME",
+    "errors": [],
+    "properties": {
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "opacity": 1,
+      "layoutPositioning": "AUTO",
+      "cornerRadius": 0,
+      "strokes": [],
+      "effects": [],
+      "clipsContent": false,
+      "paddingLeft": 0,
+      "paddingRight": 0,
+      "paddingTop": 0,
+      "paddingBottom": 0,
+      "itemSpacing": 8,
+      "counterAxisSpacing": 0,
+      "layoutWrap": "NO_WRAP",
+      "width": 240,
+      "height": 160,
+      "visible": true,
+      "layoutMode": "HORIZONTAL",
+      "layoutSizingHorizontal": "FIXED",
+      "layoutSizingVertical": "FIXED",
+      "primaryAxisAlignItems": "MIN",
+      "counterAxisAlignItems": "BASELINE",
+      "fills": []
+    },
+    "children": [
+      {
+        "id": "47",
+        "name": "47",
+        "type": "TEXT",
+        "properties": {
+          "blendMode": "PASS_THROUGH",
+          "characters": "47",
+          "dashPattern": [],
+          "effects": [],
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.0784313753247261,
+                "g": 0.0941176488995552,
+                "b": 0.10588235408067703
+              },
+              "boundVariables": {
+                "color": {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:96:3"
+                }
+              }
+            }
+          ],
+          "fontName": {
+            "family": "sans-serif",
+            "style": "Regular"
+          },
+          "fontSize": 140,
+          "fontWeight": 400,
+          "height": 160,
+          "isMask": false,
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "HUG",
+          "layoutSizingVertical": "HUG",
+          "letterSpacing": {
+            "unit": "PIXELS",
+            "value": -0.5
+          },
+          "lineHeight": {
+            "unit": "AUTO"
+          },
+          "maxLines": null,
+          "opacity": 1,
+          "rotation": 0,
+          "strokes": [],
+          "textAlignHorizontal": "LEFT",
+          "textAlignVertical": "TOP",
+          "textAutoResize": "WIDTH_AND_HEIGHT",
+          "textCase": "ORIGINAL",
+          "textTruncation": "DISABLED",
+          "visible": true,
+          "width": 176,
+          "x": 0,
+          "y": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "OUTSIDE",
+          "layoutAlign": "INHERIT",
+          "minWidth": null,
+          "maxWidth": null,
+          "minHeight": null,
+          "maxHeight": null
+        },
+        "errors": [],
+        "segments": {
+          "value": [
+            {
+              "characters": "47",
+              "start": 0,
+              "end": 2,
+              "fontSize": 140,
+              "fontName": {
+                "family": "sans-serif",
+                "style": "Regular"
+              },
+              "fontWeight": 400,
+              "fontStyle": "REGULAR",
+              "textDecoration": "NONE",
+              "textDecorationStyle": null,
+              "textDecorationSkipInk": null,
+              "textDecorationOffset": null,
+              "textDecorationThickness": null,
+              "textDecorationColor": null,
+              "textCase": "ORIGINAL",
+              "lineHeight": {
+                "unit": "AUTO"
+              },
+              "letterSpacing": {
+                "unit": "PIXELS",
+                "value": -0.5
+              },
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "visible": true,
+                  "opacity": 1,
+                  "blendMode": "NORMAL",
+                  "color": {
+                    "r": 0.0784313753247261,
+                    "g": 0.0941176488995552,
+                    "b": 0.10588235408067703
+                  },
+                  "boundVariables": {
+                    "color": {
+                      "type": "VARIABLE_ALIAS",
+                      "id": "VariableID:96:3"
+                    }
+                  }
+                }
+              ],
+              "textStyleId": "S:463cbfe4610770ce5170738dd06a030e56403c27,",
+              "fillStyleId": "",
+              "listOptions": {
+                "type": "NONE"
+              },
+              "indentation": 0,
+              "hyperlink": null,
+              "boundVariables": {},
+              "textStyleOverrides": [],
+              "paragraphSpacing": 0,
+              "listSpacing": 0,
+              "paragraphIndent": 0,
+              "openTypeFeatures": {}
+            }
+          ]
+        },
+        "exports": {
+          "svg": {
+            "value": "<svg width=\"176\" height=\"160\" viewBox=\"0 0 176 160\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M10 15 H30 V70 H60 V15 H80 V145 H60 V90 H10 Z M96 15 H170 V35 L125 145 H104 L148 35 H96 Z\" fill=\"#15181b\"/></svg>"
+          }
+        }
+      },
+      {
+        "id": "%",
+        "name": "%",
+        "type": "TEXT",
+        "properties": {
+          "blendMode": "PASS_THROUGH",
+          "characters": "%",
+          "dashPattern": [],
+          "effects": [],
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.0784313753247261,
+                "g": 0.0941176488995552,
+                "b": 0.10588235408067703
+              },
+              "boundVariables": {
+                "color": {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:96:3"
+                }
+              }
+            }
+          ],
+          "fontName": {
+            "family": "sans-serif",
+            "style": "Regular"
+          },
+          "fontSize": 48,
+          "fontWeight": 400,
+          "height": 56,
+          "isMask": false,
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "HUG",
+          "layoutSizingVertical": "HUG",
+          "letterSpacing": {
+            "unit": "PIXELS",
+            "value": -0.5
+          },
+          "lineHeight": {
+            "unit": "AUTO"
+          },
+          "maxLines": null,
+          "opacity": 1,
+          "rotation": 0,
+          "strokes": [],
+          "textAlignHorizontal": "LEFT",
+          "textAlignVertical": "TOP",
+          "textAutoResize": "WIDTH_AND_HEIGHT",
+          "textCase": "ORIGINAL",
+          "textTruncation": "DISABLED",
+          "visible": true,
+          "width": 48,
+          "x": 184,
+          "y": 104,
+          "strokeWeight": 1,
+          "strokeAlign": "OUTSIDE",
+          "layoutAlign": "INHERIT",
+          "minWidth": null,
+          "maxWidth": null,
+          "minHeight": null,
+          "maxHeight": null
+        },
+        "errors": [],
+        "segments": {
+          "value": [
+            {
+              "characters": "%",
+              "start": 0,
+              "end": 1,
+              "fontSize": 48,
+              "fontName": {
+                "family": "sans-serif",
+                "style": "Regular"
+              },
+              "fontWeight": 400,
+              "fontStyle": "REGULAR",
+              "textDecoration": "NONE",
+              "textDecorationStyle": null,
+              "textDecorationSkipInk": null,
+              "textDecorationOffset": null,
+              "textDecorationThickness": null,
+              "textDecorationColor": null,
+              "textCase": "ORIGINAL",
+              "lineHeight": {
+                "unit": "AUTO"
+              },
+              "letterSpacing": {
+                "unit": "PIXELS",
+                "value": -0.5
+              },
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "visible": true,
+                  "opacity": 1,
+                  "blendMode": "NORMAL",
+                  "color": {
+                    "r": 0.0784313753247261,
+                    "g": 0.0941176488995552,
+                    "b": 0.10588235408067703
+                  },
+                  "boundVariables": {
+                    "color": {
+                      "type": "VARIABLE_ALIAS",
+                      "id": "VariableID:96:3"
+                    }
+                  }
+                }
+              ],
+              "textStyleId": "S:463cbfe4610770ce5170738dd06a030e56403c27,",
+              "fillStyleId": "",
+              "listOptions": {
+                "type": "NONE"
+              },
+              "indentation": 0,
+              "hyperlink": null,
+              "boundVariables": {},
+              "textStyleOverrides": [],
+              "paragraphSpacing": 0,
+              "listSpacing": 0,
+              "paragraphIndent": 0,
+              "openTypeFeatures": {}
+            }
+          ]
+        },
+        "exports": {
+          "svg": {
+            "value": "<svg width=\"48\" height=\"56\" viewBox=\"0 0 48 56\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M6 6 L12 6 L42 48 L36 48 Z M8 35 H18 V48 H8 Z M30 6 H40 V19 H30 Z\" fill=\"#15181b\"/></svg>"
+          }
+        }
+      }
+    ]
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false,
+  "options": {}
+}

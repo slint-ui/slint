@@ -1,0 +1,420 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "grid",
+    "name": "grid",
+    "type": "FRAME",
+    "errors": [],
+    "properties": {
+      "x": 0,
+      "y": 0,
+      "width": 400,
+      "height": 120,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "fills": [],
+      "strokes": [],
+      "effects": [],
+      "layoutMode": "NONE"
+    },
+    "children": [
+      {
+        "id": "columns",
+        "name": "columns",
+        "type": "GROUP",
+        "errors": [],
+        "properties": {
+          "x": 12,
+          "y": 0,
+          "width": 360,
+          "height": 120,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [],
+          "strokes": [],
+          "effects": [],
+          "absoluteTransform": [
+            [
+              1,
+              0,
+              12
+            ],
+            [
+              0,
+              1,
+              0
+            ]
+          ]
+        },
+        "children": [
+          {
+            "id": "column:0",
+            "name": "column:0",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 12,
+              "y": 0,
+              "width": 24,
+              "height": 120,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "fills": [],
+              "strokes": [],
+              "effects": [],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  12
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          },
+          {
+            "id": "column:1",
+            "name": "column:1",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 42,
+              "y": 0,
+              "width": 24,
+              "height": 120,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "fills": [],
+              "strokes": [],
+              "effects": [],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  42
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          },
+          {
+            "id": "column:2",
+            "name": "column:2",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 72,
+              "y": 0,
+              "width": 24,
+              "height": 120,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "fills": [],
+              "strokes": [],
+              "effects": [],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  72
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          },
+          {
+            "id": "column:3",
+            "name": "column:3",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 102,
+              "y": 0,
+              "width": 24,
+              "height": 120,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "fills": [],
+              "strokes": [],
+              "effects": [],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  102
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          },
+          {
+            "id": "column:4",
+            "name": "column:4",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 132,
+              "y": 0,
+              "width": 24,
+              "height": 120,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "fills": [],
+              "strokes": [],
+              "effects": [],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  132
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          },
+          {
+            "id": "column:5",
+            "name": "column:5",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 162,
+              "y": 0,
+              "width": 24,
+              "height": 120,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "fills": [],
+              "strokes": [],
+              "effects": [],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  162
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          },
+          {
+            "id": "column:6",
+            "name": "column:6",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 192,
+              "y": 0,
+              "width": 24,
+              "height": 120,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "fills": [],
+              "strokes": [],
+              "effects": [],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  192
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          },
+          {
+            "id": "column:7",
+            "name": "column:7",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 222,
+              "y": 0,
+              "width": 24,
+              "height": 120,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "fills": [],
+              "strokes": [],
+              "effects": [],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  222
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          },
+          {
+            "id": "column:8",
+            "name": "column:8",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 252,
+              "y": 0,
+              "width": 24,
+              "height": 120,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "fills": [],
+              "strokes": [],
+              "effects": [],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  252
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          },
+          {
+            "id": "column:9",
+            "name": "column:9",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 282,
+              "y": 0,
+              "width": 24,
+              "height": 120,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "fills": [],
+              "strokes": [],
+              "effects": [],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  282
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          },
+          {
+            "id": "column:10",
+            "name": "column:10",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 312,
+              "y": 0,
+              "width": 24,
+              "height": 120,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "fills": [],
+              "strokes": [],
+              "effects": [],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  312
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          },
+          {
+            "id": "column:11",
+            "name": "column:11",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 342,
+              "y": 0,
+              "width": 24,
+              "height": 120,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "fills": [],
+              "strokes": [],
+              "effects": [],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  342
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false,
+  "options": {}
+}

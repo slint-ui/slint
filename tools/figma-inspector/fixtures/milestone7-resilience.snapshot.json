@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "xylem:section",
+    "nodeName": "Table V2 section"
+  },
+  "root": {
+    "kind": "section",
+    "id": "xylem:section",
+    "name": "Table V2 section",
+    "x": 0,
+    "y": 0,
+    "width": 760,
+    "height": 420,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutPositioning": "auto",
+    "layoutSizingHorizontal": null,
+    "layoutSizingVertical": null,
+    "containerKind": "section",
+    "layoutFallback": "freeform",
+    "fills": [],
+    "strokes": [],
+    "cornerRadii": [0, 0, 0, 0],
+    "clipsContent": false,
+    "shadows": [],
+    "autoLayout": null,
+    "children": [
+      {
+        "kind": "container",
+        "id": "xylem:reverse-z",
+        "name": "Stepper row",
+        "x": 24,
+        "y": 24,
+        "width": 712,
+        "height": 160,
+        "opacity": 1,
+        "visible": true,
+        "rotation": 0,
+        "layoutPositioning": "auto",
+        "layoutSizingHorizontal": null,
+        "layoutSizingVertical": null,
+        "containerKind": "generic",
+        "layoutFallback": "freeform",
+        "fills": [
+          {
+            "kind": "solid",
+            "color": { "r": 0.04, "g": 0.08, "b": 0.16, "a": 1 },
+            "opacity": 1
+          },
+          {
+            "kind": "linear-gradient",
+            "transform": [[1, 0, 0], [0, 1, 0]],
+            "stops": [
+              { "position": 0, "color": { "r": 0.1, "g": 0.2, "b": 0.5, "a": 1 } },
+              { "position": 0.5, "color": { "r": 0.2, "g": 0.5, "b": 0.8, "a": 1 } },
+              { "position": 1, "color": { "r": 0.5, "g": 0.2, "b": 0.8, "a": 1 } }
+            ],
+            "opacity": 0.8
+          }
+        ],
+        "strokes": [
+          {
+            "paint": {
+              "kind": "linear-gradient",
+              "transform": [[1, 0, 0], [0, 1, 0]],
+              "stops": [
+                { "position": 0, "color": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+                { "position": 0.5, "color": { "r": 1, "g": 1, "b": 0, "a": 1 } },
+                { "position": 1, "color": { "r": 0, "g": 0, "b": 1, "a": 1 } }
+              ],
+              "opacity": 1
+            },
+            "strokeTopWeight": 1,
+            "strokeRightWeight": 4,
+            "strokeBottomWeight": 2,
+            "strokeLeftWeight": 3,
+            "dashPattern": [6, 3]
+          }
+        ],
+        "cornerRadii": [12, 12, 12, 12],
+        "clipsContent": true,
+        "shadows": [
+          { "color": { "r": 0, "g": 0, "b": 0, "a": 0.25 }, "offsetX": 0, "offsetY": 4, "blur": 12, "spread": 2 },
+          { "color": { "r": 0.1, "g": 0.3, "b": 0.8, "a": 0.2 }, "offsetX": 0, "offsetY": 1, "blur": 3, "spread": 0 }
+        ],
+        "autoLayout": null,
+        "children": [
+          {
+            "kind": "rectangle",
+            "id": "xylem:rotated-cell",
+            "name": "Rotated cell",
+            "x": 16,
+            "y": 18,
+            "width": 180,
+            "height": 64,
+            "opacity": 1,
+            "visible": true,
+            "rotation": 7.5,
+            "layoutPositioning": "absolute",
+            "layoutSizingHorizontal": null,
+            "layoutSizingVertical": null,
+            "fills": [
+              { "kind": "solid", "color": { "r": 0.12, "g": 0.2, "b": 0.36, "a": 1 }, "opacity": 1 }
+            ],
+            "strokes": [],
+            "cornerRadii": [8, 8, 8, 8],
+            "clipsContent": false,
+            "shadows": []
+          },
+          {
+            "kind": "text",
+            "id": "xylem:rich-copy",
+            "name": "Rich copy",
+            "x": 24,
+            "y": 100,
+            "width": 640,
+            "height": 42,
+            "opacity": 1,
+            "visible": true,
+            "rotation": 0,
+            "layoutPositioning": "auto",
+            "layoutSizingHorizontal": null,
+            "layoutSizingVertical": null,
+            "characters": "Bold & <safe>\nitalic [copy]",
+            "fills": [
+              { "kind": "solid", "color": { "r": 0.9, "g": 0.95, "b": 1, "a": 1 }, "opacity": 1 }
+            ],
+            "fontFamily": "Inter",
+            "fontStyle": "Regular",
+            "fontSize": 16,
+            "fontWeight": 400,
+            "textAutoResize": "height",
+            "horizontalAlign": "LEFT",
+            "verticalAlign": "CENTER",
+            "italic": false,
+            "letterSpacing": 0,
+            "lineHeightFactor": null,
+            "wrap": true,
+            "overflow": "clip",
+            "maxLines": null,
+            "runs": [
+              { "range": [0, 5], "text": "Bold ", "color": { "r": 1, "g": 0.8, "b": 0.1, "a": 1 }, "bold": true, "italic": false, "underline": false, "strike": false },
+              { "range": [5, 17], "text": "& <safe>\nita", "color": { "r": 0.6, "g": 0.8, "b": 1, "a": 1 }, "bold": false, "italic": true, "underline": true, "strike": false },
+              { "range": [17, 27], "text": "lic [copy]", "color": null, "bold": false, "italic": false, "underline": false, "strike": true }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

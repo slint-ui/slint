@@ -1,0 +1,50 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "layout:negative",
+    "name": "layout:negative",
+    "type": "FRAME",
+    "errors": [],
+    "properties": {
+      "x": 12,
+      "y": 24,
+      "width": 100,
+      "height": 60,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "fills": [
+        {
+          "type": "SOLID",
+          "color": {
+            "r": 1,
+            "g": 0,
+            "b": 0
+          },
+          "opacity": 1
+        }
+      ],
+      "strokes": [],
+      "effects": [],
+      "layoutMode": "VERTICAL",
+      "layoutSizingHorizontal": "HUG",
+      "layoutSizingVertical": "HUG",
+      "primaryAxisAlignItems": "MIN",
+      "counterAxisAlignItems": "MIN",
+      "layoutWrap": "NO_WRAP",
+      "counterAxisSpacing": 0,
+      "paddingLeft": 0,
+      "paddingRight": 0,
+      "paddingTop": 0,
+      "paddingBottom": 0,
+      "itemSpacing": -2,
+      "cornerRadius": 4,
+      "layoutPositioning": "AUTO"
+    },
+    "children": []
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false,
+  "options": {}
+}
