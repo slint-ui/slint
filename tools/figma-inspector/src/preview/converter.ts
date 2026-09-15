@@ -3,7 +3,7 @@
 
 import type { CodegenVariable } from "../plugin/codegen-variables";
 import { applyCodegenVariables } from "./codegen-variables";
-import type { ComponentGenerationOptions } from "./component-behavior";
+import type { ComponentGenerationOptions } from "./component-generator";
 import {
     binding,
     openElement,
@@ -412,10 +412,10 @@ function nodeSource(
             ...(layoutOrder === undefined
                 ? []
                 : [property("layout-order", layoutOrder, depth + 1)]),
-            ...(context.componentTemplates
-                ? use.templateBindings
-                : use.bindings
-            ).map((binding) => ({ ...binding, depth: depth + 1 })),
+            ...use.bindings.map((binding) => ({
+                ...binding,
+                depth: depth + 1,
+            })),
             closeElement(depth),
         ];
     }
@@ -664,13 +664,12 @@ export function convertSnapshot(
         components = generateComponents(
             snapshot.root,
             snapshot.components,
-            (node, uses) =>
+            (node) =>
                 nodeSource(
                     node,
                     {
                         warnings,
                         preview,
-                        componentUses: uses,
                         componentTemplates: true,
                     },
                     { depth: 1, normalizePosition: true, definitionRoot: true },

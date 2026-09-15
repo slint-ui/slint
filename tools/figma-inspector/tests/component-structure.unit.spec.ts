@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, test } from "vitest";
-import {
-    elementShape,
-    structuralSignature,
-} from "../src/preview/component-structure";
+import { structuralSignature } from "../src/preview/component-structure";
 import { literal } from "../src/preview/slint-ir";
 import type { Element } from "../src/preview/slint-ir";
 import { childOrder } from "../src/preview/component-structure";
@@ -49,19 +46,6 @@ describe("signatures", () => {
         ).toBeUndefined();
         expect(childOrder([["a", "a"]])).toBeUndefined();
     });
-    const rawElement = (code: string): Element => ({
-        type: "Rectangle",
-        bindings: [
-            {
-                kind: "binding",
-                name: "value",
-                value: { kind: "raw", type: "string", code },
-                depth: 0,
-            },
-        ],
-        children: [],
-    });
-
     describe("component structural signatures", () => {
         test("preserve type, condition, binding value, and child order distinctions", () => {
             const base = element("Rectangle", '"left"', [
@@ -94,27 +78,6 @@ describe("signatures", () => {
                 expect(structuralSignature(base)).not.toBe(
                     structuralSignature(changed),
                 );
-        });
-
-        test("shape captures the same structural distinctions", () => {
-            const base = element("Rectangle", '"left"', [
-                element("Text", '"child"'),
-            ]);
-            const changedType = element("Path", '"left"', [
-                element("Text", '"child"'),
-            ]);
-            const changedCondition = element("Rectangle", '"left"', [
-                element("Text", '"child"'),
-            ]);
-            changedCondition.children[0].condition = "root.visible";
-            const changedValue = rawElement("root.value");
-            expect(
-                new Set(
-                    [base, changedType, changedCondition, changedValue].map(
-                        elementShape,
-                    ),
-                ).size,
-            ).toBe(4);
         });
 
         test("serialize deep trees once without recursive escaping", () => {
