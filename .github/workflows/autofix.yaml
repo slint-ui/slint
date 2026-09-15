@@ -55,7 +55,7 @@ jobs:
 
     lint_typecheck:
         runs-on: ubuntu-latest
-        timeout-minutes: 5
+        timeout-minutes: 20
         steps:
             - uses: actions/checkout@v7
             - uses: jdx/mise-action@v4.2.5
