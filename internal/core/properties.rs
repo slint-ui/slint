@@ -301,6 +301,8 @@ use core::cell::{Cell, RefCell, UnsafeCell};
 use core::ffi::c_void;
 use core::marker::PhantomPinned;
 use core::pin::Pin;
+#[cfg(slint_debug_property)]
+use std::println;
 
 /// if a DependencyListHead points to that value, it is because the property is actually
 /// constant and cannot have dependencies
@@ -927,6 +929,25 @@ impl<T: Default> Default for Property<T> {
     }
 }
 
+/// Formats a property value for the `slint_debug_property` set-logging above,
+/// falling back to a placeholder for types this doesn't know how to format.
+///
+/// This can't be done with a `T: Debug` bound, even cfg-gated to just this
+/// function: `debug_print_set` is itself generic over `T`, so a bound can
+/// only be *used* here if it's *provable* here, which means it would have to
+/// hold for every property value type in the codebase, not just the ones
+/// that happen to implement `Debug`. Downcasting via `Any` sidesteps that,
+/// since it's a runtime check rather than a trait bound: it costs nothing
+/// for types this doesn't recognize, instead of failing to compile.
+#[cfg(slint_debug_property)]
+fn format_property_value<T: 'static>(t: &T) -> alloc::string::String {
+    if let Some(v) = (t as &dyn core::any::Any).downcast_ref::<crate::lengths::LogicalLength>() {
+        alloc::format!("{v:?}")
+    } else {
+        "<value>".into()
+    }
+}
+
 impl<T: Clone> Property<T> {
     /// Create a new property with this value
     pub fn new(value: T) -> Self {
@@ -1026,7 +1047,26 @@ impl<T: Clone> Property<T> {
     /// If other properties have binding depending of this property, these properties will
     /// be marked as dirty.
     // FIXME  pub fn set(self: Pin<&Self>, t: T) {
+    #[cfg(not(slint_debug_property))]
     pub fn set(&self, t: T)
+    where
+        T: PartialEq,
+    {
+        self.set_impl(t)
+    }
+
+    /// Same as [`Self::set`], but also requires `T: 'static` so the set-logging
+    /// above can inspect the value through [`core::any::Any`].
+    #[cfg(slint_debug_property)]
+    pub fn set(&self, t: T)
+    where
+        T: PartialEq + 'static,
+    {
+        self.debug_print_set(&t);
+        self.set_impl(t)
+    }
+
+    fn set_impl(&self, t: T)
     where
         T: PartialEq,
     {
@@ -1055,6 +1095,16 @@ impl<T: Clone> Property<T> {
                 #[cfg(slint_debug_property)]
                 self.debug_name.borrow().as_str(),
             );
+        }
+    }
+
+    #[cfg(slint_debug_property)]
+    fn debug_print_set(&self, t: &T)
+    where
+        T: 'static,
+    {
+        if self.debug_name.borrow().ends_with("content-y") {
+            // println!("Set property {}: {}", self.debug_name.borrow(), format_property_value(t));
         }
     }
 

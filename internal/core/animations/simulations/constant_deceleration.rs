@@ -3,7 +3,7 @@
 
 // cSpell: ignore signum underdamped
 
-use crate::animations::simulations::{Direction, Parameter, Simulation};
+use crate::animations::simulations::{Direction, Parameter, PositionSimulation, Simulation};
 use crate::{Coord, animations::Instant};
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
@@ -146,13 +146,13 @@ impl ConstantDeceleration {
             }
         } else if start_value < limit_value.as_ref().get() {
             data.deceleration = f32::abs(data.deceleration);
-            assert!(initial_velocity >= 0.); // Makes no sense yet that the velocity goes into the other direction
+            debug_assert!(initial_velocity >= 0.); // Makes no sense yet that the velocity goes into the other direction
             initial_velocity = f32::abs(initial_velocity);
             Direction::Increasing
         } else {
             data.deceleration = -f32::abs(data.deceleration);
             initial_velocity = -f32::abs(initial_velocity);
-            assert!(initial_velocity <= 0.);
+            debug_assert!(initial_velocity <= 0.);
             Direction::Decreasing
         };
 
@@ -202,6 +202,23 @@ impl ConstantDeceleration {
 impl Simulation for ConstantDeceleration {
     fn step(&mut self, current: &mut f32, new_tick: Instant) -> bool {
         self.step_internal(current, new_tick)
+    }
+}
+
+impl PositionSimulation for ConstantDeceleration {
+    fn remaining_distance(&self, time_elapsed: core::time::Duration) -> f32 {
+        self.data.remaining_distance(time_elapsed) as f32
+    }
+
+    fn remaining_velocity(&self, _time_elapsed: core::time::Duration) -> f32 {
+        match self.direction {
+            Direction::Increasing => self.velocity.max(0.),
+            Direction::Decreasing => self.velocity.min(0.),
+        }
+    }
+
+    fn overshoot_allowed(&self) -> bool {
+        false
     }
 }
 
