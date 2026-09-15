@@ -976,6 +976,17 @@ impl Compiler {
         self.config.default_translation_context = default_translation_context;
     }
 
+    /// Bundle the translations found in the given directory into the compiled components, so that
+    /// `slint::select_bundled_translation` can switch between the languages at runtime.
+    ///
+    /// The translation files must be in the gettext `.po` format and follow this pattern:
+    /// `<path>/<lang>/LC_MESSAGES/<domain>.po`, where the domain is set with
+    /// [`Self::set_translation_domain`].
+    #[cfg(feature = "bundle-translations")]
+    pub fn set_translation_bundle_path(&mut self, path: PathBuf) {
+        self.config.translation_path_bundle = Some(path);
+    }
+
     /// Sets the callback that will be invoked when loading imported .slint files. The specified
     /// `file_loader_callback` parameter will be called with a canonical file path as argument
     /// and is expected to return a future that, when resolved, provides the source code of the
