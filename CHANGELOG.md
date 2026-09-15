@@ -83,7 +83,6 @@ All notable changes to this project are documented in this file.
  - A `Window` that does not set `title` is now named after the application instead of "Slint Window", and is
    untitled on platforms that do not name the running program.
  - The drop shadow of an element with `transform-rotation` or `transform-scale` is now transformed with it.
- - WGPU: The `WGPU_BACKEND` environment variable is now honored. (#13261)
  - winit: The frame rendered before a window is mapped is now also rendered for a window shown later, such as
    a dialog opened from a callback.
  - winit: Fixed a window width set before the window is shown being replaced by the preferred width. (#13245)
@@ -91,8 +90,6 @@ All notable changes to this project are documented in this file.
  - FemtoVG: Fixed `Window::take_snapshot()` returning the frame that was last presented instead of the
    current state of the window.
  - Skia: Fixed the image layout used when importing a Vulkan texture.
- - Skia: Updated to skia-safe 0.153.3, built without Skia's own text layout module since Slint shapes text
-   with parley, and dropped the `ash` dependency.
 
 ### Slint language
 
