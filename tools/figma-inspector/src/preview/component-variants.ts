@@ -246,7 +246,6 @@ export function variantDecision(
     rows: Record<string, string>[],
     axes: DecisionAxis[],
 ): string {
-    const memo = new Map<string, string>();
     const unique = [
         ...new Map(
             rows.map((row) => [
@@ -258,9 +257,6 @@ export function variantDecision(
     function solve(indices: number[], remaining: number[]): string {
         if (!indices.length) return "false";
         if (!remaining.length) return "true";
-        const key = `${indices.join(",")}:${remaining.join(",")}`;
-        const cached = memo.get(key);
-        if (cached !== undefined) return cached;
         // Authored axis order is stable. Do not search permutations or choose
         // an opaque negative complement merely because its spelling is shorter.
         const index = remaining[0];
@@ -293,7 +289,6 @@ export function variantDecision(
                 : branches.length === 1
                   ? branches[0]
                   : branches.map((s) => `(${s})`).join(" || ") || "false";
-            memo.set(key, expression);
             return expression;
         }
     }

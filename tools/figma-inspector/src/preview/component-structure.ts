@@ -62,18 +62,3 @@ export function structuralSignature(tree: Element): string {
     });
     return JSON.stringify(build(tree));
 }
-
-export function elementShape(tree: Element): string {
-    const build = (element: Element): unknown[] => [
-        element.type,
-        element.condition,
-        element.role,
-        element.bindings.map((binding) => [
-            binding.name,
-            binding.value.type,
-            binding.value.type === "opaque" ? binding.value.code : null,
-        ]),
-        element.children.map(build),
-    ];
-    return JSON.stringify(build(tree));
-}
