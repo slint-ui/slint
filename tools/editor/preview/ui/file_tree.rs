@@ -18,7 +18,7 @@ use super::{Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPr
 pub(in crate::preview) type SharedFileTreeController = Rc<RefCell<Option<FileTreeController>>>;
 
 const NEW_COMPONENT_NAME: &str = "NewComponent";
-const NEW_COMPONENT_CONTENTS: &str = "export component NewComponent { }\n";
+const NEW_COMPONENT_CONTENTS: &str = "export component NewComponent {\n}\n";
 
 pub fn setup(
     api: &Api<'_>,
