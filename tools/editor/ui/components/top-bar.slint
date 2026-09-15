@@ -11,7 +11,7 @@ component RunButton inherits Rectangle {
     in property <bool> running;
     callback clicked;
 
-    width: 68px;
+    width: bt.width + 16px;
     height: 32px;
     border-radius: 6px;
     background: enabled
@@ -19,11 +19,11 @@ component RunButton inherits Rectangle {
         : StudioTheme.panel-subtle;
     opacity: enabled ? 1 : 0.55;
 
-    Text {
+    bt := Text {
         text: root.running ? "Running" : "Run";
         color: enabled ? white : StudioTheme.muted;
         font-size: 13px;
-        font-weight: 700;
+        font-weight: FontWeight.bold;
         horizontal-alignment: center;
         vertical-alignment: center;
     }

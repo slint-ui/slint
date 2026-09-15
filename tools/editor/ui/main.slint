@@ -24,6 +24,137 @@ import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/upda
 export { Api, Hover, Preview, Project, FillSession }
 export { EditorCursors, EditorMetrics } from "components/common.slint";
 
+component NewFileErrorPopup inherits PopupWindow {
+    in property <string> error;
+    callback dismissed();
+
+    width: 360px;
+    height: 212px;
+    close-policy: no-auto-close;
+
+    Rectangle {
+        border-width: 1px;
+        border-color: StudioTheme.dark ? #4a4d55 : #c8cbd2;
+        border-radius: 9px;
+        background: StudioTheme.dark ? #292a30 : #ffffff;
+        clip: true;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 12px;
+        drop-shadow-color: StudioTheme.dark ? #00000085 : #161b233d;
+
+        VerticalLayout {
+            height: parent.height;
+
+            Rectangle {
+                vertical-stretch: 1;
+
+                VerticalLayout {
+                    padding: 20px;
+                    spacing: 14px;
+
+                    HorizontalLayout {
+                        spacing: 12px;
+                        cross-axis-alignment: start;
+
+                        Rectangle {
+                            width: 30px;
+                            height: 30px;
+                            border-radius: 15px;
+                            background: StudioTheme.dark ? #542a2c : #fce6e5;
+
+                            Text {
+                                text: "×";
+                                color: StudioTheme.dark ? #ffb4ab : #b3261e;
+                                font-size: 20px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 4px;
+
+                            Text {
+                                text: @tr("Couldn’t create file");
+                                color: StudioTheme.text;
+                                font-size: 16px;
+                                font-weight: FontWeight.bold;
+                            }
+
+                            Text {
+                                text: @tr("A new Slint file couldn’t be created in the project root.");
+                                color: StudioTheme.muted;
+                                font-size: 13px;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 46px;
+                        border-width: 1px;
+                        border-color: StudioTheme.dark ? #63373a : #e0c5c2;
+                        border-radius: 6px;
+                        background: StudioTheme.dark ? #342426 : #fff7f6;
+
+                        Text {
+                            x: 11px;
+                            width: parent.width - 22px;
+                            text: root.error;
+                            color: StudioTheme.dark ? #f1b8b4 : #7a2925;
+                            font-size: 11px;
+                            wrap: word-wrap;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 56px;
+                vertical-stretch: 0;
+                background: StudioTheme.dark ? #25262b : #fafafa;
+
+                Rectangle {
+                    height: 1px;
+                    y: 0px;
+                    background: StudioTheme.dark ? #3b3d43 : #e1e2e6;
+                }
+
+                Rectangle {
+                    width: bt.width + 16px;
+                    height: 32px;
+                    x: parent.width - self.width - 16px;
+                    y: (parent.height - self.height) / 2;
+                    border-width: 1px;
+                    border-color: close-touch.has-hover ? StudioTheme.accent-strong : StudioTheme.accent;
+                    border-radius: 5px;
+                    background: close-touch.has-hover ? StudioTheme.accent-strong : StudioTheme.accent;
+
+                    bt := Text {
+                        text: @tr("Close");
+                        color: white;
+                        font-size: 13px;
+                        font-weight: FontWeight.bold;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    close-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        accessible-role: AccessibleRole.button;
+                        accessible-label: @tr("Close");
+                        clicked => {
+                            root.close();
+                            root.dismissed();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 export component EditorUi inherits Window {
     preferred-width: 1360px;
     preferred-height: 860px;
@@ -48,6 +179,14 @@ export component EditorUi inherits Window {
     callback outline-pane-resized(length);
     callback elements-pane-reset();
     callback outline-pane-reset();
+    private property <string> new-file-error;
+
+    function create-new-slint-file() {
+        root.new-file-error = Project.create-new-slint-file();
+        if root.new-file-error != "" {
+            new-file-error-popup.show();
+        }
+    }
 
     function open-startup-wizard() {
         Api.open-startup-wizard();
@@ -70,7 +209,7 @@ export component EditorUi inherits Window {
             MenuItem {
                 title: @tr("New Slint File");
                 enabled: Project.file-tree.length > 0;
-                activated => { Project.create-new-slint-file(); }
+                activated => { root.create-new-slint-file(); }
             }
         }
         Menu {
@@ -175,6 +314,7 @@ export component EditorUi inherits Window {
                             elements-pane-reset => {
                                 root.elements-pane-reset();
                             }
+                            create-new-slint-file => { root.create-new-slint-file(); }
                         }
 
                         if Api.editor-surface-mode == EditorSurfaceMode.component: EditorCanvas {
@@ -228,7 +368,7 @@ export component EditorUi inherits Window {
                             text: Project.selected-project-file;
                             color: StudioTheme.text;
                             font-size: 13px;
-                            font-weight: 800;
+                            font-weight: FontWeight.extra-bold;
                             vertical-alignment: center;
                             overflow: elide;
                         }
@@ -259,6 +399,13 @@ export component EditorUi inherits Window {
         }
 
         if UpdateStatus.shows-bar(): UpdateStatusBar { }
+    }
+
+    new-file-error-popup := NewFileErrorPopup {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        error: root.new-file-error;
+        dismissed => { root.new-file-error = ""; }
     }
 
     fill-layer := TouchArea {

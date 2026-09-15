@@ -185,7 +185,7 @@ export component HorizontalResizeDivider inherits FocusScope {
 export component BodyLabel inherits Text {
     color: StudioTheme.text;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: FontWeight.medium;
     overflow: elide;
 }
 
@@ -200,7 +200,7 @@ export component SectionTitle inherits Text {
     text: label;
     color: StudioTheme.muted;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: FontWeight.bold;
 }
 
 export component PrimerTextInput inherits Rectangle {
@@ -225,7 +225,7 @@ export component PrimerTextInput inherits Rectangle {
             text: root.leading-text;
             color: StudioTheme.muted;
             font-size: 14px;
-            font-weight: 700;
+            font-weight: FontWeight.bold;
             vertical-alignment: center;
         }
 
@@ -320,7 +320,7 @@ export component PrimerNavRow inherits Rectangle {
             text: root.glyph;
             color: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
             font-size: 12px;
-            font-weight: 800;
+            font-weight: FontWeight.extra-bold;
             vertical-alignment: center;
         }
 

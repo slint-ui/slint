@@ -34,11 +34,23 @@ pub fn setup(
     let controller_for_create = controller.clone();
     let project_weak_for_create = project_weak.clone();
     project.on_create_new_slint_file(move || {
-        if let Some(project) = project_weak_for_create.upgrade()
-            && let Some(controller) = controller_for_create.borrow_mut().as_mut()
-        {
-            controller.create_new_slint_file(&project);
-        }
+        let Some(project) = project_weak_for_create.upgrade() else {
+            return Default::default();
+        };
+        let mut controller = controller_for_create.borrow_mut();
+        let Some(controller) = controller.as_mut() else {
+            return Default::default();
+        };
+        controller.create_new_slint_file(&project).err().map_or_else(
+            SharedString::default,
+            |error| {
+                tracing::warn!(
+                    "Failed to create a Slint file in {}: {error}",
+                    controller.root.display()
+                );
+                error.to_shared_string()
+            },
+        )
     });
 
     let controller_for_select = controller.clone();
@@ -121,18 +133,13 @@ impl FileTreeController {
         }
     }
 
-    fn create_new_slint_file(&mut self, project: &Project<'_>) {
-        match create_new_component_file(&self.root) {
-            Ok(path) => {
-                self.publish(project);
-                if !super::super::request_preview_path(&path, Some(NEW_COMPONENT_NAME.into())) {
-                    tracing::warn!("Failed to open new Slint file {}", path.display());
-                }
-            }
-            Err(error) => {
-                tracing::warn!("Failed to create a Slint file in {}: {error}", self.root.display());
-            }
+    fn create_new_slint_file(&mut self, project: &Project<'_>) -> std::io::Result<()> {
+        let path = create_new_component_file(&self.root)?;
+        self.publish(project);
+        if !super::super::request_preview_path(&path, Some(NEW_COMPONENT_NAME.into())) {
+            tracing::warn!("Failed to open new Slint file {}", path.display());
         }
+        Ok(())
     }
 
     fn select(&mut self, path: &Path) {

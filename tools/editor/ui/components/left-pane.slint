@@ -12,6 +12,42 @@ import { Project } from "../project.slint";
 import { FileTreeView } from "file-tree-view.slint";
 import { ScrollView } from "std-widgets.slint";
 
+component NewSlintFileButton inherits Rectangle {
+    in property <bool> enabled: true;
+    callback clicked();
+
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    background: touch.has-hover && root.enabled ? StudioTheme.panel-subtle : transparent;
+    opacity: root.enabled ? 1 : 0.45;
+    accessible-role: AccessibleRole.button;
+    accessible-label: @tr("New Slint file");
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
+
+    Image {
+        width: 16px;
+        height: 16px;
+        source: @image-url("../assets/lucide/file-plus.svg");
+        colorize: StudioTheme.muted;
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+
+    Tooltip {
+        text: @markdown("\{@tr("New Slint file")}");
+    }
+}
+
 component ElementsUnavailableNotice inherits Rectangle {
     height: 82px;
     border-radius: 8px;
@@ -247,6 +283,7 @@ export component LeftPane inherits Rectangle {
     callback panes-collapsed();
     callback elements-pane-resized(length);
     callback elements-pane-reset();
+    callback create-new-slint-file();
 
     private property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
     private property <length> default-elements-height: root.image-mode ? 540px : 360px;
@@ -325,7 +362,16 @@ export component LeftPane inherits Rectangle {
         VerticalLayout {
             padding: 14px;
             padding-bottom: 0px;
-            SectionTitle { label: "FILES"; }
+            SectionTitle {
+                label: "FILES";
+
+                NewSlintFileButton {
+                    x: parent.width - self.width;
+                    y: -14px;
+                    enabled: Project.file-tree.length > 0;
+                    clicked => { root.create-new-slint-file(); }
+                }
+            }
 
             if Project.file-tree.length == 0: FilesUnavailableNotice { }
 
