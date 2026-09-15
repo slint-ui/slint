@@ -29,7 +29,7 @@ component NewFileErrorPopup inherits PopupWindow {
     callback dismissed();
 
     width: 360px;
-    height: 230px;
+    height: 212px;
     close-policy: no-auto-close;
 
     Rectangle {
@@ -43,6 +43,8 @@ component NewFileErrorPopup inherits PopupWindow {
         drop-shadow-color: StudioTheme.dark ? #00000085 : #161b233d;
 
         VerticalLayout {
+            height: parent.height;
+
             Rectangle {
                 vertical-stretch: 1;
 
@@ -110,10 +112,12 @@ component NewFileErrorPopup inherits PopupWindow {
 
             Rectangle {
                 height: 56px;
+                vertical-stretch: 0;
                 background: StudioTheme.dark ? #25262b : #fafafa;
 
                 Rectangle {
                     height: 1px;
+                    y: 0px;
                     background: StudioTheme.dark ? #3b3d43 : #e1e2e6;
                 }
 
