@@ -329,8 +329,15 @@ export component LeftPane inherits Rectangle {
 
             if Project.file-tree.length == 0: FilesUnavailableNotice { }
 
-            if Project.file-tree.length > 0: FileTreeView {
+            if Project.file-tree.length > 0: Rectangle {
                 vertical-stretch: 1;
+
+                FileTreeView {
+                    x: 0px;
+                    width: parent.width + 14px;
+                    height: parent.height;
+                    rename-right-extension: 14px;
+                }
             }
         }
 

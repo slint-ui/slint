@@ -45,6 +45,39 @@ def test_file_tree_renames_file_inline(
         assert target.read_text() == expected
 
 
+def test_file_tree_saves_rename_when_focus_moves(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source = fixture_project / "Main.slint"
+    target = fixture_project / "Renamed.slint"
+    expected = source.read_text()
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        file_row(window, source).invoke_accessible_default_action()
+        press_key(window, keys.Return if sys.platform == "darwin" else keys.F2)
+        window_element_with_label(
+            window, "Rename Main.slint", slint_testing.AccessibleRole.TextInput
+        )
+
+        press_key(window, keys.Backspace)
+        press_keys(window, "Renamed")
+        file_row(
+            window, fixture_project / "Sibling.slint"
+        ).invoke_accessible_default_action()
+
+        wait_until(lambda: True if target.is_file() and not source.exists() else None)
+        wait_until(
+            lambda: (
+                True
+                if not elements_with_label(window.root_element, "Rename Main.slint")
+                else None
+            )
+        )
+        assert target.read_text() == expected
+
+
 def test_file_tree_opens_sibling_component(
     editor_binary: Path,
     editor_environment: dict[str, str],

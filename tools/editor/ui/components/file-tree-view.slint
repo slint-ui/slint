@@ -13,6 +13,7 @@ component FileTreeRow inherits Rectangle {
     in property <bool> tree-has-hover: false;
     in property <bool> keyboard-current: false;
     in property <bool> editing: false;
+    in property <length> rename-right-extension;
     in-out property <string> rename-name;
     in-out property <string> rename-error;
 
@@ -20,6 +21,7 @@ component FileTreeRow inherits Rectangle {
     property <int> level-safe: max(1, node.indent-level + 1);
     property <int> gutter-segments: max(0, level-safe - 1);
     property <bool> row-has-hover: touch.has-hover;
+    property <bool> rename-input-focused: false;
     property <int> selected-guide-index: node.show-selected-guide ? root.level-safe - 2 : -1;
     property <color> selected-guide-color: Palette.color-scheme == ColorScheme.dark ? #474747 : #c4c4c4;
     property <color> guide-color: Palette.color-scheme == ColorScheme.dark ? #303030 : #e2e2e2;
@@ -29,15 +31,16 @@ component FileTreeRow inherits Rectangle {
     callback row-focus-requested(string);
     callback rename-started(string);
     callback rename-finished();
+    callback rename-submitted();
 
     init => {
-        if root.keyboard-current {
+        if root.keyboard-current && !root.editing {
             row-focus.focus();
         }
     }
 
     changed keyboard-current => {
-        if root.keyboard-current {
+        if root.keyboard-current && !root.editing {
             row-focus.focus();
         }
     }
@@ -83,13 +86,6 @@ component FileTreeRow inherits Rectangle {
             root.rename-name = root.node.label;
             root.rename-error = "";
             root.rename-started(root.node.path);
-        }
-    }
-
-    function submit-rename() {
-        root.rename-error = Api.file-tree-rename(root.node.path, root.rename-name);
-        if root.rename-error == "" {
-            root.rename-finished();
         }
     }
 
@@ -185,42 +181,53 @@ component FileTreeRow inherits Rectangle {
                         overflow: elide;
                         wrap: no-wrap;
                     }
+                }
+            }
+        }
 
-                    if root.editing: Rectangle {
-                        y: (parent.height - self.height) / 2;
-                        width: parent.width;
-                        height: EditorTreeTokens.row-height - 4px;
-                        border-width: 1px;
-                        border-color: root.rename-error == "" ? Palette.border : root.error-color;
-                        background: Palette.control-background;
+        if root.editing: Rectangle {
+            x: EditorTreeTokens.row-padding-inline
+                + root.gutter-segments * EditorTreeTokens.toggle-width
+                + EditorTreeTokens.disclosure-hit-size
+                + EditorTreeTokens.icon-size
+                + EditorTreeTokens.content-gap;
+            y: 2px;
+            width: root.width + root.rename-right-extension - self.x;
+            height: EditorTreeTokens.row-height - 4px;
+            border-width: 1px;
+            border-color: root.rename-error == "" ? Palette.border : root.error-color;
+            background: Palette.control-background;
 
-                        input := TextInput {
-                            x: 1px;
-                            width: parent.width - 2px;
-                            height: parent.height;
-                            text <=> root.rename-name;
-                            color: EditorTreeTokens.text;
-                            font-size: EditorTreeTokens.row-font-size;
-                            vertical-alignment: center;
-                            single-line: true;
-                            wrap: no-wrap;
-                            accessible-label: "Rename " + root.node.label;
-                            init => {
-                                self.focus();
-                                self.set-selection-offsets(0, root.node.rename-selection-end);
-                            }
-                            accepted => { root.submit-rename(); }
-                            key-pressed(event) => {
-                                if event.text == Key.Escape {
-                                    root.rename-error = "";
-                                    root.rename-finished();
-                                    row-focus.focus();
-                                    return accept;
-                                }
-                                return reject;
-                            }
-                        }
+            input := TextInput {
+                x: 1px;
+                width: parent.width - 2px;
+                height: parent.height;
+                text <=> root.rename-name;
+                color: EditorTreeTokens.text;
+                font-size: EditorTreeTokens.row-font-size;
+                vertical-alignment: center;
+                single-line: true;
+                wrap: no-wrap;
+                accessible-label: "Rename " + root.node.label;
+                init => {
+                    self.focus();
+                    self.set-selection-offsets(0, root.node.rename-selection-end);
+                }
+                accepted => { root.rename-submitted(); }
+                changed has-focus => {
+                    root.rename-input-focused = self.has-focus;
+                    if !self.has-focus {
+                        rename-blur-timer.start();
                     }
+                }
+                key-pressed(event) => {
+                    if event.text == Key.Escape {
+                        root.rename-error = "";
+                        root.rename-finished();
+                        row-focus.focus();
+                        return accept;
+                    }
+                    return reject;
                 }
             }
         }
@@ -238,6 +245,16 @@ component FileTreeRow inherits Rectangle {
         wrap: no-wrap;
     }
 
+    rename-blur-timer := Timer {
+        interval: 0ms;
+        triggered => {
+            self.stop();
+            if root.editing && !root.rename-input-focused {
+                root.rename-submitted();
+            }
+        }
+    }
+
     touch := TouchArea {
         enabled: !root.editing;
         mouse-cursor: pointer;
@@ -249,6 +266,7 @@ component FileTreeRow inherits Rectangle {
 }
 
 export component FileTreeView inherits ListView {
+    in property <length> rename-right-extension;
     private property <string> hovered-row-key: "";
     private property <string> focused-row-key: "";
     private property <string> editing-row-key: "";
@@ -261,17 +279,34 @@ export component FileTreeView inherits ListView {
     accessible-label: "Files";
 
     for row in Project.file-tree: FileTreeRow {
-        width: root.visible-width;
+        width: root.visible-width - root.rename-right-extension;
         node: row;
         tree-has-hover: root.tree-has-hover;
         keyboard-current: row.path == root.focused-row-key;
         editing: row.path == root.editing-row-key;
+        rename-right-extension: root.rename-right-extension;
         rename-name <=> root.rename-name;
         rename-error <=> root.rename-error;
         row-hover-changed(path, has-hover) => { root.update-hovered-row(path, has-hover); }
-        row-focus-requested(path) => { root.focused-row-key = path; }
+        row-focus-requested(path) => {
+            if root.editing-row-key != "" && root.editing-row-key != path {
+                root.submit-rename();
+            }
+            root.focused-row-key = path;
+        }
         rename-started(path) => { root.editing-row-key = path; }
         rename-finished => { root.editing-row-key = ""; }
+        rename-submitted => { root.submit-rename(); }
+    }
+
+    function submit-rename() {
+        if root.editing-row-key == "" {
+            return;
+        }
+        root.rename-error = Api.file-tree-rename(root.editing-row-key, root.rename-name);
+        if root.rename-error == "" {
+            root.editing-row-key = "";
+        }
     }
 
     function update-hovered-row(path: string, has-hover: bool) {

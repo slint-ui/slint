@@ -134,8 +134,10 @@ impl FileTreeController {
         let Some(path) = self.path_in_root(path) else {
             return;
         };
-
         if is_slint_file(&path) {
+            if self.selected_path.as_deref() == Some(&path) {
+                return;
+            }
             super::super::request_preview_path(&path, None);
         } else if is_image_file(&path) {
             self.select(&path);
