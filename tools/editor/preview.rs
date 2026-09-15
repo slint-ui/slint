@@ -1343,6 +1343,32 @@ fn override_selected_element_rotation(angle: f32) {
     );
 }
 
+fn override_element_text(
+    element_url: slint::SharedString,
+    element_offset: i32,
+    text: slint::SharedString,
+) -> bool {
+    let Ok(element_url) = Url::parse(element_url.as_ref()) else { return false };
+    let Ok(element_offset) = u32::try_from(element_offset) else { return false };
+    let Some(document_cache) = document_cache() else { return false };
+    let Some(element) = document_cache.element_at_offset(&element_url, element_offset.into())
+    else {
+        return false;
+    };
+    let hash = element.with_element_debug(|debug| debug.element_hash);
+    let id = i_slint_compiler::passes::property_id(hash, &SmolStr::from("text"));
+    let overrides = PREVIEW_STATE.with_borrow(|state| state.debug_hook_overrides.clone());
+    let mut overrides = (*overrides).borrow_mut();
+    let text_override =
+        overrides.entry(id).or_insert_with(|| Box::pin(i_slint_core::Property::new(None)));
+    text_override.as_ref().set(Some(slint_interpreter::Value::String(text)));
+    drop(overrides);
+    if let Some(instance) = component_instance() {
+        instance.window().request_redraw();
+    }
+    true
+}
+
 /// Returns the applied parent-relative rotation in degrees, which the caller can commit to the
 /// source, or `None` when the element has no rotation debug hook to override.
 fn override_selected_element_rotation_impl(

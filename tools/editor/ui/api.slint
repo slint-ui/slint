@@ -700,6 +700,7 @@ export global Api {
     callback selected-element-rotate(rotation: angle);
     callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
     callback override-selected-element-rotation(rotation: angle);
+    callback override-element-text(element-url: string, element-offset: int, text: string) -> bool;
 
     callback selected-element-delete();
 

@@ -43,6 +43,7 @@ export component MoveResizeFrame inherits Rectangle {
     callback moved-to(Point);
     callback resized-to(CanvasCorner, Point, Size);
     callback rotated-to(angle);
+    callback double-clicked();
 
     public pure function corner-on-left(corner: CanvasCorner) -> bool {
         return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-left;
@@ -243,6 +244,8 @@ export component MoveResizeFrame inherits Rectangle {
             accessible-enabled: root.moveable;
             private property <Point> move-start-position;
             private property <Point> move-start-pointer;
+
+            double-clicked => { root.double-clicked(); }
 
             changed pressed => {
                 if self.pressed {

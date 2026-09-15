@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { FillSession } from "inspector/fill-session.slint";
-import { Api, Hover, SelectionRectangle } from "../api.slint";
+import { Api, Hover, PropertyValueKind, SelectionRectangle } from "../api.slint";
 import { EditorAngles, EditorCursors, EditorMetrics, StudioTheme } from "common.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
@@ -43,6 +43,7 @@ component SelectedCanvasFrame inherits Rectangle {
     in property <bool> shift-pressed;
     in property <bool> interaction-disabled;
     callback pointer-hovered(Point);
+    callback double-clicked();
 
     private property <bool> geometry-drag-active;
     private property <Point> geometry-drag-position;
@@ -117,6 +118,12 @@ component SelectedCanvasFrame inherits Rectangle {
         moveable: root.primary && Api.selection.is-moveable && root.selection.describes-element;
         accessible-role: AccessibleRole.region;
         accessible-label: "Selected " + Api.current-element.type-name;
+
+        double-clicked => {
+            if root.primary {
+                root.double-clicked();
+            }
+        }
 
         rotated-to(rotation) => {
             root.rotation-active = true;
@@ -283,6 +290,14 @@ export component CanvasInteractionLayer inherits Rectangle {
     in property <bool> shift-pressed;
     // Coordinates the selected and hover frames while a hovered item owns the pointer gesture.
     private property <bool> hover-selection-active;
+    private property <bool> text-editing;
+    private property <string> text-edit-value;
+    private property <string> text-edit-original;
+    private property <string> text-edit-url;
+    private property <int> text-edit-version;
+    private property <int> text-edit-offset;
+    private property <Point> text-edit-position;
+    private property <Size> text-edit-size;
     // Guard on highlight-index >= 0: after Api.unselect(), the backend still populates
     // current-element with the component root. Its frame would intercept future selections.
     private property <[SelectionRectangle]> selections: Api.selection.highlight-index >= 0
@@ -303,8 +318,67 @@ export component CanvasInteractionLayer inherits Rectangle {
 
     callback real-element-selected();
 
+    function begin-text-edit() {
+        let text = Api.current-property-value-data("text");
+        if root.text-editing
+            || Api.current-element.type-name != "Text"
+            || !root.primary-selection.describes-element
+            || root.primary-selection.angle != 0deg
+            || text.kind != PropertyValueKind.string
+            || text.is-translatable
+            || text.code == "" {
+            return;
+        }
+        if !Api.override-element-text(
+            Api.current-element.source-uri,
+            Api.current-element.offset,
+            "",
+        ) {
+            return;
+        }
+        root.text-edit-original = text.value-string;
+        root.text-edit-value = root.text-edit-original;
+        root.text-edit-url = Api.current-element.source-uri;
+        root.text-edit-version = Api.current-element.source-version;
+        root.text-edit-offset = Api.current-element.offset;
+        root.text-edit-position = { x: root.primary-selection.x, y: root.primary-selection.y };
+        root.text-edit-size = {
+            width: root.primary-selection.width,
+            height: root.primary-selection.height,
+        };
+        root.text-editing = true;
+    }
+
+    function commit-text-edit() {
+        if !root.text-editing {
+            return;
+        }
+        let code = Api.string-to-code(root.text-edit-value, false, "", "", "");
+        if root.text-edit-value != root.text-edit-original
+            && !Api.test-code-binding(
+                root.text-edit-url,
+                root.text-edit-version,
+                root.text-edit-offset,
+                "text",
+                code,
+            ) {
+            return;
+        }
+        Api.override-element-text(root.text-edit-url, root.text-edit-offset, root.text-edit-value);
+        root.text-editing = false;
+        if root.text-edit-value != root.text-edit-original {
+            Api.set-code-binding(
+                root.text-edit-url,
+                root.text-edit-version,
+                root.text-edit-offset,
+                "text",
+                code,
+            );
+        }
+    }
+
     function update-hover(position: Point) {
-        if FillSession.canvas-active || root.hover-selection-active || selection-area.pressed {
+        if root.text-editing || FillSession.canvas-active || root.hover-selection-active || selection-area.pressed {
             return;
         }
         Hover.element = Hover.element-at(position.x, position.y, false);
@@ -354,9 +428,12 @@ export component CanvasInteractionLayer inherits Rectangle {
         selection: selection;
         primary: idx == Api.selection.highlight-index;
         shift-pressed: root.shift-pressed;
-        interaction-disabled: root.hover-selection-active || FillSession.canvas-active;
+        interaction-disabled: root.text-editing || root.hover-selection-active || FillSession.canvas-active;
         pointer-hovered(position) => {
             root.update-hover(position);
+        }
+        double-clicked => {
+            root.begin-text-edit();
         }
     }
 
@@ -375,6 +452,42 @@ export component CanvasInteractionLayer inherits Rectangle {
         }
         real-element-selected => {
             root.real-element-selected();
+        }
+    }
+
+    if root.text-editing: FocusScope {
+        x: root.text-edit-position.x;
+        y: root.text-edit-position.y;
+        width: root.text-edit-size.width;
+        height: root.text-edit-size.height;
+        forward-focus: input;
+        init => {
+            input.focus();
+            input.select-all();
+        }
+
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.commit-text-edit();
+                return accept;
+            }
+            reject
+        }
+
+        input := TextInput {
+            width: parent.width;
+            height: parent.height;
+            text <=> root.text-edit-value;
+            single-line: true;
+            wrap: no-wrap;
+            accessible-label: "Inline text editor";
+
+            accepted => { root.commit-text-edit(); }
+            changed has-focus => {
+                if !self.has-focus {
+                    root.commit-text-edit();
+                }
+            }
         }
     }
 }
