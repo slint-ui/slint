@@ -61,12 +61,13 @@ use animation::{FlickAnimation, FlickAnimationParameter};
 /// information to derive a fling velocity.
 /// The unit is: millisecond
 const WHEEL_SCROLL_DURATION: Duration = Duration::from_millis(180);
+#[cfg(not(any(target_os = "ios", target_os = "linux", target_os = "none", target_os = "macos")))]
 const VELOCITY_TRACKER_SAMPLES: usize = 20;
 const MOMENTUM_RETAIN_TIMEOUT: Duration = Duration::from_millis(20);
 
-// We use for linux and no os this because embedded is computational power constrait
-// and embedded linux can be as well and the velocity estimation is much easier
-// than for the general velocity tracker
+// We use for linux and no os the ios velocity tracker because embedded is
+// computational power constraint and embedded linux can be as well and the
+// velocity estimation is much easier than for the general velocity tracker
 #[cfg(any(target_os = "ios", target_os = "linux", target_os = "none"))]
 type VelocityTracker = IOsVelocityTracker;
 #[cfg(target_os = "macos")]
@@ -482,7 +483,7 @@ struct FlickableDataInner {
 }
 
 impl FlickableDataInner {
-    /// Lose momentum if certain conditions are not fullfilled
+    /// Lose momentum if certain conditions are not fulfilled
     fn maybe_lose_momentum(&mut self, tick: &Instant) {
         if self
             .last_scroll_event

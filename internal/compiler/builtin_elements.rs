@@ -1513,10 +1513,10 @@ fn build(l: &mut Loader) {
         @shadowable in-out property <length> content-y;
         /// Enable scrolling beyond the content limits and bouncing back, on whichever axis
         /// actually has content to overflow into.
-        /// When auto it imitates platform behaviour. On iOs it is on and on all other platforms Off
+        /// When auto it imitates platform behavior. On iOs it is on and on all other platforms Off
         @shadowable in property <AutoBool> bounce: auto;
         /// Carry the momentum of the previous scroll action to the next scroll action.
-        /// When auto it uses the platform behaviour. iOs On and for all other platforms Off.
+        /// When auto it uses the platform behavior. iOs On and for all other platforms Off.
         @shadowable in property <AutoBool> carry-momentum: auto;
 
         @deprecated in property <length> viewport-width <=> content-width;

@@ -16,9 +16,6 @@ use core::time::Duration;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
-#[cfg(test)]
-use crate::animations::simulations::{assert_approx_eq, test_limit_property};
-
 const INFLEXION: f32 = 0.35;
 const PHYSICAL_COEFFICIENT: f32 = 9.80665 // g, in meters per second^2
                                 * 39.37 // 1 meter / 1 inch
@@ -184,12 +181,10 @@ impl AndroidFlick {
         deceleration_rate: f32,
         data: &AndroidFlickParameters,
     ) -> f32 {
-
         data.initial_velocity * fling_duration.as_secs_f32() / deceleration_rate
     }
 
     fn clamped_time_diff(&self, duration: Duration) -> f32 {
-
         (duration.as_secs_f32() / self.duration.as_secs_f32()).clamp(0., 1.)
     }
 }
@@ -216,6 +211,7 @@ impl PositionSimulation for AndroidFlick {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::animations::simulations::test_limit_property;
 
     #[test]
     fn zero_init_velocity() {

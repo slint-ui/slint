@@ -680,7 +680,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum describes the possibility to enable features or disable or keeping it
-            /// choosen automatically
+            /// chosen automatically
             #[non_exhaustive]
             pub enum AutoBool {
                 /// Automatic determination depending on internal factors like different platform handling
