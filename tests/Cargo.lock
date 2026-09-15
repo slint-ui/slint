@@ -5308,6 +5308,7 @@ dependencies = [
  "proc-macro2",
  "slint-interpreter",
  "unicode-segmentation",
+ "vtable",
 ]
 
 [[package]]
