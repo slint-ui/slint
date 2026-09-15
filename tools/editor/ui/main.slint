@@ -203,6 +203,10 @@ export component EditorUi inherits Window {
         FillSession.apply-history(redo);
     }
 
+    function toggle-maximized() {
+        root.maximized = !root.maximized;
+    }
+
     MenuBar {
         Menu {
             title: @tr("File");
@@ -230,7 +234,11 @@ export component EditorUi inherits Window {
     Rectangle {
         y: 0;
         height: EditorMetrics.top-bar-height;
-        WindowMoveArea { }
+        WindowMoveArea {
+            TouchArea {
+                double-clicked => { root.toggle-maximized(); }
+            }
+        }
     }
 
     VerticalLayout {
@@ -294,6 +302,10 @@ export component EditorUi inherits Window {
                 VerticalLayout {
                     title-move-area := WindowMoveArea {
                         height: EditorMetrics.top-bar-height;
+
+                        title-touch-area := TouchArea {
+                            double-clicked => { root.toggle-maximized(); }
+                        }
 
                         EditorTopBar { }
                     }
