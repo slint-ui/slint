@@ -29,7 +29,7 @@ export async function mountPreview(production = true) {
     const loaded = new Promise<void>((resolve) =>
         iframe.addEventListener("load", () => resolve(), { once: true }),
     );
-    iframe.src = production ? "/production.html" : "/browser.html";
+    iframe.src = production ? "/production.html" : "/ui.html";
     document.body.append(iframe);
     await loaded;
     const doc = iframe.contentDocument;

@@ -15,10 +15,7 @@ const root = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig(({ mode }) => {
     const development = mode === "development";
-    const outDir = resolve(
-        root,
-        process.env.PLUGIN_OUTPUT_DIR ?? (development ? "dist-dev" : "dist"),
-    );
+    const outDir = resolve(root, development ? "dist-dev" : "dist");
     const modules = new Set<string>();
     const collectModules = (): Plugin => ({
         name: "collect-notice-modules",
@@ -80,22 +77,13 @@ export default defineConfig(({ mode }) => {
                     );
                     await writeFile(
                         resolve(outDir, "manifest.json"),
-                        JSON.stringify(
-                            {
-                                ...manifest,
-                                id: process.env.FIGMA_PLUGIN_ID ?? manifest.id,
-                            },
-                            null,
-                            4,
-                        ) + "\n",
+                        JSON.stringify(manifest, null, 4) + "\n",
                     );
                     await writeFile(
                         resolve(outDir, "provenance.json"),
                         JSON.stringify(
                             {
-                                channel:
-                                    process.env.PLUGIN_BUILD_CHANNEL ??
-                                    "development",
+                                channel: "development",
                                 repository:
                                     "https://github.com/slint-ui/slint.git",
                                 manifest: "api/wasm-interpreter/Cargo.toml",
@@ -115,10 +103,6 @@ export default defineConfig(({ mode }) => {
                             null,
                             4,
                         ) + "\n",
-                    );
-                    await writeFile(
-                        resolve(outDir, "browser.html"),
-                        await readFile(resolve(outDir, "ui.html")),
                     );
                 },
             },

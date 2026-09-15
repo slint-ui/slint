@@ -10,7 +10,7 @@ import type { ViteDevServer } from "vite";
 const builtPreviewPlugin = {
     name: "serve-built-preview-without-transforming-it",
     configureServer(server: ViteDevServer) {
-        for (const fileName of ["browser.html", "ui.html", "production.html"]) {
+        for (const fileName of ["ui.html", "production.html"]) {
             server.middlewares.use(
                 `/${fileName}`,
                 async (_request, response, next) => {
