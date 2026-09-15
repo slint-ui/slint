@@ -8,8 +8,11 @@
 //! - `ConstantDeceleration`
 //! - `ConstantDecelerationSpringDamper` with spring damper simulation when reaching the limit
 
+pub mod android;
 pub mod constant_deceleration;
 pub mod constant_deceleration_spring_damper;
+pub mod ios;
+pub mod scroll_spring;
 pub mod spring;
 
 use crate::animations::Instant;
@@ -21,6 +24,11 @@ enum Direction {
     Increasing,
     /// The start value is larger than the limit value
     Decreasing,
+}
+
+pub trait PositionSimulation {
+    fn remaining_distance(&self, time_elapsed: core::time::Duration) -> f32;
+    fn remaining_velocity(&self, time_elapsed: core::time::Duration) -> f32;
 }
 
 /// Common simulation trait

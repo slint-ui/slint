@@ -678,6 +678,19 @@ macro_rules! for_each_enums {
                 /// This variant is reported when the operating system is none of the above.
                 Other,
             }
+
+            /// This enum describes the possibility to enable features or disable or keeping it
+            /// chosen automatically
+            #[non_exhaustive]
+            pub enum AutoBool {
+                /// Automatic determination depending on internal factors like different platform handling
+                /// to imitate platform specific behavior
+                Auto,
+                /// Always On
+                On,
+                /// Always Off
+                Off,
+            }
         }
     };
 }
