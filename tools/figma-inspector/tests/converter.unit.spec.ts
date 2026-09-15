@@ -4,14 +4,14 @@
 import { describe, expect, test } from "vitest";
 
 import { readFile } from "node:fs/promises";
-import { parseSnapshot, serializeSnapshot } from "../src/plugin/snapshot";
+import { validateSnapshot } from "../src/plugin/snapshot";
 import { convertSnapshot, convertSnapshotJson } from "../src/preview/converter";
 import {
     normalizeSvg,
     normalizeSvgToNodeBounds,
     utf8ToBase64,
 } from "../src/images";
-import { convertExport } from "../src/preview/convert-capture";
+import { convertCapture } from "../src/preview/convert-capture";
 
 /** Repository fixture headers describe the test asset, not the user's design. */
 async function readSlintFixture(path: string): Promise<string> {
@@ -25,10 +25,10 @@ async function readSlintFixture(path: string): Promise<string> {
 describe("converter", () => {
     test("round-trips and deterministically converts the canonical snapshot", async () => {
         const json = await readFile("fixtures/button.snapshot.json", "utf8");
-        const parsed = parseSnapshot(json);
+        const parsed = validateSnapshot(JSON.parse(json));
         expect(parsed.ok).toBe(true);
         if (!parsed.ok) return;
-        expect(JSON.parse(serializeSnapshot(parsed.snapshot))).toEqual(
+        expect(JSON.parse(JSON.stringify(parsed.snapshot))).toEqual(
             JSON.parse(json),
         );
 
@@ -58,7 +58,7 @@ describe("converter", () => {
 
     test("converts the canonical styled Frame with ordered appearance and children", async () => {
         const json = await readFile("fixtures/frame.snapshot.json", "utf8");
-        const parsed = parseSnapshot(json);
+        const parsed = validateSnapshot(JSON.parse(json));
         expect(parsed.ok).toBe(true);
         if (!parsed.ok) return;
         const result = convertSnapshotJson(json);
@@ -598,12 +598,6 @@ describe("converter", () => {
         const json = await readFile("tests/font-icon.snapshot.json", "utf8");
         const snapshot = JSON.parse(json) as {
             root: {
-                paintBounds?: {
-                    x: number;
-                    y: number;
-                    width: number;
-                    height: number;
-                };
                 svg: string;
             };
         };
@@ -617,16 +611,6 @@ describe("converter", () => {
         expect(result.source).toContain("image-fit: fill;");
         expect(result.source).not.toContain("border-width:");
         expect(result.source).not.toContain("stroke-width:");
-
-        snapshot.root.paintBounds = { x: 0, y: 0, width: 24, height: 24 };
-        const paintedBoundsResult = convertSnapshotJson(
-            JSON.stringify(snapshot),
-        );
-        expect(paintedBoundsResult.ok).toBe(true);
-        if (!paintedBoundsResult.ok) return;
-        expect(paintedBoundsResult.source).not.toContain(
-            "image-rendering: smooth;",
-        );
     });
 
     test("uses Figma's raster sidecar for captured SVG nodes", async () => {
@@ -681,15 +665,16 @@ describe("converter", () => {
                 },
             },
         };
-        expect(parseSnapshot(JSON.stringify(valid)).ok).toBe(true);
+        expect(validateSnapshot(valid).ok).toBe(true);
         for (const [name, raster] of [
             ["signature-only", { ...valid.root.raster, data: "iVBORw0KGgo=" }],
             ["wrong-width", { ...valid.root.raster, pixelWidth: 24 }],
             ["wrong-density", { ...valid.root.raster, exportScale: 0 }],
         ] as const) {
-            const result = parseSnapshot(
-                JSON.stringify({ ...valid, root: { ...valid.root, raster } }),
-            );
+            const result = validateSnapshot({
+                ...valid,
+                root: { ...valid.root, raster },
+            });
             expect(result.ok, name).toBe(false);
         }
     });
@@ -845,13 +830,17 @@ describe("release-regressions", () => {
     });
 
     test("native styled text preserves paint opacity", async () => {
-        const result = await convertExport({
+        const result = await convertCapture({
             type: "preview-capture",
             revision: 1,
             captureJson: await readFile(
                 "fixtures/source/translucent-styled-text.json",
                 "utf8",
             ),
+        }).then((result) => {
+            if (result.type !== "preview-source")
+                throw Error(JSON.stringify(result));
+            return result.exportPackage;
         });
         expect(result.source).toContain('color=\\"#FFFFFF33\\"');
         expect(result.source).not.toContain('color=\\"#FFFFFF\\"');

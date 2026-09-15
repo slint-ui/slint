@@ -12,12 +12,6 @@ import { decodeValue, type SourceCapture } from "../src/plugin/source";
 import { convertSnapshot } from "../src/preview/converter";
 import { bytesToBase64, utf8ToBase64 } from "../src/images";
 import { NormalizationAssets } from "../src/images";
-import { CaptureAssetReceiver } from "../src/asset-transport";
-import {
-    convertCapture,
-    convertExport,
-    type CaptureConversionState,
-} from "../src/preview/convert-capture";
 
 describe("image-dimensions", () => {
     async function fixture(): Promise<SourceCapture> {
@@ -57,7 +51,8 @@ describe("image-dimensions", () => {
         const source = await fixture();
         const bytes = source.images["size-unavailable"].value?.bytes;
         if (!bytes) throw Error("Missing fixture bytes");
-        const getBytesAsync = vi.fn(async () => new Uint8Array(bytes));
+        const binary = new Uint8Array(bytes);
+        const getBytesAsync = vi.fn(async () => binary);
         vi.stubGlobal("figma", {
             getImageByHash: () => ({
                 getBytesAsync,
@@ -74,7 +69,13 @@ describe("image-dimensions", () => {
                 type: source.root.type,
             } as unknown as SceneNode;
             const captured = await captureSource(root, Symbol("mixed"));
-            expect(captured.source.images).toEqual(source.images);
+            expect(captured.source.images["size-unavailable"].value).toEqual({
+                ...source.images["size-unavailable"].value,
+                bytes: binary,
+            });
+            expect(
+                captured.source.images["size-unavailable"].value?.bytes,
+            ).toBe(binary);
             expect(getBytesAsync).toHaveBeenCalledTimes(1);
         } finally {
             vi.unstubAllGlobals();
@@ -230,29 +231,6 @@ describe("normalization-assets", () => {
         expect(assets.encodings).toBe(1);
         assets.encode(new Uint8Array([1, 2, 3]));
         expect(assets.encodings).toBe(2);
-    });
-    test("retained capture shares parsed source and asset encoding across preview and native export", async () => {
-        const request = {
-            type: "preview-capture" as const,
-            revision: 1,
-            captureJson: await readFile(
-                "fixtures/source/export-fonts.json",
-                "utf8",
-            ),
-        };
-        const state: CaptureConversionState = {};
-        const receiver = new CaptureAssetReceiver();
-        const preview = await convertCapture(request, receiver, state);
-        expect(preview.type).toBe("preview-source");
-        const source = state.source,
-            normalizer = state.normalizer;
-        const encodings = normalizer?.assets.encodings;
-        expect(encodings).toBeGreaterThan(0);
-        const native = await convertExport(request, receiver, state);
-        expect(native.source).toContain("Native export text");
-        expect(state.source).toBe(source);
-        expect(state.normalizer).toBe(normalizer);
-        expect(normalizer?.assets.encodings).toBe(encodings);
     });
     test("shared target normalization preserves snapshot and warnings, public boundary rejects mutated input", async () => {
         const source = JSON.parse(

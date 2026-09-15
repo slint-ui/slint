@@ -16,7 +16,6 @@ import { maskComposition } from "./mask-composition";
 import {
     type CaptureInstrumentation,
     type ImageResolver,
-    normalizeSource,
     type PngExporter,
     requiresVisualExport,
     type SvgExporter,
@@ -342,11 +341,7 @@ function captureMaskSummary<Bytes extends SourceBytes>(
     }
 }
 
-type CaptureBytes<Binary extends boolean> = Binary extends true
-    ? Uint8Array
-    : number[];
-
-export async function captureSource<Binary extends boolean = false>(
+export async function captureSource(
     root: SceneNode,
     mixed: unknown,
     exportSvgNode: SvgExporter = exportSvg,
@@ -357,20 +352,17 @@ export async function captureSource<Binary extends boolean = false>(
     instrumentation?: CaptureInstrumentation,
     cancelled?: () => boolean,
     concurrency = 4,
-    binary = false as Binary,
     cache?: CaptureCache,
     schedule = captureScheduler(concurrency),
     planMaskExports = true,
     scope: "tree" | "root-only" = "tree",
 ): Promise<{
-    source: SourceCapture<CaptureBytes<Binary>>;
+    source: SourceCapture<Uint8Array>;
     durationMs: number;
     fontMetrics: { requests: number; exports: number; cacheHits: number };
     work: CaptureWork;
 }> {
-    type Bytes = CaptureBytes<Binary>;
-    const retainBytes = (bytes: Uint8Array): Bytes =>
-        (binary ? bytes : Array.from(bytes)) as Bytes;
+    type Bytes = Uint8Array;
     const fontMetrics = { requests: 0, exports: 0, cacheHits: 0 };
     const work: { -readonly [Key in keyof CaptureWork]: CaptureWork[Key] } = {
         capturedNodes: 0,
@@ -436,7 +428,7 @@ export async function captureSource<Binary extends boolean = false>(
                                 ? {
                                       value: {
                                           ...image,
-                                          bytes: retainBytes(image.bytes),
+                                          bytes: image.bytes,
                                       },
                                   }
                                 : {};
@@ -536,8 +528,17 @@ export async function captureSource<Binary extends boolean = false>(
         suppressed = false,
         ancestors = "",
         cacheableContext = true,
+        requiredByAncestor = false,
     ): Promise<SourceNode<Bytes>> {
         const raw = node as unknown as Record<string, unknown>;
+        const requiredByProperty =
+            requiredByAncestor ||
+            ("componentPropertyReferences" in raw &&
+                typeof (
+                    raw.componentPropertyReferences as
+                        | { visible?: unknown }
+                        | undefined
+                )?.visible === "string");
         const result: SourceNode<Bytes> = {
             id: node.id,
             name: node.name,
@@ -558,11 +559,9 @@ export async function captureSource<Binary extends boolean = false>(
             try {
                 if (!png) throw Error("PNG export is disabled");
                 raster = {
-                    value: retainBytes(
-                        await png(
-                            node as Parameters<PngExporter>[0],
-                            exportScale,
-                        ),
+                    value: await png(
+                        node as Parameters<PngExporter>[0],
+                        exportScale,
                     ),
                 };
             } catch (error) {
@@ -655,8 +654,10 @@ export async function captureSource<Binary extends boolean = false>(
                 }
         }
         if (
-            (!invisible || (node === root && !includeHidden)) &&
-            !suppressed &&
+            (!invisible ||
+                requiredByProperty ||
+                (node === root && !includeHidden)) &&
+            (!suppressed || requiredByProperty) &&
             !cancelled?.()
         ) {
             await readImages(result.properties);
@@ -787,7 +788,7 @@ export async function captureSource<Binary extends boolean = false>(
                                       throw new Error(
                                           "PNG export did not return valid PNG bytes",
                                       );
-                                  return retainBytes(bytes);
+                                  return bytes;
                               })
                             : undefined;
                     if (png === undefined) {
@@ -881,6 +882,7 @@ export async function captureSource<Binary extends boolean = false>(
                                     maskExport !== undefined)),
                         childAncestors,
                         rasterContextSafe,
+                        requiredByProperty,
                     ),
                 cancelled,
             );
@@ -1276,38 +1278,6 @@ export type SourceCaptureResult =
           readonly captureMetrics: CaptureResult["captureMetrics"];
       };
 
-export async function captureSelection(
-    selection: readonly SceneNode[],
-    mixedValue: unknown,
-    exportSvgNode: SvgExporter = exportSvg,
-    imageResolver: ImageResolver = resolveImage,
-    instrumentation?: CaptureInstrumentation,
-    exportPngNode?: PngExporter,
-    exportScale = 1,
-): Promise<CaptureResult> {
-    const captured = await captureSelectionSource(
-        selection,
-        mixedValue,
-        exportSvgNode,
-        imageResolver,
-        instrumentation,
-        exportPngNode,
-        exportScale,
-    );
-    if (!captured.ok || captured.empty) return captured;
-    const result = await normalizeSource(captured.source);
-    if (result.ok && result.empty) return result;
-    return {
-        ...result,
-        nodeIds: captured.nodeIds,
-        captureMetrics: {
-            ...result.captureMetrics,
-            durationMs: captured.captureMetrics.durationMs,
-            work: captured.captureMetrics.work,
-        },
-    };
-}
-
 export async function captureSelectionSource(
     selection: readonly SceneNode[],
     mixedValue: unknown,
@@ -1356,7 +1326,6 @@ export async function captureSelectionSource(
             instrumentation,
             cancelled,
             4,
-            true,
             cache,
             selectionExportScheduler,
         );
@@ -1373,9 +1342,7 @@ export async function captureSelectionSource(
                         d.id,
                         ...d.variants.flatMap((v) => {
                             const ids: string[] = [];
-                            const walk = (
-                                n: SourceNode<CaptureBytes<true>>,
-                            ) => {
+                            const walk = (n: SourceNode<Uint8Array>) => {
                                 ids.push(n.id);
                                 for (const child of n.children ?? [])
                                     walk(child);
@@ -1411,7 +1378,7 @@ export async function captureSelectionSource(
 
 /** Read only variables bound to the captured root, without expanding its subtree. */
 export async function captureCodegenVariables(
-    root: SourceNode,
+    root: SourceNode<SourceBytes>,
 ): Promise<CodegenVariable[]> {
     const variables = new Map<
         string,

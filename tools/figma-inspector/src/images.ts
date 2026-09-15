@@ -46,13 +46,8 @@ export function imageDimensions(
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const size = (width: number, height: number) =>
         width > 0 && height > 0 ? { width, height } : undefined;
-    if (
-        bytes.length >= 33 &&
-        [137, 80, 78, 71, 13, 10, 26, 10].every((b, i) => bytes[i] === b) &&
-        view.getUint32(8) === 13 &&
-        view.getUint32(12) === 0x49484452
-    )
-        return size(view.getUint32(16), view.getUint32(20));
+    const png = pngDimensions(bytes);
+    if (png) return png;
     if (
         bytes.length >= 13 &&
         bytes[0] === 71 &&
