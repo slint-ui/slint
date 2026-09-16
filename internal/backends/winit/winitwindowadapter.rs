@@ -683,6 +683,11 @@ impl WinitWindowAdapter {
             (view, self.self_weak.clone())
         };
 
+        // A window created after UIKit connected the scene isn't covered by the
+        // scene delegate, so attach it here.
+        #[cfg(target_os = "ios")]
+        crate::ios::attach_window_to_scene(&content_view);
+
         // winit doesn't surface iOS appearance, so query the view's trait
         // collection directly; the matching live observers are installed below as
         // part of the `HasWindow` variant so their lifetime is tied to the window.
