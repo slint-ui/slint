@@ -3,9 +3,6 @@
 
 import {
     axisScalar,
-    appearanceDefault,
-    appearanceStates,
-    type Appearance,
     declaration,
     optionValue,
     predicate,
@@ -367,22 +364,6 @@ export function generateComponents(
                     optionValue(a, d.axes[a.key].defaultValue),
                 ),
             );
-        }
-        for (const axis of axes.filter(
-            (axis) => axis.key.toLowerCase() === "state",
-        )) {
-            const stateNames = new Map(
-                [...axis.options.keys()].map((value) => [
-                    value,
-                    allocateProperty(`state-${identifier(value)}`),
-                ]),
-            );
-            for (const [value, property] of stateNames)
-                declarations.push(
-                    `    private property <bool> ${property}: root.${axis.property} == ${optionValue(axis, value)};`,
-                );
-            axis.test = (value) =>
-                `root.${requireValue(stateNames.get(value))}`;
         }
         for (const [key, p] of publicNames) {
             const findDefault = (tree: Element): string | undefined => {
@@ -770,10 +751,6 @@ export function generateComponents(
                 !bindingNames.includes("opacity")
             )
                 lines.push(`    opacity: ${rootVisible} ? 1 : 0;`);
-            const appearances: Appearance[] = group.map((s) => ({
-                values: s.values,
-                properties: {},
-            }));
             for (const field of bindingNames) {
                 const exemplar = group.flatMap((s) =>
                     s.tree.bindings.filter((b) => b.name === field),
@@ -791,9 +768,7 @@ export function generateComponents(
                 )
                     for (const entry of entries)
                         entry.code = `${rootVisible} ? (${entry.code}) : 0`;
-                const baseCode = appearanceDefault(
-                    entries.map((entry) => entry.code),
-                );
+                const baseCode = entries[0].code;
                 if (entries.every((e) => e.code === entries[0].code)) {
                     if (!isDefaultBinding(first.type, field, entries[0].code))
                         lines.push(
@@ -807,55 +782,14 @@ export function generateComponents(
                             }),
                         );
                 } else {
-                    // Each binding depends only on axes that change this property.
-                    // Slint states are reserved for an explicit authored state axis.
-                    const stateAxis = axes.find(
-                        (axis) => axis.key.toLowerCase() === "state",
+                    lines.push(
+                        ...declaration(
+                            `${"    ".repeat(bodyDepth)}${field}: `,
+                            selectValues(entries, axes, baseCode),
+                        ),
                     );
-                    const stateValues = new Map<string, string>();
-                    const stateOnly =
-                        stateAxis &&
-                        entries.every((entry) => {
-                            const key = entry.values[stateAxis.key];
-                            if (
-                                stateValues.has(key) &&
-                                stateValues.get(key) !== entry.code
-                            )
-                                return false;
-                            stateValues.set(key, entry.code);
-                            return true;
-                        });
-                    if (stateOnly) {
-                        if (!isDefaultBinding(first.type, field, baseCode))
-                            lines.push(
-                                printLine(
-                                    binding(
-                                        field,
-                                        { ...exemplar.value, code: baseCode },
-                                        bodyDepth,
-                                    ),
-                                ),
-                            );
-                        entries.forEach((entry, i) => {
-                            appearances[i].properties[field] = entry.code;
-                        });
-                    } else {
-                        lines.push(
-                            ...declaration(
-                                `${"    ".repeat(bodyDepth)}${field}: `,
-                                selectValues(entries, axes, baseCode),
-                            ),
-                        );
-                    }
                 }
             }
-            const stateAxis = axes.find(
-                (axis) => axis.key.toLowerCase() === "state",
-            );
-            if (stateAxis)
-                lines.push(
-                    ...appearanceStates(appearances, stateAxis, bodyDepth),
-                );
             for (const childKey of orderedKeys) {
                 const childGroup = group.flatMap((s, i) => {
                     const tree =
