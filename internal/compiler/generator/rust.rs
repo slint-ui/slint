@@ -16,7 +16,7 @@ use super::accessor_names::{self, AccessorKind};
 use crate::CompilerConfiguration;
 use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::SourceLocation;
-use crate::expression_types::{EasingCurve, MinMaxOp, OperatorClass};
+use crate::expression_types::{CornerShape, EasingCurve, MinMaxOp, OperatorClass};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
@@ -209,6 +209,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Brush => Some(quote!(slint::Brush)),
         Type::ArrayOfCoord => Some(quote!(sp::SharedVector<sp::Coord>)),
         Type::ArrayOfU16 => Some(quote!(sp::SharedVector<u16>)),
+        Type::CornerShape => Some(quote!(sp::CornerShape)),
         _ => None,
     }
 }
@@ -218,6 +219,7 @@ fn rust_property_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::LogicalLength => Some(quote!(sp::LogicalLength)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
         Type::MouseCursor => Some(quote!(sp::MouseCursorInner)),
+        Type::CornerShape => Some(quote!(sp::CornerShape)),
         _ => rust_primitive_type(ty),
     }
 }
@@ -3629,7 +3631,8 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
             | Expression::ConicGradient { .. }
             | Expression::EnumerationValue(..)
             | Expression::Closure { .. }
-            | Expression::DashArray(..) => true,
+            | Expression::DashArray(..)
+            | Expression::CornerShape(..) => true,
             Expression::Condition { true_expr, false_expr, .. } => {
                 produces_owned_value(true_expr) && produces_owned_value(false_expr)
             }
@@ -3948,6 +3951,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         // Generated code has no debug hooks; use the wrapped expression.
         Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
+        Expression::CornerShape(CornerShape::Superellipse(a)) => {
+            quote!(sp::CornerShape::Superellipse(#a))
+        }
+        Expression::CornerShape(e) => {
+            let ident = format_ident!("{e:?}");
+            quote!(sp::CornerShape::#ident)
+        }
     }
 }
 
@@ -4089,6 +4099,21 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
                 quote!(#c => sp::SharedString::from(#v))
             });
             quote!(match #f { #(#cases,)*  _ => sp::SharedString::default() })
+        }
+        (Type::CornerShape, Type::String) => {
+            let cases = CornerShape::KEYWORDS.iter().map(|(name, shape)| {
+                let c = compile_expression(&Expression::CornerShape(shape.clone()), ctx);
+                quote!(#c => sp::SharedString::from(#name))
+            });
+            quote!(match #f {
+                #(#cases,)*
+                sp::CornerShape::Superellipse(k) => {
+                    let mut s = sp::SharedString::from("superellipse(");
+                    s.push_str(&sp::builtin_functions::to_string_unlocalized(k as f64));
+                    s.push_str(")");
+                    s
+                }
+            })
         }
         (_, Type::Void) => {
             quote!({#f;})

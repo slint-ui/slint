@@ -333,7 +333,7 @@ fn builtin_functions(path: &Path) -> anyhow::Result<()> {
     )?;
     writeln!(
         out,
-        "namespace slint::cbindgen_private {{ struct BuiltinItemArg; struct FontMetrics; extern \"C\" {{"
+        "namespace slint::cbindgen_private {{ struct BuiltinItemArg; struct CornerShape; struct FontMetrics; extern \"C\" {{"
     )?;
     macro_rules! print_builtin_functions {
         ($(
@@ -550,6 +550,7 @@ fn gen_corelib(
         // from an FFI function since the bulk cell data was split into
         // LayoutItemInfo + FlexItemProps, so emit it explicitly.
         "FlexboxLayoutItemInfo",
+        "CornerShape",
     ]
     .iter()
     .chain(items.iter())
@@ -1064,6 +1065,11 @@ fn gen_corelib(
         return false;
     }
         ".into()
+    );
+
+    config.export.body.insert(
+        "CornerShape".to_owned(),
+        "    constexpr CornerShape(CornerShape::Tag tag = Tag::Round, float k = 0) : tag(tag), superellipse{k} {}".into()
     );
 
     cbindgen::Builder::new()

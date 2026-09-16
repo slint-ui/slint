@@ -287,6 +287,7 @@ pub fn value_to_json(value: &Value) -> Result<serde_json::Value, String> {
         },
         Value::PathData(_) => Err("Cannot serialize path data".into()),
         Value::EasingCurve(_) => Err("Cannot serialize a easing curve".into()),
+        Value::CornerShape(_) => Err("Cannot serialize a corner shape".into()),
         _ => Err("Cannot serialize an unknown value type".into()),
     }
 }

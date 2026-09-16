@@ -467,6 +467,40 @@ where
     }
 }
 
+/// The shape of a rectangle corner, as CSS `corner-shape` defines it.
+///
+/// Every shape is a CSS `superellipse(k)` value, scaled to the corner's radius.
+/// See <https://drafts.csswg.org/css-borders-4/#corner-shape-value>.
+#[repr(C)]
+#[derive(Default, Debug, Clone, Copy)]
+pub enum CornerShape {
+    /// A quarter circle, `superellipse(1)`.
+    #[default]
+    Round,
+    /// A square cut out of the corner, `superellipse(-infinity)`.
+    Notch,
+    /// A quarter circle cut out of the corner, `superellipse(-1)`.
+    Scoop,
+    /// A straight diagonal cut, `superellipse(0)`.
+    Bevel,
+    /// A squircle, `superellipse(2)`.
+    Squircle,
+    /// A sharp corner, `superellipse(infinity)`.
+    Square,
+    /// `superellipse(k)` for the given `k`.
+    Superellipse(f32),
+}
+
+impl PartialEq for CornerShape {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            // A NaN `k` must equal itself, or a property holding it never settles.
+            (Self::Superellipse(a), Self::Superellipse(b)) => a == b || (a.is_nan() && b.is_nan()),
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::lengths::{LogicalBorderRadius, LogicalLength, PhysicalPx, ScaleFactor};

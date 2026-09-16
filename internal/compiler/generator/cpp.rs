@@ -473,7 +473,7 @@ pub mod cpp_ast {
 
 use crate::CompilerConfiguration;
 use crate::builtin_functions::BuiltinFunction;
-use crate::expression_types::{EasingCurve, MinMaxOp};
+use crate::expression_types::{CornerShape, EasingCurve, MinMaxOp};
 use crate::langtype::{BuiltinStruct, Enumeration, EnumerationValue, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
@@ -576,6 +576,7 @@ impl CppType for Type {
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
             Type::StyledText => Some("slint::StyledText".into()),
             Type::MouseCursor => Some("slint::cbindgen_private::MouseCursorInner".into()),
+            Type::CornerShape => Some("slint::cbindgen_private::CornerShape".into()),
             _ => None,
         }
     }
@@ -4522,6 +4523,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         cases.join(" ")
                     )
                 }
+                (Type::CornerShape, Type::String) => {
+                    let cases = CornerShape::KEYWORDS.iter().map(|(name, shape)| {
+                        let c = compile_expression(&Expression::CornerShape(shape.clone()), ctx);
+                        format!("case {c}: return {name:?};")
+                    });
+                    format!(
+                        "[](const slint::cbindgen_private::CornerShape &s) -> slint::SharedString {{ switch (s.tag) {{ {} case slint::cbindgen_private::CornerShape::Tag::Superellipse: break; }} return slint::SharedString(\"superellipse(\") + slint::private_api::call_builtin(slint::cbindgen_private::slint_builtin_to_string_unlocalized, double(s.superellipse._0)) + \")\"; }}({f})",
+                        cases.collect::<Vec<_>>().join(" ")
+                    )
+                }
                 _ => f,
             }
         })(),
@@ -5031,6 +5042,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         })(),
         // Generated code has no debug hooks; use the wrapped expression.
         Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
+        Expression::CornerShape(CornerShape::Superellipse(a)) => format!(
+            "slint::cbindgen_private::CornerShape(slint::cbindgen_private::CornerShape::Tag::Superellipse, {a})"
+        ),
+        Expression::CornerShape(s) => {
+            format!("slint::cbindgen_private::CornerShape::Tag::{s:?}")
+        }
     }
 }
 

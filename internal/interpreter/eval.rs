@@ -658,6 +658,41 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         | Type::ArrayOfU16
         | Type::ArrayOfCoord
         | Type::Closure => Value::Void,
+        Type::CornerShape => Value::CornerShape(Default::default()),
+    }
+}
+
+/// The runtime value of a compiled `corner-shape` literal.
+pub fn corner_shape(
+    shape: &i_slint_compiler::expression_types::CornerShape,
+) -> i_slint_core::graphics::CornerShape {
+    use i_slint_compiler::expression_types::CornerShape as CS;
+    use i_slint_core::graphics::CornerShape as Core;
+    match shape {
+        CS::Round => Core::Round,
+        CS::Notch => Core::Notch,
+        CS::Scoop => Core::Scoop,
+        CS::Bevel => Core::Bevel,
+        CS::Square => Core::Square,
+        CS::Squircle => Core::Squircle,
+        CS::Superellipse(k) => Core::Superellipse(*k),
+    }
+}
+
+/// The keyword or `superellipse(k)` call that spells `shape`, for `debug()`.
+fn corner_shape_to_string(shape: i_slint_core::graphics::CornerShape) -> SharedString {
+    use i_slint_core::graphics::CornerShape;
+    match shape {
+        CornerShape::Round => "round".into(),
+        CornerShape::Notch => "notch".into(),
+        CornerShape::Scoop => "scoop".into(),
+        CornerShape::Bevel => "bevel".into(),
+        CornerShape::Squircle => "squircle".into(),
+        CornerShape::Square => "square".into(),
+        CornerShape::Superellipse(k) => i_slint_core::format!(
+            "superellipse({})",
+            i_slint_core::string::shared_string_from_number_unlocalized(k as f64)
+        ),
     }
 }
 
@@ -809,6 +844,9 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                 (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
                 (Value::Brush(brush), Type::Color) => brush.color().into(),
                 (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
+                (Value::CornerShape(shape), Type::String) => {
+                    Value::String(corner_shape_to_string(shape))
+                }
                 (v, _) => v,
             }
         }
@@ -1117,6 +1155,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             eval_expression(ctx, expression)
         }
+        Expression::CornerShape(shape) => Value::CornerShape(corner_shape(shape)),
     }
 }
 

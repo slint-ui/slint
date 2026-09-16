@@ -388,6 +388,7 @@ pub enum Expression {
         expression: Box<Expression>,
         id: SmolStr,
     },
+    CornerShape(crate::expression_types::CornerShape),
 }
 
 /// The type of a binary expression with the given operator:
@@ -488,6 +489,9 @@ impl Expression {
                 function: BuiltinFunction::StringToStyledText,
                 arguments: vec![Expression::StringLiteral(SmolStr::default())],
             },
+            Type::CornerShape => {
+                Expression::CornerShape(crate::expression_types::CornerShape::default())
+            }
         })
     }
 
@@ -553,6 +557,7 @@ impl Expression {
             Self::Closure { .. } => Type::Closure,
             Self::DashArray(_) => Type::ArrayOfCoord,
             Self::DebugHook { expression, .. } => expression.ty(ctx),
+            Self::CornerShape(_) => Type::CornerShape,
         }
     }
 }
@@ -769,6 +774,7 @@ macro_rules! visit_impl {
             }
             Expression::DashArray(_) => {}
             Expression::DebugHook { expression, id: _ } => $visitor(expression),
+            Expression::CornerShape(_) => {}
         }
     };
 }

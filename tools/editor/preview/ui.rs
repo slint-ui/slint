@@ -1029,7 +1029,12 @@ fn map_value_and_type(
                 }
             }
         }
-        Type::Image | Type::Model | Type::PathData | Type::Easing | Type::UnitProduct(_) => {
+        Type::Image
+        | Type::Model
+        | Type::PathData
+        | Type::Easing
+        | Type::UnitProduct(_)
+        | Type::CornerShape => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.is_too_complex = true;
         }

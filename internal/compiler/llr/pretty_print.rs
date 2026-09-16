@@ -760,6 +760,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::DebugHook { expression, id } => {
                 write!(f, "debug-hook({id:?}, {})", DisplayExpression(expression, ctx))
             }
+            Expression::CornerShape(x) => write!(f, "{x:?}"),
         }
     }
 }
