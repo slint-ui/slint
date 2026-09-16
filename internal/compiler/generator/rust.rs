@@ -191,6 +191,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Brush => Some(quote!(slint::Brush)),
         Type::ArrayOfCoord => Some(quote!(sp::SharedVector<sp::Coord>)),
         Type::ArrayOfU16 => Some(quote!(sp::SharedVector<u16>)),
+        Type::CornerShape => Some(quote!(sp::CornerShape)),
         _ => None,
     }
 }
@@ -239,6 +240,7 @@ fn rust_property_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::LogicalLength => Some(quote!(sp::LogicalLength)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
         Type::MouseCursor => Some(quote!(sp::MouseCursorInner)),
+        Type::CornerShape => Some(quote!(sp::CornerShape)),
         _ => rust_primitive_type(ty),
     }
 }
@@ -3764,6 +3766,7 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
             | Expression::EnumerationValue(..)
             | Expression::Closure { .. }
             | Expression::DashArray(..)
+            | Expression::CornerShape(..)
             // compile to their branches or last expression compiled as a value
             | Expression::Condition { .. }
             | Expression::CodeBlock(..) => true,
@@ -4083,6 +4086,17 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         // Generated code has no debug hooks; use the wrapped expression.
         Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
+        Expression::CornerShape(e) => {
+            use crate::expression_types::CornerShape as CS;
+            match e {
+                CS::Round => quote!(sp::CornerShape::Round),
+                CS::Notch => quote!(sp::CornerShape::Notch),
+                CS::Scoop => quote!(sp::CornerShape::Scoop),
+                CS::Bevel => quote!(sp::CornerShape::Bevel),
+                CS::Squircle => quote!(sp::CornerShape::Squircle),
+                CS::Square => quote!(sp::CornerShape::Square),
+            }
+        }
     }
 }
 

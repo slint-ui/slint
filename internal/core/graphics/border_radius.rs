@@ -500,6 +500,99 @@ where
     }
 }
 
+/// The shape of a rectangle corner, as CSS `corner-shape` defines it.
+///
+/// Every shape is a CSS `superellipse(k)` value, scaled to the corner's radius.
+/// See <https://drafts.csswg.org/css-borders-4/#corner-shape-value>.
+#[repr(C)]
+#[derive(Default, Debug, Clone, Copy)]
+pub enum CornerShape {
+    /// A quarter circle, `superellipse(1)`.
+    #[default]
+    Round,
+    /// A square cut out of the corner, `superellipse(-infinity)`.
+    Notch,
+    /// A quarter circle cut out of the corner, `superellipse(-1)`.
+    Scoop,
+    /// A straight diagonal cut, `superellipse(0)`.
+    Bevel,
+    /// A squircle, `superellipse(2)`.
+    Squircle,
+    /// A sharp corner, `superellipse(infinity)`.
+    Square,
+    /// `superellipse(k)` for the given `k`.
+    Superellipse(f32),
+}
+
+/// Shapes that render alike are equal, such as `superellipse(1)` and `round`.
+impl PartialEq for CornerShape {
+    fn eq(&self, other: &Self) -> bool {
+        match (self.canonical(), other.canonical()) {
+            (Self::Superellipse(a), Self::Superellipse(b)) => a == b,
+            (a, b) => core::mem::discriminant(&a) == core::mem::discriminant(&b),
+        }
+    }
+}
+
+impl CornerShape {
+    /// The CSS `superellipse(k)` parameter of this shape.
+    pub(crate) const fn superellipse_k(self) -> f32 {
+        match self {
+            CornerShape::Notch => f32::NEG_INFINITY,
+            CornerShape::Scoop => -1.,
+            CornerShape::Bevel => 0.,
+            CornerShape::Round => 1.,
+            CornerShape::Squircle => 2.,
+            CornerShape::Square => f32::INFINITY,
+            CornerShape::Superellipse(k) => k,
+        }
+    }
+
+    /// The keyword for a `superellipse(k)` that has one.
+    const fn canonical(self) -> Self {
+        let CornerShape::Superellipse(k) = self else { return self };
+        // A NaN `k` renders as `round`, the default shape.
+        if k.is_nan() {
+            return CornerShape::Round;
+        }
+        let keywords = [
+            CornerShape::Round,
+            CornerShape::Notch,
+            CornerShape::Scoop,
+            CornerShape::Bevel,
+            CornerShape::Squircle,
+            CornerShape::Square,
+        ];
+        let mut i = 0;
+        while i < keywords.len() {
+            if keywords[i].superellipse_k() == k {
+                return keywords[i];
+            }
+            i += 1;
+        }
+        self
+    }
+}
+
+/// Spells the shape as in `.slint`, for `debug()`.
+impl fmt::Display for CornerShape {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CornerShape::Round => f.write_str("round"),
+            CornerShape::Notch => f.write_str("notch"),
+            CornerShape::Scoop => f.write_str("scoop"),
+            CornerShape::Bevel => f.write_str("bevel"),
+            CornerShape::Squircle => f.write_str("squircle"),
+            CornerShape::Square => f.write_str("square"),
+            CornerShape::Superellipse(k) => write!(
+                f,
+                "superellipse({})",
+                crate::string::shared_string_from_number_unlocalized(*k as f64)
+            ),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::lengths::{LogicalBorderRadius, LogicalLength, PhysicalPx, ScaleFactor};
@@ -508,6 +601,18 @@ mod tests {
     type BorderRadius = super::BorderRadius<f32, UnknownUnit>;
     type IntBorderRadius = super::BorderRadius<i16, UnknownUnit>;
     type PhysicalBorderRadius = super::BorderRadius<f32, PhysicalPx>;
+
+    #[test]
+    fn test_corner_shape_eq() {
+        use super::CornerShape;
+        assert_eq!(CornerShape::Superellipse(1.), CornerShape::Round);
+        assert_eq!(CornerShape::Superellipse(f32::NAN), CornerShape::Superellipse(f32::NAN));
+        assert_eq!(CornerShape::Superellipse(f32::NAN), CornerShape::Round);
+        assert_eq!(CornerShape::Superellipse(f32::NEG_INFINITY), CornerShape::Notch);
+        assert_eq!(CornerShape::Superellipse(1.5), CornerShape::Superellipse(1.5));
+        assert_ne!(CornerShape::Superellipse(1.5), CornerShape::Superellipse(2.5));
+        assert_ne!(CornerShape::Superellipse(2.), CornerShape::Round);
+    }
 
     #[test]
     fn test_eq() {
