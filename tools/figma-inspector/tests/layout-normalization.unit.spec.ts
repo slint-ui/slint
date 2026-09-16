@@ -225,7 +225,7 @@ describe("group-positioning", () => {
 });
 
 describe("layout-depth", () => {
-    test("deep layouts retain descendants and resume native layout after recovery boundaries", async () => {
+    test("deep layouts retain every native layout and descendant", async () => {
         const source = JSON.parse(
             await readFile("fixtures/source/negative-gap.json", "utf8"),
         );
@@ -244,7 +244,7 @@ describe("layout-depth", () => {
         const boundaries = result.warnings.filter(
             (w) => w.code === "LAYOUT_DEPTH_GEOMETRY_APPROXIMATED",
         );
-        expect(boundaries.length).toBeGreaterThan(0);
+        expect(boundaries).toHaveLength(0);
         const nodes: SnapshotNode[] = [];
         function visit(node: SnapshotNode) {
             nodes.push(node);
@@ -252,14 +252,8 @@ describe("layout-depth", () => {
         }
         visit(result.snapshot.root);
         expect(nodes).toHaveLength(41);
-        for (const warning of boundaries)
-            expect(nodes.find((n) => n.id === warning.nodeId)).toMatchObject({
-                autoLayout: null,
-            });
         expect(
-            nodes
-                .slice(20)
-                .some((n) => "autoLayout" in n && n.autoLayout !== null),
+            nodes.every((n) => "autoLayout" in n && n.autoLayout !== null),
         ).toBe(true);
         expect(JSON.stringify(source)).toBe(before);
     });

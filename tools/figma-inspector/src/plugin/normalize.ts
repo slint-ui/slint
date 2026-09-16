@@ -1715,7 +1715,6 @@ async function normalizeValidatedSource(
         node: SourceNode,
         parentAutoLayout = false,
         parent?: SourceNode,
-        flexDepth = 0,
         hiddenAncestor = false,
     ): MaterializedNode {
         nodes.set(node.id, node);
@@ -1723,26 +1722,9 @@ async function normalizeValidatedSource(
         const hidden = hiddenAncestor || properties.visible === false;
         Object.assign(properties, groupChildPosition(node, parent));
         normalizeLayoutProperties(node, properties, warnings, parentAutoLayout);
-        let autoLayout =
+        const autoLayout =
             properties.layoutMode === "HORIZONTAL" ||
             properties.layoutMode === "VERTICAL";
-        // The current Slint interpreter repeatedly measures deeply nested flex
-        // descendants. The real Select fixture has ten consecutive layouts and
-        // stalls even with fixed sizes. Break the measurement chain locally;
-        // preserve native layouts below the boundary and Figma's child geometry.
-        if (target === "preview" && autoLayout && flexDepth >= 3 && !hidden) {
-            warnings.push({
-                severity: "warning",
-                code: "LAYOUT_DEPTH_GEOMETRY_APPROXIMATED",
-                nodeId: node.id,
-                nodeName: node.name,
-                propertyPath: "layoutMode",
-                message:
-                    "Deeply nested auto layout uses captured child positions to bound Slint layout evaluation; descendant layouts are retained",
-            });
-            properties.layoutMode = "NONE";
-            autoLayout = false;
-        }
         normalizeAppearanceProperties(node, properties, warnings);
         const materialized = {
             ...properties,
@@ -1755,13 +1737,7 @@ async function normalizeValidatedSource(
                 ? {}
                 : {
                       children: node.children.map((child) =>
-                          materialize(
-                              child,
-                              autoLayout,
-                              node,
-                              autoLayout ? flexDepth + 1 : 0,
-                              hidden,
-                          ),
+                          materialize(child, autoLayout, node, hidden),
                       ),
                   }),
             ...(node.segments === undefined
