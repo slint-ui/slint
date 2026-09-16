@@ -13,6 +13,7 @@ import type {
 import { utf8ToBase64 } from "../images";
 
 export type RenderContext = {
+    helperIds?: Map<string, string>;
     readonly warnings: Diagnostic[];
     readonly componentUses?: ComponentUses;
     readonly componentTemplates: boolean;

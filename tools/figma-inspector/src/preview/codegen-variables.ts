@@ -105,6 +105,15 @@ export function applyCodegenVariables(
                     : false;
         if (path && compatible && line?.kind === "binding") {
             line.value = reference(line.value.type, path);
+            if (textBinding) {
+                for (const item of lines)
+                    if (
+                        item.kind === "binding" &&
+                        item.depth === 2 &&
+                        item.name === field
+                    )
+                        item.value = reference(item.value.type, path);
+            }
             if (!lines.includes(line)) lines.splice(1, 0, line);
         } else
             warnings.push({

@@ -13,6 +13,7 @@ export type Binding = {
     depth: number;
 };
 export type ElementStart = {
+    id?: string;
     kind: "open";
     type: string;
     depth: number;
@@ -25,6 +26,7 @@ export type SlintLine =
     | ElementStart
     | { kind: "close"; depth: number };
 export type Element = {
+    id?: string;
     condition?: string;
     role?: string;
     type: string;
@@ -83,7 +85,7 @@ function propertyType(name: string): string {
     )
         return "brush";
     if (name === "source") return "image";
-    if (["clip", "font-italic"].includes(name)) return "bool";
+    if (["clip", "font-italic", "visible"].includes(name)) return "bool";
     if (
         [
             "font-weight",
@@ -162,7 +164,7 @@ export function printLine(line: SlintLine | string): string {
     if (typeof line === "string") return line;
     const indent = "    ".repeat(line.depth);
     if (line.kind === "open")
-        return `${indent}${line.condition ? `if ${line.condition}: ` : ""}${line.type} {`;
+        return `${indent}${line.condition ? `if ${line.condition}: ` : ""}${line.id ? `${line.id} := ` : ""}${line.type} {`;
     if (line.kind === "close") return `${indent}}`;
     return `${indent}${line.name}: ${line.value.code};`;
 }
@@ -172,6 +174,7 @@ export function elementTree(lines: SlintLine[]): Element {
     for (const line of lines) {
         if (line.kind === "open") {
             const element: Element = {
+                id: line.id,
                 type: line.type,
                 condition: line.condition,
                 role: line.role,
@@ -197,6 +200,7 @@ export function treeLines(tree: Element, depth = 1): SlintLine[] {
     return [
         {
             ...openElement(tree.type, depth, tree.origin),
+            id: tree.id,
             condition: tree.condition,
             role: tree.role,
         },

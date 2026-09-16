@@ -97,11 +97,7 @@ export function textNeedsOverflowWrapper(node: SnapshotTextNode): boolean {
         node.layoutSizingVertical !== "hug" &&
         node.overflow === "clip" &&
         !textRunNeedsStyled(node) &&
-        node.horizontalAlign !== "JUSTIFIED" &&
-        !/[\r\n\u2028\u2029]/u.test(node.characters) &&
-        (!node.wrap ||
-            (!/\s/u.test(node.characters) &&
-                node.paintBounds.height <= node.fontSize))
+        node.horizontalAlign !== "JUSTIFIED"
     );
 }
 
