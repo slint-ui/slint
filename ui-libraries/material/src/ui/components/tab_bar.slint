@@ -3,7 +3,6 @@
 
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
-import { NavigationItem } from "../items/navigation_item.slint";
 import { BaseNavigationItemTemplate, BaseNavigation } from "./base_navigation.slint";
 import { StateLayerArea } from "./state_layer.slint";
 import { MaterialText } from "./material_text.slint";
@@ -11,8 +10,31 @@ import { MaterialTypography } from "../styling/material_typography.slint";
 import { MaterialAnimations } from "../styling/material_animations.slint";
 import { Icon } from "./icon.slint";
 
-component TabItemTemplate inherits BaseNavigationItemTemplate {
-    out property <length> label_width: label.width;
+component BaseTabItemTemplate inherits BaseNavigationItemTemplate {
+    in property <length> indicator_width: self.width;
+
+    callback indicator_changed(item_x: length, indicator_width: length);
+
+    changed selected => { root.update_indicator(); }
+    changed x => { root.update_indicator(); }
+    changed width => { root.update_indicator(); }
+    changed indicator_width => { root.update_indicator(); }
+
+    init => {
+        root.update_indicator();
+    }
+
+    function update_indicator() {
+        if root.selected {
+            root.indicator_changed(root.x + (root.width - root.indicator_width) / 2, root.indicator_width);
+        }
+    }
+
+    @children
+}
+
+component TabItemTemplate inherits BaseTabItemTemplate {
+    indicator_width: label.width;
 
     property <bool> has_selected_icon: root.selected_icon.width > 0 || root.selected_icon.height > 0;
 
@@ -62,7 +84,7 @@ component TabItemTemplate inherits BaseNavigationItemTemplate {
     ]
 }
 
-component SecondaryTabItemTemplate inherits BaseNavigationItemTemplate {
+component SecondaryTabItemTemplate inherits BaseTabItemTemplate {
     property <bool> has_selected_icon: root.selected_icon.width > 0 || root.selected_icon.height > 0;
 
     StateLayerArea {
@@ -108,9 +130,11 @@ component SecondaryTabItemTemplate inherits BaseNavigationItemTemplate {
     ]
 }
 
-export component TabBar inherits BaseNavigation {
-    property <length> indicator_x;
-    property <length> indicator_width;
+component BaseTabBar inherits BaseNavigation {
+    in property <length> indicator_height;
+    in property <length> indicator_radius;
+    private property <length> indicator_x;
+    private property <length> indicator_width;
 
     min_height: max(MaterialStyleMetrics.size_49, layout.min_height);
 
@@ -118,54 +142,16 @@ export component TabBar inherits BaseNavigation {
         background: MaterialPalette.surface;
 
         layout := HorizontalLayout {
-            for item[index] in root.items : tab_item := TabItemTemplate {
-                icon: item.icon;
-                selected_icon: item.selected_icon;
-                text: item.text;
-                index: index;
-                selected: index == root.current_index;
-                show_badge: item.show_badge;
-                badge: item.badge;
-
-                clicked => {
-                    root.select(index);
-                }
-
-                changed selected => {
-                    self.update_indicator();
-                }
-
-                changed x => {
-                    self.update_indicator();
-                }
-
-                changed width => {
-                    self.update_indicator();
-                }
-
-                changed label_width => {
-                    self.update_indicator();
-                }
-
-                init => {
-                    self.update_indicator();
-                }
-
-                function update_indicator() {
-                    if self.selected {
-                        root.set_indicator(index, self.x, self.width, self.label_width);
-                    }
-                }
-            }
+            @children
         }
 
-        indicator := Rectangle {
+        Rectangle {
             x: root.indicator_x;
             y: parent.height - self.height;
             width: root.indicator_width;
-            height: MaterialStyleMetrics.size_3;
-            border_top_left_radius: self.height / 2;
-            border_top_right_radius: self.border_top_left_radius;
+            height: root.indicator_height;
+            border_top_left_radius: root.indicator_radius;
+            border_top_right_radius: root.indicator_radius;
             background: MaterialPalette.primary;
             visible: root.current_index >= 0 && root.current_index < root.items.length;
 
@@ -176,84 +162,61 @@ export component TabBar inherits BaseNavigation {
         }
     }
 
-    function set_indicator(index: int, item_x: length, item_width: length, label_width: length) {
-        if index != root.current_index {
-            return;
-        }
-
-        root.indicator_x = item_x + (item_width - label_width) / 2;
-        root.indicator_width = label_width;
-    }
-}
-
-export component SecondaryTabBar inherits BaseNavigation {
-    property <length> indicator_x;
-    property <length> indicator_width;
-
-    min_height: max(MaterialStyleMetrics.size_49, layout.min_height);
-
-    Rectangle {
-        background: MaterialPalette.surface;
-
-        layout := HorizontalLayout {
-            for item[index] in root.items : tab_item := SecondaryTabItemTemplate {
-                icon: item.icon;
-                selected_icon: item.selected_icon;
-                text: item.text;
-                index: index;
-                selected: index == root.current_index;
-                show_badge: item.show_badge;
-                badge: item.badge;
-
-                clicked => {
-                    root.select(index);
-                }
-
-                changed selected => {
-                    self.update_indicator();
-                }
-
-                changed x => {
-                    self.update_indicator();
-                }
-
-                changed width => {
-                    self.update_indicator();
-                }
-
-                init => {
-                    self.update_indicator();
-                }
-
-                function update_indicator() {
-                    if self.selected {
-                        root.set_indicator(index, self.x, self.width);
-                    }
-                }
-            }
-        }
-
-        indicator := Rectangle {
-            x: root.indicator_x;
-            y: parent.height - self.height;
-            width: root.indicator_width;
-            height: MaterialStyleMetrics.size_2;
-            background: MaterialPalette.primary;
-            visible: root.current_index >= 0 && root.current_index < root.items.length;
-
-            animate x, width {
-                duration: MaterialAnimations.standard_accelerate_duration;
-                easing: MaterialAnimations.standard_easing;
-            }
-        }
+    protected function select_tab(index: int) {
+        root.select(index);
     }
 
-    function set_indicator(index: int, item_x: length, item_width: length) {
+    protected function set_indicator(index: int, item_x: length, indicator_width: length) {
         if index != root.current_index {
             return;
         }
 
         root.indicator_x = item_x;
-        root.indicator_width = item_width;
+        root.indicator_width = indicator_width;
+    }
+}
+
+export component TabBar inherits BaseTabBar {
+    indicator_height: MaterialStyleMetrics.size_3;
+    indicator_radius: root.indicator_height / 2;
+
+    for item[index] in root.items : TabItemTemplate {
+        icon: item.icon;
+        selected_icon: item.selected_icon;
+        text: item.text;
+        index: index;
+        selected: index == root.current_index;
+        show_badge: item.show_badge;
+        badge: item.badge;
+
+        clicked => {
+            root.select_tab(index);
+        }
+
+        indicator_changed(item_x, indicator_width) => {
+            root.set_indicator(index, item_x, indicator_width);
+        }
+    }
+}
+
+export component SecondaryTabBar inherits BaseTabBar {
+    indicator_height: MaterialStyleMetrics.size_2;
+
+    for item[index] in root.items : SecondaryTabItemTemplate {
+        icon: item.icon;
+        selected_icon: item.selected_icon;
+        text: item.text;
+        index: index;
+        selected: index == root.current_index;
+        show_badge: item.show_badge;
+        badge: item.badge;
+
+        clicked => {
+            root.select_tab(index);
+        }
+
+        indicator_changed(item_x, indicator_width) => {
+            root.set_indicator(index, item_x, indicator_width);
+        }
     }
 }
