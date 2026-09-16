@@ -317,20 +317,17 @@ jobs:
                       ${{ steps.package.outputs.vsixPath }}
             - name: Publish to Visual Studio Marketplace
               if: ${{ env.PUBLISH == 'true' }}
-              uses: HaaLeo/publish-vscode-extension@v2
-              with:
-                  pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
-                  registryUrl: https://marketplace.visualstudio.com
-                  extensionFile: ${{ steps.package.outputs.vsixPath }}
-                  packagePath: ""
+              working-directory: editors/vscode
+              env:
+                  VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
+              run: pnpm dlx @vscode/vsce publish --packagePath "${{ steps.package.outputs.vsixPath }}"
             # The marketplace times out regularly, so publish to Open VSX even when it failed.
             - name: Publish to Open VSX Registry
               if: ${{ !cancelled() && env.PUBLISH == 'true' && steps.package.outcome == 'success' }}
-              uses: HaaLeo/publish-vscode-extension@v2
-              with:
-                  pat: ${{ secrets.OPENVSX_PAT }}
-                  extensionFile: ${{ steps.package.outputs.vsixPath }}
-                  packagePath: ""
+              working-directory: editors/vscode
+              env:
+                  OVSX_PAT: ${{ secrets.OPENVSX_PAT }}
+              run: pnpm dlx ovsx publish --packagePath "${{ steps.package.outputs.vsixPath }}"
             - name: Explain how to publish manually
               if: ${{ failure() && steps.package.outcome == 'success' }}
               run: echo "::error::Download the slint-vscode.zip artifact of this run and upload the .vsix by hand"
