@@ -769,7 +769,6 @@ jobs:
             # verification above takes. Mint it afterwards and upload the
             # already-verified packages with --no-verify.
             - name: Authenticate with crates.io
-              if: github.event.inputs.mode == 'release'
               id: auth
               uses: rust-lang/crates-io-auth-action@v1
             - name: Publish to crates.io
