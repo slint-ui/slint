@@ -7,6 +7,51 @@ import { mountPreview, canvasPixels, readFixture } from "./browser-harness";
 const firstSource = await readFixture("fixtures/button.slint");
 const secondSource = await readFixture("fixtures/frame.slint");
 
+test.each([false, true])(
+    "a valid preview cannot publish an invalid reusable export (unchanged preview: %s)",
+    async (warm) => {
+        const p = await mountPreview();
+        if (warm) {
+            p.send({
+                type: "preview-source",
+                revision: 1,
+                source: firstSource,
+                exportPackage: { source: firstSource, files: [] },
+            });
+            await p.ready(1);
+        }
+        p.send({
+            type: "preview-source",
+            revision: 2,
+            source: firstSource,
+            exportPackage: {
+                source: "export component Broken inherits Window { Text { visible: missing.preferred-height > 0px; } }",
+                files: [],
+            },
+        });
+        await expect
+            .poll(() => p.element("#diagnostics").textContent)
+            .toContain("Export compilation failed");
+        expect(p.element<HTMLButtonElement>("#export-button").disabled).toBe(
+            true,
+        );
+        expect(p.element<HTMLButtonElement>("#copy-button").disabled).toBe(
+            true,
+        );
+        expect(p.element("#source-view").textContent).toBe("");
+        p.send({
+            type: "preview-source",
+            revision: 3,
+            source: firstSource,
+            exportPackage: { source: firstSource, files: [] },
+        });
+        await p.ready(3);
+        expect(p.element<HTMLButtonElement>("#export-button").disabled).toBe(
+            false,
+        );
+    },
+);
+
 test("built production preview clears busy, failed and empty selections and rejects stale output", async () => {
     const p = await mountPreview();
     p.send({
