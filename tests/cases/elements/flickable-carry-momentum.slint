@@ -123,25 +123,29 @@ pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
 
 let instance = TestCase::new().unwrap();
 
+const FLICK_DISTANCE: f32 = 20.;
+
 // Scroll down with no carry momentum
 instance.set_carry_momentum(AutoBool::On);
 assert_eq!(instance.get_carry_momentum(), AutoBool::On);
-send_mouse_press_and_release(&instance, 5., 130., 5., 5.); // Finger moves up -> Scrolling down.
+send_mouse_press_and_release(&instance, 5., 130., 5., 130. - FLICK_DISTANCE); // Finger moves up -> Scrolling down.
 slint_testing::mock_elapsed_time(5);
 
 let content_y = instance.get_fli_content_y();
 assert!(content_y < 0., "We started scrolling");
 slint_testing::mock_elapsed_time(1);
 let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
-assert!((velocity - (130. - 5.) / 10e-3).abs() < 100., "Received: {velocity}");
+assert!((velocity - FLICK_DISTANCE / 10e-3).abs() < 30., "Received: {velocity}");
 
-// Flick again while the other is ongoing
-send_mouse_press_and_release(&instance, 5., 130., 5., 5.); // Finger moves up -> Scrolling down.
+// Flick again, at the same strength, while the other is ongoing: this is
+// the one flick that's strong enough to clear the momentum-retention
+// threshold, so its velocity is boosted by the carried momentum.
+send_mouse_press_and_release(&instance, 5., 130., 5., 130. - FLICK_DISTANCE); // Finger moves up -> Scrolling down.
 
 let content_y = instance.get_fli_content_y();
 slint_testing::mock_elapsed_time(1);
 let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
-assert!(velocity.abs() > (2_f32 * (130. - 5.) / 10e-3).abs(), "Received: {velocity}. There is a large velocity increase because the previous velocity is added to the newly estimated one");
+assert!(velocity.abs() > (2_f32 * FLICK_DISTANCE / 10e-3).abs(), "Received: {velocity}. There is a large velocity increase because the previous velocity is added to the newly estimated one");
 ```
 
 Testcase 3. Carry momentum is on, driven by wheel/trackpad events instead of a mouse drag.
@@ -194,28 +198,41 @@ pub fn send_wheel_scroll<Component: slint::ComponentHandle>(
 
 let instance = TestCase::new().unwrap();
 
+const FLICK_DISTANCE: f32 = 20.;
+
 // Scroll down with carry momentum
 instance.set_carry_momentum(AutoBool::On);
 assert_eq!(instance.get_carry_momentum(), AutoBool::On);
-send_wheel_scroll(&instance, 5., 5., 0., -(130. - 5.)); // Scrolling down.
+send_wheel_scroll(&instance, 5., 5., 0., -FLICK_DISTANCE); // Scrolling down.
 slint_testing::mock_elapsed_time(5);
 
 let content_y = instance.get_fli_content_y();
 assert!(content_y < 0., "We started scrolling");
 slint_testing::mock_elapsed_time(1);
 let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
-assert!((velocity - (130. - 5.) / 10e-3).abs() < 100., "Received: {velocity}");
+assert!((velocity - FLICK_DISTANCE / 10e-3).abs() < 30., "Received: {velocity}");
 
-for i in 0..3 {
-    // Flick again while the other is ongoing
-    send_wheel_scroll(&instance, 5., 5., 0., -(130. - 5.)); // Scrolling down.
+// Flick again, at the same strength, while the other is ongoing: this one
+// is strong enough to clear the momentum-retention threshold, so its
+// velocity is boosted by the carried momentum.
+send_wheel_scroll(&instance, 5., 5., 0., -FLICK_DISTANCE); // Scrolling down.
+
+let content_y = instance.get_fli_content_y();
+slint_testing::mock_elapsed_time(1);
+let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
+assert!(velocity.abs() > (2_f32 * FLICK_DISTANCE / 10e-3).abs(), "Received: {velocity}. There is a large velocity increase because the previous velocity is added to the newly estimated one");
+
+for i in 0..4 {
+    send_wheel_scroll(&instance, 5., 5., 0., -FLICK_DISTANCE); // Scrolling down.
 
     let content_y = instance.get_fli_content_y();
     slint_testing::mock_elapsed_time(1);
     let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
-    assert!(velocity.abs() > (2_f32 * (130. - 5.) / 10e-3).abs(), "Received: {velocity}. There is a large velocity increase because the previous velocity is added to the newly estimated one");
+    if i % 2 == 0 {
+        assert!((velocity - FLICK_DISTANCE / 10e-3).abs() < 30., "Iteration {i}. Received: {velocity}. The previous flick was boosted, so this same-strength repeat can no longer clear the now much larger momentum-retention threshold, and momentum is not carried");
+    } else {
+        assert!(velocity.abs() > (2_f32 * FLICK_DISTANCE / 10e-3).abs(), "Iteration {i}. Received: {velocity}. The previous flick was reset to un-boosted strength, so this same-strength repeat clears the threshold again and momentum is carried");
+    }
 }
-
-
 ```
 */
