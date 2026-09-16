@@ -73,13 +73,14 @@ Antigravity, `plugin.json` and `mcp_config.json` at the `ai-plugins` root.
 
 ## Benchmarks
 
-The compiler and core crates carry benchmarks: `cargo bench -p i-slint-compiler --features rust`
+The compiler and core crates carry divan benchmarks: `cargo bench -p i-slint-compiler --features rust`
 and `cargo bench -p i-slint-core`.
-Adjust how long they run with `--sample-count` for divan and `--sample-size` for criterion.
+Adjust how long they run with `--sample-count`.
+Both install divan's allocation profiler, so each benchmark also reports its per-iteration peak and total allocated bytes.
 
-`cargo xtask check_benchmarks` runs both suites and compares every median against
-`xtask/benchmark-baseline.toml`, which stores nanoseconds per benchmark.
-A median fails the check when it exceeds its baseline entry by more than the tolerance in that file.
+`cargo xtask check_benchmarks` runs both suites and compares every median time and allocated size against `xtask/benchmark-baseline.toml`, which stores nanoseconds and bytes.
+A value fails the check when it exceeds its baseline entry by more than the tolerance in that file, `tolerance` for time and `memory_tolerance` for memory.
+Time differences below `min_time_delta_ns` are ignored, which keeps the nanosecond-scale core benchmarks from flaking.
 A benchmark without a baseline entry only warns, so adding one doesn't fail CI before the baseline is refreshed.
 
 The `benchmarks` job runs this check in full CI only, because the numbers depend on the machine.

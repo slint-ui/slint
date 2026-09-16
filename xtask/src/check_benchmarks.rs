@@ -1,20 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Compare benchmark medians against a baseline.
+//! Compare benchmark medians and memory usage against a baseline.
 //!
-//! The baseline stores one median wall-clock time per benchmark, in
-//! nanoseconds, measured on the full-CI runner (see
-//! `xtask/benchmark-baseline.toml`). A benchmark fails when its median exceeds
-//! the baseline by more than the tolerance; a missing baseline entry is only a
-//! warning, so adding a benchmark doesn't fail CI before the baseline is
-//! refreshed.
+//! Both suites use divan with its allocation profiler, so each benchmark
+//! reports a median wall-clock time plus per-iteration peak and total
+//! allocated bytes. The baseline stores those values in nanoseconds and bytes;
+//! a value fails when it exceeds its baseline entry by more than the
+//! corresponding tolerance. A missing baseline entry is only a warning, so
+//! adding a benchmark doesn't fail CI before the baseline is refreshed.
 //!
 //! Run `cargo xtask check_benchmarks --save-baseline` to record the measured
-//! medians, or `--from-results target/benchmark-results.toml --save-baseline`
+//! values, or `--from-results target/benchmark-results.toml --save-baseline`
 //! to seed the baseline from a CI artifact without running the benchmarks.
 
 use std::collections::BTreeMap;
+use std::collections::btree_map::Entry;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::LazyLock;
@@ -27,42 +28,52 @@ use toml_edit::{DocumentMut, Item};
 /// baseline's `[settings] tolerance` overrides it.
 const DEFAULT_TOLERANCE: f64 = 1.2;
 
-/// Bound criterion's per-benchmark run time, since the comparison only needs a
-/// rough median.
-const CRITERION_WARM_UP_SECS: &str = "0.5";
-const CRITERION_MEASUREMENT_SECS: &str = "2";
+/// Peak and total allocated bytes are deterministic, so they get a tighter
+/// default than execution time; the baseline's `[settings] memory_tolerance`
+/// overrides it.
+const DEFAULT_MEMORY_TOLERANCE: f64 = 1.1;
+
+/// The core crate's string benchmarks run in tens of nanoseconds, where divan's
+/// automatic sample sizing depends on the slowest outlier and can flip between
+/// one and many iterations per sample. Pinning it keeps their times stable.
+const CORE_SAMPLE_SIZE: u32 = 32;
+
+/// Ignore time differences smaller than this many nanoseconds, unless the
+/// baseline's `[settings] min_time_delta_ns` overrides it. Nanosecond-scale
+/// benchmarks drift more than the tolerance on shared runners, while a real
+/// regression is much larger. Memory sizes are exact, so they have no floor.
+const DEFAULT_MIN_TIME_DELTA_NS: f64 = 100.0;
 
 #[derive(Debug, clap::Parser)]
 pub struct CheckBenchmarks {
-    /// Baseline to compare the measured medians against; values are in
-    /// nanoseconds.
+    /// Baseline to compare the measured values against; times are in
+    /// nanoseconds, memory in bytes.
     #[arg(long, value_name = "PATH", default_value = "xtask/benchmark-baseline.toml")]
     baseline: PathBuf,
 
     /// Fail when a median exceeds its baseline value by more than this factor.
-    /// Overrides the value in the baseline file.
+    /// Overrides the setting in the baseline file.
     #[arg(long, value_name = "FACTOR")]
     tolerance: Option<f64>,
+
+    /// Fail when peak or total allocated bytes exceed their baseline value by
+    /// more than this factor. Overrides the setting in the baseline file.
+    #[arg(long, value_name = "FACTOR")]
+    memory_tolerance: Option<f64>,
 
     /// Number of samples divan collects per benchmark.
     #[arg(long, value_name = "N", default_value_t = 100)]
     sample_count: u32,
 
-    /// Number of samples criterion collects per benchmark.
-    #[arg(long, value_name = "N", default_value_t = 100)]
-    sample_size: u32,
-
-    /// Run only benchmarks whose name matches this pattern (a regex for divan,
-    /// a substring for criterion).
+    /// Run only benchmarks whose name matches this regex.
     #[arg(long, value_name = "PATTERN")]
     filter: Option<String>,
 
-    /// Repeat both suites this many times and keep the fastest median per
-    /// benchmark.
+    /// Repeat both suites this many times and keep the smallest values.
     #[arg(long, value_name = "N", default_value_t = 1)]
     repeat: u32,
 
-    /// Read the medians from this file instead of running the benchmarks.
+    /// Read the measurements from this file instead of running the benchmarks.
     #[arg(long, value_name = "PATH", conflicts_with = "repeat")]
     from_results: Option<PathBuf>,
 
@@ -70,13 +81,37 @@ pub struct CheckBenchmarks {
     #[arg(long)]
     report_only: bool,
 
-    /// Write the measured medians to the baseline instead of comparing.
+    /// Write the measured values to the baseline instead of comparing.
     #[arg(long)]
     save_baseline: bool,
 
-    /// Write the measured medians to this file.
+    /// Write the measured values to this file.
     #[arg(long, value_name = "PATH", default_value = "target/benchmark-results.toml")]
     results: PathBuf,
+}
+
+/// One benchmark's values: time in nanoseconds, memory in bytes.
+#[derive(Debug, Clone, Copy, Default)]
+struct Measurement {
+    median_ns: Option<f64>,
+    max_alloc_bytes: Option<f64>,
+    alloc_bytes: Option<f64>,
+}
+
+type Measurements = BTreeMap<String, Measurement>;
+
+impl Measurement {
+    fn set_median(&mut self, value: f64) {
+        self.median_ns = Some(value);
+    }
+
+    fn set_max_alloc(&mut self, value: f64) {
+        self.max_alloc_bytes = Some(value);
+    }
+
+    fn set_alloc(&mut self, value: f64) {
+        self.alloc_bytes = Some(value);
+    }
 }
 
 impl CheckBenchmarks {
@@ -85,100 +120,95 @@ impl CheckBenchmarks {
             bail!("--repeat must be at least 1");
         }
 
-        let medians = if let Some(path) = &self.from_results {
-            load_medians(&rooted(path))
+        let measurements = if let Some(path) = &self.from_results {
+            load_measurements(&rooted(path))
                 .with_context(|| format!("Failed to read {}", path.display()))?
         } else {
             self.measure()?
         };
-        if medians.is_empty() {
-            bail!("No benchmark medians collected");
+        if measurements.is_empty() {
+            bail!("No benchmark results collected");
         }
 
         let results_path = rooted(&self.results);
-        write_medians(&results_path, &medians)?;
-        println!("Wrote {} benchmark medians to {}\n", medians.len(), results_path.display());
+        write_measurements(&results_path, &measurements)?;
+        println!("Wrote {} benchmark results to {}\n", measurements.len(), results_path.display());
 
         if self.save_baseline {
             let baseline_path = rooted(&self.baseline);
-            update_baseline(&baseline_path, &medians, self.filter.is_none())?;
+            update_baseline(&baseline_path, &measurements, self.filter.is_none())?;
             println!("Wrote baseline to {}", baseline_path.display());
             return Ok(());
         }
 
         let baseline = load_baseline(&rooted(&self.baseline))?;
-        if baseline.medians.is_empty() {
+        if baseline.measurements.is_empty() {
             eprintln!(
-                "warning: no baseline medians in {}; every benchmark is reported as new",
+                "warning: no baseline entries in {}; every benchmark is reported as new",
                 self.baseline.display()
             );
         }
-        let tolerance = self.tolerance.or(baseline.tolerance).unwrap_or(DEFAULT_TOLERANCE);
-        let rows = compare(&medians, &baseline.medians, tolerance, self.filter.is_none());
-        print_report(&rows, tolerance);
-        append_step_summary(&rows, tolerance)?;
+        let time_tolerance = self.tolerance.or(baseline.tolerance).unwrap_or(DEFAULT_TOLERANCE);
+        let memory_tolerance =
+            self.memory_tolerance.or(baseline.memory_tolerance).unwrap_or(DEFAULT_MEMORY_TOLERANCE);
+        let min_time_delta_ns = baseline.min_time_delta_ns.unwrap_or(DEFAULT_MIN_TIME_DELTA_NS);
+        let rows = compare(
+            &measurements,
+            &baseline.measurements,
+            time_tolerance,
+            memory_tolerance,
+            min_time_delta_ns,
+            self.filter.is_none(),
+        );
+        print_report(&rows, time_tolerance, memory_tolerance, min_time_delta_ns);
+        append_step_summary(&rows, time_tolerance, memory_tolerance, min_time_delta_ns)?;
 
-        let regressions = rows.iter().filter(|row| row.status == Status::Regression).count();
+        let regressions = rows.iter().filter(|row| row.has_regression()).count();
         if regressions > 0 && !self.report_only {
-            bail!("{regressions} benchmark(s) exceed the baseline by more than {tolerance:.2}x");
+            bail!("{regressions} benchmark(s) exceed their baseline by more than the tolerance");
         }
         Ok(())
     }
 
-    fn measure(&self) -> Result<BTreeMap<String, f64>> {
-        let mut medians = BTreeMap::new();
+    fn measure(&self) -> Result<Measurements> {
+        let mut measurements = Measurements::new();
         for _ in 0..self.repeat {
-            merge_min(&mut medians, self.measure_divan()?);
-            merge_min(&mut medians, self.measure_criterion()?);
+            merge_min(
+                &mut measurements,
+                self.measure_divan("i-slint-compiler", "semantic_analysis", &["rust"], None)?,
+            );
+            merge_min(
+                &mut measurements,
+                self.measure_divan("i-slint-core", "string", &[], Some(CORE_SAMPLE_SIZE))?,
+            );
         }
-        Ok(medians)
+        Ok(measurements)
     }
 
-    fn measure_divan(&self) -> Result<BTreeMap<String, f64>> {
+    fn measure_divan(
+        &self,
+        package: &str,
+        bench: &str,
+        features: &[&str],
+        sample_size: Option<u32>,
+    ) -> Result<Measurements> {
         let sample_count = self.sample_count.to_string();
-        let mut args = vec![
-            "bench",
-            "--locked",
-            "-p",
-            "i-slint-compiler",
-            "--features",
-            "rust",
-            "--bench",
-            "semantic_analysis",
-            "--",
-        ];
+        let sample_size = sample_size.map(|size| size.to_string());
+        let mut args = vec!["bench", "--locked", "-p", package];
+        if !features.is_empty() {
+            args.push("--features");
+            args.extend(features.iter().copied());
+        }
+        args.extend(["--bench", bench, "--"]);
         if let Some(filter) = &self.filter {
             args.push(filter);
         }
         args.extend(["--sample-count", &sample_count]);
+        if let Some(sample_size) = &sample_size {
+            args.extend(["--sample-size", sample_size]);
+        }
         let output = run_cargo_bench(&args)?;
         Ok(parse_divan_output(&output))
-    }
-
-    fn measure_criterion(&self) -> Result<BTreeMap<String, f64>> {
-        let criterion_dir = cargo_target_dir()?.join("criterion");
-        // Criterion keeps the results of earlier runs (and filters), so start
-        // from a clean directory to read exactly this run's medians.
-        if criterion_dir.exists() {
-            std::fs::remove_dir_all(&criterion_dir)
-                .with_context(|| format!("Failed to remove {}", criterion_dir.display()))?;
-        }
-
-        let sample_size = self.sample_size.to_string();
-        let mut args = vec!["bench", "--locked", "-p", "i-slint-core", "--bench", "string", "--"];
-        if let Some(filter) = &self.filter {
-            args.push(filter);
-        }
-        args.extend([
-            "--sample-size",
-            &sample_size,
-            "--warm-up-time",
-            CRITERION_WARM_UP_SECS,
-            "--measurement-time",
-            CRITERION_MEASUREMENT_SECS,
-        ]);
-        run_cargo_bench(&args)?;
-        collect_criterion_medians(&criterion_dir)
     }
 }
 
@@ -202,19 +232,27 @@ fn run_cargo_bench(args: &[&str]) -> Result<String> {
     String::from_utf8(output.stdout).context("Benchmark output is not UTF-8")
 }
 
-fn cargo_target_dir() -> Result<PathBuf> {
-    let metadata = cargo_metadata::MetadataCommand::new()
-        .current_dir(crate::root_dir())
-        .no_deps()
-        .exec()
-        .context("Failed to run cargo metadata")?;
-    Ok(metadata.target_directory.into_std_path_buf())
+fn merge_min(target: &mut Measurements, source: Measurements) {
+    for (name, value) in source {
+        match target.entry(name) {
+            Entry::Vacant(entry) => {
+                entry.insert(value);
+            }
+            Entry::Occupied(mut entry) => {
+                let slot = entry.get_mut();
+                slot.median_ns = min_option(slot.median_ns, value.median_ns);
+                slot.max_alloc_bytes = min_option(slot.max_alloc_bytes, value.max_alloc_bytes);
+                slot.alloc_bytes = min_option(slot.alloc_bytes, value.alloc_bytes);
+            }
+        }
+    }
 }
 
-fn merge_min(target: &mut BTreeMap<String, f64>, source: BTreeMap<String, f64>) {
-    for (name, value) in source {
-        let slot = target.entry(name).or_insert(f64::INFINITY);
-        *slot = slot.min(value);
+fn min_option(a: Option<f64>, b: Option<f64>) -> Option<f64> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (Some(value), None) | (None, Some(value)) => Some(value),
+        (None, None) => None,
     }
 }
 
@@ -223,24 +261,72 @@ static TIME_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"([0-9]+(?:\.[0-9]+)?) (ps|ns|µs|μs|ms|s)").unwrap()
 });
 
-/// Parse divan's tree table into `divan:<module>::<bench>::<arg>` medians.
-fn parse_divan_output(output: &str) -> BTreeMap<String, f64> {
-    let mut medians = BTreeMap::new();
+static BYTES_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"([0-9]+(?:\.[0-9]+)?) (B|KB|MB|GB|TB|PB|KiB|MiB|GiB|TiB|PiB)").unwrap()
+});
+
+/// The trailing `samples` and `iters` columns of a divan timing row.
+static SAMPLES_ITERS_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(\d+)\s*│\s*(\d+)\s*$").unwrap());
+
+/// Parse divan's tree table into `divan:<module>::<bench>::<arg>` measurements.
+fn parse_divan_output(output: &str) -> Measurements {
+    let lines: Vec<&str> = output.lines().collect();
+    let mut measurements = Measurements::new();
     let mut stack: Vec<&str> = Vec::new();
-    for line in output.lines() {
+    let mut current_leaf: Option<String> = None;
+    let mut current_sample_size = 1.0;
+    let mut index = 0;
+    while index < lines.len() {
+        let line = lines[index];
+
         // The root line carries the column headers; its name is the benchmark
         // binary and not part of a benchmark's path.
         if line.contains("fastest") && line.contains("median") {
+            current_leaf = None;
+            index += 1;
             continue;
         }
         if line.contains("(ignored)") {
+            index += 1;
             continue;
         }
+
+        // Allocation statistics follow the leaf's timing row: a label row, a
+        // row of operation counts, and a row of byte sizes.
+        if let Some(label) = divan_row_label(line) {
+            let metric = match label {
+                "max alloc:" => Some(MemoryMetric::MaxAlloc),
+                "alloc:" => Some(MemoryMetric::Alloc),
+                _ => None,
+            };
+            if let (Some(metric), Some(leaf)) = (metric, current_leaf.as_ref()) {
+                if let Some(bytes) =
+                    lines.get(index + 2).and_then(|line| divan_alloc_row_median(line))
+                {
+                    let measurement = measurements.entry(leaf.clone()).or_default();
+                    match metric {
+                        // Divan divides the sample's peak by the sample size,
+                        // so undo that to get the per-iteration peak.
+                        MemoryMetric::MaxAlloc => {
+                            measurement.max_alloc_bytes = Some(bytes * current_sample_size)
+                        }
+                        MemoryMetric::Alloc => measurement.alloc_bytes = Some(bytes),
+                    }
+                }
+                // Skip the label, count, and size rows.
+                index += 3;
+                continue;
+            }
+        }
+
         let Some((depth, rest)) = split_divan_tree_prefix(line) else {
+            index += 1;
             continue;
         };
         let name = rest.split("  ").next().unwrap_or_default().trim();
         if name.is_empty() {
+            index += 1;
             continue;
         }
         stack.truncate(depth);
@@ -255,12 +341,36 @@ fn parse_divan_output(output: &str) -> BTreeMap<String, f64> {
                 full_name.push_str("::");
             }
             full_name.push_str(name);
-            medians.insert(format!("divan:{full_name}"), times[2]);
+            let full_name = format!("divan:{full_name}");
+            measurements.entry(full_name.clone()).or_default().set_median(times[2]);
+            current_leaf = Some(full_name);
+            current_sample_size = sample_size_of(rest);
         } else {
             stack.push(name);
+            current_leaf = None;
+            current_sample_size = 1.0;
         }
+        index += 1;
     }
-    medians
+    measurements
+}
+
+enum MemoryMetric {
+    MaxAlloc,
+    Alloc,
+}
+
+/// The iterations per sample of a divan timing row, derived from the trailing
+/// `samples` and `iters` columns.
+fn sample_size_of(row: &str) -> f64 {
+    SAMPLES_ITERS_RE
+        .captures(row)
+        .and_then(|captures| {
+            let samples: f64 = captures[1].parse().ok()?;
+            let iters: f64 = captures[2].parse().ok()?;
+            (samples > 0.0).then_some(iters / samples)
+        })
+        .unwrap_or(1.0)
 }
 
 /// Split `│  ├─ name ...` into its depth and the text after the branch marker.
@@ -275,6 +385,23 @@ fn split_divan_tree_prefix(line: &str) -> Option<(usize, &str)> {
     Some((depth, rest))
 }
 
+/// Return the label in a row's name column, for example `max alloc:` or
+/// `alloc:` on the allocation statistic rows.
+fn divan_row_label(line: &str) -> Option<&str> {
+    let rest = line.trim_start_matches([' ', '│']);
+    let label = rest.split('│').next()?.trim_end();
+    if label.is_empty() { None } else { Some(label) }
+}
+
+/// Extract the median allocated bytes from a divan allocation size row.
+fn divan_alloc_row_median(line: &str) -> Option<f64> {
+    let sizes: Vec<f64> = BYTES_RE
+        .captures_iter(line)
+        .map(|captures| parse_bytes(&captures[1], &captures[2]))
+        .collect();
+    if sizes.len() == 4 { Some(sizes[2]) } else { None }
+}
+
 fn parse_duration(value: &str, unit: &str) -> f64 {
     let value: f64 = value.parse().expect("divan only prints numeric time values");
     match unit {
@@ -287,62 +414,23 @@ fn parse_duration(value: &str, unit: &str) -> f64 {
     }
 }
 
-/// Read the median point estimates from `target/criterion/**/new/estimates.json`.
-fn collect_criterion_medians(criterion_dir: &Path) -> Result<BTreeMap<String, f64>> {
-    let mut medians = BTreeMap::new();
-    if criterion_dir.exists() {
-        collect_criterion_medians_recursive(criterion_dir, criterion_dir, &mut medians)?;
-    }
-    Ok(medians)
-}
-
-fn collect_criterion_medians_recursive(
-    root: &Path,
-    dir: &Path,
-    medians: &mut BTreeMap<String, f64>,
-) -> Result<()> {
-    for entry in
-        std::fs::read_dir(dir).with_context(|| format!("Failed to read {}", dir.display()))?
-    {
-        let path = entry?.path();
-        if path.is_dir() {
-            collect_criterion_medians_recursive(root, &path, medians)?;
-            continue;
-        }
-        if path.file_name().and_then(|name| name.to_str()) != Some("estimates.json")
-            || path.parent().and_then(Path::file_name).and_then(|name| name.to_str()) != Some("new")
-        {
-            continue;
-        }
-        let Some(bench_dir) =
-            path.parent().and_then(Path::parent).and_then(|dir| dir.strip_prefix(root).ok())
-        else {
-            continue;
-        };
-        let name = bench_dir
-            .components()
-            .map(|component| component.as_os_str().to_string_lossy())
-            .collect::<Vec<_>>()
-            .join("::");
-        let json = std::fs::read_to_string(&path)
-            .with_context(|| format!("Failed to read {}", path.display()))?;
-        medians.insert(format!("criterion:{name}"), parse_criterion_estimate(&json)?);
-    }
-    Ok(())
-}
-
-fn parse_criterion_estimate(json: &str) -> Result<f64> {
-    #[derive(serde::Deserialize)]
-    struct Estimates {
-        median: Estimate,
-    }
-    #[derive(serde::Deserialize)]
-    struct Estimate {
-        point_estimate: f64,
-    }
-    let estimates: Estimates =
-        serde_json::from_str(json).context("Failed to parse criterion estimates.json")?;
-    Ok(estimates.median.point_estimate)
+fn parse_bytes(value: &str, unit: &str) -> f64 {
+    let value: f64 = value.parse().expect("divan only prints numeric byte values");
+    let scale = match unit {
+        "B" => 1.0,
+        "KB" => 1e3,
+        "MB" => 1e6,
+        "GB" => 1e9,
+        "TB" => 1e12,
+        "PB" => 1e15,
+        "KiB" => 1024.0,
+        "MiB" => 1024.0 * 1024.0,
+        "GiB" => 1024.0 * 1024.0 * 1024.0,
+        "TiB" => 1024.0 * 1024.0 * 1024.0 * 1024.0,
+        "PiB" => 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0,
+        _ => unreachable!("BYTES_RE only matches known units"),
+    };
+    value * scale
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -364,22 +452,84 @@ impl Status {
     }
 }
 
-struct Row {
-    name: String,
-    median: Option<f64>,
+fn combine_status(a: Status, b: Status) -> Status {
+    match (a, b) {
+        (Status::Regression, _) | (_, Status::Regression) => Status::Regression,
+        (Status::Missing, _) | (_, Status::Missing) => Status::Missing,
+        (Status::New, _) | (_, Status::New) => Status::New,
+        _ => Status::Ok,
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Metric {
+    measured: Option<f64>,
     baseline: Option<f64>,
     status: Status,
 }
 
+impl Metric {
+    fn ratio(&self) -> Option<f64> {
+        match (self.measured, self.baseline) {
+            (Some(measured), Some(baseline)) if baseline > 0.0 => Some(measured / baseline),
+            _ => None,
+        }
+    }
+}
+
+struct Row {
+    name: String,
+    median: Metric,
+    max_alloc: Metric,
+    alloc: Metric,
+}
+
+impl Row {
+    fn memory_status(&self) -> Status {
+        combine_status(self.max_alloc.status, self.alloc.status)
+    }
+
+    fn has_memory(&self) -> bool {
+        self.max_alloc.measured.is_some()
+            || self.max_alloc.baseline.is_some()
+            || self.alloc.measured.is_some()
+            || self.alloc.baseline.is_some()
+    }
+
+    fn has_regression(&self) -> bool {
+        self.median.status == Status::Regression
+            || self.max_alloc.status == Status::Regression
+            || self.alloc.status == Status::Regression
+    }
+}
+
+fn metric(measured: Option<f64>, baseline: Option<f64>, tolerance: f64, min_delta: f64) -> Metric {
+    let status = match (measured, baseline) {
+        (Some(measured), Some(baseline)) => {
+            if measured > baseline * tolerance && measured - baseline > min_delta {
+                Status::Regression
+            } else {
+                Status::Ok
+            }
+        }
+        (Some(_), None) => Status::New,
+        (None, Some(_)) => Status::Missing,
+        (None, None) => Status::Ok,
+    };
+    Metric { measured, baseline, status }
+}
+
 fn compare(
-    medians: &BTreeMap<String, f64>,
-    baseline: &BTreeMap<String, f64>,
-    tolerance: f64,
+    measurements: &Measurements,
+    baseline: &Measurements,
+    time_tolerance: f64,
+    memory_tolerance: f64,
+    min_time_delta_ns: f64,
     include_missing: bool,
 ) -> Vec<Row> {
-    let mut names: Vec<&String> = medians.keys().collect();
+    let mut names: Vec<&String> = measurements.keys().collect();
     if include_missing {
-        names.extend(baseline.keys().filter(|name| !medians.contains_key(*name)));
+        names.extend(baseline.keys().filter(|name| !measurements.contains_key(*name)));
         names.sort();
         names.dedup();
     }
@@ -387,50 +537,85 @@ fn compare(
     names
         .into_iter()
         .map(|name| {
-            let median = medians.get(name).copied();
-            let baseline_value = baseline.get(name).copied();
-            let status = match (median, baseline_value) {
-                (Some(median), Some(baseline)) => {
-                    if median > baseline * tolerance {
-                        Status::Regression
-                    } else {
-                        Status::Ok
-                    }
-                }
-                (Some(_), None) => Status::New,
-                (None, _) => Status::Missing,
-            };
-            Row { name: name.clone(), median, baseline: baseline_value, status }
+            let measured = measurements.get(name);
+            let baseline = baseline.get(name);
+            Row {
+                name: name.clone(),
+                median: metric(
+                    measured.and_then(|m| m.median_ns),
+                    baseline.and_then(|b| b.median_ns),
+                    time_tolerance,
+                    min_time_delta_ns,
+                ),
+                max_alloc: metric(
+                    measured.and_then(|m| m.max_alloc_bytes),
+                    baseline.and_then(|b| b.max_alloc_bytes),
+                    memory_tolerance,
+                    0.0,
+                ),
+                alloc: metric(
+                    measured.and_then(|m| m.alloc_bytes),
+                    baseline.and_then(|b| b.alloc_bytes),
+                    memory_tolerance,
+                    0.0,
+                ),
+            }
         })
         .collect()
 }
 
-fn print_report(rows: &[Row], tolerance: f64) {
+fn print_report(rows: &[Row], time_tolerance: f64, memory_tolerance: f64, min_time_delta_ns: f64) {
     let name_width = rows.iter().map(|row| row.name.len()).max().unwrap_or(0);
+
+    println!("Execution time");
     println!(
         "{:<name_width$}  {:>12}  {:>12}  {:>7}  Status",
         "Benchmark", "Median", "Baseline", "Ratio"
     );
     for row in rows {
-        let ratio = match (row.median, row.baseline) {
-            (Some(median), Some(baseline)) if baseline > 0.0 => {
-                format!("{:.2}x", median / baseline)
-            }
-            _ => "-".to_string(),
-        };
         println!(
             "{:<name_width$}  {:>12}  {:>12}  {:>7}  {}",
             row.name,
-            row.median.map(format_duration).unwrap_or_else(|| "-".to_string()),
-            row.baseline.map(format_duration).unwrap_or_else(|| "-".to_string()),
-            ratio,
-            row.status.as_str(),
+            format_optional(row.median.measured, format_duration),
+            format_optional(row.median.baseline, format_duration),
+            format_optional(row.median.ratio(), format_ratio),
+            row.median.status.as_str(),
         );
     }
-    println!("\nTolerance: {tolerance:.2}x");
+
+    let memory_rows: Vec<&Row> = rows.iter().filter(|row| row.has_memory()).collect();
+    if !memory_rows.is_empty() {
+        println!("\nMemory per iteration");
+        println!(
+            "{:<name_width$}  {:>12}  {:>12}  {:>7}  {:>12}  {:>12}  {:>7}  Status",
+            "Benchmark", "Peak", "Baseline", "Ratio", "Allocated", "Baseline", "Ratio"
+        );
+        for row in memory_rows {
+            println!(
+                "{:<name_width$}  {:>12}  {:>12}  {:>7}  {:>12}  {:>12}  {:>7}  {}",
+                row.name,
+                format_optional(row.max_alloc.measured, format_bytes),
+                format_optional(row.max_alloc.baseline, format_bytes),
+                format_optional(row.max_alloc.ratio(), format_ratio),
+                format_optional(row.alloc.measured, format_bytes),
+                format_optional(row.alloc.baseline, format_bytes),
+                format_optional(row.alloc.ratio(), format_ratio),
+                row.memory_status().as_str(),
+            );
+        }
+    }
+
+    println!(
+        "\nTolerances: time {time_tolerance:.2}x above {min_time_delta_ns:.0} ns, memory {memory_tolerance:.2}x"
+    );
 }
 
-fn append_step_summary(rows: &[Row], tolerance: f64) -> Result<()> {
+fn append_step_summary(
+    rows: &[Row],
+    time_tolerance: f64,
+    memory_tolerance: f64,
+    min_time_delta_ns: f64,
+) -> Result<()> {
     let Ok(summary_path) = std::env::var("GITHUB_STEP_SUMMARY") else {
         return Ok(());
     };
@@ -438,22 +623,41 @@ fn append_step_summary(rows: &[Row], tolerance: f64) -> Result<()> {
     summary.push_str("| Benchmark | Median | Baseline | Ratio | Status |\n");
     summary.push_str("| --- | --- | --- | --- | --- |\n");
     for row in rows {
-        let ratio = match (row.median, row.baseline) {
-            (Some(median), Some(baseline)) if baseline > 0.0 => {
-                format!("{:.2}x", median / baseline)
-            }
-            _ => "-".to_string(),
-        };
         summary.push_str(&format!(
             "| `{}` | {} | {} | {} | {} |\n",
             row.name,
-            row.median.map(format_duration).unwrap_or_else(|| "-".to_string()),
-            row.baseline.map(format_duration).unwrap_or_else(|| "-".to_string()),
-            ratio,
-            row.status.as_str(),
+            format_optional(row.median.measured, format_duration),
+            format_optional(row.median.baseline, format_duration),
+            format_optional(row.median.ratio(), format_ratio),
+            row.median.status.as_str(),
         ));
     }
-    summary.push_str(&format!("\nTolerance: {tolerance:.2}x\n"));
+
+    let memory_rows: Vec<&Row> = rows.iter().filter(|row| row.has_memory()).collect();
+    if !memory_rows.is_empty() {
+        summary.push_str("\n### Benchmark memory per iteration\n\n");
+        summary.push_str(
+            "| Benchmark | Peak | Baseline | Ratio | Allocated | Baseline | Ratio | Status |\n",
+        );
+        summary.push_str("| --- | --- | --- | --- | --- | --- | --- | --- |\n");
+        for row in memory_rows {
+            summary.push_str(&format!(
+                "| `{}` | {} | {} | {} | {} | {} | {} | {} |\n",
+                row.name,
+                format_optional(row.max_alloc.measured, format_bytes),
+                format_optional(row.max_alloc.baseline, format_bytes),
+                format_optional(row.max_alloc.ratio(), format_ratio),
+                format_optional(row.alloc.measured, format_bytes),
+                format_optional(row.alloc.baseline, format_bytes),
+                format_optional(row.alloc.ratio(), format_ratio),
+                row.memory_status().as_str(),
+            ));
+        }
+    }
+
+    summary.push_str(&format!(
+        "\nTolerances: time {time_tolerance:.2}x above {min_time_delta_ns:.0} ns, memory {memory_tolerance:.2}x\n"
+    ));
     use std::io::Write;
     let mut file = std::fs::OpenOptions::new()
         .append(true)
@@ -461,6 +665,14 @@ fn append_step_summary(rows: &[Row], tolerance: f64) -> Result<()> {
         .open(&summary_path)
         .with_context(|| format!("Failed to open {summary_path}"))?;
     file.write_all(summary.as_bytes()).context("Failed to write the step summary")
+}
+
+fn format_optional(value: Option<f64>, format: impl Fn(f64) -> String) -> String {
+    value.map(format).unwrap_or_else(|| "-".to_string())
+}
+
+fn format_ratio(ratio: f64) -> String {
+    format!("{ratio:.2}x")
 }
 
 fn format_duration(nanoseconds: f64) -> String {
@@ -475,10 +687,26 @@ fn format_duration(nanoseconds: f64) -> String {
     }
 }
 
+fn format_bytes(bytes: f64) -> String {
+    if bytes >= 1e12 {
+        format!("{:.3} TB", bytes / 1e12)
+    } else if bytes >= 1e9 {
+        format!("{:.3} GB", bytes / 1e9)
+    } else if bytes >= 1e6 {
+        format!("{:.3} MB", bytes / 1e6)
+    } else if bytes >= 1e3 {
+        format!("{:.3} KB", bytes / 1e3)
+    } else {
+        format!("{bytes:.0} B")
+    }
+}
+
 #[derive(Default)]
 struct Baseline {
     tolerance: Option<f64>,
-    medians: BTreeMap<String, f64>,
+    memory_tolerance: Option<f64>,
+    min_time_delta_ns: Option<f64>,
+    measurements: Measurements,
 }
 
 fn load_baseline(path: &Path) -> Result<Baseline> {
@@ -486,16 +714,22 @@ fn load_baseline(path: &Path) -> Result<Baseline> {
         return Ok(Baseline::default());
     }
     let doc = parse_toml(path)?;
-    let tolerance = doc
-        .get("settings")
-        .and_then(Item::as_table)
-        .and_then(|settings| settings.get("tolerance"))
-        .and_then(item_as_f64);
-    Ok(Baseline { tolerance, medians: medians_from_doc(&doc) })
+    let setting = |name: &str| -> Option<f64> {
+        doc.get("settings")
+            .and_then(Item::as_table)
+            .and_then(|settings| settings.get(name))
+            .and_then(item_as_f64)
+    };
+    Ok(Baseline {
+        tolerance: setting("tolerance"),
+        memory_tolerance: setting("memory_tolerance"),
+        min_time_delta_ns: setting("min_time_delta_ns"),
+        measurements: measurements_from_doc(&doc),
+    })
 }
 
-fn load_medians(path: &Path) -> Result<BTreeMap<String, f64>> {
-    Ok(medians_from_doc(&parse_toml(path)?))
+fn load_measurements(path: &Path) -> Result<Measurements> {
+    Ok(measurements_from_doc(&parse_toml(path)?))
 }
 
 fn parse_toml(path: &Path) -> Result<DocumentMut> {
@@ -504,44 +738,68 @@ fn parse_toml(path: &Path) -> Result<DocumentMut> {
     text.parse().with_context(|| format!("Failed to parse {}", path.display()))
 }
 
-fn medians_from_doc(doc: &DocumentMut) -> BTreeMap<String, f64> {
-    doc.get("medians")
-        .and_then(Item::as_table)
-        .map(|table| {
-            table
-                .iter()
-                .filter_map(|(name, item)| item_as_f64(item).map(|value| (name.to_string(), value)))
-                .collect()
-        })
-        .unwrap_or_default()
+fn measurements_from_doc(doc: &DocumentMut) -> Measurements {
+    let mut measurements = Measurements::new();
+    for (table_name, set_metric) in [
+        ("medians", Measurement::set_median as fn(&mut Measurement, f64)),
+        ("max_alloc_bytes", Measurement::set_max_alloc),
+        ("alloc_bytes", Measurement::set_alloc),
+    ] {
+        let Some(table) = doc.get(table_name).and_then(Item::as_table) else {
+            continue;
+        };
+        for (name, item) in table.iter() {
+            if let Some(value) = item_as_f64(item) {
+                set_metric(measurements.entry(name.to_string()).or_default(), value);
+            }
+        }
+    }
+    measurements
 }
 
 fn item_as_f64(item: &Item) -> Option<f64> {
     item.as_float().or_else(|| item.as_integer().map(|value| value as f64))
 }
 
-fn write_medians(path: &Path, medians: &BTreeMap<String, f64>) -> Result<()> {
+fn write_measurements(path: &Path, measurements: &Measurements) -> Result<()> {
     let mut doc = DocumentMut::new();
-    doc["medians"] = Item::Table(medians_table(medians));
+    doc["medians"] = Item::Table(measurement_table(measurements, |m| m.median_ns));
+    doc["max_alloc_bytes"] = Item::Table(measurement_table(measurements, |m| m.max_alloc_bytes));
+    doc["alloc_bytes"] = Item::Table(measurement_table(measurements, |m| m.alloc_bytes));
     write_doc(path, &doc)
 }
 
-fn update_baseline(path: &Path, medians: &BTreeMap<String, f64>, replace: bool) -> Result<()> {
+fn update_baseline(path: &Path, measurements: &Measurements, replace: bool) -> Result<()> {
     let mut doc = if path.exists() { parse_toml(path)? } else { DocumentMut::new() };
-    let table = doc["medians"].as_table_mut().context("'medians' is not a table")?;
-    if replace {
-        table.clear();
-    }
-    for (name, value) in medians {
-        table.insert(name, toml_edit::value(*value));
+    for (table_name, get_metric) in [
+        ("medians", (|m: &Measurement| m.median_ns) as fn(&Measurement) -> Option<f64>),
+        ("max_alloc_bytes", |m| m.max_alloc_bytes),
+        ("alloc_bytes", |m| m.alloc_bytes),
+    ] {
+        let table = doc[table_name]
+            .as_table_mut()
+            .with_context(|| format!("'{table_name}' is not a table"))?;
+        if replace {
+            table.clear();
+        }
+        for (name, measurement) in measurements {
+            if let Some(value) = get_metric(measurement) {
+                table.insert(name, toml_edit::value(value));
+            }
+        }
     }
     write_doc(path, &doc)
 }
 
-fn medians_table(medians: &BTreeMap<String, f64>) -> toml_edit::Table {
+fn measurement_table(
+    measurements: &Measurements,
+    get_metric: fn(&Measurement) -> Option<f64>,
+) -> toml_edit::Table {
     let mut table = toml_edit::Table::new();
-    for (name, value) in medians {
-        table.insert(name, toml_edit::value(*value));
+    for (name, measurement) in measurements {
+        if let Some(value) = get_metric(measurement) {
+            table.insert(name, toml_edit::value(value));
+        }
     }
     table
 }
@@ -566,11 +824,32 @@ mod tests {
 │     │              max alloc:    │               │               │               │         │
 │     │                810         │ 1122          │ 810           │ 914           │         │
 │     │                466.4 KB    │ 505.3 KB      │ 466.4 KB      │ 479.4 KB      │         │
+│     │              alloc:        │               │               │               │         │
+│     │                1393        │ 1917          │ 1393          │ 1567          │         │
+│     │                775.4 KB    │ 830.1 KB      │ 775.4 KB      │ 793.6 KB      │         │
+│     │              dealloc:      │               │               │               │         │
+│     │                1393        │ 1603          │ 1393          │ 1463          │         │
+│     │                809 KB      │ 812.6 KB      │ 809 KB        │ 810.2 KB      │         │
 │     ╰─ 200         1.397 ms      │ 1.491 ms      │ 1.475 ms      │ 1.454 ms      │ 3       │ 3
 ╰─ parsing                         │               │               │               │         │
+   ├─ fast_bench                  57.21 ns      │ 1.7 µs        │ 59.21 ns      │ 75.85 ns      │ 100     │ 1600
+   │              max alloc:       │               │               │               │         │
+   │                0.125          │ 0.125         │ 0.125         │ 0.125         │         │
+   │                3.437 B        │ 3.437 B       │ 3.437 B       │ 3.437 B       │         │
+   │              alloc:           │               │               │               │         │
+   │                2              │ 2             │ 2             │ 2             │         │
+   │                55 B           │ 55 B          │ 55 B          │ 55 B          │         │
    ├─ ignored_bench (ignored)      │               │               │               │         │
    ╰─ simple_component             12.5 ns        │ 20 ns         │ 15 ns         │ 16 ns         │ 3       │ 3
 "#;
+
+    fn measurement(
+        median_ns: f64,
+        max_alloc_bytes: Option<f64>,
+        alloc_bytes: Option<f64>,
+    ) -> Measurement {
+        Measurement { median_ns: Some(median_ns), max_alloc_bytes, alloc_bytes }
+    }
 
     fn assert_close(actual: f64, expected: f64) {
         assert!((actual - expected).abs() < 1e-6, "{actual} != {expected}");
@@ -578,15 +857,33 @@ mod tests {
 
     #[test]
     fn parses_divan_tree() {
-        let medians = parse_divan_output(DIVAN_OUTPUT);
-        assert_eq!(medians.len(), 3);
-        assert_close(medians["divan:full_compilation::many_children::10"], 835_100.0);
-        assert_close(medians["divan:full_compilation::many_children::200"], 1_475_000.0);
-        assert_close(medians["divan:parsing::simple_component"], 15.0);
+        let measurements = parse_divan_output(DIVAN_OUTPUT);
+        assert_eq!(measurements.len(), 4);
+
+        let many_children_10 = &measurements["divan:full_compilation::many_children::10"];
+        assert_close(many_children_10.median_ns.unwrap(), 835_100.0);
+        assert_close(many_children_10.max_alloc_bytes.unwrap(), 466_400.0);
+        assert_close(many_children_10.alloc_bytes.unwrap(), 775_400.0);
+
+        let many_children_200 = &measurements["divan:full_compilation::many_children::200"];
+        assert_close(many_children_200.median_ns.unwrap(), 1_475_000.0);
+        assert_eq!(many_children_200.max_alloc_bytes, None);
+
+        // Divan divides a sample's peak allocation by the sample size; the
+        // parser undoes that to report the per-iteration peak.
+        let fast_bench = &measurements["divan:parsing::fast_bench"];
+        assert_close(fast_bench.median_ns.unwrap(), 59.21);
+        assert_close(fast_bench.max_alloc_bytes.unwrap(), 3.437 * 16.0);
+        assert_close(fast_bench.alloc_bytes.unwrap(), 55.0);
+
+        let simple_component = &measurements["divan:parsing::simple_component"];
+        assert_close(simple_component.median_ns.unwrap(), 15.0);
+        assert_eq!(simple_component.max_alloc_bytes, None);
+        assert_eq!(simple_component.alloc_bytes, None);
     }
 
     #[test]
-    fn parses_divan_units() {
+    fn parses_duration_units() {
         assert_close(parse_duration("500", "ps"), 0.5);
         assert_close(parse_duration("1.5", "ns"), 1.5);
         assert_close(parse_duration("2.5", "µs"), 2_500.0);
@@ -596,32 +893,70 @@ mod tests {
     }
 
     #[test]
-    fn parses_criterion_estimate() {
-        let json = r#"{"median": {"confidence_interval": {"lower_bound": 58.6, "upper_bound": 66.9, "confidence_level": 0.95}, "point_estimate": 63.5, "standard_error": 2.0}}"#;
-        assert_close(parse_criterion_estimate(json).unwrap(), 63.5);
+    fn parses_byte_units() {
+        assert_close(parse_bytes("512", "B"), 512.0);
+        assert_close(parse_bytes("2.5", "KB"), 2_500.0);
+        assert_close(parse_bytes("3", "MB"), 3_000_000.0);
+        assert_close(parse_bytes("4", "GiB"), 4.0 * 1024.0 * 1024.0 * 1024.0);
     }
 
     #[test]
     fn compares_against_baseline() {
-        let medians = BTreeMap::from([
-            ("fast".to_string(), 100.0),
-            ("regressed".to_string(), 160.0),
-            ("added".to_string(), 10.0),
+        let measurements = Measurements::from([
+            ("added".to_string(), measurement(10.0, None, None)),
+            ("fast".to_string(), measurement(100.0, Some(1000.0), Some(2000.0))),
+            ("grew-memory".to_string(), measurement(100.0, Some(1150.0), Some(2000.0))),
+            ("regressed".to_string(), measurement(160.0, Some(1000.0), Some(2000.0))),
         ]);
-        let baseline = BTreeMap::from([
-            ("fast".to_string(), 100.0),
-            ("regressed".to_string(), 100.0),
-            ("removed".to_string(), 100.0),
+        let baseline = Measurements::from([
+            ("fast".to_string(), measurement(100.0, Some(1000.0), Some(2000.0))),
+            ("grew-memory".to_string(), measurement(100.0, Some(1000.0), Some(2000.0))),
+            ("regressed".to_string(), measurement(100.0, Some(1000.0), Some(2000.0))),
+            ("removed".to_string(), measurement(100.0, Some(1000.0), Some(2000.0))),
         ]);
-        let rows = compare(&medians, &baseline, 1.5, true);
-        assert_eq!(rows.len(), 4);
-        assert_eq!(rows[0].status, Status::New);
+        let rows = compare(&measurements, &baseline, 1.2, 1.1, 0.0, true);
+        assert_eq!(rows.len(), 5);
+
+        assert_eq!(rows[0].name, "added");
+        assert_eq!(rows[0].median.status, Status::New);
+        assert_eq!(rows[0].memory_status(), Status::Ok);
+        assert!(!rows[0].has_memory());
+
         assert_eq!(rows[1].name, "fast");
-        assert_eq!(rows[1].status, Status::Ok);
-        assert_eq!(rows[2].name, "regressed");
-        assert_eq!(rows[2].status, Status::Regression);
-        assert_eq!(rows[3].name, "removed");
-        assert_eq!(rows[3].status, Status::Missing);
+        assert_eq!(rows[1].median.status, Status::Ok);
+        assert_eq!(rows[1].memory_status(), Status::Ok);
+        assert!(!rows[1].has_regression());
+
+        assert_eq!(rows[2].name, "grew-memory");
+        assert_eq!(rows[2].median.status, Status::Ok);
+        assert_eq!(rows[2].max_alloc.status, Status::Regression);
+        assert_eq!(rows[2].memory_status(), Status::Regression);
+        assert!(rows[2].has_regression());
+
+        assert_eq!(rows[3].name, "regressed");
+        assert_eq!(rows[3].median.status, Status::Regression);
+        assert!(rows[3].has_regression());
+
+        assert_eq!(rows[4].name, "removed");
+        assert_eq!(rows[4].median.status, Status::Missing);
+        assert!(!rows[4].has_regression());
+    }
+
+    #[test]
+    fn ignores_small_time_deltas() {
+        let measurements = Measurements::from([
+            ("drifted".to_string(), measurement(160.0, None, None)),
+            ("regressed".to_string(), measurement(300.0, None, None)),
+        ]);
+        let baseline = Measurements::from([
+            ("drifted".to_string(), measurement(100.0, None, None)),
+            ("regressed".to_string(), measurement(100.0, None, None)),
+        ]);
+        let rows = compare(&measurements, &baseline, 1.2, 1.1, 100.0, false);
+        assert_eq!(rows[0].name, "drifted");
+        assert_eq!(rows[0].median.status, Status::Ok);
+        assert_eq!(rows[1].name, "regressed");
+        assert_eq!(rows[1].median.status, Status::Regression);
     }
 
     #[test]
@@ -630,5 +965,13 @@ mod tests {
         assert_eq!(format_duration(1_500.0), "1.500 µs");
         assert_eq!(format_duration(2_500_000.0), "2.500 ms");
         assert_eq!(format_duration(1_250_000_000.0), "1.250 s");
+    }
+
+    #[test]
+    fn formats_bytes() {
+        assert_eq!(format_bytes(512.0), "512 B");
+        assert_eq!(format_bytes(1_500.0), "1.500 KB");
+        assert_eq!(format_bytes(2_500_000.0), "2.500 MB");
+        assert_eq!(format_bytes(1_250_000_000.0), "1.250 GB");
     }
 }

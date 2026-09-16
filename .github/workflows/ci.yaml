@@ -754,10 +754,10 @@ jobs:
             update: true
             save_if: false
 
-    # Compare benchmark medians against xtask/benchmark-baseline.toml. The
-    # numbers depend on the machine, so this only runs on the pinned full-CI
-    # runner. Seed or refresh the baseline from the uploaded results artifact
-    # (see docs/development.md).
+    # Compare benchmark times and memory usage against
+    # xtask/benchmark-baseline.toml. The numbers depend on the machine, so this
+    # only runs on the pinned full-CI runner. Seed or refresh the baseline from
+    # the uploaded results artifact (see docs/development.md).
     benchmarks:
         if: ${{ inputs.full }}
         name: Benchmark regression check
@@ -771,7 +771,7 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-benchmarks
-            - name: Check benchmark medians against the baseline
+            - name: Check benchmark times and memory against the baseline
               run: cargo xtask check_benchmarks
             - name: Upload benchmark results
               if: always()
