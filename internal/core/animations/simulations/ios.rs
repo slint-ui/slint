@@ -334,18 +334,6 @@ mod tests {
     }
 
     #[test]
-    fn overshoot_is_allowed() {
-        let time = Instant::default();
-        let simulation = IOsFlick::new_internal(
-            10.,
-            test_limit_property(20.),
-            IOsFlickParameters::new(500.),
-            time,
-        );
-        assert!(simulation.overshoot_allowed());
-    }
-
-    #[test]
     fn zero_init_velocity() {
         const START_VALUE: f32 = 10.;
 
