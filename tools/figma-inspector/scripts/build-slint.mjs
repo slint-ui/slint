@@ -40,6 +40,11 @@ execFileSync(
     },
 );
 verifyRuntime();
+execFileSync(
+    process.execPath,
+    [resolve(projectRoot, "scripts/build-font-capabilities.mjs")],
+    { stdio: "inherit" },
+);
 console.log(
     `Built Slint ${runtimePin.version} interpreter at ${runtimePin.revision}`,
 );

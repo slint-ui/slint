@@ -14,7 +14,7 @@ import {
 } from "./normalization-context";
 import {
     normalizeText,
-    classifyNonInterText,
+    textRequiresRasterPreview,
     captureTableCellText,
 } from "./normalization-text";
 import {
@@ -1290,12 +1290,12 @@ async function captureNodeStrict(
     }
     if (node.type === "TEXT") {
         const textNode = node;
-        const nonInterText =
+        const rasterText =
             context.target === "export"
                 ? false
-                : classifyNonInterText(textNode, mixedValue);
-        if (typeof nonInterText !== "boolean") return nonInterText;
-        if (context.target !== "export" && nonInterText) {
+                : textRequiresRasterPreview(textNode, mixedValue);
+        if (typeof rasterText !== "boolean") return rasterText;
+        if (context.target !== "export" && rasterText) {
             context.metrics.requests += 1;
             context.metrics.exports += 1;
             return normalizeVisual(
@@ -1650,7 +1650,7 @@ export function requiresVisualExport(
                 "PAGE",
             ].includes(node.type)
         );
-    return classifyNonInterText(node, SOURCE_MIXED) === true;
+    return textRequiresRasterPreview(node, SOURCE_MIXED) === true;
 }
 
 function groupChildPosition(
