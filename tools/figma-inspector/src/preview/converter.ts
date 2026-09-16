@@ -152,7 +152,10 @@ function sizingConstraints(
             otherSizing === "fixed" &&
             (sizing === "hug" || (sizing === "fill" && !mainAxis))
         ) {
-            lines.push(property(dimension, resolved, depth), property(stretch, 0, depth));
+            lines.push(
+                property(dimension, resolved, depth),
+                property(stretch, 0, depth),
+            );
             return;
         }
         if (sizing === "hug") {
@@ -602,19 +605,57 @@ function nodeSource(
                 -bounds.y,
                 bounds.y + bounds.height - node.height,
             );
+            context.helperIds ??= new Map<string, string>();
+            const helpers = context.helperIds;
+            if (!helpers.has(node.id))
+                helpers.set(node.id, `figma-overflow-${helpers.size + 1}`);
+            const prefix = helpers.get(node.id);
+            const measure = `${prefix}-measure`;
+            const single = `${prefix}-single`;
+            const singleLine = /[\r\n\u2028\u2029]/u.test(node.characters)
+                ? "false"
+                : node.wrap
+                  ? `${measure}.preferred-height <= ${single}.preferred-height`
+                  : "true";
+            if (node.wrap && horizontalPadding > 0)
+                context.warnings.push({
+                    severity: "warning",
+                    code: "TEXT_OVERFLOW_APPROXIMATED",
+                    nodeId: node.id,
+                    nodeName: node.name,
+                    propertyPath: "textPaintBounds",
+                    message:
+                        "Wrapped text preserves its original width; horizontal glyph overhang may still be clipped",
+                });
             lines.push(
                 {
                     ...openElement("Text", depth + 1, node),
+                    id: measure,
+                    role: "overflow-measure",
+                },
+                property("x", "0px", depth + 2),
+                property("y", "0px", depth + 2),
+                property("width", "parent.width", depth + 2),
+                property("height", "parent.height", depth + 2),
+                property("opacity", 0, depth + 2),
+                ...textSource(node, false, context, depth + 2),
+                closeElement(depth + 1),
+            );
+            lines.push(
+                {
+                    ...openElement("Text", depth + 1, node),
+                    id: single,
                     role: "overflow-text",
                 },
+                property("visible", singleLine, depth + 2),
                 property(
                     "width",
-                    `max(parent.width, self.preferred-width) + ${number(horizontalPadding * 2)}px`,
+                    `parent.width + 2px * ceil(max(0px, self.preferred-width - parent.width) / 2px + ${number(horizontalPadding)})`,
                     depth + 2,
                 ),
                 property(
                     "height",
-                    `max(parent.height, self.preferred-height) + ${number(verticalPadding * 2)}px`,
+                    `parent.height + 2px * ceil(max(0px, self.preferred-height - parent.height) / 2px + ${number(verticalPadding)})`,
                     depth + 2,
                 ),
                 property(
@@ -648,7 +689,49 @@ function nodeSource(
                 ),
                 closeElement(depth + 1),
             );
-        } else lines.push(...textSource(node, styledText, context, depth + 1));
+            lines.push(
+                {
+                    ...openElement("Text", depth + 1, node),
+                    role: "overflow-wrapped",
+                },
+                property("visible", `!(${singleLine})`, depth + 2),
+                property("x", "0px", depth + 2),
+                property("width", "parent.width", depth + 2),
+                property(
+                    "height",
+                    `parent.height + 2px * ceil(max(0px, ${measure}.preferred-height - parent.height) / 2px + ${number(verticalPadding)})`,
+                    depth + 2,
+                ),
+                property(
+                    "y",
+                    node.verticalAlign === "TOP"
+                        ? `(${measure}.preferred-height - self.height) / 2`
+                        : node.verticalAlign === "BOTTOM"
+                          ? `parent.height - (self.height + ${measure}.preferred-height) / 2`
+                          : "(parent.height - self.height) / 2",
+                    depth + 2,
+                ),
+                ...textSource(
+                    { ...node, verticalAlign: "CENTER" },
+                    false,
+                    context,
+                    depth + 2,
+                ),
+                closeElement(depth + 1),
+            );
+        } else {
+            if (node.paintBounds && node.overflow === "clip")
+                context.warnings.push({
+                    severity: "warning",
+                    code: "TEXT_OVERFLOW_APPROXIMATED",
+                    nodeId: node.id,
+                    nodeName: node.name,
+                    propertyPath: "textPaintBounds",
+                    message:
+                        "Overflowing styled, justified, or intrinsically sized text retains Slint's text-box clipping",
+                });
+            lines.push(...textSource(node, styledText, context, depth + 1));
+        }
     }
     lines.push(closeElement(depth));
     return lines;

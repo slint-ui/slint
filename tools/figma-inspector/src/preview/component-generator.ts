@@ -117,7 +117,7 @@ function applyContract(
             ),
         ),
     };
-    if (refs?.visible) {
+    if (refs?.visible && !tree.role) {
         const property = names.get(refs.visible);
         if (property) result.condition = `root.${property.name}`;
     }
@@ -131,6 +131,44 @@ function normalizeBindingOrder(tree: Element): Element {
         ),
         children: tree.children.map(normalizeBindingOrder),
     };
+}
+
+function normalizeElementIds(trees: Element[]) {
+    const names = new Map<string, string>();
+    for (const tree of trees) {
+        const aliases = new Map<string, string>();
+        function collect(element: Element, path: string[]) {
+            if (element.id) {
+                const key = JSON.stringify(path);
+                if (!names.has(key))
+                    names.set(key, `figma-helper-${names.size + 1}`);
+                aliases.set(element.id, requireValue(names.get(key)));
+            }
+            const roles = childRoles([element])[0];
+            const counts = new Map<string, number>();
+            element.children.forEach((child, i) => {
+                const count = counts.get(roles[i]) ?? 0;
+                counts.set(roles[i], count + 1);
+                collect(child, [...path, `${roles[i]}:${count}`]);
+            });
+        }
+        collect(tree, []);
+        const rewrite = (code: string) =>
+            code.replace(
+                /"(?:\\.|[^"\\])*"|[\p{L}_][\p{L}\p{N}_-]*(?=\.)/gu,
+                (token) => aliases.get(token) ?? token,
+            );
+        function apply(element: Element) {
+            if (element.id) element.id = aliases.get(element.id);
+            if (element.condition)
+                element.condition = rewrite(element.condition);
+            for (const b of element.bindings)
+                if (b.value.kind !== "literal")
+                    b.value = { ...b.value, code: rewrite(b.value.code) };
+            element.children.forEach(apply);
+        }
+        apply(tree);
+    }
 }
 
 /** Compile definitions independently of occurrences, with private literal specializations. */
@@ -319,6 +357,7 @@ export function generateComponents(
                 requireValue(preparedTrees.get(v.root)),
             ]),
         );
+        normalizeElementIds([...variantTrees.values()]);
         const samples: Sample[] = variants.map((v) => ({
             values: v.values,
             tree: applyContract(
@@ -734,7 +773,7 @@ export function generateComponents(
             const lines = rootElement
                 ? []
                 : [
-                      `${indent}${extraCondition || first.condition ? `if ${[extraCondition, first.condition].filter(Boolean).join(" && ")}: ` : ""}${first.type} {`,
+                      `${indent}${extraCondition || first.condition ? `if ${[extraCondition, first.condition].filter(Boolean).join(" && ")}: ` : ""}${first.id ? `${first.id} := ` : ""}${first.type} {`,
                   ];
             const bodyDepth = rootElement ? depth : depth + 1;
             const rootVisible =

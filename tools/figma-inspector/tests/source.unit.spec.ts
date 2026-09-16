@@ -104,10 +104,10 @@ describe("source", () => {
             const converted = convertSnapshot(snapshot, { target: "export" });
             if (!converted.ok) throw Error("Expected native source");
             expect(converted.source).toContain(
-                "width: max(parent.width, self.preferred-width) + 6px;",
+                "width: parent.width + 2px * ceil(max(0px, self.preferred-width - parent.width) / 2px + 3);",
             );
             expect(converted.source).toContain(
-                "height: max(parent.height, self.preferred-height) + 6px;",
+                "height: parent.height + 2px * ceil(max(0px, self.preferred-height - parent.height) / 2px + 3);",
             );
             expect(converted.source).toContain(
                 "x: (parent.width - self.width) / 2;",
@@ -115,7 +115,12 @@ describe("source", () => {
             expect(converted.source).toContain(
                 "y: (parent.height - self.height) / 2;",
             );
-            expect(converted.source).not.toContain("wrap: word-wrap;");
+            expect(converted.source).toContain("wrap: word-wrap;");
+            const single = converted.source.match(
+                /single := Text \{([\s\S]*?)\n\s+\}/,
+            )?.[1];
+            expect(single).toBeDefined();
+            expect(single).not.toContain("wrap: word-wrap;");
             expect(converted.source).not.toContain("overflow: visible;");
             expect(source).toEqual(before);
             const bound = convertSnapshot(snapshot, {
@@ -133,6 +138,9 @@ describe("source", () => {
             });
             if (!bound.ok) throw Error("Expected variable source");
             expect(bound.source).toContain("font-size: typography.text-size;");
+            expect(
+                bound.source.match(/font-size: typography.text-size;/g),
+            ).toHaveLength(3);
             expect(
                 bound.warnings.some(
                     (warning) => warning.code === "CODEGEN_VARIABLE_FALLBACK",
@@ -162,7 +170,11 @@ describe("source", () => {
                     { target: "export" },
                 );
                 if (!unchanged.ok) throw Error("Expected text source");
-                expect(unchanged.source).not.toContain("max(parent.width");
+                expect(
+                    unchanged.source.includes(
+                        "self.preferred-width - parent.width",
+                    ),
+                ).toBe(root.overflow !== "elide");
             }
             for (const horizontalAlign of ["LEFT", "RIGHT"] as const) {
                 const aligned = convertSnapshot(

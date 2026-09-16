@@ -63,6 +63,51 @@ function visit(node: SourceNode, apply: (node: SourceNode) => void) {
     });
 }
 for (const target of ["preview", "export"] as const) {
+    test(`${target}: overflow measurements follow public text bindings across variants`, async () => {
+        const capture = await fixture(false);
+        const text = (node: SourceNode) => {
+            if (node.name !== "Label") return;
+            node.type = "TEXT";
+            Object.assign(node.properties, {
+                characters: "Hi",
+                fontName: { family: "Inter", style: "Regular" },
+                fontSize: 14,
+                fontWeight: 400,
+                textAutoResize: "NONE",
+                textAlignHorizontal: "LEFT",
+                textAlignVertical: "TOP",
+                lineHeight: { unit: "PIXELS", value: 20 },
+                letterSpacing: { unit: "PIXELS", value: 0 },
+                textPaintBounds: { x: -3, y: -3, width: 53, height: 26 },
+            });
+        };
+        visit(capture.root, text);
+        for (const variant of requireValue(capture.components).definitions[0]
+            .variants)
+            visit(variant.root, text);
+        const prefix = await generate(capture, target);
+        expect(prefix).toContain("figma-helper-");
+        const p = await mountPreview();
+        let revision = 0;
+        for (const position of ["leading", "trailing", "both"]) {
+            const source = `${prefix} export component OverflowVariants inherits Window {
+                width:220px; height:100px; background:white;
+                FlexboxLayout { alignment:start; cross-axis-alignment:start;
+                    RootSizing { horizontal-stretch:0; vertical-stretch:0; label:"Wide text";
+                        variant-position:RootSizingPosition.${position}; }
+                }
+            }`;
+            p.send({
+                type: "preview-source",
+                revision: ++revision,
+                source,
+                exportPackage: { source, files: [] },
+            });
+            await p.ready(revision);
+            expect(bounds(await canvasPixels(p), 0)).toBeDefined();
+        }
+    });
+
     test(`${target}: conditional image branches retain intrinsic sizing`, async () => {
         const capture = await fixture(false);
         capture.pngEnabled = false;

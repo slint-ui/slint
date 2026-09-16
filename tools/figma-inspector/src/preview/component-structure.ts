@@ -8,7 +8,7 @@ const role = (tree: Element) => {
         (binding) =>
             binding.name === "text" && binding.value.kind === "reference",
     );
-    return `${tree.type}:${text ? `property:${text.value.code}` : (tree.role ?? tree.origin?.name ?? "helper")}`;
+    return `${tree.type}:${tree.role ?? (text ? `property:${text.value.code}` : (tree.origin?.name ?? "helper"))}`;
 };
 
 /** Authored names establish roles before geometry is lowered into helpers.
