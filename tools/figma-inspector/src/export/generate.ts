@@ -61,6 +61,32 @@ export function externalizeImages(source: string): {
     };
 }
 
+export function exportValidationSource(pkg: ExportPackage): string {
+    const images = new Map(
+        pkg.files
+            .filter((file) => file.encoding === "base64")
+            .map((file) => [file.path, file]),
+    );
+    const mime: Record<string, string> = {
+        png: "image/png",
+        jpg: "image/jpeg",
+        gif: "image/gif",
+        svg: "image/svg+xml",
+    };
+    return pkg.source.replace(
+        /@image-url\("(?:\\.|[^"\\])*"\)|"(?:\\.|[^"\\])*"/gu,
+        (token) => {
+            if (!token.startsWith("@image-url(")) return token;
+            const path = JSON.parse(token.slice(11, -1)) as string;
+            const image = images.get(path);
+            if (!image) return token;
+            const type = mime[path.slice(path.lastIndexOf(".") + 1)];
+            if (!type) throw Error(`Unsupported export image: ${path}`);
+            return `@image-url("data:${type};base64,${image.data}")`;
+        },
+    );
+}
+
 export function generateExport(
     snapshot: FigmaSnapshot,
     warnings: readonly Diagnostic[] = [],
