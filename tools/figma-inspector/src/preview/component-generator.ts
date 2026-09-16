@@ -133,42 +133,40 @@ function normalizeBindingOrder(tree: Element): Element {
     };
 }
 
-function normalizeElementIds(trees: Element[]) {
-    const names = new Map<string, string>();
-    for (const tree of trees) {
-        const aliases = new Map<string, string>();
-        function collect(element: Element, path: string[]) {
-            if (element.id) {
-                const key = JSON.stringify(path);
-                if (!names.has(key))
-                    names.set(key, `figma-helper-${names.size + 1}`);
-                aliases.set(element.id, requireValue(names.get(key)));
-            }
-            const roles = childRoles([element])[0];
-            const counts = new Map<string, number>();
-            element.children.forEach((child, i) => {
-                const count = counts.get(roles[i]) ?? 0;
-                counts.set(roles[i], count + 1);
-                collect(child, [...path, `${roles[i]}:${count}`]);
-            });
+function uniqueElementIds(tree: Element, allocate: () => string): Element {
+    const aliases = new Map<string, string>();
+    function collect(element: Element) {
+        if (element.id) {
+            if (aliases.has(element.id))
+                throw Error(`Duplicate input element id: ${element.id}`);
+            aliases.set(element.id, allocate());
         }
-        collect(tree, []);
-        const rewrite = (code: string) =>
-            code.replace(
-                /"(?:\\.|[^"\\])*"|[\p{L}_][\p{L}\p{N}_-]*(?=\.)/gu,
-                (token) => aliases.get(token) ?? token,
-            );
-        function apply(element: Element) {
-            if (element.id) element.id = aliases.get(element.id);
-            if (element.condition)
-                element.condition = rewrite(element.condition);
-            for (const b of element.bindings)
-                if (b.value.kind !== "literal")
-                    b.value = { ...b.value, code: rewrite(b.value.code) };
-            element.children.forEach(apply);
-        }
-        apply(tree);
+        element.children.forEach(collect);
     }
+    collect(tree);
+    const rewrite = (code: string) =>
+        code.replace(
+            /"(?:\\.|[^"\\])*"|[\p{L}_][\p{L}\p{N}_-]*(?=\.)/gu,
+            (token) => aliases.get(token) ?? token,
+        );
+    function clone(element: Element): Element {
+        return {
+            ...element,
+            id: element.id ? requireValue(aliases.get(element.id)) : undefined,
+            condition: element.condition
+                ? rewrite(element.condition)
+                : undefined,
+            bindings: element.bindings.map((b) => ({
+                ...b,
+                value:
+                    b.value.kind === "literal"
+                        ? b.value
+                        : { ...b.value, code: rewrite(b.value.code) },
+            })),
+            children: element.children.map(clone),
+        };
+    }
+    return clone(tree);
 }
 
 /** Compile definitions independently of occurrences, with private literal specializations. */
@@ -182,6 +180,9 @@ export function generateComponents(
     const uses: ComponentUses = new Map();
     const source: string[] = [];
     const warnings: Diagnostic[] = [];
+    let elementSerial = 0;
+    const uniqueIds = (tree: Element) =>
+        uniqueElementIds(tree, () => `figma-helper-${++elementSerial}`);
     if (!library) return { source, uses, warnings };
     const graph = library;
     const definitions = new Map(library.definitions.map((d) => [d.id, d]));
@@ -281,13 +282,14 @@ export function generateComponents(
                         `${requireValue(names.get(id))}Preview`,
                     );
                     specialized.set(signature, name);
+                    const output = uniqueIds(tree);
                     source.push(
                         `component ${name} inherits ${tree.type} {`,
                         ...preferred.map(printLine),
-                        ...tree.bindings.map((b) =>
+                        ...output.bindings.map((b) =>
                             printLine({ ...b, depth: 1 }),
                         ),
-                        ...tree.children.flatMap((child) =>
+                        ...output.children.flatMap((child) =>
                             treeLines(child, 1).map(printLine),
                         ),
                         "}",
@@ -357,7 +359,6 @@ export function generateComponents(
                 requireValue(preparedTrees.get(v.root)),
             ]),
         );
-        normalizeElementIds([...variantTrees.values()]);
         const samples: Sample[] = variants.map((v) => ({
             values: v.values,
             tree: applyContract(
@@ -494,6 +495,12 @@ export function generateComponents(
         }
         const privateParts: string[] = [];
         const partNames = new Map<string, string>();
+        const familyIds = new Set<string>();
+        function collectFamilyIds(tree: Element) {
+            if (tree.id) familyIds.add(tree.id);
+            tree.children.forEach(collectFamilyIds);
+        }
+        variantTrees.forEach(collectFamilyIds);
         function conditionalPart(
             tree: Element,
             guard: string,
@@ -507,24 +514,41 @@ export function generateComponents(
             );
             const used = new Set<string>();
             let safe = true;
+            const localIds = new Set<string>();
+            function collectLocalIds(element: Element) {
+                if (element.id) localIds.add(element.id);
+                element.children.forEach(collectLocalIds);
+            }
+            collectLocalIds(tree);
             function inspect(element: Element) {
                 for (const expression of [
                     element.condition ?? "",
                     ...element.bindings.map((b) => b.value.code),
-                ])
+                ]) {
+                    for (const match of expression.matchAll(
+                        /"(?:\\.|[^"\\])*"|([\p{L}_][\p{L}\p{N}_-]*)(?=\.)/gu,
+                    ))
+                        if (
+                            match[1] &&
+                            familyIds.has(match[1]) &&
+                            !localIds.has(match[1])
+                        )
+                            safe = false;
                     for (const match of expression.matchAll(
                         /root\.([a-z][a-z0-9-]*)/g,
                     )) {
                         if (!parameters.has(match[1])) safe = false;
                         else used.add(match[1]);
                     }
+                }
                 element.children.forEach(inspect);
             }
             inspect(tree);
             if (!safe)
-                return treeLines({ ...tree, condition: guard }, depth).map(
-                    printLine,
-                );
+                return treeLines(
+                    { ...uniqueIds(tree), condition: guard },
+                    depth,
+                ).map(printLine);
             const placement = tree.bindings.filter((b) =>
                 /^(x|y|width|height|layout-order|horizontal-stretch|vertical-stretch|min-.+|max-.+|preferred-.+)$/.test(
                     b.name,
@@ -542,22 +566,23 @@ export function generateComponents(
                     `${name}${typeName(tree.origin?.name?.includes("=") ? "Content" : (tree.origin?.name ?? "Content"))}`,
                 );
                 partNames.set(signature, part);
+                const output = uniqueIds(content);
                 privateParts.push(
                     `component ${part} inherits Rectangle {`,
                     ...[...used].map(
                         (property) =>
                             `    in property <${parameters.get(property)}> ${property};`,
                     ),
-                    ...(content.type === "Rectangle"
+                    ...(output.type === "Rectangle"
                         ? [
-                              ...content.bindings.map((b) =>
+                              ...output.bindings.map((b) =>
                                   printLine({ ...b, depth: 1 }),
                               ),
-                              ...content.children.flatMap((child) =>
+                              ...output.children.flatMap((child) =>
                                   treeLines(child, 1).map(printLine),
                               ),
                           ]
-                        : treeLines(content, 1).map(printLine)),
+                        : treeLines(output, 1).map(printLine)),
                     "}",
                     "",
                 );
@@ -631,6 +656,35 @@ export function generateComponents(
             inLayout = false,
         ): string[] {
             const first = group[0].tree;
+            // Slint element ids are component-wide, including conditional branches.
+            // Keep sibling measurement dependencies inside one emitted subtree.
+            if (
+                group.some((sample) =>
+                    sample.tree.children.some((child) => child.id),
+                )
+            ) {
+                const alternatives = new Map<string, Sample[]>();
+                for (const sample of group) {
+                    const signature = structuralSignature(sample.tree);
+                    const matches = alternatives.get(signature) ?? [];
+                    matches.push(sample);
+                    alternatives.set(signature, matches);
+                }
+                return [...alternatives.values()].flatMap((matches) => {
+                    const guard = [
+                        conditionFor(matches, group, `content-${++serial}`),
+                        extraCondition,
+                        rootElement && validity !== "true"
+                            ? "root.valid-variant"
+                            : undefined,
+                        matches[0].tree.condition,
+                    ]
+                        .filter(Boolean)
+                        .map((condition) => `(${condition})`)
+                        .join(" && ");
+                    return conditionalPart(matches[0].tree, guard, depth);
+                });
+            }
             // Different element kinds cannot share identity.
             const bindingNames = [
                 ...new Set(
@@ -971,14 +1025,15 @@ export function generateComponents(
                 if (!specialized) {
                     specialized = allocateType(`${name}Override`);
                     specializations.set(sig, specialized);
+                    const output = uniqueIds(actual);
                     source.push(
                         `component ${specialized} inherits Rectangle {`,
                         `    preferred-width: ${node.width}px;`,
                         `    preferred-height: ${node.height}px;`,
-                        ...actual.bindings.map((b) =>
+                        ...output.bindings.map((b) =>
                             printLine({ ...b, depth: 1 }),
                         ),
-                        ...actual.children.flatMap((c) =>
+                        ...output.children.flatMap((c) =>
                             treeLines(c, 1).map(printLine),
                         ),
                         "}",

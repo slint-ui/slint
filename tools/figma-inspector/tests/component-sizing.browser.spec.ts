@@ -63,6 +63,50 @@ function visit(node: SourceNode, apply: (node: SourceNode) => void) {
     });
 }
 for (const target of ["preview", "export"] as const) {
+    test(`${target}: structurally different variants keep overflow helpers together with globally unique ids`, async () => {
+        const capture = await fixture(false);
+        const definition = requireValue(capture.components).definitions[0];
+        const text = (node: SourceNode) => {
+            if (node.name !== "Label") return;
+            node.type = "TEXT";
+            Object.assign(node.properties, {
+                characters: "Overflow",
+                fontName: { family: "Inter", style: "Regular" },
+                fontSize: 30,
+                fontWeight: 400,
+                textAutoResize: "NONE",
+                textAlignHorizontal: "CENTER",
+                textAlignVertical: "CENTER",
+                lineHeight: { unit: "PIXELS", value: 48 },
+                letterSpacing: { unit: "PIXELS", value: 0 },
+                textPaintBounds: { x: -2, y: -8, width: 51, height: 36 },
+            });
+        };
+        visit(capture.root, text);
+        for (const [index, variant] of definition.variants.entries()) {
+            visit(variant.root, text);
+            const label = requireValue(variant.root.children).find(
+                (node) => node.name === "Label",
+            );
+            requireValue(label).properties.fontSize = index === 0 ? 30 : 34;
+        }
+        const source = await generate(capture, target, true);
+        const ids = [...source.matchAll(/\b(figma-helper-\d+)\s*:=/g)].map(
+            (match) => match[1],
+        );
+        const p = await mountPreview();
+        p.send({
+            type: "preview-source",
+            revision: 1,
+            source,
+            exportPackage: { source, files: [] },
+        });
+        await p.ready(1);
+        expect(ids.length).toBeGreaterThan(2);
+        expect(new Set(ids).size).toBe(ids.length);
+        expect(bounds(await canvasPixels(p), 0)).toBeDefined();
+    });
+
     test(`${target}: overflow measurements follow public text bindings across variants`, async () => {
         const capture = await fixture(false);
         const text = (node: SourceNode) => {
