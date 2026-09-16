@@ -51,20 +51,23 @@ type EffectiveFont = {
     readonly style: string;
 };
 
-type IconTextInfo = {
-    readonly fontName: EffectiveFont;
-};
-
 export function classifyNonInterText(
     node: MaterializedNode,
     mixedValue: MixedValue,
 ): boolean | { readonly error: Diagnostic } {
     if (node.characters.length === 0) return false;
+    // The embedded WASM font omits Unicode private-use characters.
+    if (
+        /[\uE000-\uF8FF\u{F0000}-\u{FFFFD}\u{100000}-\u{10FFFD}]/u.test(
+            node.characters,
+        )
+    )
+        return true;
     const isInter = (font: EffectiveFont) =>
         font.family.trim().toLowerCase() === "inter";
     const font = effectiveFont(node.fontName);
     if (font !== undefined && !isInter(font)) return true;
-    const result = readStyledTextSegments(node);
+    const result = node.sourceSegments;
     let coveredText = "";
     let complete = result !== undefined && "segments" in result;
     if (result !== undefined && "segments" in result) {
@@ -107,126 +110,6 @@ function effectiveFont(value: unknown): EffectiveFont | undefined {
     )
         return undefined;
     return { family: value.family, style: value.style };
-}
-
-function normalizedFontFamily(value: string): string {
-    return value
-        .normalize("NFKC")
-        .toLocaleLowerCase("en-US")
-        .replace(/[^\p{L}\p{N}]/gu, "");
-}
-
-function isLigatureFont(value: string): boolean {
-    const family = normalizedFontFamily(value);
-    return (
-        [
-            "materialicons",
-            "materialsymbols",
-            "fontawesome",
-            "icomoon",
-            "glyphicons",
-            "phosphor",
-            "remixicon",
-        ].some((name) => family.includes(name)) ||
-        family.includes("icon") ||
-        family.includes("symbol")
-    );
-}
-
-function isPrivateUseCodePoint(codePoint: number): boolean {
-    return (
-        (codePoint >= 0xe000 && codePoint <= 0xf8ff) ||
-        (codePoint >= 0xf0000 && codePoint <= 0xffffd) ||
-        (codePoint >= 0x100000 && codePoint <= 0x10fffd)
-    );
-}
-
-function readStyledTextSegments(
-    node: MaterializedNode,
-): MaterializedNode["sourceSegments"] {
-    return node.sourceSegments;
-}
-
-export function classifyIconText(
-    node: MaterializedNode,
-    mixedValue: MixedValue,
-): IconTextInfo | undefined {
-    const characters = node.characters;
-    if (
-        typeof characters !== "string" ||
-        /[\r\n\u2028\u2029]/u.test(characters)
-    )
-        return undefined;
-    const nodeFontMixed = isMixed(node.fontName, mixedValue);
-    const nodeFontName = effectiveFont(node.fontName);
-    if (nodeFontName === undefined && !nodeFontMixed) return undefined;
-
-    const meaningful = Array.from(characters).filter(
-        (character) => !/^\s$/u.test(character),
-    );
-    if (meaningful.length === 0) return undefined;
-    const privateUse = meaningful.every((character) => {
-        const codePoint = character.codePointAt(0);
-        return codePoint !== undefined && isPrivateUseCodePoint(codePoint);
-    });
-    const nodeIconFont =
-        nodeFontName !== undefined && isLigatureFont(nodeFontName.family);
-    if (!privateUse && !nodeIconFont && !nodeFontMixed) return undefined;
-
-    let representativeFont = nodeFontName;
-    const styledTextResult = readStyledTextSegments(node);
-    if (styledTextResult !== undefined) {
-        if ("error" in styledTextResult) {
-            return nodeFontName === undefined
-                ? undefined
-                : { fontName: nodeFontName };
-        }
-        const segments = styledTextResult.segments;
-        let completeCoverage = segments.length > 0;
-        let expectedEnd = 0;
-        for (const segment of segments) {
-            if (!record(segment) || typeof segment.characters !== "string")
-                return undefined;
-            const segmentCharacters = segment.characters;
-            if (/[\r\n\u2028\u2029]/u.test(segmentCharacters)) return undefined;
-            const hasStart = "start" in segment;
-            const hasEnd = "end" in segment;
-            if (hasStart !== hasEnd) return undefined;
-            if (hasStart) {
-                const start = segment.start;
-                const end = segment.end;
-                if (
-                    !number(start) ||
-                    !Number.isInteger(start) ||
-                    !number(end) ||
-                    !Number.isInteger(end) ||
-                    start !== expectedEnd ||
-                    end < start ||
-                    end > characters.length ||
-                    end - start !== segmentCharacters.length
-                )
-                    return undefined;
-                expectedEnd = end;
-            } else completeCoverage = false;
-            if (segmentCharacters.length === 0) continue;
-            const segmentFont = effectiveFont(segment.fontName ?? nodeFontName);
-            if (segmentFont === undefined) return undefined;
-            if (nodeFontMixed) {
-                if (!isLigatureFont(segmentFont.family)) return undefined;
-                representativeFont ??= segmentFont;
-            } else if (
-                nodeIconFont
-                    ? segmentFont.family !== nodeFontName?.family
-                    : segmentFont.family !== nodeFontName?.family ||
-                      segmentFont.style !== nodeFontName?.style
-            )
-                return undefined;
-        }
-        if (completeCoverage && expectedEnd !== characters.length)
-            return undefined;
-    }
-    if (representativeFont === undefined) return undefined;
-    return { fontName: representativeFont };
 }
 
 export async function captureTableCellText(
@@ -334,7 +217,7 @@ export async function normalizeText(
         lineHeight?: LineHeight;
     };
     let segments: Segment[] = [];
-    const styledTextResult = readStyledTextSegments(textNode);
+    const styledTextResult = textNode.sourceSegments;
     if (styledTextResult !== undefined) {
         if ("error" in styledTextResult) {
             captureWarnings.push({
