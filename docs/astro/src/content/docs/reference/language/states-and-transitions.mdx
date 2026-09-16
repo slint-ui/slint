@@ -1,37 +1,58 @@
 ---
 title: States and Transitions
 description: Declaring states and animating state changes.
+SC: true
 ---
 
+import SC from '@slint/common-files/src/components/SC.astro';
+import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
+import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
+
+<SC>
 A `states` block declares a set of named *states* on an element.
-Each state carries a condition and a set of property values that apply while that state is active:
+Each state carries a condition and a set of property changes. \{#sls.state.def}
 
 ```slint
 export component Example inherits Window {
-    in-out property <bool> active: true;
-    label := Text { }
+    in-out property <int> level;
+    indicator := Rectangle {
+        width: 32px;
+        height: 32px;
+        background: #808080;
+    }
 
     states [
-        active when active: {
-            label.text: "Active";
-            root.background: blue;
+        alarm when level > 10: {
+            indicator.background: #a02020;
+            indicator.width: 64px;
         }
-        inactive when !active: {
-            label.text: "Inactive";
-            root.background: gray;
+        warning when level > 5: {
+            indicator.background: #c08000;
+            indicator.width: 48px;
         }
     ]
 }
 ```
 
-A `states` block is a single statement inside an element's body, written `states [ ... ]`.
-It may appear on any element — the root, a child, a sub-component's root, or the element of a [`for`](../repetition-and-conditional-elements/) — and each element has its own independent set of states.
-An element may hold more than one `states` block; their entries are combined in source order.
+A `states` block is a single statement inside an element's body, written `states [ ... ]`. \{#sls.state.form}
+
+A `states` block may appear on any element, and each element has its own set of states. \{#sls.state.scope}
+
+<NotInSC>
+That includes the root, a child, a sub-component's root, and the element of a [`for`](../repetition-and-conditional-elements/).
 A [global](../globals/) may not contain a `states` block; doing so is a compile error.
+</NotInSC>
+
+An element may hold more than one `states` block, and the entries of all of them make up its set of states. \{#sls.state.blocks}
 
 ## States
 
-Each entry has a name, an optional `when` condition, and a brace-delimited body:
+Each entry consists of a name, a `when` clause holding a boolean expression, `:`, and a brace-delimited body of property changes. \{#sls.state.entry.form}
+
+<NotInSC>
+The `when` clause is optional.
+A state without one is never selected; it only names a state a transition can refer to.
+</NotInSC>
 
 ```slint no-test
 name when condition: {
@@ -40,36 +61,47 @@ name when condition: {
 }
 ```
 
-The name is an identifier local to the element.
-The `when` clause holds an arbitrary boolean expression.
-The condition may reference any property in scope, including properties of other elements (`ta.has-hover`).
+The name is an identifier local to the element, so two elements may each declare a state of the same name. \{#sls.state.name}
 
-At most one state is active at a time.
-When several conditions hold, the state listed first in source order wins.
-When no condition holds, no state is active and the element's normal bindings apply.
-A state written without a `when` clause has no condition and is therefore never selected; it only serves as a name that a transition can refer to.
+The condition may reference any property in scope, including properties of other elements. \{#sls.state.condition}
 
-### Property changes
+At most one state is active at a time. \{#sls.state.active}
+
+When the conditions of several states hold, the state listed first in source order is the active one. \{#sls.state.first-wins}
+
+When no condition holds, no state is active, and every property keeps its own binding. \{#sls.state.inactive}
+
+<OnlyInSC>
+Each state shall carry a `when` clause: a state without one can never be active. \{#sls.state.condition-required}
+</OnlyInSC>
+
+## Property Changes
 
 The body of a state is a list of *property changes*.
-Each change is a qualified name, a colon, and a value:
+Each change consists of a name, `:`, a value, and `;`. \{#sls.state.change.form}
 
-```slint no-test
-root.background: blue;
-label.text: "Active";
-```
+An unqualified name refers to a property of the element that owns the `states` block, so `background` is the same as `root.background`.
+A qualified name addresses a descendant by its element id, as in `indicator.background`. \{#sls.state.change.target}
 
-The value is a binding expression, so it may be a single expression or a code block `{ ... }`, and it may reference other properties.
-Property changes are subject to these rules, each enforced by the compiler:
+The name shall resolve to a property. \{#sls.state.change.target-must-exist}
 
-- The qualified name must resolve to a property.
-  An unqualified name refers to a property of the element that owns the `states` block (`background` is the same as `root.background`).
-  A qualified name addresses a descendant by its element id (`label.text`).
-- A name whose element id is unknown, whose member is not found, or that does not name a property is an error.
-- The value's type must be assignable to the property.
-- A property initialized with a [two-way binding](../two-way-bindings/) cannot be changed in a state; doing so is an error.
+The value is a [binding](../bindings/) of that property. \{#sls.state.change.value}
 
-While a state is active its listed properties take the state's values; a property not listed in the active state keeps its normal binding.
+While a state is active, each property it lists takes the state's value instead of its own binding. \{#sls.state.change.effect}
+
+Setting the property [replaces](../bindings/#sls.binding.set-replaces) the binding a property change gives it.
+The property then keeps the value it was set to, whichever state is active. \{#sls.state.change.set}
+
+<NotInSC>
+A property initialized with a [two-way binding](../two-way-bindings/) cannot be changed in a state; doing so is an error.
+</NotInSC>
+
+<OnlyInSC>
+A state shall only change a property that is part of the subset. \{#sls.state.change.subset}
+
+A state shall carry no transition. \{#sls.state.no-transition}
+</OnlyInSC>
+</SC>
 
 ## Transitions
 
@@ -108,7 +140,7 @@ The three directions are:
 
 A direction block sits alongside the property changes in the state body and may be repeated; a state may hold several `in`, `out`, or `in-out` blocks.
 
-### Animations in transitions
+### Animations in Transitions
 
 The body of a direction block contains only `animate` clauses; anything else is an error.
 Each `animate` clause names one or more properties, or the catch-all `*`, and carries the same fields as an animation elsewhere (see [Animations](../animations/)):

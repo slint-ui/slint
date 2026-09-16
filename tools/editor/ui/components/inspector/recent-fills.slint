@@ -12,7 +12,7 @@ export component InspectorRecentFills inherits Rectangle {
     height: layout.preferred-height;
     layout := VerticalLayout {
         spacing: 8px;
-        Text { text: "Recent fills"; color: InspectorTokens.muted; font-size: 11px; font-weight: 600; }
+        Text { text: "Recent fills"; color: InspectorTokens.muted; font-size: 11px; font-weight: FontWeight.semi-bold; }
         if root.fills.length == 0: Text { text: "No recent fills"; color: InspectorTokens.muted; font-size: 11px; }
         if root.fills.length > 0: HorizontalLayout {
             spacing: 6px;

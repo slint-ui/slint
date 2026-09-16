@@ -5663,6 +5663,7 @@ dependencies = [
 name = "test-driver-interpreter"
 version = "1.18.0"
 dependencies = [
+ "i-slint-backend-qt",
  "i-slint-backend-testing",
  "i-slint-core",
  "itertools 0.15.0",

@@ -81,8 +81,12 @@ jobs:
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
     visual_editor:
-        if: ${{ contains(fromJSON(inputs.changes), 'visual_editor') }}
-        name: Visual Editor
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'visual_editor') }}
+        name: Visual Editor (${{ matrix.suite }})
+        strategy:
+            fail-fast: false
+            matrix:
+                suite: [rust, ui]
         runs-on: macos-14
         timeout-minutes: 120
         env:
@@ -98,14 +102,16 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   components: clippy
-                  key: x-visual-editor-v1
+                  key: x-visual-editor-v1-${{ matrix.suite }}
                   save_if: ${{ github.ref == 'refs/heads/master' }}
             - uses: actions/setup-python@v7
+              if: matrix.suite == 'ui'
               with:
                   python-version: '3.11'
             - uses: astral-sh/setup-uv@v7
+              if: matrix.suite == 'ui'
             - name: Install UI test dependencies
-              if: ${{ env.UI_TESTS == 'true' }}
+              if: ${{ matrix.suite == 'ui' && env.UI_TESTS == 'true' }}
               working-directory: tools/editor/ui-tests
               env:
                   UV_INDEX: slint-private=https://testing.slint.dev/simple/
@@ -113,18 +119,30 @@ jobs:
                   UV_INDEX_SLINT_PRIVATE_PASSWORD: ${{ secrets.SLINT_TESTING_TOKEN }}
               run: uv sync --locked
             - name: Lint the visual editor
-              run: cargo clippy --locked -p slint-editor --all-targets --all-features --features slint/mcp -- -D warnings
+              if: matrix.suite == 'rust'
+              run: cargo clippy --locked -p slint-editor --all-targets --all-features --features slint/mcp --timings -- -D warnings
             - name: Test the visual editor
-              run: cargo test --locked -p slint-editor --all-features --features slint/mcp
+              if: matrix.suite == 'rust'
+              run: cargo test --locked -p slint-editor --all-features --features slint/mcp --timings
             - name: Build the visual editor UI test binary
-              run: cargo build --locked -p slint-editor --all-features --features slint/mcp
+              if: matrix.suite == 'ui'
+              run: cargo build --locked -p slint-editor --all-features --features slint/mcp --timings
             - name: Run visual editor UI tests
-              if: ${{ env.UI_TESTS == 'true' }}
+              if: ${{ matrix.suite == 'ui' && env.UI_TESTS == 'true' }}
               working-directory: tools/editor/ui-tests
               env:
                   SLINT_BACKEND: headless-skia
                   SLINT_EDITOR_BINARY: ${{ github.workspace }}/target/debug/slint-editor
               run: ./run-tests.sh
+
+            - name: Upload Cargo timing reports
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: visual-editor-${{ matrix.suite }}-timings
+                  path: target/cargo-timings/
+                  if-no-files-found: warn
+                  retention-days: 7
 
     # For changes to Slint internals, do a quick test on Linux for Node.js only.
     node_test_linux:

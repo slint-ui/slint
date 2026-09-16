@@ -4,7 +4,8 @@
 //! The coverage of `.slint` files compiled for Slint SC with `--coverage`.
 //!
 //! The compiler maps the generated code to a coverage point for every
-//! element, binding, callback handler and call, and both outcomes of every
+//! element, binding (the property a state changes included), callback
+//! handler, call, state and state's condition, and both outcomes of every
 //! `?:`, `&&` and `||`. However the points are counted, a [`Report`] gathers
 //! their hit counts by source location and writes them as lcov, as a
 //! summary, or as what the test driver compares with a case's expectations.
@@ -19,9 +20,9 @@ use std::path::{Path, PathBuf};
 /// A coverage point of the `.slint` source.
 pub struct Point {
     pub kind: Kind,
-    /// The type an element is written with, the property of a binding, the
-    /// callback of a handler or a call, or the operator of a decision (`?`,
-    /// `&&`, `||`).
+    /// What the point is called: the type of an element, the property of a
+    /// binding, the callback of a handler or a call, the name of a state or of
+    /// the state a condition belongs to, or a decision's operator.
     pub name: String,
     pub file: PathBuf,
     /// 1-based.
@@ -37,6 +38,10 @@ pub enum Kind {
     Binding,
     Handler,
     Call,
+    /// A state, reached when the state was entered.
+    State,
+    /// The condition of a state, reached when the condition was evaluated.
+    Condition,
     /// One outcome of a decision.
     Branch {
         outcome: bool,
@@ -50,6 +55,8 @@ impl fmt::Display for Kind {
             Kind::Binding => "binding",
             Kind::Handler => "handler",
             Kind::Call => "call",
+            Kind::State => "state",
+            Kind::Condition => "condition",
             Kind::Branch { .. } => "branch",
         })
     }

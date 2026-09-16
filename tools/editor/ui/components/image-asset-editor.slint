@@ -33,7 +33,7 @@ component GuideHandle inherits Rectangle {
         text: root.label;
         color: #111827;
         font-size: 11px;
-        font-weight: 900;
+        font-weight: FontWeight.black;
         horizontal-alignment: center;
         vertical-alignment: center;
     }
@@ -184,7 +184,7 @@ component FloatingCopyButton inherits Rectangle {
         text: "Copy";
         color: StudioTheme.text;
         font-size: 12px;
-        font-weight: 800;
+        font-weight: FontWeight.extra-bold;
         horizontal-alignment: center;
         vertical-alignment: center;
     }
@@ -222,7 +222,7 @@ component FloatingImageDetailsPanel inherits Rectangle {
             text: "Image";
             color: StudioTheme.text;
             font-size: 12px;
-            font-weight: 800;
+            font-weight: FontWeight.extra-bold;
         }
 
         FloatingReadOnlyField {
@@ -496,7 +496,7 @@ export component ImageAssetEditor inherits Rectangle {
                 text: "Image could not be loaded";
                 color: StudioTheme.text;
                 font-size: 14px;
-                font-weight: 700;
+                font-weight: FontWeight.bold;
                 horizontal-alignment: center;
             }
             Text {
@@ -729,7 +729,7 @@ export component ImageAssetEditor inherits Rectangle {
             text: "Preview";
             color: StudioTheme.muted;
             font-size: 11px;
-            font-weight: 700;
+            font-weight: FontWeight.bold;
             vertical-alignment: center;
         }
 

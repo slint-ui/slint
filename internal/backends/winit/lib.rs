@@ -37,6 +37,9 @@ pub(crate) mod event_loop;
 mod frame_throttle;
 #[cfg(target_os = "ios")]
 mod ios;
+#[cfg(target_os = "macos")]
+mod macos;
+mod touch_finger_id;
 
 /// Re-export of the winit crate.
 pub use winit;
@@ -81,6 +84,13 @@ mod renderer {
         fn occluded(&self, _: bool) {}
 
         fn suspend(&self) -> Result<(), PlatformError>;
+
+        // The window's transparency changed after the window was created. Renderers that pick
+        // their surface's alpha mode up front have to reconfigure it to match.
+        #[cfg(target_os = "macos")]
+        fn set_transparent(&self, _transparent: bool) -> Result<(), PlatformError> {
+            Ok(())
+        }
 
         // Got winit::Event::Resumed
         fn resume(

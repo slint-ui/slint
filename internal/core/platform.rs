@@ -583,6 +583,8 @@ pub enum InternalEvent {
     /// A touch point update, which the runtime turns into pointer or gesture events.
     Touch {
         /// The id of the finger that produced the event.
+        /// Must be non-negative and distinct among the fingers currently down.
+        /// Ids may be reused once a finger lifts.
         id: i32,
         /// The position of the finger, in logical coordinates.
         position: crate::lengths::LogicalPoint,

@@ -20,6 +20,12 @@ If you would like to automatically invoke autofix tasks (formatting, linting) be
 mise generate git-pre-commit --write --task=ci:autofix:fix
 ```
 
+CI's `lint_typecheck` job spell-checks the diff and gates the rest of the CI matrix on it. To catch that locally before pushing, install the pre-push hook:
+
+```
+cp scripts/pre-push-spellcheck.sh .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+```
+
 ## Repository structures
 
 For the crate/directory map of `internal/`, `api/`, `tools/`, and `editors/`, see the
@@ -60,7 +66,9 @@ Run `cargo xtask --help` for the full list.
 ### `ai-plugins`
 
 The Slint skill and marketplace manifests shipped to AI coding assistants (Claude Code,
-Cursor); see [ai-plugins/skills/slint/SKILL.md](../ai-plugins/skills/slint/SKILL.md).
+Cursor, Antigravity); see [ai-plugins/skills/slint/SKILL.md](../ai-plugins/skills/slint/SKILL.md).
+Each assistant reads its own manifest: `.claude-plugin/`, `.cursor-plugin/`, and, for
+Antigravity, `plugin.json` and `mcp_config.json` at the `ai-plugins` root.
 
 ## Documentation
 

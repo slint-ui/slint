@@ -2190,7 +2190,9 @@ impl Expression {
             condition: Box::new(condition),
             true_expr: Box::new(true_expr),
             false_expr: Box::new(false_expr),
-            source_location: node.child_token(SyntaxKind::Question).map(|t| t.to_source_location()),
+            source_location: node
+                .child_token(SyntaxKind::Question)
+                .map(|t| ConditionLocation::Question(t.to_source_location())),
         }
     }
 

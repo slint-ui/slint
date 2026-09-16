@@ -92,7 +92,7 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
     // Install bindings now but defer `init_code` until after `show_popup`,
     // so `forward-focus` calls reach a popup the window adapter already
     // considers active.
-    crate::instance::install_bindings_for_repeated_row(&popup_vrc);
+    crate::instance::init_items_and_bindings(&popup_vrc);
 
     // The position expression is evaluated lazily so the window can
     // re-query it after measuring the popup.
@@ -306,7 +306,7 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
     // Install bindings now but defer `init_code` until after `show_popup`,
     // so `forward-focus` calls reach a popup the window adapter already
     // considers active.
-    crate::instance::install_bindings_for_repeated_row(&popup_vrc);
+    crate::instance::init_items_and_bindings(&popup_vrc);
 
     // Wire entries/sub_menu/activated on the popup. Two flavors:
     //

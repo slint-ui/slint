@@ -18,7 +18,7 @@ afterEach(() => {
     quitEventLoop();
 });
 
-test.sequential("integrated event loop is available", () => {
+test("integrated event loop is available", { concurrent: false }, () => {
     // On Windows the IOCP handle is read at a fixed uv_loop_t offset
     // and validated at runtime; a Node/libuv layout change silently
     // falls back to 16ms polling. This assertion turns that fallback
@@ -26,7 +26,7 @@ test.sequential("integrated event loop is available", () => {
     expect(hasIntegratedEventLoop()).toBe(true);
 });
 
-test.sequential("merged event loops with timer", async () => {
+test("merged event loops with timer", { concurrent: false }, async () => {
     let invoked = false;
 
     await runEventLoop(() => {
@@ -38,7 +38,7 @@ test.sequential("merged event loops with timer", async () => {
     expect(invoked).toBe(true);
 });
 
-test.sequential("merged event loops with networking", async () => {
+test("merged event loops with networking", { concurrent: false }, async () => {
     const listener = (
         request: http.IncomingMessage,
         result: http.ServerResponse,
@@ -72,7 +72,7 @@ test.sequential("merged event loops with networking", async () => {
     expect(received_response).toBe("Hello World");
 });
 
-test.sequential("event loop restart", async () => {
+test("event loop restart", { concurrent: false }, async () => {
     let first_run = false;
     let second_run = false;
 
@@ -93,7 +93,7 @@ test.sequential("event loop restart", async () => {
     expect(second_run).toBe(true);
 });
 
-test.sequential("set property from JS timer mid-run", async () => {
+test("set property from JS timer mid-run", { concurrent: false }, async () => {
     const ui = loadSource(
         `export component App inherits Window {
             in-out property <string> label: "initial";
@@ -112,7 +112,9 @@ test.sequential("set property from JS timer mid-run", async () => {
     expect(app.label).toBe("updated");
 });
 
-test.sequential("slint timer fires through integrated event loop", async () => {
+test("slint timer fires through integrated event loop", {
+    concurrent: false,
+}, async () => {
     const ui = loadSource(
         `export component App inherits Window {
             in-out property <int> counter: 0;

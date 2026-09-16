@@ -388,6 +388,10 @@ pub struct WinitWindowAdapter {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
     fullscreen: Cell<bool>,
+    /// Mirrors the transparency the live window was given, so that a property update only
+    /// reaches the NSWindow when the value actually changes.
+    #[cfg(target_os = "macos")]
+    transparent: Cell<bool>,
 
     pub(crate) renderer: Box<dyn WinitCompatibleRenderer>,
     /// We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
@@ -408,8 +412,15 @@ pub struct WinitWindowAdapter {
     /// Indicate whether we've ever received a resize event from winit after showing the window.
     pending_resize_event_after_show: Cell<bool>,
 
+    /// Whether the current winit window has presented a frame.
+    first_frame_presented: Cell<bool>,
+
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
+
+    /// Set while a shown window waits for its first frame, see [`crate::macos::RevealOnFirstFrame`].
+    #[cfg(target_os = "macos")]
+    reveal_on_first_frame: RefCell<Option<crate::macos::RevealOnFirstFrame>>,
 
     #[cfg(any(enable_accesskit, muda))]
     event_loop_proxy: EventLoopProxy<SlintEvent>,
@@ -449,9 +460,8 @@ pub struct WinitWindowAdapter {
     /// separately via `process_touch_input` and does not affect this flag.
     pressed: Cell<bool>,
     current_resize_direction: Cell<Option<ResizeDirection>>,
-    /// Allocates small i32 finger ids for iOS's pointer-valued touch ids.
-    #[cfg(target_os = "ios")]
-    touch_finger_ids: RefCell<crate::ios::TouchFingerIdAllocator>,
+    /// Allocates small i32 finger ids for winit's per-device u64 touch ids.
+    touch_finger_ids: RefCell<crate::touch_finger_id::TouchFingerIdAllocator>,
 }
 
 impl WinitWindowAdapter {
@@ -474,6 +484,8 @@ impl WinitWindowAdapter {
             maximized: Cell::default(),
             minimized: Cell::default(),
             fullscreen: Cell::default(),
+            #[cfg(target_os = "macos")]
+            transparent: Cell::default(),
             winit_window_or_none: RefCell::new(WinitWindowOrNone::None(window_attributes.into())),
             window_existence_wakers: RefCell::new(Vec::default()),
             size: Cell::default(),
@@ -481,9 +493,12 @@ impl WinitWindowAdapter {
             physical_size_before_scale_factor: Cell::new(None),
             has_explicit_size: Default::default(),
             pending_resize_event_after_show: Default::default(),
+            first_frame_presented: Default::default(),
             renderer,
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
+            #[cfg(target_os = "macos")]
+            reveal_on_first_frame: Default::default(),
             #[cfg(any(enable_accesskit, muda))]
             event_loop_proxy: proxy,
             window_event_filter: Cell::new(None),
@@ -500,7 +515,6 @@ impl WinitWindowAdapter {
             cursor_pos: Default::default(),
             pressed: Default::default(),
             current_resize_direction: Default::default(),
-            #[cfg(target_os = "ios")]
             touch_finger_ids: Default::default(),
         });
 
@@ -541,6 +555,16 @@ impl WinitWindowAdapter {
         let height = round_up_logical(layout_info_v.preferred_bounded() as f64, scale_factor);
         let size = winit::dpi::LogicalSize::new(width as Coord, height as Coord);
         (size.width > 0 as Coord && size.height > 0 as Coord).then_some(size)
+    }
+
+    /// winit asks for a transparent window with `backgroundColor = clear`, and AppKit then
+    /// leaves the whole window frame unpainted, the native title bar included. So ask for
+    /// transparency only where it buys something: a translucent background has to blend with
+    /// what's behind the window, and a frameless one needs it so the rounded corners aren't
+    /// filled in.
+    #[cfg(target_os = "macos")]
+    fn wants_transparent(window_item: core::pin::Pin<&corelib::items::WindowItem>) -> bool {
+        !window_item.background().is_opaque() || window_item.no_frame()
     }
 
     pub fn ensure_window(
@@ -590,6 +614,13 @@ impl WinitWindowAdapter {
             window_attributes = window_attributes.with_transparent(false);
         }
 
+        #[cfg(target_os = "macos")]
+        if let Some(window_item) = WindowInner::from_pub(self.window()).window_item() {
+            let transparent = Self::wants_transparent(window_item.as_pin_ref());
+            window_attributes = window_attributes.with_transparent(transparent);
+            self.transparent.set(transparent);
+        }
+
         // Create the window at its preferred size: the renderer's surface is created together
         // with the window, and on Wayland resizing it afterwards only takes effect after the
         // next present, so the first frame would be rendered at the pre-show size.
@@ -603,6 +634,7 @@ impl WinitWindowAdapter {
 
         let winit_window =
             self.renderer.resume(active_event_loop, window_attributes, self.self_weak.clone())?;
+        self.first_frame_presented.set(false);
 
         // Push the host shell's color scheme and accent color to the SlintContext.
         // With `xdg_desktop_settings` the backend-wide portal watcher (spawned in
@@ -839,7 +871,15 @@ impl WinitWindowAdapter {
         }
 
         let renderer = self.renderer();
-        if !matches!(renderer.render(self.window())?, DrawOutcome::Success) {
+        let outcome = renderer.render(self.window());
+        // A timeout or an error ends the wait as well, so that the window can't stay invisible.
+        #[cfg(target_os = "macos")]
+        if !matches!(outcome, Ok(DrawOutcome::Occluded | DrawOutcome::Skipped)) {
+            self.reveal_on_first_frame.take();
+        }
+        if matches!(outcome?, DrawOutcome::Success) {
+            self.first_frame_presented.set(true);
+        } else {
             // Frame was skipped (e.g. surface occluded). pending_redraw was already
             // cleared above, so re-arm it so we try again.
             self.request_redraw();
@@ -1492,20 +1532,12 @@ impl WinitWindowAdapter {
             WinitWindowEvent::Touch(touch) => {
                 let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
                 let position = euclid::point2(location.x, location.y);
-                // winit types the touch id as u64, but on all platforms except
-                // iOS it is in fact a small integer that fits in i32. Only iOS
-                // stores a UITouch pointer address in it, which
-                // TouchFingerIdAllocator maps to a small id instead.
-                #[cfg(not(target_os = "ios"))]
-                let finger_id =
-                    Some(i32::try_from(touch.id).expect("winit touch id out of i32 range"));
-                #[cfg(target_os = "ios")]
                 let finger_id = match touch.phase {
                     winit::event::TouchPhase::Started | winit::event::TouchPhase::Moved => {
-                        self.touch_finger_ids.borrow_mut().id_for(touch.id)
+                        Some(self.touch_finger_ids.borrow_mut().id_for((touch.device_id, touch.id)))
                     }
                     winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
-                        self.touch_finger_ids.borrow_mut().take(touch.id)
+                        self.touch_finger_ids.borrow_mut().take((touch.device_id, touch.id))
                     }
                 };
                 if let Some(finger_id) = finger_id {
@@ -1536,8 +1568,15 @@ impl WinitWindowAdapter {
                 });
                 self.update_accent_color();
             }
-            WinitWindowEvent::Occluded(x) => {
-                self.renderer.occluded(x);
+            WinitWindowEvent::Occluded(occluded) => {
+                self.renderer.occluded(occluded);
+
+                // wgpu hands out no drawable while the window isn't visible, see
+                // `macos::RevealOnFirstFrame`. Draw now instead of at the next display link tick.
+                #[cfg(target_os = "macos")]
+                if !occluded && self.pending_redraw.get() {
+                    self.draw()?;
+                }
 
                 // Same hack as in the Resized arm above, so that we handle Minimized changes
                 self.window_state_event();
@@ -1641,10 +1680,13 @@ impl WinitWindowAdapter {
             // Pre-render the first frame before mapping the window to avoid a flash of
             // uninitialized VRAM on X11 (no background_pixmap). Skipped on Wayland, where
             // rendering before the initial configure makes the compositor mis-size the window.
-            if matches!(visibility, WindowVisibility::ShownFirstTime)
-                && !self.shared_backend_data.is_wayland
-            {
+            if !self.first_frame_presented.get() && !self.shared_backend_data.is_wayland {
                 let _ = self.draw();
+                #[cfg(target_os = "macos")]
+                if !self.first_frame_presented.get() {
+                    *self.reveal_on_first_frame.borrow_mut() =
+                        crate::macos::RevealOnFirstFrame::new(&winit_window);
+                }
             }
 
             winit_window.set_visible(true);
@@ -1697,6 +1739,11 @@ impl WinitWindowAdapter {
             if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
                 existing_blinker.stop();
             }*/
+
+            // After the window is ordered out, so that the reveal can't show it.
+            #[cfg(target_os = "macos")]
+            self.reveal_on_first_frame.take();
+
             Ok(())
         }
     }
@@ -1833,6 +1880,19 @@ impl WindowAdapter for WinitWindowAdapter {
         winit_window_or_none.set_decorations(
             !window_item.no_frame() || winit_window_or_none.fullscreen().is_some(),
         );
+
+        // Follow a background brush that changes while the window is up. The renderer has to
+        // come along: its surface keeps or discards the scene's alpha to match the window.
+        #[cfg(target_os = "macos")]
+        if let WinitWindowOrNone::HasWindow { window, .. } = &*winit_window_or_none {
+            let transparent = Self::wants_transparent(window_item);
+            if self.transparent.replace(transparent) != transparent {
+                window.set_transparent(transparent);
+                if let Err(err) = self.renderer.set_transparent(transparent) {
+                    i_slint_core::debug_log!("Error adjusting the surface transparency: {err}");
+                }
+            }
+        }
 
         let new_window_level = if window_item.always_on_top() {
             winit::window::WindowLevel::AlwaysOnTop

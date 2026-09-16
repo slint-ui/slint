@@ -18,6 +18,7 @@ export global StudioTheme {
     out property <color> soft-border: dark ? #3f3f3f : #eaeef2;
     out property <color> accent: dark ? #2379f4 : #0d99ff;
     out property <color> accent-strong: dark ? accent.mix(#ffffff, 0.75) : #52aeff;
+    out property <color> canvas-outline: dark ? #0c8ce9 : #0b99fe;
     out property <color> canvas: dark ? #1f1f1f : #eef2f7;
     out property <color> phone-bg: dark ? #f7f8fb : #ffffff;
     out property <color> phone-text: #20252d;
@@ -60,7 +61,10 @@ export global EditorMetrics {
     out property <length> phone-portrait-height: 720px;
     out property <length> phone-frame-radius: 34px;
     out property <length> phone-outer-padding: 1px;
-    out property <length> selection-handle-size: 12px;
+    out property <length> selection-outline-width: 1px;
+    out property <length> hover-outline-width: 2px;
+    out property <length> selection-handle-size: 8px;
+    out property <length> selection-handle-touch-size: 12px;
     out property <length> rotation-zone-size: 22px;
     out property <length> radius-handle-size: 10px;
     out property <length> radius-handle-inset: 10px;
@@ -181,7 +185,7 @@ export component HorizontalResizeDivider inherits FocusScope {
 export component BodyLabel inherits Text {
     color: StudioTheme.text;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: FontWeight.medium;
     overflow: elide;
 }
 
@@ -196,7 +200,7 @@ export component SectionTitle inherits Text {
     text: label;
     color: StudioTheme.muted;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: FontWeight.bold;
 }
 
 export component PrimerTextInput inherits Rectangle {
@@ -221,7 +225,7 @@ export component PrimerTextInput inherits Rectangle {
             text: root.leading-text;
             color: StudioTheme.muted;
             font-size: 14px;
-            font-weight: 700;
+            font-weight: FontWeight.bold;
             vertical-alignment: center;
         }
 
@@ -316,7 +320,7 @@ export component PrimerNavRow inherits Rectangle {
             text: root.glyph;
             color: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
             font-size: 12px;
-            font-weight: 800;
+            font-weight: FontWeight.extra-bold;
             vertical-alignment: center;
         }
 
