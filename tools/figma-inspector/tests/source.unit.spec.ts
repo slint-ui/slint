@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+// cspell:words opsz
 
 import { describe, expect, test } from "vitest";
 
@@ -20,6 +21,98 @@ import type { Diagnostic } from "../src/plugin/snapshot";
 import { validateSnapshot } from "../src/plugin/snapshot";
 
 describe("source", () => {
+    test.each([
+        [{ wght: 650, ital: 1 }, 650, true],
+        [{ wght: 350, ital: 0 }, 350, false],
+    ])(
+        "exports supported font axes %j as native typography",
+        async (axes, weight, italic) => {
+            const source: SourceCapture = JSON.parse(
+                await readFile("fixtures/source/export-fonts.json", "utf8"),
+            );
+            const label = source.root.children?.[0];
+            if (!label) throw Error("Expected text fixture");
+            source.root = label;
+            source.root.properties.fontName = encodeValue({
+                family: "Roboto",
+                style: "Regular",
+                variationSettings: axes,
+            });
+            const before = structuredClone(source);
+            const result = await normalizeSource(source, "export");
+            expect(result.ok).toBe(true);
+            if (!result.ok || result.empty)
+                throw Error("Expected text snapshot");
+            expect(result.snapshot.root).toMatchObject({
+                kind: "text",
+                fontVariationSettings: axes,
+                fontWeight: weight,
+                italic,
+                runs: [{ bold: weight >= 600, italic }],
+            });
+            expect(validateSnapshot(result.snapshot).ok).toBe(true);
+            const converted = convertSnapshot(result.snapshot);
+            if (!converted.ok) throw Error("Expected native source");
+            expect(converted.source).toContain(`font-weight: ${weight};`);
+            expect(converted.source.includes("font-italic: true;")).toBe(
+                italic,
+            );
+            expect(result.warnings).toEqual([]);
+            expect(source).toEqual(before);
+        },
+    );
+
+    test("retains unsupported Material Symbols axes and reports the native limitation", async () => {
+        const source: SourceCapture = JSON.parse(
+            await readFile("fixtures/source/export-fonts.json", "utf8"),
+        );
+        const label = source.root.children?.[0];
+        if (!label) throw Error("Expected text fixture");
+        source.root = label;
+        const axes = { FILL: 1, GRAD: 0, opsz: 24, wght: 400 };
+        source.root.properties.fontName = encodeValue({
+            family: "Material Symbols Outlined",
+            style: "Regular",
+            variationSettings: axes,
+        });
+        const result = await normalizeSource(source, "export");
+        if (!result.ok || result.empty) throw Error("Expected text snapshot");
+        expect(result.snapshot.root).toMatchObject({
+            fontVariationSettings: axes,
+        });
+        expect(result.warnings).toEqual([
+            expect.objectContaining({
+                code: "FONT_VARIATIONS_APPROXIMATED",
+                message: expect.stringContaining("FILL=1, GRAD=0, opsz=24"),
+            }),
+        ]);
+    });
+
+    test.each([{ bad: 1 }, { wght: "bold" }, null, []])(
+        "rejects malformed font axes %j",
+        async (axes) => {
+            const source: SourceCapture = JSON.parse(
+                await readFile("fixtures/source/export-fonts.json", "utf8"),
+            );
+            const label = source.root.children?.[0];
+            if (!label) throw Error("Expected text fixture");
+            source.root = label;
+            source.root.properties.fontName = encodeValue({
+                family: "Roboto",
+                style: "Regular",
+                variationSettings: axes,
+            });
+            expect(await normalizeSource(source, "export")).toMatchObject({
+                ok: false,
+                diagnostics: [
+                    expect.objectContaining({
+                        code: "INVALID_FONT_VARIATIONS",
+                    }),
+                ],
+            });
+        },
+    );
+
     test("saved source replays deterministically without a Figma host", async () => {
         const source: SourceCapture = JSON.parse(
             await readFile("fixtures/source/basic.json", "utf8"),

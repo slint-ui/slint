@@ -248,6 +248,7 @@ export type SnapshotTextNode = SnapshotGeometry & {
     readonly fontStyle: string;
     readonly fontSize: number;
     readonly fontWeight: number;
+    readonly fontVariationSettings?: Readonly<Record<string, number>>;
     readonly textAutoResize: SnapshotTextAutoResize;
     readonly horizontalAlign: "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED";
     readonly verticalAlign: "TOP" | "CENTER" | "BOTTOM";
@@ -1191,6 +1192,24 @@ function validateNode(value: unknown, path: string): Diagnostic[] {
             errors.push(
                 diagnostic("Font weight must be finite", `${path}.fontWeight`),
             );
+        if (value.fontVariationSettings !== undefined) {
+            const axes = value.fontVariationSettings;
+            if (
+                axes === null ||
+                typeof axes !== "object" ||
+                Array.isArray(axes) ||
+                Object.entries(axes).some(
+                    ([tag, setting]) =>
+                        !/^[\x20-\x7e]{4}$/.test(tag) || !finite(setting),
+                )
+            )
+                errors.push(
+                    diagnostic(
+                        "Font variations must have four-character axis tags and finite values",
+                        `${path}.fontVariationSettings`,
+                    ),
+                );
+        }
         if (
             !["LEFT", "CENTER", "RIGHT", "JUSTIFIED"].includes(
                 String(value.horizontalAlign),

@@ -373,10 +373,67 @@ export async function normalizeText(
         !isMixed(textNode.fontSize, mixedValue) && number(textNode.fontSize)
             ? textNode.fontSize
             : (baseSegment?.fontSize ?? 16);
+    const fontVariationSettings = fontName.variationSettings;
+    const variations = [
+        fontVariationSettings,
+        ...segments.map((segment) => segment.fontName?.variationSettings),
+    ];
+    if (
+        variations.some(
+            (axes) =>
+                axes !== undefined &&
+                (axes === null ||
+                    typeof axes !== "object" ||
+                    Array.isArray(axes) ||
+                    Object.entries(axes).some(
+                        ([tag, value]) =>
+                            !/^[\x20-\x7e]{4}$/.test(tag) || !number(value),
+                    )),
+        )
+    )
+        return {
+            error: problem(
+                "INVALID_FONT_VARIATIONS",
+                node,
+                "Font variations must have four-character axis tags and finite values",
+                "fontName.variationSettings",
+            ),
+        };
     const fontWeight =
-        !isMixed(textNode.fontWeight, mixedValue) && number(textNode.fontWeight)
+        (fontVariationSettings?.wght === undefined
+            ? undefined
+            : Math.round(fontVariationSettings.wght)) ??
+        (!isMixed(textNode.fontWeight, mixedValue) &&
+        number(textNode.fontWeight)
             ? textNode.fontWeight
-            : (baseSegment?.fontWeight ?? 400);
+            : (baseSegment?.fontWeight ?? 400));
+    const italic =
+        fontVariationSettings?.ital !== undefined
+            ? fontVariationSettings.ital === 1
+            : fontName.style.toLowerCase().includes("italic");
+    const unsupportedAxes = [
+        ...new Set(
+            variations.flatMap((axes) =>
+                Object.entries(axes ?? {})
+                    .filter(
+                        ([tag, value]) =>
+                            (tag !== "wght" || !Number.isInteger(value)) &&
+                            !(tag === "ital" && (value === 0 || value === 1)),
+                    )
+                    .map(([tag, value]) => `${tag}=${value}`),
+            ),
+        ),
+    ].sort();
+    if (unsupportedAxes.length > 0)
+        captureWarnings.push({
+            ...problem(
+                "FONT_VARIATIONS_APPROXIMATED",
+                node,
+                `Slint cannot express font axes ${unsupportedAxes.join(", ")}; use a static font instance or outlined SVG`,
+                "fontName.variationSettings",
+            ),
+            severity: "warning",
+        });
     if (!number(fontSize) || fontSize <= 0 || !number(fontWeight))
         return {
             error: problem(
@@ -408,10 +465,19 @@ export async function normalizeText(
         (segment) =>
             (segment.fontName !== undefined &&
                 (segment.fontName.family !== fontName.family ||
-                    segment.fontName.style !== fontName.style)) ||
+                    segment.fontName.style !== fontName.style ||
+                    !sameJsonValue(
+                        segment.fontName.variationSettings,
+                        fontVariationSettings,
+                    ))) ||
             (segment.fontSize !== undefined && segment.fontSize !== fontSize) ||
-            (segment.fontWeight !== undefined &&
-                segment.fontWeight !== fontWeight) ||
+            ((segment.fontName?.variationSettings?.wght ??
+                segment.fontWeight) !== undefined &&
+                Math.round(
+                    segment.fontName?.variationSettings?.wght ??
+                        segment.fontWeight ??
+                        fontWeight,
+                ) !== fontWeight) ||
             (segment.letterSpacing !== undefined &&
                 !sameJsonValue(segment.letterSpacing, baseLetterSpacing)) ||
             (segment.lineHeight !== undefined &&
@@ -565,6 +631,8 @@ export async function normalizeText(
             displayedOffset + displayedText.length,
         ];
         displayedOffset = range[1];
+        const segmentWeight =
+            segment.fontName?.variationSettings?.wght ?? segment.fontWeight;
         return {
             range,
             text: displayedText,
@@ -578,11 +646,13 @@ export async function normalizeText(
                           },
                           node,
                       ),
-            bold: number(segment.fontWeight)
-                ? segment.fontWeight >= 600
-                : false,
+            bold: number(segmentWeight) && segmentWeight >= 600,
             italic:
-                segment.fontStyle?.toLowerCase().includes("italic") ?? false,
+                segment.fontName?.variationSettings?.ital !== undefined
+                    ? segment.fontName.variationSettings.ital === 1
+                    : ((segment.fontStyle ?? segment.fontName?.style)
+                          ?.toLowerCase()
+                          .includes("italic") ?? false),
             underline: segment.textDecoration === "UNDERLINE",
             strike: segment.textDecoration === "STRIKETHROUGH",
         };
@@ -597,10 +667,13 @@ export async function normalizeText(
             fontStyle: fontName.style,
             fontSize,
             fontWeight,
+            ...(fontVariationSettings === undefined
+                ? {}
+                : { fontVariationSettings }),
             textAutoResize,
             horizontalAlign: textNode.textAlignHorizontal,
             verticalAlign: textNode.textAlignVertical,
-            italic: fontName.style.toLowerCase().includes("italic"),
+            italic,
             letterSpacing,
             lineHeightFactor: lineHeight,
             wrap: textAutoResize === "none" || textAutoResize === "height",
