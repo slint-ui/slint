@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import capabilities from "../../.generated/slint-wasm/fonts.json";
+import capabilities from "./runtime-fonts.json";
 
 export function embeddedFontSupports(
     font: { family: string; style: string },

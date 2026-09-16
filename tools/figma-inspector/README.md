@@ -42,7 +42,10 @@ in `runtime-pin.json`. The build prepares that source under `.generated`.
 Set `SLINT_REPO` to use an existing clean checkout of the pinned commit.
 Use `pnpm build:slint:dev` for a development interpreter build.
 
-The runtime build extracts font families, glyph coverage, weight axes, and italic availability from its embedded fonts.
+The runtime build verifies the checked-in font capability manifest against its embedded fonts.
+The manifest records font families, glyph coverage, weight axes, and italic availability.
+When changing the runtime pin, run `node scripts/build-font-capabilities.mjs --update` and review the manifest.
+Static checks do not need a runtime build.
 Preview uses native text only when those capabilities cover the captured text and supported font settings.
 Otherwise, it uses Figma's rendered image.
 Family matching does not establish that Figma uses the same font version.
