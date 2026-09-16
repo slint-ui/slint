@@ -29,6 +29,15 @@ backend-linuxkms-noseat = ["backend-linuxkms-libinput"]
 backend-qt = ["i-slint-backend-qt/enable"]
 backend-testing = ["i-slint-backend-testing/internal"]
 
+image-pixel-format-rgb565 = [
+  "i-slint-core/image-pixel-format-rgb565",
+  "i-slint-backend-qt?/image-pixel-format-rgb565",
+  "i-slint-backend-winit?/image-pixel-format-rgb565",
+  "i-slint-backend-linuxkms?/image-pixel-format-rgb565",
+  "i-slint-renderer-femtovg?/image-pixel-format-rgb565",
+  "i-slint-renderer-skia?/image-pixel-format-rgb565",
+]
+
 renderer-femtovg = [
   "dep:i-slint-renderer-femtovg",
   "i-slint-backend-winit?/renderer-femtovg",

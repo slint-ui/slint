@@ -19,6 +19,7 @@ path = "lib.rs"
 default = []
 ## Render through vello on WGPU, using Slint's own WGPU initialization.
 vello = ["dep:anyrender_vello", "dep:vello", "i-slint-core/unstable-wgpu-29"]
+image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "shared-fontique", "shared-parley", "image-decoders", "svg"] }
