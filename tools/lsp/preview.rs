@@ -1250,7 +1250,7 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
         component_catalog::builtin_components(&document_cache, &mut components);
         component_catalog::all_exported_components(
             &document_cache,
-            &mut |ci| !ci.is_global,
+            &mut |ci| !ci.is_global && !ci.is_interface,
             &mut components,
         );
 
