@@ -97,25 +97,24 @@ export component LineEditBase inherits Rectangle {
     ContextMenuArea {
         enabled: root.enabled;
         Menu {
-            if !root.read-only && root.enabled: MenuItem {
+            if !root.read-only: MenuItem {
                 title: @tr("Undo");
                 activated => {
                     text-input.undo();
                 }
             }
 
-            if !root.read-only && root.enabled: MenuItem {
+            if !root.read-only: MenuItem {
                 title: @tr("Redo");
                 activated => {
                     text-input.redo();
                 }
             }
 
-            if !root.read-only && root.enabled: MenuSeparator { }
+            if !root.read-only: MenuSeparator { }
 
-            MenuItem {
+            if !root.read-only: MenuItem {
                 title: @tr("Cut");
-                enabled: !root.read-only && root.enabled;
                 activated => {
                     text-input.cut();
                 }
@@ -129,9 +128,8 @@ export component LineEditBase inherits Rectangle {
                 }
             }
 
-            MenuItem {
+            if !root.read-only: MenuItem {
                 title: @tr("Paste");
-                enabled: !root.read-only && root.enabled;
                 activated => {
                     text-input.paste();
                 }
