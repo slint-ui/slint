@@ -528,6 +528,11 @@ impl SharedBackendData {
         let keyboard_notifications =
             ios::register_keyboard_notifications(Rc::downgrade(&active_windows));
 
+        // UIKit connects the scene from `UIApplicationMain`, so the class named in
+        // the app's `UIApplicationSceneManifest` has to be registered before then.
+        #[cfg(target_os = "ios")]
+        ios::register_scene_delegate_class();
+
         let event_loop_proxy = event_loop.create_proxy();
         #[cfg(not(target_arch = "wasm32"))]
         let clipboard = crate::clipboard::create_clipboard(
