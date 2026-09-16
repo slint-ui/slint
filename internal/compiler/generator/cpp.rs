@@ -576,6 +576,7 @@ impl CppType for Type {
             Type::Easing => Some("::slint::cbindgen_private::EasingCurve".into()),
             Type::StyledText => Some("::slint::StyledText".into()),
             Type::MouseCursor => Some("::slint::cbindgen_private::MouseCursorInner".into()),
+            Type::CornerShape => Some("::slint::cbindgen_private::CornerShape".into()),
             _ => None,
         }
     }
@@ -5193,6 +5194,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         })(),
         // Generated code has no debug hooks; use the wrapped expression.
         Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
+        Expression::CornerShape(s) => {
+            format!(
+                "::slint::cbindgen_private::CornerShape(::slint::cbindgen_private::CornerShape::Tag::{s:?})"
+            )
+        }
     }
 }
 

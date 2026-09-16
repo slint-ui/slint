@@ -260,6 +260,15 @@ pub fn create_graphics_api_wgpu_30(
 pub mod ffi {
     #![allow(unsafe_code)]
 
+    /// Compares two corner shapes like `PartialEq`, for C++'s `operator==`.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_corner_shape_eq(
+        a: &super::CornerShape,
+        b: &super::CornerShape,
+    ) -> bool {
+        a == b
+    }
+
     /// Expand Rect so that cbindgen can see it. ( is in fact euclid::default::Rect<f32>)
     #[cfg(cbindgen)]
     #[repr(C)]

@@ -5,8 +5,8 @@ use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, PropertyLookupMode};
 use crate::expression_types::{
-    EasingCurve, ImageReference, MinMaxOp, MouseCursorInner, OperatorClass, RadialGradientShape,
-    Unit, operator_class,
+    CornerShape, EasingCurve, ImageReference, MinMaxOp, MouseCursorInner, OperatorClass,
+    RadialGradientShape, Unit, operator_class,
 };
 use crate::langtype::{ConstantExpression, EnumerationValue, Keys, Struct, Type};
 use crate::lookup::{LookupCtx, TypeSpecificLookup};
@@ -132,6 +132,8 @@ fn builtin_function_is_const(
         BuiltinFunction::Rgb => true,
         BuiltinFunction::Hsv => true,
         BuiltinFunction::Oklch => true,
+        BuiltinFunction::CornerShapeSuperellipse => true,
+        BuiltinFunction::CornerShapeToString => true,
         BuiltinFunction::SetTextInputFocused => false,
         BuiltinFunction::TextInputFocused => false,
         BuiltinFunction::ImplicitLayoutInfo(_) => false,
@@ -195,6 +197,7 @@ pub enum BuiltinMacroFunction {
     ArrayIndexOf,
     CustomMouseCursor,
     Spring,
+    Superellipse,
 }
 
 /// The base of a Expression::FunctionCall
@@ -501,6 +504,7 @@ pub enum Expression {
 
     /// A pre-parsed `Path.stroke-dash-array`, packed for `Type::ArrayOfCoord`.
     DashArray(Vec<f32>),
+    CornerShape(CornerShape),
 }
 
 impl Expression {
@@ -649,6 +653,7 @@ impl Expression {
             Expression::DebugHook { expression, .. } => expression.ty(),
             Expression::Closure { .. } => Type::Closure,
             Expression::DashArray(_) => Type::ArrayOfCoord,
+            Expression::CornerShape(_) => Type::CornerShape,
         }
     }
 
@@ -797,6 +802,7 @@ impl Expression {
             Expression::DebugHook { expression, .. } => visitor(expression),
             Expression::Closure { expression, .. } => visitor(expression),
             Expression::DashArray(_) => {}
+            Expression::CornerShape(_) => {}
         }
     }
 
@@ -947,6 +953,7 @@ impl Expression {
             Expression::DebugHook { expression, .. } => visitor(expression),
             Expression::Closure { expression, .. } => visitor(expression),
             Expression::DashArray(_) => {}
+            Expression::CornerShape(_) => {}
         }
     }
 
@@ -1072,6 +1079,7 @@ impl Expression {
             Expression::DebugHook { .. } => false,
             Expression::Closure { expression, .. } => expression.is_constant(ga),
             Expression::DashArray(_) => true,
+            Expression::CornerShape(_) => true,
         }
     }
 
@@ -1437,6 +1445,7 @@ impl Expression {
                 source_location: None,
             },
             Type::Closure => Expression::Invalid,
+            Type::CornerShape => Expression::CornerShape(CornerShape::default()),
         }
     }
 
@@ -2177,6 +2186,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             pretty_print(f, expression)
         }
         Expression::DashArray(v) => write!(f, "dash-array({v:?})"),
+        Expression::CornerShape(s) => write!(f, "{s:?}"),
     }
 }
 
