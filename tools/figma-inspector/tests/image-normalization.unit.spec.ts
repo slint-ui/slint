@@ -151,7 +151,7 @@ describe("image-tiling", () => {
 });
 
 describe("viewer-image-width", () => {
-    test("preview and export retain raster label intrinsic sizing", async () => {
+    test("preview bounds HUG image measurement while export retains intrinsic sizing", async () => {
         const snapshot = JSON.parse(
             await readFile("fixtures/auto-layout.snapshot.json", "utf8"),
         );
@@ -168,8 +168,8 @@ describe("viewer-image-width", () => {
         const preview = convertSnapshot(snapshot);
         const exported = convertSnapshot(snapshot, { target: "export" });
         if (!preview.ok || !exported.ok) throw Error("Conversion failed");
-        expect(preview.source).toContain("preferred-width: 56px;");
-        expect(preview.source).not.toMatch(/(?<!preferred-)\bwidth: 56px;/);
+        expect(preview.source).toMatch(/(?<!preferred-)\bwidth: 56px;/);
+        expect(preview.source).not.toContain("preferred-width: 56px;");
         expect(exported.source).toContain("preferred-width: 56px;");
     });
 });
