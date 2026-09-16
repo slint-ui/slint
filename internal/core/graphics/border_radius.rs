@@ -467,6 +467,59 @@ where
     }
 }
 
+/// The shape of a rectangle corner, as CSS `corner-shape` defines it.
+///
+/// Every shape is a CSS `superellipse(k)` value, scaled to the corner's radius.
+/// See <https://drafts.csswg.org/css-borders-4/#corner-shape-value>.
+#[repr(C)]
+#[derive(Default, Debug, Clone, Copy)]
+pub enum CornerShape {
+    /// A quarter circle, `superellipse(1)`.
+    #[default]
+    Round,
+    /// A square cut out of the corner, `superellipse(-infinity)`.
+    Notch,
+    /// A quarter circle cut out of the corner, `superellipse(-1)`.
+    Scoop,
+    /// A straight diagonal cut, `superellipse(0)`.
+    Bevel,
+    /// A squircle, `superellipse(2)`.
+    Squircle,
+    /// A sharp corner, `superellipse(infinity)`.
+    Square,
+    /// `superellipse(k)` for the given `k`.
+    Superellipse(f32),
+}
+
+impl PartialEq for CornerShape {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            // A NaN `k` must equal itself, or a property holding it never settles.
+            (Self::Superellipse(a), Self::Superellipse(b)) => super::brush::nan_eq(*a, *b),
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
+}
+
+/// Spells the shape as in `.slint`, for `debug()`.
+impl fmt::Display for CornerShape {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CornerShape::Round => f.write_str("round"),
+            CornerShape::Notch => f.write_str("notch"),
+            CornerShape::Scoop => f.write_str("scoop"),
+            CornerShape::Bevel => f.write_str("bevel"),
+            CornerShape::Squircle => f.write_str("squircle"),
+            CornerShape::Square => f.write_str("square"),
+            CornerShape::Superellipse(k) => write!(
+                f,
+                "superellipse({})",
+                crate::string::shared_string_from_number_unlocalized(*k as f64)
+            ),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::lengths::{LogicalBorderRadius, LogicalLength, PhysicalPx, ScaleFactor};

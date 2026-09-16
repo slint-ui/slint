@@ -960,6 +960,7 @@ fn completion_item_from_expression(
                 Expression::Cast { .. } => Some(CompletionItemKind::CONSTANT),
                 Expression::EasingCurve(_) => Some(CompletionItemKind::CONSTANT),
                 Expression::EnumerationValue(_) => Some(CompletionItemKind::ENUM_MEMBER),
+                Expression::CornerShape(_) => Some(CompletionItemKind::CONSTANT),
                 _ => None,
             };
             c

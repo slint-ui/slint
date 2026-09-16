@@ -142,6 +142,7 @@ macro_rules! builtin_type {
     (Color) => { $crate::langtype::Type::Color };
     (Brush) => { $crate::langtype::Type::Brush };
     (StyledText) => { $crate::langtype::Type::StyledText };
+    (CornerShape) => { $crate::langtype::Type::CornerShape };
     ($enum:ident) => { $crate::langtype::Type::Enumeration($crate::typeregister::BUILTIN.enums.$enum.clone()) };
 }
 

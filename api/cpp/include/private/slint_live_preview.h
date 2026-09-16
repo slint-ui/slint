@@ -319,7 +319,32 @@ public:
         }
         return {};
     }
+    static slint::interpreter::Value
+    value_from_corner_shape(const slint::cbindgen_private::CornerShape &shape)
+    {
+        return slint::interpreter::Value(
+                cbindgen_private::slint_interpreter_value_new_corner_shape(&shape));
+    }
+    static slint::cbindgen_private::CornerShape
+    corner_shape_from_value(const slint::interpreter::Value &value)
+    {
+        if (auto *p = cbindgen_private::slint_interpreter_value_to_corner_shape(value.inner)) {
+            return *p;
+        }
+        return {};
+    }
 };
+
+inline slint::interpreter::Value into_slint_value(const slint::cbindgen_private::CornerShape &val)
+{
+    return private_api::live_preview::LiveReloadingComponent::value_from_corner_shape(val);
+}
+
+inline slint::cbindgen_private::CornerShape
+from_slint_value(const slint::interpreter::Value &val, const slint::cbindgen_private::CornerShape *)
+{
+    return private_api::live_preview::LiveReloadingComponent::corner_shape_from_value(val);
+}
 
 inline slint::interpreter::Value
 into_slint_value(const slint::cbindgen_private::MouseCursorInner &val)

@@ -473,7 +473,7 @@ pub mod cpp_ast {
 
 use crate::CompilerConfiguration;
 use crate::builtin_functions::BuiltinFunction;
-use crate::expression_types::{EasingCurve, MinMaxOp, Orientation};
+use crate::expression_types::{CornerShape, EasingCurve, MinMaxOp, Orientation};
 use crate::langtype::{BuiltinStruct, Enumeration, EnumerationValue, StructName, Type};
 use crate::llr::{
     self, CROSS_WIDTH_LOCAL, EvaluationContext as llr_EvaluationContext, EvaluationScope,
@@ -571,6 +571,7 @@ impl CppType for Type {
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
             Type::StyledText => Some("slint::StyledText".into()),
             Type::MouseCursor => Some("slint::cbindgen_private::MouseCursorInner".into()),
+            Type::CornerShape => Some("slint::cbindgen_private::CornerShape".into()),
             _ => None,
         }
     }
@@ -5026,6 +5027,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         })(),
         // Generated code has no debug hooks; use the wrapped expression.
         Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
+        Expression::CornerShape(CornerShape::Superellipse(a)) => format!(
+            "slint::cbindgen_private::CornerShape(slint::cbindgen_private::CornerShape::Tag::Superellipse, {a})"
+        ),
+        Expression::CornerShape(s) => {
+            format!("slint::cbindgen_private::CornerShape::Tag::{s:?}")
+        }
     }
 }
 

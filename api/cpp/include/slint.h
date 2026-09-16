@@ -119,6 +119,17 @@ inline bool operator==(const EasingCurve &a, const EasingCurve &b)
     }
     return true;
 }
+inline bool operator==(const CornerShape &a, const CornerShape &b)
+{
+    if (a.tag != b.tag) {
+        return false;
+    } else if (a.tag == CornerShape::Tag::Superellipse) {
+        // Same as the Rust `PartialEq`: a NaN `k` equals itself.
+        float ka = a.superellipse._0, kb = b.superellipse._0;
+        return ka == kb || (ka != ka && kb != kb);
+    }
+    return true;
+}
 }
 
 namespace private_api {

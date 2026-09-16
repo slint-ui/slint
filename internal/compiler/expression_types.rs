@@ -191,6 +191,40 @@ pub enum EasingCurve {
     // Custom(Box<dyn Fn(f32)->f32>),
 }
 
+#[derive(Clone, Debug, Default)]
+pub enum CornerShape {
+    #[default]
+    Round,
+    Notch,
+    Scoop,
+    Bevel,
+    Squircle,
+    Square,
+    Superellipse(f32),
+}
+
+/// As at runtime, a NaN `k` equals itself.
+impl PartialEq for CornerShape {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Superellipse(a), Self::Superellipse(b)) => a == b || (a.is_nan() && b.is_nan()),
+            _ => std::mem::discriminant(self) == std::mem::discriminant(other),
+        }
+    }
+}
+
+impl CornerShape {
+    /// Every shape spelled as a keyword, with its keyword.
+    pub const KEYWORDS: [(&'static str, CornerShape); 6] = [
+        ("notch", CornerShape::Notch),
+        ("scoop", CornerShape::Scoop),
+        ("bevel", CornerShape::Bevel),
+        ("round", CornerShape::Round),
+        ("squircle", CornerShape::Squircle),
+        ("square", CornerShape::Square),
+    ];
+}
+
 /// The compiled `mouse-cursor` value: either a built-in cursor or a custom one built from an
 /// image. Generic over the expression type so both the tree and the LLR reuse the same shape.
 #[derive(Clone, Debug)]

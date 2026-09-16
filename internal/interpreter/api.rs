@@ -145,6 +145,9 @@ pub enum Value {
     #[doc(hidden)]
     /// A mouse cursor.
     MouseCursorInner(i_slint_core::cursor::MouseCursorInner) = 17,
+    #[doc(hidden)]
+    /// A corner shape.
+    CornerShape(i_slint_core::graphics::CornerShape) = 18,
 }
 
 impl Value {
@@ -205,6 +208,7 @@ impl PartialEq for Value {
             Value::MouseCursorInner(lhs) => {
                 matches!(other, Value::MouseCursorInner(rhs) if lhs == rhs)
             }
+            Value::CornerShape(lhs) => matches!(other, Value::CornerShape(rhs) if lhs == rhs),
         }
     }
 }
@@ -236,6 +240,7 @@ impl std::fmt::Debug for Value {
             Value::Keys(ks) => write!(f, "Value::Keys({ks:?})"),
             Value::DataTransfer(cd) => write!(f, "Value::DataTransfer({cd:?})"),
             Value::MouseCursorInner(m) => write!(f, "Value::MouseCursor({m:?})"),
+            Value::CornerShape(s) => write!(f, "Value::CornerShape({s:?})"),
         }
     }
 }
@@ -283,6 +288,7 @@ declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
 declare_value_conversion!(Keys => [Keys]);
 declare_value_conversion!(DataTransfer => [DataTransfer]);
 declare_value_conversion!(MouseCursorInner => [i_slint_core::cursor::MouseCursorInner]);
+declare_value_conversion!(CornerShape => [i_slint_core::graphics::CornerShape]);
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {
