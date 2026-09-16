@@ -89,6 +89,22 @@ export function textRunNeedsStyled(text: SnapshotTextNode): boolean {
             !sameColor(run.color, baseColor),
     );
 }
+export function textNeedsOverflowWrapper(node: SnapshotTextNode): boolean {
+    return (
+        node.paintBounds !== undefined &&
+        node.textAutoResize === "none" &&
+        node.layoutSizingHorizontal !== "hug" &&
+        node.layoutSizingVertical !== "hug" &&
+        node.overflow === "clip" &&
+        !textRunNeedsStyled(node) &&
+        node.horizontalAlign !== "JUSTIFIED" &&
+        !/[\r\n\u2028\u2029]/u.test(node.characters) &&
+        (!node.wrap ||
+            (!/\s/u.test(node.characters) &&
+                node.paintBounds.height <= node.fontSize))
+    );
+}
+
 export function textSource(
     node: SnapshotTextNode,
     styledText: boolean,

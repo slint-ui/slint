@@ -32,11 +32,26 @@ export function applyCodegenVariables(
         fontWeight: "font-weight",
     };
     const root = lines.find((line) => line.kind === "open" && line.depth === 0);
+    const overflowText = lines.some(
+        (line) =>
+            line.kind === "open" &&
+            line.depth === 1 &&
+            line.role === "overflow-text",
+    );
     for (const variable of variables) {
+        const textBinding =
+            overflowText &&
+            [
+                "characters",
+                "fontFamily",
+                "fontSize",
+                "fontWeight",
+                "fills",
+            ].includes(variable.field);
         let field = fields[variable.field];
         if (variable.field === "fills")
             field =
-                root?.kind === "open" && root.type === "Text"
+                textBinding || (root?.kind === "open" && root.type === "Text")
                     ? "color"
                     : root?.kind === "open" && root.type === "Path"
                       ? "fill"
@@ -55,7 +70,7 @@ export function applyCodegenVariables(
         let line = lines.find(
             (line) =>
                 line.kind === "binding" &&
-                line.depth === 1 &&
+                line.depth === (textBinding ? 2 : 1) &&
                 line.name === field,
         );
         // Default-valued native properties can be omitted from the literal IR.

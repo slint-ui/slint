@@ -593,6 +593,11 @@ export async function captureSource(
                 });
             }
         }
+        if (node.type === "TEXT") {
+            const bounds = overflowingPaintBounds(node);
+            if (bounds)
+                result.properties.textPaintBounds = encodeValue(bounds, mixed);
+        }
         // Backdrop/mask composition needs pixels outside this subtree. Do not
         // treat a metadata fingerprint as proof that those pixels are unchanged.
         const contextProperties = decodeValue(result.properties) as Record<
