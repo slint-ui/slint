@@ -8,7 +8,10 @@ import JSZip from "jszip";
 import { convertCapture } from "../src/preview/convert-capture";
 import { unpackPreviewAssets } from "../src/asset-transport";
 import { exportZip } from "../src/ui/export-download";
-import { externalizeImages } from "../src/export/generate";
+import {
+    externalizeImages,
+    exportValidationSource,
+} from "../src/export/generate";
 import { isExportPackage } from "../src/protocol";
 import { isPluginToUiMessage } from "../src/protocol";
 
@@ -152,6 +155,9 @@ test("asset extraction deduplicates image expressions but never edits quoted cod
     expect(result.files).toHaveLength(1);
     expect(result.source).toContain(JSON.stringify(image));
     expect(result.source.match(/assets\/image-/g)).toHaveLength(2);
+    expect(
+        exportValidationSource({ source: result.source, files: result.files }),
+    ).toBe(source);
 });
 
 test("export message validation rejects traversal, duplicate paths and malformed files", () => {
