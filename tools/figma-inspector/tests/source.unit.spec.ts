@@ -21,6 +21,246 @@ import type { Diagnostic } from "../src/plugin/snapshot";
 import { validateSnapshot } from "../src/plugin/snapshot";
 
 describe("source", () => {
+    test("captures text paint bounds without changing the Figma layout box", async () => {
+        const fixture: SourceCapture = JSON.parse(
+            await readFile("fixtures/source/export-fonts.json", "utf8"),
+        );
+        const label = fixture.root.children?.[0];
+        if (!label) throw Error("Expected text fixture");
+        const node = {
+            ...decodeValue(label.properties),
+            id: label.id,
+            name: label.name,
+            type: "TEXT",
+            fontName: { family: "Inter", style: "Regular" },
+            width: 24,
+            height: 24,
+            absoluteTransform: [
+                [1, 0, 100],
+                [0, 1, 200],
+            ],
+            absoluteBoundingBox: { x: 100, y: 200, width: 24, height: 24 },
+            absoluteRenderBounds: { x: 97, y: 197, width: 30, height: 30 },
+            getStyledTextSegments: () => [],
+        } as unknown as TextNode;
+        const captured = await captureSource(node, SOURCE_MIXED);
+        expect(
+            decodeValue(captured.source.root.properties.textPaintBounds),
+        ).toEqual({ x: -3, y: -3, width: 30, height: 30 });
+        expect(captured.source.root.properties.width).toBe(24);
+        expect(captured.source.root.properties.height).toBe(24);
+        const rotated = {
+            ...node,
+            absoluteTransform: [
+                [0, -1, 100],
+                [1, 0, 200],
+            ],
+        } as unknown as TextNode;
+        const skipped = await captureSource(rotated, SOURCE_MIXED);
+        expect(skipped.source.root.properties.textPaintBounds).toBeUndefined();
+    });
+
+    test.each(["Inter", "Roboto", "Material Symbols Outlined"])(
+        "wraps overflowing text without font-specific sizing for %s",
+        async (family) => {
+            const source: SourceCapture = JSON.parse(
+                await readFile("fixtures/source/export-fonts.json", "utf8"),
+            );
+            const label = source.root.children?.[0];
+            if (!label) throw Error("Expected text fixture");
+            source.root = label;
+            Object.assign(label.properties, {
+                characters:
+                    family === "Material Symbols Outlined"
+                        ? "check_circle"
+                        : "W",
+                fontName: encodeValue({ family, style: "Regular" }),
+                fontSize: 30,
+                width: 24,
+                height: 24,
+                textAutoResize: "NONE",
+                textAlignHorizontal: "CENTER",
+                textAlignVertical: "CENTER",
+                textPaintBounds: { x: -3, y: -3, width: 30, height: 30 },
+            });
+            const before = structuredClone(source);
+            const normalized = await normalizeSource(source, "export");
+            if (
+                !normalized.ok ||
+                normalized.empty ||
+                normalized.snapshot.root.kind !== "text"
+            )
+                throw Error("Expected text snapshot");
+            const snapshot = {
+                ...normalized.snapshot,
+                root: normalized.snapshot.root,
+            };
+            expect(snapshot.root).toMatchObject({
+                width: 24,
+                height: 24,
+                paintBounds: { x: -3, y: -3, width: 30, height: 30 },
+            });
+            expect(validateSnapshot(snapshot).ok).toBe(true);
+            const converted = convertSnapshot(snapshot, { target: "export" });
+            if (!converted.ok) throw Error("Expected native source");
+            expect(converted.source).toContain(
+                "width: max(parent.width, self.preferred-width) + 6px;",
+            );
+            expect(converted.source).toContain(
+                "height: max(parent.height, self.preferred-height) + 6px;",
+            );
+            expect(converted.source).toContain(
+                "x: (parent.width - self.width) / 2;",
+            );
+            expect(converted.source).toContain(
+                "y: (parent.height - self.height) / 2;",
+            );
+            expect(converted.source).not.toContain("wrap: word-wrap;");
+            expect(converted.source).not.toContain("overflow: visible;");
+            expect(source).toEqual(before);
+            const bound = convertSnapshot(snapshot, {
+                target: "export",
+                scope: "root-only",
+                codegenVariables: [
+                    {
+                        field: "fontSize",
+                        name: "Text Size",
+                        collection: "Typography",
+                        modes: 1,
+                        type: "FLOAT",
+                    },
+                ],
+            });
+            if (!bound.ok) throw Error("Expected variable source");
+            expect(bound.source).toContain("font-size: typography.text-size;");
+            expect(
+                bound.warnings.some(
+                    (warning) => warning.code === "CODEGEN_VARIABLE_FALLBACK",
+                ),
+            ).toBe(false);
+            for (const root of [
+                { ...snapshot.root, characters: "Two words" },
+                { ...snapshot.root, characters: "Two\nlines" },
+                {
+                    ...snapshot.root,
+                    paintBounds: { x: -3, y: -3, width: 30, height: 60 },
+                },
+                { ...snapshot.root, overflow: "elide" as const },
+            ]) {
+                const unchanged = convertSnapshot(
+                    {
+                        ...snapshot,
+                        root: {
+                            ...root,
+                            runs: root.runs.map((run) => ({
+                                ...run,
+                                range: [0, root.characters.length] as const,
+                                text: root.characters,
+                            })),
+                        },
+                    },
+                    { target: "export" },
+                );
+                if (!unchanged.ok) throw Error("Expected text source");
+                expect(unchanged.source).not.toContain("max(parent.width");
+            }
+            for (const horizontalAlign of ["LEFT", "RIGHT"] as const) {
+                const aligned = convertSnapshot(
+                    {
+                        ...snapshot,
+                        root: {
+                            ...snapshot.root,
+                            horizontalAlign,
+                            verticalAlign:
+                                horizontalAlign === "LEFT" ? "TOP" : "BOTTOM",
+                        },
+                    },
+                    { target: "export" },
+                );
+                if (!aligned.ok) throw Error("Expected aligned source");
+                expect(aligned.source).toContain(
+                    horizontalAlign === "LEFT"
+                        ? "x: (self.preferred-width - self.width) / 2;"
+                        : "x: parent.width - (self.width + self.preferred-width) / 2;",
+                );
+                expect(aligned.source).toContain(
+                    horizontalAlign === "LEFT"
+                        ? "y: (self.preferred-height - self.height) / 2;"
+                        : "y: parent.height - (self.height + self.preferred-height) / 2;",
+                );
+            }
+            expect(
+                validateSnapshot({
+                    ...snapshot,
+                    root: {
+                        ...snapshot.root,
+                        paintBounds: { x: 0, y: 0, width: -1, height: 30 },
+                    },
+                }).ok,
+            ).toBe(false);
+        },
+    );
+
+    test.each(["Inter", "Roboto", "Material Symbols Outlined"])(
+        "preserves text geometry and wrapping for %s",
+        async (family) => {
+            const source: SourceCapture = JSON.parse(
+                await readFile("fixtures/source/export-fonts.json", "utf8"),
+            );
+            const label = source.root.children?.[0];
+            if (!label) throw Error("Expected text fixture");
+            source.root = label;
+            Object.assign(label.properties, {
+                characters: "Wide text",
+                fontName: encodeValue({
+                    family,
+                    style: "Regular",
+                }),
+                fontSize: 30,
+                width: 24,
+                height: 24,
+                textAutoResize: "NONE",
+                textAlignHorizontal: "CENTER",
+                textAlignVertical: "CENTER",
+            });
+            const result = await normalizeSource(source, "export");
+            if (!result.ok || result.empty)
+                throw Error("Expected text snapshot");
+            expect(result.snapshot.root).toMatchObject({
+                width: 24,
+                height: 24,
+            });
+            const converted = convertSnapshot(result.snapshot, {
+                target: "export",
+            });
+            if (!converted.ok) throw Error("Expected native source");
+            expect(converted.source).not.toContain("max(parent.width");
+            expect(converted.source).toContain("wrap: word-wrap;");
+            expect(converted.source).toContain("width: 24px;");
+            expect(converted.source).toContain("height: 24px;");
+            const bound = convertSnapshot(result.snapshot, {
+                target: "export",
+                scope: "root-only",
+                codegenVariables: [
+                    {
+                        field: "fontSize",
+                        name: "Icon Size",
+                        collection: "Icons",
+                        modes: 1,
+                        type: "FLOAT",
+                    },
+                ],
+            });
+            if (!bound.ok) throw Error("Expected bound icon source");
+            expect(bound.source).toContain("font-size: icons.icon-size;");
+            expect(
+                bound.warnings.some(
+                    (w) => w.code === "CODEGEN_VARIABLE_FALLBACK",
+                ),
+            ).toBe(false);
+        },
+    );
+
     test.each([
         [{ wght: 650, ital: 1 }, 650, true],
         [{ wght: 350, ital: 0 }, 350, false],

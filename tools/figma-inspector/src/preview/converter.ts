@@ -28,7 +28,11 @@ import {
     type RenderContext,
     type NodePlacement,
 } from "./converter-context";
-import { textRunNeedsStyled, textSource } from "./converter-text";
+import {
+    textNeedsOverflowWrapper,
+    textRunNeedsStyled,
+    textSource,
+} from "./converter-text";
 import {
     cornerRadiusSource,
     appearanceSource,
@@ -450,12 +454,15 @@ function nodeSource(
         return lines;
     }
     const styledText = node.kind === "text" && textRunNeedsStyled(node);
+    const overflowText = node.kind === "text" && textNeedsOverflowWrapper(node);
     const paintBounds = node.kind === "svg" ? node.raster?.bounds : undefined;
     const element =
         node.kind === "text"
-            ? styledText
-                ? "StyledText"
-                : "Text"
+            ? overflowText
+                ? "Rectangle"
+                : styledText
+                  ? "StyledText"
+                  : "Text"
             : node.kind === "svg"
               ? paintBounds
                   ? "Rectangle"
@@ -594,7 +601,65 @@ function nodeSource(
         if (visual === undefined) return [];
         lines.push(...visual);
     } else if (node.kind === "text") {
-        lines.push(...textSource(node, styledText, context, depth + 1));
+        if (overflowText && node.paintBounds) {
+            const bounds = node.paintBounds;
+            const horizontalPadding = Math.max(
+                0,
+                -bounds.x,
+                bounds.x + bounds.width - node.width,
+            );
+            const verticalPadding = Math.max(
+                0,
+                -bounds.y,
+                bounds.y + bounds.height - node.height,
+            );
+            lines.push(
+                {
+                    ...openElement("Text", depth + 1, node),
+                    role: "overflow-text",
+                },
+                property(
+                    "width",
+                    `max(parent.width, self.preferred-width) + ${number(horizontalPadding * 2)}px`,
+                    depth + 2,
+                ),
+                property(
+                    "height",
+                    `max(parent.height, self.preferred-height) + ${number(verticalPadding * 2)}px`,
+                    depth + 2,
+                ),
+                property(
+                    "x",
+                    node.horizontalAlign === "LEFT"
+                        ? "(self.preferred-width - self.width) / 2"
+                        : node.horizontalAlign === "RIGHT"
+                          ? "parent.width - (self.width + self.preferred-width) / 2"
+                          : "(parent.width - self.width) / 2",
+                    depth + 2,
+                ),
+                property(
+                    "y",
+                    node.verticalAlign === "TOP"
+                        ? "(self.preferred-height - self.height) / 2"
+                        : node.verticalAlign === "BOTTOM"
+                          ? "parent.height - (self.height + self.preferred-height) / 2"
+                          : "(parent.height - self.height) / 2",
+                    depth + 2,
+                ),
+                ...textSource(
+                    {
+                        ...node,
+                        wrap: false,
+                        horizontalAlign: "CENTER",
+                        verticalAlign: "CENTER",
+                    },
+                    false,
+                    context,
+                    depth + 2,
+                ),
+                closeElement(depth + 1),
+            );
+        } else lines.push(...textSource(node, styledText, context, depth + 1));
     }
     lines.push(closeElement(depth));
     return lines;

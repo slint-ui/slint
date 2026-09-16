@@ -249,6 +249,7 @@ export type SnapshotTextNode = SnapshotGeometry & {
     readonly fontSize: number;
     readonly fontWeight: number;
     readonly fontVariationSettings?: Readonly<Record<string, number>>;
+    readonly paintBounds?: VisualBounds;
     readonly textAutoResize: SnapshotTextAutoResize;
     readonly horizontalAlign: "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED";
     readonly verticalAlign: "TOP" | "CENTER" | "BOTTOM";
@@ -1110,6 +1111,16 @@ function validateNode(value: unknown, path: string): Diagnostic[] {
                 ),
             );
     } else if (value.kind === "text") {
+        if (
+            value.paintBounds !== undefined &&
+            !validVisualBounds(value.paintBounds)
+        )
+            errors.push(
+                diagnostic(
+                    "Text paint bounds must be finite with positive dimensions",
+                    `${path}.paintBounds`,
+                ),
+            );
         if (typeof value.characters !== "string")
             errors.push(
                 diagnostic(

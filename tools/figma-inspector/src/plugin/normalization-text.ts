@@ -13,6 +13,7 @@ import {
 } from "./normalization-context";
 import { visiblePaints } from "./normalization-visual";
 import type { ImageResolver } from "./normalize";
+import { validVisualBounds } from "./source";
 import type {
     Diagnostic,
     SnapshotTextAutoResize,
@@ -667,6 +668,9 @@ export async function normalizeText(
             fontStyle: fontName.style,
             fontSize,
             fontWeight,
+            ...(validVisualBounds(node.textPaintBounds)
+                ? { paintBounds: node.textPaintBounds }
+                : {}),
             ...(fontVariationSettings === undefined
                 ? {}
                 : { fontVariationSettings }),
