@@ -1957,7 +1957,7 @@ fn previewed_component_changed() {
         component_catalog::builtin_components(&document_cache, &mut components);
         component_catalog::all_exported_components(
             &document_cache,
-            &mut |ci| !ci.is_global,
+            &mut |ci| !ci.is_global && !ci.is_interface,
             &mut components,
         );
 
