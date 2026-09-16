@@ -1234,7 +1234,14 @@ test("captures text typography and truncation metadata", async () => {
         maxLines: 2,
     } as unknown as SceneNode;
     const result = await normalizeSource(
-        (await captureSource(styledText, Symbol("mixed"))).source,
+        (
+            await captureSource(
+                styledText,
+                Symbol("mixed"),
+                async () => '<svg width="240" height="72"><path/></svg>',
+            )
+        ).source,
+        "export",
     );
     expect(result).toMatchObject({
         ok: true,
@@ -2354,7 +2361,7 @@ test("unavailable fonts always export complete text layers", async () => {
     for (const [family, style, characters, kind] of [
         ["Roboto", "Regular", "Hello", "svg"],
         ["Roboto", "Regular", "Hello\nWorld", "svg"],
-        ["Inter", "Bold Italic", "Hello", "text"],
+        ["Inter", "Bold Italic", "Hello", "svg"],
         [" inter ", "Regular", "Hello", "text"],
         ["Roboto", "Regular", "", "text"],
         ["Material Symbols Outlined", "Regular", "home", "svg"],

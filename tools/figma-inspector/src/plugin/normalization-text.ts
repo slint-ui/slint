@@ -21,6 +21,7 @@ import type {
     SnapshotTextRun,
 } from "./snapshot";
 type MixedValue = unknown;
+import { embeddedFontSupports } from "./font-capabilities";
 
 function normalizeTextAutoResize(
     value: unknown,
@@ -51,22 +52,51 @@ type EffectiveFont = {
     readonly style: string;
 };
 
-export function classifyNonInterText(
+function validFontVariations(axes: unknown): boolean {
+    return (
+        axes === undefined ||
+        (record(axes) &&
+            !Array.isArray(axes) &&
+            Object.entries(axes).every(
+                ([tag, value]) => /^[\x20-\x7e]{4}$/.test(tag) && number(value),
+            ))
+    );
+}
+
+function invalidFontVariations(node: MaterializedNode): {
+    readonly error: Diagnostic;
+} {
+    return {
+        error: problem(
+            "INVALID_FONT_VARIATIONS",
+            node,
+            "Font variations must have four-character axis tags and finite values",
+            "fontName.variationSettings",
+        ),
+    };
+}
+
+export function textRequiresRasterPreview(
     node: MaterializedNode,
     mixedValue: MixedValue,
 ): boolean | { readonly error: Diagnostic } {
     if (node.characters.length === 0) return false;
-    // The embedded WASM font omits Unicode private-use characters.
+    const font = effectiveFont(node.fontName);
+    const variations = record(node.fontName)
+        ? node.fontName.variationSettings
+        : undefined;
+    if (!validFontVariations(variations)) return invalidFontVariations(node);
     if (
-        /[\uE000-\uF8FF\u{F0000}-\u{FFFFD}\u{100000}-\u{10FFFD}]/u.test(
+        font !== undefined &&
+        number(node.fontWeight) &&
+        !embeddedFontSupports(
+            font,
+            node.fontWeight,
+            variations,
             node.characters,
         )
     )
         return true;
-    const isInter = (font: EffectiveFont) =>
-        font.family.trim().toLowerCase() === "inter";
-    const font = effectiveFont(node.fontName);
-    if (font !== undefined && !isInter(font)) return true;
     const result = node.sourceSegments;
     let coveredText = "";
     let complete = result !== undefined && "segments" in result;
@@ -78,7 +108,21 @@ export function classifyNonInterText(
             }
             if (segment.characters.length === 0) continue;
             const segmentFont = effectiveFont(segment.fontName ?? font);
-            if (segmentFont !== undefined && !isInter(segmentFont)) return true;
+            const settings = record(segment.fontName)
+                ? segment.fontName.variationSettings
+                : variations;
+            if (!validFontVariations(settings))
+                return invalidFontVariations(node);
+            if (
+                segmentFont !== undefined &&
+                !embeddedFontSupports(
+                    segmentFont,
+                    segment.fontWeight ?? node.fontWeight,
+                    settings,
+                    segment.characters,
+                )
+            )
+                return true;
             if (segmentFont === undefined) complete = false;
             coveredText += segment.characters;
         }
@@ -95,6 +139,11 @@ export function classifyNonInterText(
                 "fontName",
             ),
         };
+    if (
+        !number(node.fontWeight) &&
+        (!complete || coveredText !== node.characters)
+    )
+        return true;
     return false;
 }
 
@@ -262,27 +311,8 @@ export async function normalizeText(
         fontVariationSettings,
         ...segments.map((segment) => segment.fontName?.variationSettings),
     ];
-    if (
-        variations.some(
-            (axes) =>
-                axes !== undefined &&
-                (axes === null ||
-                    typeof axes !== "object" ||
-                    Array.isArray(axes) ||
-                    Object.entries(axes).some(
-                        ([tag, value]) =>
-                            !/^[\x20-\x7e]{4}$/.test(tag) || !number(value),
-                    )),
-        )
-    )
-        return {
-            error: problem(
-                "INVALID_FONT_VARIATIONS",
-                node,
-                "Font variations must have four-character axis tags and finite values",
-                "fontName.variationSettings",
-            ),
-        };
+    if (variations.some((axes) => !validFontVariations(axes)))
+        return invalidFontVariations(node);
     const fontWeight =
         (fontVariationSettings?.wght === undefined
             ? undefined
