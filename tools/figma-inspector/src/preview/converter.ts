@@ -144,6 +144,21 @@ function sizingConstraints(
             axis === "horizontal"
                 ? node.layoutSizingVertical
                 : node.layoutSizingHorizontal;
+        // Nested HUG layouts measure image heights through layout-assigned
+        // widths. Keep the captured preview width to break that dependency.
+        if (
+            preview &&
+            node.kind === "svg" &&
+            axis === "horizontal" &&
+            sizing === "hug" &&
+            otherSizing === "hug"
+        ) {
+            lines.push(
+                property("width", resolved, depth),
+                property(stretch, 0, depth),
+            );
+            return;
+        }
         // Conditional Flexbox image branches recurse while measuring their
         // intrinsic size. A fixed opposite axis lets captured geometry break it.
         if (
