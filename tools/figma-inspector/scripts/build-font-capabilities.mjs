@@ -131,7 +131,17 @@ const fonts = [...new Set(paths)].map((path) => {
         ranges,
     };
 });
-writeFileSync(
-    resolve(import.meta.dirname, "../.generated/slint-wasm/fonts.json"),
-    JSON.stringify({ revision: runtimePin.revision, fonts }),
+const manifest = resolve(
+    import.meta.dirname,
+    "../src/plugin/runtime-fonts.json",
 );
+const expected = { revision: runtimePin.revision, fonts };
+if (process.argv.includes("--update"))
+    writeFileSync(manifest, `${JSON.stringify(expected, null, 4)}\n`);
+else if (
+    JSON.stringify(JSON.parse(readFileSync(manifest, "utf8"))) !==
+    JSON.stringify(expected)
+)
+    throw Error(
+        "Embedded font capabilities changed; run node scripts/build-font-capabilities.mjs --update and review the manifest",
+    );
