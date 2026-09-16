@@ -1253,7 +1253,7 @@ test("captures text typography and truncation metadata", async () => {
     });
 });
 
-test("captures conservative icon-font text as outlined SVG leaves", async () => {
+test("captures unavailable fonts and private-use glyphs as outlined leaves", async () => {
     const exportedTypes: string[] = [];
     const exporter = async (
         node: VectorNode | BooleanOperationNode | TextNode,
@@ -1265,7 +1265,7 @@ test("captures conservative icon-font text as outlined SVG leaves", async () => 
         ...text,
         id: "8:5",
         name: "Cloud icon",
-        characters: ` ${String.fromCodePoint(0xe8b6)} `,
+        characters: `Custom ${String.fromCodePoint(0xe8b6)} glyph`,
         fontName: { family: "Inter", style: "Regular" },
     } as unknown as SceneNode;
     const supplementary = {
@@ -1279,7 +1279,7 @@ test("captures conservative icon-font text as outlined SVG leaves", async () => 
         id: "8:7",
         name: "Ligature icon",
         characters: "cloud_upload",
-        fontName: { family: "Material Symbols Rounded", style: "Regular" },
+        fontName: { family: "Example Font", style: "Regular" },
     } as unknown as SceneNode;
 
     for (const node of [icon, supplementary, ligature]) {
@@ -1499,10 +1499,10 @@ test("keeps ordinary, mixed-style, and multiline text on the text path", async (
     const mixed = {
         ...text,
         id: "8:9",
-        characters: String.fromCodePoint(0xe8b6),
+        characters: "ax",
         getStyledTextSegments: () => [
             {
-                characters: String.fromCodePoint(0xe8b6),
+                characters: "a",
                 fontName: { family: "Inter", style: "Regular" },
                 fontSize: 20,
                 fontWeight: 400,
@@ -1518,7 +1518,7 @@ test("keeps ordinary, mixed-style, and multiline text on the text path", async (
     const multiline = {
         ...text,
         id: "8:10",
-        characters: `${String.fromCodePoint(0xe8b6)}\n${String.fromCodePoint(0xe8b7)}`,
+        characters: "ordinary\nlabel",
     } as unknown as SceneNode;
 
     const mixedIconAndOrdinary = {

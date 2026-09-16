@@ -15,7 +15,6 @@ import {
 import {
     normalizeText,
     classifyNonInterText,
-    classifyIconText,
     captureTableCellText,
 } from "./normalization-text";
 import {
@@ -1296,11 +1295,7 @@ async function captureNodeStrict(
                 ? false
                 : classifyNonInterText(textNode, mixedValue);
         if (typeof nonInterText !== "boolean") return nonInterText;
-        const iconInfo = classifyIconText(textNode, mixedValue);
-        if (
-            context.target !== "export" &&
-            (nonInterText || iconInfo !== undefined)
-        ) {
+        if (context.target !== "export" && nonInterText) {
             context.metrics.requests += 1;
             context.metrics.exports += 1;
             return normalizeVisual(
@@ -1655,10 +1650,7 @@ export function requiresVisualExport(
                 "PAGE",
             ].includes(node.type)
         );
-    return (
-        classifyNonInterText(node, SOURCE_MIXED) === true ||
-        classifyIconText(node, SOURCE_MIXED) !== undefined
-    );
+    return classifyNonInterText(node, SOURCE_MIXED) === true;
 }
 
 function groupChildPosition(
