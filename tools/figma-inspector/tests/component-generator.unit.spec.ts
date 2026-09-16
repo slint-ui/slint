@@ -412,10 +412,11 @@ describe("generator", () => {
         );
     });
 
-    test("state output keeps the public contract and removes private style selectors and default instance arguments", async () => {
+    test("variant output keeps the public contract without axis-name-specific selectors", async () => {
         const { result } = await convert(await fixture());
         const [library, demo] = result.source.split("export component Demo");
-        expect(library).toContain("private property <bool> state-busy:");
+        expect(library).not.toContain("private property <bool> state-busy:");
+        expect(library).not.toContain("states [");
         expect(library).not.toMatch(/private property <(?:brush|length)>/);
         expect(library).not.toContain("? true :");
         expect(demo).not.toContain("variant-state: ButtonState.enabled");
@@ -423,6 +424,30 @@ describe("generator", () => {
         expect(demo).not.toContain("variant-style: ButtonStyle.filled");
         expect(library).toContain("in property <ButtonState>");
     });
+
+    test.each(["Status", "Mode"])(
+        "renaming State to %s preserves generated variant bindings",
+        async (key) => {
+            const source = await fixture();
+            const baseline = (await convert(source)).result.source;
+            for (const definition of source.components?.definitions ?? []) {
+                if (!definition.axes.State) continue;
+                definition.axes[key] = definition.axes.State;
+                delete definition.axes.State;
+                for (const variant of definition.variants) {
+                    variant.values[key] = variant.values.State;
+                    delete variant.values.State;
+                }
+            }
+            const renamed = (await convert(source)).result.source;
+            expect(
+                renamed
+                    .replaceAll(`variant-${key.toLowerCase()}`, "variant-state")
+                    .replaceAll(`Button${key}`, "ButtonState")
+                    .replace(/\s+/g, " "),
+            ).toBe(baseline.replace(/\s+/g, " "));
+        },
+    );
 
     test("identical image payloads are declared once before the component that uses them", async () => {
         const capture = JSON.parse(

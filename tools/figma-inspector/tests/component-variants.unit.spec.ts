@@ -7,7 +7,6 @@ import {
     selectValues,
     type VariantAxis,
 } from "../src/preview/component-variants";
-import { appearanceStates } from "../src/preview/component-variants";
 import {
     variantDecision,
     type DecisionAxis,
@@ -69,67 +68,6 @@ describe("predicates", () => {
             expect(evaluate(code, c.values.Color, c.values.State)).toBe(
                 Number(c.code),
             );
-    });
-});
-
-describe("states", () => {
-    test("appearance partitions are exclusive and reset unspecified properties to the authored base", () => {
-        const axes: VariantAxis[] = ["state", "style"].map((key) => ({
-            key,
-            property: key,
-            type: "int",
-            options: new Map([
-                ["0", "0"],
-                ["1", "1"],
-            ]),
-        }));
-        const samples = [
-            {
-                values: { state: "0", style: "0" },
-                properties: { background: "blue", "border-width": "0px" },
-            },
-            {
-                values: { state: "1", style: "0" },
-                properties: { background: "gray", "border-width": "0px" },
-            },
-            {
-                values: { state: "0", style: "1" },
-                properties: { background: "blue", "border-width": "1px" },
-            },
-            {
-                values: { state: "1", style: "1" },
-                properties: { background: "gray", "border-width": "1px" },
-            },
-        ];
-        const source = appearanceStates(
-            samples.filter((sample) => sample.values.style === "0"),
-            axes[0],
-            1,
-        ).join("\n");
-        const states = [
-            ...source.matchAll(/([\w-]+) when ([\s\S]*?): \{([^}]+)\}/g),
-        ];
-        for (const sample of samples.filter(
-            (sample) => sample.values.style === "0",
-        )) {
-            const active = states.filter(([, , condition]) =>
-                Function(
-                    "root",
-                    `return ${condition}`,
-                )({
-                    state: Number(sample.values.state),
-                    style: Number(sample.values.style),
-                }),
-            );
-            expect(active.length).toBeLessThanOrEqual(1);
-            const properties = { ...samples[0].properties };
-            for (const [, field, value] of (active[0]?.[3] ?? "").matchAll(
-                /([\w-]+): ([^;]+);/g,
-            ))
-                Object.assign(properties, { [field]: value });
-            expect(properties).toEqual(sample.properties);
-        }
-        expect(source).not.toContain("option-");
     });
 });
 

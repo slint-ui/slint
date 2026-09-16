@@ -2,11 +2,6 @@
 // SPDX-License-Identifier: MIT
 
 import { requireValue } from "./slint-ir";
-import {
-    identifier,
-    nameAllocator,
-    enumReservedNames,
-} from "./component-names";
 
 /** Preserve numeric and boolean variant domains as values, rather than inventing
  * enums such as Option1 or TrueFalse. Other authored labels remain enums. */
@@ -38,7 +33,6 @@ export type VariantAxis = {
     property: string;
     type: string;
     options: Map<string, string>;
-    test?: (value: string) => string;
 };
 export function optionValue(axis: VariantAxis, value: string): string {
     return axis.type === "int" || axis.type === "bool"
@@ -56,7 +50,6 @@ export function predicate(
             options: [...axis.options.keys()].sort(),
             finite: axis.type !== "int",
             test: (value) =>
-                axis.test?.(value) ??
                 `root.${axis.property} == ${optionValue(axis, value)}`,
         })),
     );
@@ -114,7 +107,6 @@ export function selectValues(
             const condition = options
                 .map(
                     (option) =>
-                        axis.test?.(option) ??
                         `root.${axis.property} == ${optionValue(axis, option)}`,
                 )
                 .join(" || ");
@@ -171,67 +163,6 @@ export function declaration(
     }
     lines.push(line.trimEnd() + suffix);
     return lines;
-}
-
-export type Appearance = {
-    values: Record<string, string>;
-    properties: Record<string, string>;
-};
-
-/** Use the most common authored value as the normal binding. This avoids
- * repeating shared border/layout defaults in every interaction state. */
-export function appearanceDefault(values: string[]): string {
-    const counts = new Map<string, number>();
-    for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
-    return [...counts].sort((a, b) => b[1] - a[1])[0][0];
-}
-
-/** Only an explicitly authored state axis produces Slint states. Independent
- * layout/style axes are handled by ordinary property bindings in the caller. */
-export function appearanceStates(
-    samples: Appearance[],
-    axis: VariantAxis,
-    depth: number,
-): string[] {
-    const fields = Object.keys(samples[0].properties);
-    const base = Object.fromEntries(
-        fields.map((field) => [
-            field,
-            appearanceDefault(
-                samples.map((sample) => sample.properties[field]),
-            ),
-        ]),
-    );
-    const indent = "    ".repeat(depth);
-    const allocate = nameAllocator(enumReservedNames);
-    const lines: string[] = [];
-    for (const option of [...axis.options.keys()].sort()) {
-        const sample = samples.find(
-            (sample) => sample.values[axis.key] === option,
-        );
-        if (!sample) continue;
-        const changes = Object.entries(sample.properties).filter(
-            ([field, value]) => base[field] !== value,
-        );
-        if (!changes.length) continue;
-        const name = allocate(
-            axis.type === "int"
-                ? `state-${option.replace("-", "minus-")}`
-                : identifier(option),
-        );
-        lines.push(
-            ...declaration(
-                `${indent}    ${name} when `,
-                axis.test?.(option) ??
-                    `root.${axis.property} == ${optionValue(axis, option)}`,
-                ": {",
-            ),
-        );
-        for (const [field, value] of changes)
-            lines.push(...declaration(`${indent}        ${field}: `, value));
-        lines.push(`${indent}    }`);
-    }
-    return lines.length ? [`${indent}states [`, ...lines, `${indent}]`] : [];
 }
 
 /** A reduced finite-domain decision tree. Each branch is an exact subset of
