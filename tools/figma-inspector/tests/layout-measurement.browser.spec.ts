@@ -19,7 +19,7 @@ test("nested fixed layouts render without geometry recovery", async () => {
         layoutSizingVertical: "FIXED",
     });
     let parent = capture.root;
-    for (let depth = 1; depth < 8; depth++) {
+    for (let depth = 1; depth < 20; depth++) {
         const child = structuredClone(capture.root);
         child.id = `nested:${depth}`;
         child.children = [];
@@ -32,7 +32,7 @@ test("nested fixed layouts render without geometry recovery", async () => {
         throw Error("Expected nested layouts");
     const result = convertSnapshot(normalized.snapshot);
     if (!result.ok) throw Error(JSON.stringify(result.diagnostics));
-    expect(result.source.match(/FlexboxLayout/g)).toHaveLength(7);
+    expect(result.source.match(/FlexboxLayout/g)).toHaveLength(19);
     const p = await mountPreview();
     p.send({
         type: "preview-source",
