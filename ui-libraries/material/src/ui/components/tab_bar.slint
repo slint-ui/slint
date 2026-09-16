@@ -147,14 +147,8 @@ export component TabBar inherits BaseNavigation {
                     self.update_indicator();
                 }
 
-                // Initial geometry does not emit a change event.
-                Timer {
-                    interval: 50ms;
-
-                    triggered => {
-                        tab_item.update_indicator();
-                        self.running = false;
-                    }
+                init => {
+                    self.update_indicator();
                 }
 
                 function update_indicator() {
@@ -227,14 +221,8 @@ export component SecondaryTabBar inherits BaseNavigation {
                     self.update_indicator();
                 }
 
-                // Initial geometry does not emit a change event.
-                Timer {
-                    interval: 50ms;
-
-                    triggered => {
-                        tab_item.update_indicator();
-                        self.running = false;
-                    }
+                init => {
+                    self.update_indicator();
                 }
 
                 function update_indicator() {
