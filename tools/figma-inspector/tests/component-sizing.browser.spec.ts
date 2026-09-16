@@ -63,6 +63,47 @@ function visit(node: SourceNode, apply: (node: SourceNode) => void) {
     });
 }
 for (const target of ["preview", "export"] as const) {
+    test(`${target}: conditional image branches retain intrinsic sizing`, async () => {
+        const capture = await fixture(false);
+        capture.pngEnabled = false;
+        const image = (node: SourceNode) => {
+            if (!["Leading", "Trailing"].includes(node.name)) return;
+            node.type = "VECTOR";
+            node.properties.layoutSizingHorizontal = "HUG";
+            node.exports = {
+                svg: {
+                    value: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path fill="#00ff00" d="M0 0h16v16H0z"/></svg>',
+                },
+                png: {},
+            };
+        };
+        visit(capture.root, image);
+        for (const variant of requireValue(capture.components).definitions[0]
+            .variants)
+            visit(variant.root, image);
+        const prefix = await generate(capture, target);
+        const p = await mountPreview();
+        let revision = 0;
+        for (const position of ["leading", "trailing", "both"]) {
+            const source = `${prefix}
+            export component Images inherits Window {
+                width: 220px; height: 80px; background: white;
+                FlexboxLayout { alignment: start; cross-axis-alignment: start;
+                    RootSizing { horizontal-stretch: 0; vertical-stretch: 0;
+                        variant-position: RootSizingPosition.${position}; }
+                }
+            }`;
+            p.send({
+                type: "preview-source",
+                revision: ++revision,
+                source,
+                exportPackage: { source, files: [] },
+            });
+            await p.ready(revision);
+            expect(bounds(await canvasPixels(p), 1)?.height).toBe(16);
+        }
+    });
+
     for (const nested of [false, true]) {
         test(`${target}: conditional ${nested ? "inner rows" : "roots"} retain button geometry`, async () => {
             const p = await mountPreview();

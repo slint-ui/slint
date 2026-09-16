@@ -50,7 +50,7 @@ test("README lists a shared blend-mode limitation once across captured nodes", a
 });
 
 test.each(["HUG", "FILL"])(
-    "rasterized %s text has fixed preview width and preferred native width in syntax and ZIP",
+    "rasterized %s text retains layout sizing in preview and native export",
     async (sizing) => {
         const capture = JSON.parse(
             await readFile("fixtures/source/export-fonts.json", "utf8"),
@@ -77,8 +77,11 @@ test.each(["HUG", "FILL"])(
             typeof output.source === "string"
                 ? output.source
                 : unpackPreviewAssets(output.source).source;
-        expect(preview).toContain("width: 70px;");
-        expect(preview).not.toContain("preferred-width: 70px;");
+        expect(preview).toContain("preferred-width: 70px;");
+        expect(preview).not.toMatch(/(?<!preferred-)\bwidth: 70px;/);
+        expect(preview).toContain(
+            `horizontal-stretch: ${sizing === "FILL" ? 1 : 0};`,
+        );
         expect(preview).not.toContain('text: "Native export text"');
         const native = output.exportPackage.source;
         expect(native).toContain('text: "Native export text"');

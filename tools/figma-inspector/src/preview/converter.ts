@@ -133,13 +133,6 @@ function sizingConstraints(
         const stretch =
             axis === "horizontal" ? "horizontal-stretch" : "vertical-stretch";
         const resolved = `${number(axis === "horizontal" ? node.width : node.height)}px`;
-        // The viewer displays captured geometry. Layout-assigned Image widths
-        // recurse in Slint's conditional Flexbox measurement; use the captured
-        // width for raster text and icons, including HUG/HUG images.
-        if (preview && node.kind === "svg" && axis === "horizontal") {
-            lines.push(property("width", resolved, depth));
-            return;
-        }
         if (sizing === "fixed") {
             lines.push(property(dimension, resolved, depth));
             return;
@@ -151,19 +144,15 @@ function sizingConstraints(
             axis === "horizontal"
                 ? node.layoutSizingVertical
                 : node.layoutSizingHorizontal;
-        // Work around Slint's image layout-info cycle inside conditional
-        // Flexbox component branches. A fixed opposite axis gives this icon
-        // captured bounds we can use without an intrinsic-size dependency.
+        // Conditional Flexbox image branches recurse while measuring their
+        // intrinsic size. A fixed opposite axis lets captured geometry break it.
         if (
             intrinsic &&
             node.kind === "svg" &&
             otherSizing === "fixed" &&
             (sizing === "hug" || (sizing === "fill" && !mainAxis))
         ) {
-            lines.push(
-                property(dimension, resolved, depth),
-                property(stretch, 0, depth),
-            );
+            lines.push(property(dimension, resolved, depth), property(stretch, 0, depth));
             return;
         }
         if (sizing === "hug") {
