@@ -78,19 +78,17 @@ Pass a normal pytest selection after `--visible` to watch specific cases:
 
 Set `SLINT_EDITOR_BINARY` to test a different editor binary.
 
-## Rust-Dependent Cases
+## Skipped Cases
 
-The suite retains skipped cases for behavior that needs changes in the Rust
-preview implementation:
+The suite retains skipped cases for behavior that needs editor changes:
 
-- persisting moves of selected Rectangle previews
-- moving selected Text elements beyond the artboard bounds
-- canceling transient preview overrides when the pointer exits
-- inserting palette elements and exposing valid drop markers through the Rust drop path
+- navigating outline focus with the keyboard
 - rejecting descendant cycles and component-root outline drops
 - recovering a deleted root source file without relaunching
 - editing a component-root property from the inspector
 - switching shadow families as one atomic property edit
 - changing both shadow-offset properties atomically through the angle control
+- undoing and redoing corner-radius handle edits
+- editing rotation and corner radius from the Rectangle inspector for undo and redo
 
-Remove a skip when its Rust implementation lands.
+Remove a skip when its implementation lands and the case passes.
