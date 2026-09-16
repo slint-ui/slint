@@ -75,6 +75,17 @@ jobs:
         with:
             extra_cmake_flags: ${{ github.event.inputs.mode != 'release' && '-DCPACK_PACKAGE_VERSION=nightly' || '' }}
 
+    # Build and test the Python wheels without publishing them, so that a broken
+    # wheel build shows up here instead of during a release. In release mode
+    # `trigger_package_publishing` dispatches these workflows to publish.
+    python_wheels:
+        if: github.event.inputs.mode != 'release'
+        uses: ./.github/workflows/upload_pypi.yaml
+
+    python_compiler_wheels:
+        if: github.event.inputs.mode != 'release'
+        uses: ./.github/workflows/upload_pypi_slint_compiler.yaml
+
     check-for-secrets:
         runs-on: ubuntu-latest
         outputs:
