@@ -64,6 +64,8 @@ All notable changes to this project are documented in this file.
  - Android: Fixed `Key.Back` handlers in applications targeting Android 14 or later.
  - Android: The safe-area insets now include the display cutout.
  - Android: Fixed the event loop not waking up for pending redraw requests. (#12687)
+ - iOS: Applications adopt the UIScene lifecycle, which iOS 27 requires to launch. This requires
+   changes to your `.plist`/`.yml` file. For details, see iOS notes in the documentation.
  - esp-idf: Added `SlintPlatformConfiguration::panel_type` so MIPI-DSI panels no longer use RGB-panel APIs. (#13180)
  - LinuxKMS: Improved software rendering performance, and the `mouse-cursor` property is now honored.
  - Skia: Improved performance when rendering opaque images.
