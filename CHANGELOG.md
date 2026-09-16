@@ -2,7 +2,7 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## [1.18.0] - Unreleased
+## [1.18.0] - 2026-09-16
 
 ### General
 
@@ -56,6 +56,8 @@ All notable changes to this project are documented in this file.
  - winit: Fixed the color scheme and desktop settings not being detected with an older xdg-desktop-portal. (#10226)
  - Windows: Fixed dead keys inserting their accent character immediately instead of composing. (#12896)
  - macOS: Fixed a startup crash on macOS 10.13 and applications failing to start on macOS older than 11. (#12399)
+ - macOS: Fixed the native title bar staying blank: windows are now only transparent when their
+   background brush is translucent or they have no decorations.
  - Android: Animations now follow the display refresh rate. (#12407)
  - Android: Fixed key repeat when holding a key on the virtual keyboard, and the position of the caret
    and selection handles at the edge of the visible area. (#12630)
@@ -77,6 +79,7 @@ All notable changes to this project are documented in this file.
  - FemtoVG: Fixed blurry images, most visibly rasterized SVG icons, at fractional device-pixel positions. (#6455)
  - wasm: Fixed keyboard modifiers being reset when the focus moves between elements. (#7347, #8606)
  - wasm: The system accent color is now picked up.
+ - wasm: Fixed a panic on the first touch in Safari on iOS, which left the canvas frozen.
  - Fixed the IME not being updated when the position of a focused, editable `TextInput` changes.
  - Partial rendering: Removing elements, such as an `if` that turns false, a shrinking repeater or a closing
    popup, now repaints only the region they occupied instead of the whole window.
@@ -199,6 +202,7 @@ All notable changes to this project are documented in this file.
  - `DatePicker`: Fixed a missing year in the year list. (#13351)
  - `RadioGroup`: Named the argument of the `selected` callback. (#13279)
  - Qt style: Fixed the `LineEdit` text touching the frame with the Breeze style. (#13392)
+ - `LineEdit`: Added the `undo()` and `redo()` functions, and the matching context menu entries.
 
 ### Rust
 
@@ -313,6 +317,7 @@ All notable changes to this project are documented in this file.
  - slint-viewer: The window is now named after the previewed component and file.
  - slint-viewer: The Android build ships one APK per ABI, and can be reproduced by F-Droid. (#13273, #13342)
  - AI plugins: Added support for Antigravity.
+ - slint-compiler: The compiler binary is now published on crates.io: `cargo install slint-compiler`.
 
 ## [1.17.1] - 2026-07-07
 
