@@ -4,6 +4,7 @@
 declare const DEVELOPMENT: boolean;
 import type { ExportPackage } from "../protocol";
 import { downloadExport } from "./export-download";
+import { exportValidationSource } from "../export/generate";
 import { CaptureAssetReceiver } from "../asset-transport";
 import {
     TIMING_PHASES,
@@ -503,18 +504,26 @@ function acceptSource(
         revision,
         traceId: String(revision),
     };
+    const validationSource = exportValidationSource(exportPackage);
     if (interpreterInitialization === undefined) {
         interpreterInitialization = controller.initialize(
             source,
             revision,
             withRevision,
             warnings,
+            validationSource,
         );
         void interpreterInitialization.catch(() => {
             interpreterInitialization = undefined;
         });
     } else {
-        controller.requestRender(source, revision, withRevision, warnings);
+        controller.requestRender(
+            source,
+            revision,
+            withRevision,
+            warnings,
+            validationSource,
+        );
     }
 }
 

@@ -19,6 +19,7 @@ import { warningSummaries } from "../plugin/snapshot";
 type PreviewState = "initializing" | "compiling" | "ready" | "error";
 type RenderRequest = {
     readonly source: string;
+    readonly validationSource?: string;
     readonly revision: number;
     readonly trace?: TimingTrace;
     readonly warnings: readonly Diagnostic[];
@@ -47,6 +48,7 @@ export class PreviewController {
     private instance: WrappedInstance | undefined;
     private initialized = false;
     private renderedSource: string | undefined;
+    private validatedSource: string | undefined;
     /** The newest accepted source or diagnostic action, regardless of state. */
     private nextRevision = 0;
     private minimumRevision = 0;
@@ -96,6 +98,7 @@ export class PreviewController {
         revision = this.nextRevision + 1,
         trace?: TimingTrace,
         warnings: readonly Diagnostic[] = [],
+        validationSource?: string,
     ): Promise<void> {
         if (this.initializationPromise !== undefined) {
             return this.initializationPromise;
@@ -107,6 +110,7 @@ export class PreviewController {
             trace,
             warnings,
             acceptedAtMonotonicMs,
+            validationSource,
         );
         void this.initializationPromise.catch(() => {
             this.initializationPromise = undefined;
@@ -119,6 +123,7 @@ export class PreviewController {
         revision: number,
         trace?: TimingTrace,
         warnings: readonly Diagnostic[] = [],
+        validationSource?: string,
     ): void {
         if (
             !Number.isSafeInteger(revision) ||
@@ -132,6 +137,7 @@ export class PreviewController {
         this.nextRevision = revision;
         this.pendingRender = {
             source,
+            validationSource,
             revision,
             trace,
             warnings,
@@ -242,6 +248,7 @@ export class PreviewController {
         trace: TimingTrace | undefined,
         warnings: readonly Diagnostic[],
         acceptedAtMonotonicMs: number,
+        validationSource?: string,
     ): Promise<void> {
         this.canvas.style.visibility = "hidden";
         this.setState("initializing", revision);
@@ -285,6 +292,7 @@ export class PreviewController {
                     workingTrace,
                     warnings,
                     acceptedAtMonotonicMs,
+                    validationSource,
                 );
             } catch (error) {
                 this.showError(
@@ -331,6 +339,7 @@ export class PreviewController {
                         request.trace,
                         request.warnings,
                         request.acceptedAtMonotonicMs,
+                        request.validationSource,
                     );
                 } catch (error) {
                     this.showError(
@@ -389,6 +398,7 @@ export class PreviewController {
         trace: TimingTrace | undefined,
         warnings: readonly Diagnostic[],
         acceptedAtMonotonicMs: number,
+        validationSource?: string,
     ): Promise<void> {
         const workingTrace =
             trace === undefined ? undefined : cloneTrace(trace);
@@ -401,6 +411,49 @@ export class PreviewController {
                 this.onTrace,
             );
             return;
+        }
+        if (
+            validationSource !== undefined &&
+            validationSource !== source &&
+            validationSource !== this.validatedSource
+        ) {
+            this.setState("compiling", revision);
+            const validationStart = defaultClock.monotonicNow();
+            const validation = await compile_from_string(
+                validationSource,
+                "",
+                undefined,
+            );
+            try {
+                const component = validation.component;
+                component?.free();
+                const error = validation.error_string.trim();
+                if (error !== "")
+                    throw Error(`Export compilation failed:\n${error}`);
+                if (component === undefined)
+                    throw Error(
+                        "Slint compiler did not return an export component",
+                    );
+                this.validatedSource = validationSource;
+            } finally {
+                validation.free();
+                if (workingTrace)
+                    workingTrace.phases.slintCompilation =
+                        (workingTrace.phases.slintCompilation ?? 0) +
+                        Math.max(
+                            0,
+                            defaultClock.monotonicNow() - validationStart,
+                        );
+            }
+            if (!this.isCurrentRevision(revision)) {
+                finishTrace(
+                    workingTrace,
+                    "superseded",
+                    acceptedAtMonotonicMs,
+                    this.onTrace,
+                );
+                return;
+            }
         }
         if (this.instance !== undefined && this.renderedSource === source) {
             this.showWarnings(warnings);
@@ -427,10 +480,9 @@ export class PreviewController {
         const compilationStart = defaultClock.monotonicNow();
         const result = await compile_from_string(source, "", undefined);
         if (workingTrace !== undefined) {
-            workingTrace.phases.slintCompilation = Math.max(
-                0,
-                defaultClock.monotonicNow() - compilationStart,
-            );
+            workingTrace.phases.slintCompilation =
+                (workingTrace.phases.slintCompilation ?? 0) +
+                Math.max(0, defaultClock.monotonicNow() - compilationStart);
         }
         try {
             if (!this.isCurrentRevision(revision)) {
