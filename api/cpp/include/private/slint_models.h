@@ -561,7 +561,8 @@ struct FilterModelInner : private_api::ModelChangeListener
 
         auto mapped_removed_index =
                 (mapped_row_start != accepted_rows.end() && *mapped_row_start == index)
-                ? std::optional<int>(mapped_row_start - accepted_rows.begin())
+                ? std::optional<size_t>(
+                          static_cast<size_t>(mapped_row_start - accepted_rows.begin()))
                 : std::nullopt;
 
         auto it = accepted_rows.erase(mapped_row_start, mapped_row_end);
