@@ -67,9 +67,17 @@ requires = [
 """
 
     def pyproject_table_iOS(self):
+        # The Briefcase template ships an empty `UISceneConfigurations`, which
+        # iOS 27 treats as not adopting the UIScene lifecycle and refuses to
+        # launch. These keys are appended after the template's own, and the last
+        # of two identical plist keys wins.
         return """\
 requires = [
     "slint",
+]
+info."UIApplicationSceneManifest".UIApplicationSupportsMultipleScenes = false
+info."UIApplicationSceneManifest".UISceneConfigurations.UIWindowSceneSessionRoleApplication = [
+    { UISceneConfigurationName = "Slint", UISceneDelegateClassName = "SlintWindowSceneDelegate" },
 ]
 """
 
