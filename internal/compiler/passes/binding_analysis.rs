@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+#![allow(clippy::mutable_key_type)] // ByAddress<ElementRc> keys rely on Rc identity semantics
+
 //! Compute binding analysis and attempt to find binding loops
 
 use std::collections::HashMap;
@@ -727,8 +729,20 @@ fn recurse_expression(
                     };
                     for orientation in [Orientation::Horizontal, Orientation::Vertical] {
                         let kept = it.constraints.to_apply(&elem, orientation);
-                        for (nr, _) in kept.for_each_restrictions(orientation) {
+                        let mut kept_kinds = Vec::with_capacity(4);
+                        for (nr, kind) in kept.for_each_restrictions(orientation) {
                             vis(&nr.clone().into(), P);
+                            kept_kinds.push(kind);
+                        }
+                        // `to_apply` drops a constraint the cell's own
+                        // layout-info already carries. That holds for one
+                        // measured from an inner element, but not for one
+                        // reading this element's own geometry: the solve
+                        // produces that size, so the read returns to it.
+                        for (nr, kind) in it.constraints.for_each_restrictions(orientation) {
+                            if !kept_kinds.contains(&kind) && constraint_reads_own_geometry(nr) {
+                                vis(&nr.clone().into(), P);
+                            }
                         }
                     }
                 }
@@ -1035,6 +1049,80 @@ fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
             visit_cell_cross_axis_implicit_dependency(cross_axis, &element, vis);
         }
     }
+}
+
+/// Whether `nr` resolves, through properties and functions of the element that
+/// declares it, to that element's own `x`, `y`, `width` or `height` —
+/// `min-height: self.width`, or the same by way of a helper property, a
+/// function or a two-way binding. A callback is not followed: its result is
+/// not a tracked dependency, and `pure callback f() -> length; f => self.width`
+/// does not loop. `TwoWayBinding::ModelData` is not followed either.
+///
+/// This over-approximates: a cell whose size is set explicitly keeps its own
+/// binding instead of reading the cache, so the extra edge closes no cycle.
+/// See `binding_loop_flexbox_inherited_constraint_ok.slint`.
+///
+/// The walk stops at a reference to another element, and so misses a cycle that
+/// goes through one. That is the price of not reporting
+/// `min-height: inner.min-height`, which reaches the same size and works
+/// (`flexbox_forwarded_min_height`): the two are the same shape, and only the
+/// runtime can tell them apart.
+fn constraint_reads_own_geometry(nr: &NamedReference) -> bool {
+    let geometry = ["x", "y", "width", "height"];
+    let mut visited = HashSet::<(ByAddress<ElementRc>, SmolStr)>::new();
+    let mut queue = vec![(nr.element(), nr.name().clone())];
+    while let Some((element, name)) = queue.pop() {
+        if !visited.insert((ByAddress(element.clone()), name.clone())) {
+            continue;
+        }
+        // The binding may sit on a base; its references resolve against the
+        // element that declares it. The next hop restarts from `start`, since
+        // a derived element may override the property the reference names.
+        let start = element.clone();
+        let mut owner = element;
+        loop {
+            let next = {
+                let e = owner.borrow();
+                if let Some(b) = e.binding(&name)
+                    && b.has_binding()
+                {
+                    let mut found = false;
+                    let mut follow = |r: &NamedReference| {
+                        if !Rc::ptr_eq(&r.element(), &owner) {
+                            return;
+                        }
+                        if geometry.contains(&r.name().as_str()) {
+                            found = true;
+                        } else {
+                            queue.push((start.clone(), r.name().clone()));
+                        }
+                    };
+                    for tw in &b.two_way_bindings {
+                        if let Some(p) = tw.property() {
+                            follow(p);
+                        }
+                    }
+                    b.value_expression().visit_recursive(&mut |sub| match sub {
+                        Expression::PropertyReference(r) => follow(r),
+                        Expression::FunctionCall { function: Callable::Function(r), .. } => {
+                            follow(r)
+                        }
+                        _ => {}
+                    });
+                    if found {
+                        return true;
+                    }
+                    break;
+                }
+                match &e.base_type {
+                    ElementType::Component(base) => base.root_element.clone(),
+                    _ => break,
+                }
+            };
+            owner = next;
+        }
+    }
+    false
 }
 
 /// Cross-axis variant of [`visit_implicit_layout_info_dependencies`]: only
