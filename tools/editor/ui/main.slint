@@ -299,6 +299,9 @@ export component EditorUi inherits Window {
                     if AppState.palette-drag-kind != ElementKind.none {
                         AppState.update-palette-drag(AppState.palette-drag-kind, { x: event.position.x + self.absolute-position.x, y: event.position.y + self.absolute-position.y });
                     }
+                    if AppState.outline-drag-active && !AppState.outline-drag-cancelled {
+                        AppState.update-outline-drag-position({ x: event.position.x + self.absolute-position.x, y: event.position.y + self.absolute-position.y });
+                    }
                     return DragAction.none;
                 }
 
@@ -336,13 +339,19 @@ export component EditorUi inherits Window {
                             create-new-slint-file => { root.create-new-slint-file(); }
                         }
 
-                        if Api.editor-surface-mode == EditorSurfaceMode.component: EditorCanvas {
-                            shift-pressed: editor.shift-pressed;
-                            real-element-selected => { editor.focus(); }
-                        }
+                        canvas-viewport := Rectangle {
+                            clip: true;
 
-                        if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
-                            sidebars-collapsed: root.sidebars-collapsed;
+                            if Api.editor-surface-mode == EditorSurfaceMode.component: EditorCanvas {
+                                shift-pressed: editor.shift-pressed;
+                                real-element-selected => { editor.focus(); }
+                            }
+
+                            if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
+                                sidebars-collapsed: root.sidebars-collapsed;
+                            }
+
+                            DragPreview { parent-origin: parent.absolute-position; }
                         }
 
                         if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
@@ -360,8 +369,6 @@ export component EditorUi inherits Window {
                         }
                     }
                 }
-
-                DragPreview { parent-origin: parent.absolute-position; }
 
                 if root.sidebars-collapsed: Rectangle {
                     x: Metrics.space-large;
@@ -403,6 +410,32 @@ export component EditorUi inherits Window {
                     }
                 }
             }
+
+            fill-layer := TouchArea {
+                visible: FillSession.open;
+                enabled: FillSession.open;
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down {
+                        Api.dismiss-fill-picker({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y }, event.button);
+                    }
+                }
+                if FillSession.canvas-active: Rectangle {
+                    x: canvas-viewport.absolute-position.x - fill-layer.absolute-position.x;
+                    y: canvas-viewport.absolute-position.y - fill-layer.absolute-position.y;
+                    width: canvas-viewport.width;
+                    height: canvas-viewport.height;
+                    clip: true;
+
+                    GradientOverlay {
+                        x: FillSession.canvas-origin.x - parent.absolute-position.x;
+                        y: FillSession.canvas-origin.y - parent.absolute-position.y;
+                        width: FillSession.canvas-size.width;
+                        height: FillSession.canvas-size.height;
+                        selection: FillSession.selection;
+                    }
+                }
+                InspectorFillPicker { }
+            }
         }
 
         if Api.startup-wizard-visible: StartupWizard {
@@ -425,24 +458,6 @@ export component EditorUi inherits Window {
         y: (root.height - self.height) / 2;
         error: root.new-file-error;
         dismissed => { root.new-file-error = ""; }
-    }
-
-    fill-layer := TouchArea {
-        visible: FillSession.open;
-        enabled: FillSession.open;
-        pointer-event(event) => {
-            if event.kind == PointerEventKind.down {
-                Api.dismiss-fill-picker({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y }, event.button);
-            }
-        }
-        if FillSession.canvas-active: GradientOverlay {
-            x: FillSession.canvas-origin.x - fill-layer.absolute-position.x;
-            y: FillSession.canvas-origin.y - fill-layer.absolute-position.y;
-            width: FillSession.canvas-size.width;
-            height: FillSession.canvas-size.height;
-            selection: FillSession.selection;
-        }
-        InspectorFillPicker { }
     }
 
     if UpdateStatus.in-titlebar() && UpdateStatus.has-news(): UpdateStatusPill {

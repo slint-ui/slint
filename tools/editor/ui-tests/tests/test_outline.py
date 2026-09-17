@@ -312,12 +312,17 @@ def test_escape_cancels_outline_drag_without_source_edit(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        assert not elements_with_label(window.root_element, "Outline drag preview")
+        canvas = center(window_element_with_label(window, "Editor canvas"))
+        window.dispatch_event(slint_testing.PointerMoveEvent(canvas))
         window_element_with_label(
             window, "Outline drag preview", slint_testing.AccessibleRole.Region
         )
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
         window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
         window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(canvas))
         wait_until(
             lambda: (
                 True
