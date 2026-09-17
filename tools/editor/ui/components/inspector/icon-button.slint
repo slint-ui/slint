@@ -9,15 +9,15 @@ export component InspectorIconButton inherits Rectangle {
     in property <string> label: root.kind;
     in property <bool> selected: false;
     callback clicked;
-    private property <PaintStyle> paint: root.selected ? root.style.pressed
-        : touch.has-hover || button-focus.has-focus ? root.style.hover : root.style.normal;
+    private property <PaintStyle> paint: root.selected ? root.style.appearance.pressed
+        : touch.has-hover || button-focus.has-focus ? root.style.appearance.hover : root.style.appearance.normal;
 
     width: root.style.height;
     height: root.style.height;
     border-radius: root.style.radius;
     background: root.paint.background;
     border-width: button-focus.has-focus ? root.style.border-width : 0px;
-    border-color: button-focus.has-focus ? root.style.focus-border : root.paint.border;
+    border-color: button-focus.has-focus ? root.style.appearance.focus-border : root.paint.border;
     accessible-role: button;
     accessible-label: root.label;
     accessible-checked: root.selected;
@@ -72,7 +72,7 @@ export component InspectorIconButton inherits Rectangle {
                 height: 3px;
                 border-radius: 1.5px;
                 border-width: Metrics.border-width;
-                border-color: root.style.normal.foreground;
+                border-color: root.style.appearance.normal.foreground;
             }
         }
     }
@@ -83,12 +83,12 @@ export component InspectorIconButton inherits Rectangle {
             y: 4px;
             width: 1px;
             height: 10px;
-            background: root.style.normal.foreground;
+            background: root.style.appearance.normal.foreground;
             border-radius: 1px;
         }
-        Rectangle { x: 2.5px; y: 6.5px; width: 4px; height: 1px; background: root.style.normal.foreground; }
-        Rectangle { x: 7px; y: 10.5px; width: 4px; height: 1px; background: root.style.normal.foreground; }
-        Rectangle { x: 11.5px; y: 5px; width: 4px; height: 1px; background: root.style.normal.foreground; }
+        Rectangle { x: 2.5px; y: 6.5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
+        Rectangle { x: 7px; y: 10.5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
+        Rectangle { x: 11.5px; y: 5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
     }
 
     touch := TouchArea {

@@ -62,9 +62,9 @@ component WelcomeAction inherits Rectangle {
     in property <bool> folder: false;
     in property <bool> enabled: true;
     callback clicked;
-    private property <PaintStyle> paint: !root.enabled ? root.style.disabled
-        : touch.pressed ? root.style.pressed
-        : touch.has-hover ? root.style.hover : root.style.normal;
+    private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
+        : touch.pressed ? root.style.appearance.pressed
+        : touch.has-hover ? root.style.appearance.hover : root.style.appearance.normal;
 
     accessible-role: AccessibleRole.button;
     accessible-label: root.label;
@@ -88,7 +88,7 @@ component WelcomeAction inherits Rectangle {
         cross-axis-alignment: center;
 
         ActionIcon {
-            icon-color: root.style.icon-color;
+            icon-color: root.style.appearance.icon-color;
             folder: root.folder;
         }
 

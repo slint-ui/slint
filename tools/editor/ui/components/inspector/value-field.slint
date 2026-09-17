@@ -37,7 +37,7 @@ export component InspectorValueField inherits Rectangle {
                 : root.corner-index == 1 ? "M 1 2 L 6 2 Q 10 2 10 6 L 10 11"
                 : root.corner-index == 2 ? "M 2 1 L 2 6 Q 2 10 6 10 L 11 10"
                 : "M 1 10 L 6 10 Q 10 10 10 6 L 10 1";
-            stroke: root.style.muted;
+            stroke: root.style.appearance.muted;
             stroke-width: Metrics.border-width;
         }
         if root.corner-index < 0: Text {

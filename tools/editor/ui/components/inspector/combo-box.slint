@@ -19,15 +19,15 @@ export component InspectorComboBox inherits Rectangle {
     in property <string> placeholder: "";
     in property <length> popup-available-height: root.menu-style.max-height;
     callback accepted(string) -> bool;
-    private property <PaintStyle> paint: fallback-popup.is-open ? root.style.focus
-        : native-menu-touch.has-hover || combo-focus.has-focus ? root.style.hover : root.style.normal;
+    private property <PaintStyle> paint: fallback-popup.is-open ? root.style.appearance.focus
+        : native-menu-touch.has-hover || combo-focus.has-focus ? root.style.appearance.hover : root.style.appearance.normal;
 
     width: wide ? Style.inspector-layout.content-width : Style.inspector-layout.column-width;
     height: root.style.height;
     border-radius: root.style.radius;
     background: root.paint.background;
     border-width: fallback-popup.is-open || combo-focus.has-focus ? Metrics.border-width : 0px;
-    border-color: fallback-popup.is-open || combo-focus.has-focus ? root.style.focus-border : root.paint.border;
+    border-color: fallback-popup.is-open || combo-focus.has-focus ? root.style.appearance.focus-border : root.paint.border;
     accessible-role: AccessibleRole.combobox;
     accessible-label: root.accessible-name;
     accessible-value: root.value;
@@ -149,7 +149,7 @@ export component InspectorComboBox inherits Rectangle {
             Text {
                 horizontal-stretch: 1;
                 text: root.value != "" ? root.value : root.placeholder;
-                color: root.value != "" ? root.paint.foreground : root.style.muted;
+                color: root.value != "" ? root.paint.foreground : root.style.appearance.muted;
                 font-size: root.style.text.size;
                 vertical-alignment: center;
                 overflow: elide;
@@ -164,7 +164,7 @@ export component InspectorComboBox inherits Rectangle {
                     width: parent.width;
                     height: parent.height;
                     source: EditorIcons.select-chevron;
-                    colorize: root.style.muted;
+                    colorize: root.style.appearance.muted;
                 }
             }
         }
@@ -245,7 +245,7 @@ export component InspectorComboBox inherits Rectangle {
                             background: index == root.highlighted-index
                                 ? Colors.selection
                                 : row-touch.has-hover
-                                ? root.style.hover.background
+                                ? root.style.appearance.hover.background
                                 : transparent;
                             accessible-role: AccessibleRole.list-item;
                             accessible-label: option.label;
@@ -254,7 +254,7 @@ export component InspectorComboBox inherits Rectangle {
                                 x: 7px;
                                 width: 14px;
                                 text: index == root.selected-index ? "✓" : "";
-                                color: root.style.focus-border;
+                                color: root.style.appearance.focus-border;
                                 font-size: root.style.text.size;
                                 font-weight: FontWeight.semi-bold;
                                 horizontal-alignment: center;
@@ -265,7 +265,7 @@ export component InspectorComboBox inherits Rectangle {
                                 x: 25px;
                                 width: parent.width - self.x - 8px;
                                 text: option.label;
-                                color: root.style.normal.foreground;
+                                color: root.style.appearance.normal.foreground;
                                 font-size: root.style.text.size;
                                 vertical-alignment: center;
                                 overflow: elide;

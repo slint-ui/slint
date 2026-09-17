@@ -166,14 +166,14 @@ component FloatingCopyButton inherits Rectangle {
     in property <ButtonStyle> style: Style.copy-button;
     in property <string> label: "Copy";
     callback clicked;
-    private property <PaintStyle> paint: touch.pressed ? root.style.pressed
-        : touch.has-hover || copy-focus.has-focus ? root.style.hover : root.style.normal;
+    private property <PaintStyle> paint: touch.pressed ? root.style.appearance.pressed
+        : touch.has-hover || copy-focus.has-focus ? root.style.appearance.hover : root.style.appearance.normal;
 
     width: root.style.width;
     height: root.style.height;
     border-radius: root.style.radius;
     border-width: copy-focus.has-focus ? Metrics.focus-width : Metrics.border-width;
-    border-color: copy-focus.has-focus ? root.style.focus-border : root.paint.border;
+    border-color: copy-focus.has-focus ? root.style.appearance.focus-border : root.paint.border;
     background: root.paint.background;
     accessible-role: button;
     accessible-label: root.label;

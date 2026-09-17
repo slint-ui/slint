@@ -9,9 +9,9 @@ export component InspectorTextFieldBase inherits Rectangle {
     in property <string> value;
     in property <bool> enabled: true;
     in property <bool> live-edit: false;
-    private property <PaintStyle> paint: !root.enabled ? root.style.disabled
-        : input.has-focus ? root.style.focus
-        : touch.has-hover ? root.style.hover : root.style.normal;
+    private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
+        : input.has-focus ? root.style.appearance.focus
+        : touch.has-hover ? root.style.appearance.hover : root.style.appearance.normal;
     out property <color> paint-foreground: root.paint.foreground;
     in property <string> commit-key: "";
     private property <string> active-commit-key: root.commit-key;
@@ -22,7 +22,7 @@ export component InspectorTextFieldBase inherits Rectangle {
     border-radius: root.style.radius;
     background: root.paint.background;
     border-width: input.has-focus ? root.style.border-width : 0px;
-    border-color: input.has-focus ? root.style.focus-border : root.paint.border;
+    border-color: input.has-focus ? root.style.appearance.focus-border : root.paint.border;
     accessible-role: AccessibleRole.text-input;
     accessible-label: root.accessible-name;
     accessible-value: input.text;
@@ -84,7 +84,7 @@ export component InspectorTextFieldBase inherits Rectangle {
                 font-size: root.style.text.size;
                 font-weight: root.style.text.weight;
                 vertical-alignment: center;
-                selection-background-color: root.style.selection;
+                selection-background-color: root.style.appearance.selection;
                 text-cursor-width: root.style.border-width;
 
                 edited => {

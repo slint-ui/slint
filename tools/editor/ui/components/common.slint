@@ -176,12 +176,12 @@ export component PrimerTextInput inherits Rectangle {
     in property <string> placeholder: "";
     in property <string> leading-text: "";
     in property <string> accessible-name: "";
-    private property <PaintStyle> paint: editor.has-focus ? root.style.focus : root.style.normal;
+    private property <PaintStyle> paint: editor.has-focus ? root.style.appearance.focus : root.style.appearance.normal;
 
     height: root.style.height;
     border-radius: root.style.radius;
     border-width: root.style.border-width;
-    border-color: editor.has-focus ? root.style.focus-border : root.paint.border;
+    border-color: editor.has-focus ? root.style.appearance.focus-border : root.paint.border;
     background: root.paint.background;
 
     animate border-color { duration: Motion.fast; }
@@ -193,7 +193,7 @@ export component PrimerTextInput inherits Rectangle {
 
         if root.leading-text != "": Text {
             text: root.leading-text;
-            color: root.style.muted;
+            color: root.style.appearance.muted;
             font-size: Typography.action.size;
             font-weight: FontWeight.bold;
             vertical-alignment: center;
@@ -213,7 +213,7 @@ export component PrimerTextInput inherits Rectangle {
                 single-line: true;
                 wrap: no-wrap;
                 vertical-alignment: center;
-                selection-background-color: root.style.selection;
+                selection-background-color: root.style.appearance.selection;
             }
 
             if editor.text == "": Text {
@@ -222,7 +222,7 @@ export component PrimerTextInput inherits Rectangle {
                 width: editor.width;
                 height: editor.height;
                 text: root.placeholder;
-                color: root.style.muted;
+                color: root.style.appearance.muted;
                 font-size: root.style.text.size;
                 font-weight: root.style.text.weight;
                 vertical-alignment: center;

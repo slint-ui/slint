@@ -69,6 +69,15 @@ export struct ErrorNoticeStyle {
     icon-text: TextStyle,
 }
 
+export struct ButtonAppearance {
+    normal: PaintStyle,
+    hover: PaintStyle,
+    pressed: PaintStyle,
+    disabled: PaintStyle,
+    focus-border: brush,
+    icon-color: color,
+}
+
 export struct ButtonStyle {
     width: length,
     height: length,
@@ -77,13 +86,8 @@ export struct ButtonStyle {
     radius: length,
     border-width: length,
     text: TextStyle,
-    normal: PaintStyle,
-    hover: PaintStyle,
-    pressed: PaintStyle,
-    disabled: PaintStyle,
-    focus-border: brush,
     disabled-opacity: float,
-    icon-color: color,
+    appearance: ButtonAppearance,
 }
 
 export struct DialogStyle {
@@ -539,13 +543,7 @@ export struct PaletteRowStyle {
     text: TextStyle,
 }
 
-export struct FieldStyle {
-    height: length,
-    radius: length,
-    border-width: length,
-    padding-inline: length,
-    gap: length,
-    text: TextStyle,
+export struct FieldAppearance {
     normal: PaintStyle,
     hover: PaintStyle,
     focus: PaintStyle,
@@ -553,6 +551,16 @@ export struct FieldStyle {
     muted: color,
     focus-border: brush,
     selection: color,
+}
+
+export struct FieldStyle {
+    height: length,
+    radius: length,
+    border-width: length,
+    padding-inline: length,
+    gap: length,
+    text: TextStyle,
+    appearance: FieldAppearance,
 }
 
 export struct SegmentStyle {
@@ -711,16 +719,16 @@ struct NavigationTheme {
 }
 
 struct ButtonsTheme {
-    primary-button: ButtonStyle,
-    compact-button: ButtonStyle,
-    welcome-button: ButtonStyle,
-    inspector-icon-button: ButtonStyle,
-    copy-action: ButtonStyle,
+    primary-button: ButtonAppearance,
+    compact-button: ButtonAppearance,
+    welcome-button: ButtonAppearance,
+    inspector-icon-button: ButtonAppearance,
+    copy-action: ButtonAppearance,
 }
 
 struct FieldsTheme {
-    field: FieldStyle,
-    inspector-field: FieldStyle,
+    field: FieldAppearance,
+    inspector-field: FieldAppearance,
     color-field: ColorFieldStyle,
 }
 
@@ -989,7 +997,7 @@ export global LightTheme {
         selected-foreground: LightTheme.colors.focus,
     };
 
-    out property <ButtonStyle> primary-button: {
+    out property <ButtonAppearance> primary-button: {
         normal: { background: #0969da, foreground: LightTheme.colors.on-accent, border: #0969da },
         hover: { background: #0860ca, foreground: LightTheme.colors.on-accent, border: #0860ca },
         pressed: { background: #0756b5, foreground: LightTheme.colors.on-accent, border: #0756b5 },
@@ -998,7 +1006,7 @@ export global LightTheme {
         icon-color: LightTheme.colors.muted,
     };
 
-    out property <ButtonStyle> compact-button: {
+    out property <ButtonAppearance> compact-button: {
         normal: { background: transparent, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         hover: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         pressed: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
@@ -1007,7 +1015,7 @@ export global LightTheme {
         icon-color: LightTheme.colors.muted,
     };
 
-    out property <ButtonStyle> welcome-button: {
+    out property <ButtonAppearance> welcome-button: {
         normal: { background: #eeeeef, foreground: LightTheme.welcome-shell.foreground, border: LightTheme.colors.border },
         hover: { background: #e2e3e5, foreground: LightTheme.welcome-shell.foreground, border: LightTheme.colors.border },
         pressed: { background: #d9dadd, foreground: LightTheme.welcome-shell.foreground, border: LightTheme.colors.border },
@@ -1016,7 +1024,7 @@ export global LightTheme {
         icon-color: LightTheme.welcome-shell.muted,
     };
 
-    out property <ButtonStyle> inspector-icon-button: {
+    out property <ButtonAppearance> inspector-icon-button: {
         normal: { background: transparent, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         hover: { background: LightTheme.inspector-field.normal.background, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         pressed: { background: LightTheme.colors.focus-background, foreground: LightTheme.colors.accent, border: LightTheme.colors.border },
@@ -1025,7 +1033,7 @@ export global LightTheme {
         icon-color: LightTheme.colors.muted,
     };
 
-    out property <FieldStyle> field: {
+    out property <FieldAppearance> field: {
         normal: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         hover: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         focus: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
@@ -1035,7 +1043,7 @@ export global LightTheme {
         selection: LightTheme.colors.text-selection,
     };
 
-    out property <FieldStyle> inspector-field: {
+    out property <FieldAppearance> inspector-field: {
         normal: { background: #f5f5f5, foreground: LightTheme.colors.foreground, border: #d9d9d9},
         hover: { background: #eeeeee, foreground: LightTheme.colors.foreground, border: #d9d9d9},
         focus: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
@@ -1061,7 +1069,7 @@ export global LightTheme {
         selected: { background: LightTheme.colors.selection, foreground: LightTheme.colors.focus, border: LightTheme.colors.focus },
     };
 
-    out property <ButtonStyle> copy-action: {
+    out property <ButtonAppearance> copy-action: {
         normal: { background: LightTheme.inspector-field.normal.background, foreground: LightTheme.colors.foreground, border: LightTheme.divider },
         hover: { background: LightTheme.inspector-field.hover.background, foreground: LightTheme.colors.foreground, border: LightTheme.divider },
         pressed: { background: LightTheme.inspector-field.hover.background, foreground: LightTheme.colors.foreground, border: LightTheme.divider },
@@ -1296,7 +1304,7 @@ export global DarkTheme {
         selected-foreground: DarkTheme.colors.focus,
     };
 
-    out property <ButtonStyle> primary-button: {
+    out property <ButtonAppearance> primary-button: {
         normal: { background: #196bd6, foreground: DarkTheme.colors.on-accent, border: #196bd6 },
         hover: { background: #2073dd, foreground: DarkTheme.colors.on-accent, border: #2073dd },
         pressed: { background: #135bb9, foreground: DarkTheme.colors.on-accent, border: #135bb9 },
@@ -1305,7 +1313,7 @@ export global DarkTheme {
         icon-color: DarkTheme.colors.muted,
     };
 
-    out property <ButtonStyle> compact-button: {
+    out property <ButtonAppearance> compact-button: {
         normal: { background: transparent, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         hover: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         pressed: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
@@ -1314,7 +1322,7 @@ export global DarkTheme {
         icon-color: DarkTheme.colors.muted,
     };
 
-    out property <ButtonStyle> welcome-button: {
+    out property <ButtonAppearance> welcome-button: {
         normal: { background: #424347, foreground: DarkTheme.welcome-shell.foreground, border: DarkTheme.colors.border },
         hover: { background: #4d4f54, foreground: DarkTheme.welcome-shell.foreground, border: DarkTheme.colors.border },
         pressed: { background: #55575d, foreground: DarkTheme.welcome-shell.foreground, border: DarkTheme.colors.border },
@@ -1323,7 +1331,7 @@ export global DarkTheme {
         icon-color: DarkTheme.welcome-shell.muted,
     };
 
-    out property <ButtonStyle> inspector-icon-button: {
+    out property <ButtonAppearance> inspector-icon-button: {
         normal: { background: transparent, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         hover: { background: DarkTheme.inspector-field.normal.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         pressed: { background: DarkTheme.colors.focus-background, foreground: DarkTheme.colors.accent, border: DarkTheme.colors.border },
@@ -1332,7 +1340,7 @@ export global DarkTheme {
         icon-color: DarkTheme.colors.muted,
     };
 
-    out property <FieldStyle> field: {
+    out property <FieldAppearance> field: {
         normal: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         hover: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         focus: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
@@ -1342,7 +1350,7 @@ export global DarkTheme {
         selection: DarkTheme.colors.text-selection,
     };
 
-    out property <FieldStyle> inspector-field: {
+    out property <FieldAppearance> inspector-field: {
         normal: { background: #383838, foreground: DarkTheme.colors.foreground, border: #4b4b4b},
         hover: { background: #414141, foreground: DarkTheme.colors.foreground, border: #4b4b4b},
         focus: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
@@ -1368,7 +1376,7 @@ export global DarkTheme {
         selected: { background: DarkTheme.colors.selection, foreground: DarkTheme.colors.focus, border: DarkTheme.colors.focus },
     };
 
-    out property <ButtonStyle> copy-action: {
+    out property <ButtonAppearance> copy-action: {
         normal: { background: DarkTheme.inspector-field.normal.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.divider },
         hover: { background: DarkTheme.inspector-field.hover.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.divider },
         pressed: { background: DarkTheme.inspector-field.hover.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.divider },
@@ -1918,12 +1926,7 @@ export global Style {
         border-width: Metrics.border-width,
         text: Typography.strong-body,
         disabled-opacity: Metrics.disabled-opacity,
-        normal: Theme.buttons.primary-button.normal,
-        hover: Theme.buttons.primary-button.hover,
-        pressed: Theme.buttons.primary-button.pressed,
-        disabled: Theme.buttons.primary-button.disabled,
-        focus-border: Theme.buttons.primary-button.focus-border,
-        icon-color: Theme.buttons.primary-button.icon-color,
+            appearance: Theme.buttons.primary-button,
     };
 
     out property <ButtonStyle> compact-button: {
@@ -1934,12 +1937,7 @@ export global Style {
         border-width: Metrics.border-width,
         text: Typography.control,
         disabled-opacity: Metrics.disabled-opacity,
-        normal: Theme.buttons.compact-button.normal,
-        hover: Theme.buttons.compact-button.hover,
-        pressed: Theme.buttons.compact-button.pressed,
-        disabled: Theme.buttons.compact-button.disabled,
-        focus-border: Theme.buttons.compact-button.focus-border,
-        icon-color: Theme.buttons.compact-button.icon-color,
+            appearance: Theme.buttons.compact-button,
     };
 
     out property <ButtonStyle> welcome-button: {
@@ -1950,12 +1948,7 @@ export global Style {
         border-width: Metrics.border-width,
         text: { size: Typography.action.size, weight: FontWeight.extra-bold },
         disabled-opacity: Metrics.disabled-opacity,
-        normal: Theme.buttons.welcome-button.normal,
-        hover: Theme.buttons.welcome-button.hover,
-        pressed: Theme.buttons.welcome-button.pressed,
-        disabled: Theme.buttons.welcome-button.disabled,
-        focus-border: Theme.buttons.welcome-button.focus-border,
-        icon-color: Theme.buttons.welcome-button.icon-color,
+            appearance: Theme.buttons.welcome-button,
     };
 
     out property <ButtonStyle> inspector-icon-button: {
@@ -1966,12 +1959,7 @@ export global Style {
         border-width: Metrics.border-width,
         text: Typography.control,
         disabled-opacity: Metrics.disabled-opacity,
-        normal: Theme.buttons.inspector-icon-button.normal,
-        hover: Theme.buttons.inspector-icon-button.hover,
-        pressed: Theme.buttons.inspector-icon-button.pressed,
-        disabled: Theme.buttons.inspector-icon-button.disabled,
-        focus-border: Theme.buttons.inspector-icon-button.focus-border,
-        icon-color: Theme.buttons.inspector-icon-button.icon-color,
+            appearance: Theme.buttons.inspector-icon-button,
     };
 
     out property <FieldStyle> field: {
@@ -1981,13 +1969,7 @@ export global Style {
         padding-inline: Metrics.space-medium,
         gap: Metrics.space-regular,
         text: Typography.body,
-        normal: Theme.fields.field.normal,
-        hover: Theme.fields.field.hover,
-        focus: Theme.fields.field.focus,
-        disabled: Theme.fields.field.disabled,
-        muted: Theme.fields.field.muted,
-        focus-border: Theme.fields.field.focus-border,
-        selection: Theme.fields.field.selection,
+            appearance: Theme.fields.field,
     };
 
     out property <FieldStyle> inspector-field: {
@@ -1997,13 +1979,7 @@ export global Style {
         padding-inline: Metrics.space-regular,
         gap: Metrics.space-compact,
         text: Typography.control,
-        normal: Theme.fields.inspector-field.normal,
-        hover: Theme.fields.inspector-field.hover,
-        focus: Theme.fields.inspector-field.focus,
-        disabled: Theme.fields.inspector-field.disabled,
-        muted: Theme.fields.inspector-field.muted,
-        focus-border: Theme.fields.inspector-field.focus-border,
-        selection: Theme.fields.inspector-field.selection,
+            appearance: Theme.fields.inspector-field,
     };
 
     pure function field-variant(base: FieldStyle, gap: length, text: TextStyle) -> FieldStyle {
@@ -2014,13 +1990,7 @@ export global Style {
             padding-inline: base.padding-inline,
             gap: gap,
             text: text,
-            normal: base.normal,
-            hover: base.hover,
-            focus: base.focus,
-            disabled: base.disabled,
-            muted: base.muted,
-            focus-border: base.focus-border,
-            selection: base.selection,
+            appearance: base.appearance,
         };
     }
 
@@ -2080,12 +2050,7 @@ export global Style {
         border-width: Metrics.border-width,
         text: { size: Typography.control.size, weight: FontWeight.extra-bold },
         disabled-opacity: Metrics.disabled-opacity,
-        normal: Theme.buttons.copy-action.normal,
-        hover: Theme.buttons.copy-action.hover,
-        pressed: Theme.buttons.copy-action.pressed,
-        disabled: Theme.buttons.copy-action.disabled,
-        focus-border: Theme.buttons.copy-action.focus-border,
-        icon-color: Theme.buttons.copy-action.icon-color,
+            appearance: Theme.buttons.copy-action,
     };
 
     out property <CornerModeStyle> corner-mode: {

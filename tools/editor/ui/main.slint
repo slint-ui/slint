@@ -124,8 +124,8 @@ component NewFileErrorPopup inherits PopupWindow {
                 }
 
                 Rectangle {
-                    private property <PaintStyle> paint: close-touch.pressed ? root.style.close-button.pressed
-                        : close-touch.has-hover ? root.style.close-button.hover : root.style.close-button.normal;
+                    private property <PaintStyle> paint: close-touch.pressed ? root.style.close-button.appearance.pressed
+                        : close-touch.has-hover ? root.style.close-button.appearance.hover : root.style.close-button.appearance.normal;
                     width: bt.width + 2 * root.style.close-button.padding-inline;
                     height: root.style.close-button.height;
                     x: parent.width - self.width - Metrics.space-large;
