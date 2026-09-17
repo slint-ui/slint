@@ -120,6 +120,11 @@ export struct StyleTree {
     drop-target-border-width: length,
     drop-indicator-height: length,
     root-drop-height: length,
+    selected-guide: color,
+    file-guide: color,
+    rename-bg: brush,
+    rename-border: color,
+    error: color,
 }
 
 export struct StyleWelcome {
@@ -143,6 +148,11 @@ export struct StyleLayout {
     search-height: length,
     sidebar-button-width: length,
     sidebar-button-height: length,
+    component-pane-height: length,
+    image-pane-height: length,
+    files-pane-minimum: length,
+    left-heading-height: length,
+    palette-card-height: length,
 }
 
 export struct StyleCanvas {
@@ -332,6 +342,11 @@ export global Style {
         drop-target-border-width: 1px,
         drop-indicator-height: 2px,
         root-drop-height: 8px,
+        selected-guide: Style.dark ? #474747 : #c4c4c4,
+        file-guide: Style.dark ? #303030 : #e2e2e2,
+        rename-bg: Palette.control-background,
+        rename-border: Palette.border,
+        error: Style.dark ? #ff7b72 : #cf222e,
     };
 
     out property <StyleWelcome> welcome: {
@@ -355,6 +370,11 @@ export global Style {
         search-height: 34px,
         sidebar-button-width: 34px,
         sidebar-button-height: 30px,
+        component-pane-height: 360px,
+        image-pane-height: 540px,
+        files-pane-minimum: 250px,
+        left-heading-height: 48px,
+        palette-card-height: 82px,
     };
 
     out property <StyleCanvas> canvas: {

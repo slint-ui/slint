@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../style.slint";
 import { Api, DropLocation, EditorSurfaceMode, OutlineTreeNode } from "../api.slint";
 import { EditorTreeView } from "editor-tree-view.slint";
-import { EditorTreeTokens } from "editor-tree-tokens.slint";
-import { AppState, SectionTitle, StudioTheme } from "common.slint";
+
+import { AppState, SectionTitle } from "common.slint";
 
 export component OutlinePane inherits Rectangle {
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
@@ -12,19 +13,19 @@ export component OutlinePane inherits Rectangle {
     callback element-selected();
     callback drag-started();
 
-    // background: EditorTreeTokens.row-bg-hover;
+    // background: Style.tree.row-bg-hover;
     border-color: Colors.darkcyan;
 
     VerticalLayout {
-        padding-right: 10px;
-        padding-top: 14px;
-        padding-bottom: 12px;
-        spacing: 4px;
+        padding-right: Style.spacing.control-inset;
+        padding-top: Style.spacing.pane-inset;
+        padding-bottom: Style.spacing.medium;
+        spacing: Style.spacing.small;
 
         HorizontalLayout {
             alignment: start;
             cross-axis-alignment: center;
-            padding-left: 16px;
+            padding-left: Style.spacing.large;
 
             SectionTitle {
                 label: "OUTLINE";
@@ -38,8 +39,8 @@ export component OutlinePane inherits Rectangle {
                 x: 16px;
                 width: parent.width - 32px;
                 text: root.image-mode ? "Nothing to Outline" : "No outline available";
-                color: StudioTheme.muted;
-                font-size: 12px;
+                color: Style.colors.muted;
+                font-size: Style.typography.control.size;
                 horizontal-alignment: center;
                 vertical-alignment: center;
             }
@@ -85,14 +86,14 @@ export component OutlinePane inherits Rectangle {
                 root-drop-target := Rectangle {
                     horizontal-stretch: 1;
                     vertical-stretch: 0;
-                    height: root-drop-area.has-drag ? 28px : EditorTreeTokens.root-drop-height;
-                    border-radius: EditorTreeTokens.row-radius;
+                    height: root-drop-area.has-drag ? 28px : Style.tree.root-drop-height;
+                    border-radius: Style.tree.row-radius;
                     border-width: root-drop-area.has-drag && self.drop-allowed
-                        ? EditorTreeTokens.drop-target-border-width
+                        ? Style.tree.drop-target-border-width
                         : 0px;
-                    border-color: EditorTreeTokens.accent;
+                    border-color: Style.tree.accent;
                     background: root-drop-area.has-drag && self.drop-allowed
-                        ? EditorTreeTokens.drop-target-bg
+                        ? Style.tree.drop-target-bg
                         : transparent;
                     property <bool> drop-allowed: false;
                     accessible-role: AccessibleRole.list-item;
@@ -144,11 +145,11 @@ export component OutlinePane inherits Rectangle {
 
                     Text {
                         visible: root-drop-area.has-drag && root-drop-target.drop-allowed;
-                        x: EditorTreeTokens.row-padding-inline;
+                        x: Style.tree.row-padding-inline;
                         width: parent.width - 2 * self.x;
                         text: "Drop as child of root";
-                        color: EditorTreeTokens.text;
-                        font-size: 12px;
+                        color: Style.tree.text;
+                        font-size: Style.typography.control.size;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                         overflow: elide;
