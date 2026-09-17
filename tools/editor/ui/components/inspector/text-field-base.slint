@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, FieldStyle } from "../../style.slint";
+import { Style, FieldStyle, PaintStyle } from "../../style.slint";
 
 export component InspectorTextFieldBase inherits Rectangle {
     in property <FieldStyle> style: Style.inspector-field;
@@ -9,11 +9,9 @@ export component InspectorTextFieldBase inherits Rectangle {
     in property <string> value;
     in property <bool> enabled: true;
     in property <bool> live-edit: false;
-    in property <length> field-padding-left: root.style.padding-inline;
-    in property <length> field-padding-right: root.style.padding-inline;
-    in property <length> content-spacing: root.style.gap;
-    in property <length> input-font-size: root.style.text.size;
-    in property <color> input-color: root.enabled ? root.style.normal.foreground : root.style.muted;
+    private property <PaintStyle> paint: !root.enabled ? root.style.disabled
+        : input.has-focus ? root.style.focus
+        : touch.has-hover ? root.style.hover : root.style.normal;
     in property <string> commit-key: "";
     private property <string> active-commit-key: root.commit-key;
     private property <bool> edited: false;
@@ -21,9 +19,9 @@ export component InspectorTextFieldBase inherits Rectangle {
 
     height: root.style.height;
     border-radius: root.style.radius;
-    background: !enabled ? root.style.disabled.background : input.has-focus ? root.style.focus.background : touch.has-hover ? root.style.hover.background : root.style.normal.background;
+    background: root.paint.background;
     border-width: input.has-focus ? root.style.border-width : 0px;
-    border-color: root.style.focus-border;
+    border-color: input.has-focus ? root.style.focus-border : root.paint.border;
     accessible-role: AccessibleRole.text-input;
     accessible-label: root.accessible-name;
     accessible-value: input.text;
@@ -66,9 +64,9 @@ export component InspectorTextFieldBase inherits Rectangle {
         clicked => { input.focus(); }
 
         HorizontalLayout {
-            padding-left: root.field-padding-left;
-            padding-right: root.field-padding-right;
-            spacing: root.content-spacing;
+            padding-left: root.style.padding-inline;
+            padding-right: root.style.padding-inline;
+            spacing: root.style.gap;
             cross-axis-alignment: center;
 
             @children
@@ -81,8 +79,8 @@ export component InspectorTextFieldBase inherits Rectangle {
                 enabled: root.enabled;
                 single-line: true;
                 wrap: no-wrap;
-                color: root.input-color;
-                font-size: root.input-font-size;
+                color: root.paint.foreground;
+                font-size: root.style.text.size;
                 font-weight: root.style.text.weight;
                 vertical-alignment: center;
                 selection-background-color: root.style.selection;

@@ -33,8 +33,6 @@ export component InspectorColorField inherits Rectangle {
         width: parent.width;
         value: root.value;
         commit-key: root.commit-key;
-        field-padding-left: Metrics.space-regular;
-        content-spacing: Metrics.space-compact;
         accepted(text) => {
             return root.accepted(text);
         }

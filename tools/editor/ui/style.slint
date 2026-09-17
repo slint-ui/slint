@@ -2073,6 +2073,27 @@ export global Style {
         selection: Theme.fields.inspector-field.selection,
     };
 
+    pure function field-variant(base: FieldStyle, gap: length, text: TextStyle) -> FieldStyle {
+        return {
+            height: base.height,
+            radius: base.radius,
+            border-width: base.border-width,
+            padding-inline: base.padding-inline,
+            gap: gap,
+            text: text,
+            normal: base.normal,
+            hover: base.hover,
+            focus: base.focus,
+            disabled: base.disabled,
+            muted: base.muted,
+            focus-border: base.focus-border,
+            selection: base.selection,
+        };
+    }
+
+    out property <FieldStyle> editable-field: root.field-variant(root.inspector-field, Metrics.space-small, root.inspector-field.text);
+    out property <FieldStyle> code-field: root.field-variant(root.inspector-field, root.inspector-field.gap, Typography.caption);
+
     out property <SegmentStyle> segment: {
         height: root.inspector-field.height,
         radius: root.inspector-field.radius,

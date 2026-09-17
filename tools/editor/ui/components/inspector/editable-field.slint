@@ -6,7 +6,7 @@ import { Style, Metrics, Typography, FieldStyle } from "../../style.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
 export component InspectorEditableField inherits Rectangle {
-    in property <FieldStyle> style: Style.inspector-field;
+    in property <FieldStyle> style: Style.editable-field;
     in property <string> accessible-name: "";
     in property <string> prefix: "";
     in property <string> value;
@@ -23,8 +23,6 @@ export component InspectorEditableField inherits Rectangle {
         width: parent.width;
         value: root.value;
         commit-key: root.commit-key;
-        field-padding-right: Metrics.space-regular;
-        content-spacing: Metrics.space-small;
         accepted(text) => {
             return root.accepted(text);
         }
