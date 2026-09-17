@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "../../style.slint";
+import { Style, Metrics, Colors } from "../../style.slint";
 
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { FillSession } from "fill-session.slint";
@@ -23,22 +23,22 @@ export component InspectorColorField inherits Rectangle {
     callback accepted(string) -> bool;
     private property <PropertyValue> property-data: Api.current-property-value-data(root.property-name);
 
-    width: wide ? Style.inspector.wide-width : Style.inspector.column-width;
-    height: Style.inspector.field-height;
+    width: wide ? Style.inspector-layout.content-width : Style.inspector-layout.column-width;
+    height: Style.inspector-field.height;
 
     InspectorTextFieldBase {
         accessible-name: root.accessible-name;
         width: parent.width;
         value: root.value;
         commit-key: root.commit-key;
-        field-padding-left: Style.spacing.regular;
-        content-spacing: Style.spacing.compact;
+        field-padding-left: Metrics.space-regular;
+        content-spacing: Metrics.space-compact;
         accepted(text) => {
             return root.accepted(text);
         }
 
         swatch-focus := FocusScope {
-            width: Style.inspector.field-height;
+            width: Style.inspector-field.height;
             key-pressed(event) => {
                 if event.text == Key.Return || event.text == " " {
                     root.show-picker();
@@ -53,23 +53,23 @@ export component InspectorColorField inherits Rectangle {
                 width: 11px;
                 height: 11px;
                 border-radius: 2.5px;
-                border-width: Style.controls.border-width;
-                border-color: Style.inspector.muted;
+                border-width: Metrics.border-width;
+                border-color: Colors.muted;
                 background: root.swatch;
 
                 for row in 3: Rectangle {
                     x: 2.5px + row * 2.5px;
                     y: 2.5px;
-                    width: Style.controls.border-width;
+                    width: Metrics.border-width;
                     height: 6px;
-                    background: Style.inspector.decorative-icon;
+                    background: Style.info-icon.decorative;
                 }
                 for col in 3: Rectangle {
                     x: 2.5px;
                     y: 2.5px + col * 2.5px;
                     width: 6px;
-                    height: Style.controls.border-width;
-                    background: Style.inspector.decorative-icon;
+                    height: Metrics.border-width;
+                    background: Style.info-icon.decorative;
                 }
             }
 

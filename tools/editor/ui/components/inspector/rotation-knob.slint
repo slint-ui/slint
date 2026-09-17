@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "../../style.slint";
+import { Style, Metrics, Colors, RotationDialStyle } from "../../style.slint";
 
 export component InspectorRotationKnob inherits FocusScope {
+    in property <RotationDialStyle> style: Style.rotation-dial;
     in property <float> value;
     in property <string> accessible-name: "Rotation knob";
     in property <angle> angle-offset: 0deg;
@@ -19,8 +20,8 @@ export component InspectorRotationKnob inherits FocusScope {
     private property <float> accumulated;
     private property <angle> last-angle;
     private property <bool> shift-pressed;
-    width: Style.inspector.dial-size;
-    height: Style.inspector.dial-size;
+    width: root.style.size;
+    height: root.style.size;
     accessible-role: AccessibleRole.slider;
     accessible-label: root.accessible-name;
     accessible-value: "\{root.visual-value}";
@@ -35,7 +36,7 @@ export component InspectorRotationKnob inherits FocusScope {
         }
     }
     function pointer-angle() -> angle {
-        return atan2((touch.mouse-x - Style.inspector.dial-size / 2) / 1px, (Style.inspector.dial-size / 2 - touch.mouse-y) / 1px) - root.angle-offset;
+        return atan2((touch.mouse-x - root.style.size / 2) / 1px, (root.style.size / 2 - touch.mouse-y) / 1px) - root.angle-offset;
     }
     function update(shift: bool) {
         let angle = root.pointer-angle();
@@ -66,27 +67,27 @@ export component InspectorRotationKnob inherits FocusScope {
         return reject;
     }
     Rectangle {
-        border-radius: Style.inspector.dial-size / 2;
-        background: Style.inspector.dial-ring;
-        border-width: Style.controls.border-width;
-        border-color: root.has-focus ? Style.inspector.accent : Style.inspector.dial-ring-border;
+        border-radius: root.style.size / 2;
+        background: root.style.ring;
+        border-width: Metrics.border-width;
+        border-color: root.has-focus ? root.style.focus-border : root.style.ring-border;
         Rectangle {
-            x: Style.inspector.dial-inset; y: Style.inspector.dial-inset; width: Style.inspector.dial-face-size; height: Style.inspector.dial-face-size;
-            border-radius: Style.inspector.dial-face-size / 2;
-            background: Style.inspector.dial-face;
-            border-width: Style.controls.hairline-width;
-            border-color: Style.inspector.dial-face-border;
-            drop-shadow-color: Style.shadows.dial.color;
-            drop-shadow-blur: Style.shadows.dial.blur;
-            drop-shadow-offset-y: Style.shadows.dial.offset-y;
+            x: root.style.inset; y: root.style.inset; width: root.style.face-size; height: root.style.face-size;
+            border-radius: root.style.face-size / 2;
+            background: root.style.face;
+            border-width: Metrics.hairline-width;
+            border-color: root.style.face-border;
+            drop-shadow-color: root.style.shadow.color;
+            drop-shadow-blur: root.style.shadow.blur;
+            drop-shadow-offset-y: root.style.shadow.offset-y;
         }
         Rectangle {
-            x: (Style.inspector.dial-size - Style.inspector.dial-dot-size) / 2 + (root.visual-value.mod(360) * 1deg + root.angle-offset).sin() * Style.inspector.dial-dot-distance;
-            y: (Style.inspector.dial-size - Style.inspector.dial-dot-size) / 2 - (root.visual-value.mod(360) * 1deg + root.angle-offset).cos() * Style.inspector.dial-dot-distance;
-            width: Style.inspector.dial-dot-size; height: Style.inspector.dial-dot-size; border-radius: Style.inspector.dial-dot-size / 2;
-            background: Style.inspector.dial-dot;
-            border-width: Style.controls.hairline-width;
-            border-color: Style.inspector.dial-dot-border;
+            x: (root.style.size - root.style.dot-size) / 2 + (root.visual-value.mod(360) * 1deg + root.angle-offset).sin() * root.style.dot-distance;
+            y: (root.style.size - root.style.dot-size) / 2 - (root.visual-value.mod(360) * 1deg + root.angle-offset).cos() * root.style.dot-distance;
+            width: root.style.dot-size; height: root.style.dot-size; border-radius: root.style.dot-size / 2;
+            background: root.style.dot;
+            border-width: Metrics.hairline-width;
+            border-color: root.style.dot-border;
         }
     }
     touch := TouchArea {

@@ -310,6 +310,7 @@ export struct GradientMarkerStyle {
     active: color,
     size: length,
     radius: length,
+    checker: TransparencyGridStyle,
 }
 
 export struct InspectorLayoutStyle {
@@ -349,6 +350,9 @@ export struct EffectSliderStyle {
     track: brush,
     fill: color,
     thumb: color,
+    control-height: length,
+    border: color,
+    foreground: color,
 }
 
 export struct RadiusSliderStyle {
@@ -358,6 +362,9 @@ export struct RadiusSliderStyle {
     fill: color,
     thumb: color,
     track: color,
+    height: length,
+    min-width: length,
+    focus-border: brush,
 }
 
 export struct RotationDialStyle {
@@ -373,6 +380,7 @@ export struct RotationDialStyle {
     face-border: color,
     dot-border: color,
     shadow: ShadowStyle,
+    focus-border: brush,
 }
 
 export struct ComboMenuStyle {
@@ -391,12 +399,19 @@ export struct ColorPlaneStyle {
     height: length,
     thumb-size: length,
     shadow: ShadowStyle,
+    thumb-border: color,
+    border: brush,
+    radius: length,
+    checker-light: brush,
+    checker-dark: brush,
 }
 
 export struct ColorSliderStyle {
     height: length,
     thumb-size: length,
     shadow: ShadowStyle,
+    thumb-border: color,
+    radius: length,
 }
 
 export struct ColorHexStyle {
@@ -428,6 +443,9 @@ export struct InfoIconStyle {
     decorative: color,
     text: TextStyle,
     foreground: color,
+    border: color,
+    accent: color,
+    hover: brush,
 }
 
 export struct CopyButtonStyle {
@@ -525,6 +543,10 @@ export struct SegmentStyle {
     hover: brush,
     foreground: color,
     muted: color,
+    selected-surface: brush,
+    border: brush,
+    focus-border: brush,
+    text: TextStyle,
 }
 
 export struct SidebarToggleStyle {
@@ -534,6 +556,21 @@ export struct SidebarToggleStyle {
     normal: PaintStyle,
     hover: PaintStyle,
     selected: PaintStyle,
+}
+
+export struct ColorControlsStyle {
+    plane: ColorPlaneStyle,
+    slider: ColorSliderStyle,
+    hex: ColorHexStyle,
+    row-height: length,
+    gap: length,
+}
+
+export struct GradientStopsStyle {
+    ramp: GradientRampStyle,
+    marker: GradientMarkerStyle,
+    row: GradientStopRowStyle,
+    gap: length,
 }
 
 export global Colors {
@@ -1694,6 +1731,7 @@ export global Style {
         active: #0c8ce9,
         size: 24px,
         radius: 5px,
+        checker: Style.transparency-grid,
     };
 
     private property <length> inspector-layout-padding: Metrics.space-medium;
@@ -1734,6 +1772,9 @@ export global Style {
         track: Style.inspector-field.normal.background,
         fill: Colors.accent,
         thumb: Colors.accent,
+        control-height: Style.inspector-field.height,
+        border: Colors.surface,
+        foreground: Colors.foreground,
     };
 
     out property <RadiusSliderStyle> radius-slider: {
@@ -1743,6 +1784,9 @@ export global Style {
         fill: Colors.dark ? Colors.accent : transparent,
         thumb: Colors.dark ? Colors.accent : Colors.muted,
         track: Style.inspector-layout.divider,
+        height: Metrics.control-compact,
+        min-width: Metrics.control-medium,
+        focus-border: Colors.accent,
     };
 
     private property <length> rotation-dial-size: 32px;
@@ -1760,6 +1804,7 @@ export global Style {
         face-border: Colors.dark ? #858e99 : #ffffff,
         dot-border: Colors.dark ? #343e4a : #b9cbd9,
         shadow: { color: #00000025, blur: 2px, offset-y: 1px },
+        focus-border: Colors.accent,
     };
 
     out property <ComboMenuStyle> combo-menu: {
@@ -1778,12 +1823,19 @@ export global Style {
         height: 170px,
         thumb-size: 12px,
         shadow: { color: #00000080, blur: 3px, offset-y: 0px },
+        thumb-border: Colors.on-accent,
+        border: Style.inspector-layout.divider,
+        radius: Metrics.radius-medium,
+        checker-light: Colors.surface,
+        checker-dark: Style.inspector-field.normal.border,
     };
 
     out property <ColorSliderStyle> color-slider: {
         height: 16px,
         thumb-size: 14px,
         shadow: { color: #00000070, blur: 2px, offset-y: 0px },
+        thumb-border: Colors.on-accent,
+        radius: Metrics.radius-large,
     };
 
     out property <ColorHexStyle> color-hex: {
@@ -1813,8 +1865,11 @@ export global Style {
     out property <InfoIconStyle> info-icon: {
         size: 14px,
         decorative: Colors.muted.with-alpha(0.35),
-        text: Typography.info-symbol,
+        text: { size: Typography.info-symbol.size, weight: FontWeight.semi-bold },
         foreground: Colors.muted,
+        border: Colors.muted.with-alpha(0.72),
+        accent: Colors.accent,
+        hover: Colors.subtle-selection,
     };
 
     out property <CopyButtonStyle> copy-button: {
@@ -1988,6 +2043,10 @@ export global Style {
         hover: Style.inspector-field.hover.background,
         foreground: Colors.foreground,
         muted: Colors.muted,
+        selected-surface: Colors.surface,
+        border: Style.inspector-layout.divider,
+        focus-border: Colors.accent,
+        text: Typography.control,
     };
 
     out property <SidebarToggleStyle> sidebar-toggle: {
@@ -1997,5 +2056,20 @@ export global Style {
         normal: { background: Colors.surface, foreground: Colors.foreground, border: Colors.border },
         hover: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
         selected: { background: Colors.selection, foreground: Colors.focus, border: Colors.focus },
+    };
+
+    out property <ColorControlsStyle> color-controls: {
+        plane: Style.color-plane,
+        slider: Style.color-slider,
+        hex: Style.color-hex,
+        row-height: Style.combo-menu.row-height,
+        gap: Metrics.space-medium,
+    };
+
+    out property <GradientStopsStyle> gradient-stops: {
+        ramp: Style.gradient-ramp,
+        marker: Style.gradient-marker,
+        row: Style.gradient-stop-row,
+        gap: Metrics.space-regular,
     };
 }

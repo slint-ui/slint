@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "../../style.slint";
+import { Style, Metrics, Colors, Typography } from "../../style.slint";
 
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
@@ -13,24 +13,24 @@ export component InspectorEditableField inherits Rectangle {
     in property <string> commit-key: "";
     callback accepted(string) -> bool;
 
-    width: wide ? Style.inspector.wide-width : Style.inspector.column-width;
-    height: Style.inspector.field-height;
+    width: wide ? Style.inspector-layout.content-width : Style.inspector-layout.column-width;
+    height: Style.inspector-field.height;
 
     InspectorTextFieldBase {
         accessible-name: root.accessible-name;
         width: parent.width;
         value: root.value;
         commit-key: root.commit-key;
-        field-padding-right: Style.spacing.regular;
-        content-spacing: Style.spacing.small;
+        field-padding-right: Metrics.space-regular;
+        content-spacing: Metrics.space-small;
         accepted(text) => {
             return root.accepted(text);
         }
 
         if root.prefix != "": Text {
             text: root.prefix;
-            color: Style.inspector.text;
-            font-size: Style.typography.caption.size;
+            color: Colors.foreground;
+            font-size: Typography.caption.size;
             vertical-alignment: center;
         }
     }

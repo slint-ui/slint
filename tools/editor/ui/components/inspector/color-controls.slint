@@ -1,12 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "../../style.slint";
+import { Style, Metrics, Colors, Typography, ColorSliderStyle, ColorControlsStyle } from "../../style.slint";
 import { Api } from "../../api.slint";
 
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
 component ColorSlider inherits Rectangle {
+    in property <ColorSliderStyle> style: Style.color-slider;
     in property <float> position;
     in property <bool> enabled;
     in property <bool> dragging;
@@ -16,9 +17,9 @@ component ColorSlider inherits Rectangle {
     callback finished();
     callback canceled();
 
-    height: Style.inspector.color-slider-height;
+    height: root.style.height;
     Rectangle {
-        border-radius: Style.controls.panel-radius;
+        border-radius: root.style.radius;
         clip: true;
         @children
     }
@@ -38,20 +39,21 @@ component ColorSlider inherits Rectangle {
         }
     }
     Rectangle {
-        x: root.position * parent.width - Style.inspector.color-slider-thumb-size / 2;
-        width: Style.inspector.color-slider-thumb-size;
-        height: Style.inspector.color-slider-thumb-size;
-        border-radius: Style.inspector.color-slider-thumb-size / 2;
-        border-width: Style.controls.focus-width;
-        border-color: Style.colors.handle-border;
+        x: root.position * parent.width - root.style.thumb-size / 2;
+        width: root.style.thumb-size;
+        height: root.style.thumb-size;
+        border-radius: root.style.thumb-size / 2;
+        border-width: Metrics.focus-width;
+        border-color: root.style.thumb-border;
         drop-shadow-color: root.thumb-shadow;
-        drop-shadow-blur: Style.shadows.color-slider.blur;
+        drop-shadow-blur: root.style.shadow.blur;
     }
 }
 
 export component InspectorColorControls inherits Rectangle {
+    in property <ColorControlsStyle> style: Style.color-controls;
     in property <color> value;
-    in property <length> field-height: Style.inspector.color-field-height;
+    in property <length> field-height: root.style.plane.height;
     in property <bool> editable;
     in property <string> session-key;
     callback preview(color) -> bool;
@@ -122,21 +124,21 @@ export component InspectorColorControls inherits Rectangle {
     }
 
     layout := VerticalLayout {
-        spacing: Style.spacing.medium;
+        spacing: root.style.gap;
         alignment: start;
         Rectangle {
             height: root.field-height;
             Rectangle {
-                border-radius: Style.controls.row-radius;
+                border-radius: root.style.plane.radius;
                 clip: true;
                 background: hsv(root.hue, 1, 1);
 
                 Rectangle { background: @linear-gradient(90deg, white 0%, transparent 100%); }
                 Rectangle { background: @linear-gradient(0deg, black 0%, transparent 100%); }
                 Rectangle {
-                    border-radius: Style.controls.row-radius;
-                    border-width: Style.controls.border-width;
-                    border-color: Style.inspector.divider;
+                    border-radius: root.style.plane.radius;
+                    border-width: Metrics.border-width;
+                    border-color: root.style.plane.border;
                 }
             }
             TouchArea {
@@ -155,19 +157,20 @@ export component InspectorColorControls inherits Rectangle {
                 }
             }
             Rectangle {
-                x: root.saturation * parent.width - Style.inspector.color-plane-thumb-size / 2;
-                y: (1 - root.brightness) * parent.height - Style.inspector.color-plane-thumb-size / 2;
-                width: Style.controls.small-icon-size;
-                height: Style.controls.small-icon-size;
-                border-radius: Style.controls.row-radius;
-                border-width: Style.controls.focus-width;
-                border-color: Style.colors.handle-border;
-                drop-shadow-color: Style.shadows.color-plane.color;
-                drop-shadow-blur: Style.shadows.color-plane.blur;
+                x: root.saturation * parent.width - root.style.plane.thumb-size / 2;
+                y: (1 - root.brightness) * parent.height - root.style.plane.thumb-size / 2;
+                width: root.style.plane.thumb-size;
+                height: root.style.plane.thumb-size;
+                border-radius: root.style.plane.radius;
+                border-width: Metrics.focus-width;
+                border-color: root.style.plane.thumb-border;
+                drop-shadow-color: root.style.plane.shadow.color;
+                drop-shadow-blur: root.style.plane.shadow.blur;
             }
         }
 
         ColorSlider {
+            style: root.style.slider;
             position: root.hue / 360;
             enabled: root.editable;
             dragging: root.dragging;
@@ -184,10 +187,11 @@ export component InspectorColorControls inherits Rectangle {
         }
 
         ColorSlider {
+            style: root.style.slider;
             position: root.alpha / 255;
             enabled: root.editable;
             dragging: root.dragging;
-            thumb-shadow: Style.shadows.color-slider.color;
+            thumb-shadow: root.style.slider.shadow.color;
             started => { root.begin-gesture(); }
             moved(position) => {
                 root.alpha = (255 * position).round();
@@ -197,12 +201,12 @@ export component InspectorColorControls inherits Rectangle {
             canceled => { root.cancel-gesture(); }
             Rectangle {
                 for row in 2: Rectangle {
-                    y: row * Style.inspector.checker-size;
-                    height: Style.inspector.checker-size;
-                    for col in ceil(parent.width / Style.inspector.checker-size): Rectangle {
-                        x: col * Style.inspector.checker-size;
-                        width: Style.inspector.checker-size;
-                        background: (row + col).mod(2) == 0 ? Style.inspector.panel-bg : Style.inspector.field-border;
+                    y: row * Style.transparency-grid.cell-size;
+                    height: Style.transparency-grid.cell-size;
+                    for col in ceil(parent.width / Style.transparency-grid.cell-size): Rectangle {
+                        x: col * Style.transparency-grid.cell-size;
+                        width: Style.transparency-grid.cell-size;
+                        background: (row + col).mod(2) == 0 ? root.style.plane.checker-light : root.style.plane.checker-dark;
                     }
                 }
             }
@@ -212,8 +216,8 @@ export component InspectorColorControls inherits Rectangle {
         }
 
         HorizontalLayout {
-            height: Style.inspector.menu-row-height;
-            spacing: Style.spacing.regular;
+            height: root.style.row-height;
+            spacing: Metrics.space-regular;
             InspectorTextFieldBase {
                 accessible-name: "Hex color";
                 live-edit: true;
@@ -223,13 +227,13 @@ export component InspectorColorControls inherits Rectangle {
                 accepted(text) => { return root.commit-text(text); }
             }
             HorizontalLayout {
-                width: Style.inspector.color-hex-width;
-                spacing: Style.spacing.tight;
+                width: root.style.hex.width;
+                spacing: Metrics.space-tight;
                 InspectorTextFieldBase {
                     accessible-name: "Opacity percentage";
                     live-edit: true;
                     enabled: root.editable;
-                    width: Style.inspector.color-hex-input-width;
+                    width: root.style.hex.input-width;
                     value: (root.alpha * 100 / 255).to-fixed(0);
                     commit-key: root.session-key;
                     accepted(text) => {
@@ -242,8 +246,8 @@ export component InspectorColorControls inherits Rectangle {
                 }
                 Text {
                     text: "%";
-                    color: Style.inspector.muted;
-                    font-size: Style.typography.caption.size;
+                    color: Colors.muted;
+                    font-size: Typography.caption.size;
                     vertical-alignment: center;
                 }
             }

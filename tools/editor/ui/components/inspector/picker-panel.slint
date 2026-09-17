@@ -1,35 +1,36 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "../../style.slint";
+import { Style, Colors, Metrics, Typography, FillPickerStyle } from "../../style.slint";
 
 import { InspectorSegment } from "segment.slint";
 
 export component InspectorPickerPanel inherits Rectangle {
+    in property <FillPickerStyle> style: Style.fill-picker;
     in property <string> title;
     callback closed();
-    width: Style.inspector.picker-width;
+    width: root.style.width;
     preferred-height: layout.preferred-height;
     height: self.preferred-height;
-    background: Style.inspector.panel-bg;
-    border-width: Style.controls.border-width;
-    border-color: Style.inspector.divider;
-    border-radius: Style.controls.panel-radius;
-    drop-shadow-color: Style.shadows.picker.color;
-    drop-shadow-blur: Style.shadows.picker.blur;
-    drop-shadow-offset-y: Style.shadows.picker.offset-y;
+    background: root.style.background;
+    border-width: Metrics.border-width;
+    border-color: root.style.border;
+    border-radius: root.style.radius;
+    drop-shadow-color: root.style.shadow.color;
+    drop-shadow-blur: root.style.shadow.blur;
+    drop-shadow-offset-y: root.style.shadow.offset-y;
     TouchArea { }
     layout := VerticalLayout {
-        padding: Style.spacing.medium;
-        spacing: Style.spacing.medium;
+        padding: Metrics.space-medium;
+        spacing: Metrics.space-medium;
         alignment: start;
         HorizontalLayout {
-            height: Style.inspector.field-height;
-            Text { text: root.title; color: Style.inspector.text; font-size: Style.typography.body.size; font-weight: FontWeight.bold; vertical-alignment: center; }
+            height: Style.inspector-field.height;
+            Text { text: root.title; color: Colors.foreground; font-size: Typography.body.size; font-weight: FontWeight.bold; vertical-alignment: center; }
             Rectangle { }
-            InspectorSegment { kind: "text"; label: "Close"; width: Style.inspector.close-width; accessible-label: "Close " + root.title; clicked => { root.closed(); } }
+            InspectorSegment { kind: "text"; label: "Close"; width: root.style.close-width; accessible-label: "Close " + root.title; clicked => { root.closed(); } }
         }
-        Rectangle { height: Style.controls.border-width; background: Style.inspector.divider; }
+        Rectangle { height: Metrics.border-width; background: root.style.border; }
         @children
     }
 }

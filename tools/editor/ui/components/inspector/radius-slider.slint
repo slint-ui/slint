@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "../../style.slint";
+import { Style, Metrics, Colors, RadiusSliderStyle } from "../../style.slint";
 
 export component InspectorRadiusSlider inherits FocusScope {
+    in property <RadiusSliderStyle> style: Style.radius-slider;
     in property <float> value;
     in property <float> maximum;
     in property <string> commit-key;
@@ -14,8 +15,8 @@ export component InspectorRadiusSlider inherits FocusScope {
     private property <bool> dragging;
     private property <float> drag-value;
     private property <float> progress: root.maximum > 0 ? (root.visual-value / root.maximum).clamp(0, 1) : 0;
-    height: Style.inspector.field-height;
-    min-width: Style.controls.height;
+    height: root.style.height;
+    min-width: root.style.min-width;
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.slider;
     accessible-label: "All corner radii slider";
@@ -30,7 +31,7 @@ export component InspectorRadiusSlider inherits FocusScope {
         if root.dragging { root.dragging = false; root.canceled(); }
     }
     function update() {
-        root.drag-value = (((touch.mouse-x - Style.inspector.radius-inset) / max(1px, root.width - 2 * Style.inspector.radius-inset)).clamp(0, 1) * root.maximum).round();
+        root.drag-value = (((touch.mouse-x - root.style.inset) / max(1px, root.width - 2 * root.style.inset)).clamp(0, 1) * root.maximum).round();
         if !root.preview(root.drag-value) { root.cancel(); }
     }
     key-pressed(event) => {
@@ -39,17 +40,17 @@ export component InspectorRadiusSlider inherits FocusScope {
         if event.text == Key.RightArrow || event.text == Key.UpArrow { root.accepted(min(root.maximum, root.value + 1)); return accept; }
         return reject;
     }
-    Rectangle { x: Style.inspector.radius-inset; y: (root.height - self.height) / 2; width: parent.width - 2 * Style.inspector.radius-inset; height: Style.inspector.radius-track-width; background: Style.inspector.divider; }
-    Rectangle { x: Style.inspector.radius-inset; y: (root.height - self.height) / 2; width: (parent.width - 2 * Style.inspector.radius-inset) * root.progress; height: Style.inspector.radius-track-width; background: Style.inspector.slider-fill; }
+    Rectangle { x: root.style.inset; y: (root.height - self.height) / 2; width: parent.width - 2 * root.style.inset; height: root.style.track-height; background: root.style.track; }
+    Rectangle { x: root.style.inset; y: (root.height - self.height) / 2; width: (parent.width - 2 * root.style.inset) * root.progress; height: root.style.track-height; background: root.style.fill; }
     Rectangle {
-        x: Style.inspector.radius-inset - self.width / 2 + (parent.width - 2 * Style.inspector.radius-inset) * root.progress;
+        x: root.style.inset - self.width / 2 + (parent.width - 2 * root.style.inset) * root.progress;
         y: (root.height - self.height) / 2;
-        width: Style.inspector.radius-thumb-size;
+        width: root.style.thumb-size;
         height: self.width;
         border-radius: self.width / 2;
-        background: Style.inspector.slider-thumb;
-        border-width: root.has-focus ? Style.controls.border-width : 0px;
-        border-color: Style.inspector.accent;
+        background: root.style.thumb;
+        border-width: root.has-focus ? Metrics.border-width : 0px;
+        border-color: root.style.focus-border;
     }
     touch := TouchArea {
         mouse-cursor: pointer;

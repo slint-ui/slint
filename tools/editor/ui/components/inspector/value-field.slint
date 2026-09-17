@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "../../style.slint";
+import { Style, Metrics, Colors, Typography } from "../../style.slint";
 
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
@@ -14,8 +14,8 @@ export component InspectorValueField inherits Rectangle {
     in property <string> commit-key: "";
     callback accepted(string) -> bool;
 
-    width: Style.inspector.column-width;
-    height: Style.inspector.field-height;
+    width: Style.inspector-layout.column-width;
+    height: Style.inspector-field.height;
 
     InspectorTextFieldBase {
         accessible-name: root.accessible-name;
@@ -28,20 +28,20 @@ export component InspectorValueField inherits Rectangle {
         }
 
         if root.corner-index >= 0: Path {
-            width: Style.controls.small-icon-size;
-            height: Style.controls.small-icon-size;
+            width: Metrics.icon-small;
+            height: Metrics.icon-small;
             // Top-left, top-right, bottom-left, and bottom-right corner outlines.
             commands: root.corner-index == 0 ? "M 2 11 L 2 6 Q 2 2 6 2 L 11 2"
                 : root.corner-index == 1 ? "M 1 2 L 6 2 Q 10 2 10 6 L 10 11"
                 : root.corner-index == 2 ? "M 2 1 L 2 6 Q 2 10 6 10 L 11 10"
                 : "M 1 10 L 6 10 Q 10 10 10 6 L 10 1";
-            stroke: Style.inspector.muted;
-            stroke-width: Style.controls.border-width;
+            stroke: Colors.muted;
+            stroke-width: Metrics.border-width;
         }
         if root.corner-index < 0: Text {
             text: root.prefix;
-            color: root.enabled ? Style.inspector.text : Style.inspector.muted;
-            font-size: Style.typography.caption.size;
+            color: root.enabled ? Colors.foreground : Colors.muted;
+            font-size: Typography.caption.size;
             vertical-alignment: center;
         }
     }

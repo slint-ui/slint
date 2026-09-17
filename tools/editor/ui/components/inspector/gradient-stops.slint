@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "../../style.slint";
+import { Style, Metrics, Colors, Typography, GradientStopsStyle } from "../../style.slint";
 import { Api, FillData, BrushKind, GradientStop, GradientStopOrder } from "../../api.slint";
 import { FillSession } from "fill-session.slint";
 
@@ -12,6 +12,7 @@ import { ScrollView } from "std-widgets.slint";
 import { GradientStopMarker } from "../../../../lsp/ui/components/widgets/gradient-stop-marker.slint";
 
 export component InspectorGradientStops inherits Rectangle {
+    in property <GradientStopsStyle> style: Style.gradient-stops;
     private property <FillData> value: FillSession.working-fill;
     private property <string> session-key: FillSession.request.target.session-key;
     in-out property <int> selected-index <=> FillSession.selected-stop;
@@ -29,9 +30,9 @@ export component InspectorGradientStops inherits Rectangle {
     }
 
     layout := VerticalLayout {
-        spacing: Style.spacing.compact;
+        spacing: Metrics.space-compact;
         ramp := FocusScope {
-            height: Style.inspector.stop-ramp-height;
+            height: root.style.ramp.height;
             key-pressed(event) => {
                 if event.text == Key.LeftArrow || event.text == Key.RightArrow {
                     let step = (event.modifiers.shift ? 10 : 1) / root.units;
@@ -49,24 +50,24 @@ export component InspectorGradientStops inherits Rectangle {
                 return reject;
             }
             Rectangle {
-                x: Style.inspector.stop-ramp-inset;
-                width: parent.width - 2 * Style.inspector.stop-ramp-inset;
-                y: Style.spacing.small;
-                height: Style.inspector.field-height;
-                border-radius: Style.controls.field-radius;
+                x: root.style.ramp.inset;
+                width: parent.width - 2 * root.style.ramp.inset;
+                y: Metrics.space-small;
+                height: Style.inspector-field.height;
+                border-radius: Metrics.radius-small;
                 background: Api.create-brush(BrushKind.linear, 90, transparent, root.value.stops);
-                border-width: ramp.has-focus ? Style.controls.border-width : 0px;
-                border-color: Style.inspector.accent;
+                border-width: ramp.has-focus ? Metrics.border-width : 0px;
+                border-color: Colors.accent;
             }
             for stop[index] in root.value.stops: GradientStopMarker {
-                marker-size: Style.inspector.stop-marker-size;
-                marker-radius: Style.inspector.stop-marker-radius;
-                inactive-color: Style.colors.marker-bg;
-                active-color: Style.colors.marker-active;
-                checker-light: Style.colors.checker-light;
-                checker-dark: Style.colors.checker-dark;
-                x: stop.position.clamp(0, 1) * (parent.width - Style.inspector.stop-marker-size);
-                y: Style.inspector.field-height + Style.spacing.small;
+                marker-size: root.style.marker.size;
+                marker-radius: root.style.marker.radius;
+                inactive-color: root.style.marker.inactive;
+                active-color: root.style.marker.active;
+                checker-light: root.style.marker.checker.light;
+                checker-dark: root.style.marker.checker.dark;
+                x: stop.position.clamp(0, 1) * (parent.width - root.style.marker.size);
+                y: Style.inspector-field.height + Metrics.space-small;
                 stop-color: stop.color;
                 active: index == root.selected-index;
                 z: self.active ? 1 : 0;
@@ -83,12 +84,12 @@ export component InspectorGradientStops inherits Rectangle {
             TouchArea {
                 mouse-cursor: pointer;
                 pointer-event(event) => {
-                    let position = ((self.mouse-x - Style.inspector.stop-ramp-inset) / max(1px, self.width - Style.inspector.stop-marker-size)).clamp(0, 1);
+                    let position = ((self.mouse-x - root.style.ramp.inset) / max(1px, self.width - root.style.marker.size)).clamp(0, 1);
                     if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                         ramp.focus();
                         root.gesture-value = root.value;
                         let index = Api.nearest-gradient-stop(root.value.stops, position);
-                        if index >= 0 && abs(root.value.stops[index].position - position) * (self.width - Style.inspector.stop-marker-size) <= Style.inspector.stop-pick-distance {
+                        if index >= 0 && abs(root.value.stops[index].position - position) * (self.width - root.style.marker.size) <= root.style.ramp.pick-distance {
                             root.selected-index = index;
                         } else { FillSession.add-stop-position(position); }
                         root.dragging = true;
@@ -105,12 +106,12 @@ export component InspectorGradientStops inherits Rectangle {
             }
         }
         HorizontalLayout {
-            Text { text: "Stops"; color: Style.inspector.text; font-size: Style.typography.control.size; vertical-alignment: center; }
+            Text { text: "Stops"; color: Colors.foreground; font-size: Typography.control.size; vertical-alignment: center; }
             Rectangle { }
             InspectorSegment {
                 kind: "text";
                 label: "+";
-                width: Style.inspector.stop-action-width;
+                width: root.style.row.action-width;
                 accessible-label: "Add gradient stop";
                 clicked => {
                     FillSession.add-stop-position(Api.gradient-stop-gap(root.value.stops));
@@ -118,28 +119,28 @@ export component InspectorGradientStops inherits Rectangle {
             }
         }
         HorizontalLayout {
-            spacing: Style.spacing.compact;
-            Text { text: "Position " + root.suffix; width: Style.inspector.stop-position-width; color: Style.inspector.muted; font-size: Style.typography.caption.size; }
-            Text { text: "Color"; horizontal-stretch: 1; color: Style.inspector.muted; font-size: Style.typography.caption.size; }
-            Text { text: "Opacity"; width: Style.inspector.stop-opacity-width; color: Style.inspector.muted; font-size: Style.typography.caption.size; }
-            Rectangle { width: Style.inspector.stop-action-width; }
+            spacing: Metrics.space-compact;
+            Text { text: "Position " + root.suffix; width: root.style.row.position-width; color: Colors.muted; font-size: Typography.caption.size; }
+            Text { text: "Color"; horizontal-stretch: 1; color: Colors.muted; font-size: Typography.caption.size; }
+            Text { text: "Opacity"; width: root.style.row.opacity-width; color: Colors.muted; font-size: Typography.caption.size; }
+            Rectangle { width: root.style.row.action-width; }
         }
         ScrollView {
             preferred-height: rows.preferred-height;
-            min-height: Style.inspector.stop-row-height;
+            min-height: root.style.row.height;
             max-height: self.preferred-height;
             content-width: self.visible-width;
             rows := VerticalLayout {
-                spacing: Style.spacing.tight;
+                spacing: Metrics.space-tight;
                 for index in root.order.indices: Rectangle {
                     private property <GradientStop> stop: root.value.stops[index];
-                    height: Style.inspector.stop-row-height;
-                    border-radius: Style.controls.field-radius;
-                    background: index == root.selected-index ? Style.colors.selection-bg : transparent;
+                    height: root.style.row.height;
+                    border-radius: Metrics.radius-small;
+                    background: index == root.selected-index ? Colors.selection : transparent;
                     HorizontalLayout {
-                        spacing: Style.spacing.compact;
+                        spacing: Metrics.space-compact;
                         InspectorTextFieldBase {
-                            width: Style.inspector.stop-position-width;
+                            width: root.style.row.position-width;
                             accessible-name: "Stop " + (index + 1) + " position";
                             value: (stop.position * root.units).to-fixed(1);
                             commit-key: root.session-key;
@@ -169,10 +170,10 @@ export component InspectorGradientStops inherits Rectangle {
                                     return reject;
                                 }
                                 HorizontalLayout {
-                                    spacing: Style.spacing.compact;
+                                    spacing: Metrics.space-compact;
                                     cross-axis-alignment: center;
-                                    Rectangle { width: Style.inspector.stop-swatch-size; height: Style.inspector.stop-swatch-size; background: stop.color; border-radius: Style.controls.field-radius; }
-                                    Text { text: Api.color-to-data(stop.color).short-text; color: Style.inspector.text; font-size: Style.typography.caption.size; vertical-alignment: center; }
+                                    Rectangle { width: root.style.row.swatch-size; height: root.style.row.swatch-size; background: stop.color; border-radius: Metrics.radius-small; }
+                                    Text { text: Api.color-to-data(stop.color).short-text; color: Colors.foreground; font-size: Typography.caption.size; vertical-alignment: center; }
                                 }
                                 TouchArea {
                                     accessible-role: button;
@@ -189,9 +190,9 @@ export component InspectorGradientStops inherits Rectangle {
                                 }
                             }
                         }
-                        Text { width: Style.inspector.stop-opacity-width; text: (stop.color.alpha * 100 / 255).to-fixed(0) + "%"; color: Style.inspector.text; font-size: Style.typography.caption.size; vertical-alignment: center; }
+                        Text { width: root.style.row.opacity-width; text: (stop.color.alpha * 100 / 255).to-fixed(0) + "%"; color: Colors.foreground; font-size: Typography.caption.size; vertical-alignment: center; }
                         if root.value.stops.length > 2: InspectorSegment {
-                            width: Style.inspector.stop-action-width;
+                            width: root.style.row.action-width;
                             kind: "text";
                             label: "−";
                             accessible-label: "Remove stop " + (index + 1);
@@ -199,7 +200,7 @@ export component InspectorGradientStops inherits Rectangle {
                                 FillSession.remove-stop(index);
                             }
                         }
-                        if root.value.stops.length <= 2: Rectangle { width: Style.inspector.stop-action-width; }
+                        if root.value.stops.length <= 2: Rectangle { width: root.style.row.action-width; }
                     }
                 }
             }
