@@ -12,12 +12,10 @@ import slint_testing
 from canvas_interactions import center
 from editor_sync import wait_for_source
 from PIL import Image
-from slint_testing import keys
-from test_palette import begin_palette_drag, release_palette_drag
+from test_palette import begin_palette_drag
 from ui_driver import (
     first_window,
     launch_editor,
-    press_key,
     select_outline_row,
     wait_until,
     window_element_with_label,
@@ -58,7 +56,6 @@ def test_selection_overlays_are_clipped_to_canvas(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    tmp_path: Path,
     edge: str,
 ) -> None:
     source = fixture_project / "BoundsCases.slint"
@@ -97,7 +94,6 @@ def test_selection_overlays_are_clipped_to_canvas(
         assert frame.absolute_position.x == pytest.approx(x)
         assert frame.absolute_position.y == pytest.approx(y)
         after = screenshot(window)
-        (tmp_path / f"selection-{edge}.png").write_bytes(window.grab_window_as_png())
         for name, region in protected_regions(window, after).items():
             assert after.crop(region).tobytes() == before.crop(region).tobytes(), name
         scale = after.width / window.root_element.size.width
@@ -117,7 +113,6 @@ def test_gradient_overlays_are_clipped_to_canvas(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    tmp_path: Path,
     edge: str,
 ) -> None:
     source = fixture_project / "BoundsCases.slint"
@@ -154,7 +149,6 @@ def test_gradient_overlays_are_clipped_to_canvas(
         ).invoke_accessible_default_action()
         window_element_with_label(window, "Gradient end")
         after = screenshot(window)
-        (tmp_path / f"gradient-{edge}.png").write_bytes(window.grab_window_as_png())
         for name, region in protected_regions(window, after).items():
             if name != "inspector panel":
                 assert after.crop(region).tobytes() == before.crop(region).tobytes(), (
@@ -167,7 +161,6 @@ def test_drag_previews_are_clipped_to_canvas(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    tmp_path: Path,
     edge: str,
 ) -> None:
     with launch_editor(
@@ -193,8 +186,5 @@ def test_drag_previews_are_clipped_to_canvas(
             )
         window.dispatch_event(slint_testing.PointerMoveEvent(target))
         after = screenshot(window)
-        (tmp_path / f"drag-{edge}.png").write_bytes(window.grab_window_as_png())
         for name, region in protected_regions(window, after).items():
             assert after.crop(region).tobytes() == before.crop(region).tobytes(), name
-        press_key(window, keys.Escape)
-        release_palette_drag(window, target)
