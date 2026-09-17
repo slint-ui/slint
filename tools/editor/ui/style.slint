@@ -1776,9 +1776,9 @@ export global Style {
     };
 
     out property <RotationDialStyle> rotation-dial: {
-        size: 32px,
-        inset: 2px,
-        face-size: 32px - 2 * 2px,
+        size: Metrics.control-medium,
+        inset: Metrics.space-tight,
+        face-size: Metrics.control-medium - 2 * Metrics.space-tight,
         dot: @linear-gradient(180deg, #0879b7, #38b9fa),
         shadow: { color: #00000025, blur: 2px, offset-y: 1px },
         ring: Theme.inspector.rotation-dial.ring,
