@@ -1,0 +1,235 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+
+export struct TextStyle {
+    size: length,
+    weight: int,
+}
+
+export struct ShadowStyle {
+    color: color,
+    blur: length,
+    offset-y: length,
+}
+
+export struct StyleColors {
+    app-bg: color,
+    panel-bg: color,
+    panel-subtle: color,
+    text: color,
+    muted: color,
+    border: color,
+    soft-border: color,
+    accent: color,
+    accent-strong: color,
+    canvas-outline: color,
+    canvas: color,
+    phone-bg: color,
+    phone-text: color,
+    object-bg: color,
+    object-subtle: color,
+    object-border: color,
+    object-muted: color,
+    drop-mark-background: brush,
+    drop-mark-foreground: brush,
+}
+
+export struct StyleInspector {
+    picker-width: length,
+    picker-gap: length,
+    picker-margin: length,
+    panel-bg: color,
+    divider: color,
+    field-bg: color,
+    field-bg-hover: color,
+    field-border: color,
+    text: color,
+    muted: color,
+    accent: color,
+    selected-control-bg: color,
+    slider-fill: color,
+    slider-thumb: color,
+    label-width: length,
+    row-gap: length,
+    side-padding: length,
+    section-title-size: length,
+    field-height: length,
+    field-radius: length,
+    column-width: length,
+    column-gap: length,
+    wide-width: length,
+}
+
+export struct StyleTree {
+    row-bg-hover: color,
+    row-bg-current: color,
+    drop-target-bg: color,
+    text: color,
+    muted-text: color,
+    accent: color,
+    guide: color,
+    directory-icon: color,
+    row-height: length,
+    row-font-size: length,
+    row-radius: length,
+    row-padding-inline: length,
+    content-gap: length,
+    toggle-width: length,
+    disclosure-hit-size: length,
+    icon-size: length,
+    current-indicator-width: length,
+    current-indicator-height: length,
+    guide-width: length,
+    focus-ring-width: length,
+    drop-target-border-width: length,
+    drop-indicator-height: length,
+    root-drop-height: length,
+}
+
+export struct StyleWelcome {
+    stage-bg: color,
+    shell-bg: color,
+    side-bg: color,
+    control-bg: color,
+    control-hover: color,
+    text: color,
+    muted: color,
+    accent: color,
+}
+
+export struct StyleLayout {
+    left-pane-width: length,
+    inspector-pane-width: length,
+    top-bar-height: length,
+    status-bar-height: length,
+}
+
+export struct StyleCanvas {
+    phone-frame-radius: length,
+    phone-outer-padding: length,
+    selection-outline-width: length,
+    hover-outline-width: length,
+    selection-handle-size: length,
+    selection-handle-touch-size: length,
+    rotation-zone-size: length,
+    radius-handle-size: length,
+    radius-handle-inset: length,
+}
+
+export global Style {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+
+    private property <color> colors-accent: Style.dark ? #2379f4 : #0d99ff;
+
+    out property <StyleColors> colors: {
+        app-bg: Style.dark ? #2c2c2c : #f6f8fa,
+        panel-bg: Style.dark ? #2c2c2c : #ffffff,
+        panel-subtle: Style.dark ? #383838 : #f6f8fa,
+        text: Style.dark ? #f1f1f1 : #1f2328,
+        muted: Style.dark ? #b7b7b7 : #6e7781,
+        border: Style.dark ? #494949 : #d0d7de,
+        soft-border: Style.dark ? #3f3f3f : #eaeef2,
+        accent: root.colors-accent,
+        accent-strong: Style.dark ? root.colors-accent.mix(#ffffff, 0.75) : #52aeff,
+        canvas-outline: Style.dark ? #0c8ce9 : #0b99fe,
+        canvas: Style.dark ? #1f1f1f : #eef2f7,
+        phone-bg: Style.dark ? #f7f8fb : #ffffff,
+        phone-text: #20252d,
+        object-bg: #ffffff,
+        object-subtle: #f6f8fa,
+        object-border: #d0d7de,
+        object-muted: #6e7781,
+        drop-mark-background: #ffffff,
+        drop-mark-foreground: #ffffff,
+    };
+
+    private property <color> inspector-accent: Style.colors.accent;
+
+    private property <color> inspector-field-bg-hover: Style.dark ? #414141 : #eeeeee;
+
+    private property <color> inspector-muted: Style.dark ? #9a9a9a : #8c8c8c;
+
+    out property <StyleInspector> inspector: {
+        picker-width: 260px,
+        picker-gap: 8px,
+        picker-margin: 8px,
+        panel-bg: Style.colors.panel-bg,
+        divider: Style.dark ? #414141 : #e5e5e5,
+        field-bg: Style.dark ? #383838 : #f5f5f5,
+        field-bg-hover: root.inspector-field-bg-hover,
+        field-border: Style.dark ? #4b4b4b : #d9d9d9,
+        text: Style.dark ? #f4f4f4 : #1e1e1e,
+        muted: root.inspector-muted,
+        accent: root.inspector-accent,
+        selected-control-bg: Style.dark ? root.inspector-accent : root.inspector-field-bg-hover,
+        slider-fill: Style.dark ? root.inspector-accent : transparent,
+        slider-thumb: Style.dark ? root.inspector-accent : root.inspector-muted,
+        label-width: 52px,
+        row-gap: 6px,
+        side-padding: 12px,
+        section-title-size: 12px,
+        field-height: 24px,
+        field-radius: 4px,
+        column-width: 88px,
+        column-gap: 8px,
+        wide-width: 207px,
+    };
+
+    out property <StyleTree> tree: {
+        row-bg-hover: Style.dark ? #383838 : #f5f5f5,
+        row-bg-current: Style.dark ? Style.colors.accent.with-alpha(0.22) : #e4f4ff,
+        drop-target-bg: Style.dark ? Style.colors.accent.with-alpha(0.14) : #eaf5ff,
+        text: Style.dark ? #e6edf3 : #1f2328,
+        muted-text: Style.dark ? #848d97 : #656d76,
+        accent: Style.dark ? Style.colors.accent : #0969da,
+        guide: Style.dark ? #21262d : #d8dee4,
+        directory-icon: Style.dark ? Style.colors.accent : #d29922,
+        row-height: 32px,
+        row-font-size: 13px,
+        row-radius: 6px,
+        row-padding-inline: 8px,
+        content-gap: 8px,
+        toggle-width: 16px,
+        disclosure-hit-size: 20px,
+        icon-size: 16px,
+        current-indicator-width: 4px,
+        current-indicator-height: 24px,
+        guide-width: 1px,
+        focus-ring-width: 2px,
+        drop-target-border-width: 1px,
+        drop-indicator-height: 2px,
+        root-drop-height: 8px,
+    };
+
+    out property <StyleWelcome> welcome: {
+        stage-bg: Style.dark ? #202124 : #c9c9c9,
+        shell-bg: Style.dark ? #303134 : #ffffff,
+        side-bg: Style.dark ? #2a2b2e : #f5f5f6,
+        control-bg: Style.dark ? #424347 : #eeeeef,
+        control-hover: Style.dark ? #4d4f54 : #e2e3e5,
+        text: Style.dark ? #f4f4f5 : #252527,
+        muted: Style.dark ? #b5b6ba : #797a7d,
+        accent: #0878f8,
+    };
+
+    out property <StyleLayout> layout: {
+        left-pane-width: 286px,
+        inspector-pane-width: 232px,
+        top-bar-height: 54px,
+        status-bar-height: 26px,
+    };
+
+    out property <StyleCanvas> canvas: {
+        phone-frame-radius: 34px,
+        phone-outer-padding: 1px,
+        selection-outline-width: 1px,
+        hover-outline-width: 2px,
+        selection-handle-size: 8px,
+        selection-handle-touch-size: 12px,
+        rotation-zone-size: 22px,
+        radius-handle-size: 10px,
+        radius-handle-inset: 10px,
+    };
+}

@@ -1,19 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "style.slint";
 import { Palette } from "std-widgets.slint";
 import { Project } from "project.slint";
 
 global WizardTheme {
-    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
-    out property <color> stage-bg: dark ? #202124 : #c9c9c9;
-    out property <color> shell-bg: dark ? #303134 : #ffffff;
-    out property <color> side-bg: dark ? #2a2b2e : #f5f5f6;
-    out property <color> control-bg: dark ? #424347 : #eeeeef;
-    out property <color> control-hover: dark ? #4d4f54 : #e2e3e5;
-    out property <color> text: dark ? #f4f4f5 : #252527;
-    out property <color> muted: dark ? #b5b6ba : #797a7d;
-    out property <color> accent: #0878f8;
+    out property <bool> dark: Style.dark;
+    out property <color> stage-bg: Style.welcome.stage-bg;
+    out property <color> shell-bg: Style.welcome.shell-bg;
+    out property <color> side-bg: Style.welcome.side-bg;
+    out property <color> control-bg: Style.welcome.control-bg;
+    out property <color> control-hover: Style.welcome.control-hover;
+    out property <color> text: Style.welcome.text;
+    out property <color> muted: Style.welcome.muted;
+    out property <color> accent: Style.welcome.accent;
 }
 
 component BrandMark inherits Rectangle {

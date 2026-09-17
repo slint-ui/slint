@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../style.slint";
 import { Palette } from "std-widgets.slint";
 import { ElementVisuals } from "element-presentation.slint";
 import { Api, CanvasCorner, ElementKind } from "../api.slint";
@@ -8,26 +9,26 @@ import { Api, CanvasCorner, ElementKind } from "../api.slint";
 export { CanvasCorner, ElementKind }
 
 export global StudioTheme {
-    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
-    out property <color> app-bg: dark ? #2c2c2c : #f6f8fa;
-    out property <color> panel-bg: dark ? #2c2c2c : #ffffff;
-    out property <color> panel-subtle: dark ? #383838 : #f6f8fa;
-    out property <color> text: dark ? #f1f1f1 : #1f2328;
-    out property <color> muted: dark ? #b7b7b7 : #6e7781;
-    out property <color> border: dark ? #494949 : #d0d7de;
-    out property <color> soft-border: dark ? #3f3f3f : #eaeef2;
-    out property <color> accent: dark ? #2379f4 : #0d99ff;
-    out property <color> accent-strong: dark ? accent.mix(#ffffff, 0.75) : #52aeff;
-    out property <color> canvas-outline: dark ? #0c8ce9 : #0b99fe;
-    out property <color> canvas: dark ? #1f1f1f : #eef2f7;
-    out property <color> phone-bg: dark ? #f7f8fb : #ffffff;
-    out property <color> phone-text: #20252d;
-    out property <color> object-bg: #ffffff;
-    out property <color> object-subtle: #f6f8fa;
-    out property <color> object-border: #d0d7de;
-    out property <color> object-muted: #6e7781;
-    out property <brush> drop-mark-background: #ffffff;
-    out property <brush> drop-mark-foreground: #ffffff;
+    out property <bool> dark: Style.dark;
+    out property <color> app-bg: Style.colors.app-bg;
+    out property <color> panel-bg: Style.colors.panel-bg;
+    out property <color> panel-subtle: Style.colors.panel-subtle;
+    out property <color> text: Style.colors.text;
+    out property <color> muted: Style.colors.muted;
+    out property <color> border: Style.colors.border;
+    out property <color> soft-border: Style.colors.soft-border;
+    out property <color> accent: Style.colors.accent;
+    out property <color> accent-strong: Style.colors.accent-strong;
+    out property <color> canvas-outline: Style.colors.canvas-outline;
+    out property <color> canvas: Style.colors.canvas;
+    out property <color> phone-bg: Style.colors.phone-bg;
+    out property <color> phone-text: Style.colors.phone-text;
+    out property <color> object-bg: Style.colors.object-bg;
+    out property <color> object-subtle: Style.colors.object-subtle;
+    out property <color> object-border: Style.colors.object-border;
+    out property <color> object-muted: Style.colors.object-muted;
+    out property <brush> drop-mark-background: Style.colors.drop-mark-background;
+    out property <brush> drop-mark-foreground: Style.colors.drop-mark-foreground;
 }
 
 export global EditorIcons {
@@ -50,24 +51,27 @@ export global EditorAngles {
     }
 }
 
+export global EditorWindow {
+    in-out property <length> width;
+    in-out property <length> height;
+}
+
 export global EditorMetrics {
-    in-out property <length> window-width;
-    in-out property <length> window-height;
-    out property <length> left-pane-width: 286px;
-    out property <length> inspector-pane-width: 232px;
-    out property <length> top-bar-height: 54px;
-    out property <length> status-bar-height: 26px;
+    out property <length> left-pane-width: Style.layout.left-pane-width;
+    out property <length> inspector-pane-width: Style.layout.inspector-pane-width;
+    out property <length> top-bar-height: Style.layout.top-bar-height;
+    out property <length> status-bar-height: Style.layout.status-bar-height;
     out property <length> phone-portrait-width: 390px;
     out property <length> phone-portrait-height: 720px;
-    out property <length> phone-frame-radius: 34px;
-    out property <length> phone-outer-padding: 1px;
-    out property <length> selection-outline-width: 1px;
-    out property <length> hover-outline-width: 2px;
-    out property <length> selection-handle-size: 8px;
-    out property <length> selection-handle-touch-size: 12px;
-    out property <length> rotation-zone-size: 22px;
-    out property <length> radius-handle-size: 10px;
-    out property <length> radius-handle-inset: 10px;
+    out property <length> phone-frame-radius: Style.canvas.phone-frame-radius;
+    out property <length> phone-outer-padding: Style.canvas.phone-outer-padding;
+    out property <length> selection-outline-width: Style.canvas.selection-outline-width;
+    out property <length> hover-outline-width: Style.canvas.hover-outline-width;
+    out property <length> selection-handle-size: Style.canvas.selection-handle-size;
+    out property <length> selection-handle-touch-size: Style.canvas.selection-handle-touch-size;
+    out property <length> rotation-zone-size: Style.canvas.rotation-zone-size;
+    out property <length> radius-handle-size: Style.canvas.radius-handle-size;
+    out property <length> radius-handle-inset: Style.canvas.radius-handle-inset;
 }
 
 export component EdgeDivider inherits Rectangle {

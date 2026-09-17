@@ -4,7 +4,7 @@
 import { FillSession } from "fill-session.slint";
 
 import { BrushKind } from "../../api.slint";
-import { EditorMetrics } from "../common.slint";
+import { EditorMetrics, EditorWindow } from "../common.slint";
 import { InspectorTokens } from "tokens.slint";
 import { InspectorColorControls } from "color-controls.slint";
 
@@ -21,15 +21,15 @@ export component InspectorFillPicker inherits Rectangle {
     private property <length> main-x: (FillSession.request.anchor-position.x >= root.panel-step + root.margin
         ? FillSession.request.anchor-position.x - root.panel-step
         : FillSession.request.anchor-position.x + FillSession.request.anchor-width + InspectorTokens.picker-gap)
-        .clamp(root.margin, max(root.margin, EditorMetrics.window-width - InspectorTokens.picker-width - root.margin));
+        .clamp(root.margin, max(root.margin, EditorWindow.width - InspectorTokens.picker-width - root.margin));
     private property <bool> stop-on-left: root.main-x >= root.panel-step + root.margin;
     private property <bool> stacked: FillSession.stop-panel-open && !root.stop-on-left
-        && root.main-x + root.pair-width > EditorMetrics.window-width - root.margin;
+        && root.main-x + root.pair-width > EditorWindow.width - root.margin;
     visible: FillSession.open;
     picker-panel := Rectangle {
         width: FillSession.stop-panel-open && !root.stacked ? root.pair-width : InspectorTokens.picker-width;
         x: root.main-x - (FillSession.stop-panel-open && root.stop-on-left && !root.stacked ? root.panel-step : 0px) - root.absolute-position.x;
-        y: FillSession.request.anchor-position.y.clamp(root.margin, max(root.margin, EditorMetrics.window-height - self.height - root.margin)) - root.absolute-position.y;
+        y: FillSession.request.anchor-position.y.clamp(root.margin, max(root.margin, EditorWindow.height - self.height - root.margin)) - root.absolute-position.y;
         height: group-content.height;
 
         picker-focus := FocusScope {
@@ -54,7 +54,7 @@ export component InspectorFillPicker inherits Rectangle {
                 main-panel := InspectorPickerPanel {
                     x: FillSession.stop-panel-open && root.stop-on-left && !root.stacked ? root.panel-step : 0px;
                     y: 0px;
-                    height: min(self.preferred-height, max(200px, EditorMetrics.window-height - 2 * root.margin - (root.stacked ? stop-panel.height + InspectorTokens.picker-gap : 0px)));
+                    height: min(self.preferred-height, max(200px, EditorWindow.height - 2 * root.margin - (root.stacked ? stop-panel.height + InspectorTokens.picker-gap : 0px)));
                     title: "Custom";
                     closed => {
                         FillSession.close-picker(true, true);

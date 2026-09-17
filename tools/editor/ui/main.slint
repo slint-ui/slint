@@ -18,11 +18,11 @@ import { EditorTopBar } from "components/top-bar.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
 import { LeftPane } from "components/left-pane.slint";
-import { EditorMetrics } from "components/common.slint";
+import { EditorMetrics, EditorWindow } from "components/common.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export { Api, Hover, Preview, Project, FillSession }
-export { EditorCursors, EditorMetrics } from "components/common.slint";
+export { EditorCursors, EditorMetrics, EditorWindow } from "components/common.slint";
 
 component NewFileErrorPopup inherits PopupWindow {
     in property <string> error;
@@ -165,11 +165,11 @@ export component EditorUi inherits Window {
     default-font-family: "Inter";
 
     init => {
-        EditorMetrics.window-width = root.width;
-        EditorMetrics.window-height = root.height;
+        EditorWindow.width = root.width;
+        EditorWindow.height = root.height;
     }
-    changed width => { EditorMetrics.window-width = root.width; }
-    changed height => { EditorMetrics.window-height = root.height; }
+    changed width => { EditorWindow.width = root.width; }
+    changed height => { EditorWindow.height = root.height; }
 
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;

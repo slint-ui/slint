@@ -1732,7 +1732,7 @@ mod tests {
         for (width, anchor, paired) in
             [(1360., 1200., false), (1360., 1200., true), (1040., 330., true), (540., 330., true)]
         {
-            editor.global::<super::EditorMetrics>().set_window_width(width);
+            editor.global::<super::EditorWindow>().set_width(width);
             session.invoke_begin(super::FillSessionRequest {
                 target: super::FillSessionTarget {
                     session_key: ":0:0:0:".into(),

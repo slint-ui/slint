@@ -1,35 +1,31 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../../style.slint";
 import { StudioTheme } from "../common.slint";
 
 export global InspectorTokens {
-    out property <length> picker-width: 260px;
-    out property <length> picker-gap: 8px;
-    out property <length> picker-margin: 8px;
-    out property <color> panel-bg: StudioTheme.panel-bg;
-    out property <color> divider: StudioTheme.dark ? #414141 : #e5e5e5;
-    out property <color> field-bg: StudioTheme.dark ? #383838 : #f5f5f5;
-    out property <color> field-bg-hover: StudioTheme.dark ? #414141 : #eeeeee;
-    out property <color> field-border: StudioTheme.dark ? #4b4b4b : #d9d9d9;
-    out property <color> text: StudioTheme.dark ? #f4f4f4 : #1e1e1e;
-    out property <color> muted: StudioTheme.dark ? #9a9a9a : #8c8c8c;
-    out property <color> accent: StudioTheme.accent;
-    out property <color> selected-control-bg: StudioTheme.dark ? accent : field-bg-hover;
-    out property <color> slider-fill: StudioTheme.dark ? accent : transparent;
-    out property <color> slider-thumb: StudioTheme.dark ? accent : muted;
-    out property <length> label-width: 52px;
-    out property <length> row-gap: 6px;
-    out property <length> side-padding: 12px;
-    out property <length> section-title-size: 12px;
-    out property <length> field-height: 24px;
-    out property <length> field-radius: 4px;
-    out property <length> column-width: 88px;
-    out property <length> column-gap: 8px;
-    out property <length> wide-width: 207px;
-}
-
-export struct InspectorComboOption {
-    value: string,
-    label: string,
+    out property <length> picker-width: Style.inspector.picker-width;
+    out property <length> picker-gap: Style.inspector.picker-gap;
+    out property <length> picker-margin: Style.inspector.picker-margin;
+    out property <color> panel-bg: Style.inspector.panel-bg;
+    out property <color> divider: Style.inspector.divider;
+    out property <color> field-bg: Style.inspector.field-bg;
+    out property <color> field-bg-hover: Style.inspector.field-bg-hover;
+    out property <color> field-border: Style.inspector.field-border;
+    out property <color> text: Style.inspector.text;
+    out property <color> muted: Style.inspector.muted;
+    out property <color> accent: Style.inspector.accent;
+    out property <color> selected-control-bg: Style.inspector.selected-control-bg;
+    out property <color> slider-fill: Style.inspector.slider-fill;
+    out property <color> slider-thumb: Style.inspector.slider-thumb;
+    out property <length> label-width: Style.inspector.label-width;
+    out property <length> row-gap: Style.inspector.row-gap;
+    out property <length> side-padding: Style.inspector.side-padding;
+    out property <length> section-title-size: Style.inspector.section-title-size;
+    out property <length> field-height: Style.inspector.field-height;
+    out property <length> field-radius: Style.inspector.field-radius;
+    out property <length> column-width: Style.inspector.column-width;
+    out property <length> column-gap: Style.inspector.column-gap;
+    out property <length> wide-width: Style.inspector.wide-width;
 }

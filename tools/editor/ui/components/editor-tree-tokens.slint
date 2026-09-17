@@ -1,34 +1,32 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../style.slint";
 import { StudioTheme } from "common.slint";
 import { Palette } from "std-widgets.slint";
 
 export global EditorTreeTokens {
-    property <ColorScheme> color-scheme: Palette.color-scheme;
-
-    out property <color> row-bg-hover: color-scheme == ColorScheme.dark ? #383838 : #f5f5f5;
-    out property <color> row-bg-current: color-scheme == ColorScheme.dark ? StudioTheme.accent.with-alpha(0.22) : #e4f4ff;
-    out property <color> drop-target-bg: color-scheme == ColorScheme.dark ? StudioTheme.accent.with-alpha(0.14) : #eaf5ff;
-    out property <color> text: color-scheme == ColorScheme.dark ? #e6edf3 : #1f2328;
-    out property <color> muted-text: color-scheme == ColorScheme.dark ? #848d97 : #656d76;
-    out property <color> accent: color-scheme == ColorScheme.dark ? StudioTheme.accent : #0969da;
-    out property <color> guide: color-scheme == ColorScheme.dark ? #21262d : #d8dee4;
-    out property <color> directory-icon: color-scheme == ColorScheme.dark ? StudioTheme.accent : #d29922;
-
-    out property <length> row-height: 32px;
-    out property <length> row-font-size: 13px;
-    out property <length> row-radius: 6px;
-    out property <length> row-padding-inline: 8px;
-    out property <length> content-gap: 8px;
-    out property <length> toggle-width: 16px;
-    out property <length> disclosure-hit-size: 20px;
-    out property <length> icon-size: 16px;
-    out property <length> current-indicator-width: 4px;
-    out property <length> current-indicator-height: 24px;
-    out property <length> guide-width: 1px;
-    out property <length> focus-ring-width: 2px;
-    out property <length> drop-target-border-width: 1px;
-    out property <length> drop-indicator-height: 2px;
-    out property <length> root-drop-height: 8px;
+    out property <color> row-bg-hover: Style.tree.row-bg-hover;
+    out property <color> row-bg-current: Style.tree.row-bg-current;
+    out property <color> drop-target-bg: Style.tree.drop-target-bg;
+    out property <color> text: Style.tree.text;
+    out property <color> muted-text: Style.tree.muted-text;
+    out property <color> accent: Style.tree.accent;
+    out property <color> guide: Style.tree.guide;
+    out property <color> directory-icon: Style.tree.directory-icon;
+    out property <length> row-height: Style.tree.row-height;
+    out property <length> row-font-size: Style.tree.row-font-size;
+    out property <length> row-radius: Style.tree.row-radius;
+    out property <length> row-padding-inline: Style.tree.row-padding-inline;
+    out property <length> content-gap: Style.tree.content-gap;
+    out property <length> toggle-width: Style.tree.toggle-width;
+    out property <length> disclosure-hit-size: Style.tree.disclosure-hit-size;
+    out property <length> icon-size: Style.tree.icon-size;
+    out property <length> current-indicator-width: Style.tree.current-indicator-width;
+    out property <length> current-indicator-height: Style.tree.current-indicator-height;
+    out property <length> guide-width: Style.tree.guide-width;
+    out property <length> focus-ring-width: Style.tree.focus-ring-width;
+    out property <length> drop-target-border-width: Style.tree.drop-target-border-width;
+    out property <length> drop-indicator-height: Style.tree.drop-indicator-height;
+    out property <length> root-drop-height: Style.tree.root-drop-height;
 }
