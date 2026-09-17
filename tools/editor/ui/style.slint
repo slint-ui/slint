@@ -329,6 +329,7 @@ export struct FillPickerStyle {
     margin: length,
     min-height: length,
     shadow: ShadowStyle,
+    close-width: length,
     background: brush,
     border: brush,
     radius: length,
@@ -436,11 +437,9 @@ export struct CopyButtonStyle {
 export struct TreeRowStyle {
     hover-background: color,
     selected-background: color,
-    drop-background: color,
     foreground: color,
     muted: color,
     accent: color,
-    guide: color,
     directory-icon: color,
     height: length,
     font-size: length,
@@ -450,20 +449,27 @@ export struct TreeRowStyle {
     toggle-width: length,
     hit-size: length,
     icon-size: length,
-    guide-width: length,
     focus-width: length,
-    drop-border-width: length,
-    drop-line-height: length,
-    root-drop-height: length,
-    selected-guide: color,
-    file-guide: color,
     drag-opacity: float,
 }
 
 export struct RenameFieldStyle {
     background: brush,
     border: brush,
-    error: color,
+}
+
+export struct TreeGuidesStyle {
+    guide: color,
+    guide-width: length,
+    selected-guide: color,
+    file-guide: color,
+}
+
+export struct TreeDropStyle {
+    drop-background: color,
+    drop-border-width: length,
+    drop-line-height: length,
+    root-drop-height: length,
 }
 
 export struct PaletteRowStyle {
@@ -490,23 +496,9 @@ export struct ButtonStyle {
     normal: PaintStyle,
     hover: PaintStyle,
     pressed: PaintStyle,
+    disabled: PaintStyle,
     focus-border: brush,
     disabled-opacity: float,
-}
-
-export struct PickerCloseButtonStyle {
-    height: length,
-    padding-inline: length,
-    gap: length,
-    radius: length,
-    border-width: length,
-    text: TextStyle,
-    normal: PaintStyle,
-    hover: PaintStyle,
-    pressed: PaintStyle,
-    focus-border: brush,
-    disabled-opacity: float,
-    width: length,
 }
 
 export struct FieldStyle {
@@ -560,6 +552,7 @@ export global Colors {
     out property <color> focus-background: Colors.accent.with-alpha(0.12);
     out property <color> text-selection: Colors.accent.with-alpha(0.28);
     out property <color> on-accent: #ffffff;
+    out property <color> danger: Colors.dark ? #ff7b72 : #cf222e;
 }
 
 export global Metrics {
@@ -1721,6 +1714,7 @@ export global Style {
         margin: Metrics.space-regular,
         min-height: 200px,
         shadow: { color: Colors.dark ? #00000080 : #64748b35, blur: 18px, offset-y: 8px },
+        close-width: 48px,
         background: Colors.surface,
         border: Style.inspector-layout.divider,
         radius: Metrics.radius-large,
@@ -1830,11 +1824,9 @@ export global Style {
     out property <TreeRowStyle> tree-row: {
         hover-background: Colors.dark ? #383838 : #f5f5f5,
         selected-background: Colors.dark ? Colors.accent.with-alpha(0.22) : #e4f4ff,
-        drop-background: Colors.dark ? Colors.accent.with-alpha(0.14) : #eaf5ff,
         foreground: Colors.foreground,
         muted: Colors.muted,
         accent: Colors.dark ? Colors.accent : #0969da,
-        guide: Style.inspector-layout.divider,
         directory-icon: Colors.dark ? Colors.accent : #d29922,
         height: Metrics.control-medium,
         font-size: Typography.body.size,
@@ -1844,20 +1836,27 @@ export global Style {
         toggle-width: Metrics.icon-medium,
         hit-size: 20px,
         icon-size: Metrics.icon-medium,
-        guide-width: Metrics.border-width,
         focus-width: Metrics.focus-width,
-        drop-border-width: Metrics.border-width,
-        drop-line-height: Metrics.focus-width,
-        root-drop-height: Metrics.space-regular,
-        selected-guide: Colors.dark ? #474747 : #c4c4c4,
-        file-guide: Style.inspector-layout.divider,
         drag-opacity: 0.45,
     };
 
     out property <RenameFieldStyle> rename-field: {
         background: Palette.control-background,
         border: Palette.border,
-        error: Colors.dark ? #ff7b72 : #cf222e,
+    };
+
+    out property <TreeGuidesStyle> tree-guides: {
+        guide: Style.inspector-layout.divider,
+        guide-width: Metrics.border-width,
+        selected-guide: Colors.dark ? #474747 : #c4c4c4,
+        file-guide: Style.inspector-layout.divider,
+    };
+
+    out property <TreeDropStyle> tree-drop: {
+        drop-background: Colors.dark ? Colors.accent.with-alpha(0.14) : #eaf5ff,
+        drop-border-width: Metrics.border-width,
+        drop-line-height: Metrics.focus-width,
+        root-drop-height: Metrics.space-regular,
     };
 
     out property <PaletteRowStyle> palette-row: {
@@ -1884,6 +1883,7 @@ export global Style {
         normal: { background: Colors.surface, foreground: Colors.foreground, border: Colors.border },
         hover: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
         pressed: { background: Colors.selection, foreground: Colors.foreground, border: Colors.border },
+        disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.focus,
         disabled-opacity: 0.55,
     };
@@ -1898,6 +1898,7 @@ export global Style {
         normal: { background: Colors.dark ? #196bd6 : #0969da, foreground: Colors.on-accent, border: Colors.border },
         hover: { background: Colors.dark ? #2073dd : #0860ca, foreground: Colors.on-accent, border: Colors.border },
         pressed: { background: Colors.dark ? #135bb9 : #0756b5, foreground: Colors.on-accent, border: Colors.border },
+        disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.focus,
         disabled-opacity: 0.55,
     };
@@ -1912,6 +1913,7 @@ export global Style {
         normal: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
         hover: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
         pressed: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
+        disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.focus,
         disabled-opacity: 0.55,
     };
@@ -1926,23 +1928,24 @@ export global Style {
         normal: { background: Colors.dark ? #424347 : #eeeeef, foreground: Style.welcome-shell.foreground, border: Colors.border },
         hover: { background: Colors.dark ? #4d4f54 : #e2e3e5, foreground: Style.welcome-shell.foreground, border: Colors.border },
         pressed: { background: Colors.dark ? #55575d : #d9dadd, foreground: Style.welcome-shell.foreground, border: Colors.border },
+        disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.focus,
         disabled-opacity: 0.55,
     };
 
-    out property <PickerCloseButtonStyle> picker-close-button: {
-        height: Metrics.control-compact,
+    out property <ButtonStyle> inspector-icon-button: {
+        height: Metrics.icon-large,
         padding-inline: Metrics.space-regular,
         gap: Metrics.space-regular,
-        radius: Metrics.radius-small,
+        radius: 3.5px,
         border-width: Metrics.border-width,
         text: Typography.control,
-        normal: { background: Colors.surface, foreground: Colors.foreground, border: Colors.border },
-        hover: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
-        pressed: { background: Colors.selection, foreground: Colors.foreground, border: Colors.border },
-        focus-border: Colors.focus,
+        normal: { background: transparent, foreground: Colors.foreground, border: Colors.border },
+        hover: { background: Style.inspector-field.normal.background, foreground: Colors.foreground, border: Colors.border },
+        pressed: { background: Colors.focus-background, foreground: Colors.accent, border: Colors.border },
+        disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
+        focus-border: Colors.accent,
         disabled-opacity: 0.55,
-        width: 48px,
     };
 
     out property <FieldStyle> field: {

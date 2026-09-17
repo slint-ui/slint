@@ -1,28 +1,29 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "../../style.slint";
+import { Style, Metrics, Typography, Colors, FieldStyle } from "../../style.slint";
 
 export component InspectorTextFieldBase inherits Rectangle {
+    in property <FieldStyle> style: Style.inspector-field;
     in property <string> accessible-name: "";
     in property <string> value;
     in property <bool> enabled: true;
     in property <bool> live-edit: false;
-    in property <length> field-padding-left: Style.spacing.regular;
-    in property <length> field-padding-right: Style.spacing.regular;
-    in property <length> content-spacing: Style.spacing.compact;
-    in property <length> input-font-size: Style.typography.control.size;
-    in property <color> input-color: root.enabled ? Style.inspector.text : Style.inspector.muted;
+    in property <length> field-padding-left: root.style.padding-inline;
+    in property <length> field-padding-right: root.style.padding-inline;
+    in property <length> content-spacing: root.style.gap;
+    in property <length> input-font-size: root.style.text.size;
+    in property <color> input-color: root.enabled ? root.style.normal.foreground : root.style.muted;
     in property <string> commit-key: "";
     private property <string> active-commit-key: root.commit-key;
     private property <bool> edited: false;
     callback accepted(string) -> bool;
 
-    height: Style.inspector.field-height;
-    border-radius: Style.inspector.field-radius;
-    background: !enabled ? Style.inspector.read-only-bg : input.has-focus ? Style.inspector.panel-bg : touch.has-hover ? Style.inspector.field-bg-hover : Style.inspector.field-bg;
-    border-width: input.has-focus ? Style.controls.border-width : 0px;
-    border-color: Style.inspector.accent;
+    height: root.style.height;
+    border-radius: root.style.radius;
+    background: !enabled ? root.style.disabled.background : input.has-focus ? root.style.focus.background : touch.has-hover ? root.style.hover.background : root.style.normal.background;
+    border-width: input.has-focus ? root.style.border-width : 0px;
+    border-color: root.style.focus-border;
     accessible-role: AccessibleRole.text-input;
     accessible-label: root.accessible-name;
     accessible-value: input.text;
@@ -83,8 +84,8 @@ export component InspectorTextFieldBase inherits Rectangle {
                 color: root.input-color;
                 font-size: root.input-font-size;
                 vertical-alignment: center;
-                selection-background-color: Style.colors.text-selection-bg;
-                text-cursor-width: Style.controls.border-width;
+                selection-background-color: root.style.selection;
+                text-cursor-width: root.style.border-width;
 
                 edited => {
                     root.edited = true;

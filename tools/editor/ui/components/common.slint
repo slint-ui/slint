@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "../style.slint";
+import { Style, Metrics, Colors, Typography, Motion, FieldStyle, SidebarToggleStyle, PaletteRowStyle } from "../style.slint";
 import { ElementVisuals } from "element-presentation.slint";
 import { Api, CanvasCorner, ElementKind } from "../api.slint";
 
@@ -38,16 +38,16 @@ export global EditorWindow {
 }
 
 export component EdgeDivider inherits Rectangle {
-    width: Style.controls.border-width;
-    background: Style.colors.border;
+    width: Metrics.border-width;
+    background: Colors.border;
 }
 
 export component HorizontalResizeDivider inherits FocusScope {
     in property <string> resize-label;
-    in property <color> line-color: Style.colors.border;
-    in property <length> value: Style.layout.pane-minimum;
-    in property <length> value-minimum: Style.layout.pane-minimum;
-    in property <length> value-maximum: Style.layout.pane-minimum;
+    in property <color> line-color: Colors.border;
+    in property <length> value: Style.panes.minimum;
+    in property <length> value-minimum: Style.panes.minimum;
+    in property <length> value-maximum: Style.panes.minimum;
     in property <length> value-step: 8px;
     callback drag-started();
     callback dragged(length);
@@ -55,7 +55,7 @@ export component HorizontalResizeDivider inherits FocusScope {
     callback value-set(length);
     callback reset-requested();
 
-    height: Style.layout.splitter-size;
+    height: Style.panes.splitter-size;
     accessible-role: AccessibleRole.slider;
     accessible-label: root.resize-label;
     accessible-description: "Lower pane height. Arrow keys adjust by 8 px; Home and End clamp; Ctrl+Home or double-click resets.";
@@ -105,17 +105,17 @@ export component HorizontalResizeDivider inherits FocusScope {
     Rectangle {
         width: parent.width;
         height: parent.height;
-        border-width: root.has-focus ? Style.controls.border-width : 0px;
-        border-color: Style.colors.accent-strong;
+        border-width: root.has-focus ? Metrics.border-width : 0px;
+        border-color: Colors.focus;
         background: touch.has-hover || touch.pressed
-            ? Style.colors.focus-bg
+            ? Colors.focus-background
             : transparent;
     }
 
     Rectangle {
         y: (parent.height - self.height) / 2;
         width: parent.width;
-        height: Style.controls.border-width;
+        height: Metrics.border-width;
         background: root.line-color;
     }
 
@@ -150,48 +150,49 @@ export component HorizontalResizeDivider inherits FocusScope {
 }
 
 export component BodyLabel inherits Text {
-    color: Style.colors.text;
-    font-size: Style.typography.body.size;
+    color: Colors.foreground;
+    font-size: Typography.body.size;
     font-weight: FontWeight.medium;
     overflow: elide;
 }
 
 export component MutedLabel inherits Text {
-    color: Style.colors.muted;
-    font-size: Style.typography.control.size;
+    color: Colors.muted;
+    font-size: Typography.control.size;
     overflow: elide;
 }
 
 export component SectionTitle inherits Text {
     in property <string> label;
     text: label;
-    color: Style.colors.muted;
-    font-size: Style.typography.caption.size;
+    color: Colors.muted;
+    font-size: Typography.caption.size;
     font-weight: FontWeight.bold;
 }
 
 export component PrimerTextInput inherits Rectangle {
+    in property <FieldStyle> style: Style.field;
     in-out property <string> text <=> editor.text;
     in property <string> placeholder: "";
     in property <string> leading-text: "";
     in property <string> accessible-name: "";
 
-    height: Style.layout.search-height;
-    border-radius: Style.controls.row-radius;
-    border-width: Style.controls.border-width;
-    border-color: editor.has-focus ? Style.colors.accent-strong : Style.colors.border;
-    background: Style.colors.panel-bg;
-    animate border-color { duration: Style.motion.fast; }
+    height: root.style.height;
+    border-radius: root.style.radius;
+    border-width: root.style.border-width;
+    border-color: editor.has-focus ? root.style.focus-border : root.style.normal.border;
+    background: root.style.normal.background;
+    animate border-color { duration: Motion.fast; }
 
     HorizontalLayout {
-        padding-left: Style.spacing.medium;
-        padding-right: Style.spacing.medium;
-        spacing: Style.spacing.regular;
+        padding-left: root.style.padding-inline;
+        padding-right: root.style.padding-inline;
+        spacing: root.style.gap;
 
         if root.leading-text != "": Text {
             text: root.leading-text;
-            color: Style.colors.muted;
-            font-size: Style.typography.action.size;
+            color: root.style.muted;
+            font-size: Typography.action.size;
             font-weight: FontWeight.bold;
             vertical-alignment: center;
         }
@@ -203,13 +204,13 @@ export component PrimerTextInput inherits Rectangle {
                 width: parent.width;
                 height: parent.height;
                 text: "";
-                color: Style.colors.text;
-                font-size: Style.typography.body.size;
+                color: root.style.normal.foreground;
+                font-size: root.style.text.size;
                 accessible-label: root.accessible-name;
                 single-line: true;
                 wrap: no-wrap;
                 vertical-alignment: center;
-                selection-background-color: Style.colors.text-selection-bg;
+                selection-background-color: root.style.selection;
             }
 
             if editor.text == "": Text {
@@ -218,8 +219,8 @@ export component PrimerTextInput inherits Rectangle {
                 width: editor.width;
                 height: editor.height;
                 text: root.placeholder;
-                color: Style.colors.muted;
-                font-size: Style.typography.body.size;
+                color: root.style.muted;
+                font-size: root.style.text.size;
                 vertical-alignment: center;
             }
         }
@@ -227,16 +228,17 @@ export component PrimerTextInput inherits Rectangle {
 }
 
 export component SidebarToggleButton inherits Rectangle {
+    in property <SidebarToggleStyle> style: Style.sidebar-toggle;
     in property <bool> active: false;
     callback clicked;
 
-    width: Style.layout.sidebar-button-width;
-    height: Style.layout.sidebar-button-height;
-    border-radius: Style.controls.row-radius;
-    border-width: Style.controls.border-width;
-    border-color: active ? Style.colors.accent-strong : Style.colors.border;
-    background: active ? Style.colors.selection-bg : touch.has-hover ? Style.colors.panel-subtle : Style.colors.panel-bg;
-    animate background, border-color { duration: Style.motion.fast; }
+    width: root.style.width;
+    height: root.style.height;
+    border-radius: root.style.radius;
+    border-width: Metrics.border-width;
+    border-color: active ? root.style.selected.border : root.style.normal.border;
+    background: active ? root.style.selected.background : touch.has-hover ? root.style.hover.background : root.style.normal.background;
+    animate background, border-color { duration: Motion.fast; }
 
     accessible-action-default => {
         root.clicked();
@@ -245,18 +247,18 @@ export component SidebarToggleButton inherits Rectangle {
     Rectangle {
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
-        width: Style.controls.large-icon-size;
-        height: Style.controls.icon-size;
-        border-radius: Style.controls.field-radius;
-        border-width: Style.controls.focus-width;
-        border-color: root.active ? Style.colors.accent-strong : Style.colors.text;
+        width: Metrics.icon-large;
+        height: Metrics.icon-medium;
+        border-radius: Metrics.radius-small;
+        border-width: Metrics.focus-width;
+        border-color: root.active ? root.style.selected.border : root.style.normal.foreground;
         background: transparent;
 
         Rectangle {
             x: 7px;
             width: 2px;
             height: parent.height;
-            background: root.active ? Style.colors.accent-strong : Style.colors.text;
+            background: root.active ? root.style.selected.border : root.style.normal.foreground;
         }
     }
 
@@ -269,6 +271,7 @@ export component SidebarToggleButton inherits Rectangle {
 }
 
 export component ComponentPaletteRow inherits Rectangle {
+    in property <PaletteRowStyle> style: Style.palette-row;
     in property <ElementKind> kind;
     in property <string> label;
     in property <bool> enabled: true;
@@ -279,15 +282,15 @@ export component ComponentPaletteRow inherits Rectangle {
     property <bool> active: root.enabled && (root.dragging || touch.pressed);
     property <bool> hovered: root.enabled && touch.has-hover && !root.dragging;
 
-    height: Style.controls.large-height;
+    height: root.style.height;
     horizontal-stretch: 1;
-    border-radius: Style.controls.row-radius;
-    background: root.active ? Style.colors.selection-subtle-bg : root.hovered ? Style.colors.panel-subtle : transparent;
-    opacity: !root.enabled ? Style.controls.disabled-opacity : root.dragging ? Style.controls.palette-drag-opacity : 1;
+    border-radius: root.style.radius;
+    background: root.active ? root.style.selected : root.hovered ? root.style.hover : transparent;
+    opacity: !root.enabled ? root.style.disabled-opacity : root.dragging ? root.style.drag-opacity : 1;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.label;
     accessible-enabled: root.enabled && root.drag-enabled;
-    animate background, opacity { duration: Style.motion.feedback; easing: ease-out-quad; }
+    animate background, opacity { duration: Motion.feedback; easing: ease-out-quad; }
 
     function pointer-window-position() -> Point {
         return {
@@ -297,24 +300,24 @@ export component ComponentPaletteRow inherits Rectangle {
     }
 
     HorizontalLayout {
-        padding-left: Style.spacing.regular;
-        padding-right: Style.spacing.regular;
-        spacing: Style.spacing.regular;
+        padding-left: Metrics.space-regular;
+        padding-right: Metrics.space-regular;
+        spacing: Metrics.space-regular;
         cross-axis-alignment: center;
 
         Image {
-            width: Style.controls.large-icon-size;
-            height: Style.controls.large-icon-size;
+            width: Metrics.icon-large;
+            height: Metrics.icon-large;
             source: ElementVisuals.for-kind(root.kind).icon;
-            colorize: root.active ? Style.colors.accent-strong : Style.colors.text;
-            opacity: root.active ? 1 : Style.controls.inactive-icon-opacity;
+            colorize: root.active ? root.style.selected-foreground : root.style.foreground;
+            opacity: root.active ? 1 : root.style.icon-opacity;
         }
 
         Text {
             text: root.label;
             overflow: elide;
-            color: root.active ? Style.colors.accent-strong : Style.colors.text;
-            font-size: Style.typography.control.size;
+            color: root.active ? root.style.selected-foreground : root.style.foreground;
+            font-size: root.style.text.size;
             horizontal-stretch: 1;
         }
     }
@@ -393,7 +396,7 @@ export global AppState {
     }
 
     pure function outline-drag-pointer-gap() -> length {
-        return Style.controls.row-radius;
+        return Metrics.radius-medium;
     }
 
     public function update-outline-drag-position(window-position: Point) {
