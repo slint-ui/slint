@@ -457,6 +457,9 @@ pub(crate) struct SharedBackendData {
     #[cfg(target_os = "ios")]
     #[allow(unused)]
     keyboard_notifications: ios::KeyboardNotifications,
+    #[cfg(target_os = "ios")]
+    #[allow(unused)]
+    scene_lifecycle: ios::SceneLifecycle,
 }
 
 impl SharedBackendData {
@@ -528,10 +531,8 @@ impl SharedBackendData {
         let keyboard_notifications =
             ios::register_keyboard_notifications(Rc::downgrade(&active_windows));
 
-        // UIKit connects the scene from `UIApplicationMain`, so the class named in
-        // the app's `UIApplicationSceneManifest` has to be registered before then.
         #[cfg(target_os = "ios")]
-        ios::register_scene_delegate_class();
+        let scene_lifecycle = ios::install_scene_lifecycle(Rc::downgrade(&active_windows));
 
         let event_loop_proxy = event_loop.create_proxy();
         #[cfg(not(target_arch = "wasm32"))]
@@ -560,6 +561,8 @@ impl SharedBackendData {
             desktop_settings: xdg_desktop_settings::DesktopSettings::new(),
             #[cfg(target_os = "ios")]
             keyboard_notifications,
+            #[cfg(target_os = "ios")]
+            scene_lifecycle,
         })
     }
 
