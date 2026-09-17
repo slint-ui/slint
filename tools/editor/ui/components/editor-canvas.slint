@@ -2,20 +2,21 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { EditorGrid } from "editor-grid.slint";
-import { Style } from "../style.slint";
+import { Style, Metrics, Colors, ArtboardStyle, CanvasSurfaceStyle } from "../style.slint";
 import { Api, DropMark } from "../api.slint";
 import { AppState, EditorCursors, ElementKind, PreviewMetrics } from "common.slint";
 import { CanvasInteractionLayer } from "canvas-interaction-layer.slint";
 
 component PhoneChrome inherits Rectangle {
-    background: Style.colors.phone-bg;
+    in property <ArtboardStyle> style: Style.artboard;
+    background: root.style.background;
     clip: true;
 
     Rectangle {
-        x: Style.canvas.phone-outer-padding;
-        y: Style.canvas.phone-outer-padding;
-        width: parent.width - (2 * Style.canvas.phone-outer-padding);
-        height: parent.height - (2 * Style.canvas.phone-outer-padding);
+        x: root.style.padding;
+        y: root.style.padding;
+        width: parent.width - (2 * root.style.padding);
+        height: parent.height - (2 * root.style.padding);
         accessible-role: AccessibleRole.region;
         accessible-label: "Artboard";
 
@@ -24,9 +25,11 @@ component PhoneChrome inherits Rectangle {
 }
 
 export component EditorCanvas inherits Rectangle {
+    in property <ArtboardStyle> artboard-style: Style.artboard;
+    in property <CanvasSurfaceStyle> style: Style.canvas-surface;
     in property <bool> shift-pressed;
     private property <length> phone-canvas-top: max(
-        Style.canvas.artboard-top-minimum,
+        root.artboard-style.top-minimum,
         (root.height - PreviewMetrics.phone-portrait-height) / 2,
     );
 
@@ -35,9 +38,9 @@ export component EditorCanvas inherits Rectangle {
 
     callback real-element-selected();
 
-    background: Style.colors.canvas;
+    background: root.style.background;
 
-    EditorGrid { }
+    EditorGrid { style: root.style.grid; }
 
     TouchArea {
         mouse-cursor: EditorCursors.canvas-default;
@@ -49,13 +52,13 @@ export component EditorCanvas inherits Rectangle {
 
     Rectangle {
         x: (parent.width - phone.width) / 2;
-        y: root.phone-canvas-top + Style.shadows.artboard.offset-y;
+        y: root.phone-canvas-top + root.artboard-style.shadow.offset-y;
         width: phone.width;
         height: phone.height;
-        border-radius: Style.canvas.phone-frame-radius;
-        drop-shadow-color: Style.shadows.artboard.color;
-        drop-shadow-blur: Style.shadows.artboard.blur;
-        drop-shadow-offset-y: Style.shadows.artboard.offset-y;
+        border-radius: root.artboard-style.radius;
+        drop-shadow-color: root.artboard-style.shadow.color;
+        drop-shadow-blur: root.artboard-style.shadow.blur;
+        drop-shadow-offset-y: root.artboard-style.shadow.offset-y;
     }
 
     phone := Rectangle {
@@ -63,9 +66,9 @@ export component EditorCanvas inherits Rectangle {
         y: root.phone-canvas-top;
         width: PreviewMetrics.phone-portrait-width;
         height: PreviewMetrics.phone-portrait-height;
-        border-radius: Style.canvas.phone-frame-radius;
-        border-width: Style.controls.border-width;
-        border-color: Style.colors.border;
+        border-radius: root.artboard-style.radius;
+        border-width: Metrics.border-width;
+        border-color: root.artboard-style.border;
 
         TouchArea {
             mouse-cursor: EditorCursors.canvas-default;
@@ -75,6 +78,7 @@ export component EditorCanvas inherits Rectangle {
         }
 
         PhoneChrome {
+            style: root.artboard-style;
             ComponentContainer {
                 width: 100%;
                 height: 100%;
@@ -124,18 +128,18 @@ export component EditorCanvas inherits Rectangle {
                 y: min(drop-mark.y1, drop-mark.y2);
                 width: max((drop-mark.x2 - drop-mark.x1).abs(), 2px);
                 height: max((drop-mark.y2 - drop-mark.y1).abs(), 2px);
-                border-color: Style.colors.drop-mark-foreground;
-                background: Style.colors.drop-mark-background;
+                border-color: Style.drop-indicator.foreground;
+                background: Style.drop-indicator.background;
                 accessible-role: AccessibleRole.region;
                 accessible-label: "Canvas drop marker";
             }
         }
 
         CanvasInteractionLayer {
-            x: Style.canvas.phone-outer-padding;
-            y: Style.canvas.phone-outer-padding;
-            width: parent.width - 2 * Style.canvas.phone-outer-padding;
-            height: parent.height - 2 * Style.canvas.phone-outer-padding;
+            x: root.artboard-style.padding;
+            y: root.artboard-style.padding;
+            width: parent.width - 2 * root.artboard-style.padding;
+            height: parent.height - 2 * root.artboard-style.padding;
             shift-pressed: root.shift-pressed;
             real-element-selected => {
                 root.real-element-selected();

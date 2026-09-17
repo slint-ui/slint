@@ -110,6 +110,11 @@ export struct ImageTabsStyle {
     group-height: length,
     group-width: length,
     bar-height: length,
+    normal: PaintStyle,
+    hover: PaintStyle,
+    selected: PaintStyle,
+    focus-border: brush,
+    radius: length,
 }
 
 export struct ImageRailStyle {
@@ -118,12 +123,6 @@ export struct ImageRailStyle {
     safe-bottom: length,
     background: color,
     border: color,
-}
-
-export struct ImageDetailsStyle {
-    height: length,
-    preview-height: length,
-    shadow: ShadowStyle,
 }
 
 export struct ImageFieldStyle {
@@ -135,6 +134,8 @@ export struct ImageFieldStyle {
     foreground: color,
     muted: color,
     text: TextStyle,
+    padding-inline: length,
+    gap: length,
 }
 
 export struct ImageSyntaxStyle {
@@ -143,6 +144,28 @@ export struct ImageSyntaxStyle {
     background: brush,
     text: TextStyle,
     radius: length,
+    padding-inline: length,
+    padding-block: length,
+}
+
+export struct CopyButtonStyle {
+    width: length,
+    button: ButtonStyle,
+}
+
+export struct ImageDetailsStyle {
+    height: length,
+    preview-height: length,
+    shadow: ShadowStyle,
+    background: brush,
+    border: brush,
+    radius: length,
+    padding: length,
+    gap: length,
+    heading: TextStyle,
+    field: ImageFieldStyle,
+    syntax: ImageSyntaxStyle,
+    copy: CopyButtonStyle,
 }
 
 export struct ImagePreviewStyle {
@@ -231,14 +254,15 @@ export struct WelcomeBrandStyle {
     shadow: ShadowStyle,
 }
 
-export struct CanvasSurfaceStyle {
-    background: color,
-}
-
 export struct GridStyle {
     pitch: length,
     line-width: length,
     color: color,
+}
+
+export struct CanvasSurfaceStyle {
+    background: color,
+    grid: GridStyle,
 }
 
 export struct ArtboardStyle {
@@ -246,8 +270,8 @@ export struct ArtboardStyle {
     padding: length,
     top-minimum: length,
     background: color,
-    foreground: color,
     shadow: ShadowStyle,
+    border: brush,
 }
 
 export struct SelectionFrameStyle {
@@ -258,65 +282,11 @@ export struct SelectionFrameStyle {
     rotation-hit-size: length,
     accent: color,
     handle-background: color,
-    ghost-opacity: float,
 }
 
 export struct RadiusHandleStyle {
     size: length,
     inset: length,
-}
-
-export struct GradientOverlayStyle {
-    hit-size: length,
-    endpoint-size: length,
-    halo: color,
-    axis-hit-size: length,
-    axis-width: length,
-    stop-offset: length,
-    endpoint-shadow: ShadowStyle,
-    axis-shadow: ShadowStyle,
-}
-
-export struct NineSliceStyle {
-    label-size: length,
-    line-width: length,
-    hit-size: length,
-    label-gap: length,
-    hit-extension: length,
-    color: color,
-    overlay: color,
-    label-foreground: color,
-    label-border: color,
-    label-shadow: ShadowStyle,
-}
-
-export struct TooltipStyle {
-    offset: length,
-    padding-inline: length,
-    padding-block: length,
-    shadow: ShadowStyle,
-    normal: PaintStyle,
-    radius: length,
-    text: TextStyle,
-}
-
-export struct DragPreviewStyle {
-    background: color,
-    subtle: color,
-    border: color,
-    muted: color,
-    content-opacity: float,
-    shadow: ShadowStyle,
-}
-
-export struct DropIndicatorStyle {
-    background: brush,
-    foreground: brush,
-}
-
-export struct FloatingPanelStyle {
-    border: color,
-    background: color,
 }
 
 export struct TransparencyGridStyle {
@@ -331,6 +301,87 @@ export struct GradientMarkerStyle {
     size: length,
     radius: length,
     checker: TransparencyGridStyle,
+}
+
+export struct GradientOverlayStyle {
+    hit-size: length,
+    endpoint-size: length,
+    halo: color,
+    axis-hit-size: length,
+    axis-width: length,
+    stop-offset: length,
+    endpoint-shadow: ShadowStyle,
+    axis-shadow: ShadowStyle,
+    marker: GradientMarkerStyle,
+    endpoint-background: color,
+    focus-border: brush,
+}
+
+export struct NineSliceStyle {
+    label-size: length,
+    line-width: length,
+    hit-size: length,
+    label-gap: length,
+    hit-extension: length,
+    color: color,
+    overlay: color,
+    label-foreground: color,
+    label-border: color,
+    label-shadow: ShadowStyle,
+    text: TextStyle,
+}
+
+export struct TooltipStyle {
+    offset: length,
+    padding-inline: length,
+    padding-block: length,
+    shadow: ShadowStyle,
+    normal: PaintStyle,
+    radius: length,
+    text: TextStyle,
+}
+
+export struct TreeRowStyle {
+    hover-background: color,
+    selected-background: color,
+    foreground: color,
+    muted: color,
+    accent: color,
+    directory-icon: color,
+    height: length,
+    font-size: length,
+    radius: length,
+    padding-inline: length,
+    gap: length,
+    toggle-width: length,
+    hit-size: length,
+    icon-size: length,
+    focus-width: length,
+    drag-opacity: float,
+    icon-opacity: float,
+}
+
+export struct DragPreviewStyle {
+    background: color,
+    subtle: color,
+    border: color,
+    muted: color,
+    content-opacity: float,
+    shadow: ShadowStyle,
+    foreground: color,
+    ghost-opacity: float,
+    row: TreeRowStyle,
+    row-border: brush,
+}
+
+export struct DropIndicatorStyle {
+    background: brush,
+    foreground: brush,
+}
+
+export struct FloatingPanelStyle {
+    border: color,
+    background: color,
 }
 
 export struct InspectorLayoutStyle {
@@ -468,31 +519,6 @@ export struct InfoIconStyle {
     hover: brush,
 }
 
-export struct CopyButtonStyle {
-    width: length,
-    button: ButtonStyle,
-}
-
-export struct TreeRowStyle {
-    hover-background: color,
-    selected-background: color,
-    foreground: color,
-    muted: color,
-    accent: color,
-    directory-icon: color,
-    height: length,
-    font-size: length,
-    radius: length,
-    padding-inline: length,
-    gap: length,
-    toggle-width: length,
-    hit-size: length,
-    icon-size: length,
-    focus-width: length,
-    drag-opacity: float,
-    icon-opacity: float,
-}
-
 export struct RenameFieldStyle {
     background: brush,
     border: brush,
@@ -577,6 +603,17 @@ export struct GradientStopsStyle {
     marker: GradientMarkerStyle,
     row: GradientStopRowStyle,
     gap: length,
+}
+
+export struct ImageAssetEditorStyle {
+    canvas: CanvasSurfaceStyle,
+    rail: ImageRailStyle,
+    tabs: ImageTabsStyle,
+    preview: ImagePreviewStyle,
+    details: ImageDetailsStyle,
+    nine-slice: NineSliceStyle,
+    image: ImageCanvasStyle,
+    error: ImageErrorStyle,
 }
 
 export global Colors {
@@ -1520,6 +1557,11 @@ export global Style {
         group-height: root.image-tabs-height + 2 * Metrics.space-small,
         group-width: 216px,
         bar-height: 58px,
+        normal: { background: transparent, foreground: Colors.muted, border: Colors.border },
+        hover: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
+        selected: { background: Colors.surface, foreground: Colors.foreground, border: Colors.border },
+        focus-border: Colors.focus,
+        radius: Metrics.radius-medium,
     };
 
     out property <ImageRailStyle> image-rail: {
@@ -1534,6 +1576,15 @@ export global Style {
         height: 260px,
         preview-height: 154px,
         shadow: { color: Colors.dark ? #00000055 : #64748b25, blur: 18px, offset-y: 8px },
+        background: Colors.surface,
+        border: Colors.border,
+        radius: Metrics.radius-large,
+        padding: Metrics.space-medium,
+        gap: Metrics.space-regular,
+        heading: { size: Typography.control.size, weight: FontWeight.extra-bold },
+        field: Style.image-field,
+        syntax: Style.image-syntax,
+        copy: Style.copy-button,
     };
 
     out property <ImageFieldStyle> image-field: {
@@ -1545,6 +1596,8 @@ export global Style {
         foreground: Colors.foreground,
         muted: Colors.muted,
         text: Typography.control,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-compact,
     };
 
     out property <ImageSyntaxStyle> image-syntax: {
@@ -1553,6 +1606,8 @@ export global Style {
         background: Style.inspector-field.normal.background,
         text: Typography.caption,
         radius: Metrics.radius-small,
+        padding-inline: Metrics.space-regular,
+        padding-block: Metrics.space-compact,
     };
 
     out property <ImagePreviewStyle> image-preview: {
@@ -1644,6 +1699,7 @@ export global Style {
 
     out property <CanvasSurfaceStyle> canvas-surface: {
         background: Colors.dark ? #1f1f1f : #eef2f7,
+        grid: Style.grid,
     };
 
     out property <GridStyle> grid: {
@@ -1657,8 +1713,8 @@ export global Style {
         padding: 1px,
         top-minimum: 40px,
         background: Colors.dark ? #f7f8fb : #ffffff,
-        foreground: #20252d,
         shadow: { color: Colors.dark ? #00000055 : #64748b30, blur: 30px, offset-y: 18px },
+        border: Colors.border,
     };
 
     out property <SelectionFrameStyle> selection-frame: {
@@ -1669,7 +1725,6 @@ export global Style {
         rotation-hit-size: 22px,
         accent: Colors.dark ? #0c8ce9 : #0b99fe,
         handle-background: #ffffff,
-        ghost-opacity: 0.5,
     };
 
     out property <RadiusHandleStyle> radius-handle: {
@@ -1686,6 +1741,9 @@ export global Style {
         stop-offset: 6px,
         endpoint-shadow: { color: #0008, blur: 3px, offset-y: 0px },
         axis-shadow: { color: #000a, blur: 2px, offset-y: 0px },
+        marker: Style.gradient-marker,
+        endpoint-background: Colors.on-accent,
+        focus-border: Colors.focus,
     };
 
     out property <NineSliceStyle> nine-slice: {
@@ -1699,6 +1757,7 @@ export global Style {
         label-foreground: #111827,
         label-border: Colors.dark ? #111827 : #ffffff,
         label-shadow: { color: #00000055, blur: 8px, offset-y: 2px },
+        text: { size: Typography.caption.size, weight: FontWeight.black },
     };
 
     out property <TooltipStyle> tooltip: {
@@ -1708,7 +1767,7 @@ export global Style {
         shadow: { color: #33415535, blur: 12px, offset-y: 4px },
         normal: { background: Colors.focus, foreground: Colors.on-accent, border: Colors.border },
         radius: Metrics.radius-medium,
-        text: Typography.caption,
+        text: Typography.control,
     };
 
     out property <DragPreviewStyle> drag-preview: {
@@ -1718,6 +1777,10 @@ export global Style {
         muted: #6e7781,
         content-opacity: 0.72,
         shadow: { color: Colors.dark ? #00000055 : #33415535, blur: 18px, offset-y: 8px },
+        foreground: #20252d,
+        ghost-opacity: 0.5,
+        row: Style.tree-row,
+        row-border: Style.tree-guides.guide,
     };
 
     out property <DropIndicatorStyle> drop-indicator: {
@@ -2087,5 +2150,16 @@ export global Style {
         marker: Style.gradient-marker,
         row: Style.gradient-stop-row,
         gap: Metrics.space-regular,
+    };
+
+    out property <ImageAssetEditorStyle> image-asset-editor: {
+        canvas: Style.canvas-surface,
+        rail: Style.image-rail,
+        tabs: Style.image-tabs,
+        preview: Style.image-preview,
+        details: Style.image-details,
+        nine-slice: Style.nine-slice,
+        image: Style.image-canvas,
+        error: Style.image-error,
     };
 }
