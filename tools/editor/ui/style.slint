@@ -55,6 +55,9 @@ export struct StyleColors {
     image-rail-bg: color,
     image-rail-border: color,
     image-preview-border: color,
+    action-bg: color,
+    action-hover: color,
+    action-pressed: color,
 }
 
 export struct StyleInspector {
@@ -293,6 +296,11 @@ export struct StyleTypography {
     hero: TextStyle,
     family: string,
     error-icon: TextStyle,
+    section-heading: TextStyle,
+    strong-body: TextStyle,
+    symbol: TextStyle,
+    info-symbol: TextStyle,
+    slider-tick: TextStyle,
 }
 
 export struct StyleControls {
@@ -313,6 +321,11 @@ export struct StyleControls {
     small-icon-size: length,
     large-icon-size: length,
     disabled-opacity: float,
+    drag-source-opacity: float,
+    palette-drag-opacity: float,
+    drag-ghost-opacity: float,
+    inactive-icon-opacity: float,
+    drag-content-opacity: float,
 }
 
 export struct StyleMotion {
@@ -390,13 +403,14 @@ export global Style {
         image-rail-bg: Style.dark ? white.with-alpha(0.1) : white.with-alpha(0.4),
         image-rail-border: Style.dark ? #ffffff16 : #cbd5e166,
         image-preview-border: Style.dark ? #ffffff18 : #cbd5e166,
+        action-bg: Style.dark ? #196bd6 : #0969da,
+        action-hover: Style.dark ? #2073dd : #0860ca,
+        action-pressed: Style.dark ? #135bb9 : #0756b5,
     };
 
     private property <color> inspector-accent: Style.colors.accent;
 
-    private property <color> inspector-field-bg-hover: Style.dark ? #414141 : #eeeeee;
-
-    private property <color> inspector-muted: Style.dark ? #9a9a9a : #8c8c8c;
+    private property <color> inspector-muted: Style.colors.muted;
 
     out property <StyleInspector> inspector: {
         picker-width: 260px,
@@ -405,12 +419,12 @@ export global Style {
         panel-bg: Style.colors.panel-bg,
         divider: Style.dark ? #414141 : #e5e5e5,
         field-bg: Style.dark ? #383838 : #f5f5f5,
-        field-bg-hover: root.inspector-field-bg-hover,
+        field-bg-hover: Style.dark ? #414141 : #eeeeee,
         field-border: Style.dark ? #4b4b4b : #d9d9d9,
-        text: Style.dark ? #f4f4f4 : #1e1e1e,
+        text: Style.colors.text,
         muted: root.inspector-muted,
         accent: root.inspector-accent,
-        selected-control-bg: Style.dark ? root.inspector-accent : root.inspector-field-bg-hover,
+        selected-control-bg: Style.dark ? Style.colors.action-bg : Style.colors.accent.with-alpha(0.14),
         slider-fill: Style.dark ? root.inspector-accent : transparent,
         slider-thumb: Style.dark ? root.inspector-accent : root.inspector-muted,
         label-width: 52px,
@@ -457,10 +471,10 @@ export global Style {
         row-bg-hover: Style.dark ? #383838 : #f5f5f5,
         row-bg-current: Style.dark ? Style.colors.accent.with-alpha(0.22) : #e4f4ff,
         drop-target-bg: Style.dark ? Style.colors.accent.with-alpha(0.14) : #eaf5ff,
-        text: Style.dark ? #e6edf3 : #1f2328,
-        muted-text: Style.dark ? #848d97 : #656d76,
+        text: Style.colors.text,
+        muted-text: Style.colors.muted,
         accent: Style.dark ? Style.colors.accent : #0969da,
-        guide: Style.dark ? #21262d : #d8dee4,
+        guide: Style.inspector.divider,
         directory-icon: Style.dark ? Style.colors.accent : #d29922,
         row-height: 32px,
         row-font-size: 13px,
@@ -478,7 +492,7 @@ export global Style {
         drop-indicator-height: 2px,
         root-drop-height: 8px,
         selected-guide: Style.dark ? #474747 : #c4c4c4,
-        file-guide: Style.dark ? #303030 : #e2e2e2,
+        file-guide: Style.inspector.divider,
         rename-bg: Palette.control-background,
         rename-border: Palette.border,
         error: Style.dark ? #ff7b72 : #cf222e,
@@ -523,7 +537,7 @@ export global Style {
         recent-panel-inset: 10px,
         recent-panel-height: 195px,
         recent-panel-gap: 5px,
-        pressed-bg: #d9dadd,
+        pressed-bg: Style.dark ? #55575d : #d9dadd,
         selected-muted: #d7e7ff,
         shell-border: Style.dark ? #ffffff22 : #98999d,
         brand-brush: @linear-gradient(155deg, #32e1ff 0%, #0b89ff 52%, #115bea 100%),
@@ -630,10 +644,15 @@ export global Style {
         control: { size: 12px, weight: 400 },
         body: { size: 13px, weight: 400 },
         action: { size: 14px, weight: 400 },
-        heading: { size: 16px, weight: 400 },
-        hero: { size: 34px, weight: 400 },
+        heading: { size: 16px, weight: 700 },
+        hero: { size: 34px, weight: 700 },
         family: "Inter",
         error-icon: { size: 20px, weight: 400 },
+        section-heading: { size: 12px, weight: 700 },
+        strong-body: { size: 13px, weight: 700 },
+        symbol: { size: 24px, weight: 400 },
+        info-symbol: { size: 10px, weight: 700 },
+        slider-tick: { size: 9px, weight: 400 },
     };
 
     out property <StyleControls> controls: {
@@ -654,25 +673,30 @@ export global Style {
         small-icon-size: 12px,
         large-icon-size: 18px,
         disabled-opacity: 0.55,
+        drag-source-opacity: 0.45,
+        palette-drag-opacity: 0.56,
+        drag-ghost-opacity: 0.5,
+        inactive-icon-opacity: 0.5,
+        drag-content-opacity: 0.72,
     };
 
     out property <StyleMotion> motion: {
         fast: 120ms,
-        feedback: 140ms,
+        feedback: 150ms,
         normal: 150ms,
         layout: 180ms,
     };
 
     out property <StyleShadows> shadows: {
         popup: { color: Style.dark ? #00000066 : #64748b30, blur: 12px, offset-y: 4px },
-        picker: { color: Style.dark ? #00000080 : #64748b35, blur: 18px, offset-y: 7px },
+        picker: { color: Style.dark ? #00000080 : #64748b35, blur: 18px, offset-y: 8px },
         dial: { color: #00000025, blur: 2px, offset-y: 1px },
         slider: { color: #00000028, blur: 6px, offset-y: 2px },
         color-plane: { color: #00000080, blur: 3px, offset-y: 0px },
         color-slider: { color: #00000070, blur: 2px, offset-y: 0px },
         dialog: { color: Style.dark ? #00000085 : #161b233d, blur: 24px, offset-y: 12px },
         floating: { color: Style.dark ? #00000055 : #64748b28, blur: 18px, offset-y: 8px },
-        welcome: { color: Style.dark ? #00000080 : #00000030, blur: 17px, offset-y: 8px },
+        welcome: { color: Style.dark ? #00000080 : #00000030, blur: 18px, offset-y: 8px },
         brand: { color: #00000033, blur: 11px, offset-y: 6px },
         artboard: { color: Style.dark ? #00000055 : #64748b30, blur: 30px, offset-y: 18px },
         image: { color: Style.dark ? #00000055 : #64748b30, blur: 24px, offset-y: 14px },

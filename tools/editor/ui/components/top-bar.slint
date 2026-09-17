@@ -16,15 +16,15 @@ component RunButton inherits Rectangle {
     height: Style.controls.height;
     border-radius: Style.controls.row-radius;
     background: enabled
-        ? touch.has-hover ? Style.colors.accent-strong : Style.colors.accent
+        ? touch.pressed ? Style.colors.action-pressed : touch.has-hover ? Style.colors.action-hover : Style.colors.action-bg
         : Style.colors.panel-subtle;
-    opacity: enabled ? 1 : 0.55;
+    opacity: enabled ? 1 : Style.controls.disabled-opacity;
 
     bt := Text {
         text: root.running ? "Running" : "Run";
         color: enabled ? Style.colors.action-text : Style.colors.muted;
-        font-size: Style.typography.body.size;
-        font-weight: FontWeight.bold;
+        font-size: Style.typography.strong-body.size;
+        font-weight: Style.typography.strong-body.weight;
         horizontal-alignment: center;
         vertical-alignment: center;
     }

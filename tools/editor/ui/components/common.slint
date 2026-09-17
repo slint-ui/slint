@@ -358,7 +358,7 @@ export component ComponentPaletteRow inherits Rectangle {
     horizontal-stretch: 1;
     border-radius: Style.controls.small-radius;
     background: root.active ? Style.colors.accent.with-alpha(0.10) : root.hovered ? Style.colors.panel-subtle : transparent;
-    opacity: !root.enabled ? 0.58 : root.dragging ? 0.56 : 1;
+    opacity: !root.enabled ? Style.controls.disabled-opacity : root.dragging ? Style.controls.palette-drag-opacity : 1;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.label;
     accessible-enabled: root.enabled && root.drag-enabled;
@@ -382,7 +382,7 @@ export component ComponentPaletteRow inherits Rectangle {
             height: 18px;
             source: ElementVisuals.for-kind(root.kind).icon;
             colorize: root.active ? Style.colors.accent-strong : Style.colors.text;
-            opacity: root.active ? 1 : 0.5;
+            opacity: root.active ? 1 : Style.controls.inactive-icon-opacity;
         }
 
         Text {

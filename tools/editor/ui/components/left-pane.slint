@@ -17,7 +17,7 @@ component NewSlintFileButton inherits Rectangle {
     height: Style.controls.small-height;
     border-radius: Style.controls.small-radius;
     background: touch.has-hover && root.enabled ? Style.colors.panel-subtle : transparent;
-    opacity: root.enabled ? 1 : 0.45;
+    opacity: root.enabled ? 1 : Style.controls.disabled-opacity;
     accessible-role: AccessibleRole.button;
     accessible-label: @tr("New Slint file");
     accessible-enabled: root.enabled;

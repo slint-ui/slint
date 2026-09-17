@@ -62,9 +62,9 @@ export component DragPreview inherits Rectangle {
         ? Style.tree.row-radius
         : root.presentation.corner-radius;
     background: transparent;
-    opacity: AppState.outline-drag-active ? 0.5 : 1;
-    drop-shadow-blur: 18px;
-    drop-shadow-offset-y: 8px;
+    opacity: AppState.outline-drag-active ? Style.controls.drag-ghost-opacity : 1;
+    drop-shadow-blur: Style.shadows.drag.blur;
+    drop-shadow-offset-y: Style.shadows.drag.offset-y;
     drop-shadow-color: Style.shadows.drag.color;
     accessible-role: AccessibleRole.region;
     accessible-label: AppState.outline-drag-active ? "Outline drag preview" : root.presentation.drag-label;
@@ -86,7 +86,7 @@ export component DragPreview inherits Rectangle {
                 height: Style.tree.icon-size;
                 source: AppState.outline-drag-icon;
                 colorize: Style.tree.text;
-                opacity: 0.72;
+                opacity: Style.controls.drag-content-opacity;
                 vertical-alignment: center;
             }
 
@@ -112,7 +112,7 @@ export component DragPreview inherits Rectangle {
     if !AppState.outline-drag-active && AppState.palette-drag-kind == ElementKind.text: Text {
         text: "Text";
         color: Style.colors.phone-text;
-        font-size: 24px;
+        font-size: Style.typography.symbol.size;
         font-weight: FontWeight.extra-bold;
         vertical-alignment: center;
     }

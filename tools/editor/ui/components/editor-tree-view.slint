@@ -145,7 +145,7 @@ component EditorTreeRow {
                     height: parent.height;
                     data: root.make-drag-data(root.node.uri, root.node.offset);
                     allow-move: true;
-                    opacity: self.dragging ? 0.45 : 1;
+                    opacity: self.dragging ? Style.controls.drag-source-opacity : 1;
 
                     changed dragging => {
                         if self.dragging {
@@ -279,7 +279,7 @@ component EditorTreeRow {
                                 vertical-alignment: center;
                                 source: root.row-icon;
                                 colorize: Style.tree.text;
-                                opacity: root.current ? 1 : 0.5;
+                                opacity: root.current ? 1 : Style.controls.inactive-icon-opacity;
                             }
 
                             Text {

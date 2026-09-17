@@ -79,7 +79,7 @@ component NewFileErrorPopup inherits PopupWindow {
                                 text: @tr("Couldn’t create file");
                                 color: Style.colors.text;
                                 font-size: Style.typography.heading.size;
-                                font-weight: FontWeight.bold;
+                                font-weight: Style.typography.heading.weight;
                             }
 
                             Text {
@@ -128,15 +128,15 @@ component NewFileErrorPopup inherits PopupWindow {
                     x: parent.width - self.width - 16px;
                     y: (parent.height - self.height) / 2;
                     border-width: Style.controls.border-width;
-                    border-color: close-touch.has-hover ? Style.colors.accent-strong : Style.colors.accent;
+                    border-color: close-touch.pressed ? Style.colors.action-pressed : close-touch.has-hover ? Style.colors.action-hover : Style.colors.action-bg;
                     border-radius: Style.controls.small-radius;
-                    background: close-touch.has-hover ? Style.colors.accent-strong : Style.colors.accent;
+                    background: close-touch.pressed ? Style.colors.action-pressed : close-touch.has-hover ? Style.colors.action-hover : Style.colors.action-bg;
 
                     bt := Text {
                         text: @tr("Close");
                         color: Style.colors.action-text;
-                        font-size: Style.typography.body.size;
-                        font-weight: FontWeight.bold;
+                        font-size: Style.typography.strong-body.size;
+                        font-weight: Style.typography.strong-body.weight;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                     }
