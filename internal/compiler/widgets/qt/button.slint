@@ -54,6 +54,7 @@ export component StandardButton {
             accessible-label: native.text;
             accessible-action-default => { clicked(); }
             is-standard-button: true;
+            accessible-enabled: root.enabled;
             checkable: false;
         }
     }
