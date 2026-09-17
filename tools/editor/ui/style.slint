@@ -14,6 +14,604 @@ export struct ShadowStyle {
     offset-y: length,
 }
 
+export struct PaintStyle {
+    background: brush,
+    foreground: color,
+    border: brush,
+}
+
+export struct ShellStyle {
+    width: length,
+    height: length,
+    min-width: length,
+    min-height: length,
+    top-bar-height: length,
+    status-bar-height: length,
+    titlebar-safe-left: length,
+}
+
+export struct PanesStyle {
+    left-width: length,
+    inspector-width: length,
+    splitter-size: length,
+    minimum: length,
+    component-height: length,
+    image-height: length,
+    files-minimum: length,
+    heading-height: length,
+}
+
+export struct CollapsedSidebarStyle {
+    width: length,
+    height: length,
+    radius: length,
+}
+
+export struct PaletteCardStyle {
+    height: length,
+    background: color,
+    icon-background: color,
+    icon: color,
+    border: color,
+}
+
+export struct DialogStyle {
+    width: length,
+    height: length,
+    padding: length,
+    footer-height: length,
+    border: color,
+    background: color,
+    footer-background: color,
+    footer-border: color,
+    shadow: ShadowStyle,
+}
+
+export struct ErrorNoticeStyle {
+    height: length,
+    icon-size: length,
+    inset: length,
+    icon-background: color,
+    icon-foreground: color,
+    border: color,
+    background: color,
+    foreground: color,
+}
+
+export struct UpdateStatusStyle {
+    width: length,
+    error-width: length,
+    height: length,
+    error: color,
+}
+
+export struct ImageTabsStyle {
+    height: length,
+    group-height: length,
+    group-width: length,
+    bar-height: length,
+}
+
+export struct ImageRailStyle {
+    margin: length,
+    gap: length,
+    safe-bottom: length,
+    background: color,
+    border: color,
+}
+
+export struct ImageDetailsStyle {
+    height: length,
+    preview-height: length,
+    shadow: ShadowStyle,
+}
+
+export struct ImageFieldStyle {
+    wide-width: length,
+    width: length,
+    background: color,
+    height: length,
+    radius: length,
+    foreground: color,
+    muted: color,
+    text: TextStyle,
+}
+
+export struct ImageSyntaxStyle {
+    min-height: length,
+    max-height: length,
+    background: brush,
+    text: TextStyle,
+    radius: length,
+}
+
+export struct ImagePreviewStyle {
+    height: length,
+    minimum: length,
+    heading-height: length,
+    heading-top: length,
+    body-top: length,
+    body-bottom: length,
+    border: color,
+    background: color,
+    canvas: color,
+    handle-size: length,
+    shadow: ShadowStyle,
+}
+
+export struct ImageCanvasStyle {
+    fit-bottom: length,
+    shadow: ShadowStyle,
+}
+
+export struct ImageErrorStyle {
+    margin: length,
+    height: length,
+    max-width: length,
+}
+
+export struct WelcomeShellStyle {
+    stage: color,
+    background: color,
+    sidebar: color,
+    foreground: color,
+    muted: color,
+    width: length,
+    height: length,
+    outer-inset: length,
+    compact-threshold: length,
+    compact-side-width: length,
+    side-width: length,
+    radius: length,
+    border: color,
+    shadow: ShadowStyle,
+}
+
+export struct WelcomeHeroStyle {
+    brand-size: length,
+    top: length,
+    gap: length,
+    title-height: length,
+    subtitle-height: length,
+}
+
+export struct WelcomeActionsStyle {
+    inset: length,
+    bottom-inset: length,
+    height: length,
+    gap: length,
+}
+
+export struct RecentProjectListStyle {
+    inset: length,
+    height: length,
+    gap: length,
+}
+
+export struct RecentProjectRowStyle {
+    selected-background: color,
+    height: length,
+    radius: length,
+    padding-right: length,
+    gap: length,
+    icon-size: length,
+    text-gap: length,
+    selected-muted: color,
+    background: brush,
+    hover: brush,
+    foreground: color,
+    muted: color,
+    padding-left: length,
+}
+
+export struct WelcomeBrandStyle {
+    background: brush,
+    grid-horizontal: color,
+    grid-vertical: color,
+    shadow: ShadowStyle,
+}
+
+export struct CanvasSurfaceStyle {
+    background: color,
+}
+
+export struct GridStyle {
+    pitch: length,
+    line-width: length,
+    color: color,
+}
+
+export struct ArtboardStyle {
+    radius: length,
+    padding: length,
+    top-minimum: length,
+    background: color,
+    foreground: color,
+    shadow: ShadowStyle,
+}
+
+export struct SelectionFrameStyle {
+    outline-width: length,
+    hover-width: length,
+    handle-size: length,
+    hit-size: length,
+    rotation-hit-size: length,
+    accent: color,
+    handle-background: color,
+    ghost-opacity: float,
+}
+
+export struct RadiusHandleStyle {
+    size: length,
+    inset: length,
+}
+
+export struct GradientOverlayStyle {
+    hit-size: length,
+    endpoint-size: length,
+    halo: color,
+    axis-hit-size: length,
+    axis-width: length,
+    stop-offset: length,
+    endpoint-shadow: ShadowStyle,
+    axis-shadow: ShadowStyle,
+}
+
+export struct NineSliceStyle {
+    label-size: length,
+    line-width: length,
+    hit-size: length,
+    label-gap: length,
+    hit-extension: length,
+    color: color,
+    overlay: color,
+    label-foreground: color,
+    label-border: color,
+    label-shadow: ShadowStyle,
+}
+
+export struct TooltipStyle {
+    offset: length,
+    padding-inline: length,
+    padding-block: length,
+    shadow: ShadowStyle,
+    normal: PaintStyle,
+    radius: length,
+    text: TextStyle,
+}
+
+export struct DragPreviewStyle {
+    background: color,
+    subtle: color,
+    border: color,
+    muted: color,
+    content-opacity: float,
+    shadow: ShadowStyle,
+}
+
+export struct DropIndicatorStyle {
+    background: brush,
+    foreground: brush,
+}
+
+export struct FloatingPanelStyle {
+    border: color,
+    background: color,
+}
+
+export struct TransparencyGridStyle {
+    light: color,
+    dark: color,
+    cell-size: length,
+}
+
+export struct GradientMarkerStyle {
+    inactive: color,
+    active: color,
+    size: length,
+    radius: length,
+}
+
+export struct InspectorLayoutStyle {
+    divider: color,
+    label-width: length,
+    row-gap: length,
+    padding: length,
+    column-width: length,
+    column-gap: length,
+    content-width: length,
+    corner-field-width: length,
+}
+
+export struct FillPickerStyle {
+    width: length,
+    gap: length,
+    margin: length,
+    min-height: length,
+    shadow: ShadowStyle,
+    background: brush,
+    border: brush,
+    radius: length,
+}
+
+export struct EffectSliderStyle {
+    height: length,
+    label-width: length,
+    track-width: length,
+    track-height: length,
+    thumb-size: length,
+    value-width: length,
+    plain-value-width: length,
+    suffix-width: length,
+    pressed-thumb: color,
+    shadow: ShadowStyle,
+    track: brush,
+    fill: color,
+    thumb: color,
+}
+
+export struct RadiusSliderStyle {
+    thumb-size: length,
+    track-height: length,
+    inset: length,
+    fill: color,
+    thumb: color,
+    track: color,
+}
+
+export struct RotationDialStyle {
+    size: length,
+    inset: length,
+    face-size: length,
+    dot-size: length,
+    dot-distance: length,
+    ring: brush,
+    face: brush,
+    dot: brush,
+    ring-border: color,
+    face-border: color,
+    dot-border: color,
+    shadow: ShadowStyle,
+}
+
+export struct ComboMenuStyle {
+    row-height: length,
+    max-height: length,
+    background: brush,
+    border: brush,
+    shadow: ShadowStyle,
+}
+
+export struct RecentFillsStyle {
+    swatch-size: length,
+}
+
+export struct ColorPlaneStyle {
+    height: length,
+    thumb-size: length,
+    shadow: ShadowStyle,
+}
+
+export struct ColorSliderStyle {
+    height: length,
+    thumb-size: length,
+    shadow: ShadowStyle,
+}
+
+export struct ColorHexStyle {
+    width: length,
+    input-width: length,
+}
+
+export struct GradientRampStyle {
+    height: length,
+    inset: length,
+    pick-distance: length,
+}
+
+export struct GradientStopRowStyle {
+    action-width: length,
+    position-width: length,
+    opacity-width: length,
+    height: length,
+    swatch-size: length,
+}
+
+export struct GradientFieldsStyle {
+    label-width: length,
+    value-width: length,
+}
+
+export struct InfoIconStyle {
+    size: length,
+    decorative: color,
+    text: TextStyle,
+    foreground: color,
+}
+
+export struct CopyButtonStyle {
+    width: length,
+}
+
+export struct TreeRowStyle {
+    hover-background: color,
+    selected-background: color,
+    drop-background: color,
+    foreground: color,
+    muted: color,
+    accent: color,
+    guide: color,
+    directory-icon: color,
+    height: length,
+    font-size: length,
+    radius: length,
+    padding-inline: length,
+    gap: length,
+    toggle-width: length,
+    hit-size: length,
+    icon-size: length,
+    guide-width: length,
+    focus-width: length,
+    drop-border-width: length,
+    drop-line-height: length,
+    root-drop-height: length,
+    selected-guide: color,
+    file-guide: color,
+    drag-opacity: float,
+}
+
+export struct RenameFieldStyle {
+    background: brush,
+    border: brush,
+    error: color,
+}
+
+export struct PaletteRowStyle {
+    drag-opacity: float,
+    icon-opacity: float,
+    muted-icon: color,
+    height: length,
+    radius: length,
+    hover: brush,
+    selected: brush,
+    foreground: color,
+    selected-foreground: color,
+    disabled-opacity: float,
+    text: TextStyle,
+}
+
+export struct ButtonStyle {
+    height: length,
+    padding-inline: length,
+    gap: length,
+    radius: length,
+    border-width: length,
+    text: TextStyle,
+    normal: PaintStyle,
+    hover: PaintStyle,
+    pressed: PaintStyle,
+    focus-border: brush,
+    disabled-opacity: float,
+}
+
+export struct PickerCloseButtonStyle {
+    height: length,
+    padding-inline: length,
+    gap: length,
+    radius: length,
+    border-width: length,
+    text: TextStyle,
+    normal: PaintStyle,
+    hover: PaintStyle,
+    pressed: PaintStyle,
+    focus-border: brush,
+    disabled-opacity: float,
+    width: length,
+}
+
+export struct FieldStyle {
+    height: length,
+    radius: length,
+    border-width: length,
+    padding-inline: length,
+    gap: length,
+    text: TextStyle,
+    normal: PaintStyle,
+    hover: PaintStyle,
+    focus: PaintStyle,
+    disabled: PaintStyle,
+    muted: color,
+    focus-border: brush,
+    selection: color,
+}
+
+export struct SegmentStyle {
+    selected-background: color,
+    height: length,
+    radius: length,
+    background: brush,
+    hover: brush,
+    foreground: color,
+    muted: color,
+}
+
+export struct SidebarToggleStyle {
+    width: length,
+    height: length,
+    radius: length,
+    normal: PaintStyle,
+    hover: PaintStyle,
+    selected: PaintStyle,
+}
+
+export global Colors {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    out property <color> background: Colors.dark ? #2c2c2c : #f6f8fa;
+    out property <color> surface: Colors.dark ? #2c2c2c : #ffffff;
+    out property <color> subtle: Colors.dark ? #383838 : #f6f8fa;
+    out property <color> foreground: Colors.dark ? #f1f1f1 : #1f2328;
+    out property <color> muted: Colors.dark ? #b7b7b7 : #6e7781;
+    out property <color> border: Colors.dark ? #494949 : #d0d7de;
+    out property <color> subtle-border: Colors.dark ? #3f3f3f : #eaeef2;
+    out property <color> accent: Colors.dark ? #2379f4 : #0d99ff;
+    out property <color> focus: Colors.dark ? Colors.accent.mix(#ffffff, 0.75) : #52aeff;
+    out property <color> selection: Colors.accent.with-alpha(0.14);
+    out property <color> subtle-selection: Colors.accent.with-alpha(0.10);
+    out property <color> focus-background: Colors.accent.with-alpha(0.12);
+    out property <color> text-selection: Colors.accent.with-alpha(0.28);
+    out property <color> on-accent: #ffffff;
+}
+
+export global Metrics {
+    out property <length> space-tight: 2px;
+    out property <length> space-small: 4px;
+    out property <length> space-compact: 6px;
+    out property <length> space-regular: 8px;
+    out property <length> space-medium: 12px;
+    out property <length> space-large: 16px;
+    out property <length> space-section: 24px;
+    out property <length> border-width: 1px;
+    out property <length> focus-width: 2px;
+    out property <length> hairline-width: 0.5px;
+    out property <length> radius-small: 4px;
+    out property <length> radius-medium: 6px;
+    out property <length> radius-large: 8px;
+    out property <length> control-compact: 24px;
+    out property <length> control-small: 28px;
+    out property <length> control-medium: 32px;
+    out property <length> control-large: 36px;
+    out property <length> icon-medium: 16px;
+    out property <length> icon-small: 12px;
+    out property <length> icon-large: 18px;
+}
+
+export global Typography {
+    out property <TextStyle> caption: { size: 11px, weight: FontWeight.normal };
+    out property <TextStyle> control: { size: 12px, weight: FontWeight.normal };
+    out property <TextStyle> body: { size: 13px, weight: FontWeight.normal };
+    out property <TextStyle> action: { size: 14px, weight: FontWeight.normal };
+    out property <TextStyle> heading: { size: 16px, weight: FontWeight.bold };
+    out property <TextStyle> hero: { size: 34px, weight: FontWeight.bold };
+    out property <string> family: "Inter";
+    out property <TextStyle> error-icon: { size: 20px, weight: FontWeight.normal };
+    out property <TextStyle> section-heading: { size: 12px, weight: FontWeight.bold };
+    out property <TextStyle> strong-body: { size: 13px, weight: FontWeight.bold };
+    out property <TextStyle> symbol: { size: 24px, weight: FontWeight.normal };
+    out property <TextStyle> info-symbol: { size: 10px, weight: FontWeight.bold };
+    out property <TextStyle> slider-tick: { size: 9px, weight: FontWeight.normal };
+}
+
+export global Motion {
+    out property <duration> fast: 120ms;
+    out property <duration> feedback: 150ms;
+    out property <duration> layout: 180ms;
+}
+
+export global Elevation {
+    out property <ShadowStyle> popup: { color: Colors.dark ? #00000066 : #64748b30, blur: 12px, offset-y: 4px };
+    out property <ShadowStyle> floating: { color: Colors.dark ? #00000055 : #64748b28, blur: 18px, offset-y: 8px };
+}
+
 export struct StyleColors {
     app-bg: color,
     panel-bg: color,
@@ -809,5 +1407,592 @@ export global Style {
         gradient-axis: { color: #000a, blur: 2px, offset-y: 0px },
         tooltip: { color: #33415535, blur: 12px, offset-y: 4px },
         drag: { color: Style.dark ? #00000055 : #33415535, blur: 18px, offset-y: 8px },
+    };
+
+    out property <ShellStyle> shell: {
+        width: 1360px,
+        height: 860px,
+        min-width: 1040px,
+        min-height: 680px,
+        top-bar-height: 54px,
+        status-bar-height: 26px,
+        titlebar-safe-left: 100px,
+    };
+
+    out property <PanesStyle> panes: {
+        left-width: 286px,
+        inspector-width: 232px,
+        splitter-size: 6px,
+        minimum: 120px,
+        component-height: 360px,
+        image-height: 540px,
+        files-minimum: 250px,
+        heading-height: 48px,
+    };
+
+    out property <CollapsedSidebarStyle> collapsed-sidebar: {
+        width: 274px,
+        height: 42px,
+        radius: 12px,
+    };
+
+    out property <PaletteCardStyle> palette-card: {
+        height: 82px,
+        background: Colors.subtle.with-alpha(0.72),
+        icon-background: Colors.surface.with-alpha(0.72),
+        icon: Colors.muted.with-alpha(0.82),
+        border: Colors.border.with-alpha(0.82),
+    };
+
+    out property <DialogStyle> dialog: {
+        width: 360px,
+        height: 212px,
+        padding: 20px,
+        footer-height: 56px,
+        border: Colors.dark ? #4a4d55 : #c8cbd2,
+        background: Colors.dark ? #292a30 : #ffffff,
+        footer-background: Colors.dark ? #25262b : #fafafa,
+        footer-border: Colors.dark ? #3b3d43 : #e1e2e6,
+        shadow: { color: Colors.dark ? #00000085 : #161b233d, blur: 24px, offset-y: 12px },
+    };
+
+    out property <ErrorNoticeStyle> error-notice: {
+        height: 46px,
+        icon-size: 30px,
+        inset: 11px,
+        icon-background: Colors.dark ? #542a2c : #fce6e5,
+        icon-foreground: Colors.dark ? #ffb4ab : #b3261e,
+        border: Colors.dark ? #63373a : #e0c5c2,
+        background: Colors.dark ? #342426 : #fff7f6,
+        foreground: Colors.dark ? #f1b8b4 : #7a2925,
+    };
+
+    out property <UpdateStatusStyle> update-status: {
+        width: 132px,
+        error-width: 260px,
+        height: 20px,
+        error: Colors.dark ? #ff9a94 : #b42318,
+    };
+
+    private property <length> image-tabs-height: Metrics.control-medium;
+    out property <ImageTabsStyle> image-tabs: {
+        height: root.image-tabs-height,
+        group-height: root.image-tabs-height + 2 * Metrics.space-small,
+        group-width: 216px,
+        bar-height: 58px,
+    };
+
+    out property <ImageRailStyle> image-rail: {
+        margin: 24px,
+        gap: 28px,
+        safe-bottom: 44px,
+        background: Colors.dark ? white.with-alpha(0.1) : white.with-alpha(0.4),
+        border: Colors.dark ? #ffffff16 : #cbd5e166,
+    };
+
+    out property <ImageDetailsStyle> image-details: {
+        height: 260px,
+        preview-height: 154px,
+        shadow: { color: Colors.dark ? #00000055 : #64748b25, blur: 18px, offset-y: 8px },
+    };
+
+    out property <ImageFieldStyle> image-field: {
+        wide-width: 250px,
+        width: 96px,
+        background: Colors.dark ? #383838aa : #f5f5f5cc,
+        height: Metrics.control-compact,
+        radius: Metrics.radius-small,
+        foreground: Colors.foreground,
+        muted: Colors.muted,
+        text: Typography.control,
+    };
+
+    out property <ImageSyntaxStyle> image-syntax: {
+        min-height: 78px,
+        max-height: 96px,
+        background: Style.inspector-field.normal.background,
+        text: Typography.caption,
+        radius: Metrics.radius-small,
+    };
+
+    out property <ImagePreviewStyle> image-preview: {
+        height: 196px,
+        minimum: 48px,
+        heading-height: 18px,
+        heading-top: 8px,
+        body-top: 34px,
+        body-bottom: 12px,
+        border: Colors.dark ? #ffffff18 : #cbd5e166,
+        background: Colors.surface.with-alpha(0.76),
+        canvas: Style.canvas-surface.background.with-alpha(0.72),
+        handle-size: 14px,
+        shadow: { color: Colors.dark ? #00000028 : #64748b12, blur: 8px, offset-y: 3px },
+    };
+
+    out property <ImageCanvasStyle> image-canvas: {
+        fit-bottom: 64px,
+        shadow: { color: Colors.dark ? #00000055 : #64748b30, blur: 24px, offset-y: 14px },
+    };
+
+    out property <ImageErrorStyle> image-error: {
+        margin: 40px,
+        height: 96px,
+        max-width: 520px,
+    };
+
+    out property <WelcomeShellStyle> welcome-shell: {
+        stage: Colors.dark ? #202124 : #c9c9c9,
+        background: Colors.dark ? #303134 : #ffffff,
+        sidebar: Colors.dark ? #2a2b2e : #f5f5f6,
+        foreground: Colors.dark ? #f4f4f5 : #252527,
+        muted: Colors.dark ? #b5b6ba : #797a7d,
+        width: 740px,
+        height: 460px,
+        outer-inset: 16px,
+        compact-threshold: 620px,
+        compact-side-width: 220px,
+        side-width: 270px,
+        radius: 20px,
+        border: Colors.dark ? #ffffff22 : #98999d,
+        shadow: { color: Colors.dark ? #00000080 : #00000030, blur: 18px, offset-y: 8px },
+    };
+
+    out property <WelcomeHeroStyle> welcome-hero: {
+        brand-size: 103px,
+        top: 64px,
+        gap: 18px,
+        title-height: 37px,
+        subtitle-height: 17px,
+    };
+
+    private property <length> welcome-actions-gap: Metrics.space-regular;
+    out property <WelcomeActionsStyle> welcome-actions: {
+        inset: 56px,
+        bottom-inset: 130px,
+        height: 2 * Style.welcome-button.height + root.welcome-actions-gap,
+        gap: root.welcome-actions-gap,
+    };
+
+    out property <RecentProjectListStyle> recent-project-list: {
+        inset: 10px,
+        height: 195px,
+        gap: 5px,
+    };
+
+    out property <RecentProjectRowStyle> recent-project-row: {
+        selected-background: #0878f8,
+        height: 44px,
+        radius: Metrics.radius-medium,
+        padding-right: Metrics.space-medium,
+        gap: Metrics.space-regular,
+        icon-size: 27px,
+        text-gap: Metrics.space-tight,
+        selected-muted: #d7e7ff,
+        background: transparent,
+        hover: Style.welcome-button.hover.background,
+        foreground: Style.welcome-shell.foreground,
+        muted: Style.welcome-shell.muted,
+        padding-left: Style.welcome-button.padding-inline,
+    };
+
+    out property <WelcomeBrandStyle> welcome-brand: {
+        background: @linear-gradient(155deg, #32e1ff 0%, #0b89ff 52%, #115bea 100%),
+        grid-horizontal: #ffffff26,
+        grid-vertical: #ffffff22,
+        shadow: { color: #00000033, blur: 11px, offset-y: 6px },
+    };
+
+    out property <CanvasSurfaceStyle> canvas-surface: {
+        background: Colors.dark ? #1f1f1f : #eef2f7,
+    };
+
+    out property <GridStyle> grid: {
+        pitch: 32px,
+        line-width: 1px,
+        color: Colors.dark ? #ffffff0a : #00000008,
+    };
+
+    out property <ArtboardStyle> artboard: {
+        radius: 34px,
+        padding: 1px,
+        top-minimum: 40px,
+        background: Colors.dark ? #f7f8fb : #ffffff,
+        foreground: #20252d,
+        shadow: { color: Colors.dark ? #00000055 : #64748b30, blur: 30px, offset-y: 18px },
+    };
+
+    out property <SelectionFrameStyle> selection-frame: {
+        outline-width: 1px,
+        hover-width: 2px,
+        handle-size: 8px,
+        hit-size: 12px,
+        rotation-hit-size: 22px,
+        accent: Colors.dark ? #0c8ce9 : #0b99fe,
+        handle-background: #ffffff,
+        ghost-opacity: 0.5,
+    };
+
+    out property <RadiusHandleStyle> radius-handle: {
+        size: 10px,
+        inset: 10px,
+    };
+
+    out property <GradientOverlayStyle> gradient-overlay: {
+        hit-size: 32px,
+        endpoint-size: 12px,
+        halo: #ffffff90,
+        axis-hit-size: 10px,
+        axis-width: 2px,
+        stop-offset: 6px,
+        endpoint-shadow: { color: #0008, blur: 3px, offset-y: 0px },
+        axis-shadow: { color: #000a, blur: 2px, offset-y: 0px },
+    };
+
+    out property <NineSliceStyle> nine-slice: {
+        label-size: 22px,
+        line-width: 4px,
+        hit-size: 20px,
+        label-gap: 10px,
+        hit-extension: 38px,
+        color: #ffd33d,
+        overlay: #ffffff1a,
+        label-foreground: #111827,
+        label-border: Colors.dark ? #111827 : #ffffff,
+        label-shadow: { color: #00000055, blur: 8px, offset-y: 2px },
+    };
+
+    out property <TooltipStyle> tooltip: {
+        offset: 12px,
+        padding-inline: 7px,
+        padding-block: 4px,
+        shadow: { color: #33415535, blur: 12px, offset-y: 4px },
+        normal: { background: Colors.focus, foreground: Colors.on-accent, border: Colors.border },
+        radius: Metrics.radius-medium,
+        text: Typography.caption,
+    };
+
+    out property <DragPreviewStyle> drag-preview: {
+        background: #ffffff,
+        subtle: #f6f8fa,
+        border: #d0d7de,
+        muted: #6e7781,
+        content-opacity: 0.72,
+        shadow: { color: Colors.dark ? #00000055 : #33415535, blur: 18px, offset-y: 8px },
+    };
+
+    out property <DropIndicatorStyle> drop-indicator: {
+        background: #ffffff,
+        foreground: #ffffff,
+    };
+
+    out property <FloatingPanelStyle> floating-panel: {
+        border: Colors.dark ? #ffffff18 : #d0d7de,
+        background: Colors.surface.with-alpha(0.92),
+    };
+
+    out property <TransparencyGridStyle> transparency-grid: {
+        light: #ffffff,
+        dark: #e1e1e1,
+        cell-size: 8px,
+    };
+
+    out property <GradientMarkerStyle> gradient-marker: {
+        inactive: Colors.dark ? #3f3f3f : #b5ccdd,
+        active: #0c8ce9,
+        size: 24px,
+        radius: 5px,
+    };
+
+    private property <length> inspector-layout-padding: Metrics.space-medium;
+    out property <InspectorLayoutStyle> inspector-layout: {
+        divider: Colors.dark ? #414141 : #e5e5e5,
+        label-width: 52px,
+        row-gap: Metrics.space-compact,
+        padding: root.inspector-layout-padding,
+        column-width: 88px,
+        column-gap: Metrics.space-regular,
+        content-width: Style.panes.inspector-width - Metrics.border-width - 2 * root.inspector-layout-padding,
+        corner-field-width: 72px,
+    };
+
+    out property <FillPickerStyle> fill-picker: {
+        width: 260px,
+        gap: Metrics.space-regular,
+        margin: Metrics.space-regular,
+        min-height: 200px,
+        shadow: { color: Colors.dark ? #00000080 : #64748b35, blur: 18px, offset-y: 8px },
+        background: Colors.surface,
+        border: Style.inspector-layout.divider,
+        radius: Metrics.radius-large,
+    };
+
+    out property <EffectSliderStyle> effect-slider: {
+        height: 34px,
+        label-width: 48px,
+        track-width: 62px,
+        track-height: 3px,
+        thumb-size: 11px,
+        value-width: 44px,
+        plain-value-width: 52px,
+        suffix-width: 12px,
+        pressed-thumb: Colors.accent.with-alpha(0.88),
+        shadow: { color: #00000028, blur: 6px, offset-y: 2px },
+        track: Style.inspector-field.normal.background,
+        fill: Colors.accent,
+        thumb: Colors.accent,
+    };
+
+    out property <RadiusSliderStyle> radius-slider: {
+        thumb-size: 10px,
+        track-height: 2px,
+        inset: 6px,
+        fill: Colors.dark ? Colors.accent : transparent,
+        thumb: Colors.dark ? Colors.accent : Colors.muted,
+        track: Style.inspector-layout.divider,
+    };
+
+    private property <length> rotation-dial-size: 32px;
+    private property <length> rotation-dial-inset: 2px;
+    out property <RotationDialStyle> rotation-dial: {
+        size: root.rotation-dial-size,
+        inset: root.rotation-dial-inset,
+        face-size: root.rotation-dial-size - 2 * root.rotation-dial-inset,
+        dot-size: 4px,
+        dot-distance: 9px,
+        ring: @linear-gradient(145deg, Colors.dark ? #262a30 : #bdc3cc, Colors.dark ? #737c87 : #ffffff),
+        face: @radial-gradient(circle at 10px 7px, Colors.dark ? #89919b : #ffffff, Colors.dark ? #5b626d : #f4f6f9 55%, Colors.dark ? #343a43 : #d8dde5),
+        dot: @linear-gradient(180deg, #0879b7, #38b9fa),
+        ring-border: Colors.dark ? #454b55 : #cbd0d8,
+        face-border: Colors.dark ? #858e99 : #ffffff,
+        dot-border: Colors.dark ? #343e4a : #b9cbd9,
+        shadow: { color: #00000025, blur: 2px, offset-y: 1px },
+    };
+
+    out property <ComboMenuStyle> combo-menu: {
+        row-height: 26px,
+        max-height: 220px,
+        background: Colors.surface,
+        border: Style.inspector-layout.divider,
+        shadow: Elevation.popup,
+    };
+
+    out property <RecentFillsStyle> recent-fills: {
+        swatch-size: 22px,
+    };
+
+    out property <ColorPlaneStyle> color-plane: {
+        height: 170px,
+        thumb-size: 12px,
+        shadow: { color: #00000080, blur: 3px, offset-y: 0px },
+    };
+
+    out property <ColorSliderStyle> color-slider: {
+        height: 16px,
+        thumb-size: 14px,
+        shadow: { color: #00000070, blur: 2px, offset-y: 0px },
+    };
+
+    out property <ColorHexStyle> color-hex: {
+        width: 78px,
+        input-width: 58px,
+    };
+
+    out property <GradientRampStyle> gradient-ramp: {
+        height: Metrics.space-small + Style.inspector-field.height + Style.gradient-marker.size + Metrics.space-compact,
+        inset: Style.gradient-marker.size / 2,
+        pick-distance: 10px,
+    };
+
+    out property <GradientStopRowStyle> gradient-stop-row: {
+        action-width: 24px,
+        position-width: 66px,
+        opacity-width: 48px,
+        height: 28px,
+        swatch-size: 14px,
+    };
+
+    out property <GradientFieldsStyle> gradient-fields: {
+        label-width: 58px,
+        value-width: 62px,
+    };
+
+    out property <InfoIconStyle> info-icon: {
+        size: 14px,
+        decorative: Colors.muted.with-alpha(0.35),
+        text: Typography.info-symbol,
+        foreground: Colors.muted,
+    };
+
+    out property <CopyButtonStyle> copy-button: {
+        width: 54px,
+    };
+
+    out property <TreeRowStyle> tree-row: {
+        hover-background: Colors.dark ? #383838 : #f5f5f5,
+        selected-background: Colors.dark ? Colors.accent.with-alpha(0.22) : #e4f4ff,
+        drop-background: Colors.dark ? Colors.accent.with-alpha(0.14) : #eaf5ff,
+        foreground: Colors.foreground,
+        muted: Colors.muted,
+        accent: Colors.dark ? Colors.accent : #0969da,
+        guide: Style.inspector-layout.divider,
+        directory-icon: Colors.dark ? Colors.accent : #d29922,
+        height: Metrics.control-medium,
+        font-size: Typography.body.size,
+        radius: Metrics.radius-medium,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-regular,
+        toggle-width: Metrics.icon-medium,
+        hit-size: 20px,
+        icon-size: Metrics.icon-medium,
+        guide-width: Metrics.border-width,
+        focus-width: Metrics.focus-width,
+        drop-border-width: Metrics.border-width,
+        drop-line-height: Metrics.focus-width,
+        root-drop-height: Metrics.space-regular,
+        selected-guide: Colors.dark ? #474747 : #c4c4c4,
+        file-guide: Style.inspector-layout.divider,
+        drag-opacity: 0.45,
+    };
+
+    out property <RenameFieldStyle> rename-field: {
+        background: Palette.control-background,
+        border: Palette.border,
+        error: Colors.dark ? #ff7b72 : #cf222e,
+    };
+
+    out property <PaletteRowStyle> palette-row: {
+        drag-opacity: 0.56,
+        icon-opacity: 0.5,
+        muted-icon: Colors.muted.with-alpha(0.72),
+        height: Metrics.control-large,
+        radius: Metrics.radius-medium,
+        hover: Colors.subtle,
+        selected: Colors.subtle-selection,
+        foreground: Colors.foreground,
+        selected-foreground: Colors.focus,
+        disabled-opacity: Style.button.disabled-opacity,
+        text: Typography.control,
+    };
+
+    out property <ButtonStyle> button: {
+        height: Metrics.control-medium,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-regular,
+        radius: Metrics.radius-medium,
+        border-width: Metrics.border-width,
+        text: Typography.control,
+        normal: { background: Colors.surface, foreground: Colors.foreground, border: Colors.border },
+        hover: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
+        pressed: { background: Colors.selection, foreground: Colors.foreground, border: Colors.border },
+        focus-border: Colors.focus,
+        disabled-opacity: 0.55,
+    };
+
+    out property <ButtonStyle> primary-button: {
+        height: Metrics.control-medium,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-regular,
+        radius: Metrics.radius-medium,
+        border-width: Metrics.border-width,
+        text: Typography.strong-body,
+        normal: { background: Colors.dark ? #196bd6 : #0969da, foreground: Colors.on-accent, border: Colors.border },
+        hover: { background: Colors.dark ? #2073dd : #0860ca, foreground: Colors.on-accent, border: Colors.border },
+        pressed: { background: Colors.dark ? #135bb9 : #0756b5, foreground: Colors.on-accent, border: Colors.border },
+        focus-border: Colors.focus,
+        disabled-opacity: 0.55,
+    };
+
+    out property <ButtonStyle> compact-button: {
+        height: Metrics.control-small,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-regular,
+        radius: Metrics.radius-medium,
+        border-width: Metrics.border-width,
+        text: Typography.control,
+        normal: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
+        hover: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
+        pressed: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
+        focus-border: Colors.focus,
+        disabled-opacity: 0.55,
+    };
+
+    out property <ButtonStyle> welcome-button: {
+        height: Metrics.control-large,
+        padding-inline: Metrics.space-medium,
+        gap: Metrics.space-medium,
+        radius: Metrics.control-large / 2,
+        border-width: Metrics.border-width,
+        text: { size: Typography.action.size, weight: FontWeight.extra-bold },
+        normal: { background: Colors.dark ? #424347 : #eeeeef, foreground: Style.welcome-shell.foreground, border: Colors.border },
+        hover: { background: Colors.dark ? #4d4f54 : #e2e3e5, foreground: Style.welcome-shell.foreground, border: Colors.border },
+        pressed: { background: Colors.dark ? #55575d : #d9dadd, foreground: Style.welcome-shell.foreground, border: Colors.border },
+        focus-border: Colors.focus,
+        disabled-opacity: 0.55,
+    };
+
+    out property <PickerCloseButtonStyle> picker-close-button: {
+        height: Metrics.control-compact,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-regular,
+        radius: Metrics.radius-small,
+        border-width: Metrics.border-width,
+        text: Typography.control,
+        normal: { background: Colors.surface, foreground: Colors.foreground, border: Colors.border },
+        hover: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
+        pressed: { background: Colors.selection, foreground: Colors.foreground, border: Colors.border },
+        focus-border: Colors.focus,
+        disabled-opacity: 0.55,
+        width: 48px,
+    };
+
+    out property <FieldStyle> field: {
+        height: Metrics.control-medium,
+        radius: Metrics.radius-medium,
+        border-width: Metrics.border-width,
+        padding-inline: Metrics.space-medium,
+        gap: Metrics.space-regular,
+        text: Typography.body,
+        normal: { background: Colors.surface, foreground: Colors.foreground, border: Colors.border },
+        hover: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
+        focus: { background: Colors.surface, foreground: Colors.foreground, border: Colors.border },
+        disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
+        muted: Colors.muted,
+        focus-border: Colors.focus,
+        selection: Colors.text-selection,
+    };
+
+    out property <FieldStyle> inspector-field: {
+        height: Metrics.control-compact,
+        radius: Metrics.radius-small,
+        border-width: Metrics.border-width,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-compact,
+        text: Typography.control,
+        normal: { background: Colors.dark ? #383838 : #f5f5f5, foreground: Colors.foreground, border: Colors.dark ? #4b4b4b : #d9d9d9 },
+        hover: { background: Colors.dark ? #414141 : #eeeeee, foreground: Colors.foreground, border: Colors.dark ? #4b4b4b : #d9d9d9 },
+        focus: { background: Colors.surface, foreground: Colors.foreground, border: Colors.border },
+        disabled: { background: ( Colors.dark ? #383838 : #f5f5f5 ).with-alpha(0.65), foreground: Colors.muted, border: Colors.dark ? #4b4b4b : #d9d9d9 },
+        muted: Colors.muted,
+        focus-border: Colors.accent,
+        selection: Colors.text-selection,
+    };
+
+    out property <SegmentStyle> segment: {
+        selected-background: Colors.dark ? Style.primary-button.normal.background : Colors.accent.with-alpha(0.14),
+        height: Style.inspector-field.height,
+        radius: Style.inspector-field.radius,
+        background: Style.inspector-field.normal.background,
+        hover: Style.inspector-field.hover.background,
+        foreground: Colors.foreground,
+        muted: Colors.muted,
+    };
+
+    out property <SidebarToggleStyle> sidebar-toggle: {
+        width: 34px,
+        height: Metrics.control-medium,
+        radius: Metrics.radius-medium,
+        normal: { background: Colors.surface, foreground: Colors.foreground, border: Colors.border },
+        hover: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
+        selected: { background: Colors.selection, foreground: Colors.focus, border: Colors.focus },
     };
 }
