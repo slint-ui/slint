@@ -142,8 +142,14 @@ def test_linear_canvas_activation_and_colour(
         hex_field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
         assert hex_field.accessible_value == "#264052"
         click(window, "Gradient stop 1")
+        wait_until(
+            lambda: hex_field if hex_field.accessible_value == "#568fb8" else None
+        )
         assert hex_field.accessible_value == "#568fb8"
         click(window, "Gradient stop 2")
+        wait_until(
+            lambda: hex_field if hex_field.accessible_value == "#264052" else None
+        )
         assert hex_field.accessible_value == "#264052"
         hex_field.accessible_value = "#12ab3480"
         click(window, "Close Stop color")
