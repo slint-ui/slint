@@ -703,56 +703,9 @@ export global Motion {
     out property <duration> layout: 180ms;
 }
 
-export global SharedStyle {
-    out property <ShellStyle> shell;
-
-    out property <PanesStyle> panes;
-
-    out property <CollapsedSidebarStyle> collapsed-sidebar;
-
-    out property <length> image-tabs-height: Metrics.control-medium;
-
-    out property <ImageErrorStyle> image-error;
-
-    out property <WelcomeHeroStyle> welcome-hero;
-
-    out property <length> welcome-actions-gap: Metrics.space-regular;
-
-    out property <RecentProjectListStyle> recent-project-list;
-
-    out property <WelcomeBrandStyle> welcome-brand: {
-        background: @linear-gradient(155deg, #32e1ff 0%, #0b89ff 52%, #115bea 100%),
-        shadow: { color: #00000033, blur: 11px, offset-y: 6px },
-    };
-
-    out property <RadiusHandleStyle> radius-handle;
-
-    out property <DropIndicatorStyle> drop-indicator;
-
-    out property <TransparencyGridStyle> transparency-grid;
-
-    out property <length> inspector-layout-padding: Metrics.space-medium;
-
-    out property <length> rotation-dial-size: 32px;
-
-    out property <length> rotation-dial-inset: 2px;
-
-    out property <RecentFillsStyle> recent-fills;
-
-    out property <ColorHexStyle> color-hex;
-
-    out property <GradientStopRowStyle> gradient-stop-row;
-
-    out property <GradientFieldsStyle> gradient-fields;
-
-    out property <RenameFieldStyle> rename-field: {
-        background: Palette.control-background,
-        border: Palette.border,
-    };
-}
-
 export global LightTheme {
     private property <color> accent: #0d99ff;
+
     out property <ColorPalette> colors: {
         background: #f6f8fa,
         surface: #ffffff,
@@ -772,6 +725,7 @@ export global LightTheme {
     };
 
     out property <ShadowStyle> popup: { color: #64748b30, blur: 12px, offset-y: 4px };
+
     out property <ShadowStyle> floating: { color: #64748b28, blur: 18px, offset-y: 8px };
 
     out property <PaletteCardStyle> palette-card: {
@@ -788,8 +742,6 @@ export global LightTheme {
         footer-background: #fafafa,
         footer-border: #e1e2e6,
         shadow: { color: #161b233d, blur: 24px, offset-y: 12px },
-        error: LightTheme.error-notice,
-        close-button: LightTheme.primary-button,
     };
 
     out property <ErrorNoticeStyle> error-notice: {
@@ -798,8 +750,6 @@ export global LightTheme {
         border: #e0c5c2,
         background: #fff7f6,
         foreground: #7a2925,
-        radius: Metrics.radius-medium,
-        icon-text: { size: 20px },
     };
 
     out property <UpdateStatusStyle> update-status: {
@@ -807,13 +757,10 @@ export global LightTheme {
     };
 
     out property <ImageTabsStyle> image-tabs: {
-        height: SharedStyle.image-tabs-height,
-        group-height: SharedStyle.image-tabs-height + 2 * Metrics.space-small,
         normal: { background: transparent, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         hover: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         selected: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         focus-border: LightTheme.colors.focus,
-        radius: Metrics.radius-medium,
     };
 
     out property <ImageRailStyle> image-rail: {
@@ -825,32 +772,16 @@ export global LightTheme {
         shadow: { color: #64748b25, blur: 18px, offset-y: 8px },
         background: LightTheme.colors.surface,
         border: LightTheme.colors.border,
-        radius: Metrics.radius-large,
-        padding: Metrics.space-medium,
-        gap: Metrics.space-regular,
-        heading: { size: Typography.control.size, weight: FontWeight.extra-bold },
-        field: LightTheme.image-field,
-        syntax: LightTheme.image-syntax,
-        copy: LightTheme.copy-button,
     };
 
     out property <ImageFieldStyle> image-field: {
         background: #f5f5f5cc,
-        height: Metrics.control-compact,
-        radius: Metrics.radius-small,
         foreground: LightTheme.colors.foreground,
         muted: LightTheme.colors.muted,
-        text: Typography.control,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-compact,
     };
 
     out property <ImageSyntaxStyle> image-syntax: {
         background: LightTheme.inspector-field.normal.background,
-        text: Typography.caption,
-        radius: Metrics.radius-small,
-        padding-inline: Metrics.space-regular,
-        padding-block: Metrics.space-compact,
     };
 
     out property <ImagePreviewStyle> image-preview: {
@@ -874,25 +805,14 @@ export global LightTheme {
         shadow: { color: #00000030, blur: 18px, offset-y: 8px },
     };
 
-    out property <WelcomeActionsStyle> welcome-actions: {
-        height: 2 * LightTheme.welcome-button.height + SharedStyle.welcome-actions-gap,
-        gap: SharedStyle.welcome-actions-gap,
-    };
-
     out property <RecentProjectRowStyle> recent-project-row: {
-        radius: Metrics.radius-medium,
-        padding-right: Metrics.space-medium,
-        gap: Metrics.space-regular,
-        text-gap: Metrics.space-tight,
         hover: LightTheme.welcome-button.hover.background,
         foreground: LightTheme.welcome-shell.foreground,
         muted: LightTheme.welcome-shell.muted,
-        padding-left: LightTheme.welcome-button.padding-inline,
     };
 
     out property <CanvasSurfaceStyle> canvas-surface: {
         background: #eef2f7,
-        grid: LightTheme.grid,
     };
 
     out property <GridStyle> grid: {
@@ -910,31 +830,21 @@ export global LightTheme {
     };
 
     out property <GradientOverlayStyle> gradient-overlay: {
-        endpoint-shadow: { color: #0008, blur: 3px, offset-y: 0px },
-        axis-shadow: { color: #000a, blur: 2px, offset-y: 0px },
-        marker: LightTheme.gradient-marker,
         endpoint-background: LightTheme.colors.on-accent,
         focus-border: LightTheme.colors.focus,
     };
 
     out property <NineSliceStyle> nine-slice: {
         label-border: #ffffff,
-        label-shadow: { color: #00000055, blur: 8px, offset-y: 2px },
-        text: { size: Typography.caption.size, weight: FontWeight.black },
     };
 
     out property <TooltipStyle> tooltip: {
-        shadow: { color: #33415535, blur: 12px, offset-y: 4px },
         normal: { background: LightTheme.colors.focus, foreground: LightTheme.colors.on-accent, border: LightTheme.colors.border },
-        radius: Metrics.radius-medium,
-        text: Typography.control,
     };
 
     out property <DragPreviewStyle> drag-preview: {
         shadow: { color: #33415535, blur: 18px, offset-y: 8px },
-        row: LightTheme.tree-row,
         row-border: LightTheme.tree-guides.guide,
-        text: { size: 24px, weight: FontWeight.extra-bold },
     };
 
     out property <FloatingPanelStyle> floating-panel: {
@@ -944,58 +854,40 @@ export global LightTheme {
 
     out property <GradientMarkerStyle> gradient-marker: {
         inactive: #b5ccdd,
-        checker: SharedStyle.transparency-grid,
     };
 
     out property <InspectorLayoutStyle> inspector-layout: {
         divider: #e5e5e5,
-        row-gap: Metrics.space-compact,
-        padding: SharedStyle.inspector-layout-padding,
-        column-gap: Metrics.space-regular,
-        content-width: SharedStyle.panes.inspector-width - Metrics.border-width - 2 * SharedStyle.inspector-layout-padding,
     };
 
     out property <FillPickerStyle> fill-picker: {
-        gap: Metrics.space-regular,
-        margin: Metrics.space-regular,
         shadow: { color: #64748b35, blur: 18px, offset-y: 8px },
         background: LightTheme.colors.surface,
         border: LightTheme.inspector-layout.divider,
-        radius: Metrics.radius-large,
     };
 
     out property <EffectSliderStyle> effect-slider: {
         pressed-thumb: LightTheme.colors.accent.with-alpha(0.88),
-        shadow: { color: #00000028, blur: 6px, offset-y: 2px },
         track: LightTheme.inspector-field.normal.background,
         fill: LightTheme.colors.accent,
         thumb: LightTheme.colors.accent,
-        control-height: LightTheme.inspector-field.height,
         border: LightTheme.colors.surface,
         foreground: LightTheme.colors.foreground,
-        suffix-text: { size: 9px },
     };
 
     out property <RadiusSliderStyle> radius-slider: {
         fill: transparent,
         thumb: LightTheme.colors.muted,
         track: LightTheme.inspector-layout.divider,
-        height: Metrics.control-compact,
-        min-width: Metrics.control-medium,
         focus-border: LightTheme.colors.accent,
     };
 
     out property <RotationDialStyle> rotation-dial: {
-        size: SharedStyle.rotation-dial-size,
-        inset: SharedStyle.rotation-dial-inset,
-        face-size: SharedStyle.rotation-dial-size - 2 * SharedStyle.rotation-dial-inset,
         ring: @linear-gradient(145deg, #bdc3cc, #ffffff),
         face: @radial-gradient(circle at 10px 7px, #ffffff, #f4f6f9 55%, #d8dde5),
-        dot: @linear-gradient(180deg, #0879b7, #38b9fa),
         ring-border: #cbd0d8,
         face-border: #ffffff,
         dot-border: #b9cbd9,
-        shadow: { color: #00000025, blur: 2px, offset-y: 1px },
         focus-border: LightTheme.colors.accent,
     };
 
@@ -1006,35 +898,21 @@ export global LightTheme {
     };
 
     out property <ColorPlaneStyle> color-plane: {
-        shadow: { color: #00000080, blur: 3px, offset-y: 0px },
         thumb-border: LightTheme.colors.on-accent,
         border: LightTheme.inspector-layout.divider,
-        radius: Metrics.radius-medium,
         checker-light: LightTheme.colors.surface,
         checker-dark: LightTheme.inspector-field.normal.border,
     };
 
     out property <ColorSliderStyle> color-slider: {
-        shadow: { color: #00000070, blur: 2px, offset-y: 0px },
         thumb-border: LightTheme.colors.on-accent,
-        radius: Metrics.radius-large,
-    };
-
-    out property <GradientRampStyle> gradient-ramp: {
-        height: Metrics.space-small + LightTheme.inspector-field.height + LightTheme.gradient-marker.size + Metrics.space-compact,
-        inset: LightTheme.gradient-marker.size / 2,
     };
 
     out property <InfoIconStyle> info-icon: {
-        text: { size: 10px, weight: FontWeight.semi-bold },
         foreground: LightTheme.colors.muted,
         border: LightTheme.colors.muted.with-alpha(0.72),
         accent: LightTheme.colors.accent,
         hover: LightTheme.colors.subtle-selection,
-    };
-
-    out property <CopyButtonStyle> copy-button: {
-        button: LightTheme.copy-action,
     };
 
     out property <TreeRowStyle> tree-row: {
@@ -1044,112 +922,62 @@ export global LightTheme {
         muted: LightTheme.colors.muted,
         accent: #0969da,
         directory-icon: #d29922,
-        height: Metrics.control-medium,
-        font-size: Typography.body.size,
-        radius: Metrics.radius-medium,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-regular,
-        toggle-width: Metrics.icon-medium,
-        icon-size: Metrics.icon-medium,
-        focus-width: Metrics.focus-width,
     };
 
     out property <TreeGuidesStyle> tree-guides: {
         guide: LightTheme.inspector-layout.divider,
-        guide-width: Metrics.border-width,
         selected-guide: #c4c4c4,
         file-guide: LightTheme.inspector-layout.divider,
     };
 
     out property <TreeDropStyle> tree-drop: {
         drop-background: #eaf5ff,
-        drop-border-width: Metrics.border-width,
-        drop-line-height: Metrics.focus-width,
-        root-drop-height: Metrics.space-regular,
     };
 
     out property <PaletteRowStyle> palette-row: {
-        height: Metrics.control-large,
-        radius: Metrics.radius-medium,
         hover: LightTheme.colors.subtle,
         selected: LightTheme.colors.subtle-selection,
         foreground: LightTheme.colors.foreground,
         selected-foreground: LightTheme.colors.focus,
-        disabled-opacity: Metrics.disabled-opacity,
-        text: Typography.control,
     };
 
     out property <ButtonStyle> primary-button: {
-        height: Metrics.control-medium,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-regular,
-        radius: Metrics.radius-medium,
-        border-width: Metrics.border-width,
-        text: Typography.strong-body,
         normal: { background: #0969da, foreground: LightTheme.colors.on-accent, border: LightTheme.colors.border },
         hover: { background: #0860ca, foreground: LightTheme.colors.on-accent, border: LightTheme.colors.border },
         pressed: { background: #0756b5, foreground: LightTheme.colors.on-accent, border: LightTheme.colors.border },
         disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         focus-border: LightTheme.colors.focus,
-        disabled-opacity: Metrics.disabled-opacity,
         icon-color: LightTheme.colors.muted,
     };
 
     out property <ButtonStyle> compact-button: {
-        height: Metrics.control-small,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-regular,
-        radius: Metrics.radius-medium,
-        border-width: Metrics.border-width,
-        text: Typography.control,
         normal: { background: transparent, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         hover: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         pressed: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         focus-border: LightTheme.colors.focus,
-        disabled-opacity: Metrics.disabled-opacity,
         icon-color: LightTheme.colors.muted,
     };
 
     out property <ButtonStyle> welcome-button: {
-        height: Metrics.control-large,
-        padding-inline: Metrics.space-medium,
-        gap: Metrics.space-medium,
-        radius: Metrics.control-large / 2,
-        border-width: Metrics.border-width,
-        text: { size: Typography.action.size, weight: FontWeight.extra-bold },
         normal: { background: #eeeeef, foreground: LightTheme.welcome-shell.foreground, border: LightTheme.colors.border },
         hover: { background: #e2e3e5, foreground: LightTheme.welcome-shell.foreground, border: LightTheme.colors.border },
         pressed: { background: #d9dadd, foreground: LightTheme.welcome-shell.foreground, border: LightTheme.colors.border },
         disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         focus-border: LightTheme.colors.focus,
-        disabled-opacity: Metrics.disabled-opacity,
         icon-color: LightTheme.welcome-shell.muted,
     };
 
     out property <ButtonStyle> inspector-icon-button: {
-        height: Metrics.icon-large,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-regular,
-        radius: 3.5px,
-        border-width: Metrics.border-width,
-        text: Typography.control,
         normal: { background: transparent, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         hover: { background: LightTheme.inspector-field.normal.background, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         pressed: { background: LightTheme.colors.focus-background, foreground: LightTheme.colors.accent, border: LightTheme.colors.border },
         disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         focus-border: LightTheme.colors.accent,
-        disabled-opacity: Metrics.disabled-opacity,
         icon-color: LightTheme.colors.muted,
     };
 
     out property <FieldStyle> field: {
-        height: Metrics.control-medium,
-        radius: Metrics.radius-medium,
-        border-width: Metrics.border-width,
-        padding-inline: Metrics.space-medium,
-        gap: Metrics.space-regular,
-        text: Typography.body,
         normal: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         hover: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         focus: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
@@ -1160,12 +988,6 @@ export global LightTheme {
     };
 
     out property <FieldStyle> inspector-field: {
-        height: Metrics.control-compact,
-        radius: Metrics.radius-small,
-        border-width: Metrics.border-width,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-compact,
-        text: Typography.control,
         normal: { background: #f5f5f5, foreground: LightTheme.colors.foreground, border: #d9d9d9},
         hover: { background: #eeeeee, foreground: LightTheme.colors.foreground, border: #d9d9d9},
         focus: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
@@ -1176,8 +998,6 @@ export global LightTheme {
     };
 
     out property <SegmentStyle> segment: {
-        height: LightTheme.inspector-field.height,
-        radius: LightTheme.inspector-field.radius,
         background: LightTheme.inspector-field.normal.background,
         hover: LightTheme.inspector-field.hover.background,
         foreground: LightTheme.colors.foreground,
@@ -1185,86 +1005,40 @@ export global LightTheme {
         selected-surface: LightTheme.colors.surface,
         border: LightTheme.inspector-layout.divider,
         focus-border: LightTheme.colors.accent,
-        text: Typography.control,
     };
 
     out property <SidebarToggleStyle> sidebar-toggle: {
-        height: Metrics.control-medium,
-        radius: Metrics.radius-medium,
         normal: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         hover: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         selected: { background: LightTheme.colors.selection, foreground: LightTheme.colors.focus, border: LightTheme.colors.focus },
     };
 
-    out property <ColorControlsStyle> color-controls: {
-        plane: LightTheme.color-plane,
-        slider: LightTheme.color-slider,
-        hex: SharedStyle.color-hex,
-        row-height: LightTheme.combo-menu.row-height,
-        gap: Metrics.space-medium,
-    };
-
-    out property <GradientStopsStyle> gradient-stops: {
-        ramp: LightTheme.gradient-ramp,
-        marker: LightTheme.gradient-marker,
-        row: SharedStyle.gradient-stop-row,
-        gap: Metrics.space-regular,
-    };
-
-    out property <ImageAssetEditorStyle> image-asset-editor: {
-        canvas: LightTheme.canvas-surface,
-        rail: LightTheme.image-rail,
-        tabs: LightTheme.image-tabs,
-        preview: LightTheme.image-preview,
-        details: LightTheme.image-details,
-        nine-slice: LightTheme.nine-slice,
-        image: LightTheme.image-canvas,
-        error: SharedStyle.image-error,
-    };
-
     out property <ButtonStyle> copy-action: {
-        height: Metrics.control-compact,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-regular,
-        radius: Metrics.radius-small,
-        border-width: Metrics.border-width,
-        text: { size: Typography.control.size, weight: FontWeight.extra-bold },
         normal: { background: LightTheme.inspector-field.normal.background, foreground: LightTheme.colors.foreground, border: LightTheme.inspector-layout.divider },
         hover: { background: LightTheme.inspector-field.hover.background, foreground: LightTheme.colors.foreground, border: LightTheme.inspector-layout.divider },
         pressed: { background: LightTheme.colors.selection, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         focus-border: LightTheme.colors.focus,
-        disabled-opacity: Metrics.disabled-opacity,
         icon-color: LightTheme.colors.muted,
     };
 
     out property <CornerModeStyle> corner-mode: {
         selected-background: LightTheme.colors.accent.with-alpha(0.14),
-        width: Metrics.control-small,
-        height: Metrics.control-compact,
-        radius: Metrics.radius-small,
         background: LightTheme.inspector-field.normal.background,
         foreground: LightTheme.colors.foreground,
         muted: LightTheme.colors.muted,
         focus-border: LightTheme.colors.accent,
     };
 
-    out property <CornerEditorStyle> corner-editor: {
-        gap: Metrics.space-compact,
-        mode: LightTheme.corner-mode,
-        slider: LightTheme.radius-slider,
-        field: LightTheme.inspector-field,
-    };
-
     out property <ColorFieldStyle> color-field: {
         decorative: LightTheme.colors.muted.with-alpha(0.35),
-        field: LightTheme.inspector-field,
         swatch-border: LightTheme.colors.muted,
     };
 }
 
 export global DarkTheme {
     private property <color> accent: #2379f4;
+
     out property <ColorPalette> colors: {
         background: #2c2c2c,
         surface: #2c2c2c,
@@ -1284,6 +1058,7 @@ export global DarkTheme {
     };
 
     out property <ShadowStyle> popup: { color: #00000066, blur: 12px, offset-y: 4px };
+
     out property <ShadowStyle> floating: { color: #00000055, blur: 18px, offset-y: 8px };
 
     out property <PaletteCardStyle> palette-card: {
@@ -1300,8 +1075,6 @@ export global DarkTheme {
         footer-background: #25262b,
         footer-border: #3b3d43,
         shadow: { color: #00000085, blur: 24px, offset-y: 12px },
-        error: DarkTheme.error-notice,
-        close-button: DarkTheme.primary-button,
     };
 
     out property <ErrorNoticeStyle> error-notice: {
@@ -1310,8 +1083,6 @@ export global DarkTheme {
         border: #63373a,
         background: #342426,
         foreground: #f1b8b4,
-        radius: Metrics.radius-medium,
-        icon-text: { size: 20px },
     };
 
     out property <UpdateStatusStyle> update-status: {
@@ -1319,13 +1090,10 @@ export global DarkTheme {
     };
 
     out property <ImageTabsStyle> image-tabs: {
-        height: SharedStyle.image-tabs-height,
-        group-height: SharedStyle.image-tabs-height + 2 * Metrics.space-small,
         normal: { background: transparent, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         hover: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         selected: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         focus-border: DarkTheme.colors.focus,
-        radius: Metrics.radius-medium,
     };
 
     out property <ImageRailStyle> image-rail: {
@@ -1337,32 +1105,16 @@ export global DarkTheme {
         shadow: { color: #00000055, blur: 18px, offset-y: 8px },
         background: DarkTheme.colors.surface,
         border: DarkTheme.colors.border,
-        radius: Metrics.radius-large,
-        padding: Metrics.space-medium,
-        gap: Metrics.space-regular,
-        heading: { size: Typography.control.size, weight: FontWeight.extra-bold },
-        field: DarkTheme.image-field,
-        syntax: DarkTheme.image-syntax,
-        copy: DarkTheme.copy-button,
     };
 
     out property <ImageFieldStyle> image-field: {
         background: #383838aa,
-        height: Metrics.control-compact,
-        radius: Metrics.radius-small,
         foreground: DarkTheme.colors.foreground,
         muted: DarkTheme.colors.muted,
-        text: Typography.control,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-compact,
     };
 
     out property <ImageSyntaxStyle> image-syntax: {
         background: DarkTheme.inspector-field.normal.background,
-        text: Typography.caption,
-        radius: Metrics.radius-small,
-        padding-inline: Metrics.space-regular,
-        padding-block: Metrics.space-compact,
     };
 
     out property <ImagePreviewStyle> image-preview: {
@@ -1386,25 +1138,14 @@ export global DarkTheme {
         shadow: { color: #00000080, blur: 18px, offset-y: 8px },
     };
 
-    out property <WelcomeActionsStyle> welcome-actions: {
-        height: 2 * DarkTheme.welcome-button.height + SharedStyle.welcome-actions-gap,
-        gap: SharedStyle.welcome-actions-gap,
-    };
-
     out property <RecentProjectRowStyle> recent-project-row: {
-        radius: Metrics.radius-medium,
-        padding-right: Metrics.space-medium,
-        gap: Metrics.space-regular,
-        text-gap: Metrics.space-tight,
         hover: DarkTheme.welcome-button.hover.background,
         foreground: DarkTheme.welcome-shell.foreground,
         muted: DarkTheme.welcome-shell.muted,
-        padding-left: DarkTheme.welcome-button.padding-inline,
     };
 
     out property <CanvasSurfaceStyle> canvas-surface: {
         background: #1f1f1f,
-        grid: DarkTheme.grid,
     };
 
     out property <GridStyle> grid: {
@@ -1422,31 +1163,21 @@ export global DarkTheme {
     };
 
     out property <GradientOverlayStyle> gradient-overlay: {
-        endpoint-shadow: { color: #0008, blur: 3px, offset-y: 0px },
-        axis-shadow: { color: #000a, blur: 2px, offset-y: 0px },
-        marker: DarkTheme.gradient-marker,
         endpoint-background: DarkTheme.colors.on-accent,
         focus-border: DarkTheme.colors.focus,
     };
 
     out property <NineSliceStyle> nine-slice: {
         label-border: #111827,
-        label-shadow: { color: #00000055, blur: 8px, offset-y: 2px },
-        text: { size: Typography.caption.size, weight: FontWeight.black },
     };
 
     out property <TooltipStyle> tooltip: {
-        shadow: { color: #33415535, blur: 12px, offset-y: 4px },
         normal: { background: DarkTheme.colors.focus, foreground: DarkTheme.colors.on-accent, border: DarkTheme.colors.border },
-        radius: Metrics.radius-medium,
-        text: Typography.control,
     };
 
     out property <DragPreviewStyle> drag-preview: {
         shadow: { color: #00000055, blur: 18px, offset-y: 8px },
-        row: DarkTheme.tree-row,
         row-border: DarkTheme.tree-guides.guide,
-        text: { size: 24px, weight: FontWeight.extra-bold },
     };
 
     out property <FloatingPanelStyle> floating-panel: {
@@ -1456,58 +1187,40 @@ export global DarkTheme {
 
     out property <GradientMarkerStyle> gradient-marker: {
         inactive: #3f3f3f,
-        checker: SharedStyle.transparency-grid,
     };
 
     out property <InspectorLayoutStyle> inspector-layout: {
         divider: #414141,
-        row-gap: Metrics.space-compact,
-        padding: SharedStyle.inspector-layout-padding,
-        column-gap: Metrics.space-regular,
-        content-width: SharedStyle.panes.inspector-width - Metrics.border-width - 2 * SharedStyle.inspector-layout-padding,
     };
 
     out property <FillPickerStyle> fill-picker: {
-        gap: Metrics.space-regular,
-        margin: Metrics.space-regular,
         shadow: { color: #00000080, blur: 18px, offset-y: 8px },
         background: DarkTheme.colors.surface,
         border: DarkTheme.inspector-layout.divider,
-        radius: Metrics.radius-large,
     };
 
     out property <EffectSliderStyle> effect-slider: {
         pressed-thumb: DarkTheme.colors.accent.with-alpha(0.88),
-        shadow: { color: #00000028, blur: 6px, offset-y: 2px },
         track: DarkTheme.inspector-field.normal.background,
         fill: DarkTheme.colors.accent,
         thumb: DarkTheme.colors.accent,
-        control-height: DarkTheme.inspector-field.height,
         border: DarkTheme.colors.surface,
         foreground: DarkTheme.colors.foreground,
-        suffix-text: { size: 9px },
     };
 
     out property <RadiusSliderStyle> radius-slider: {
         fill: DarkTheme.colors.accent,
         thumb: DarkTheme.colors.accent,
         track: DarkTheme.inspector-layout.divider,
-        height: Metrics.control-compact,
-        min-width: Metrics.control-medium,
         focus-border: DarkTheme.colors.accent,
     };
 
     out property <RotationDialStyle> rotation-dial: {
-        size: SharedStyle.rotation-dial-size,
-        inset: SharedStyle.rotation-dial-inset,
-        face-size: SharedStyle.rotation-dial-size - 2 * SharedStyle.rotation-dial-inset,
         ring: @linear-gradient(145deg, #262a30, #737c87),
         face: @radial-gradient(circle at 10px 7px, #89919b, #5b626d, #343a43),
-        dot: @linear-gradient(180deg, #0879b7, #38b9fa),
         ring-border: #454b55,
         face-border: #858e99,
         dot-border: #343e4a,
-        shadow: { color: #00000025, blur: 2px, offset-y: 1px },
         focus-border: DarkTheme.colors.accent,
     };
 
@@ -1518,35 +1231,21 @@ export global DarkTheme {
     };
 
     out property <ColorPlaneStyle> color-plane: {
-        shadow: { color: #00000080, blur: 3px, offset-y: 0px },
         thumb-border: DarkTheme.colors.on-accent,
         border: DarkTheme.inspector-layout.divider,
-        radius: Metrics.radius-medium,
         checker-light: DarkTheme.colors.surface,
         checker-dark: DarkTheme.inspector-field.normal.border,
     };
 
     out property <ColorSliderStyle> color-slider: {
-        shadow: { color: #00000070, blur: 2px, offset-y: 0px },
         thumb-border: DarkTheme.colors.on-accent,
-        radius: Metrics.radius-large,
-    };
-
-    out property <GradientRampStyle> gradient-ramp: {
-        height: Metrics.space-small + DarkTheme.inspector-field.height + DarkTheme.gradient-marker.size + Metrics.space-compact,
-        inset: DarkTheme.gradient-marker.size / 2,
     };
 
     out property <InfoIconStyle> info-icon: {
-        text: { size: 10px, weight: FontWeight.semi-bold },
         foreground: DarkTheme.colors.muted,
         border: DarkTheme.colors.muted.with-alpha(0.72),
         accent: DarkTheme.colors.accent,
         hover: DarkTheme.colors.subtle-selection,
-    };
-
-    out property <CopyButtonStyle> copy-button: {
-        button: DarkTheme.copy-action,
     };
 
     out property <TreeRowStyle> tree-row: {
@@ -1556,112 +1255,62 @@ export global DarkTheme {
         muted: DarkTheme.colors.muted,
         accent: DarkTheme.colors.accent,
         directory-icon: DarkTheme.colors.accent,
-        height: Metrics.control-medium,
-        font-size: Typography.body.size,
-        radius: Metrics.radius-medium,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-regular,
-        toggle-width: Metrics.icon-medium,
-        icon-size: Metrics.icon-medium,
-        focus-width: Metrics.focus-width,
     };
 
     out property <TreeGuidesStyle> tree-guides: {
         guide: DarkTheme.inspector-layout.divider,
-        guide-width: Metrics.border-width,
         selected-guide: #474747,
         file-guide: DarkTheme.inspector-layout.divider,
     };
 
     out property <TreeDropStyle> tree-drop: {
         drop-background: DarkTheme.colors.accent.with-alpha(0.14),
-        drop-border-width: Metrics.border-width,
-        drop-line-height: Metrics.focus-width,
-        root-drop-height: Metrics.space-regular,
     };
 
     out property <PaletteRowStyle> palette-row: {
-        height: Metrics.control-large,
-        radius: Metrics.radius-medium,
         hover: DarkTheme.colors.subtle,
         selected: DarkTheme.colors.subtle-selection,
         foreground: DarkTheme.colors.foreground,
         selected-foreground: DarkTheme.colors.focus,
-        disabled-opacity: Metrics.disabled-opacity,
-        text: Typography.control,
     };
 
     out property <ButtonStyle> primary-button: {
-        height: Metrics.control-medium,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-regular,
-        radius: Metrics.radius-medium,
-        border-width: Metrics.border-width,
-        text: Typography.strong-body,
         normal: { background: #196bd6, foreground: DarkTheme.colors.on-accent, border: DarkTheme.colors.border },
         hover: { background: #2073dd, foreground: DarkTheme.colors.on-accent, border: DarkTheme.colors.border },
         pressed: { background: #135bb9, foreground: DarkTheme.colors.on-accent, border: DarkTheme.colors.border },
         disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         focus-border: DarkTheme.colors.focus,
-        disabled-opacity: Metrics.disabled-opacity,
         icon-color: DarkTheme.colors.muted,
     };
 
     out property <ButtonStyle> compact-button: {
-        height: Metrics.control-small,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-regular,
-        radius: Metrics.radius-medium,
-        border-width: Metrics.border-width,
-        text: Typography.control,
         normal: { background: transparent, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         hover: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         pressed: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         focus-border: DarkTheme.colors.focus,
-        disabled-opacity: Metrics.disabled-opacity,
         icon-color: DarkTheme.colors.muted,
     };
 
     out property <ButtonStyle> welcome-button: {
-        height: Metrics.control-large,
-        padding-inline: Metrics.space-medium,
-        gap: Metrics.space-medium,
-        radius: Metrics.control-large / 2,
-        border-width: Metrics.border-width,
-        text: { size: Typography.action.size, weight: FontWeight.extra-bold },
         normal: { background: #424347, foreground: DarkTheme.welcome-shell.foreground, border: DarkTheme.colors.border },
         hover: { background: #4d4f54, foreground: DarkTheme.welcome-shell.foreground, border: DarkTheme.colors.border },
         pressed: { background: #55575d, foreground: DarkTheme.welcome-shell.foreground, border: DarkTheme.colors.border },
         disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         focus-border: DarkTheme.colors.focus,
-        disabled-opacity: Metrics.disabled-opacity,
         icon-color: DarkTheme.welcome-shell.muted,
     };
 
     out property <ButtonStyle> inspector-icon-button: {
-        height: Metrics.icon-large,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-regular,
-        radius: 3.5px,
-        border-width: Metrics.border-width,
-        text: Typography.control,
         normal: { background: transparent, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         hover: { background: DarkTheme.inspector-field.normal.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         pressed: { background: DarkTheme.colors.focus-background, foreground: DarkTheme.colors.accent, border: DarkTheme.colors.border },
         disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         focus-border: DarkTheme.colors.accent,
-        disabled-opacity: Metrics.disabled-opacity,
         icon-color: DarkTheme.colors.muted,
     };
 
     out property <FieldStyle> field: {
-        height: Metrics.control-medium,
-        radius: Metrics.radius-medium,
-        border-width: Metrics.border-width,
-        padding-inline: Metrics.space-medium,
-        gap: Metrics.space-regular,
-        text: Typography.body,
         normal: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         hover: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         focus: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
@@ -1672,12 +1321,6 @@ export global DarkTheme {
     };
 
     out property <FieldStyle> inspector-field: {
-        height: Metrics.control-compact,
-        radius: Metrics.radius-small,
-        border-width: Metrics.border-width,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-compact,
-        text: Typography.control,
         normal: { background: #383838, foreground: DarkTheme.colors.foreground, border: #4b4b4b},
         hover: { background: #414141, foreground: DarkTheme.colors.foreground, border: #4b4b4b},
         focus: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
@@ -1688,8 +1331,6 @@ export global DarkTheme {
     };
 
     out property <SegmentStyle> segment: {
-        height: DarkTheme.inspector-field.height,
-        radius: DarkTheme.inspector-field.radius,
         background: DarkTheme.inspector-field.normal.background,
         hover: DarkTheme.inspector-field.hover.background,
         foreground: DarkTheme.colors.foreground,
@@ -1697,87 +1338,139 @@ export global DarkTheme {
         selected-surface: DarkTheme.colors.surface,
         border: DarkTheme.inspector-layout.divider,
         focus-border: DarkTheme.colors.accent,
-        text: Typography.control,
     };
 
     out property <SidebarToggleStyle> sidebar-toggle: {
-        height: Metrics.control-medium,
-        radius: Metrics.radius-medium,
         normal: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         hover: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         selected: { background: DarkTheme.colors.selection, foreground: DarkTheme.colors.focus, border: DarkTheme.colors.focus },
     };
 
-    out property <ColorControlsStyle> color-controls: {
-        plane: DarkTheme.color-plane,
-        slider: DarkTheme.color-slider,
-        hex: SharedStyle.color-hex,
-        row-height: DarkTheme.combo-menu.row-height,
-        gap: Metrics.space-medium,
-    };
-
-    out property <GradientStopsStyle> gradient-stops: {
-        ramp: DarkTheme.gradient-ramp,
-        marker: DarkTheme.gradient-marker,
-        row: SharedStyle.gradient-stop-row,
-        gap: Metrics.space-regular,
-    };
-
-    out property <ImageAssetEditorStyle> image-asset-editor: {
-        canvas: DarkTheme.canvas-surface,
-        rail: DarkTheme.image-rail,
-        tabs: DarkTheme.image-tabs,
-        preview: DarkTheme.image-preview,
-        details: DarkTheme.image-details,
-        nine-slice: DarkTheme.nine-slice,
-        image: DarkTheme.image-canvas,
-        error: SharedStyle.image-error,
-    };
-
     out property <ButtonStyle> copy-action: {
-        height: Metrics.control-compact,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-regular,
-        radius: Metrics.radius-small,
-        border-width: Metrics.border-width,
-        text: { size: Typography.control.size, weight: FontWeight.extra-bold },
         normal: { background: DarkTheme.inspector-field.normal.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.inspector-layout.divider },
         hover: { background: DarkTheme.inspector-field.hover.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.inspector-layout.divider },
         pressed: { background: DarkTheme.colors.selection, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         focus-border: DarkTheme.colors.focus,
-        disabled-opacity: Metrics.disabled-opacity,
         icon-color: DarkTheme.colors.muted,
     };
 
     out property <CornerModeStyle> corner-mode: {
         selected-background: DarkTheme.primary-button.normal.background,
-        width: Metrics.control-small,
-        height: Metrics.control-compact,
-        radius: Metrics.radius-small,
         background: DarkTheme.inspector-field.normal.background,
         foreground: DarkTheme.colors.foreground,
         muted: DarkTheme.colors.muted,
         focus-border: DarkTheme.colors.accent,
     };
 
-    out property <CornerEditorStyle> corner-editor: {
-        gap: Metrics.space-compact,
-        mode: DarkTheme.corner-mode,
-        slider: DarkTheme.radius-slider,
-        field: DarkTheme.inspector-field,
-    };
-
     out property <ColorFieldStyle> color-field: {
         decorative: DarkTheme.colors.muted.with-alpha(0.35),
-        field: DarkTheme.inspector-field,
         swatch-border: DarkTheme.colors.muted,
     };
 }
 
 export global Theme {
     out property <ThemeKind> current: Palette.color-scheme == ColorScheme.dark ? ThemeKind.dark : ThemeKind.light;
+
     out property <ColorPalette> colors: root.current == ThemeKind.dark ? DarkTheme.colors : LightTheme.colors;
+
+    out property <PaletteCardStyle> palette-card: root.current == ThemeKind.dark ? DarkTheme.palette-card : LightTheme.palette-card;
+
+    out property <DialogStyle> dialog: root.current == ThemeKind.dark ? DarkTheme.dialog : LightTheme.dialog;
+
+    out property <ErrorNoticeStyle> error-notice: root.current == ThemeKind.dark ? DarkTheme.error-notice : LightTheme.error-notice;
+
+    out property <UpdateStatusStyle> update-status: root.current == ThemeKind.dark ? DarkTheme.update-status : LightTheme.update-status;
+
+    out property <ImageTabsStyle> image-tabs: root.current == ThemeKind.dark ? DarkTheme.image-tabs : LightTheme.image-tabs;
+
+    out property <ImageRailStyle> image-rail: root.current == ThemeKind.dark ? DarkTheme.image-rail : LightTheme.image-rail;
+
+    out property <ImageDetailsStyle> image-details: root.current == ThemeKind.dark ? DarkTheme.image-details : LightTheme.image-details;
+
+    out property <ImageFieldStyle> image-field: root.current == ThemeKind.dark ? DarkTheme.image-field : LightTheme.image-field;
+
+    out property <ImageSyntaxStyle> image-syntax: root.current == ThemeKind.dark ? DarkTheme.image-syntax : LightTheme.image-syntax;
+
+    out property <ImagePreviewStyle> image-preview: root.current == ThemeKind.dark ? DarkTheme.image-preview : LightTheme.image-preview;
+
+    out property <ImageCanvasStyle> image-canvas: root.current == ThemeKind.dark ? DarkTheme.image-canvas : LightTheme.image-canvas;
+
+    out property <WelcomeShellStyle> welcome-shell: root.current == ThemeKind.dark ? DarkTheme.welcome-shell : LightTheme.welcome-shell;
+
+    out property <RecentProjectRowStyle> recent-project-row: root.current == ThemeKind.dark ? DarkTheme.recent-project-row : LightTheme.recent-project-row;
+
+    out property <CanvasSurfaceStyle> canvas-surface: root.current == ThemeKind.dark ? DarkTheme.canvas-surface : LightTheme.canvas-surface;
+
+    out property <GridStyle> grid: root.current == ThemeKind.dark ? DarkTheme.grid : LightTheme.grid;
+
+    out property <ArtboardStyle> artboard: root.current == ThemeKind.dark ? DarkTheme.artboard : LightTheme.artboard;
+
+    out property <SelectionFrameStyle> selection-frame: root.current == ThemeKind.dark ? DarkTheme.selection-frame : LightTheme.selection-frame;
+
+    out property <GradientOverlayStyle> gradient-overlay: root.current == ThemeKind.dark ? DarkTheme.gradient-overlay : LightTheme.gradient-overlay;
+
+    out property <NineSliceStyle> nine-slice: root.current == ThemeKind.dark ? DarkTheme.nine-slice : LightTheme.nine-slice;
+
+    out property <TooltipStyle> tooltip: root.current == ThemeKind.dark ? DarkTheme.tooltip : LightTheme.tooltip;
+
+    out property <DragPreviewStyle> drag-preview: root.current == ThemeKind.dark ? DarkTheme.drag-preview : LightTheme.drag-preview;
+
+    out property <FloatingPanelStyle> floating-panel: root.current == ThemeKind.dark ? DarkTheme.floating-panel : LightTheme.floating-panel;
+
+    out property <GradientMarkerStyle> gradient-marker: root.current == ThemeKind.dark ? DarkTheme.gradient-marker : LightTheme.gradient-marker;
+
+    out property <InspectorLayoutStyle> inspector-layout: root.current == ThemeKind.dark ? DarkTheme.inspector-layout : LightTheme.inspector-layout;
+
+    out property <FillPickerStyle> fill-picker: root.current == ThemeKind.dark ? DarkTheme.fill-picker : LightTheme.fill-picker;
+
+    out property <EffectSliderStyle> effect-slider: root.current == ThemeKind.dark ? DarkTheme.effect-slider : LightTheme.effect-slider;
+
+    out property <RadiusSliderStyle> radius-slider: root.current == ThemeKind.dark ? DarkTheme.radius-slider : LightTheme.radius-slider;
+
+    out property <RotationDialStyle> rotation-dial: root.current == ThemeKind.dark ? DarkTheme.rotation-dial : LightTheme.rotation-dial;
+
+    out property <ComboMenuStyle> combo-menu: root.current == ThemeKind.dark ? DarkTheme.combo-menu : LightTheme.combo-menu;
+
+    out property <ColorPlaneStyle> color-plane: root.current == ThemeKind.dark ? DarkTheme.color-plane : LightTheme.color-plane;
+
+    out property <ColorSliderStyle> color-slider: root.current == ThemeKind.dark ? DarkTheme.color-slider : LightTheme.color-slider;
+
+    out property <InfoIconStyle> info-icon: root.current == ThemeKind.dark ? DarkTheme.info-icon : LightTheme.info-icon;
+
+    out property <TreeRowStyle> tree-row: root.current == ThemeKind.dark ? DarkTheme.tree-row : LightTheme.tree-row;
+
+    out property <TreeGuidesStyle> tree-guides: root.current == ThemeKind.dark ? DarkTheme.tree-guides : LightTheme.tree-guides;
+
+    out property <TreeDropStyle> tree-drop: root.current == ThemeKind.dark ? DarkTheme.tree-drop : LightTheme.tree-drop;
+
+    out property <PaletteRowStyle> palette-row: root.current == ThemeKind.dark ? DarkTheme.palette-row : LightTheme.palette-row;
+
+    out property <ButtonStyle> primary-button: root.current == ThemeKind.dark ? DarkTheme.primary-button : LightTheme.primary-button;
+
+    out property <ButtonStyle> compact-button: root.current == ThemeKind.dark ? DarkTheme.compact-button : LightTheme.compact-button;
+
+    out property <ButtonStyle> welcome-button: root.current == ThemeKind.dark ? DarkTheme.welcome-button : LightTheme.welcome-button;
+
+    out property <ButtonStyle> inspector-icon-button: root.current == ThemeKind.dark ? DarkTheme.inspector-icon-button : LightTheme.inspector-icon-button;
+
+    out property <FieldStyle> field: root.current == ThemeKind.dark ? DarkTheme.field : LightTheme.field;
+
+    out property <FieldStyle> inspector-field: root.current == ThemeKind.dark ? DarkTheme.inspector-field : LightTheme.inspector-field;
+
+    out property <SegmentStyle> segment: root.current == ThemeKind.dark ? DarkTheme.segment : LightTheme.segment;
+
+    out property <SidebarToggleStyle> sidebar-toggle: root.current == ThemeKind.dark ? DarkTheme.sidebar-toggle : LightTheme.sidebar-toggle;
+
+    out property <ButtonStyle> copy-action: root.current == ThemeKind.dark ? DarkTheme.copy-action : LightTheme.copy-action;
+
+    out property <CornerModeStyle> corner-mode: root.current == ThemeKind.dark ? DarkTheme.corner-mode : LightTheme.corner-mode;
+
+    out property <ColorFieldStyle> color-field: root.current == ThemeKind.dark ? DarkTheme.color-field : LightTheme.color-field;
+
+    out property <ShadowStyle> popup: root.current == ThemeKind.dark ? DarkTheme.popup : LightTheme.popup;
+
+    out property <ShadowStyle> floating: root.current == ThemeKind.dark ? DarkTheme.floating : LightTheme.floating;
 }
 
 export global Colors {
@@ -1797,66 +1490,541 @@ export global Colors {
 }
 
 export global Elevation {
-    out property <ShadowStyle> floating: Theme.current == ThemeKind.dark ? DarkTheme.floating : LightTheme.floating;
+    out property <ShadowStyle> floating: Theme.floating;
 }
 
 export global Style {
-    out property <ShellStyle> shell: SharedStyle.shell;
-    out property <PanesStyle> panes: SharedStyle.panes;
-    out property <CollapsedSidebarStyle> collapsed-sidebar: SharedStyle.collapsed-sidebar;
-    out property <PaletteCardStyle> palette-card: Theme.current == ThemeKind.dark ? DarkTheme.palette-card : LightTheme.palette-card;
-    out property <DialogStyle> dialog: Theme.current == ThemeKind.dark ? DarkTheme.dialog : LightTheme.dialog;
-    out property <UpdateStatusStyle> update-status: Theme.current == ThemeKind.dark ? DarkTheme.update-status : LightTheme.update-status;
-    out property <ImageTabsStyle> image-tabs: Theme.current == ThemeKind.dark ? DarkTheme.image-tabs : LightTheme.image-tabs;
-    out property <ImageDetailsStyle> image-details: Theme.current == ThemeKind.dark ? DarkTheme.image-details : LightTheme.image-details;
-    out property <ImageFieldStyle> image-field: Theme.current == ThemeKind.dark ? DarkTheme.image-field : LightTheme.image-field;
-    out property <ImageSyntaxStyle> image-syntax: Theme.current == ThemeKind.dark ? DarkTheme.image-syntax : LightTheme.image-syntax;
-    out property <WelcomeShellStyle> welcome-shell: Theme.current == ThemeKind.dark ? DarkTheme.welcome-shell : LightTheme.welcome-shell;
-    out property <WelcomeHeroStyle> welcome-hero: SharedStyle.welcome-hero;
-    out property <WelcomeActionsStyle> welcome-actions: Theme.current == ThemeKind.dark ? DarkTheme.welcome-actions : LightTheme.welcome-actions;
-    out property <RecentProjectListStyle> recent-project-list: SharedStyle.recent-project-list;
-    out property <RecentProjectRowStyle> recent-project-row: Theme.current == ThemeKind.dark ? DarkTheme.recent-project-row : LightTheme.recent-project-row;
-    out property <WelcomeBrandStyle> welcome-brand: SharedStyle.welcome-brand;
-    out property <CanvasSurfaceStyle> canvas-surface: Theme.current == ThemeKind.dark ? DarkTheme.canvas-surface : LightTheme.canvas-surface;
-    out property <GridStyle> grid: Theme.current == ThemeKind.dark ? DarkTheme.grid : LightTheme.grid;
-    out property <ArtboardStyle> artboard: Theme.current == ThemeKind.dark ? DarkTheme.artboard : LightTheme.artboard;
-    out property <SelectionFrameStyle> selection-frame: Theme.current == ThemeKind.dark ? DarkTheme.selection-frame : LightTheme.selection-frame;
-    out property <RadiusHandleStyle> radius-handle: SharedStyle.radius-handle;
-    out property <GradientOverlayStyle> gradient-overlay: Theme.current == ThemeKind.dark ? DarkTheme.gradient-overlay : LightTheme.gradient-overlay;
-    out property <NineSliceStyle> nine-slice: Theme.current == ThemeKind.dark ? DarkTheme.nine-slice : LightTheme.nine-slice;
-    out property <TooltipStyle> tooltip: Theme.current == ThemeKind.dark ? DarkTheme.tooltip : LightTheme.tooltip;
-    out property <DragPreviewStyle> drag-preview: Theme.current == ThemeKind.dark ? DarkTheme.drag-preview : LightTheme.drag-preview;
-    out property <DropIndicatorStyle> drop-indicator: SharedStyle.drop-indicator;
-    out property <FloatingPanelStyle> floating-panel: Theme.current == ThemeKind.dark ? DarkTheme.floating-panel : LightTheme.floating-panel;
-    out property <TransparencyGridStyle> transparency-grid: SharedStyle.transparency-grid;
-    out property <InspectorLayoutStyle> inspector-layout: Theme.current == ThemeKind.dark ? DarkTheme.inspector-layout : LightTheme.inspector-layout;
-    out property <FillPickerStyle> fill-picker: Theme.current == ThemeKind.dark ? DarkTheme.fill-picker : LightTheme.fill-picker;
-    out property <EffectSliderStyle> effect-slider: Theme.current == ThemeKind.dark ? DarkTheme.effect-slider : LightTheme.effect-slider;
-    out property <RadiusSliderStyle> radius-slider: Theme.current == ThemeKind.dark ? DarkTheme.radius-slider : LightTheme.radius-slider;
-    out property <RotationDialStyle> rotation-dial: Theme.current == ThemeKind.dark ? DarkTheme.rotation-dial : LightTheme.rotation-dial;
-    out property <ComboMenuStyle> combo-menu: Theme.current == ThemeKind.dark ? DarkTheme.combo-menu : LightTheme.combo-menu;
-    out property <RecentFillsStyle> recent-fills: SharedStyle.recent-fills;
-    out property <ColorSliderStyle> color-slider: Theme.current == ThemeKind.dark ? DarkTheme.color-slider : LightTheme.color-slider;
-    out property <GradientFieldsStyle> gradient-fields: SharedStyle.gradient-fields;
-    out property <InfoIconStyle> info-icon: Theme.current == ThemeKind.dark ? DarkTheme.info-icon : LightTheme.info-icon;
-    out property <CopyButtonStyle> copy-button: Theme.current == ThemeKind.dark ? DarkTheme.copy-button : LightTheme.copy-button;
-    out property <TreeRowStyle> tree-row: Theme.current == ThemeKind.dark ? DarkTheme.tree-row : LightTheme.tree-row;
-    out property <RenameFieldStyle> rename-field: SharedStyle.rename-field;
-    out property <TreeGuidesStyle> tree-guides: Theme.current == ThemeKind.dark ? DarkTheme.tree-guides : LightTheme.tree-guides;
-    out property <TreeDropStyle> tree-drop: Theme.current == ThemeKind.dark ? DarkTheme.tree-drop : LightTheme.tree-drop;
-    out property <PaletteRowStyle> palette-row: Theme.current == ThemeKind.dark ? DarkTheme.palette-row : LightTheme.palette-row;
-    out property <ButtonStyle> primary-button: Theme.current == ThemeKind.dark ? DarkTheme.primary-button : LightTheme.primary-button;
-    out property <ButtonStyle> compact-button: Theme.current == ThemeKind.dark ? DarkTheme.compact-button : LightTheme.compact-button;
-    out property <ButtonStyle> welcome-button: Theme.current == ThemeKind.dark ? DarkTheme.welcome-button : LightTheme.welcome-button;
-    out property <ButtonStyle> inspector-icon-button: Theme.current == ThemeKind.dark ? DarkTheme.inspector-icon-button : LightTheme.inspector-icon-button;
-    out property <FieldStyle> field: Theme.current == ThemeKind.dark ? DarkTheme.field : LightTheme.field;
-    out property <FieldStyle> inspector-field: Theme.current == ThemeKind.dark ? DarkTheme.inspector-field : LightTheme.inspector-field;
-    out property <SegmentStyle> segment: Theme.current == ThemeKind.dark ? DarkTheme.segment : LightTheme.segment;
-    out property <SidebarToggleStyle> sidebar-toggle: Theme.current == ThemeKind.dark ? DarkTheme.sidebar-toggle : LightTheme.sidebar-toggle;
-    out property <ColorControlsStyle> color-controls: Theme.current == ThemeKind.dark ? DarkTheme.color-controls : LightTheme.color-controls;
-    out property <GradientStopsStyle> gradient-stops: Theme.current == ThemeKind.dark ? DarkTheme.gradient-stops : LightTheme.gradient-stops;
-    out property <ImageAssetEditorStyle> image-asset-editor: Theme.current == ThemeKind.dark ? DarkTheme.image-asset-editor : LightTheme.image-asset-editor;
-    out property <CornerModeStyle> corner-mode: Theme.current == ThemeKind.dark ? DarkTheme.corner-mode : LightTheme.corner-mode;
-    out property <CornerEditorStyle> corner-editor: Theme.current == ThemeKind.dark ? DarkTheme.corner-editor : LightTheme.corner-editor;
-    out property <ColorFieldStyle> color-field: Theme.current == ThemeKind.dark ? DarkTheme.color-field : LightTheme.color-field;
+    out property <ShellStyle> shell;
+
+    out property <PanesStyle> panes;
+
+    out property <CollapsedSidebarStyle> collapsed-sidebar;
+
+    private property <length> image-tabs-height: Metrics.control-medium;
+
+    private property <ImageErrorStyle> image-error;
+
+    out property <WelcomeHeroStyle> welcome-hero;
+
+    private property <length> welcome-actions-gap: Metrics.space-regular;
+
+    out property <RecentProjectListStyle> recent-project-list;
+
+    out property <WelcomeBrandStyle> welcome-brand: {
+        background: @linear-gradient(155deg, #32e1ff 0%, #0b89ff 52%, #115bea 100%),
+        shadow: { color: #00000033, blur: 11px, offset-y: 6px },
+    };
+
+    out property <RadiusHandleStyle> radius-handle;
+
+    out property <DropIndicatorStyle> drop-indicator;
+
+    out property <TransparencyGridStyle> transparency-grid;
+
+    private property <length> inspector-layout-padding: Metrics.space-medium;
+
+    private property <length> rotation-dial-size: 32px;
+
+    private property <length> rotation-dial-inset: 2px;
+
+    out property <RecentFillsStyle> recent-fills;
+
+    private property <ColorHexStyle> color-hex;
+
+    private property <GradientStopRowStyle> gradient-stop-row;
+
+    out property <GradientFieldsStyle> gradient-fields;
+
+    out property <RenameFieldStyle> rename-field: {
+        background: Palette.control-background,
+        border: Palette.border,
+    };
+
+    out property <PaletteCardStyle> palette-card: {
+        background: Theme.palette-card.background,
+        icon-background: Theme.palette-card.icon-background,
+        icon: Theme.palette-card.icon,
+        border: Theme.palette-card.border,
+        muted-icon: Theme.palette-card.muted-icon,
+    };
+
+    out property <DialogStyle> dialog: {
+        error: root.error-notice,
+        close-button: root.primary-button,
+        border: Theme.dialog.border,
+        background: Theme.dialog.background,
+        footer-background: Theme.dialog.footer-background,
+        footer-border: Theme.dialog.footer-border,
+        shadow: Theme.dialog.shadow,
+    };
+
+    private property <ErrorNoticeStyle> error-notice: {
+        radius: Metrics.radius-medium,
+        icon-text: { size: 20px },
+        icon-background: Theme.error-notice.icon-background,
+        icon-foreground: Theme.error-notice.icon-foreground,
+        border: Theme.error-notice.border,
+        background: Theme.error-notice.background,
+        foreground: Theme.error-notice.foreground,
+    };
+
+    out property <UpdateStatusStyle> update-status: {
+        error: Theme.update-status.error,
+    };
+
+    out property <ImageTabsStyle> image-tabs: {
+        height: root.image-tabs-height,
+        group-height: root.image-tabs-height + 2 * Metrics.space-small,
+        radius: Metrics.radius-medium,
+        normal: Theme.image-tabs.normal,
+        hover: Theme.image-tabs.hover,
+        selected: Theme.image-tabs.selected,
+        focus-border: Theme.image-tabs.focus-border,
+    };
+
+    private property <ImageRailStyle> image-rail: {
+        background: Theme.image-rail.background,
+        border: Theme.image-rail.border,
+    };
+
+    out property <ImageDetailsStyle> image-details: {
+        radius: Metrics.radius-large,
+        padding: Metrics.space-medium,
+        gap: Metrics.space-regular,
+        heading: { size: Typography.control.size, weight: FontWeight.extra-bold },
+        field: root.image-field,
+        syntax: root.image-syntax,
+        copy: root.copy-button,
+        shadow: Theme.image-details.shadow,
+        background: Theme.image-details.background,
+        border: Theme.image-details.border,
+    };
+
+    out property <ImageFieldStyle> image-field: {
+        height: Metrics.control-compact,
+        radius: Metrics.radius-small,
+        text: Typography.control,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-compact,
+        background: Theme.image-field.background,
+        foreground: Theme.image-field.foreground,
+        muted: Theme.image-field.muted,
+    };
+
+    out property <ImageSyntaxStyle> image-syntax: {
+        text: Typography.caption,
+        radius: Metrics.radius-small,
+        padding-inline: Metrics.space-regular,
+        padding-block: Metrics.space-compact,
+        background: Theme.image-syntax.background,
+    };
+
+    private property <ImagePreviewStyle> image-preview: {
+        border: Theme.image-preview.border,
+        background: Theme.image-preview.background,
+        canvas: Theme.image-preview.canvas,
+        shadow: Theme.image-preview.shadow,
+    };
+
+    private property <ImageCanvasStyle> image-canvas: {
+        shadow: Theme.image-canvas.shadow,
+    };
+
+    out property <WelcomeShellStyle> welcome-shell: {
+        stage: Theme.welcome-shell.stage,
+        background: Theme.welcome-shell.background,
+        sidebar: Theme.welcome-shell.sidebar,
+        foreground: Theme.welcome-shell.foreground,
+        muted: Theme.welcome-shell.muted,
+        border: Theme.welcome-shell.border,
+        shadow: Theme.welcome-shell.shadow,
+    };
+
+    out property <WelcomeActionsStyle> welcome-actions: {
+        height: 2 * root.welcome-button.height + root.welcome-actions-gap,
+        gap: root.welcome-actions-gap,
+    };
+
+    out property <RecentProjectRowStyle> recent-project-row: {
+        radius: Metrics.radius-medium,
+        padding-right: Metrics.space-medium,
+        gap: Metrics.space-regular,
+        text-gap: Metrics.space-tight,
+        padding-left: root.welcome-button.padding-inline,
+        hover: Theme.recent-project-row.hover,
+        foreground: Theme.recent-project-row.foreground,
+        muted: Theme.recent-project-row.muted,
+    };
+
+    out property <CanvasSurfaceStyle> canvas-surface: {
+        grid: root.grid,
+        background: Theme.canvas-surface.background,
+    };
+
+    out property <GridStyle> grid: {
+        color: Theme.grid.color,
+    };
+
+    out property <ArtboardStyle> artboard: {
+        background: Theme.artboard.background,
+        shadow: Theme.artboard.shadow,
+        border: Theme.artboard.border,
+    };
+
+    out property <SelectionFrameStyle> selection-frame: {
+        accent: Theme.selection-frame.accent,
+    };
+
+    out property <GradientOverlayStyle> gradient-overlay: {
+        endpoint-shadow: { color: #0008, blur: 3px, offset-y: 0px },
+        axis-shadow: { color: #000a, blur: 2px, offset-y: 0px },
+        marker: root.gradient-marker,
+        endpoint-background: Theme.gradient-overlay.endpoint-background,
+        focus-border: Theme.gradient-overlay.focus-border,
+    };
+
+    out property <NineSliceStyle> nine-slice: {
+        label-shadow: { color: #00000055, blur: 8px, offset-y: 2px },
+        text: { size: Typography.caption.size, weight: FontWeight.black },
+        label-border: Theme.nine-slice.label-border,
+    };
+
+    out property <TooltipStyle> tooltip: {
+        shadow: { color: #33415535, blur: 12px, offset-y: 4px },
+        radius: Metrics.radius-medium,
+        text: Typography.control,
+        normal: Theme.tooltip.normal,
+    };
+
+    out property <DragPreviewStyle> drag-preview: {
+        row: root.tree-row,
+        text: { size: 24px, weight: FontWeight.extra-bold },
+        shadow: Theme.drag-preview.shadow,
+        row-border: Theme.drag-preview.row-border,
+    };
+
+    out property <FloatingPanelStyle> floating-panel: {
+        border: Theme.floating-panel.border,
+        background: Theme.floating-panel.background,
+    };
+
+    private property <GradientMarkerStyle> gradient-marker: {
+        checker: root.transparency-grid,
+        inactive: Theme.gradient-marker.inactive,
+    };
+
+    out property <InspectorLayoutStyle> inspector-layout: {
+        row-gap: Metrics.space-compact,
+        padding: root.inspector-layout-padding,
+        column-gap: Metrics.space-regular,
+        content-width: root.panes.inspector-width - Metrics.border-width - 2 * root.inspector-layout-padding,
+        divider: Theme.inspector-layout.divider,
+    };
+
+    out property <FillPickerStyle> fill-picker: {
+        gap: Metrics.space-regular,
+        margin: Metrics.space-regular,
+        radius: Metrics.radius-large,
+        shadow: Theme.fill-picker.shadow,
+        background: Theme.fill-picker.background,
+        border: Theme.fill-picker.border,
+    };
+
+    out property <EffectSliderStyle> effect-slider: {
+        shadow: { color: #00000028, blur: 6px, offset-y: 2px },
+        control-height: root.inspector-field.height,
+        suffix-text: { size: 9px },
+        pressed-thumb: Theme.effect-slider.pressed-thumb,
+        track: Theme.effect-slider.track,
+        fill: Theme.effect-slider.fill,
+        thumb: Theme.effect-slider.thumb,
+        border: Theme.effect-slider.border,
+        foreground: Theme.effect-slider.foreground,
+    };
+
+    out property <RadiusSliderStyle> radius-slider: {
+        height: Metrics.control-compact,
+        min-width: Metrics.control-medium,
+        fill: Theme.radius-slider.fill,
+        thumb: Theme.radius-slider.thumb,
+        track: Theme.radius-slider.track,
+        focus-border: Theme.radius-slider.focus-border,
+    };
+
+    out property <RotationDialStyle> rotation-dial: {
+        size: root.rotation-dial-size,
+        inset: root.rotation-dial-inset,
+        face-size: root.rotation-dial-size - 2 * root.rotation-dial-inset,
+        dot: @linear-gradient(180deg, #0879b7, #38b9fa),
+        shadow: { color: #00000025, blur: 2px, offset-y: 1px },
+        ring: Theme.rotation-dial.ring,
+        face: Theme.rotation-dial.face,
+        ring-border: Theme.rotation-dial.ring-border,
+        face-border: Theme.rotation-dial.face-border,
+        dot-border: Theme.rotation-dial.dot-border,
+        focus-border: Theme.rotation-dial.focus-border,
+    };
+
+    out property <ComboMenuStyle> combo-menu: {
+        background: Theme.combo-menu.background,
+        border: Theme.combo-menu.border,
+        shadow: Theme.combo-menu.shadow,
+    };
+
+    private property <ColorPlaneStyle> color-plane: {
+        shadow: { color: #00000080, blur: 3px, offset-y: 0px },
+        radius: Metrics.radius-medium,
+        thumb-border: Theme.color-plane.thumb-border,
+        border: Theme.color-plane.border,
+        checker-light: Theme.color-plane.checker-light,
+        checker-dark: Theme.color-plane.checker-dark,
+    };
+
+    out property <ColorSliderStyle> color-slider: {
+        shadow: { color: #00000070, blur: 2px, offset-y: 0px },
+        radius: Metrics.radius-large,
+        thumb-border: Theme.color-slider.thumb-border,
+    };
+
+    private property <GradientRampStyle> gradient-ramp: {
+        height: Metrics.space-small + root.inspector-field.height + root.gradient-marker.size + Metrics.space-compact,
+        inset: root.gradient-marker.size / 2,
+    };
+
+    out property <InfoIconStyle> info-icon: {
+        text: { size: 10px, weight: FontWeight.semi-bold },
+        foreground: Theme.info-icon.foreground,
+        border: Theme.info-icon.border,
+        accent: Theme.info-icon.accent,
+        hover: Theme.info-icon.hover,
+    };
+
+    out property <CopyButtonStyle> copy-button: {
+        button: root.copy-action,
+    };
+
+    out property <TreeRowStyle> tree-row: {
+        height: Metrics.control-medium,
+        font-size: Typography.body.size,
+        radius: Metrics.radius-medium,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-regular,
+        toggle-width: Metrics.icon-medium,
+        icon-size: Metrics.icon-medium,
+        focus-width: Metrics.focus-width,
+        hover-background: Theme.tree-row.hover-background,
+        selected-background: Theme.tree-row.selected-background,
+        foreground: Theme.tree-row.foreground,
+        muted: Theme.tree-row.muted,
+        accent: Theme.tree-row.accent,
+        directory-icon: Theme.tree-row.directory-icon,
+    };
+
+    out property <TreeGuidesStyle> tree-guides: {
+        guide-width: Metrics.border-width,
+        guide: Theme.tree-guides.guide,
+        selected-guide: Theme.tree-guides.selected-guide,
+        file-guide: Theme.tree-guides.file-guide,
+    };
+
+    out property <TreeDropStyle> tree-drop: {
+        drop-border-width: Metrics.border-width,
+        drop-line-height: Metrics.focus-width,
+        root-drop-height: Metrics.space-regular,
+        drop-background: Theme.tree-drop.drop-background,
+    };
+
+    out property <PaletteRowStyle> palette-row: {
+        height: Metrics.control-large,
+        radius: Metrics.radius-medium,
+        disabled-opacity: Metrics.disabled-opacity,
+        text: Typography.control,
+        hover: Theme.palette-row.hover,
+        selected: Theme.palette-row.selected,
+        foreground: Theme.palette-row.foreground,
+        selected-foreground: Theme.palette-row.selected-foreground,
+    };
+
+    out property <ButtonStyle> primary-button: {
+        height: Metrics.control-medium,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-regular,
+        radius: Metrics.radius-medium,
+        border-width: Metrics.border-width,
+        text: Typography.strong-body,
+        disabled-opacity: Metrics.disabled-opacity,
+        normal: Theme.primary-button.normal,
+        hover: Theme.primary-button.hover,
+        pressed: Theme.primary-button.pressed,
+        disabled: Theme.primary-button.disabled,
+        focus-border: Theme.primary-button.focus-border,
+        icon-color: Theme.primary-button.icon-color,
+    };
+
+    out property <ButtonStyle> compact-button: {
+        height: Metrics.control-small,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-regular,
+        radius: Metrics.radius-medium,
+        border-width: Metrics.border-width,
+        text: Typography.control,
+        disabled-opacity: Metrics.disabled-opacity,
+        normal: Theme.compact-button.normal,
+        hover: Theme.compact-button.hover,
+        pressed: Theme.compact-button.pressed,
+        disabled: Theme.compact-button.disabled,
+        focus-border: Theme.compact-button.focus-border,
+        icon-color: Theme.compact-button.icon-color,
+    };
+
+    out property <ButtonStyle> welcome-button: {
+        height: Metrics.control-large,
+        padding-inline: Metrics.space-medium,
+        gap: Metrics.space-medium,
+        radius: Metrics.control-large / 2,
+        border-width: Metrics.border-width,
+        text: { size: Typography.action.size, weight: FontWeight.extra-bold },
+        disabled-opacity: Metrics.disabled-opacity,
+        normal: Theme.welcome-button.normal,
+        hover: Theme.welcome-button.hover,
+        pressed: Theme.welcome-button.pressed,
+        disabled: Theme.welcome-button.disabled,
+        focus-border: Theme.welcome-button.focus-border,
+        icon-color: Theme.welcome-button.icon-color,
+    };
+
+    out property <ButtonStyle> inspector-icon-button: {
+        height: Metrics.icon-large,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-regular,
+        radius: 3.5px,
+        border-width: Metrics.border-width,
+        text: Typography.control,
+        disabled-opacity: Metrics.disabled-opacity,
+        normal: Theme.inspector-icon-button.normal,
+        hover: Theme.inspector-icon-button.hover,
+        pressed: Theme.inspector-icon-button.pressed,
+        disabled: Theme.inspector-icon-button.disabled,
+        focus-border: Theme.inspector-icon-button.focus-border,
+        icon-color: Theme.inspector-icon-button.icon-color,
+    };
+
+    out property <FieldStyle> field: {
+        height: Metrics.control-medium,
+        radius: Metrics.radius-medium,
+        border-width: Metrics.border-width,
+        padding-inline: Metrics.space-medium,
+        gap: Metrics.space-regular,
+        text: Typography.body,
+        normal: Theme.field.normal,
+        hover: Theme.field.hover,
+        focus: Theme.field.focus,
+        disabled: Theme.field.disabled,
+        muted: Theme.field.muted,
+        focus-border: Theme.field.focus-border,
+        selection: Theme.field.selection,
+    };
+
+    out property <FieldStyle> inspector-field: {
+        height: Metrics.control-compact,
+        radius: Metrics.radius-small,
+        border-width: Metrics.border-width,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-compact,
+        text: Typography.control,
+        normal: Theme.inspector-field.normal,
+        hover: Theme.inspector-field.hover,
+        focus: Theme.inspector-field.focus,
+        disabled: Theme.inspector-field.disabled,
+        muted: Theme.inspector-field.muted,
+        focus-border: Theme.inspector-field.focus-border,
+        selection: Theme.inspector-field.selection,
+    };
+
+    out property <SegmentStyle> segment: {
+        height: root.inspector-field.height,
+        radius: root.inspector-field.radius,
+        text: Typography.control,
+        background: Theme.segment.background,
+        hover: Theme.segment.hover,
+        foreground: Theme.segment.foreground,
+        muted: Theme.segment.muted,
+        selected-surface: Theme.segment.selected-surface,
+        border: Theme.segment.border,
+        focus-border: Theme.segment.focus-border,
+    };
+
+    out property <SidebarToggleStyle> sidebar-toggle: {
+        height: Metrics.control-medium,
+        radius: Metrics.radius-medium,
+        normal: Theme.sidebar-toggle.normal,
+        hover: Theme.sidebar-toggle.hover,
+        selected: Theme.sidebar-toggle.selected,
+    };
+
+    out property <ColorControlsStyle> color-controls: {
+        plane: root.color-plane,
+        slider: root.color-slider,
+        hex: root.color-hex,
+        row-height: root.combo-menu.row-height,
+        gap: Metrics.space-medium,
+    };
+
+    out property <GradientStopsStyle> gradient-stops: {
+        ramp: root.gradient-ramp,
+        marker: root.gradient-marker,
+        row: root.gradient-stop-row,
+        gap: Metrics.space-regular,
+    };
+
+    out property <ImageAssetEditorStyle> image-asset-editor: {
+        canvas: root.canvas-surface,
+        rail: root.image-rail,
+        tabs: root.image-tabs,
+        preview: root.image-preview,
+        details: root.image-details,
+        nine-slice: root.nine-slice,
+        image: root.image-canvas,
+        error: root.image-error,
+    };
+
+    private property <ButtonStyle> copy-action: {
+        height: Metrics.control-compact,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-regular,
+        radius: Metrics.radius-small,
+        border-width: Metrics.border-width,
+        text: { size: Typography.control.size, weight: FontWeight.extra-bold },
+        disabled-opacity: Metrics.disabled-opacity,
+        normal: Theme.copy-action.normal,
+        hover: Theme.copy-action.hover,
+        pressed: Theme.copy-action.pressed,
+        disabled: Theme.copy-action.disabled,
+        focus-border: Theme.copy-action.focus-border,
+        icon-color: Theme.copy-action.icon-color,
+    };
+
+    out property <CornerModeStyle> corner-mode: {
+        width: Metrics.control-small,
+        height: Metrics.control-compact,
+        radius: Metrics.radius-small,
+        selected-background: Theme.corner-mode.selected-background,
+        background: Theme.corner-mode.background,
+        foreground: Theme.corner-mode.foreground,
+        muted: Theme.corner-mode.muted,
+        focus-border: Theme.corner-mode.focus-border,
+    };
+
+    out property <CornerEditorStyle> corner-editor: {
+        gap: Metrics.space-compact,
+        mode: root.corner-mode,
+        slider: root.radius-slider,
+        field: root.inspector-field,
+    };
+
+    out property <ColorFieldStyle> color-field: {
+        field: root.inspector-field,
+        decorative: Theme.color-field.decorative,
+        swatch-border: Theme.color-field.swatch-border,
+    };
 }
