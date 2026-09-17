@@ -56,6 +56,34 @@ export struct PaletteCardStyle {
     muted-icon: color,
 }
 
+export struct ErrorNoticeStyle {
+    height: length,
+    icon-size: length,
+    inset: length,
+    icon-background: color,
+    icon-foreground: color,
+    border: color,
+    background: color,
+    foreground: color,
+    radius: length,
+}
+
+export struct ButtonStyle {
+    height: length,
+    padding-inline: length,
+    gap: length,
+    radius: length,
+    border-width: length,
+    text: TextStyle,
+    normal: PaintStyle,
+    hover: PaintStyle,
+    pressed: PaintStyle,
+    disabled: PaintStyle,
+    focus-border: brush,
+    disabled-opacity: float,
+    icon-color: color,
+}
+
 export struct DialogStyle {
     width: length,
     height: length,
@@ -66,17 +94,8 @@ export struct DialogStyle {
     footer-background: color,
     footer-border: color,
     shadow: ShadowStyle,
-}
-
-export struct ErrorNoticeStyle {
-    height: length,
-    icon-size: length,
-    inset: length,
-    icon-background: color,
-    icon-foreground: color,
-    border: color,
-    background: color,
-    foreground: color,
+    error: ErrorNoticeStyle,
+    close-button: ButtonStyle,
 }
 
 export struct UpdateStatusStyle {
@@ -451,6 +470,7 @@ export struct InfoIconStyle {
 
 export struct CopyButtonStyle {
     width: length,
+    button: ButtonStyle,
 }
 
 export struct TreeRowStyle {
@@ -503,21 +523,6 @@ export struct PaletteRowStyle {
     selected-foreground: color,
     disabled-opacity: float,
     text: TextStyle,
-}
-
-export struct ButtonStyle {
-    height: length,
-    padding-inline: length,
-    gap: length,
-    radius: length,
-    border-width: length,
-    text: TextStyle,
-    normal: PaintStyle,
-    hover: PaintStyle,
-    pressed: PaintStyle,
-    disabled: PaintStyle,
-    focus-border: brush,
-    disabled-opacity: float,
 }
 
 export struct FieldStyle {
@@ -1486,6 +1491,8 @@ export global Style {
         footer-background: Colors.dark ? #25262b : #fafafa,
         footer-border: Colors.dark ? #3b3d43 : #e1e2e6,
         shadow: { color: Colors.dark ? #00000085 : #161b233d, blur: 24px, offset-y: 12px },
+        error: Style.error-notice,
+        close-button: Style.primary-button,
     };
 
     out property <ErrorNoticeStyle> error-notice: {
@@ -1497,6 +1504,7 @@ export global Style {
         border: Colors.dark ? #63373a : #e0c5c2,
         background: Colors.dark ? #342426 : #fff7f6,
         foreground: Colors.dark ? #f1b8b4 : #7a2925,
+        radius: Metrics.radius-medium,
     };
 
     out property <UpdateStatusStyle> update-status: {
@@ -1876,6 +1884,7 @@ export global Style {
 
     out property <CopyButtonStyle> copy-button: {
         width: 54px,
+        button: { height: Metrics.control-compact, padding-inline: Metrics.space-regular, gap: Metrics.space-regular, radius: Metrics.radius-small, border-width: Metrics.border-width, text: { size: Typography.control.size, weight: FontWeight.extra-bold }, normal: { background: Style.inspector-field.normal.background, foreground: Colors.foreground, border: Style.inspector-layout.divider }, hover: { background: Style.inspector-field.hover.background, foreground: Colors.foreground, border: Style.inspector-layout.divider }, pressed: { background: Colors.selection, foreground: Colors.foreground, border: Colors.border }, disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border }, focus-border: Colors.focus, disabled-opacity: 0.55, icon-color: Colors.muted },
     };
 
     out property <TreeRowStyle> tree-row: {
@@ -1943,6 +1952,7 @@ export global Style {
         disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.focus,
         disabled-opacity: 0.55,
+        icon-color: Colors.muted,
     };
 
     out property <ButtonStyle> primary-button: {
@@ -1958,6 +1968,7 @@ export global Style {
         disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.focus,
         disabled-opacity: 0.55,
+        icon-color: Colors.muted,
     };
 
     out property <ButtonStyle> compact-button: {
@@ -1973,6 +1984,7 @@ export global Style {
         disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.focus,
         disabled-opacity: 0.55,
+        icon-color: Colors.muted,
     };
 
     out property <ButtonStyle> welcome-button: {
@@ -1988,6 +2000,7 @@ export global Style {
         disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.focus,
         disabled-opacity: 0.55,
+        icon-color: Style.welcome-shell.muted,
     };
 
     out property <ButtonStyle> inspector-icon-button: {
@@ -2003,6 +2016,7 @@ export global Style {
         disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.accent,
         disabled-opacity: 0.55,
+        icon-color: Colors.muted,
     };
 
     out property <FieldStyle> field: {

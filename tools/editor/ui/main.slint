@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "style.slint";
+import { Style, Metrics, Typography, Colors, Elevation, DialogStyle } from "style.slint";
 export { Style } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
@@ -27,22 +27,23 @@ export { Api, Hover, Preview, Project, FillSession }
 export { EditorCursors, EditorWindow } from "components/common.slint";
 
 component NewFileErrorPopup inherits PopupWindow {
+    in property <DialogStyle> style: Style.dialog;
     in property <string> error;
     callback dismissed();
 
-    width: Style.layout.dialog-width;
-    height: Style.layout.dialog-height;
+    width: root.style.width;
+    height: root.style.height;
     close-policy: no-auto-close;
 
     Rectangle {
-        border-width: Style.controls.border-width;
-        border-color: Style.colors.dialog-border;
-        border-radius: Style.controls.panel-radius;
-        background: Style.colors.dialog-bg;
+        border-width: Metrics.border-width;
+        border-color: root.style.border;
+        border-radius: Metrics.radius-large;
+        background: root.style.background;
         clip: true;
-        drop-shadow-blur: Style.shadows.dialog.blur;
-        drop-shadow-offset-y: Style.shadows.dialog.offset-y;
-        drop-shadow-color: Style.shadows.dialog.color;
+        drop-shadow-blur: root.style.shadow.blur;
+        drop-shadow-offset-y: root.style.shadow.offset-y;
+        drop-shadow-color: root.style.shadow.color;
 
         VerticalLayout {
             height: parent.height;
@@ -51,60 +52,60 @@ component NewFileErrorPopup inherits PopupWindow {
                 vertical-stretch: 1;
 
                 VerticalLayout {
-                    padding: Style.layout.dialog-padding;
-                    spacing: Style.spacing.medium;
+                    padding: root.style.padding;
+                    spacing: Metrics.space-medium;
 
                     HorizontalLayout {
-                        spacing: Style.spacing.medium;
+                        spacing: Metrics.space-medium;
                         cross-axis-alignment: start;
 
                         Rectangle {
-                            width: Style.layout.dialog-error-icon-size;
-                            height: Style.layout.dialog-error-icon-size;
-                            border-radius: Style.layout.dialog-error-icon-size / 2;
-                            background: Style.colors.error-icon-bg;
+                            width: root.style.error.icon-size;
+                            height: root.style.error.icon-size;
+                            border-radius: root.style.error.icon-size / 2;
+                            background: root.style.error.icon-background;
 
                             Text {
                                 text: "×";
-                                color: Style.colors.error-icon-text;
-                                font-size: Style.typography.error-icon.size;
+                                color: root.style.error.icon-foreground;
+                                font-size: Typography.error-icon.size;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
                             }
                         }
 
                         VerticalLayout {
-                            spacing: Style.spacing.small;
+                            spacing: Metrics.space-small;
 
                             Text {
                                 text: @tr("Couldn’t create file");
-                                color: Style.colors.text;
-                                font-size: Style.typography.heading.size;
-                                font-weight: Style.typography.heading.weight;
+                                color: Colors.foreground;
+                                font-size: Typography.heading.size;
+                                font-weight: Typography.heading.weight;
                             }
 
                             Text {
                                 text: @tr("A new Slint file couldn’t be created in the project root.");
-                                color: Style.colors.muted;
-                                font-size: Style.typography.body.size;
+                                color: Colors.muted;
+                                font-size: Typography.body.size;
                                 wrap: word-wrap;
                             }
                         }
                     }
 
                     Rectangle {
-                        height: Style.layout.dialog-error-height;
-                        border-width: Style.controls.border-width;
-                        border-color: Style.colors.error-border;
-                        border-radius: Style.controls.row-radius;
-                        background: Style.colors.error-bg;
+                        height: root.style.error.height;
+                        border-width: Metrics.border-width;
+                        border-color: root.style.error.border;
+                        border-radius: root.style.error.radius;
+                        background: root.style.error.background;
 
                         Text {
-                            x: Style.layout.dialog-error-inset;
-                            width: parent.width - 2 * Style.layout.dialog-error-inset;
+                            x: root.style.error.inset;
+                            width: parent.width - 2 * root.style.error.inset;
                             text: root.error;
-                            color: Style.colors.error-text;
-                            font-size: Style.typography.caption.size;
+                            color: root.style.error.foreground;
+                            font-size: Typography.caption.size;
                             wrap: word-wrap;
                             vertical-alignment: center;
                         }
@@ -113,31 +114,31 @@ component NewFileErrorPopup inherits PopupWindow {
             }
 
             Rectangle {
-                height: Style.layout.dialog-footer-height;
+                height: root.style.footer-height;
                 vertical-stretch: 0;
-                background: Style.colors.dialog-footer-bg;
+                background: root.style.footer-background;
 
                 Rectangle {
-                    height: Style.controls.border-width;
+                    height: Metrics.border-width;
                     y: 0px;
-                    background: Style.colors.dialog-footer-divider;
+                    background: root.style.footer-border;
                 }
 
                 Rectangle {
-                    width: bt.width + 2 * Style.spacing.regular;
-                    height: Style.controls.height;
-                    x: parent.width - self.width - Style.spacing.large;
+                    width: bt.width + 2 * root.style.close-button.padding-inline;
+                    height: root.style.close-button.height;
+                    x: parent.width - self.width - Metrics.space-large;
                     y: (parent.height - self.height) / 2;
-                    border-width: Style.controls.border-width;
-                    border-color: close-touch.pressed ? Style.colors.action-pressed : close-touch.has-hover ? Style.colors.action-hover : Style.colors.action-bg;
-                    border-radius: Style.controls.row-radius;
-                    background: close-touch.pressed ? Style.colors.action-pressed : close-touch.has-hover ? Style.colors.action-hover : Style.colors.action-bg;
+                    border-width: Metrics.border-width;
+                    border-color: close-touch.pressed ? root.style.close-button.pressed.background : close-touch.has-hover ? root.style.close-button.hover.background : root.style.close-button.normal.background;
+                    border-radius: root.style.close-button.radius;
+                    background: close-touch.pressed ? root.style.close-button.pressed.background : close-touch.has-hover ? root.style.close-button.hover.background : root.style.close-button.normal.background;
 
                     bt := Text {
                         text: @tr("Close");
-                        color: Style.colors.action-text;
-                        font-size: Style.typography.strong-body.size;
-                        font-weight: Style.typography.strong-body.weight;
+                        color: root.style.close-button.normal.foreground;
+                        font-size: root.style.close-button.text.size;
+                        font-weight: root.style.close-button.text.weight;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                     }
@@ -158,13 +159,13 @@ component NewFileErrorPopup inherits PopupWindow {
 }
 
 export component EditorUi inherits Window {
-    preferred-width: Style.layout.window-width;
-    preferred-height: Style.layout.window-height;
-    min-width: Style.layout.window-min-width;
-    min-height: Style.layout.window-min-height;
+    preferred-width: Style.shell.width;
+    preferred-height: Style.shell.height;
+    min-width: Style.shell.min-width;
+    min-height: Style.shell.min-height;
     title: "Slint Visual Editor";
-    background: Style.colors.app-bg;
-    default-font-family: Style.typography.family;
+    background: Colors.background;
+    default-font-family: Typography.family;
 
     init => {
         EditorWindow.width = root.width;
@@ -238,7 +239,7 @@ export component EditorUi inherits Window {
 
     Rectangle {
         y: 0;
-        height: Style.layout.top-bar-height;
+        height: Style.shell.top-bar-height;
         WindowMoveArea {
             TouchArea {
                 double-clicked => { root.toggle-maximized(); }
@@ -301,12 +302,12 @@ export component EditorUi inherits Window {
                 }
 
                 Rectangle {
-                    background: Style.colors.app-bg;
+                    background: Colors.background;
                 }
 
                 VerticalLayout {
                     title-move-area := WindowMoveArea {
-                        height: Style.layout.top-bar-height;
+                        height: Style.shell.top-bar-height;
 
                         title-touch-area := TouchArea {
                             double-clicked => { root.toggle-maximized(); }
@@ -362,29 +363,29 @@ export component EditorUi inherits Window {
                 DragPreview { parent-origin: parent.absolute-position; }
 
                 if root.sidebars-collapsed: Rectangle {
-                    x: Style.spacing.large;
-                    y: Style.layout.top-bar-height + Style.spacing.medium;
-                    width: Style.layout.collapsed-panel-width;
-                    height: Style.layout.collapsed-panel-height;
-                    border-radius: Style.layout.collapsed-panel-radius;
-                    border-width: Style.controls.border-width;
-                    border-color: Style.colors.floating-border;
-                    background: Style.colors.floating-bg;
-                    drop-shadow-blur: Style.shadows.floating.blur;
-                    drop-shadow-offset-y: Style.shadows.floating.offset-y;
-                    drop-shadow-color: Style.shadows.floating.color;
+                    x: Metrics.space-large;
+                    y: Style.shell.top-bar-height + Metrics.space-medium;
+                    width: Style.collapsed-sidebar.width;
+                    height: Style.collapsed-sidebar.height;
+                    border-radius: Style.collapsed-sidebar.radius;
+                    border-width: Metrics.border-width;
+                    border-color: Style.floating-panel.border;
+                    background: Style.floating-panel.background;
+                    drop-shadow-blur: Elevation.floating.blur;
+                    drop-shadow-offset-y: Elevation.floating.offset-y;
+                    drop-shadow-color: Elevation.floating.color;
 
                     HorizontalLayout {
-                        padding-left: Style.spacing.medium;
-                        padding-right: Style.spacing.compact;
-                        spacing: Style.spacing.medium;
+                        padding-left: Metrics.space-medium;
+                        padding-right: Metrics.space-compact;
+                        spacing: Metrics.space-medium;
                         cross-axis-alignment: center;
 
                         Text {
                             horizontal-stretch: 1;
                             text: Project.selected-project-file;
-                            color: Style.colors.text;
-                            font-size: Style.typography.body.size;
+                            color: Colors.foreground;
+                            font-size: Typography.body.size;
                             font-weight: FontWeight.extra-bold;
                             vertical-alignment: center;
                             overflow: elide;
@@ -444,7 +445,7 @@ export component EditorUi inherits Window {
     }
 
     if UpdateStatus.in-titlebar() && UpdateStatus.has-news(): UpdateStatusPill {
-        x: Style.layout.titlebar-safe-left;
-        y: Style.spacing.large;
+        x: Style.shell.titlebar-safe-left;
+        y: Metrics.space-large;
     }
 }
