@@ -2,34 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style } from "../style.slint";
-import { Palette } from "std-widgets.slint";
 import { ElementVisuals } from "element-presentation.slint";
 import { Api, CanvasCorner, ElementKind } from "../api.slint";
 
 export { CanvasCorner, ElementKind }
-
-export global StudioTheme {
-    out property <bool> dark: Style.dark;
-    out property <color> app-bg: Style.colors.app-bg;
-    out property <color> panel-bg: Style.colors.panel-bg;
-    out property <color> panel-subtle: Style.colors.panel-subtle;
-    out property <color> text: Style.colors.text;
-    out property <color> muted: Style.colors.muted;
-    out property <color> border: Style.colors.border;
-    out property <color> soft-border: Style.colors.soft-border;
-    out property <color> accent: Style.colors.accent;
-    out property <color> accent-strong: Style.colors.accent-strong;
-    out property <color> canvas-outline: Style.colors.canvas-outline;
-    out property <color> canvas: Style.colors.canvas;
-    out property <color> phone-bg: Style.colors.phone-bg;
-    out property <color> phone-text: Style.colors.phone-text;
-    out property <color> object-bg: Style.colors.object-bg;
-    out property <color> object-subtle: Style.colors.object-subtle;
-    out property <color> object-border: Style.colors.object-border;
-    out property <color> object-muted: Style.colors.object-muted;
-    out property <brush> drop-mark-background: Style.colors.drop-mark-background;
-    out property <brush> drop-mark-foreground: Style.colors.drop-mark-foreground;
-}
 
 export global EditorIcons {
     out property <image> select-chevron: @image-url("../assets/octicons/select-chevron.svg");
@@ -51,27 +27,14 @@ export global EditorAngles {
     }
 }
 
+export global PreviewMetrics {
+    out property <length> phone-portrait-width: 390px;
+    out property <length> phone-portrait-height: 720px;
+}
+
 export global EditorWindow {
     in-out property <length> width;
     in-out property <length> height;
-}
-
-export global EditorMetrics {
-    out property <length> left-pane-width: Style.layout.left-pane-width;
-    out property <length> inspector-pane-width: Style.layout.inspector-pane-width;
-    out property <length> top-bar-height: Style.layout.top-bar-height;
-    out property <length> status-bar-height: Style.layout.status-bar-height;
-    out property <length> phone-portrait-width: 390px;
-    out property <length> phone-portrait-height: 720px;
-    out property <length> phone-frame-radius: Style.canvas.phone-frame-radius;
-    out property <length> phone-outer-padding: Style.canvas.phone-outer-padding;
-    out property <length> selection-outline-width: Style.canvas.selection-outline-width;
-    out property <length> hover-outline-width: Style.canvas.hover-outline-width;
-    out property <length> selection-handle-size: Style.canvas.selection-handle-size;
-    out property <length> selection-handle-touch-size: Style.canvas.selection-handle-touch-size;
-    out property <length> rotation-zone-size: Style.canvas.rotation-zone-size;
-    out property <length> radius-handle-size: Style.canvas.radius-handle-size;
-    out property <length> radius-handle-inset: Style.canvas.radius-handle-inset;
 }
 
 export component EdgeDivider inherits Rectangle {
@@ -145,7 +108,7 @@ export component HorizontalResizeDivider inherits FocusScope {
         border-width: root.has-focus ? Style.controls.border-width : 0px;
         border-color: Style.colors.accent-strong;
         background: touch.has-hover || touch.pressed
-            ? Style.colors.accent.with-alpha(0.12)
+            ? Style.colors.focus-bg
             : transparent;
     }
 
@@ -221,8 +184,8 @@ export component PrimerTextInput inherits Rectangle {
     animate border-color { duration: Style.motion.fast; }
 
     HorizontalLayout {
-        padding-left: Style.spacing.control-inset;
-        padding-right: Style.spacing.control-inset;
+        padding-left: Style.spacing.medium;
+        padding-right: Style.spacing.medium;
         spacing: Style.spacing.regular;
 
         if root.leading-text != "": Text {
@@ -246,7 +209,7 @@ export component PrimerTextInput inherits Rectangle {
                 single-line: true;
                 wrap: no-wrap;
                 vertical-alignment: center;
-                selection-background-color: Style.colors.accent.with-alpha(0.28);
+                selection-background-color: Style.colors.text-selection-bg;
             }
 
             if editor.text == "": Text {
@@ -272,7 +235,7 @@ export component SidebarToggleButton inherits Rectangle {
     border-radius: Style.controls.row-radius;
     border-width: Style.controls.border-width;
     border-color: active ? Style.colors.accent-strong : Style.colors.border;
-    background: active ? Style.colors.accent.with-alpha(0.14) : touch.has-hover ? Style.colors.panel-subtle : Style.colors.panel-bg;
+    background: active ? Style.colors.selection-bg : touch.has-hover ? Style.colors.panel-subtle : Style.colors.panel-bg;
     animate background, border-color { duration: Style.motion.fast; }
 
     accessible-action-default => {
@@ -283,8 +246,8 @@ export component SidebarToggleButton inherits Rectangle {
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
         width: Style.controls.large-icon-size;
-        height: 16px;
-        border-radius: Style.controls.compact-radius;
+        height: Style.controls.icon-size;
+        border-radius: Style.controls.field-radius;
         border-width: Style.controls.focus-width;
         border-color: root.active ? Style.colors.accent-strong : Style.colors.text;
         background: transparent;
@@ -305,44 +268,6 @@ export component SidebarToggleButton inherits Rectangle {
     }
 }
 
-export component PrimerNavRow inherits Rectangle {
-    in property <string> label;
-    in property <string> glyph;
-    in property <bool> selected: false;
-    in property <length> indent: 0px;
-
-    height: 30px;
-    border-radius: Style.controls.row-radius;
-    background: selected ? Style.colors.accent.with-alpha(0.13) : touch.has-hover ? Style.colors.panel-subtle : transparent;
-
-    HorizontalLayout {
-        padding-left: 8px + root.indent;
-        padding-right: Style.spacing.regular;
-        spacing: Style.spacing.regular;
-
-        Text {
-            text: root.glyph;
-            color: root.selected ? Style.colors.accent-strong : Style.colors.muted;
-            font-size: Style.typography.control.size;
-            font-weight: FontWeight.extra-bold;
-            vertical-alignment: center;
-        }
-
-        Text {
-            text: root.label;
-            color: root.selected ? Style.colors.text : Style.colors.muted;
-            font-size: Style.typography.body.size;
-            font-weight: root.selected ? 700 : 500;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-    }
-
-    touch := TouchArea {
-        mouse-cursor: pointer;
-    }
-}
-
 export component ComponentPaletteRow inherits Rectangle {
     in property <ElementKind> kind;
     in property <string> label;
@@ -356,8 +281,8 @@ export component ComponentPaletteRow inherits Rectangle {
 
     height: Style.controls.large-height;
     horizontal-stretch: 1;
-    border-radius: Style.controls.small-radius;
-    background: root.active ? Style.colors.accent.with-alpha(0.10) : root.hovered ? Style.colors.panel-subtle : transparent;
+    border-radius: Style.controls.row-radius;
+    background: root.active ? Style.colors.selection-subtle-bg : root.hovered ? Style.colors.panel-subtle : transparent;
     opacity: !root.enabled ? Style.controls.disabled-opacity : root.dragging ? Style.controls.palette-drag-opacity : 1;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.label;
@@ -489,109 +414,4 @@ export global AppState {
     public function finish-outline-drag() {
         self.outline-drag-active = false;
     }
-}
-
-export component PropertyField inherits Rectangle {
-    in property <string> name;
-    in property <string> value;
-
-    height: 34px;
-
-    HorizontalLayout {
-        spacing: Style.spacing.control-inset;
-
-        Text {
-            width: 80px;
-            text: root.name;
-            color: Style.colors.muted;
-            font-size: Style.typography.control.size;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-
-        Rectangle {
-            horizontal-stretch: 1;
-            height: 32px;
-            border-radius: Style.controls.row-radius;
-            border-width: Style.controls.border-width;
-            border-color: Style.colors.border;
-            background: Style.colors.panel-subtle;
-
-            Text {
-                x: 10px;
-                width: parent.width - 20px;
-                text: root.value;
-                color: Style.colors.text;
-                font-size: Style.typography.control.size;
-                vertical-alignment: center;
-                overflow: elide;
-            }
-        }
-    }
-}
-
-export component ColorPropertyField inherits Rectangle {
-    in property <string> name;
-    in property <color> color-value;
-    in property <string> value;
-
-    height: 34px;
-
-    HorizontalLayout {
-        spacing: Style.spacing.control-inset;
-
-        Text {
-            width: 80px;
-            text: root.name;
-            color: Style.colors.muted;
-            font-size: Style.typography.control.size;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-
-        Rectangle {
-            horizontal-stretch: 1;
-            height: 32px;
-            border-radius: Style.controls.row-radius;
-            border-width: Style.controls.border-width;
-            border-color: Style.colors.border;
-            background: Style.colors.panel-subtle;
-
-            HorizontalLayout {
-                padding-left: Style.spacing.regular;
-                padding-right: Style.spacing.control-inset;
-                spacing: Style.spacing.regular;
-                cross-axis-alignment: center;
-
-                Rectangle {
-                    width: 16px;
-                    height: 16px;
-                    border-radius: Style.controls.field-radius;
-                    border-width: Style.controls.border-width;
-                    border-color: Style.colors.border;
-                    background: root.color-value;
-                }
-
-                Text {
-                    horizontal-stretch: 1;
-                    text: root.value;
-                    color: Style.colors.text;
-                    font-size: Style.typography.control.size;
-                    vertical-alignment: center;
-                    overflow: elide;
-                }
-            }
-        }
-    }
-}
-
-export component InspectorSection inherits VerticalLayout {
-    in property <string> title;
-    spacing: Style.spacing.control-inset;
-
-    SectionTitle {
-        label: root.title;
-    }
-
-    @children
 }

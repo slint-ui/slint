@@ -3,8 +3,6 @@
 
 import { Style } from "../../style.slint";
 
-
-
 export component InspectorRotationKnob inherits FocusScope {
     in property <float> value;
     in property <string> accessible-name: "Rotation knob";
@@ -74,7 +72,7 @@ export component InspectorRotationKnob inherits FocusScope {
         border-color: root.has-focus ? Style.inspector.accent : Style.inspector.dial-ring-border;
         Rectangle {
             x: Style.inspector.dial-inset; y: Style.inspector.dial-inset; width: Style.inspector.dial-face-size; height: Style.inspector.dial-face-size;
-            border-radius: (Style.inspector.dial-size - Style.inspector.dial-dot-size) / 2;
+            border-radius: Style.inspector.dial-face-size / 2;
             background: Style.inspector.dial-face;
             border-width: Style.controls.hairline-width;
             border-color: Style.inspector.dial-face-border;

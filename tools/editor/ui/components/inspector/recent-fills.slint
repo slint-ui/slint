@@ -4,7 +4,6 @@
 import { Style } from "../../style.slint";
 import { Api, FillData } from "../../api.slint";
 
-
 export component InspectorRecentFills inherits Rectangle {
     in property <bool> allow-gradient;
     in property <bool> editable;
@@ -29,7 +28,7 @@ export component InspectorRecentFills inherits Rectangle {
                     return reject;
                 }
                 Rectangle {
-                    border-radius: Style.controls.compact-radius;
+                    border-radius: Style.controls.field-radius;
                     border-width: Style.controls.border-width;
                     border-color: parent.has-focus ? Style.inspector.accent : Style.inspector.divider;
                     background: Api.fill-brush(fill);

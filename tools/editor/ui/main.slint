@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style } from "style.slint";
+export { Style } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, Hover } from "api.slint";
@@ -19,11 +20,11 @@ import { EditorTopBar } from "components/top-bar.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
 import { LeftPane } from "components/left-pane.slint";
-import { EditorMetrics, EditorWindow } from "components/common.slint";
+import { EditorWindow } from "components/common.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export { Api, Hover, Preview, Project, FillSession }
-export { EditorCursors, EditorMetrics, EditorWindow } from "components/common.slint";
+export { EditorCursors, EditorWindow } from "components/common.slint";
 
 component NewFileErrorPopup inherits PopupWindow {
     in property <string> error;
@@ -36,7 +37,7 @@ component NewFileErrorPopup inherits PopupWindow {
     Rectangle {
         border-width: Style.controls.border-width;
         border-color: Style.colors.dialog-border;
-        border-radius: Style.controls.dialog-radius;
+        border-radius: Style.controls.panel-radius;
         background: Style.colors.dialog-bg;
         clip: true;
         drop-shadow-blur: Style.shadows.dialog.blur;
@@ -51,7 +52,7 @@ component NewFileErrorPopup inherits PopupWindow {
 
                 VerticalLayout {
                     padding: Style.layout.dialog-padding;
-                    spacing: Style.spacing.pane-inset;
+                    spacing: Style.spacing.medium;
 
                     HorizontalLayout {
                         spacing: Style.spacing.medium;
@@ -129,7 +130,7 @@ component NewFileErrorPopup inherits PopupWindow {
                     y: (parent.height - self.height) / 2;
                     border-width: Style.controls.border-width;
                     border-color: close-touch.pressed ? Style.colors.action-pressed : close-touch.has-hover ? Style.colors.action-hover : Style.colors.action-bg;
-                    border-radius: Style.controls.small-radius;
+                    border-radius: Style.controls.row-radius;
                     background: close-touch.pressed ? Style.colors.action-pressed : close-touch.has-hover ? Style.colors.action-hover : Style.colors.action-bg;
 
                     bt := Text {
@@ -237,7 +238,7 @@ export component EditorUi inherits Window {
 
     Rectangle {
         y: 0;
-        height: EditorMetrics.top-bar-height;
+        height: Style.layout.top-bar-height;
         WindowMoveArea {
             TouchArea {
                 double-clicked => { root.toggle-maximized(); }
@@ -305,7 +306,7 @@ export component EditorUi inherits Window {
 
                 VerticalLayout {
                     title-move-area := WindowMoveArea {
-                        height: EditorMetrics.top-bar-height;
+                        height: Style.layout.top-bar-height;
 
                         title-touch-area := TouchArea {
                             double-clicked => { root.toggle-maximized(); }
@@ -362,13 +363,13 @@ export component EditorUi inherits Window {
 
                 if root.sidebars-collapsed: Rectangle {
                     x: Style.spacing.large;
-                    y: EditorMetrics.top-bar-height + Style.spacing.medium;
+                    y: Style.layout.top-bar-height + Style.spacing.medium;
                     width: Style.layout.collapsed-panel-width;
                     height: Style.layout.collapsed-panel-height;
-                    border-radius: 12px;
+                    border-radius: Style.layout.collapsed-panel-radius;
                     border-width: Style.controls.border-width;
                     border-color: Style.colors.floating-border;
-                    background: Style.colors.panel-bg.with-alpha(0.92);
+                    background: Style.colors.floating-bg;
                     drop-shadow-blur: Style.shadows.floating.blur;
                     drop-shadow-offset-y: Style.shadows.floating.offset-y;
                     drop-shadow-color: Style.shadows.floating.color;
@@ -376,7 +377,7 @@ export component EditorUi inherits Window {
                     HorizontalLayout {
                         padding-left: Style.spacing.medium;
                         padding-right: Style.spacing.compact;
-                        spacing: Style.spacing.control-inset;
+                        spacing: Style.spacing.medium;
                         cross-axis-alignment: center;
 
                         Text {

@@ -153,8 +153,8 @@ export component InspectorComboBox inherits Rectangle {
             }
 
             Rectangle {
-                width: 16px;
-                height: 16px;
+                width: Style.controls.icon-size;
+                height: Style.controls.icon-size;
 
                 Image {
                     width: parent.width;
@@ -239,7 +239,7 @@ export component InspectorComboBox inherits Rectangle {
                             height: root.row-height;
                             border-radius: Style.inspector.field-radius;
                             background: index == root.highlighted-index
-                                ? Style.inspector.accent.with-alpha(0.16)
+                                ? Style.colors.selection-bg
                                 : row-touch.has-hover
                                 ? Style.inspector.field-bg-hover
                                 : transparent;

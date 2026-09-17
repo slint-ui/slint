@@ -91,7 +91,7 @@ export component InspectorEffectSlider inherits Rectangle {
         border-radius: self.width / 2;
         border-width: Style.controls.border-width;
         border-color: Style.inspector.panel-bg;
-        background: slider-touch.pressed ? Style.inspector.accent.with-alpha(0.88) : Style.inspector.accent;
+        background: slider-touch.pressed ? Style.inspector.slider-pressed : Style.inspector.accent;
         drop-shadow-blur: Style.shadows.slider.blur;
         drop-shadow-offset-y: Style.shadows.slider.offset-y;
         drop-shadow-color: Style.shadows.slider.color;

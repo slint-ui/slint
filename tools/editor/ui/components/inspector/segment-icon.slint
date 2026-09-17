@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorTokens } from "tokens.slint";
+import { Style } from "../../style.slint";
 
 export component InspectorSegmentIcon inherits Rectangle {
     in property <string> kind;
@@ -14,7 +14,7 @@ export component InspectorSegmentIcon inherits Rectangle {
             y: 5.5px + line * 3.5px;
             width: line == 1 ? 9.5px : 7px;
             height: 1px;
-            background: root.selected ? InspectorTokens.text : InspectorTokens.muted;
+            background: root.selected ? Style.inspector.text : Style.inspector.muted;
             border-radius: 1px;
         }
     }
@@ -25,7 +25,7 @@ export component InspectorSegmentIcon inherits Rectangle {
             y: root.index == 0 ? 3.5px : root.index == 1 ? 6px : 9px;
             width: 1px;
             height: 9px;
-            background: root.selected ? InspectorTokens.text : InspectorTokens.muted;
+            background: root.selected ? Style.inspector.text : Style.inspector.muted;
             border-radius: 1px;
         }
         Rectangle {
@@ -33,7 +33,7 @@ export component InspectorSegmentIcon inherits Rectangle {
             y: root.index == 0 ? 4px : root.index == 1 ? 7.5px : 12.5px;
             width: 8px;
             height: 1px;
-            background: root.selected ? InspectorTokens.text : InspectorTokens.muted;
+            background: root.selected ? Style.inspector.text : Style.inspector.muted;
             border-radius: 1px;
         }
         Rectangle {
@@ -41,7 +41,7 @@ export component InspectorSegmentIcon inherits Rectangle {
             y: root.index == 0 ? 2.5px : root.index == 1 ? 9.5px : 11px;
             width: 4px;
             height: 1px;
-            background: root.selected ? InspectorTokens.text : InspectorTokens.muted;
+            background: root.selected ? Style.inspector.text : Style.inspector.muted;
             border-radius: 1px;
         }
     }

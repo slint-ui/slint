@@ -50,9 +50,9 @@ export component InspectorGradientStops inherits Rectangle {
             }
             Rectangle {
                 x: Style.inspector.stop-ramp-inset;
-                width: parent.width - Style.inspector.stop-marker-size;
-                y: 4px;
-                height: Style.inspector.stop-marker-size;
+                width: parent.width - 2 * Style.inspector.stop-ramp-inset;
+                y: Style.spacing.small;
+                height: Style.inspector.field-height;
                 border-radius: Style.controls.field-radius;
                 background: Api.create-brush(BrushKind.linear, 90, transparent, root.value.stops);
                 border-width: ramp.has-focus ? Style.controls.border-width : 0px;
@@ -66,7 +66,7 @@ export component InspectorGradientStops inherits Rectangle {
                 checker-light: Style.colors.checker-light;
                 checker-dark: Style.colors.checker-dark;
                 x: stop.position.clamp(0, 1) * (parent.width - Style.inspector.stop-marker-size);
-                y: Style.inspector.stop-row-height;
+                y: Style.inspector.field-height + Style.spacing.small;
                 stop-color: stop.color;
                 active: index == root.selected-index;
                 z: self.active ? 1 : 0;
@@ -122,7 +122,7 @@ export component InspectorGradientStops inherits Rectangle {
             Text { text: "Position " + root.suffix; width: Style.inspector.stop-position-width; color: Style.inspector.muted; font-size: Style.typography.caption.size; }
             Text { text: "Color"; horizontal-stretch: 1; color: Style.inspector.muted; font-size: Style.typography.caption.size; }
             Text { text: "Opacity"; width: Style.inspector.stop-opacity-width; color: Style.inspector.muted; font-size: Style.typography.caption.size; }
-            Rectangle { width: Style.inspector.stop-marker-size; }
+            Rectangle { width: Style.inspector.stop-action-width; }
         }
         ScrollView {
             preferred-height: rows.preferred-height;
@@ -135,7 +135,7 @@ export component InspectorGradientStops inherits Rectangle {
                     private property <GradientStop> stop: root.value.stops[index];
                     height: Style.inspector.stop-row-height;
                     border-radius: Style.controls.field-radius;
-                    background: index == root.selected-index ? Style.inspector.accent.with-alpha(0.14) : transparent;
+                    background: index == root.selected-index ? Style.colors.selection-bg : transparent;
                     HorizontalLayout {
                         spacing: Style.spacing.compact;
                         InspectorTextFieldBase {
@@ -171,7 +171,7 @@ export component InspectorGradientStops inherits Rectangle {
                                 HorizontalLayout {
                                     spacing: Style.spacing.compact;
                                     cross-axis-alignment: center;
-                                    Rectangle { width: Style.inspector.stop-swatch-size; height: Style.inspector.stop-swatch-size; background: stop.color; border-radius: Style.controls.compact-radius; }
+                                    Rectangle { width: Style.inspector.stop-swatch-size; height: Style.inspector.stop-swatch-size; background: stop.color; border-radius: Style.controls.field-radius; }
                                     Text { text: Api.color-to-data(stop.color).short-text; color: Style.inspector.text; font-size: Style.typography.caption.size; vertical-alignment: center; }
                                 }
                                 TouchArea {
@@ -191,7 +191,7 @@ export component InspectorGradientStops inherits Rectangle {
                         }
                         Text { width: Style.inspector.stop-opacity-width; text: (stop.color.alpha * 100 / 255).to-fixed(0) + "%"; color: Style.inspector.text; font-size: Style.typography.caption.size; vertical-alignment: center; }
                         if root.value.stops.length > 2: InspectorSegment {
-                            width: Style.inspector.stop-marker-size;
+                            width: Style.inspector.stop-action-width;
                             kind: "text";
                             label: "−";
                             accessible-label: "Remove stop " + (index + 1);
@@ -199,7 +199,7 @@ export component InspectorGradientStops inherits Rectangle {
                                 FillSession.remove-stop(index);
                             }
                         }
-                        if root.value.stops.length <= 2: Rectangle { width: Style.inspector.stop-marker-size; }
+                        if root.value.stops.length <= 2: Rectangle { width: Style.inspector.stop-action-width; }
                     }
                 }
             }

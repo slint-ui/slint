@@ -10,8 +10,8 @@ component CornerMode inherits FocusScope {
     in property <bool> selected;
     in property <bool> separate;
     callback activated();
-    width: 28px;
-    height: 24px;
+    width: Style.controls.small-height;
+    height: Style.inspector.field-height;
     accessible-role: AccessibleRole.button;
     accessible-label: root.separate ? "Separate corners" : "All corners";
     accessible-value: root.selected ? "selected" : "";
@@ -81,7 +81,7 @@ export component InspectorCornerEditor inherits Rectangle {
                 canceled => { root.canceled(); }
             }
             InspectorValueField {
-                width: 72px;
+                width: Style.inspector.corner-field-width;
                 accessible-name: "All corner radii";
                 prefix: "px";
                 value: "\{slider.visual-value}";
@@ -95,7 +95,7 @@ export component InspectorCornerEditor inherits Rectangle {
                 spacing: Style.spacing.compact;
                 for column in 2: InspectorValueField {
                     property <int> index: row * 2 + column;
-                    width: (root.width - 6px) / 2;
+                    width: (root.width - Style.spacing.compact) / 2;
                     accessible-name: index == 0 ? "Top left corner radius" : index == 1 ? "Top right corner radius" : index == 2 ? "Bottom left corner radius" : "Bottom right corner radius";
                     corner-index: self.index;
                     value: "\{root.values[index]}";

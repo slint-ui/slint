@@ -22,7 +22,7 @@ export component InspectorSection inherits Rectangle {
         spacing: Style.spacing.compact;
 
         Rectangle {
-            height: 16px;
+            height: Style.inspector.section-title-size + Style.spacing.small;
 
             if root.use-shared-title: SectionTitle {
                 x: Style.inspector.side-padding;
@@ -44,7 +44,7 @@ export component InspectorSection inherits Rectangle {
             if root.show-appearance-icons: HorizontalLayout {
                 x: parent.width - Style.inspector.side-padding - self.preferred-width;
                 y: 0.5px;
-                height: 18px;
+                height: Style.controls.large-icon-size;
                 spacing: Style.spacing.regular;
 
                 InspectorIconButton { kind: "eye"; }
@@ -54,7 +54,7 @@ export component InspectorSection inherits Rectangle {
             if root.show-typography-icons: HorizontalLayout {
                 x: parent.width - Style.inspector.side-padding - self.preferred-width;
                 y: 0.5px;
-                height: 18px;
+                height: Style.controls.large-icon-size;
 
                 InspectorIconButton { kind: "type-grid"; }
             }
@@ -64,7 +64,7 @@ export component InspectorSection inherits Rectangle {
     }
 
     Rectangle {
-        y: root.height - 1px;
+        y: root.height - self.height;
         height: Style.controls.border-width;
         background: Style.inspector.divider;
     }

@@ -23,7 +23,6 @@ export component InspectorColorField inherits Rectangle {
     callback accepted(string) -> bool;
     private property <PropertyValue> property-data: Api.current-property-value-data(root.property-name);
 
-
     width: wide ? Style.inspector.wide-width : Style.inspector.column-width;
     height: Style.inspector.field-height;
 
@@ -39,7 +38,7 @@ export component InspectorColorField inherits Rectangle {
         }
 
         swatch-focus := FocusScope {
-            width: 24px;
+            width: Style.inspector.field-height;
             key-pressed(event) => {
                 if event.text == Key.Return || event.text == " " {
                     root.show-picker();
@@ -63,14 +62,14 @@ export component InspectorColorField inherits Rectangle {
                     y: 2.5px;
                     width: Style.controls.border-width;
                     height: 6px;
-                    background: Style.inspector.muted.with-alpha(0.35);
+                    background: Style.inspector.decorative-icon;
                 }
                 for col in 3: Rectangle {
                     x: 2.5px;
                     y: 2.5px + col * 2.5px;
                     width: 6px;
                     height: Style.controls.border-width;
-                    background: Style.inspector.muted.with-alpha(0.35);
+                    background: Style.inspector.decorative-icon;
                 }
             }
 

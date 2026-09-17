@@ -3,7 +3,6 @@
 
 import { Style } from "../style.slint";
 import { Api, UpdateState } from "../api.slint";
-import { EditorMetrics } from "common.slint";
 
 // The updater says the same things whatever the platform; only where they are
 // said differs. macOS has a unified title bar with room beside the traffic
@@ -31,7 +30,7 @@ export global UpdateStatus {
     }
 
     public pure function bar-height() -> length {
-        return root.shows-bar() ? EditorMetrics.status-bar-height : 0px;
+        return root.shows-bar() ? Style.layout.status-bar-height : 0px;
     }
 
     public pure function clickable() -> bool {
@@ -120,7 +119,7 @@ export component UpdateStatusPill inherits Rectangle {
 // The window's bottom edge everywhere else. It is part of the layout rather
 // than an overlay, so the canvas gives up the height instead of being covered.
 export component UpdateStatusBar inherits Rectangle {
-    height: EditorMetrics.status-bar-height;
+    height: Style.layout.status-bar-height;
     background: Style.colors.panel-bg;
     clip: true;
 

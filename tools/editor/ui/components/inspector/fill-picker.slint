@@ -5,7 +5,7 @@ import { Style } from "../../style.slint";
 import { FillSession } from "fill-session.slint";
 
 import { BrushKind } from "../../api.slint";
-import { EditorMetrics, EditorWindow } from "../common.slint";
+import { EditorWindow } from "../common.slint";
 
 import { InspectorColorControls } from "color-controls.slint";
 
@@ -55,7 +55,7 @@ export component InspectorFillPicker inherits Rectangle {
                 main-panel := InspectorPickerPanel {
                     x: FillSession.stop-panel-open && root.stop-on-left && !root.stacked ? root.panel-step : 0px;
                     y: 0px;
-                    height: min(self.preferred-height, max(200px, EditorWindow.height - 2 * root.margin - (root.stacked ? stop-panel.height + Style.inspector.picker-gap : 0px)));
+                    height: min(self.preferred-height, max(Style.inspector.picker-min-height, EditorWindow.height - 2 * root.margin - (root.stacked ? stop-panel.height + Style.inspector.picker-gap : 0px)));
                     title: "Custom";
                     closed => {
                         FillSession.close-picker(true, true);

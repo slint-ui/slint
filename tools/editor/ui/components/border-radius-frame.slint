@@ -3,7 +3,7 @@
 
 import { Style } from "../style.slint";
 import { CanvasCorner } from "../api.slint";
-import { EditorMetrics } from "common.slint";
+
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
 export component BorderRadiusFrame inherits MoveResizeFrame {
@@ -26,7 +26,7 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
     function radius-from-handle(corner: CanvasCorner, pointer-x: length, pointer-y: length) -> length {
         let from-left = root.corner-on-left(corner) ? pointer-x : root.width - pointer-x;
         let from-top = root.corner-on-top(corner) ? pointer-y : root.height - pointer-y;
-        return (min(from-left, from-top) - EditorMetrics.radius-handle-inset).clamp(0px, root.max-corner-radius());
+        return (min(from-left, from-top) - Style.canvas.radius-handle-inset).clamp(0px, root.max-corner-radius());
     }
 
     function max-corner-radius() -> length {
@@ -61,22 +61,22 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
     ]: Rectangle {
         property <length> radius: root.preview-radius(corner);
         property <length> handle-center-x: root.corner-on-left(corner)
-            ? EditorMetrics.radius-handle-inset + radius
-            : root.width - EditorMetrics.radius-handle-inset - radius;
+            ? Style.canvas.radius-handle-inset + radius
+            : root.width - Style.canvas.radius-handle-inset - radius;
         property <length> handle-center-y: root.corner-on-top(corner)
-            ? EditorMetrics.radius-handle-inset + radius
-            : root.height - EditorMetrics.radius-handle-inset - radius;
+            ? Style.canvas.radius-handle-inset + radius
+            : root.height - Style.canvas.radius-handle-inset - radius;
 
         visible: root.enable-border-radius-edits
             && root.active
             && !root.move-pressed
             && !root.rotating
             && (root.frame-hover || root.radius-handle-active);
-        x: handle-center-x - EditorMetrics.radius-handle-size / 2;
-        y: handle-center-y - EditorMetrics.radius-handle-size / 2;
-        width: EditorMetrics.radius-handle-size;
-        height: EditorMetrics.radius-handle-size;
-        border-radius: EditorMetrics.radius-handle-size / 2;
+        x: handle-center-x - Style.canvas.radius-handle-size / 2;
+        y: handle-center-y - Style.canvas.radius-handle-size / 2;
+        width: Style.canvas.radius-handle-size;
+        height: Style.canvas.radius-handle-size;
+        border-radius: Style.canvas.radius-handle-size / 2;
         background: Style.colors.handle-border;
         border-width: Style.controls.border-width;
         border-color: Style.colors.accent-strong;

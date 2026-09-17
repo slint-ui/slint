@@ -4,7 +4,7 @@
 import { Style } from "../style.slint";
 import { Api, EditorSurfaceMode } from "../api.slint";
 import { Preview } from "../preview.slint";
-import { EditorMetrics } from "common.slint";
+
 import { Project } from "../project.slint";
 
 component RunButton inherits Rectangle {
@@ -39,7 +39,7 @@ component RunButton inherits Rectangle {
 }
 
 export component EditorTopBar inherits Rectangle {
-    height: EditorMetrics.top-bar-height;
+    height: Style.layout.top-bar-height;
     background: Style.colors.panel-bg;
 
     Rectangle {

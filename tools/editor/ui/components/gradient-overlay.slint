@@ -46,11 +46,11 @@ component GradientHandle inherits FocusScope {
     if root.endpoint: Rectangle {
         width: Style.canvas.gradient-endpoint-size;
         height: Style.canvas.gradient-endpoint-size;
-        border-radius: Style.controls.row-radius;
+        border-radius: self.width / 2;
         background: Style.colors.handle-border;
         border-width: root.has-focus ? Style.controls.focus-width : 0px;
         border-color: Style.colors.accent-strong;
-        drop-shadow-blur: 3px;
+        drop-shadow-blur: Style.shadows.gradient-endpoint.blur;
         drop-shadow-color: Style.shadows.gradient-endpoint.color;
     }
     touch := TouchArea {
@@ -270,11 +270,11 @@ export component GradientOverlay inherits FocusScope {
             }
         }
         line := Rectangle {
-            height: 10px;
+            height: Style.canvas.gradient-axis-hit-size;
             Rectangle {
-                height: 2px;
+                height: Style.canvas.gradient-axis-width;
                 background: Style.colors.handle-border;
-                drop-shadow-blur: 2px;
+                drop-shadow-blur: Style.shadows.gradient-axis.blur;
                 drop-shadow-color: Style.shadows.gradient-axis.color;
             }
             touch := TouchArea {
@@ -282,7 +282,7 @@ export component GradientOverlay inherits FocusScope {
                 accessible-role: AccessibleRole.button;
                 accessible-label: "Gradient axis";
                 pure function pointer() -> Point {
-                    return group.window-point({ x: self.mouse-x, y: self.mouse-y - 5px });
+                    return group.window-point({ x: self.mouse-x, y: self.mouse-y - Style.canvas.gradient-axis-hit-size / 2 });
                 }
                 changed pressed => {
                     if self.pressed { root.focus(); root.begin(GradientGestureKind.axis, self.pointer()); }
@@ -314,8 +314,8 @@ export component GradientOverlay inherits FocusScope {
                 / max(1px * 1px, (root.axis.end.x - root.axis.start.x) * (root.axis.end.x - root.axis.start.x)
                     + (root.axis.end.y - root.axis.start.y) * (root.axis.end.y - root.axis.start.y));
             x: (root.conic ? root.axis-length * cos(self.stop-angle) : self.relative * root.axis-length) - self.width / 2;
-            y: root.conic ? root.axis-length * sin(self.stop-angle) + 6px : 5px;
-            transform-origin: { x: self.width / 2, y: -6px };
+            y: root.conic ? root.axis-length * sin(self.stop-angle) + Style.canvas.gradient-stop-offset : Style.canvas.gradient-axis-hit-size / 2;
+            transform-origin: { x: self.width / 2, y: -Style.canvas.gradient-stop-offset };
             transform-rotation: self.marker-angle;
             color: FillSession.working-fill.stops[index].color;
             selected: index == FillSession.selected-stop;
@@ -323,10 +323,10 @@ export component GradientOverlay inherits FocusScope {
             focus-generation: root.focus-epoch;
             window-point(p) => {
                 let dx = p.x - self.width / 2;
-                let dy = p.y + 6px;
+                let dy = p.y + Style.canvas.gradient-stop-offset;
                 return group.window-point({
                     x: self.x + self.width / 2 + dx * cos(self.marker-angle) - dy * sin(self.marker-angle),
-                    y: self.y - 6px + dx * sin(self.marker-angle) + dy * cos(self.marker-angle),
+                    y: self.y - Style.canvas.gradient-stop-offset + dx * sin(self.marker-angle) + dy * cos(self.marker-angle),
                 });
             }
             keyboard(event) => { return root.handle-key(GradientGestureKind.stop, event); }

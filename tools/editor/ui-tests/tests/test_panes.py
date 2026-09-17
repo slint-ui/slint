@@ -205,8 +205,9 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
             <= window.size.height
         )
         pane = window_element_with_label(window, "Project and elements")
+        assert no_results.absolute_position.x >= pane.absolute_position.x + 12
         assert no_results.absolute_position.x + no_results.size.width <= (
-            pane.absolute_position.x + pane.size.width - 14
+            pane.absolute_position.x + pane.size.width - 12
         )
         double_click(window, elements)
 

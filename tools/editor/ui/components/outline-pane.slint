@@ -14,11 +14,10 @@ export component OutlinePane inherits Rectangle {
     callback drag-started();
 
     // background: Style.tree.row-bg-hover;
-    border-color: Colors.darkcyan;
 
     VerticalLayout {
-        padding-right: Style.spacing.control-inset;
-        padding-top: Style.spacing.pane-inset;
+        padding-right: Style.spacing.medium;
+        padding-top: Style.spacing.medium;
         padding-bottom: Style.spacing.medium;
         spacing: Style.spacing.small;
 
@@ -36,8 +35,8 @@ export component OutlinePane inherits Rectangle {
             vertical-stretch: 1;
 
             Text {
-                x: 16px;
-                width: parent.width - 32px;
+                x: Style.spacing.large;
+                width: parent.width - 2 * Style.spacing.large;
                 text: root.image-mode ? "Nothing to Outline" : "No outline available";
                 color: Style.colors.muted;
                 font-size: Style.typography.control.size;
@@ -86,7 +85,7 @@ export component OutlinePane inherits Rectangle {
                 root-drop-target := Rectangle {
                     horizontal-stretch: 1;
                     vertical-stretch: 0;
-                    height: root-drop-area.has-drag ? 28px : Style.tree.root-drop-height;
+                    height: root-drop-area.has-drag ? Style.controls.small-height : Style.tree.root-drop-height;
                     border-radius: Style.tree.row-radius;
                     border-width: root-drop-area.has-drag && self.drop-allowed
                         ? Style.tree.drop-target-border-width

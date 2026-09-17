@@ -2,20 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style } from "style.slint";
-import { Palette } from "std-widgets.slint";
 import { Project } from "project.slint";
-
-global WizardTheme {
-    out property <bool> dark: Style.dark;
-    out property <color> stage-bg: Style.welcome.stage-bg;
-    out property <color> shell-bg: Style.welcome.shell-bg;
-    out property <color> side-bg: Style.welcome.side-bg;
-    out property <color> control-bg: Style.welcome.control-bg;
-    out property <color> control-hover: Style.welcome.control-hover;
-    out property <color> text: Style.welcome.text;
-    out property <color> muted: Style.welcome.muted;
-    out property <color> accent: Style.welcome.accent;
-}
 
 component BrandMark inherits Rectangle {
     in-out property <length> mark-size: 90px;
@@ -53,13 +40,13 @@ component BrandMark inherits Rectangle {
 component ActionIcon inherits Rectangle {
     in property <bool> folder: false;
 
-    width: 18px;
-    height: 18px;
+    width: Style.controls.large-icon-size;
+    height: Style.controls.large-icon-size;
     background: transparent;
 
     Image {
-        width: 18px;
-        height: 18px;
+        width: Style.controls.large-icon-size;
+        height: Style.controls.large-icon-size;
         source: root.folder
             ? @image-url("assets/primer-folder-open.svg")
             : @image-url("assets/primer-plus-circle.svg");
@@ -90,7 +77,7 @@ component WelcomeAction inherits Rectangle {
     HorizontalLayout {
         padding-left: Style.welcome.action-inset;
         padding-right: Style.welcome.action-inset;
-        spacing: Style.spacing.control-inset;
+        spacing: Style.spacing.medium;
         cross-axis-alignment: center;
 
         ActionIcon {
@@ -253,7 +240,7 @@ export component StartupWizard inherits Rectangle {
 
         Text {
             x: 0px;
-            y: hero-title.y + hero-title.height - 2px;
+            y: hero-title.y + hero-title.height - Style.spacing.tight;
             width: root.main-width;
             height: Style.welcome.hero-subtitle-height;
             text: "Version 1.0";

@@ -4,7 +4,7 @@
 import { Style } from "../style.slint";
 import { FillSession } from "inspector/fill-session.slint";
 import { Api, Hover, PropertyValueKind, SelectionRectangle } from "../api.slint";
-import { EditorAngles, EditorCursors, EditorMetrics } from "common.slint";
+import { EditorAngles, EditorCursors } from "common.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
@@ -436,11 +436,11 @@ export component CanvasInteractionLayer inherits Rectangle {
         transform-rotation: geometry.angle;
         visible: Hover.element.valid && !root.hover-selection-active;
         Rectangle {
-            x: -EditorMetrics.hover-outline-width;
-            y: -EditorMetrics.hover-outline-width;
-            width: parent.width + 2 * EditorMetrics.hover-outline-width;
-            height: parent.height + 2 * EditorMetrics.hover-outline-width;
-            border-width: EditorMetrics.hover-outline-width;
+            x: -Style.canvas.hover-outline-width;
+            y: -Style.canvas.hover-outline-width;
+            width: parent.width + 2 * Style.canvas.hover-outline-width;
+            height: parent.height + 2 * Style.canvas.hover-outline-width;
+            border-width: Style.canvas.hover-outline-width;
             border-color: Style.colors.canvas-outline;
             border-top-left-radius: geometry.top-left-radius > 0px ? geometry.top-left-radius + self.border-width : 0px;
             border-top-right-radius: geometry.top-right-radius > 0px ? geometry.top-right-radius + self.border-width : 0px;

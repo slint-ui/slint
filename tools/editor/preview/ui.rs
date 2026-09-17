@@ -1630,6 +1630,69 @@ mod tests {
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
 
     #[test]
+    fn style_updates_existing_editor_when_system_theme_changes() {
+        slint::platform::set_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
+            i_slint_backend_testing::TestingBackendOptions {
+                mock_time: true,
+                threading: false,
+                renderer_name: Some("skia".into()),
+            },
+        )))
+        .unwrap();
+        let editor = super::EditorUi::new().unwrap();
+        editor.show().unwrap();
+        let style = editor.global::<super::Style>();
+        let luminance = |color: slint::Color| {
+            let linear = |channel: u8| {
+                let channel = f64::from(channel) / 255.;
+                if channel <= 0.04045 {
+                    channel / 12.92
+                } else {
+                    ((channel + 0.055) / 1.055).powf(2.4)
+                }
+            };
+            0.2126 * linear(color.red())
+                + 0.7152 * linear(color.green())
+                + 0.0722 * linear(color.blue())
+        };
+        let mut surfaces = Vec::new();
+        let mut renders = Vec::new();
+        for scheme in [
+            i_slint_core::items::ColorScheme::Light,
+            i_slint_core::items::ColorScheme::Dark,
+            i_slint_core::items::ColorScheme::Light,
+        ] {
+            i_slint_core::context::with_global_context(
+                || unreachable!("testing backend is initialized"),
+                |context| context.set_color_scheme(scheme),
+            )
+            .unwrap();
+            assert_eq!(style.get_dark(), scheme == i_slint_core::items::ColorScheme::Dark);
+            let colors = style.get_colors();
+            surfaces.push(colors.panel_bg);
+            let mut render = Vec::new();
+            for welcome in [false, true] {
+                editor.global::<super::Api>().set_startup_wizard_visible(welcome);
+                slint::platform::update_timers_and_animations();
+                let snapshot = editor.window().take_snapshot().unwrap();
+                render.extend_from_slice(snapshot.as_bytes());
+            }
+            renders.push(render);
+            for background in [colors.action_bg, colors.action_hover, colors.action_pressed] {
+                let foreground = luminance(colors.action_text);
+                let background = luminance(background);
+                let contrast =
+                    (foreground.max(background) + 0.05) / (foreground.min(background) + 0.05);
+                assert!(contrast >= 4.5, "filled action contrast: {contrast}");
+            }
+        }
+        assert_ne!(surfaces[0], surfaces[1]);
+        assert_eq!(surfaces[0], surfaces[2]);
+        assert_ne!(renders[0], renders[1]);
+        assert_eq!(renders[0], renders[2]);
+    }
+
+    #[test]
     fn begin_fill_session_accepts_previous_target_before_replacing_it() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();

@@ -127,14 +127,14 @@ export component InspectorColorControls inherits Rectangle {
         Rectangle {
             height: root.field-height;
             Rectangle {
-                border-radius: Style.controls.small-radius;
+                border-radius: Style.controls.row-radius;
                 clip: true;
                 background: hsv(root.hue, 1, 1);
 
                 Rectangle { background: @linear-gradient(90deg, white 0%, transparent 100%); }
                 Rectangle { background: @linear-gradient(0deg, black 0%, transparent 100%); }
                 Rectangle {
-                    border-radius: Style.controls.small-radius;
+                    border-radius: Style.controls.row-radius;
                     border-width: Style.controls.border-width;
                     border-color: Style.inspector.divider;
                 }

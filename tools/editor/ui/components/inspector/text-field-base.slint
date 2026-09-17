@@ -3,7 +3,6 @@
 
 import { Style } from "../../style.slint";
 
-
 export component InspectorTextFieldBase inherits Rectangle {
     in property <string> accessible-name: "";
     in property <string> value;
@@ -21,7 +20,7 @@ export component InspectorTextFieldBase inherits Rectangle {
 
     height: Style.inspector.field-height;
     border-radius: Style.inspector.field-radius;
-    background: !enabled ? Style.inspector.field-bg.with-alpha(0.65) : input.has-focus ? Style.inspector.panel-bg : touch.has-hover ? Style.inspector.field-bg-hover : Style.inspector.field-bg;
+    background: !enabled ? Style.inspector.read-only-bg : input.has-focus ? Style.inspector.panel-bg : touch.has-hover ? Style.inspector.field-bg-hover : Style.inspector.field-bg;
     border-width: input.has-focus ? Style.controls.border-width : 0px;
     border-color: Style.inspector.accent;
     accessible-role: AccessibleRole.text-input;
@@ -84,7 +83,7 @@ export component InspectorTextFieldBase inherits Rectangle {
                 color: root.input-color;
                 font-size: root.input-font-size;
                 vertical-alignment: center;
-                selection-background-color: Style.inspector.accent.with-alpha(0.28);
+                selection-background-color: Style.colors.text-selection-bg;
                 text-cursor-width: Style.controls.border-width;
 
                 edited => {

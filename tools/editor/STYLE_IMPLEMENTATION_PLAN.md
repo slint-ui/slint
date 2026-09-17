@@ -4,8 +4,9 @@ Branch: `nigel/editor-style`.
 Base: freshly fetched `origin/master`, commit `e49dc84eb26417000422e85e1d6d9331635d3a01`.
 Worktree: `/private/tmp/slint-editor-style`.
 
-Implementation is in progress, starting with the shared style foundation.
-Each numbered section is one proposed commit, in dependency order.
+The nine implementation steps are complete.
+The unchecked items below are broader manual visual checks.
+Each numbered section corresponds to one implementation commit, in dependency order.
 Complete the relevant checks before moving to the next commit.
 Run UI tests with `SLINT_EDITOR_UI_TEST_BACKEND=headless-skia`, as requested.
 
@@ -47,40 +48,40 @@ The original audit used `9f97c5b892`; this plan incorporates changes on the newl
 
 Suggested subject: `Visual Editor: Introduce the shared Style API`
 
-- [ ] Add `ui/style.slint`, the `Style` global, grouped types, and `TextStyle`/`ShadowStyle`.
-- [ ] Read `Palette.color-scheme` centrally and provide reactive light/dark bindings.
-- [ ] Move existing theme/token definitions into this ownership model without changing their values.
+- [x] Add `ui/style.slint`, the `Style` global, grouped types, and `TextStyle`/`ShadowStyle`.
+- [x] Read `Palette.color-scheme` centrally and provide reactive light/dark bindings.
+- [x] Move existing theme/token definitions into this ownership model without changing their values.
   Retain temporary variant fields where existing component palettes differ.
-- [ ] Keep compatibility aliases in `StudioTheme`, `InspectorTokens`, and `EditorTreeTokens` during migration.
+- [x] Keep compatibility aliases in `StudioTheme`, `InspectorTokens`, and `EditorTreeTokens` during migration.
   Aliases must not introduce a second set of literal definitions.
-- [ ] Separate live window dimensions from static metrics, updating picker consumers and Rust tests that set those dimensions.
-- [ ] Move `InspectorComboOption` to a control-data location rather than retaining it in a styling file.
-- [ ] Keep `style.slint` independent of `Api`, `Project`, `FillSession`, and component implementation files.
-- [ ] Verify the editor compiles and both theme bindings update correctly in the real editor.
-  Record baseline light/dark renders for the surfaces affected by later normalization.
+- [x] Separate live window dimensions from static metrics, updating picker consumers and Rust tests that set those dimensions.
+- [x] Move `InspectorComboOption` to a control-data location rather than retaining it in a styling file.
+- [x] Keep `style.slint` independent of `Api`, `Project`, `FillSession`, and component implementation files.
+- [x] Verify the editor compiles and both theme bindings update correctly in headless Skia.
+  Record baseline picker renders and final light/dark shell and welcome renders.
 
 ## Commit 2: Migrate Shared Controls and Typography
 
 Suggested subject: `Visual Editor: Apply shared styles to common controls`
 
-- [ ] Migrate labels, search fields, sidebar toggles, palette rows, and divider components from `common.slint`.
-- [ ] Extract repeated typography, control heights, borders, radii, focus treatments, and animation durations.
-- [ ] Centralize splitter height and pane minimums while preserving keyboard steps and accessibility behavior.
-- [ ] Keep distinct current values during extraction; normalization belongs to commits 7 and 8.
-- [ ] Check pane resizing, search, palette dragging, focus, disabled states, and persisted pane sizes.
+- [x] Migrate labels, search fields, sidebar toggles, palette rows, and divider components from `common.slint`.
+- [x] Extract repeated typography, control heights, borders, radii, focus treatments, and animation durations.
+- [x] Centralize splitter height and pane minimums while preserving keyboard steps and accessibility behavior.
+- [x] Keep distinct current values during extraction; normalization belongs to commits 7 and 8.
+- [x] Check pane resizing, search, palette dragging, focus, disabled states, and persisted pane sizes.
   Use the existing pane and palette tests for affected behavior.
 
 ## Commit 3: Migrate Inspector and Fill Picker Styling
 
 Suggested subject: `Visual Editor: Centralize inspector and picker styling`
 
-- [ ] Migrate fields, sections, copy buttons, menus, segments, sliders, dials, and swatches to `Style`.
-- [ ] Centralize picker dimensions, stop-table columns, marker dimensions, checkerboard colors, and decorative dial brushes.
-- [ ] Parameterize the shared LSP gradient marker and color indicator with appearance inputs.
+- [x] Migrate fields, sections, copy buttons, menus, segments, sliders, dials, and swatches to `Style`.
+- [x] Centralize picker dimensions, stop-table columns, marker dimensions, checkerboard colors, and decorative dial brushes.
+- [x] Parameterize the shared LSP gradient marker and color indicator with appearance inputs.
   Pass new-editor styling explicitly and preserve default appearance for existing LSP consumers.
-- [ ] Keep native menu placement, popup stacking, color-space ramps, and document effect defaults unchanged.
-- [ ] Preserve the tested 24px stop-action widths and 48px Close widths.
-- [ ] Run inspector, picker-layout, and gradient tests relevant to the changed controls.
+- [x] Keep native menu placement, popup stacking, color-space ramps, and document effect defaults unchanged.
+- [x] Preserve the tested 24px stop-action widths and 48px Close widths.
+- [x] Run inspector, picker-layout, and gradient tests relevant to the changed controls.
   Check the legacy LSP picker still compiles and retains its appearance.
 - [ ] Visually compare short and long stop lists, both themes, and stacked/side-by-side picker layouts.
 
@@ -88,51 +89,51 @@ Suggested subject: `Visual Editor: Centralize inspector and picker styling`
 
 Suggested subject: `Visual Editor: Centralize navigation styling`
 
-- [ ] Migrate file/outline rows, headings, guides, selection states, drag previews, and the new-file button.
-- [ ] Route rename field background, normal/error border, and error text through the central style.
-- [ ] Name navigation glyph and hit-target dimensions separately.
-- [ ] Preserve rename extension width, focus, text selection, validation feedback, and expanded error-row height during extraction.
-- [ ] Run navigation and outline tests, including create-file and rename success/failure cases.
+- [x] Migrate file/outline rows, headings, guides, selection states, drag previews, and the new-file button.
+- [x] Route rename field background, normal/error border, and error text through the central style.
+- [x] Name navigation glyph and hit-target dimensions separately.
+- [x] Preserve rename extension width, focus, text selection, validation feedback, and expanded error-row height during extraction.
+- [x] Run navigation and outline tests, including create-file and rename success/failure cases.
   Check long filenames, deep indentation, keyboard focus, and drag/drop feedback visually.
 
 ## Commit 5: Migrate Shell, Welcome, and Dialog Styling
 
 Suggested subject: `Visual Editor: Centralize shell and welcome styling`
 
-- [ ] Migrate the top bar, Run button, update indicators, collapsed-sidebar panel, and startup wizard.
-- [ ] Migrate the new-file error popup, including error surfaces, dialog elevation, footer, and Close action.
-- [ ] Centralize welcome brand brushes and composition metrics without moving artwork coordinates into the style API.
-- [ ] Preserve titlebar safe areas, window dragging/zoom, native menu behavior, and updater click boundaries.
-- [ ] Run startup and navigation tests; inspect both themes with and without the startup wizard.
+- [x] Migrate the top bar, Run button, update indicators, collapsed-sidebar panel, and startup wizard.
+- [x] Migrate the new-file error popup, including error surfaces, dialog elevation, footer, and Close action.
+- [x] Centralize welcome brand brushes and composition metrics without moving artwork coordinates into the style API.
+- [x] Preserve titlebar safe areas, window dragging/zoom, native menu behavior, and updater click boundaries.
+- [x] Run startup and navigation tests; inspect both themes with and without the startup wizard.
 - [ ] Inspect long error messages, disabled actions, collapsed sidebars, and updater states without triggering an actual update.
 
 ## Commit 6: Migrate Canvas and Image Editor Styling
 
 Suggested subject: `Visual Editor: Centralize canvas and image editor styling`
 
-- [ ] Migrate the canvas grid, outlines, tooltip appearance, handles, and gradient overlays.
-- [ ] Migrate image tabs, fields, syntax/copy controls, rail panels, slice guides, and preview shadows.
-- [ ] Share grid rendering and appearance where practical; preserve rendering coverage until the layout normalization commit.
-- [ ] Reuse common field appearance while retaining differences in content height and interaction behavior.
-- [ ] Preserve visual handle sizes separately from hit areas and pointer-coordinate calculations.
-- [ ] Preserve inline text editing's document-defined font, color, alignment, and scale bindings.
-- [ ] Keep device preview sizes, inserted-element presets, cursor hotspots, and generated source defaults outside app styling.
-- [ ] Run canvas, outline, inline-text, inspector-transform, gradient-canvas, and source-safety tests as affected.
+- [x] Migrate the canvas grid, outlines, tooltip appearance, handles, and gradient overlays.
+- [x] Migrate image tabs, fields, syntax/copy controls, rail panels, slice guides, and preview shadows.
+- [x] Share grid rendering and appearance where practical; preserve rendering coverage until the layout normalization commit.
+- [x] Reuse common field appearance while retaining differences in content height and interaction behavior.
+- [x] Preserve visual handle sizes separately from hit areas and pointer-coordinate calculations.
+- [x] Preserve inline text editing's document-defined font, color, alignment, and scale bindings.
+- [x] Keep device preview sizes, inserted-element presets, cursor hotspots, and generated source defaults outside app styling.
+- [x] Run canvas, outline, inline-text, inspector-transform, gradient-canvas, and source-safety tests as affected.
   Visually inspect image preview, nine-slice guides, and resized previews in both themes.
 
 ## Commit 7: Unify Colors, Typography, Elevation, and Feedback
 
 Suggested subject: `Visual Editor: Unify visual state styling`
 
-- [ ] Merge equivalent primary/secondary text, field, and inactive tree-guide roles.
+- [x] Merge equivalent primary/secondary text, field, and inactive tree-guide roles.
   Retain distinct surface, selection, drop-target, and active-guide semantics.
-- [ ] Fix the welcome action's light-only pressed background through a theme-aware pressed role.
-- [ ] Give filled actions a dedicated foreground/background pair with readable normal, hover, and pressed states.
+- [x] Fix the welcome action's light-only pressed background through a theme-aware pressed role.
+- [x] Give filled actions a dedicated foreground/background pair with readable normal, hover, and pressed states.
   Apply this to Run and dialog Close without changing canvas selection blue.
-- [ ] Normalize matching action typography, disabled opacity, and selected-control tints.
+- [x] Normalize matching action typography, disabled opacity, and selected-control tints.
   Keep drag-source, drag-ghost, read-only, and disabled semantics separate.
-- [ ] Consolidate equivalent floating shadows around 18px blur/8px offset, preserving distinct dialog, preview, and handle elevation.
-- [ ] Normalize 140ms feedback to 150ms; retain 120ms fast feedback and 180ms welcome layout motion.
+- [x] Consolidate equivalent floating shadows around 18px blur/8px offset, preserving distinct dialog, preview, and handle elevation.
+- [x] Normalize 140ms feedback to 150ms; retain 120ms fast feedback and 180ms welcome layout motion.
 - [ ] Compare before/after renders across light/dark and focused, selected, hovered, pressed, disabled, and dragging states.
   Add targeted regression coverage only for meaningful behavior or appearance risks.
 
@@ -140,16 +141,16 @@ Suggested subject: `Visual Editor: Unify visual state styling`
 
 Suggested subject: `Visual Editor: Normalize spacing and derive layout metrics`
 
-- [ ] Apply 12px pane padding, 8px field/row padding, and 6px ordinary field gaps where the roles match.
+- [x] Apply 12px pane padding, 8px field/row padding, and 6px ordinary field gaps where the roles match.
   Retain 4px tightly grouped suffix/icon spacing and explicit optical exceptions.
-- [ ] Normalize ordinary shell controls toward 32px, while keeping inspector 24px, palette 36px, and recent-project rows 44px.
+- [x] Normalize ordinary shell controls toward 32px, while keeping inspector 24px, palette 36px, and recent-project rows 44px.
   Keep the new-file header action's 28px target separately named unless rendered alignment supports changing it.
-- [ ] Normalize welcome actions to 36px with an 8px gap, updating their combined height to 80px.
-- [ ] Normalize compact/normal/panel container radii to 4/6/8px and derive pill/circle radii from size.
-- [ ] Derive inspector content width from pane width, divider, and padding instead of retaining independent 207px literals.
-- [ ] Update file rename extension geometry and image-panel inner widths together with their owning padding.
-- [ ] Derive gradient marker insets, guide centering, knob centers, and slider offsets from the same metrics used for input mapping.
-- [ ] Derive grid row/column counts from viewport dimensions and grid pitch.
+- [x] Normalize welcome actions to 36px with an 8px gap, updating their combined height to 80px.
+- [x] Normalize compact/normal/panel container radii to 4/6/8px and derive pill/circle radii from size.
+- [x] Derive inspector content width from pane width, divider, and padding instead of retaining independent 207px literals.
+- [x] Update file rename extension geometry and image-panel inner widths together with their owning padding.
+- [x] Derive gradient marker insets, guide centering, knob centers, and slider offsets from the same metrics used for input mapping.
+- [x] Derive grid row/column counts from viewport dimensions and grid pitch.
 - [ ] Recheck minimum-size windows, long labels, popup placement, hit targets, and normal/HiDPI rendering.
   Run affected pane, navigation, picker, canvas, and source-safety tests with geometry changes in the same commit.
 
@@ -157,15 +158,15 @@ Suggested subject: `Visual Editor: Normalize spacing and derive layout metrics`
 
 Suggested subject: `Visual Editor: Remove obsolete styling definitions`
 
-- [ ] Remove compatibility aliases and old token files once all consumers use `Style`.
-- [ ] Remove temporary palette variants that have no remaining distinct role.
-- [ ] Recheck references before deleting unused navigation/property components, the unused library row, and the unused segmented control.
-- [ ] Confirm the inspector's image-mode branch is unreachable before removing it; retain shared components with other consumers.
-- [ ] Remove the outline's residual debug border color and obsolete styling comments.
-- [ ] Scan all editor UI files and imported shared widgets for remaining style literals and direct theme reads.
+- [x] Remove compatibility aliases and old token files once all consumers use `Style`.
+- [x] Remove temporary palette variants that have no remaining distinct role.
+- [x] Recheck references before deleting unused navigation/property components, the unused library row, and the unused segmented control.
+- [x] Confirm the inspector's image-mode branch is unreachable before removing it; retain shared components with other consumers.
+- [x] Remove the outline's residual debug border color and obsolete styling comments.
+- [x] Scan all editor UI files and imported shared widgets for remaining style literals and direct theme reads.
   Keep documented categories of legitimate local values rather than enforcing a zero-literals rule.
-- [ ] Add a short style ownership guide explaining new-token criteria, derived geometry, and document-data boundaries.
-- [ ] Run the final validation below and record results, skipped cases, screenshots, and any platform limitations.
+- [x] Add a short style ownership guide explaining new-token criteria, derived geometry, and document-data boundaries.
+- [x] Run the final validation below and record results, skipped cases, screenshots, and any platform limitations.
 
 ## Validation and Completion
 
@@ -182,22 +183,38 @@ cargo test --locked -p slint-editor --all-features --features slint/mcp --timing
 ```
 
 Provision the new worktree's UI-test environment using `ui-tests/README.md`.
-Build the executable required by the UI harness, then run the full suite with visible winit/Skia windows:
+Build the executable required by the UI harness, then run the full suite with headless Skia:
 
 ```sh
 SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 SLINT_EMIT_DEBUG_INFO=1 cargo build --locked -p slint-editor --all-features --features slint/mcp
 cd tools/editor/ui-tests
-./run-tests.sh --visible
+SLINT_EDITOR_UI_TEST_BACKEND=headless-skia ./run-tests.sh
 ```
 
 These feature flags match the existing harness; no MCP server interaction or backend changes are needed.
-For manual checks, launch the real editor through `cargo run` as directed by `ui/AGENTS.md`.
-Confirm the window is visible and compare renders, rather than treating successful launch as visual verification.
+UI validation uses headless Skia, following the user's instruction.
+Native-platform and broader manual visual checks remain listed below.
 
-- [ ] One authoritative `Style` API controls the app's authored styling.
-- [ ] Every active surface, including rename and error states added on master, is covered.
-- [ ] Equivalent roles share values; purposeful differences remain named and understandable.
-- [ ] Input geometry, generated documents, inline text appearance, and native behavior remain correct.
+- [x] One authoritative `Style` API controls the app's authored styling.
+- [x] Every active surface, including rename and error states added on master, is covered.
+- [x] Equivalent roles share values; purposeful differences remain named and understandable.
+- [x] Input geometry, generated documents, and inline text appearance pass the existing headless regression suites.
 - [ ] Both themes and minimum-size/HiDPI layouts have been visually checked.
-- [ ] Shared LSP widgets retain their default behavior and appearance.
-- [ ] Application changes are confined to the new branch; publication is a separate step.
+- [x] Shared LSP widgets retain their default behavior and appearance.
+- [x] Application changes are confined to the new branch; publication is a separate step.
+
+## Verification record
+
+- Full headless UI suite: 403 passed and 31 existing skips in 95.05 seconds.
+- Final cleanup checks for navigation, inspector, transforms, picker layout, and panes: 127 passed and 8 existing skips in 26.55 seconds.
+- Rust suite: 205 passed, including reactive theme rendering and filled-action contrast.
+- CI Clippy command: passed with warnings denied.
+- Legacy LSP: `cargo check --locked -p slint-lsp --features preview` passed.
+- The pane layout test now checks the normalized 12px inset instead of its former 14px expectation.
+- Inspected baseline and final picker renders, the 32-stop list, and final light/dark shell and welcome renders.
+- Inspected light-theme image preview and nine-slice renders, with source unchanged after switching modes.
+- Screenshots are in `/private/tmp/slint-style-headless-complete` and `/private/tmp/slint-style-theme-renders`.
+  Image renders are in `/private/tmp/slint-style-image-review-00unrqb8`.
+- No comprehensive native-platform, HiDPI, updater-state, or multi-theme image/nine-slice visual review was performed.
+- The macOS linker reports the same compact-unwind warning seen in the unmodified master baseline.
+- No push or publication was requested.

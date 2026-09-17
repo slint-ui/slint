@@ -3,17 +3,16 @@
 
 import { Style } from "../../style.slint";
 
-
 export component InspectorIconButton inherits Rectangle {
     in property <string> kind;
     in property <string> label: root.kind;
     in property <bool> selected: false;
     callback clicked;
 
-    width: 18px;
-    height: 18px;
+    width: Style.controls.large-icon-size;
+    height: Style.controls.large-icon-size;
     border-radius: 3.5px;
-    background: selected ? Style.inspector.accent.with-alpha(0.12) : touch.has-hover || button-focus.has-focus ? Style.inspector.field-bg : transparent;
+    background: selected ? Style.colors.focus-bg : touch.has-hover || button-focus.has-focus ? Style.inspector.field-bg : transparent;
     border-width: button-focus.has-focus ? 1px : 0px;
     border-color: Style.inspector.accent;
     accessible-role: button;

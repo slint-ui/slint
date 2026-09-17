@@ -3,8 +3,8 @@
 
 import { Style } from "../style.slint";
 import { InspectorComboOption } from "inspector/control-data.slint";
-import { Api, EditorSurfaceMode, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
-import { EdgeDivider, EditorAngles, EditorMetrics, HorizontalResizeDivider } from "common.slint";
+import { Api, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
 
 import { InspectorInfoIcon } from "inspector/info-icon.slint";
@@ -13,9 +13,6 @@ import { InspectorEditableField } from "inspector/editable-field.slint";
 import { InspectorComboBox } from "inspector/combo-box.slint";
 import { InspectorColorField } from "inspector/color-field.slint";
 import { InspectorCodeField } from "inspector/code-field.slint";
-import { InspectorReadOnlyField } from "inspector/read-only-field.slint";
-import { InspectorCopyButton } from "inspector/copy-button.slint";
-import { InspectorSyntaxField } from "inspector/syntax-field.slint";
 import { InspectorSection } from "inspector/section.slint";
 import { InspectorEffectDial } from "inspector/effect-dial.slint";
 import { InspectorEffectSlider } from "inspector/effect-slider.slint";
@@ -23,7 +20,6 @@ import { InspectorPropertyRow } from "inspector/property-row.slint";
 import { InspectorRotationKnob } from "inspector/rotation-knob.slint";
 import { InspectorCornerEditor } from "inspector/corner-editor.slint";
 import { ScrollView } from "std-widgets.slint";
-
 
 export component InspectorPane inherits Rectangle {
     in property <ElementInformation> element-information;
@@ -33,21 +29,21 @@ export component InspectorPane inherits Rectangle {
     callback outline-pane-resized(length);
     callback outline-pane-reset();
 
-    width: EditorMetrics.inspector-pane-width;
+    width: Style.layout.inspector-pane-width;
     background: Style.inspector.panel-bg;
     accessible-role: AccessibleRole.complementary;
     accessible-label: "Inspector and outline";
-    property <length> content-x: 1px;
+    property <length> content-x: Style.controls.border-width;
     in property <length> outline-pane-height: 0px;
-    property <length> split-height: 6px;
+    property <length> split-height: Style.layout.splitter-size;
     property <length> default-outline-height: (root.height - root.split-height) / 2;
     property <length> requested-outline-height: root.outline-pane-height > 0px
         ? root.outline-pane-height
         : root.default-outline-height;
     private property <length> dragged-outline-height: 0px;
     property <length> outline-height: min(
-        max(120px, root.dragged-outline-height > 0px ? root.dragged-outline-height : root.requested-outline-height),
-        max(120px, root.height - root.split-height - 120px),
+        max(Style.layout.pane-minimum, root.dragged-outline-height > 0px ? root.dragged-outline-height : root.requested-outline-height),
+        max(Style.layout.pane-minimum, root.height - root.split-height - Style.layout.pane-minimum),
     );
     property <length> inspector-height: root.height - root.split-height - root.outline-height;
     private property <length> drag-start-height;
@@ -60,7 +56,6 @@ export component InspectorPane inherits Rectangle {
     property <[SelectionRectangle]> selection-rects: Api.selection.highlight-index >= 0
         ? Api.highlight-positions(root.element-information.source-uri, root.element-information.offset)
         : [];
-    property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
     property <[InspectorComboOption]> image-fit-options: [
         { value: "fill", label: "fill" },
         { value: "preserve", label: "preserve" },
@@ -106,7 +101,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function clamp-outline-height(height: length) -> length {
-        return min(height, max(120px, root.height - root.split-height - 120px));
+        return min(height, max(Style.layout.pane-minimum, root.height - root.split-height - Style.layout.pane-minimum));
     }
 
     function is-rectangle-selection() -> bool {
@@ -535,24 +530,6 @@ export component InspectorPane inherits Rectangle {
         return index >= 0 ? root.text-font-weight-options[index].label : "Normal";
     }
 
-    function image-width-label() -> string {
-        return Api.selected-image-asset.image.width + "";
-    }
-
-    function image-height-label() -> string {
-        return Api.selected-image-asset.image.height + "";
-    }
-
-    function image-nine-slice-expression() -> string {
-        return Api.image-nine-slice-expression(
-            Api.selected-image-asset.relative-path,
-            Api.image-nine-slice-top,
-            Api.image-nine-slice-right,
-            Api.image-nine-slice-bottom,
-            Api.image-nine-slice-left,
-        );
-    }
-
     EdgeDivider {
         x: 0px;
         background: Style.inspector.divider;
@@ -578,65 +555,7 @@ export component InspectorPane inherits Rectangle {
                 width: parent.width;
                 alignment: start;
 
-                if root.image-mode: InspectorSection {
-                    title: "Image";
-
-                    VerticalLayout {
-                        padding-left: Style.inspector.side-padding;
-                        spacing: Style.spacing.compact;
-
-                        InspectorReadOnlyField {
-                            prefix: "File";
-                            value: Api.selected-image-asset.relative-path;
-                            wide: true;
-                        }
-
-                        HorizontalLayout {
-                            spacing: Style.inspector.column-gap;
-
-                            InspectorReadOnlyField {
-                                prefix: "Fmt";
-                                value: Api.selected-image-asset.format;
-                            }
-
-                            InspectorReadOnlyField {
-                                prefix: "W";
-                                value: root.image-width-label();
-                            }
-                        }
-
-                        InspectorReadOnlyField {
-                            prefix: "H";
-                            value: root.image-height-label();
-                        }
-                    }
-                }
-
-                if root.image-mode: InspectorSection {
-                    title: "Nine-Slice";
-
-                    VerticalLayout {
-                        padding-left: Style.inspector.side-padding;
-                        padding-right: Style.inspector.side-padding;
-                        spacing: Style.spacing.compact;
-
-                        InspectorSyntaxField {
-                            value: root.image-nine-slice-expression();
-                        }
-
-                        HorizontalLayout {
-                            alignment: end;
-
-                            InspectorCopyButton {
-                                clicked => {
-                                    Api.copy-nine-slice-expression(root.image-nine-slice-expression());
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if !root.image-mode && (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
+                if (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
                     title: "Geometry";
                     InspectorPropertyRow {
                         label: "Position";
@@ -670,7 +589,7 @@ export component InspectorPane inherits Rectangle {
                     }
                     InspectorPropertyRow {
                         label: "Rotation";
-                        height: 36px;
+                        height: Style.controls.large-height;
                         knob := InspectorRotationKnob {
                             value: root.control-values[0];
                             commit-key: root.inspector-key;
@@ -688,7 +607,7 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if !root.image-mode && (root.is-root-selection() || root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
+                if (root.is-root-selection() || root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
                     title: "APPEARANCE";
                     use-shared-title: true;
 
@@ -744,7 +663,7 @@ export component InspectorPane inherits Rectangle {
                         padding-left: Style.inspector.side-padding;
                         padding-right: Style.inspector.side-padding;
                         InspectorCornerEditor {
-                            width: root.width - 2 * Style.inspector.side-padding - 1px;
+                            width: root.width - 2 * Style.inspector.side-padding - Style.controls.border-width;
                             values: [root.control-values[1], root.control-values[2], root.control-values[3], root.control-values[4]];
                             maximum: min(root.selected-width(), root.selected-height()) / 2px;
                             selection-key: root.selection-key;
@@ -758,7 +677,7 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if !root.image-mode && root.is-rectangle-selection(): InspectorSection {
+                if root.is-rectangle-selection(): InspectorSection {
                     title: "Effects";
 
                     VerticalLayout {
@@ -772,7 +691,7 @@ export component InspectorPane inherits Rectangle {
                             selected-index: root.rectangle-effect-index();
                             options: root.rectangle-effect-options;
                             wide: true;
-                            popup-available-height: max(Style.inspector.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
+                            popup-available-height: max(Style.inspector.field-height, root.absolute-position.y + root.height - self.absolute-position.y - Style.spacing.medium);
                             accepted(text) => {
                                 return root.set-rectangle-effect(text);
                             }
@@ -795,7 +714,7 @@ export component InspectorPane inherits Rectangle {
                                 spacing: Style.spacing.small;
 
                                 Text {
-                                    height: 12px;
+                                    height: Style.controls.small-icon-size;
                                     text: "Color";
                                     color: Style.inspector.text;
                                     font-size: Style.typography.caption.size;
@@ -857,7 +776,7 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if !root.image-mode && root.has-backend-image-selection(): InspectorSection {
+                if root.has-backend-image-selection(): InspectorSection {
                     title: "Image";
 
                     VerticalLayout {
@@ -903,7 +822,7 @@ export component InspectorPane inherits Rectangle {
                                 selected-index: root.image-fit-index();
                                 options: root.image-fit-options;
                                 wide: true;
-                                popup-available-height: max(Style.inspector.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
+                                popup-available-height: max(Style.inspector.field-height, root.absolute-position.y + root.height - self.absolute-position.y - Style.spacing.medium);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("image-fit", text);
                                 }
@@ -919,7 +838,7 @@ export component InspectorPane inherits Rectangle {
                                 value: root.image-horizontal-alignment-value();
                                 selected-index: root.image-horizontal-alignment-index();
                                 options: root.image-horizontal-alignment-options;
-                                popup-available-height: max(Style.inspector.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
+                                popup-available-height: max(Style.inspector.field-height, root.absolute-position.y + root.height - self.absolute-position.y - Style.spacing.medium);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("horizontal-alignment", text);
                                 }
@@ -931,7 +850,7 @@ export component InspectorPane inherits Rectangle {
                                 value: root.image-vertical-alignment-value();
                                 selected-index: root.image-vertical-alignment-index();
                                 options: root.image-vertical-alignment-options;
-                                popup-available-height: max(Style.inspector.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
+                                popup-available-height: max(Style.inspector.field-height, root.absolute-position.y + root.height - self.absolute-position.y - Style.spacing.medium);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("vertical-alignment", text);
                                 }
@@ -940,7 +859,7 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if !root.image-mode && root.is-text-selection(): InspectorSection {
+                if root.is-text-selection(): InspectorSection {
                     title: "Content";
 
                     HorizontalLayout {
@@ -959,7 +878,7 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if !root.image-mode && root.is-text-selection(): InspectorSection {
+                if root.is-text-selection(): InspectorSection {
                     title: "Typography";
 
                     VerticalLayout {
@@ -984,7 +903,7 @@ export component InspectorPane inherits Rectangle {
                                 value: root.text-font-weight-label();
                                 selected-index: root.text-font-weight-index();
                                 options: root.text-font-weight-options;
-                                popup-available-height: max(Style.inspector.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
+                                popup-available-height: max(Style.inspector.field-height, root.absolute-position.y + root.height - self.absolute-position.y - Style.spacing.medium);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("font-weight", text);
                                 }
@@ -1011,7 +930,7 @@ export component InspectorPane inherits Rectangle {
     HorizontalResizeDivider {
         resize-label: "Outline pane resize";
         value: root.outline-height;
-        value-maximum: max(120px, root.height - root.split-height - 120px);
+        value-maximum: max(Style.layout.pane-minimum, root.height - root.split-height - Style.layout.pane-minimum);
         x: root.content-x;
         y: root.inspector-height;
         width: root.width - root.content-x;
@@ -1021,18 +940,18 @@ export component InspectorPane inherits Rectangle {
         }
         dragged(delta) => {
             root.dragged-outline-height = root.clamp-outline-height(
-                max(120px, root.drag-start-height - delta),
+                max(Style.layout.pane-minimum, root.drag-start-height - delta),
             );
         }
         drag-finished(delta) => {
             if delta != 0px {
                 root.outline-pane-resized(root.clamp-outline-height(
-                    max(120px, root.drag-start-height - delta),
+                    max(Style.layout.pane-minimum, root.drag-start-height - delta),
                 ));
             }
         }
         value-set(height) => {
-            let clamped-height = root.clamp-outline-height(max(120px, height));
+            let clamped-height = root.clamp-outline-height(max(Style.layout.pane-minimum, height));
             root.dragged-outline-height = clamped-height;
             root.outline-pane-resized(clamped-height);
         }

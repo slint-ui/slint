@@ -58,6 +58,18 @@ export struct StyleColors {
     action-bg: color,
     action-hover: color,
     action-pressed: color,
+    selection-bg: color,
+    selection-subtle-bg: color,
+    focus-bg: color,
+    text-selection-bg: color,
+    muted-icon: color,
+    decorative-icon: color,
+    decorative-border: color,
+    card-bg: color,
+    card-icon-bg: color,
+    floating-bg: color,
+    image-preview-bg: color,
+    image-preview-canvas: color,
 }
 
 export struct StyleInspector {
@@ -129,10 +141,12 @@ export struct StyleInspector {
     color-hex-width: length,
     color-hex-input-width: length,
     stop-pick-distance: length,
-    syntax-min-height: length,
-    syntax-max-height: length,
     info-size: length,
     stop-swatch-size: length,
+    read-only-bg: color,
+    decorative-icon: color,
+    slider-pressed: color,
+    picker-min-height: length,
     corner-field-width: length,
 }
 
@@ -153,8 +167,6 @@ export struct StyleTree {
     toggle-width: length,
     disclosure-hit-size: length,
     icon-size: length,
-    current-indicator-width: length,
-    current-indicator-height: length,
     guide-width: length,
     focus-ring-width: length,
     drop-target-border-width: length,
@@ -163,7 +175,7 @@ export struct StyleTree {
     selected-guide: color,
     file-guide: color,
     rename-bg: brush,
-    rename-border: color,
+    rename-border: brush,
     error: color,
 }
 
@@ -186,10 +198,8 @@ export struct StyleWelcome {
     action-height: length,
     action-radius: length,
     action-inset: length,
-    action-gap: length,
     recent-height: length,
     recent-radius: length,
-    recent-inset-left: length,
     recent-inset-right: length,
     recent-gap: length,
     recent-icon-size: length,
@@ -250,20 +260,26 @@ export struct StyleLayout {
     image-preview-property-height: length,
     image-preview-panel-height: length,
     image-safe-bottom: length,
-    image-fit-bottom: length,
     image-preview-minimum: length,
     image-wide-field-width: length,
     image-field-width: length,
     image-syntax-min-height: length,
     image-syntax-max-height: length,
-    image-error-max-width: length,
-    image-error-height: length,
     collapsed-panel-width: length,
     collapsed-panel-height: length,
     titlebar-safe-left: length,
     update-pill-width: length,
     update-error-pill-width: length,
     update-pill-height: length,
+    image-preview-heading-height: length,
+    image-preview-heading-top: length,
+    image-preview-body-top: length,
+    image-preview-body-bottom: length,
+    image-fit-bottom: length,
+    image-error-margin: length,
+    image-error-height: length,
+    image-error-max-width: length,
+    collapsed-panel-radius: length,
 }
 
 export struct StyleCanvas {
@@ -281,9 +297,6 @@ export struct StyleCanvas {
     artboard-top-minimum: length,
     gradient-hit-size: length,
     gradient-endpoint-size: length,
-    gradient-axis-hit-size: length,
-    gradient-axis-width: length,
-    gradient-stop-offset: length,
     slice-label-size: length,
     slice-line-width: length,
     slice-hit-size: length,
@@ -299,6 +312,9 @@ export struct StyleCanvas {
     slice-label-text: color,
     slice-label-border: color,
     gradient-halo: color,
+    gradient-axis-hit-size: length,
+    gradient-axis-width: length,
+    gradient-stop-offset: length,
 }
 
 export struct StyleSpacing {
@@ -306,11 +322,8 @@ export struct StyleSpacing {
     small: length,
     compact: length,
     regular: length,
-    control-inset: length,
     medium: length,
-    pane-inset: length,
     large: length,
-    icon-gap: length,
     section: length,
 }
 
@@ -334,12 +347,9 @@ export struct StyleControls {
     border-width: length,
     focus-width: length,
     hairline-width: length,
-    compact-radius: length,
     field-radius: length,
-    small-radius: length,
     row-radius: length,
     panel-radius: length,
-    dialog-radius: length,
     field-height: length,
     small-height: length,
     height: length,
@@ -389,18 +399,28 @@ export global Style {
 
     private property <color> colors-accent: Style.dark ? #2379f4 : #0d99ff;
 
+    private property <color> colors-muted: Style.dark ? #b7b7b7 : #6e7781;
+
+    private property <color> colors-border: Style.dark ? #494949 : #d0d7de;
+
+    private property <color> colors-panel-subtle: Style.dark ? #383838 : #f6f8fa;
+
+    private property <color> colors-panel-bg: Style.dark ? #2c2c2c : #ffffff;
+
+    private property <color> colors-canvas: Style.dark ? #1f1f1f : #eef2f7;
+
     out property <StyleColors> colors: {
         app-bg: Style.dark ? #2c2c2c : #f6f8fa,
-        panel-bg: Style.dark ? #2c2c2c : #ffffff,
-        panel-subtle: Style.dark ? #383838 : #f6f8fa,
+        panel-bg: root.colors-panel-bg,
+        panel-subtle: root.colors-panel-subtle,
         text: Style.dark ? #f1f1f1 : #1f2328,
-        muted: Style.dark ? #b7b7b7 : #6e7781,
-        border: Style.dark ? #494949 : #d0d7de,
+        muted: root.colors-muted,
+        border: root.colors-border,
         soft-border: Style.dark ? #3f3f3f : #eaeef2,
         accent: root.colors-accent,
         accent-strong: Style.dark ? root.colors-accent.mix(#ffffff, 0.75) : #52aeff,
         canvas-outline: Style.dark ? #0c8ce9 : #0b99fe,
-        canvas: Style.dark ? #1f1f1f : #eef2f7,
+        canvas: root.colors-canvas,
         phone-bg: Style.dark ? #f7f8fb : #ffffff,
         phone-text: #20252d,
         object-bg: #ffffff,
@@ -433,13 +453,27 @@ export global Style {
         action-bg: Style.dark ? #196bd6 : #0969da,
         action-hover: Style.dark ? #2073dd : #0860ca,
         action-pressed: Style.dark ? #135bb9 : #0756b5,
+        selection-bg: root.colors-accent.with-alpha(0.14),
+        selection-subtle-bg: root.colors-accent.with-alpha(0.10),
+        focus-bg: root.colors-accent.with-alpha(0.12),
+        text-selection-bg: root.colors-accent.with-alpha(0.28),
+        muted-icon: root.colors-muted.with-alpha(0.72),
+        decorative-icon: root.colors-muted.with-alpha(0.82),
+        decorative-border: root.colors-border.with-alpha(0.82),
+        card-bg: root.colors-panel-subtle.with-alpha(0.72),
+        card-icon-bg: root.colors-panel-bg.with-alpha(0.72),
+        floating-bg: root.colors-panel-bg.with-alpha(0.92),
+        image-preview-bg: root.colors-panel-bg.with-alpha(0.76),
+        image-preview-canvas: root.colors-canvas.with-alpha(0.72),
     };
 
     private property <color> inspector-accent: Style.colors.accent;
 
     private property <color> inspector-muted: Style.colors.muted;
 
-    private property <length> inspector-side-padding: 12px;
+    private property <length> inspector-side-padding: Style.spacing.medium;
+
+    private property <length> inspector-field-height: Style.controls.field-height;
 
     private property <length> inspector-stop-marker-size: 24px;
 
@@ -447,13 +481,15 @@ export global Style {
 
     private property <length> inspector-dial-inset: 2px;
 
+    private property <color> inspector-field-bg: Style.dark ? #383838 : #f5f5f5;
+
     out property <StyleInspector> inspector: {
         picker-width: 260px,
-        picker-gap: 8px,
-        picker-margin: 8px,
+        picker-gap: Style.spacing.regular,
+        picker-margin: Style.spacing.regular,
         panel-bg: Style.colors.panel-bg,
         divider: Style.dark ? #414141 : #e5e5e5,
-        field-bg: Style.dark ? #383838 : #f5f5f5,
+        field-bg: root.inspector-field-bg,
         field-bg-hover: Style.dark ? #414141 : #eeeeee,
         field-border: Style.dark ? #4b4b4b : #d9d9d9,
         text: Style.colors.text,
@@ -463,20 +499,20 @@ export global Style {
         slider-fill: Style.dark ? root.inspector-accent : transparent,
         slider-thumb: Style.dark ? root.inspector-accent : root.inspector-muted,
         label-width: 52px,
-        row-gap: 6px,
+        row-gap: Style.spacing.compact,
         side-padding: root.inspector-side-padding,
-        section-title-size: 12px,
-        field-height: 24px,
-        field-radius: 4px,
+        section-title-size: Style.typography.section-heading.size,
+        field-height: root.inspector-field-height,
+        field-radius: Style.controls.field-radius,
         column-width: 88px,
-        column-gap: 8px,
+        column-gap: Style.spacing.regular,
         wide-width: Style.layout.inspector-pane-width - Style.controls.border-width - 2 * root.inspector-side-padding,
         stop-action-width: 24px,
         close-width: 48px,
         stop-position-width: 66px,
         stop-opacity-width: 48px,
         stop-row-height: 28px,
-        stop-ramp-height: 58px,
+        stop-ramp-height: Style.spacing.small + root.inspector-field-height + root.inspector-stop-marker-size + Style.spacing.compact,
         stop-marker-size: root.inspector-stop-marker-size,
         stop-marker-radius: 5px,
         stop-ramp-inset: root.inspector-stop-marker-size / 2,
@@ -516,10 +552,12 @@ export global Style {
         color-hex-width: 78px,
         color-hex-input-width: 58px,
         stop-pick-distance: 10px,
-        syntax-min-height: 54px,
-        syntax-max-height: 96px,
         info-size: 14px,
         stop-swatch-size: 14px,
+        read-only-bg: root.inspector-field-bg.with-alpha(0.65),
+        decorative-icon: root.inspector-muted.with-alpha(0.35),
+        slider-pressed: root.inspector-accent.with-alpha(0.88),
+        picker-min-height: 200px,
         corner-field-width: 72px,
     };
 
@@ -532,21 +570,19 @@ export global Style {
         accent: Style.dark ? Style.colors.accent : #0969da,
         guide: Style.inspector.divider,
         directory-icon: Style.dark ? Style.colors.accent : #d29922,
-        row-height: 32px,
-        row-font-size: 13px,
-        row-radius: 6px,
-        row-padding-inline: 8px,
-        content-gap: 8px,
-        toggle-width: 16px,
+        row-height: Style.controls.height,
+        row-font-size: Style.typography.body.size,
+        row-radius: Style.controls.row-radius,
+        row-padding-inline: Style.spacing.regular,
+        content-gap: Style.spacing.regular,
+        toggle-width: Style.controls.icon-size,
         disclosure-hit-size: 20px,
-        icon-size: 16px,
-        current-indicator-width: 4px,
-        current-indicator-height: 24px,
-        guide-width: 1px,
-        focus-ring-width: 2px,
-        drop-target-border-width: 1px,
-        drop-indicator-height: 2px,
-        root-drop-height: 8px,
+        icon-size: Style.controls.icon-size,
+        guide-width: Style.controls.border-width,
+        focus-ring-width: Style.controls.focus-width,
+        drop-target-border-width: Style.controls.border-width,
+        drop-indicator-height: Style.controls.focus-width,
+        root-drop-height: Style.spacing.regular,
         selected-guide: Style.dark ? #474747 : #c4c4c4,
         file-guide: Style.inspector.divider,
         rename-bg: Palette.control-background,
@@ -577,10 +613,8 @@ export global Style {
         action-height: root.welcome-action-height,
         action-radius: root.welcome-action-height / 2,
         action-inset: Style.spacing.medium,
-        action-gap: 10px,
         recent-height: 44px,
         recent-radius: Style.controls.row-radius,
-        recent-inset-left: Style.spacing.medium,
         recent-inset-right: Style.spacing.medium,
         recent-gap: Style.spacing.regular,
         recent-icon-size: 27px,
@@ -643,20 +677,26 @@ export global Style {
         image-preview-property-height: 154px,
         image-preview-panel-height: 196px,
         image-safe-bottom: 44px,
-        image-fit-bottom: 64px,
         image-preview-minimum: 48px,
         image-wide-field-width: 250px,
         image-field-width: 96px,
         image-syntax-min-height: 78px,
         image-syntax-max-height: 96px,
-        image-error-max-width: 520px,
-        image-error-height: 96px,
         collapsed-panel-width: 274px,
         collapsed-panel-height: 42px,
         titlebar-safe-left: 100px,
         update-pill-width: 132px,
         update-error-pill-width: 260px,
         update-pill-height: 20px,
+        image-preview-heading-height: 18px,
+        image-preview-heading-top: 8px,
+        image-preview-body-top: 34px,
+        image-preview-body-bottom: 12px,
+        image-fit-bottom: 64px,
+        image-error-margin: 40px,
+        image-error-height: 96px,
+        image-error-max-width: 520px,
+        collapsed-panel-radius: 12px,
     };
 
     out property <StyleCanvas> canvas: {
@@ -674,9 +714,6 @@ export global Style {
         artboard-top-minimum: 40px,
         gradient-hit-size: 32px,
         gradient-endpoint-size: 12px,
-        gradient-axis-hit-size: 10px,
-        gradient-axis-width: 2px,
-        gradient-stop-offset: 6px,
         slice-label-size: 22px,
         slice-line-width: 4px,
         slice-hit-size: 20px,
@@ -692,22 +729,18 @@ export global Style {
         slice-label-text: #111827,
         slice-label-border: Style.dark ? #111827 : #ffffff,
         gradient-halo: #ffffff90,
+        gradient-axis-hit-size: 10px,
+        gradient-axis-width: 2px,
+        gradient-stop-offset: 6px,
     };
-
-    private property <length> spacing-medium: 12px;
-
-    private property <length> spacing-large: 16px;
 
     out property <StyleSpacing> spacing: {
         tight: 2px,
         small: 4px,
         compact: 6px,
         regular: 8px,
-        control-inset: root.spacing-medium,
-        medium: root.spacing-medium,
-        pane-inset: root.spacing-medium,
-        large: root.spacing-large,
-        icon-gap: root.spacing-large,
+        medium: 12px,
+        large: 16px,
         section: 24px,
     };
 
@@ -727,22 +760,13 @@ export global Style {
         slider-tick: { size: 9px, weight: 400 },
     };
 
-    private property <length> controls-field-radius: 4px;
-
-    private property <length> controls-row-radius: 6px;
-
-    private property <length> controls-panel-radius: 8px;
-
     out property <StyleControls> controls: {
         border-width: 1px,
         focus-width: 2px,
         hairline-width: 0.5px,
-        compact-radius: root.controls-field-radius,
-        field-radius: root.controls-field-radius,
-        small-radius: root.controls-row-radius,
-        row-radius: root.controls-row-radius,
-        panel-radius: root.controls-panel-radius,
-        dialog-radius: root.controls-panel-radius,
+        field-radius: 4px,
+        row-radius: 6px,
+        panel-radius: 8px,
         field-height: 24px,
         small-height: 28px,
         height: 32px,

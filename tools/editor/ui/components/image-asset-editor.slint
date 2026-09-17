@@ -6,7 +6,7 @@ import { Style } from "../style.slint";
 // cspell:ignore nesw
 
 import { Api } from "../api.slint";
-import { CanvasCorner, EditorMetrics } from "common.slint";
+import { CanvasCorner } from "common.slint";
 import { ScrollView } from "std-widgets.slint";
 
 enum ImageAssetEditorMode {
@@ -217,7 +217,7 @@ component FloatingImageDetailsPanel inherits Rectangle {
     drop-shadow-color: Style.shadows.image-panel.color;
 
     VerticalLayout {
-        padding: Style.spacing.pane-inset;
+        padding: Style.spacing.medium;
         spacing: Style.spacing.regular;
 
         Text {
@@ -228,14 +228,14 @@ component FloatingImageDetailsPanel inherits Rectangle {
         }
 
         FloatingReadOnlyField {
-            width: parent.width - 2 * Style.spacing.pane-inset;
+            width: parent.width - 2 * Style.spacing.medium;
             prefix: "File";
             value: root.file;
             wide: true;
         }
 
         HorizontalLayout {
-            width: parent.width - 2 * Style.spacing.pane-inset;
+            width: parent.width - 2 * Style.spacing.medium;
             spacing: Style.spacing.regular;
 
             FloatingReadOnlyField {
@@ -246,7 +246,7 @@ component FloatingImageDetailsPanel inherits Rectangle {
         }
 
         HorizontalLayout {
-            width: parent.width - 2 * Style.spacing.pane-inset;
+            width: parent.width - 2 * Style.spacing.medium;
             spacing: Style.spacing.regular;
 
             FloatingReadOnlyField {
@@ -263,12 +263,12 @@ component FloatingImageDetailsPanel inherits Rectangle {
         }
 
         if root.expression != "": FloatingSyntaxField {
-            width: parent.width - 2 * Style.spacing.pane-inset;
+            width: parent.width - 2 * Style.spacing.medium;
             value: root.expression;
         }
 
         if root.expression != "": HorizontalLayout {
-            width: parent.width - 2 * Style.spacing.pane-inset;
+            width: parent.width - 2 * Style.spacing.medium;
             alignment: end;
 
             FloatingCopyButton {
@@ -296,29 +296,29 @@ export component ImageAssetEditor inherits Rectangle {
     private property <length> image-source-width: root.source-width * 1px;
     private property <length> image-source-height: root.source-height * 1px;
     private property <length> tab-bar-height: Style.layout.image-tab-bar-height;
-    private property <length> left-pane-offset: root.sidebars-collapsed ? 0px : EditorMetrics.left-pane-width;
+    private property <length> left-pane-offset: root.sidebars-collapsed ? 0px : Style.layout.left-pane-width;
     private property <length> rail-margin: Style.layout.image-rail-margin;
     private property <length> rail-gap: Style.layout.image-rail-gap;
-    private property <length> property-pane-width: EditorMetrics.inspector-pane-width;
+    private property <length> property-pane-width: Style.layout.inspector-pane-width;
     private property <length> property-pane-height: Style.layout.image-property-height;
     private property <length> preview-property-pane-height: Style.layout.image-preview-property-height;
     private property <length> property-pane-margin: root.rail-margin;
     private property <length> preview-panel-width: root.property-pane-width;
     private property <length> preview-panel-height: Style.layout.image-preview-panel-height;
-    private property <length> edit-safe-top: root.tab-bar-height + 12px;
+    private property <length> edit-safe-top: root.tab-bar-height + Style.spacing.medium;
     private property <length> edit-safe-bottom: Style.layout.image-safe-bottom;
     private property <length> rail-width: max(root.preview-panel-width, root.property-pane-width);
     private property <length> rail-x: root.width - root.rail-margin - root.rail-width;
     private property <length> edit-safe-right: root.rail-width + root.rail-margin + root.rail-gap;
-    private property <length> available-width: max(1px, root.width - root.edit-safe-right - 24px);
-    private property <length> available-height: max(1px, root.height - root.edit-safe-top - root.edit-safe-bottom - 64px);
+    private property <length> available-width: max(1px, root.width - root.edit-safe-right - Style.spacing.section);
+    private property <length> available-height: max(1px, root.height - root.edit-safe-top - root.edit-safe-bottom - Style.layout.image-fit-bottom);
     private property <float> fit-scale: root.has-image()
         ? min(root.available-width / root.image-source-width, root.available-height / root.image-source-height)
         : 1.0;
     private property <length> display-width: root.has-image() ? root.image-source-width * root.fit-scale : 0px;
     private property <length> display-height: root.has-image() ? root.image-source-height * root.fit-scale : 0px;
-    private property <length> plain-preview-available-width: max(1px, root.width - root.edit-safe-right - 48px);
-    private property <length> plain-preview-available-height: max(1px, root.height - root.tab-bar-height - 96px);
+    private property <length> plain-preview-available-width: max(1px, root.width - root.edit-safe-right - 2 * Style.spacing.section);
+    private property <length> plain-preview-available-height: max(1px, root.height - root.tab-bar-height - 4 * Style.spacing.section);
     private property <float> plain-preview-fit-scale: root.has-image()
         ? min(root.plain-preview-available-width / root.image-source-width, root.plain-preview-available-height / root.image-source-height)
         : 1.0;
@@ -396,7 +396,7 @@ export component ImageAssetEditor inherits Rectangle {
         return {
             x: root.rail-x + (root.rail-width - root.preview-panel-width) / 2
                 + (root.preview-panel-width - root.preview-width()) / 2,
-            y: root.tab-bar-height + 34px + (root.preview-panel-height - 46px - root.preview-height()) / 2,
+            y: root.tab-bar-height + Style.layout.image-preview-body-top + (root.preview-panel-height - Style.layout.image-preview-body-top - Style.layout.image-preview-body-bottom - root.preview-height()) / 2,
         };
     }
 
@@ -445,7 +445,7 @@ export component ImageAssetEditor inherits Rectangle {
 
     if root.has-image(): Rectangle {
         x: (parent.width - self.width - root.left-pane-offset) / 2;
-        y: Style.spacing.pane-inset;
+        y: Style.spacing.medium;
         width: Style.layout.image-tab-group-width;
         height: Style.layout.image-tab-group-height;
         border-radius: Style.controls.panel-radius;
@@ -474,15 +474,15 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if Api.selected-image-asset.error != "": Rectangle {
-        width: min(parent.width - 80px, 520px);
-        height: 96px;
+        width: min(parent.width - 2 * Style.layout.image-error-margin, Style.layout.image-error-max-width);
+        height: Style.layout.image-error-height;
         border-radius: Style.controls.panel-radius;
         border-width: Style.controls.border-width;
         border-color: Style.colors.border;
         background: Style.colors.panel-bg;
 
         VerticalLayout {
-            padding: Style.spacing.icon-gap;
+            padding: Style.spacing.large;
             spacing: Style.spacing.compact;
             Text {
                 text: "Image could not be loaded";
@@ -517,7 +517,7 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if root.has-image() && root.mode == ImageAssetEditorMode.preview: plain-preview-frame := Rectangle {
-        x: max(16px, (root.width - root.edit-safe-right - self.width) / 2);
+        x: max(Style.spacing.large, (root.width - root.edit-safe-right - self.width) / 2);
         y: root.tab-bar-height + (root.height - root.tab-bar-height - self.height) / 2;
         width: root.plain-preview-display-width;
         height: root.plain-preview-display-height;
@@ -537,7 +537,7 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: image-frame := Rectangle {
-        x: max(16px, (root.edit-area-width - self.width) / 2);
+        x: max(Style.spacing.large, (root.edit-area-width - self.width) / 2);
         y: root.edit-safe-top + max(0px, (root.edit-area-height - self.height) * 0.55);
         width: root.display-width;
         height: root.display-height;
@@ -708,16 +708,16 @@ export component ImageAssetEditor inherits Rectangle {
         border-radius: Style.controls.panel-radius;
         border-width: Style.controls.border-width;
         border-color: Style.colors.image-preview-border;
-        background: Style.colors.panel-bg.with-alpha(0.76);
+        background: Style.colors.image-preview-bg;
         drop-shadow-blur: Style.shadows.image-preview.blur;
         drop-shadow-offset-y: Style.shadows.image-preview.offset-y;
         drop-shadow-color: Style.shadows.image-preview.color;
 
         Text {
-            x: Style.spacing.pane-inset;
-            y: 8px;
-            width: parent.width - 2 * Style.spacing.pane-inset;
-            height: 18px;
+            x: Style.spacing.medium;
+            y: Style.layout.image-preview-heading-top;
+            width: parent.width - 2 * Style.spacing.medium;
+            height: Style.layout.image-preview-heading-height;
             text: "Preview";
             color: Style.colors.muted;
             font-size: Style.typography.caption.size;
@@ -726,12 +726,12 @@ export component ImageAssetEditor inherits Rectangle {
         }
 
         Rectangle {
-            x: 12px;
-            y: 34px;
-            width: parent.width - 24px;
-            height: parent.height - 46px;
+            x: Style.spacing.medium;
+            y: Style.layout.image-preview-body-top;
+            width: parent.width - 2 * Style.spacing.medium;
+            height: parent.height - Style.layout.image-preview-body-top - Style.layout.image-preview-body-bottom;
             border-radius: Style.controls.row-radius;
-            background: Style.colors.canvas.with-alpha(0.72);
+            background: Style.colors.image-preview-canvas;
         }
     }
 
@@ -767,7 +767,7 @@ export component ImageAssetEditor inherits Rectangle {
             y: corner == CanvasCorner.top-left || corner == CanvasCorner.top-right ? -Style.canvas.preview-handle-size / 2 : parent.height - Style.canvas.preview-handle-size / 2;
             width: Style.canvas.preview-handle-size;
             height: Style.canvas.preview-handle-size;
-            border-radius: Style.controls.compact-radius;
+            border-radius: Style.controls.field-radius;
             background: Style.colors.handle-border;
             border-width: Style.controls.focus-width;
             border-color: Style.colors.accent-strong;

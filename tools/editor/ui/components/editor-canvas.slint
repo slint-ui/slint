@@ -4,7 +4,7 @@
 import { EditorGrid } from "editor-grid.slint";
 import { Style } from "../style.slint";
 import { Api, DropMark } from "../api.slint";
-import { AppState, EditorCursors, EditorMetrics, ElementKind } from "common.slint";
+import { AppState, EditorCursors, ElementKind, PreviewMetrics } from "common.slint";
 import { CanvasInteractionLayer } from "canvas-interaction-layer.slint";
 
 component PhoneChrome inherits Rectangle {
@@ -12,10 +12,10 @@ component PhoneChrome inherits Rectangle {
     clip: true;
 
     Rectangle {
-        x: EditorMetrics.phone-outer-padding;
-        y: EditorMetrics.phone-outer-padding;
-        width: parent.width - (2 * EditorMetrics.phone-outer-padding);
-        height: parent.height - (2 * EditorMetrics.phone-outer-padding);
+        x: Style.canvas.phone-outer-padding;
+        y: Style.canvas.phone-outer-padding;
+        width: parent.width - (2 * Style.canvas.phone-outer-padding);
+        height: parent.height - (2 * Style.canvas.phone-outer-padding);
         accessible-role: AccessibleRole.region;
         accessible-label: "Artboard";
 
@@ -27,7 +27,7 @@ export component EditorCanvas inherits Rectangle {
     in property <bool> shift-pressed;
     private property <length> phone-canvas-top: max(
         Style.canvas.artboard-top-minimum,
-        (root.height - EditorMetrics.phone-portrait-height) / 2,
+        (root.height - PreviewMetrics.phone-portrait-height) / 2,
     );
 
     accessible-role: AccessibleRole.main;
@@ -52,7 +52,7 @@ export component EditorCanvas inherits Rectangle {
         y: root.phone-canvas-top + Style.shadows.artboard.offset-y;
         width: phone.width;
         height: phone.height;
-        border-radius: EditorMetrics.phone-frame-radius;
+        border-radius: Style.canvas.phone-frame-radius;
         drop-shadow-color: Style.shadows.artboard.color;
         drop-shadow-blur: Style.shadows.artboard.blur;
         drop-shadow-offset-y: Style.shadows.artboard.offset-y;
@@ -61,9 +61,9 @@ export component EditorCanvas inherits Rectangle {
     phone := Rectangle {
         x: (parent.width - self.width) / 2;
         y: root.phone-canvas-top;
-        width: EditorMetrics.phone-portrait-width;
-        height: EditorMetrics.phone-portrait-height;
-        border-radius: EditorMetrics.phone-frame-radius;
+        width: PreviewMetrics.phone-portrait-width;
+        height: PreviewMetrics.phone-portrait-height;
+        border-radius: Style.canvas.phone-frame-radius;
         border-width: Style.controls.border-width;
         border-color: Style.colors.border;
 
@@ -132,10 +132,10 @@ export component EditorCanvas inherits Rectangle {
         }
 
         CanvasInteractionLayer {
-            x: EditorMetrics.phone-outer-padding;
-            y: EditorMetrics.phone-outer-padding;
-            width: parent.width - 2 * EditorMetrics.phone-outer-padding;
-            height: parent.height - 2 * EditorMetrics.phone-outer-padding;
+            x: Style.canvas.phone-outer-padding;
+            y: Style.canvas.phone-outer-padding;
+            width: parent.width - 2 * Style.canvas.phone-outer-padding;
+            height: parent.height - 2 * Style.canvas.phone-outer-padding;
             shift-pressed: root.shift-pressed;
             real-element-selected => {
                 root.real-element-selected();
