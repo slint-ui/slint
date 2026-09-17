@@ -664,8 +664,24 @@ fn recurse_expression(
             if let Some(nr) = layout.direction.as_ref() {
                 vis(&nr.clone().into(), P);
             }
-            // Visit layout geometry dependencies
             if matches!(expr, Expression::SolveFlexboxLayout(..)) {
+                // The solve reads each cell's explicit size constraints on
+                // both axes: it produces one cache for both.
+                for it in layout.elems.iter() {
+                    // The repeated component's root is the element the lowering
+                    // measures.
+                    let elem = if it.element.borrow().repeated.is_some() {
+                        it.element.borrow().base_type.as_component().root_element.clone()
+                    } else {
+                        it.element.clone()
+                    };
+                    for orientation in [Orientation::Horizontal, Orientation::Vertical] {
+                        let kept = it.constraints.to_apply(&elem, orientation);
+                        for (nr, _) in kept.for_each_restrictions(orientation) {
+                            vis(&nr.clone().into(), P);
+                        }
+                    }
+                }
                 // The solve needs the main-axis dimension (width for row,
                 // height for column). On the cross axis, *builtin* items
                 // receive the perpendicular size through the item VTable's
