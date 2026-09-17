@@ -1,0 +1,99 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export enum Direction { left, right, up, down }
+
+struct Point { x: int, y: int }
+export struct Nested { point: Point, label: string }
+struct Complex {
+    value: string,
+    array: [int],
+    nested: [Nested],
+}
+
+export component TestCase {
+    // 1-arg form
+    property <int> int_property: @from-json("from_json.json");
+    // json file uses underscore: a_float
+    property <float> a-float: @from-json("from_json.json");
+
+    // 2-arg form: flat key, and a nested "/"-separated path.
+    property <int> flat_value: @from-json("from_json.json", "flat_value");
+    property <int> nested_value_underscore: @from-json("from_json.json", "element/sub_element/nested_value");
+    property <int> nested_value_dash: @from-json("from_json.json", "element/sub-element/nested-value");
+
+    // scalar types
+    property <string> a_string: @from-json("from_json.json", "a_string");
+    property <bool> a_bool: @from-json("from_json.json", "a_bool");
+    property <percent> a_percent: @from-json("from_json.json", "a_percent");
+    property <length> a_length: @from-json("from_json.json", "a_length");
+    property <duration> a_duration: @from-json("from_json.json", "a_duration");
+    property <angle> a_angle: @from-json("from_json.json", "a_angle");
+    property <color> a_color: @from-json("from_json.json", "a_color");
+    property <color> a_named_color: @from-json("from_json.json", "a_named_color");
+    property <Direction> a_direction: @from-json("from_json.json", "a_direction");
+    property <Direction> a_direction_prefixed: @from-json("from_json.json", "a_direction_prefixed");
+
+    // array / struct, including nesting, a defaulted field, and array-of-struct
+    property <[int]> an_array: @from-json("from_json.json", "an_array");
+    property <Point> a_point: @from-json("from_json.json", "a_point");
+    property <Point> a_partial_point: @from-json("from_json.json", "a_partial_point");
+    property <Nested> a_nested: @from-json("from_json.json", "a_nested");
+    property <[Point]> an_array_of_points: @from-json("from_json.json", "an_array_of_points");
+    property <Complex> a_complex_nested: @from-json("from_json.json", "element/sub_element/complex_nested");
+
+    out property <bool> test:
+        int_property == 5
+        && flat_value == 10
+        && nested_value_dash == 7
+        && nested_value_underscore == 7
+        && a-float == 3.5
+        && a_string == "hello"
+        && a_bool
+        && a_percent == 42%
+        && a_length == 10px
+        && a_duration == 250ms
+        && a_angle == 90deg
+        && a_color == #ff0000
+        && a_named_color == #ff0000
+        && a_direction == Direction.right
+        && a_direction_prefixed == Direction.down
+        && an_array.length == 3 && an_array[0] == 1 && an_array[1] == 2 && an_array[2] == 3
+        && a_point.x == 1 && a_point.y == 2
+        && a_partial_point.x == 9 && a_partial_point.y == 0
+        && a_nested.point.x == 3 && a_nested.point.y == 4 && a_nested.label == "hi"
+        && an_array_of_points.length == 2
+        && an_array_of_points[0].x == 1 && an_array_of_points[0].y == 1
+        && an_array_of_points[1].x == 2 && an_array_of_points[1].y == 2
+        && a_complex_nested.value == "complex_nested_value"
+        && a_complex_nested.array.length == 3
+        && a_complex_nested.array[0] == 13 && a_complex_nested.array[1] == 14 && a_complex_nested.array[2] == 16
+        && a_complex_nested.nested.length == 2
+        && a_complex_nested.nested[0].point.x == 7 && a_complex_nested.nested[0].point.y == 8
+        && a_complex_nested.nested[0].label == "first"
+        && a_complex_nested.nested[1].point.x == 9 && a_complex_nested.nested[1].point.y == 10
+        && a_complex_nested.nested[1].label == "second";
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+```python
+instance = TestCase()
+assert instance.test
+```
+*/

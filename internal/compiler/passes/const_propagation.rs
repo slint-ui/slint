@@ -925,3 +925,56 @@ fn test_fold_layout_info_merge() {
     fold_const_expression(&mut expr);
     assert!(matches!(expr, Expression::BinaryExpression { .. }), "{expr:?}");
 }
+
+/// Regression test for the pass ordering `lower_platform` (see its module doc comment) relies
+/// on: a `states [...]` block lowers its `when` condition into a synthesized `Condition`
+/// expression around the affected property's binding, and `Platform.uses-mock-data` (folded to
+/// a literal by `lower_platform`, which must run before `binding_analysis`) must still fold that
+/// whole `Condition` away, not just the direct `Platform.uses-mock-data` reference. If
+/// `lower_platform` ever moved to run after `binding_analysis`, the condition would keep a stale
+/// non-constant `is_constant` result and this test would fail.
+fn platform_uses_mock_data_in_state_condition_folds_to(
+    config: crate::CompilerConfiguration,
+    expected: &str,
+) {
+    let source = r#"
+        component TestCase {
+            in-out property <string> greeting: "real";
+            states [
+                mock when Platform.uses-mock-data: {
+                    greeting: "mock";
+                }
+            ]
+        }
+    "#;
+    let mut diagnostics = crate::diagnostics::BuildDiagnostics::default();
+    let syntax_node = crate::parser::parse(source.into(), None, &mut diagnostics);
+    let (doc, diagnostics, _loader) =
+        spin_on::spin_on(crate::compile_syntax_node(syntax_node, diagnostics, config));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+
+    let component = doc.inner_components.last().unwrap();
+    let root_element = component.root_element.borrow();
+    let binding = root_element.binding("greeting").unwrap();
+    let folded = binding.expression.ignore_debug_hooks();
+    assert!(
+        matches!(folded, Expression::StringLiteral(s) if s.as_str() == expected),
+        "the state's condition on Platform.uses-mock-data did not fully fold away \
+         (expected a bare StringLiteral({expected:?})), got {folded:?}"
+    );
+}
+
+#[test]
+fn test_platform_uses_mock_data_in_state_condition_folds_away_real() {
+    platform_uses_mock_data_in_state_condition_folds_to(
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Llr),
+        "real",
+    );
+}
+
+#[test]
+fn test_platform_uses_mock_data_in_state_condition_folds_away_mock() {
+    let mut config = crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.is_preview = true;
+    platform_uses_mock_data_in_state_condition_folds_to(config, "mock");
+}

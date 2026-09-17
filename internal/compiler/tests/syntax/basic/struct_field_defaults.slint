@@ -6,6 +6,14 @@ struct Ok1 {
     b: string = "hello",
     c: float = 0.5 * 2,
     d: duration = -2s,
+    // @from-json(...) always resolves to a literal, so it's a genuine constant here too,
+    // unlike @tr() below (which is excluded because translations are runtime-selected).
+    e: string = @from-json("struct-field-default-from-json.json", "a_string"),
+}
+
+struct NotAPropertyBinding {
+    a: string = @from-json("struct-field-default-from-json.json"),
+//              >                                               <error{@from-json() without a second argument can only be used in a property binding; pass the JSON path as the second argument}
 }
 
 struct Ok2 {

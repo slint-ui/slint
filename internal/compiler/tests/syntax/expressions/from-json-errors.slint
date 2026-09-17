@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+enum MyEnum {
+    foo,
+    bar,
+}
+
+struct Point {
+    x: int,
+    y: int,
+}
+
+export component SuperSimple {
+    property <int> file_not_found: @from-json("does-not-exist.json");
+//                                            >                   <error{Cannot find JSON file 📂/tests/syntax/expressions/does-not-exist.json}
+    property <int> invalid_json: @from-json("from-json-invalid.json", "a");
+//                                          >                      <error{Cannot parse JSON file 📂/tests/syntax/expressions/from-json-invalid.json: expected value at line 1 column 8}
+    property <int> missing_key: @from-json("from-json-data.json", "does-not-exist");
+//                                                                >              <error{No key 'does-not-exist' in 'the root' of the JSON file 📂/tests/syntax/expressions/from-json-data.json}
+    property <int> not_an_object: @from-json("from-json-data.json", "a_string/x");
+//                                                                  >          <error{'a_string' in the JSON file 📂/tests/syntax/expressions/from-json-data.json is not an object}
+    property <int> empty_segment: @from-json("from-json-data.json", "element//different_name");
+//                                                                  >                       <error{Empty segment in the JSON path 'element//different_name'}
+    property <int> is_null: @from-json("from-json-data.json", "a_null");
+//                          >                                         <error{The JSON value at 'a_null' in 📂/tests/syntax/expressions/from-json-data.json is null, which cannot be used for a value of type int}
+    property <int> type_mismatch: @from-json("from-json-data.json", "a_string");
+//                                >                                           <error{Cannot use the JSON string at 'a_string' in 📂/tests/syntax/expressions/from-json-data.json for a value of type int}
+    property <int> not_integral: @from-json("from-json-data.json", "a_float");
+//                               >                                          <error{The JSON number 3.5 at 'a_float' in 📂/tests/syntax/expressions/from-json-data.json is not an integer}
+    property <MyEnum> bad_enum: @from-json("from-json-data.json", "a_string");
+//                              >                                           <error{'hello' is not a value of the enum 'MyEnum'. Expected one of: foo, bar}
+    property <Point> not_a_struct: @from-json("from-json-data.json", "an_array");
+//                                 >                                           <error{Cannot use the JSON array at 'an_array' in 📂/tests/syntax/expressions/from-json-data.json for a value of type Point}
+}

@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Successful @from-json(...) lowering for every supported target type, both the 1-arg
+// (implicit property-name key) and 2-arg (explicit "/"-separated JSON path) forms.
+
+enum MyEnum {
+    foo,
+    bar,
+    baz,
+}
+
+struct Point {
+    x: int,
+    y: int,
+}
+
+struct Nested {
+    point: Point,
+    label: string,
+}
+
+export component SuperSimple {
+    // 1-arg form: looks up a key matching this property's own name ("int_property" in the
+    // JSON matches the normalized property name "int-property").
+    property <int> int_property: @from-json("from-json-data.json");
+
+    // 2-arg form: flat key, and a nested path (proving deeper values win over a same-named
+    // sibling closer to the root). The path is spelled with a dash ("sub-element") while the
+    // JSON key uses an underscore, proving path segments get the same underscore/dash-insensitive
+    // matching as the 1-arg form's implicit property-name key above.
+    property <int> different_name_value: @from-json("from-json-data.json", "different_name");
+    property <int> nested_value: @from-json("from-json-data.json", "element/sub-element/different_name");
+
+    // scalar types
+    property <float> a_float: @from-json("from-json-data.json", "a_float");
+    property <string> a_string: @from-json("from-json-data.json", "a_string");
+    property <bool> a_bool: @from-json("from-json-data.json", "a_bool");
+    property <percent> a_percent: @from-json("from-json-data.json", "a_percent");
+    property <length> a_length: @from-json("from-json-data.json", "a_length");
+    property <duration> a_duration: @from-json("from-json-data.json", "a_duration");
+    property <angle> a_angle: @from-json("from-json-data.json", "a_angle");
+    property <color> a_color: @from-json("from-json-data.json", "a_color");
+    property <color> a_named_color: @from-json("from-json-data.json", "a_named_color");
+    // Parsing an enum. The enums are represented as strings in the json file
+    property <MyEnum> an_enum: @from-json("from-json-data.json", "an_enum");
+    property <MyEnum> an_enum_prefixed: @from-json("from-json-data.json", "an_enum_prefixed");
+
+    // array / struct, including nesting and array-of-struct
+    property <[int]> an_array: @from-json("from-json-data.json", "an_array");
+    property <Point> a_struct: @from-json("from-json-data.json", "a_struct");
+    property <Nested> a_nested_struct: @from-json("from-json-data.json", "a_nested_struct");
+    property <[Point]> an_array_of_structs: @from-json("from-json-data.json", "an_array_of_structs");
+
+    // a struct field missing from the JSON object is defaulted
+    property <Point> a_partial_struct: @from-json("from-json-data.json", "a_partial_struct");
+//                                     >                                                   <warning{The JSON object at 'a_partial_struct' in 📂/tests/syntax/expressions/from-json-data.json has no key for the struct field 'y'; using its default value}
+
+    // extra JSON keys not declared on the struct are silently ignored
+    property <Point> a_struct_with_extra_keys: @from-json("from-json-data.json", "a_struct_with_extra_keys");
+}
