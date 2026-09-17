@@ -42,13 +42,19 @@ def position_distance(
     return math.hypot(left.x - right.x, left.y - right.y)
 
 
-def selection_frame(window: slint_testing.Window, kind: str) -> Frame:
-    selected = window_element_with_label(
-        window, f"Selected {kind}", slint_testing.AccessibleRole.Region
-    )
-    position = selected.absolute_position
-    size = selected.size
+def element_frame(element: slint_testing.Element) -> Frame:
+    assert element.is_valid
+    position = element.absolute_position
+    size = element.size
     return (position.x, position.y, size.width, size.height)
+
+
+def selection_frame(window: slint_testing.Window, kind: str) -> Frame:
+    return element_frame(
+        window_element_with_label(
+            window, f"Selected {kind}", slint_testing.AccessibleRole.Region
+        )
+    )
 
 
 def frame_rotation(window: slint_testing.Window, kind: str) -> float:
@@ -95,7 +101,6 @@ def manual_drag(
     dy: float,
     snapshot: SourceSnapshot,
     shift: bool = False,
-    require_multiple_transient_states: bool = True,
     fixed_handle_label: str | None = None,
 ) -> slint_testing.LogicalPosition | None:
     button = slint_testing.PointerEventButton.Left
@@ -103,7 +108,10 @@ def manual_drag(
     rotation = frame_rotation(window, kind)
     start = center(handle, rotation)
     end = slint_testing.LogicalPosition(x=start.x + dx, y=start.y + dy)
-    initial_frame = selection_frame(window, kind)
+    selected = window_element_with_label(
+        window, f"Selected {kind}", slint_testing.AccessibleRole.Region
+    )
+    initial_frame = element_frame(selected)
     fixed_handle_center = (
         center(window_element_with_label(window, fixed_handle_label), rotation)
         if fixed_handle_label is not None
@@ -122,11 +130,10 @@ def manual_drag(
             y=start.y + dy * fraction,
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(position))
-        transient_states.append(selection_frame(window, kind))
+        transient_states.append(element_frame(selected))
 
     assert transient_states[-1] != initial_frame
-    if require_multiple_transient_states:
-        assert len(set(transient_states)) >= 2
+    assert len(set(transient_states)) >= 2
     if fixed_handle_center is not None:
         assert fixed_handle_label is not None
         assert (
@@ -290,23 +297,16 @@ def manual_radius_drag(
     if shift:
         window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-    initial_value = float(
-        window_element_with_label(
-            window, "Radius value", slint_testing.AccessibleRole.Text
-        ).accessible_value
+    tooltip = window_element_with_label(
+        window, "Radius value", slint_testing.AccessibleRole.Text
     )
+    initial_value = float(tooltip.accessible_value)
     window.dispatch_event(slint_testing.PointerMoveEvent(target))
+    assert tooltip.is_valid
     wait_until(
         lambda: (
             value
-            if (
-                value := float(
-                    window_element_with_label(
-                        window, "Radius value", slint_testing.AccessibleRole.Text
-                    ).accessible_value
-                )
-            )
-            != initial_value
+            if (value := float(tooltip.accessible_value)) != initial_value
             else None
         )
     )

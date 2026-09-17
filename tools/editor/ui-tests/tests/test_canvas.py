@@ -1210,7 +1210,6 @@ def run_canvas_boundary_case(
             window_element_with_label(window, label),
             *delta,
             snapshot,
-            require_multiple_transient_states=False,
         )
         expected = replace_once(
             baseline,
