@@ -1,36 +1,39 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style, TooltipStyle } from "../style.slint";
 import { FillSession } from "inspector/fill-session.slint";
 import { Api, Hover, PropertyValueKind, SelectionRectangle } from "../api.slint";
-import { EditorAngles, EditorCursors, EditorMetrics, StudioTheme } from "common.slint";
+import { EditorAngles, EditorCursors } from "common.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
 component CanvasValueTooltip inherits Rectangle {
+    in property <TooltipStyle> style: Style.tooltip;
     in property <string> label;
     in property <string> value;
     in property <string> suffix;
     in property <string> value-label;
     in property <Point> pointer-position;
 
-    x: root.pointer-position.x - self.width - 12px;
-    y: root.pointer-position.y - self.height - 12px;
-    width: tip.width + 14px;
-    height: tip.height + 8px;
-    border-radius: 6px;
-    background: StudioTheme.accent-strong;
-    drop-shadow-blur: 12px;
-    drop-shadow-offset-y: 4px;
-    drop-shadow-color: #33415535;
+    x: root.pointer-position.x - self.width - root.style.offset;
+    y: root.pointer-position.y - self.height - root.style.offset;
+    width: tip.width + 2 * root.style.padding-inline;
+    height: tip.height + 2 * root.style.padding-block;
+    border-radius: root.style.radius;
+    background: root.style.normal.background;
+    drop-shadow-blur: root.style.shadow.blur;
+    drop-shadow-offset-y: root.style.shadow.offset-y;
+    drop-shadow-color: root.style.shadow.color;
     accessible-role: AccessibleRole.text;
     accessible-label: root.value-label;
     accessible-value: root.value;
 
     tip := Text {
         text: root.label + " " + root.value + root.suffix;
-        color: white;
-        font-size: 12px;
+        color: root.style.normal.foreground;
+        font-size: root.style.text.size;
+        font-weight: root.style.text.weight;
         horizontal-alignment: center;
         vertical-alignment: center;
         accessible-role: none;
@@ -435,12 +438,12 @@ export component CanvasInteractionLayer inherits Rectangle {
         transform-rotation: geometry.angle;
         visible: Hover.element.valid && !root.hover-selection-active;
         Rectangle {
-            x: -EditorMetrics.hover-outline-width;
-            y: -EditorMetrics.hover-outline-width;
-            width: parent.width + 2 * EditorMetrics.hover-outline-width;
-            height: parent.height + 2 * EditorMetrics.hover-outline-width;
-            border-width: EditorMetrics.hover-outline-width;
-            border-color: StudioTheme.canvas-outline;
+            x: -Style.selection-frame.hover-width;
+            y: -Style.selection-frame.hover-width;
+            width: parent.width + 2 * Style.selection-frame.hover-width;
+            height: parent.height + 2 * Style.selection-frame.hover-width;
+            border-width: Style.selection-frame.hover-width;
+            border-color: Style.selection-frame.accent;
             border-top-left-radius: geometry.top-left-radius > 0px ? geometry.top-left-radius + self.border-width : 0px;
             border-top-right-radius: geometry.top-right-radius > 0px ? geometry.top-right-radius + self.border-width : 0px;
             border-bottom-left-radius: geometry.bottom-left-radius > 0px ? geometry.bottom-left-radius + self.border-width : 0px;
