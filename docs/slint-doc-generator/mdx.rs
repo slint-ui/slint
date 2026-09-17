@@ -35,8 +35,15 @@ pub fn generate(cfg: &Config) -> Result<Vec<String>, Box<dyn std::error::Error>>
     }
     // The struct and element pages link to the type pages, so all of them are
     // written from the same maps: a type this run leaves out is never linked to.
-    let enums = extract_enum_docs(cfg.include_experimental, cfg.sc_only);
-    let structs = extract_builtin_structs(cfg.include_experimental, cfg.sc_only);
+    // The safety manual documents no builtin enum or struct.
+    let (enums, structs) = if cfg.sc_only {
+        Default::default()
+    } else {
+        (
+            extract_enum_docs(cfg.include_experimental),
+            extract_builtin_structs(cfg.include_experimental),
+        )
+    };
     // The pages of this site can also link the hand-written property-types
     // pages, unless it's the safety manual: it serves an SC-filtered copy of
     // those, which drops the sections of the types it doesn't cover. The struct
@@ -50,7 +57,7 @@ pub fn generate(cfg: &Config) -> Result<Vec<String>, Box<dyn std::error::Error>>
     }
     crate::element_docs::generate(cfg, &site_links)?;
 
-    if !cfg.sc_only || !enums.is_empty() || !structs.is_empty() {
+    if !cfg.sc_only {
         write_builtin_structs_and_enums(cfg, &structs, &enums)?;
     }
 
@@ -213,7 +220,6 @@ pub struct EnumDoc {
 
 pub fn extract_enum_docs(
     _include_experimental: bool,
-    sc_only: bool,
 ) -> std::collections::BTreeMap<String, EnumDoc> {
     let mut enums: std::collections::BTreeMap<String, EnumDoc> = std::collections::BTreeMap::new();
 
@@ -244,16 +250,6 @@ pub fn extract_enum_docs(
         i_slint_common::for_each_enums!(gen_enums);
     }
 
-    if sc_only {
-        enums.retain(|_, e| crate::element_docs::is_sc_covered(&e.description));
-    }
-    for e in enums.values_mut() {
-        e.description = crate::element_docs::strip_sc(&e.description);
-        for v in &mut e.values {
-            v.description = crate::element_docs::strip_sc(&v.description);
-        }
-    }
-
     enums
 }
 
@@ -273,7 +269,6 @@ pub struct StructDoc {
 
 pub fn extract_builtin_structs(
     _include_experimental: bool,
-    sc_only: bool,
 ) -> std::collections::BTreeMap<String, StructDoc> {
     // `Point` should be in the documentation, but it's not inside of `for_each_builtin_structs`,
     // so we manually create its entry first.
@@ -381,16 +376,6 @@ pub fn extract_builtin_structs(
 
     // Internal type
     structs.remove("MenuEntry");
-
-    if sc_only {
-        structs.retain(|_, s| crate::element_docs::is_sc_covered(&s.description));
-    }
-    for s in structs.values_mut() {
-        s.description = crate::element_docs::strip_sc(&s.description);
-        for f in &mut s.fields {
-            f.description = crate::element_docs::strip_sc(&f.description);
-        }
-    }
 
     structs
 }

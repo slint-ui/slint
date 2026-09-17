@@ -93,6 +93,7 @@ export default defineConfig({
                         icon: "open-book",
                         items: [
                             { label: "Overview", slug: "index" },
+                            "guide/getting-started",
                             {
                                 label: "Tooling",
                                 collapsed: true,

@@ -206,9 +206,9 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
-#[cfg(not(feature = "compat-1-2"))]
+#[cfg(not(feature = "compat-1-18"))]
 compile_error!(
-    "The feature `compat-1-2` must be enabled to ensure \
+    "The feature `compat-1-18` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
 
@@ -722,7 +722,7 @@ pub mod winit_030 {
 
     pub use i_slint_backend_winit::{
         CustomApplicationHandler, EventLoopBuilder, EventResult, SlintEvent, WinitWindowAccessor,
-        winit,
+        invoke_from_active_event_loop, winit,
     };
 
     #[deprecated(note = "Renamed to `EventResult`")]

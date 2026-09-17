@@ -232,16 +232,15 @@ inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexboxL
 }
 
 // C thunk for the flexbox measure callbacks: unpack the type-erased functor
-// and forward. `measure(index, w, h, known_w, known_h)` returns `{width,
-// height}`; a dimension taffy has not determined (`known_* == false`) arrives
-// pre-resolved to the cell's preferred size.
+// and forward. `measure(index, w, h)` returns `{width, height}`.
+// See `FlexboxMeasureFn` in i-slint-core for when it is called and what the
+// sizes mean.
 template<typename MeasureFn>
 inline void flexbox_measure_thunk(void *user_data, uintptr_t child_index, float width, float height,
-                                  bool known_width, bool known_height, float *out_width,
-                                  float *out_height)
+                                  float *out_width, float *out_height)
 {
     auto *f = reinterpret_cast<MeasureFn *>(user_data);
-    auto wh = (*f)(child_index, width, height, known_width, known_height);
+    auto wh = (*f)(child_index, width, height);
     *out_width = wh.first;
     *out_height = wh.second;
 }
@@ -429,6 +428,13 @@ inline SharedString decimal_separator()
 {
     SharedString out;
     cbindgen_private::slint_decimal_separator(&out);
+    return out;
+}
+
+inline SharedString default_window_title()
+{
+    SharedString out;
+    cbindgen_private::slint_default_window_title(&out);
     return out;
 }
 

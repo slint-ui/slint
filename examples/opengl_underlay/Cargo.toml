@@ -15,12 +15,15 @@ path = "main.rs"
 name = "opengl_underlay"
 
 [dependencies]
-slint = { path = "../../api/rs/slint" }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-18", "std"] }
 glow = { workspace = true }
 web-time = { version = "1.0" }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
+
+[features]
+default = ["slint/default"]
 
 # Remove the `#wasm#` to uncomment the wasm build.
 # This is commented out by default because we don't want to build it as a library by default

@@ -26,6 +26,7 @@ impl WinitVelloRenderer {
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
         if !i_slint_core::graphics::wgpu_29::any_wgpu29_adapters_with_gpu(
             shared_backend_data.requested_graphics_api.clone(),
+            i_slint_core::graphics::wgpu_29::default_backends_to_avoid(),
         ) {
             return Err(PlatformError::from("WGPU: No GPU adapters found"));
         }
@@ -49,6 +50,12 @@ impl WinitCompatibleRenderer for WinitVelloRenderer {
         // Also releases the winit window the callback holds on to.
         self.renderer.set_pre_present_callback(None);
         self.renderer.suspend_window();
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
+        self.renderer.set_transparent(transparent);
         Ok(())
     }
 

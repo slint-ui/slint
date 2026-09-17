@@ -21,6 +21,12 @@ struct Data {
     b: int
 }
 
+struct DataMore {
+    a: string,
+    b: int,
+    c: int
+}
+
 export X := Rectangle {
 //       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
@@ -54,6 +60,28 @@ export X := Rectangle {
 //                                          >                    <error{Cannot convert { a: string,typo: float,} to { a: string,b: int,}: Field 'typo' not found}
     property <Data> object2: { a: "123", typo: 42};
 //                           >                    <error{Cannot convert { a: string,typo: float,} to Data: Field 'typo' not found. Available fields: 'a', 'b'}
+
+    property <Data> object3: { a: "123", b: 42, extra: 1};
+//                           >                           <warning{Conversion to Data ignores the extra field 'extra'}
+    property <{x: int}> object4: { x: 1, y: 2};
+//                               >            <warning{Conversion to { x: int,} ignores the extra field 'y'}
+    property <{x: int}> object5: { x: 1, y: 2, z: 3};
+//                               >                  <warning{Conversion to { x: int,} ignores the extra fields 'y' and 'z'}
+    property <[Data]> object6: [{ a: "1", b: 2, extra: 3 }];
+//                             >                           <warning{Conversion to Data ignores the extra field 'extra'}
+
+    property <{a: int, b: int, c: int}> src: { a: 1, b: 2, c: 3 };
+    property <{a: int, b: int}> from_var: src;
+//                                        >  <warning{Conversion to { a: int,b: int,} ignores the extra field 'c'}
+    property <DataMore> data_more;
+    property <Data> named_conv: data_more;
+//                              >        <warning{Conversion to Data ignores the extra field 'c'}
+    property <{inner: {x: int}}> sub: { inner: { x: 1, extra: 2 } };
+//                                    >                            <warning{Conversion to { x: int,} ignores the extra field 'extra'}
+    property <{items: [float], name: string}> arr_conv: { items: [1, 2], name: "x", extra: 5 };
+//                                                      >                                     <warning{Conversion to { items: [float],name: string,} ignores the extra field 'extra'}
+    property <{inner: {x: int, y: int}}> sub_err: { inner: { x: 1, typo: 2 } };
+//                                                >                           <error{Cannot convert { typo: float,x: float,} to { x: int,y: int,}: Field 'typo' not found}
 
     property <[{a: [int]}]> ccc: [{a: []}, {}, {a: ["123"]}, {a: [123]}]; //  (FIXME: error location)  (FIXME: duplicated)
 //                               >                                      <error{Cannot convert string to int}

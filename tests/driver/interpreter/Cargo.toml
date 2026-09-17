@@ -33,5 +33,8 @@ itertools = { workspace = true }
 spin_on = { version = "0.1" }
 test_driver_lib = { path = "../driverlib" }
 
+[target.'cfg(not(target_os = "wasm"))'.dependencies]
+i-slint-backend-qt = { workspace = true }
+
 [build-dependencies]
 test_driver_lib = { path = "../driverlib" }

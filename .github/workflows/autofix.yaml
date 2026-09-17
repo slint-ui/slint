@@ -21,37 +21,20 @@ env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-    # Runs concurrently with the two gate jobs below, so the jobs in the ci
-    # workflow can be scheduled as soon as the gate passes.
-    files-changed:
-        runs-on: ubuntu-latest
-        timeout-minutes: 2
-        permissions:
-            contents: read
-            pull-requests: read
-        outputs:
-            changes: ${{ steps.filter.outputs.changes }}
-        steps:
-            # paths-filter reads the filter file from the working tree. It gets
-            # PR changes from the GitHub API and compares Git refs for other events.
-            - uses: actions/checkout@v7
-              with:
-                  sparse-checkout: .github/ci_path_filters.yaml
-                  sparse-checkout-cone-mode: false
-            - uses: dorny/paths-filter@v4
-              id: filter
-              with:
-                  filters: .github/ci_path_filters.yaml
-                  predicate-quantifier: some-with-excludes
-
     format_fix:
         runs-on: ubuntu-latest
         timeout-minutes: 5
         permissions:
             contents: read
             pull-requests: read
+        # The ci workflow waits for this gate anyway, so computing the filter
+        # here instead of in a job of its own costs no extra latency.
+        outputs:
+            changes: ${{ steps.filter.outputs.changes }}
         steps:
             - uses: actions/checkout@v7
+            # paths-filter reads the filter file from the working tree. It gets
+            # PR changes from the GitHub API and compares Git refs for other events.
             - uses: dorny/paths-filter@v4
               id: filter
               with:
@@ -89,14 +72,14 @@ jobs:
                 incremental_files_only: true
 
     ci:
-        needs: [files-changed, format_fix, lint_typecheck]
+        needs: [format_fix, lint_typecheck]
         permissions:
             contents: read
             deployments: write
         uses: ./.github/workflows/ci.yaml
         with:
             full: false
-            changes: ${{ needs.files-changed.outputs.changes }}
+            changes: ${{ needs.format_fix.outputs.changes }}
         secrets:
             ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
             ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -114,7 +97,7 @@ jobs:
         # job (e.g. a GitHub-side abort) must fail the gate too: it is not a
         # passing result, so treating it as success would let a change land
         # without that check actually running.
-        needs: [ci, files-changed, format_fix, lint_typecheck]
+        needs: [ci, format_fix, lint_typecheck]
         if: ${{ always() }}
         name: done
         runs-on: ubuntu-latest

@@ -15,4 +15,4 @@ language = "Slint"
 
 [grammars.slint]
 repository = "https://github.com/slint-ui/tree-sitter-slint.git"
-commit = "b08dc7ee7358da805b37735f458fc104ad127114"
+commit = "4b9d64938fa5004040638d75aaf13ed37505da1b"

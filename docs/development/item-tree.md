@@ -188,7 +188,7 @@ Repeaters create dynamic subtrees:
 1. Define item struct in `internal/core/items.rs` or new file
 2. Implement `Item` trait with required methods
 3. Add to `ItemVTable` registration
-4. Add to compiler's `builtins.slint`
+4. Declare it in `internal/compiler/builtin_elements.rs`
 5. Handle in renderers (`internal/renderers/*/`)
 
 ### Debugging Item Tree Issues

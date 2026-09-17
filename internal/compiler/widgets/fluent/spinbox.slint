@@ -61,6 +61,7 @@ export component SpinBox {
     accessible-action-set-value(v) => { if v.is-float() { base.update-value(v.to-float()); } }
     accessible-action-increment => { base.increment(); }
     accessible-action-decrement => { base.decrement(); }
+    accessible-action-set-selection-offsets(anchor, focus) => { base.set-selection-offsets(anchor, focus); }
     accessible-read-only: root.read-only;
 
     states [

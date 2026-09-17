@@ -1,0 +1,27 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "analogclock"
+version = "1.18.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+build = "build.rs"
+publish = false
+license = "MIT"
+description = "An analog clock demo for round displays, such as the M5Stack StopWatch"
+
+[[bin]]
+path = "main.rs"
+name = "analogclock"
+
+[features]
+simulator = ["slint/renderer-software", "slint/backend-winit", "slint/std"]
+default = ["simulator"]
+
+[dependencies]
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
+mcu-board-support = { path = "../../../examples/mcu-board-support" }
+
+[build-dependencies]
+slint-build = { path = "../../../api/rs/build" }

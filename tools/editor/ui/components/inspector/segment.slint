@@ -34,7 +34,14 @@ export component InspectorSegment inherits Rectangle {
         }
     }
 
-    InspectorSegmentIcon {
+    if root.kind == "text": Text {
+        text: root.label;
+        color: InspectorTokens.text;
+        font-size: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if root.kind != "text": InspectorSegmentIcon {
         kind: root.kind;
         index: root.index;
         selected: root.selected;

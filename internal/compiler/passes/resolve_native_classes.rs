@@ -78,8 +78,8 @@ pub fn resolve_native_classes(component: &Component) {
     })
 }
 
-/// Whether this binding just sets the property to the default value declared in
-/// `builtins.slint`, so that nothing changes if it goes away.
+/// Whether this binding just sets the property to the default value of the builtin
+/// element declaration, so that nothing changes if it goes away.
 fn is_default_value(base_type: &BuiltinElement, name: &str, binding: &BindingExpression) -> bool {
     let Some(BuiltinPropertyDefault::Expr(default)) =
         base_type.properties.get(name).map(|p| &p.default_value)
@@ -88,7 +88,7 @@ fn is_default_value(base_type: &BuiltinElement, name: &str, binding: &BindingExp
     };
     binding.animation.is_none()
         && binding.two_way_bindings.is_empty()
-        && same_literal(binding.value_expression(), default)
+        && same_literal(binding.value_expression(), &default.to_expression())
 }
 
 /// Anything that isn't a literal compares as different, so a computed binding counts as a use.
@@ -180,16 +180,15 @@ fn test_select_minimal_class_based_on_property_usage() {
 
 #[test]
 fn builtin_defaults_are_comparable() {
-    let tr = crate::typeregister::TypeRegister::builtin(
-        &crate::symbol_counters::SymbolCounters::shared(),
-    );
+    let tr = crate::typeregister::TypeRegister::builtin();
     let tr = tr.borrow();
     for (name, element) in tr.all_elements() {
         let ElementType::Builtin(element) = element else { continue };
         for (property, info) in &element.properties {
             if let BuiltinPropertyDefault::Expr(default) = &info.default_value {
+                let default = default.to_expression();
                 assert!(
-                    same_literal(default, &default.clone()),
+                    same_literal(&default, &default),
                     "the default of {name}::{property} is a shape same_literal doesn't compare, \
                      so the property always counts as used: {default:?}"
                 );
@@ -201,9 +200,7 @@ fn builtin_defaults_are_comparable() {
 #[test]
 fn select_minimal_class() {
     use smol_str::ToSmolStr;
-    let tr = crate::typeregister::TypeRegister::builtin(
-        &crate::symbol_counters::SymbolCounters::shared(),
-    );
+    let tr = crate::typeregister::TypeRegister::builtin();
     let tr = tr.borrow();
     let rect = tr.lookup_element("Rectangle").unwrap();
     let rect = rect.as_builtin();

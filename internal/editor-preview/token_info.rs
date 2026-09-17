@@ -1,16 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::diagnostics::{SourceLocation, Spanned};
 use i_slint_compiler::expression_tree::{Callable, Expression};
-use i_slint_compiler::langtype::{ElementType, EnumerationValue, Type};
+use i_slint_compiler::langtype::{ElementType, EnumerationValue, Struct, Type};
 use i_slint_compiler::lookup::{LookupObject, LookupResult, LookupResultCallable};
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, TextRange, syntax_nodes};
 use i_slint_compiler::pathutils::clean_path;
 use smol_str::{SmolStr, ToSmolStr};
 use std::path::Path;
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub enum TokenInfo {
@@ -27,6 +28,10 @@ pub enum TokenInfo {
     /// This is like a NamedReference, but the element doesn't have an ElementRc because
     /// its enclosing component might not have been properly parsed
     IncompleteNamedReference(ElementType, SmolStr),
+    /// A field of a struct, and the struct it belongs to
+    StructField(Arc<Struct>, SmolStr),
+    /// The model data of a `for`, named by its declared identifier
+    ModelData(ElementRc),
 }
 
 /// Resolve a struct/enum declaration reference to its syntax node using the
@@ -34,11 +39,16 @@ pub enum TokenInfo {
 /// not need to carry a syntax tree.
 pub fn node_for_decl(
     document_cache: &crate::DocumentCache,
-    decl: &i_slint_compiler::langtype::DeclNode,
+    decl: &SourceLocation,
 ) -> Option<SyntaxNode> {
-    let doc = document_cache.get_document_for_source_file(decl.source_file())?;
-    let node = doc.node.as_ref()?.covering_element(decl.text_range()).into_node()?;
-    Some(SyntaxNode { node, source_file: decl.source_file().clone() })
+    let source_file = decl.source_file.as_ref()?;
+    let doc = document_cache.get_document_for_source_file(source_file)?;
+    let node = doc.node.as_ref()?.covering_element(decl_range(decl)).into_node()?;
+    Some(SyntaxNode { node, source_file: source_file.clone() })
+}
+
+fn decl_range(decl: &SourceLocation) -> TextRange {
+    TextRange::at((decl.span.offset as u32).into(), (decl.span.length as u32).into())
 }
 
 impl TokenInfo {
@@ -77,6 +87,23 @@ impl TokenInfo {
             TokenInfo::LocalProperty(x) => Some(x.clone().into()),
             TokenInfo::LocalCallback(x) => Some(x.clone().into()),
             TokenInfo::LocalFunction(x) => Some(x.clone().into()),
+            TokenInfo::StructField(s, field) => {
+                let decl = node_for_decl(document_cache, s.node()?)?;
+                syntax_nodes::StructDeclaration::new(decl)?
+                    .ObjectType()
+                    .ObjectTypeMember()
+                    .find(|m| {
+                        m.child_token(SyntaxKind::Identifier).is_some_and(|t| {
+                            i_slint_compiler::parser::normalize_identifier(t.text()) == *field
+                        })
+                    })
+                    .map(|m| m.into())
+            }
+            TokenInfo::ModelData(elem) => {
+                let node = elem.borrow().debug.first()?.node.clone();
+                let repeated = node.parent()?.parent()?;
+                syntax_nodes::RepeatedElement::new(repeated)?.DeclaredIdentifier().map(|d| d.into())
+            }
             TokenInfo::IncompleteNamedReference(element_type, prop_name) => {
                 let mut element_type = element_type.clone();
                 while let ElementType::Component(com) = element_type {
@@ -88,6 +115,37 @@ impl TokenInfo {
                 None
             }
         }
+    }
+}
+
+/// Map what a name resolved to onto the thing the editor can show or jump to
+fn token_info_from_lookup_result(lr: LookupResult) -> Option<TokenInfo> {
+    match lr {
+        LookupResult::Expression { expression: Expression::ElementReference(e), .. } => {
+            Some(TokenInfo::ElementRc(e.upgrade()?))
+        }
+        LookupResult::Expression { expression: Expression::PropertyReference(nr), .. } => {
+            Some(TokenInfo::NamedReference(nr))
+        }
+        LookupResult::Expression { expression: Expression::EnumerationValue(v), .. } => {
+            Some(TokenInfo::EnumerationValue(v))
+        }
+        LookupResult::Expression {
+            expression: Expression::StructFieldAccess { base, name },
+            ..
+        } => match base.ty() {
+            Type::Struct(s) => Some(TokenInfo::StructField(s, name)),
+            _ => None,
+        },
+        LookupResult::Expression {
+            expression: Expression::RepeaterModelReference { element },
+            ..
+        } => Some(TokenInfo::ModelData(element.upgrade()?)),
+        LookupResult::Enumeration(e) => Some(TokenInfo::Type(Type::Enumeration(e))),
+        LookupResult::Callable(LookupResultCallable::Callable(
+            Callable::Callback(nr) | Callable::Function(nr),
+        )) => Some(TokenInfo::NamedReference(nr)),
+        _ => None,
     }
 }
 
@@ -142,28 +200,20 @@ pub fn token_info(document_cache: &crate::DocumentCache, token: SyntaxToken) -> 
                         }
                         Some(expr_it)
                     })?;
-                    match lr? {
-                        LookupResult::Expression {
-                            expression: Expression::ElementReference(e),
-                            ..
-                        } => Some(TokenInfo::ElementRc(e.upgrade()?)),
-                        LookupResult::Expression {
-                            expression: Expression::PropertyReference(nr),
-                            ..
-                        } => Some(TokenInfo::NamedReference(nr)),
-                        LookupResult::Expression {
-                            expression: Expression::EnumerationValue(v),
-                            ..
-                        } => Some(TokenInfo::EnumerationValue(v)),
-                        LookupResult::Enumeration(e) => Some(TokenInfo::Type(Type::Enumeration(e))),
-                        LookupResult::Callable(LookupResultCallable::Callable(
-                            Callable::Callback(nr) | Callable::Function(nr),
-                        )) => Some(TokenInfo::NamedReference(nr)),
-                        _ => return None,
-                    }
+                    token_info_from_lookup_result(lr?)
                 }
                 _ => None,
             };
+        } else if let Some(n) = syntax_nodes::MemberAccess::new(node.clone()) {
+            // Member access on something that isn't a plain name, such as `foo[0].bar`
+            if token.kind() != SyntaxKind::Identifier {
+                return None;
+            }
+            let name = i_slint_compiler::parser::normalize_identifier(token.text());
+            let lr = crate::util::with_lookup_ctx(document_cache, node.clone(), None, |ctx| {
+                Expression::from_expression_node(n.Expression(), ctx).lookup(ctx, &name)
+            })?;
+            return token_info_from_lookup_result(lr?);
         } else if let Some(n) = syntax_nodes::ImportIdentifier::new(node.clone()) {
             let doc = document_cache.get_document_for_source_file(&node.source_file)?;
             let imp_name = i_slint_compiler::typeloader::ImportedName::from_node(n);
@@ -307,8 +357,7 @@ pub fn token_info(document_cache: &crate::DocumentCache, token: SyntaxToken) -> 
                 match &ty {
                     Type::Struct(s)
                         if s.node()
-                            .map(|n| n.text_range().contains_range(token.text_range()))
-                            .unwrap_or_default() =>
+                            .is_some_and(|n| decl_range(n).contains_range(token.text_range())) =>
                     {
                         return Some(TokenInfo::Type(ty));
                     }
@@ -324,8 +373,7 @@ pub fn token_info(document_cache: &crate::DocumentCache, token: SyntaxToken) -> 
                     Type::Enumeration(e)
                         if e.node
                             .as_ref()
-                            .map(|n| n.text_range().contains_range(token.text_range()))
-                            .unwrap_or_default() =>
+                            .is_some_and(|n| decl_range(n).contains_range(token.text_range())) =>
                     {
                         return Some(TokenInfo::Type(ty));
                     }

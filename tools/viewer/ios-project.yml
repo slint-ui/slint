@@ -32,6 +32,12 @@ targets:
         # iPad multitasking requires a valid UILaunchScreen.
         UILaunchScreen: {}
         NSLocalNetworkUsageDescription: "We need to talk to editors on the local network."
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Slint
+                UISceneDelegateClassName: SlintWindowSceneDelegate
         NSBonjourServices:
           - "_slint-preview._tcp"
         UISupportedInterfaceOrientations:

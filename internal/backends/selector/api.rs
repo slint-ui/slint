@@ -313,6 +313,7 @@ impl BackendSelector {
         if matches!(self.requested_graphics_api, Some(RequestedGraphicsAPI::WGPU30(_)))
             && !i_slint_core::graphics::wgpu_30::any_wgpu30_adapters_with_gpu(
                 self.requested_graphics_api.clone(),
+                i_slint_core::graphics::wgpu_30::default_backends_to_avoid(),
             )
         {
             return Err(
@@ -325,6 +326,7 @@ impl BackendSelector {
         if matches!(self.requested_graphics_api, Some(RequestedGraphicsAPI::WGPU29(_)))
             && !i_slint_core::graphics::wgpu_29::any_wgpu29_adapters_with_gpu(
                 self.requested_graphics_api.clone(),
+                i_slint_core::graphics::wgpu_29::default_backends_to_avoid(),
             )
         {
             return Err(

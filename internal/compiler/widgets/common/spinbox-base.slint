@@ -25,15 +25,21 @@ export component SpinBoxBase {
         }
     }
 
+    public function set-selection-offsets(anchor: int, focus: int) {
+        text-input.set-selection-offsets(anchor, focus);
+    }
+
     public function increment() {
         if !root.read-only {
            root.update-value(root.value + root.step-size);
+           root.update-text-and-cursor();
         }
     }
 
     public function decrement() {
         if !root.read-only {
            root.update-value(root.value - root.step-size);
+           root.update-text-and-cursor();
         }
     }
 
@@ -45,8 +51,19 @@ export component SpinBoxBase {
         root.set-text-to-value();
     }
 
+    changed has-focus => {
+        if !root.has-focus {
+            root.set-text-to-value();
+        }
+    }
+
     function set-text-to-value() {
         text-input.text = root.value;
+    }
+
+    function update-text-and-cursor() {
+        root.set-text-to-value();
+        text-input.set-selection-offsets(text-input.text.character-count, text-input.text.character-count);
     }
 
     TouchArea {
@@ -79,10 +96,24 @@ export component SpinBoxBase {
         // Disable TextInput's built-in accessibility support as the widget takes care of that.
         accessible-role: none;
 
-        accepted => {
-            if !self.text.is-float() {
-                root.set-text-to-value();
+        key-pressed(event) => {
+            if !root.read-only && event.text == Key.UpArrow {
+                root.increment();
+                return accept;
             }
+
+            if !root.read-only && event.text == Key.DownArrow {
+                root.decrement();
+                return accept;
+            }
+
+            reject
+        }
+
+        accepted => {
+            // 'update-value' ignores an edit that leaves the minimum/maximum range,
+            // so the text can hold a number the value never took.
+            root.update-text-and-cursor();
         }
 
         edited => {

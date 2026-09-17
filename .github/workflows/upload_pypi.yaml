@@ -11,6 +11,18 @@ on:
             default: false
             required: false
             description: "Release? If false, publish to test.pypi.org, if true, publish to pypi.org"
+        publish:
+            type: boolean
+            default: true
+            required: false
+            description: "Publish the built distributions. If false, only build and test them"
+    # The nightly snapshot calls this to build and test the wheels. A called run
+    # never publishes: leave `publish` at its default.
+    workflow_call:
+      inputs:
+        publish:
+            type: boolean
+            default: false
 
 jobs:
     build_binaries:
@@ -201,7 +213,7 @@ jobs:
               run: python3 api/python/slint/tests/registry/e2e.py
 
     publish-to-test-pypi:
-        if: ${{ github.event.inputs.release != 'true' }}
+        if: ${{ inputs.publish && github.event.inputs.release != 'true' }}
         name: >-
             Publish Python 🐍 distribution 📦 to Test PyPI
         needs: [build_binaries, ios_binaries, build_source_package, e2e_test]
@@ -223,7 +235,7 @@ jobs:
                 repository-url: https://test.pypi.org/legacy/
 
     publish-to-pypi:
-      if: ${{ github.event.inputs.release == 'true' }}
+      if: ${{ inputs.publish && github.event.inputs.release == 'true' }}
       name: >-
           Publish Python 🐍 distribution 📦 to PyPI
       needs: [build_binaries, ios_binaries, build_source_package, e2e_test]

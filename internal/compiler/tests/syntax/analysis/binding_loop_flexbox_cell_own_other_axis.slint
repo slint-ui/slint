@@ -1,0 +1,73 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A flexbox cell sized from its own other axis. The solve reads the cell's
+// explicit size constraints on both axes and produces one cache for both, so
+// the read comes back to the solve. A box or grid layout solves one axis at a
+// time and takes the cell's cross size straight from its own geometry, so the
+// same markup is fine there.
+//
+// The cases, in order: one per orientation, since the solve declares both and
+// dropping either lets a shape through; a constraint that isn't a plain size;
+// a repeated component cell, which is measured through its own root; a
+// locally-set constraint on a cell that carries its own layout-info, which
+// `to_apply` keeps while dropping the inherited 'min-height' next to it; and a
+// runtime 'flex-direction', which the solve handles without knowing the axis
+// relation.
+
+component Card {
+    min-height: inner.min-height;
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+export component Demo inherits Window {
+    width: 300px;
+    height: 200px;
+    in property <bool> horizontal;
+
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (width -> layout-cache -> height -> width)}
+//  >            <^error{The binding for the property 'height' is part of a binding loop (width -> layout-cache -> height -> width)}
+        Rectangle { width: self.height; }
+//                         >          <error{The binding for the property 'width' is part of a binding loop (width -> layout-cache -> height -> width)}
+    }
+
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (height -> layout-cache -> width -> height)}
+//  >            <^error{The binding for the property 'width' is part of a binding loop (height -> layout-cache -> width -> height)}
+        Rectangle { height: self.width; }
+//                          >         <error{The binding for the property 'height' is part of a binding loop (height -> layout-cache -> width -> height)}
+    }
+
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (min-width -> layout-cache -> height -> min-width)}
+//  >            <^error{The binding for the property 'height' is part of a binding loop (min-width -> layout-cache -> height -> min-width)}
+        Rectangle { min-width: self.height; }
+//                             >          <error{The binding for the property 'min-width' is part of a binding loop (min-width -> layout-cache -> height -> min-width)}
+    }
+
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (width -> layout-cache -> height -> width)}
+//  >            <^error{The binding for the property 'height' is part of a binding loop (width -> layout-cache -> height -> width)}
+        for i in 2: Card { width: self.height; }
+//                                >          <error{The binding for the property 'width' is part of a binding loop (width -> layout-cache -> height -> width)}
+    }
+
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (width -> layout-cache -> height -> width)}
+//  >            <^error{The binding for the property 'height' is part of a binding loop (width -> layout-cache -> height -> width)}
+        flex-direction: column;
+        Card { width: self.height; }
+//                    >          <error{The binding for the property 'width' is part of a binding loop (width -> layout-cache -> height -> width)}
+    }
+
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (width -> layout-cache -> height -> width)}
+//  >            <^error{The binding for the property 'height' is part of a binding loop (width -> layout-cache -> height -> width)}
+        flex-direction: root.horizontal ? row : column;
+        Rectangle { width: self.height; }
+//                         >          <error{The binding for the property 'width' is part of a binding loop (width -> layout-cache -> height -> width)}
+    }
+}

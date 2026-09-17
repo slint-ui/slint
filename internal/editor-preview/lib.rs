@@ -4,6 +4,8 @@
 #![doc = include_str!("README.md")]
 #![deny(clippy::print_stderr, clippy::print_stdout, clippy::disallowed_methods)]
 
+#[cfg(not(target_arch = "wasm32"))]
+pub mod child_process;
 pub mod component_catalog;
 pub mod document_cache;
 pub mod editing;
@@ -19,7 +21,7 @@ pub mod token_info;
 pub mod util;
 
 pub use document_cache::DocumentCache;
-pub use editor_session::{EditorSession, VersionedDiagnostics};
+pub use editor_session::{EditorSession, PreviewConnection, VersionedDiagnostics};
 pub use element::{ElementRcNode, NODE_IGNORE_COMMENT, extract_element, is_element_node_ignored};
 pub use file_url::{file_to_uri, uri_to_file};
 pub use i_slint_compiler::diagnostics::ByteFormat;

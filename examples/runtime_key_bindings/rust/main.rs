@@ -89,7 +89,7 @@ fn load_shortcut(action: &str) -> Option<Keys> {
 
 /// Persist `keys` for `action`, leaving every other line of the file intact
 fn save_shortcut(action: &str, keys: &Keys) {
-    let parts: Vec<String> = keys.to_parts().iter().map(|p| encode_part(p)).collect();
+    let parts: Vec<String> = keys.to_parts().map(encode_part).collect();
     let new_line = format!("{action} {}", parts.join(" "));
 
     // Rewrite this action's line in place and keep the rest, so the example does

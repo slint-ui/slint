@@ -42,7 +42,6 @@ pub struct NativeSpinBox {
 cpp! {{
 void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, bool enabled, bool read_only, int active_controls) {
 auto style = qApp->style();
-option.activeSubControls = QStyle::SC_None;
 option.subControls = QStyle::SC_SpinBoxEditField | QStyle::SC_SpinBoxUp | QStyle::SC_SpinBoxDown;
 if (style->styleHint(QStyle::SH_SpinBox_ButtonsInsideFrame, nullptr, nullptr))
     option.subControls |= QStyle::SC_SpinBoxFrame;
@@ -224,21 +223,22 @@ impl Item for NativeSpinBox {
                 }
                 MouseEvent::Moved { .. } => false,
                 MouseEvent::Wheel { delta_y, .. } => {
-                    if !self.read_only() {
-                        if *delta_y > 0. {
-                            let v = self.value();
-                            if v < self.maximum() {
-                                let new_val = v + step_size;
-                                self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
-                            }
-                        } else if *delta_y < 0. {
-                            let v = self.value();
-                            if v > self.minimum() {
-                                let new_val = v - step_size;
-                                self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
-                            }
+                    if self.read_only() || !enabled {
+                        return InputEventResult::EventIgnored;
+                    }
+                    if *delta_y > 0. {
+                        let v = self.value();
+                        if v < self.maximum() {
+                            let new_val = v + step_size;
+                            self.value.set(new_val);
+                            Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
+                        }
+                    } else if *delta_y < 0. {
+                        let v = self.value();
+                        if v > self.minimum() {
+                            let new_val = v - step_size;
+                            self.value.set(new_val);
+                            Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
                         }
                     }
                     true

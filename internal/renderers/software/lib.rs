@@ -32,9 +32,12 @@ use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use euclid::Length;
 use fixed::Fixed;
+#[cfg(feature = "std")]
 use i_slint_core::api::PlatformError;
+#[cfg(feature = "std")]
+use i_slint_core::graphics::Rgba8Pixel;
 use i_slint_core::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
-use i_slint_core::graphics::{BorderRadius, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::graphics::{BorderRadius, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemRenderer, PlainOrStyledText, RenderBorderRectangle, RenderImage,
@@ -879,7 +882,12 @@ impl RendererSealed for SoftwareRenderer {
 
         #[cfg(feature = "systemfonts")]
         if uses_parley(&font) {
-            return sharedparley::text_content_widths(self, text_item, item_rc);
+            return sharedparley::text_content_widths(
+                self,
+                text_item,
+                item_rc,
+                Some(&self.text_layout_cache),
+            );
         }
 
         let max_lines = text_item.line_limit();
@@ -1148,12 +1156,12 @@ impl RendererSealed for SoftwareRenderer {
 
     fn free_graphics_resources(
         &self,
-        _component: i_slint_core::item_tree::ItemTreeRef,
+        component: i_slint_core::item_tree::ItemTreeRef,
         items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         #[cfg(feature = "systemfonts")]
-        self.text_layout_cache.component_destroyed(_component);
-        self.partial_rendering_state.free_graphics_resources(items);
+        self.text_layout_cache.component_destroyed(component);
+        self.partial_rendering_state.free_graphics_resources(component, items);
         Ok(())
     }
 
@@ -1201,6 +1209,8 @@ impl RendererSealed for SoftwareRenderer {
             .and_then(|window_adapter| window_adapter.upgrade())
     }
 
+    // Rendering to a second pixel format monomorphizes the pipeline twice; keep it out of MCU builds.
+    #[cfg(feature = "std")]
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         let Some(window_adapter) =
             self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
@@ -2982,15 +2992,15 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
         let physical_geom_f32 =
             geom.translate(self.current_state.offset.to_vector()).cast() * self.scale_factor;
-        let physical_geom = physical_geom_f32.round().cast().transformed(self.rotation);
+        let rounded_geom = physical_geom_f32.round();
+        let physical_geom = rounded_geom.cast().transformed(self.rotation);
 
         let rotation = RotationInfo {
             orientation: self.rotation.orientation,
-            screen_size: physical_geom.size + euclid::size2(1, 1),
+            screen_size: rounded_geom.size.cast::<i16>() + euclid::size2(1, 1),
         };
 
-        let offset = offset * self.scale_factor
-            + (physical_geom_f32.origin - physical_geom_f32.round().origin);
+        let offset = offset * self.scale_factor + (physical_geom_f32.origin - rounded_geom.origin);
 
         // Convert to zeno commands
         let zeno_commands =

@@ -5,8 +5,6 @@ description: Implicit and explicit conversions between Slint types.
 
 import Link from '@slint/common-files/src/components/Link.astro';
 
-## Type Conversions
-
 Slint supports conversions between different types. Explicit
 conversions are required to make the UI description more robust, but implicit
 conversions are allowed between some types for convenience.
@@ -46,7 +44,7 @@ export component Example {
 }
 ```
 
-### Converting Between Numbers and Strings
+## Converting Between Numbers and Strings
 
 `int` and `float` convert implicitly to `string`.
 To control how many digits appear in the result, use the [`to-fixed()` and `to-precision()`](../../property-types/numeric-types/#to-fixeddigits-int---string)

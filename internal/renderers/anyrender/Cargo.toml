@@ -11,8 +11,6 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-# Internal for now: no public API commitment yet, and no crates.io release.
-publish = false
 
 [lib]
 path = "lib.rs"

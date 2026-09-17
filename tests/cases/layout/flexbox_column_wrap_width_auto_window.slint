@@ -1,0 +1,42 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An auto-sized window has no height until it is shown, so a column flex
+// filling it is measured as one column (see flexbox_column_wrap_width.slint).
+
+component WrapCol inherits FlexboxLayout {
+    flex-direction: column;
+    flex-wrap: wrap;
+    spacing: 0px;
+    padding: 0px;
+    cross-axis-line-alignment: start;
+    Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+}
+
+export component TestCase inherits Window {
+    bare := WrapCol { x: 0; width: 80px; }
+    Rectangle { x: bare.preferred-width; width: 5px; background: #5b8db8; }
+
+    out property <bool> test: bare.preferred-width == 40px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test(), "a flex filling an auto-sized window must measure as one column");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

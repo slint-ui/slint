@@ -74,6 +74,7 @@ slint:
  - 'xtask/**'
 
 visual_editor:
+ - *ci_config
  - 'tools/editor/**'
 
 # Qt backend and widget definitions — gates the Qt test step in build_and_test

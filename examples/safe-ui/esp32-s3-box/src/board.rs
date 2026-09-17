@@ -11,7 +11,7 @@ use esp_hal::clock::CpuClock;
 use esp_hal::delay::Delay;
 use esp_hal::gpio::{DriveMode, InputConfig, Level, Output, OutputConfig, Pull};
 use esp_hal::i2c::master::I2c;
-use esp_hal::interrupt::software::{SoftwareInterrupt, SoftwareInterruptControl};
+use esp_hal::peripherals::FROM_CPU_INTR0;
 use esp_hal::spi::Mode as SpiMode;
 use esp_hal::spi::master::{Config as SpiConfig, Spi};
 use esp_hal::time::Rate;
@@ -47,7 +47,7 @@ pub type BoardDisplay = mipidsi::Display<
 pub struct Board {
     pub platform: Esp32Platform,
     pub timer: Timer<'static>,
-    pub software_interrupt: SoftwareInterrupt<'static, 0>,
+    pub software_interrupt: FROM_CPU_INTR0<'static>,
 }
 
 /// Initialize the chip, the PSRAM heap and the board peripherals.
@@ -151,11 +151,10 @@ pub fn init() -> Board {
     }
 
     let timer_group = TimerGroup::new(peripherals.TIMG0);
-    let software_interrupts = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
 
     Board {
         platform: Esp32Platform::new(display, touch, i2c, backlight, touch_int),
         timer: timer_group.timer0,
-        software_interrupt: software_interrupts.software_interrupt0,
+        software_interrupt: peripherals.FROM_CPU_INTR0,
     }
 }

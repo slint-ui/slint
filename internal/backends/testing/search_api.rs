@@ -58,10 +58,11 @@ pub(crate) fn mock_drag_window(
     window.dispatch_event(WindowEvent::PointerReleased { position: end, button });
 }
 
+/// Shown when the application was built without element debug info.
+pub(crate) const MISSING_DEBUG_INFO_MESSAGE: &str = "The use of the ElementHandle API requires the presence of debug info in Slint compiler generated code. Set the `SLINT_EMIT_DEBUG_INFO=1` environment variable at application build time or use `compile_with_config` and `with_debug_info` with `slint_build`'s `CompilerConfiguration`";
+
 fn warn_missing_debug_info() {
-    i_slint_core::debug_log!(
-        "The use of the ElementHandle API requires the presence of debug info in Slint compiler generated code. Set the `SLINT_EMIT_DEBUG_INFO=1` environment variable at application build time or use `compile_with_config` and `with_debug_info` with `slint_build`'s `CompilerConfiguration`"
-    )
+    i_slint_core::debug_log!("{}", MISSING_DEBUG_INFO_MESSAGE)
 }
 
 mod internal {
@@ -390,6 +391,27 @@ impl ElementHandle {
         })
     }
 
+    /// Returns whether both handles refer to the same element of the same item.
+    #[cfg(any(feature = "system-testing", feature = "mcp"))]
+    pub(crate) fn is_same_element(&self, other: &ElementHandle) -> bool {
+        self.item == other.item && self.element_index == other.element_index
+    }
+
+    /// Returns a hashable value that equal elements share, for use as a lookup key.
+    /// Elements of different item trees can collide, so compare candidates with
+    /// [`Self::is_same_element`]. Returns None once the element is gone.
+    #[cfg(any(feature = "system-testing", feature = "mcp"))]
+    pub(crate) fn identity_hint(&self) -> Option<(u32, usize)> {
+        self.item.upgrade().map(|item| (item.index(), self.element_index))
+    }
+
+    /// Returns whether the compiler emitted the debug info that type names, ids and
+    /// descendant traversal need. See `MISSING_DEBUG_INFO_MESSAGE`.
+    #[cfg(any(feature = "system-testing", feature = "mcp"))]
+    pub(crate) fn has_debug_info(&self) -> bool {
+        self.item.upgrade().is_some_and(|item| item.element_count().is_some())
+    }
+
     /// Creates a new [`ElementQuery`] to match any descendants of this element.
     pub fn query_descendants(&self) -> ElementQuery {
         ElementQuery {
@@ -646,7 +668,7 @@ impl ElementHandle {
     /// Selects the text between two UTF-8 offsets, by invoking the element's
     /// `accessible-action-set-selection-offsets` callback. Note that you can only do this if that callback
     /// is declared in your Slint code.
-    pub fn set_accessible_selection(&self, anchor: i32, focus: i32) {
+    pub fn set_accessible_selection_offsets(&self, anchor: i32, focus: i32) {
         if self.element_index != 0 {
             return;
         }
@@ -933,7 +955,7 @@ impl ElementHandle {
         }
     }
 
-    fn window_adapter(&self) -> Option<Rc<dyn i_slint_core::window::WindowAdapter>> {
+    pub(crate) fn window_adapter(&self) -> Option<Rc<dyn i_slint_core::window::WindowAdapter>> {
         self.item.upgrade().and_then(|item| item.window_adapter())
     }
 
@@ -1074,17 +1096,14 @@ impl ElementHandle {
     /// The center of the element in the coordinate system that input events are dispatched in.
     /// Unlike [`Self::absolute_position()`] this includes the location of an enclosing popup that's
     /// rendered inside the window, such as a menu.
-    fn absolute_center(&self) -> LogicalPosition {
+    pub(crate) fn absolute_center(&self) -> LogicalPosition {
         let Some(item) = self.item.upgrade() else {
             return Default::default();
         };
-        let geometry = item.geometry();
-        let position = i_slint_core::lengths::logical_position_to_api(
-            item.map_to_native_window(geometry.origin),
-        );
-        LogicalPosition::new(
-            position.x + geometry.width() / 2.,
-            position.y + geometry.height() / 2.,
+        // Map the center rather than mapping the origin and adding a local half-extent,
+        // which ignores any scale or rotation an ancestor applies (#13242).
+        i_slint_core::lengths::logical_position_to_api(
+            item.map_to_native_window(item.geometry().center()),
         )
     }
 

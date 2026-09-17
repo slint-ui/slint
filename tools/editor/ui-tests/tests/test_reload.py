@@ -4,6 +4,7 @@
 import time
 from pathlib import Path
 
+import pytest
 import slint_testing
 from source_snapshot import SourceSnapshot
 from ui_driver import (
@@ -25,12 +26,22 @@ def assert_editor_stable(
     assert window.size == original_size
 
 
+@pytest.mark.parametrize("continuous_messages", [False, True])
 def test_external_root_source_reload(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
+    continuous_messages: bool,
 ) -> None:
     source_file = fixture_project / "Main.slint"
+    if continuous_messages:
+        original = source_file.read_text()
+        closing_brace = original.rfind("}")
+        source_file.write_text(
+            original[:closing_brace]
+            + '    Timer { interval: 10ms; running: true; triggered => { debug("reload pulse"); } }\n'
+            + original[closing_brace:]
+        )
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)

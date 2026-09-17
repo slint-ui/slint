@@ -88,6 +88,7 @@ struct ActiveState {
     queue: wgpu::Queue,
     surface: wgpu::Surface<'static>,
     surface_config: wgpu::SurfaceConfiguration,
+    alpha_modes: Vec<wgpu::CompositeAlphaMode>,
     target: TargetTexture,
     blitter: wgpu::util::TextureBlitter,
     renderer: vello::Renderer,
@@ -129,10 +130,22 @@ impl VelloWindowRenderer {
         self.requested_graphics_api = requested;
     }
 
-    /// Whether the surface is composited with an alpha channel. Known when the
-    /// window is created, so applied on the next resume.
+    /// Whether the surface is composited with an alpha channel. Applied to a surface that
+    /// already exists, and remembered for the next resume.
     pub fn set_transparent(&mut self, transparent: bool) {
         self.transparent = transparent;
+
+        use wgpu::CompositeAlphaMode::{Opaque, PostMultiplied, PreMultiplied};
+        let Some(state) = &mut self.state else { return };
+        let wanted: &[wgpu::CompositeAlphaMode] =
+            if transparent { &[PreMultiplied, PostMultiplied] } else { &[Opaque] };
+        let Some(mode) = wanted.iter().copied().find(|m| state.alpha_modes.contains(m)) else {
+            return;
+        };
+        if state.surface_config.alpha_mode != mode {
+            state.surface_config.alpha_mode = mode;
+            state.surface.configure(&state.device, &state.surface_config);
+        }
     }
 
     /// Create the surface and everything derived from it, see
@@ -159,7 +172,7 @@ impl VelloWindowRenderer {
             i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
                 surface_target,
                 self.requested_graphics_api.clone(),
-                wgpu::Backends::empty(),
+                i_slint_core::graphics::wgpu_29::default_backends_to_avoid(),
             )
             .map_err(|e| format!("Error initializing WGPU for vello rendering: {e}"))?;
 
@@ -221,6 +234,7 @@ impl VelloWindowRenderer {
             queue,
             surface,
             surface_config,
+            alpha_modes: capabilities.alpha_modes,
             renderer,
         })
     }
@@ -555,6 +569,12 @@ impl AnyrenderSlintRenderer<VelloWindowRenderer> {
     /// selects whether the surface is composited with an alpha channel, and
     /// `requested_graphics_api` carries an application supplied WGPU
     /// configuration, if any.
+    /// Adjusts the surface for a window that became transparent or opaque after it was
+    /// created, so that the scene's alpha is kept or discarded to match.
+    pub fn set_transparent(&self, transparent: bool) {
+        self.window_renderer().set_transparent(transparent);
+    }
+
     pub fn resume_window<W: WindowHandle + 'static>(
         &self,
         window: Arc<W>,

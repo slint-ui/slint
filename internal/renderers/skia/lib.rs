@@ -45,6 +45,8 @@ pub mod software_surface;
 #[cfg(any(not(target_vendor = "apple"), target_os = "macos"))]
 pub mod opengl_surface;
 
+#[cfg(skia_wgpu_vulkan)]
+mod vulkan_handle;
 #[cfg(feature = "wgpu-29")]
 pub mod wgpu_29_surface;
 #[cfg(feature = "wgpu-30")]
@@ -346,10 +348,11 @@ fn create_partial_renderer_state(
 
 #[derive(Default)]
 struct SkiaSharedContextInner {
+    // Weak: the surfaces own these, see `SharedWgpuState`.
     #[cfg(feature = "wgpu-29")]
-    wgpu_29_state: RefCell<Option<wgpu_29_surface::SharedWgpuState>>,
+    wgpu_29_state: RefCell<Weak<wgpu_29_surface::SharedWgpuState>>,
     #[cfg(feature = "wgpu-30")]
-    wgpu_30_state: RefCell<Option<wgpu_30_surface::SharedWgpuState>>,
+    wgpu_30_state: RefCell<Weak<wgpu_30_surface::SharedWgpuState>>,
 }
 
 /// This data structure contains data that's intended to be shared across several instances of SkiaRenderer.
@@ -359,27 +362,6 @@ struct SkiaSharedContextInner {
 /// efficient resource usage.
 #[derive(Clone, Default)]
 pub struct SkiaSharedContext(#[allow(dead_code)] Rc<SkiaSharedContextInner>);
-
-impl SkiaSharedContext {
-    pub fn downgrade(&self) -> SkiaSharedContextWeak {
-        SkiaSharedContextWeak(Rc::downgrade(&self.0))
-    }
-}
-
-/// Weak version of SkiaSharedContext which is used by the global context to check if a renderer
-/// exists and, if so, access its shared context, without extending the lifetime of the context
-/// to that of the thread local GLOBAL_CONTEXT.
-/// Necessary because wgpu will crash in debug mode when destroying TLS variables depending on
-/// destruction order. Could potentially be removed if <https://github.com/gfx-rs/wgpu/pull/10030>
-/// is present in all versions of wgpu that slint supports
-#[derive(Clone, Default)]
-pub struct SkiaSharedContextWeak(std::rc::Weak<SkiaSharedContextInner>);
-
-impl SkiaSharedContextWeak {
-    pub fn upgrade(&self) -> Option<SkiaSharedContext> {
-        self.0.upgrade().map(SkiaSharedContext)
-    }
-}
 
 /// Use the SkiaRenderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using Skia as underlying graphics library.
@@ -626,6 +608,15 @@ impl SkiaRenderer {
         surface.set_transparent(transparent)?;
         self.set_surface(surface);
         Ok(())
+    }
+
+    /// Adjusts the surface for a window that became transparent or opaque after it was created,
+    /// so that the scene's alpha is kept or discarded to match.
+    pub fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
+        match self.surface.borrow().as_ref() {
+            Some(surface) => surface.set_transparent(transparent),
+            None => Ok(()),
+        }
     }
 
     /// Render the scene in the previously associated window.
@@ -959,7 +950,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         self.text_layout_cache.component_destroyed(component);
 
         if let Some(partial_rendering_state) = self.partial_rendering_state() {
-            partial_rendering_state.free_graphics_resources(items);
+            partial_rendering_state.free_graphics_resources(component, items);
         }
 
         Ok(())

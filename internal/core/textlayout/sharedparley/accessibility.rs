@@ -19,11 +19,19 @@ pub struct CachedTextInputAccessibilityState {
     /// Never reset while this state lives, so that a later emission can't reuse an index for a
     /// span an assistive technology may still remember.
     next_sub_index: u32,
+    /// The node the reused `NodeId`s were minted under. See [`Self::emit`].
+    #[cfg(debug_assertions)]
+    parent_id: Option<NodeId>,
 }
 
 impl Default for CachedTextInputAccessibilityState {
     fn default() -> Self {
-        Self { layout_access: Vec::new(), next_sub_index: 1 }
+        Self {
+            layout_access: Vec::new(),
+            next_sub_index: 1,
+            #[cfg(debug_assertions)]
+            parent_id: None,
+        }
     }
 }
 
@@ -45,6 +53,18 @@ impl CachedTextInputAccessibilityState {
         physical_offset: (f64, f64),
         encode_sub_node_id: impl Fn(NodeId, u32) -> NodeId,
     ) -> bool {
+        // `build_nodes` reuses the `NodeId`s it minted, and each of them encodes the node it was
+        // minted under. Emitting them below a second node hands accesskit the same child twice,
+        // which its consumer refuses.
+        #[cfg(debug_assertions)]
+        {
+            let previous = self.parent_id.replace(parent_id);
+            debug_assert!(
+                previous.is_none_or(|previous| previous == parent_id),
+                "the text runs of an input must be emitted below one node"
+            );
+        }
+
         let (visible_anchor, visible_cursor, cursor_affinity) = selection_offsets(text_input);
 
         // Before the layout, so it survives a renderer with none to lend. The displayed

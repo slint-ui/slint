@@ -37,6 +37,9 @@ pub(crate) mod event_loop;
 mod frame_throttle;
 #[cfg(target_os = "ios")]
 mod ios;
+#[cfg(target_os = "macos")]
+mod macos;
+mod touch_finger_id;
 
 /// Re-export of the winit crate.
 pub use winit;
@@ -81,6 +84,13 @@ mod renderer {
         fn occluded(&self, _: bool) {}
 
         fn suspend(&self) -> Result<(), PlatformError>;
+
+        // The window's transparency changed after the window was created. Renderers that pick
+        // their surface's alpha mode up front have to reconfigure it to match.
+        #[cfg(target_os = "macos")]
+        fn set_transparent(&self, _transparent: bool) -> Result<(), PlatformError> {
+            Ok(())
+        }
 
         // Got winit::Event::Resumed
         fn resume(
@@ -424,7 +434,7 @@ pub(crate) struct SharedBackendData {
     renderer_name: Option<String>,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
     #[cfg(enable_skia_renderer)]
-    skia_context: RefCell<i_slint_renderer_skia::SkiaSharedContextWeak>,
+    skia_context: i_slint_renderer_skia::SkiaSharedContext,
     active_windows: Rc<RefCell<HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>>>,
     /// List of visible windows that have been created when without the event loop and
     /// need to be mapped to a winit Window as soon as the event loop becomes active.
@@ -447,24 +457,12 @@ pub(crate) struct SharedBackendData {
     #[cfg(target_os = "ios")]
     #[allow(unused)]
     keyboard_notifications: ios::KeyboardNotifications,
+    #[cfg(target_os = "ios")]
+    #[allow(unused)]
+    scene_lifecycle: ios::SceneLifecycle,
 }
 
 impl SharedBackendData {
-    #[cfg(enable_skia_renderer)]
-    /// If at least one renderer exists this will return an existing skia context, otherwise create
-    /// a new one. Used so that skia renderers can share wgpu primitives
-    pub(crate) fn skia_context(&self) -> i_slint_renderer_skia::SkiaSharedContext {
-        let mut weak = self.skia_context.borrow_mut();
-        match weak.upgrade() {
-            Some(context) => context,
-            None => {
-                let context = i_slint_renderer_skia::SkiaSharedContext::default();
-                *weak = context.downgrade();
-                context
-            }
-        }
-    }
-
     /// Panics if the backend is not bound: an event loop only runs inside a live context.
     pub(crate) fn context(&self) -> i_slint_core::SlintContext {
         self.context
@@ -533,6 +531,9 @@ impl SharedBackendData {
         let keyboard_notifications =
             ios::register_keyboard_notifications(Rc::downgrade(&active_windows));
 
+        #[cfg(target_os = "ios")]
+        let scene_lifecycle = ios::install_scene_lifecycle(Rc::downgrade(&active_windows));
+
         let event_loop_proxy = event_loop.create_proxy();
         #[cfg(not(target_arch = "wasm32"))]
         let clipboard = crate::clipboard::create_clipboard(
@@ -560,6 +561,8 @@ impl SharedBackendData {
             desktop_settings: xdg_desktop_settings::DesktopSettings::new(),
             #[cfg(target_os = "ios")]
             keyboard_notifications,
+            #[cfg(target_os = "ios")]
+            scene_lifecycle,
         })
     }
 
@@ -754,6 +757,30 @@ impl Backend {
             custom_application_handler: None,
         }
     }
+}
+
+/// Proxy of the event loop of the winit backend that was installed as the platform, so
+/// that [`invoke_from_active_event_loop`] can reach it from any thread.
+static GLOBAL_PROXY: std::sync::Mutex<Option<winit::event_loop::EventLoopProxy<SlintEvent>>> =
+    std::sync::Mutex::new(None);
+
+/// Schedules a callback to be invoked in the winit event loop, and passes winit's
+/// [`ActiveEventLoop`] to it.
+///
+/// This is similar to [`slint::invoke_from_event_loop`](i_slint_core::api::invoke_from_event_loop),
+/// but the callback also receives the [`ActiveEventLoop`], which winit only exposes while the
+/// event loop is running. Use it to call winit APIs that need it, for example to create custom
+/// windows.
+///
+/// This function can be called from any thread. It returns an error if the winit backend hasn't
+/// been installed yet, or if the event loop has terminated.
+pub fn invoke_from_active_event_loop(
+    func: impl FnOnce(&ActiveEventLoop) + Send + 'static,
+) -> Result<(), EventLoopError> {
+    let proxy = GLOBAL_PROXY.lock().unwrap().clone().ok_or(EventLoopError::NoEventLoopProvider)?;
+    proxy
+        .send_event(SlintEvent(CustomEvent::UserEventWithEventLoop(Box::new(func))))
+        .map_err(|_| EventLoopError::EventLoopTerminated)
 }
 
 #[allow(unused)]
@@ -955,6 +982,7 @@ impl i_slint_core::platform::Platform for Backend {
                     .map_err(|_| EventLoopError::EventLoopTerminated)
             }
         }
+        *GLOBAL_PROXY.lock().unwrap() = Some(self.shared_data.event_loop_proxy.clone());
         Some(Box::new(Proxy(
             self.shared_data.event_loop_proxy.clone(),
             Arc::clone(&self.shared_data.event_loop_generation),

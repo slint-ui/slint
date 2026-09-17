@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A derived component overrides the `forward-focus` of its base
+
+component Base inherits Rectangle {
+    forward-focus: base-input;
+    out property <bool> base-focused: base-input.has-focus;
+    base-input := TextInput { }
+}
+
+component Derived inherits Base {
+    forward-focus: derived-input;
+    out property <bool> derived-focused: derived-input.has-focus;
+    derived-input := TextInput { }
+}
+
+export component TestCase inherits Base {
+    width: 400phx;
+    height: 400phx;
+
+    forward-focus: own-input;
+    out property <bool> own-focused: own-input.has-focus;
+    out property <bool> own-base-focused: self.base-focused;
+    own-input := TextInput { }
+
+    // Also as a child, where `inner.focus()` resolves to the derived function rather than the public API
+    inner := Derived { }
+    out property <bool> inner-base-focused: inner.base-focused;
+    out property <bool> inner-derived-focused: inner.derived-focused;
+
+    public function focus-inner() { inner.focus(); }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+// The root's forward-focus sets the initial focus
+assert!(instance.get_own_focused());
+assert!(!instance.get_own_base_focused());
+
+instance.invoke_focus_inner();
+assert!(!instance.get_own_focused());
+assert!(instance.get_inner_derived_focused());
+assert!(!instance.get_inner_base_focused());
+
+instance.invoke_focus();
+assert!(instance.get_own_focused());
+assert!(!instance.get_inner_derived_focused());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+// The root's forward-focus sets the initial focus
+assert(instance.get_own_focused());
+assert(!instance.get_own_base_focused());
+
+instance.invoke_focus_inner();
+assert(!instance.get_own_focused());
+assert(instance.get_inner_derived_focused());
+assert(!instance.get_inner_base_focused());
+
+instance.invoke_focus();
+assert(instance.get_own_focused());
+assert(!instance.get_inner_derived_focused());
+```
+
+```js
+var instance = new slint.TestCase();
+// The root's forward-focus sets the initial focus
+assert(instance.own_focused);
+assert(!instance.own_base_focused);
+
+instance.focus_inner();
+assert(!instance.own_focused);
+assert(instance.inner_derived_focused);
+assert(!instance.inner_base_focused);
+
+instance.focus();
+assert(instance.own_focused);
+assert(!instance.inner_derived_focused);
+```
+*/

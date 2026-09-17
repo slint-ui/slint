@@ -16,10 +16,13 @@ path = "main.rs"
 name = "gallery"
 
 [dependencies]
-slint = { path = "../../api/rs/slint", features = ["gettext"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-18", "std", "gettext"] }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
+
+[features]
+default = ["slint/default"]
 
 # Remove the `#wasm#` to uncomment the wasm build.
 # This is commented out by default because we don't want to build it as a library by default
@@ -34,7 +37,7 @@ slint-build = { path = "../../api/rs/build" }
 #wasm# web-sys = { version = "0.3", features = ["console", "Window", "Navigator"] }
 #wasm# js-sys = { version = "0.3.57" }
 #wasm# console_error_panic_hook = "0.1.5"
-#wasm# slint = { path = "../../api/rs/slint", features = ["unstable-fontique-011"] }
+#wasm# slint = { path = "../../api/rs/slint", default-features = false, features = ["unstable-fontique-011"] }
 #wasm# icu_locale_core = { version = "2.1.1" }
 
 [package.metadata.bundle]

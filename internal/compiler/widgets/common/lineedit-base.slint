@@ -26,7 +26,7 @@ export component LineEditBase inherits Rectangle {
         }
     }
 
-    in-out property <brush> placeholder-color;
+    in property <brush> placeholder-color;
     in property <int> font-weight <=> text-input.font-weight;
     in property <brush> text-color;
     in property <color> selection-background-color <=> text-input.selection-background-color;
@@ -65,6 +65,14 @@ export component LineEditBase inherits Rectangle {
         text-input.paste();
     }
 
+    public function undo() {
+        text-input.undo();
+    }
+
+    public function redo() {
+        text-input.redo();
+    }
+
     // on width < 1px or if the `TextInput` is clipped it cannot be focused therefore min-width 1px
     min-width: 1px;
     min-height: text-input.preferred-height;
@@ -89,6 +97,22 @@ export component LineEditBase inherits Rectangle {
     ContextMenuArea {
         enabled: root.enabled;
         Menu {
+            if !root.read-only && root.enabled: MenuItem {
+                title: @tr("Undo");
+                activated => {
+                    text-input.undo();
+                }
+            }
+
+            if !root.read-only && root.enabled: MenuItem {
+                title: @tr("Redo");
+                activated => {
+                    text-input.redo();
+                }
+            }
+
+            if !root.read-only && root.enabled: MenuSeparator { }
+
             MenuItem {
                 title: @tr("Cut");
                 enabled: !root.read-only && root.enabled;
@@ -163,7 +187,6 @@ export component LineEditBase inherits Rectangle {
 }
 
 export component LineEditClearIcon inherits Image {
-    in-out property <string> text;
     callback clear();
 
     vertical-alignment: center;

@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// BASE_THRESHOLD=3
+//ignore: software
+
+// The shadow of a rotated rectangle rotates with it, offset included (#13301)
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: white;
+
+    Rectangle {
+        x: 22px;
+        y: 22px;
+        width: 12px;
+        height: 12px;
+        background: red;
+        drop-shadow-blur: 4px;
+        drop-shadow-offset-x: 10px;
+        drop-shadow-color: #000000c0;
+        transform-rotation: 45deg;
+    }
+}
