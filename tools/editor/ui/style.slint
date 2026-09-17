@@ -34,6 +34,11 @@ export struct StyleColors {
     object-muted: color,
     drop-mark-background: brush,
     drop-mark-foreground: brush,
+    checker-light: color,
+    checker-dark: color,
+    marker-bg: color,
+    marker-active: color,
+    handle-border: color,
 }
 
 export struct StyleInspector {
@@ -60,6 +65,35 @@ export struct StyleInspector {
     column-width: length,
     column-gap: length,
     wide-width: length,
+    stop-action-width: length,
+    close-width: length,
+    stop-position-width: length,
+    stop-opacity-width: length,
+    stop-row-height: length,
+    stop-ramp-height: length,
+    stop-marker-size: length,
+    stop-marker-radius: length,
+    stop-ramp-inset: length,
+    dial-size: length,
+    dial-inset: length,
+    dial-face-size: length,
+    dial-dot-size: length,
+    dial-dot-distance: length,
+    copy-width: length,
+    menu-row-height: length,
+    menu-available-height: length,
+    recent-swatch-size: length,
+    color-field-height: length,
+    color-slider-height: length,
+    color-slider-thumb-size: length,
+    color-plane-thumb-size: length,
+    checker-size: length,
+    dial-ring: brush,
+    dial-face: brush,
+    dial-dot: brush,
+    dial-ring-border: color,
+    dial-face-border: color,
+    dial-dot-border: color,
 }
 
 export struct StyleTree {
@@ -172,6 +206,15 @@ export struct StyleMotion {
     layout: duration,
 }
 
+export struct StyleShadows {
+    popup: ShadowStyle,
+    picker: ShadowStyle,
+    dial: ShadowStyle,
+    slider: ShadowStyle,
+    color-plane: ShadowStyle,
+    color-slider: ShadowStyle,
+}
+
 export global Style {
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
 
@@ -197,6 +240,11 @@ export global Style {
         object-muted: #6e7781,
         drop-mark-background: #ffffff,
         drop-mark-foreground: #ffffff,
+        checker-light: #ffffff,
+        checker-dark: #e1e1e1,
+        marker-bg: Style.dark ? #3f3f3f : #b5ccdd,
+        marker-active: #0c8ce9,
+        handle-border: #ffffff,
     };
 
     private property <color> inspector-accent: Style.colors.accent;
@@ -229,6 +277,35 @@ export global Style {
         column-width: 88px,
         column-gap: 8px,
         wide-width: 207px,
+        stop-action-width: 24px,
+        close-width: 48px,
+        stop-position-width: 66px,
+        stop-opacity-width: 48px,
+        stop-row-height: 28px,
+        stop-ramp-height: 58px,
+        stop-marker-size: 24px,
+        stop-marker-radius: 5px,
+        stop-ramp-inset: 12px,
+        dial-size: 32px,
+        dial-inset: 2px,
+        dial-face-size: 28px,
+        dial-dot-size: 4px,
+        dial-dot-distance: 9px,
+        copy-width: 54px,
+        menu-row-height: 26px,
+        menu-available-height: 220px,
+        recent-swatch-size: 22px,
+        color-field-height: 170px,
+        color-slider-height: 16px,
+        color-slider-thumb-size: 14px,
+        color-plane-thumb-size: 12px,
+        checker-size: 8px,
+        dial-ring: @linear-gradient(145deg, Style.dark ? #262a30 : #bdc3cc, Style.dark ? #737c87 : #ffffff),
+        dial-face: @radial-gradient(circle at 10px 7px, Style.dark ? #89919b : #ffffff, Style.dark ? #5b626d : #f4f6f9 55%, Style.dark ? #343a43 : #d8dde5),
+        dial-dot: @linear-gradient(180deg, #0879b7, #38b9fa),
+        dial-ring-border: Style.dark ? #454b55 : #cbd0d8,
+        dial-face-border: Style.dark ? #858e99 : #ffffff,
+        dial-dot-border: Style.dark ? #343e4a : #b9cbd9,
     };
 
     out property <StyleTree> tree: {
@@ -339,5 +416,14 @@ export global Style {
         feedback: 140ms,
         normal: 150ms,
         layout: 180ms,
+    };
+
+    out property <StyleShadows> shadows: {
+        popup: { color: Style.dark ? #00000066 : #64748b30, blur: 12px, offset-y: 4px },
+        picker: { color: Style.dark ? #00000080 : #64748b35, blur: 18px, offset-y: 7px },
+        dial: { color: #00000025, blur: 2px, offset-y: 1px },
+        slider: { color: #00000028, blur: 6px, offset-y: 2px },
+        color-plane: { color: #00000080, blur: 3px, offset-y: 0px },
+        color-slider: { color: #00000070, blur: 2px, offset-y: 0px },
     };
 }

@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorTokens } from "tokens.slint";
+import { Style } from "../../style.slint";
+
 
 export component InspectorRadiusSlider inherits FocusScope {
     in property <float> value;
@@ -39,14 +40,14 @@ export component InspectorRadiusSlider inherits FocusScope {
         if event.text == Key.RightArrow || event.text == Key.UpArrow { root.accepted(min(root.maximum, root.value + 1)); return accept; }
         return reject;
     }
-    Rectangle { x: 6px; y: 11px; width: parent.width - 12px; height: 2px; background: InspectorTokens.divider; }
-    Rectangle { x: 6px; y: 11px; width: (parent.width - 12px) * root.progress; height: 2px; background: InspectorTokens.slider-fill; }
+    Rectangle { x: 6px; y: 11px; width: parent.width - 12px; height: 2px; background: Style.inspector.divider; }
+    Rectangle { x: 6px; y: 11px; width: (parent.width - 12px) * root.progress; height: 2px; background: Style.inspector.slider-fill; }
     Rectangle {
         x: 1px + (parent.width - 12px) * root.progress;
-        y: 7px; width: 10px; height: 10px; border-radius: 5px;
-        background: InspectorTokens.slider-thumb;
+        y: 7px; width: 10px; height: 10px; border-radius: Style.controls.small-radius;
+        background: Style.inspector.slider-thumb;
         border-width: root.has-focus ? 1px : 0px;
-        border-color: InspectorTokens.accent;
+        border-color: Style.inspector.accent;
     }
     touch := TouchArea {
         mouse-cursor: pointer;

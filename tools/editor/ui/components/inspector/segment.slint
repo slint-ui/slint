@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../../style.slint";
 import { InspectorSegmentIcon } from "segment-icon.slint";
-import { InspectorTokens } from "tokens.slint";
+
 
 export component InspectorSegment inherits Rectangle {
     in property <string> kind;
@@ -11,12 +12,12 @@ export component InspectorSegment inherits Rectangle {
     in property <string> label: "\{root.kind} option \{root.index + 1}";
     callback clicked;
 
-    height: InspectorTokens.field-height;
+    height: Style.inspector.field-height;
     horizontal-stretch: 1;
-    background: selected ? InspectorTokens.panel-bg : touch.has-hover || segment-focus.has-focus ? InspectorTokens.field-bg-hover : transparent;
-    border-radius: selected ? InspectorTokens.field-radius : 0px;
+    background: selected ? Style.inspector.panel-bg : touch.has-hover || segment-focus.has-focus ? Style.inspector.field-bg-hover : transparent;
+    border-radius: selected ? Style.inspector.field-radius : 0px;
     border-width: segment-focus.has-focus ? 2px : selected ? 1px : 0px;
-    border-color: segment-focus.has-focus ? InspectorTokens.accent : InspectorTokens.divider;
+    border-color: segment-focus.has-focus ? Style.inspector.accent : Style.inspector.divider;
     accessible-role: button;
     accessible-label: root.label;
     accessible-checked: root.selected;
@@ -36,8 +37,8 @@ export component InspectorSegment inherits Rectangle {
 
     if root.kind == "text": Text {
         text: root.label;
-        color: InspectorTokens.text;
-        font-size: 12px;
+        color: Style.inspector.text;
+        font-size: Style.typography.control.size;
         horizontal-alignment: center;
         vertical-alignment: center;
     }

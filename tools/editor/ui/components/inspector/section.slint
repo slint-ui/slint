@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../../style.slint";
 import { InspectorIconButton } from "icon-button.slint";
-import { InspectorTokens } from "tokens.slint";
+
 import { SectionTitle } from "../common.slint";
 
 export component InspectorSection inherits Rectangle {
@@ -16,42 +17,42 @@ export component InspectorSection inherits Rectangle {
 
     section-layout := VerticalLayout {
         width: root.width;
-        padding-top: 8px;
-        padding-bottom: 8px;
-        spacing: 6px;
+        padding-top: Style.spacing.regular;
+        padding-bottom: Style.spacing.regular;
+        spacing: Style.spacing.compact;
 
         Rectangle {
             height: 16px;
 
             if root.use-shared-title: SectionTitle {
-                x: InspectorTokens.side-padding;
-                width: parent.width - 2 * InspectorTokens.side-padding;
+                x: Style.inspector.side-padding;
+                width: parent.width - 2 * Style.inspector.side-padding;
                 height: parent.height;
                 label: root.title;
                 vertical-alignment: center;
             }
 
             if !root.use-shared-title: Text {
-                x: InspectorTokens.side-padding;
+                x: Style.inspector.side-padding;
                 text: root.title;
-                color: InspectorTokens.text;
-                font-size: InspectorTokens.section-title-size;
+                color: Style.inspector.text;
+                font-size: Style.inspector.section-title-size;
                 font-weight: FontWeight.bold;
                 vertical-alignment: center;
             }
 
             if root.show-appearance-icons: HorizontalLayout {
-                x: parent.width - InspectorTokens.side-padding - self.preferred-width;
+                x: parent.width - Style.inspector.side-padding - self.preferred-width;
                 y: 0.5px;
                 height: 18px;
-                spacing: 8px;
+                spacing: Style.spacing.regular;
 
                 InspectorIconButton { kind: "eye"; }
                 InspectorIconButton { kind: "drop"; }
             }
 
             if root.show-typography-icons: HorizontalLayout {
-                x: parent.width - InspectorTokens.side-padding - self.preferred-width;
+                x: parent.width - Style.inspector.side-padding - self.preferred-width;
                 y: 0.5px;
                 height: 18px;
 
@@ -65,6 +66,6 @@ export component InspectorSection inherits Rectangle {
     Rectangle {
         y: root.height - 1px;
         height: 1px;
-        background: InspectorTokens.divider;
+        background: Style.inspector.divider;
     }
 }

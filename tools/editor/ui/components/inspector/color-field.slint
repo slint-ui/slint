@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorTokens } from "tokens.slint";
+import { Style } from "../../style.slint";
+
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { FillSession } from "fill-session.slint";
 import { Api, PropertyValue, PropertyValueKind } from "../../api.slint";
@@ -23,8 +24,8 @@ export component InspectorColorField inherits Rectangle {
     private property <PropertyValue> property-data: Api.current-property-value-data(root.property-name);
 
 
-    width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
-    height: InspectorTokens.field-height;
+    width: wide ? Style.inspector.wide-width : Style.inspector.column-width;
+    height: Style.inspector.field-height;
 
     InspectorTextFieldBase {
         accessible-name: root.accessible-name;
@@ -32,7 +33,7 @@ export component InspectorColorField inherits Rectangle {
         value: root.value;
         commit-key: root.commit-key;
         field-padding-left: 7px;
-        content-spacing: 6px;
+        content-spacing: Style.spacing.compact;
         accepted(text) => {
             return root.accepted(text);
         }
@@ -53,8 +54,8 @@ export component InspectorColorField inherits Rectangle {
                 width: 11px;
                 height: 11px;
                 border-radius: 2.5px;
-                border-width: 1px;
-                border-color: InspectorTokens.muted;
+                border-width: Style.controls.border-width;
+                border-color: Style.inspector.muted;
                 background: root.swatch;
 
                 for row in 3: Rectangle {
@@ -62,14 +63,14 @@ export component InspectorColorField inherits Rectangle {
                     y: 2.5px;
                     width: 1px;
                     height: 6px;
-                    background: InspectorTokens.muted.with-alpha(0.35);
+                    background: Style.inspector.muted.with-alpha(0.35);
                 }
                 for col in 3: Rectangle {
                     x: 2.5px;
                     y: 2.5px + col * 2.5px;
                     width: 6px;
                     height: 1px;
-                    background: InspectorTokens.muted.with-alpha(0.35);
+                    background: Style.inspector.muted.with-alpha(0.35);
                 }
             }
 

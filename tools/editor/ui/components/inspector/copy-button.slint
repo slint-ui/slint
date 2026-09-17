@@ -1,18 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorTokens } from "tokens.slint";
+import { Style } from "../../style.slint";
+
 
 export component InspectorCopyButton inherits Rectangle {
     in property <string> label: "Copy";
     callback clicked;
 
-    width: 54px;
-    height: InspectorTokens.field-height;
-    border-radius: InspectorTokens.field-radius;
-    background: touch.has-hover || button-focus.has-focus ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
+    width: Style.inspector.copy-width;
+    height: Style.inspector.field-height;
+    border-radius: Style.inspector.field-radius;
+    background: touch.has-hover || button-focus.has-focus ? Style.inspector.field-bg-hover : Style.inspector.field-bg;
     border-width: button-focus.has-focus ? 2px : 1px;
-    border-color: button-focus.has-focus ? InspectorTokens.accent : InspectorTokens.divider;
+    border-color: button-focus.has-focus ? Style.inspector.accent : Style.inspector.divider;
     accessible-role: button;
     accessible-label: root.label;
     accessible-action-default => {
@@ -31,8 +32,8 @@ export component InspectorCopyButton inherits Rectangle {
 
     Text {
         text: "Copy";
-        color: InspectorTokens.text;
-        font-size: 12px;
+        color: Style.inspector.text;
+        font-size: Style.typography.control.size;
         font-weight: FontWeight.bold;
         horizontal-alignment: center;
         vertical-alignment: center;

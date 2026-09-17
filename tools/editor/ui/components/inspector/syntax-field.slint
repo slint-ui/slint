@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorTokens } from "tokens.slint";
+import { Style } from "../../style.slint";
+
 import { ScrollView } from "std-widgets.slint";
 
 export component InspectorSyntaxField inherits Rectangle {
@@ -10,8 +11,8 @@ export component InspectorSyntaxField inherits Rectangle {
 
     horizontal-stretch: 1;
     height: min(max(54px, syntax-text.preferred-height + 12px), root.max-field-height);
-    border-radius: InspectorTokens.field-radius;
-    background: InspectorTokens.field-bg;
+    border-radius: Style.inspector.field-radius;
+    background: Style.inspector.field-bg;
     clip: true;
     accessible-role: AccessibleRole.text;
     accessible-value: root.value;
@@ -30,8 +31,8 @@ export component InspectorSyntaxField inherits Rectangle {
         syntax-text := Text {
             width: syntax-scroll.width;
             text: root.value;
-            color: InspectorTokens.text;
-            font-size: 11px;
+            color: Style.inspector.text;
+            font-size: Style.typography.caption.size;
             wrap: word-wrap;
         }
     }

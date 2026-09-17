@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../../style.slint";
 import { Api } from "../../api.slint";
-import { InspectorTokens } from "tokens.slint";
+
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
 component ColorSlider inherits Rectangle {
@@ -15,9 +16,9 @@ component ColorSlider inherits Rectangle {
     callback finished();
     callback canceled();
 
-    height: 16px;
+    height: Style.inspector.color-slider-height;
     Rectangle {
-        border-radius: 8px;
+        border-radius: Style.controls.panel-radius;
         clip: true;
         @children
     }
@@ -41,16 +42,16 @@ component ColorSlider inherits Rectangle {
         width: 14px;
         height: 14px;
         border-radius: 7px;
-        border-width: 2px;
-        border-color: white;
+        border-width: Style.controls.focus-width;
+        border-color: Style.colors.handle-border;
         drop-shadow-color: root.thumb-shadow;
-        drop-shadow-blur: 2px;
+        drop-shadow-blur: Style.shadows.color-slider.blur;
     }
 }
 
 export component InspectorColorControls inherits Rectangle {
     in property <color> value;
-    in property <length> field-height: 170px;
+    in property <length> field-height: Style.inspector.color-field-height;
     in property <bool> editable;
     in property <string> session-key;
     callback preview(color) -> bool;
@@ -121,21 +122,21 @@ export component InspectorColorControls inherits Rectangle {
     }
 
     layout := VerticalLayout {
-        spacing: 12px;
+        spacing: Style.spacing.medium;
         alignment: start;
         Rectangle {
             height: root.field-height;
             Rectangle {
-                border-radius: 5px;
+                border-radius: Style.controls.small-radius;
                 clip: true;
                 background: hsv(root.hue, 1, 1);
 
                 Rectangle { background: @linear-gradient(90deg, white 0%, transparent 100%); }
                 Rectangle { background: @linear-gradient(0deg, black 0%, transparent 100%); }
                 Rectangle {
-                    border-radius: 5px;
-                    border-width: 1px;
-                    border-color: InspectorTokens.divider;
+                    border-radius: Style.controls.small-radius;
+                    border-width: Style.controls.border-width;
+                    border-color: Style.inspector.divider;
                 }
             }
             TouchArea {
@@ -158,11 +159,11 @@ export component InspectorColorControls inherits Rectangle {
                 y: (1 - root.brightness) * parent.height - 6px;
                 width: 12px;
                 height: 12px;
-                border-radius: 6px;
-                border-width: 2px;
-                border-color: white;
-                drop-shadow-color: #00000080;
-                drop-shadow-blur: 3px;
+                border-radius: Style.controls.row-radius;
+                border-width: Style.controls.focus-width;
+                border-color: Style.colors.handle-border;
+                drop-shadow-color: Style.shadows.color-plane.color;
+                drop-shadow-blur: Style.shadows.color-plane.blur;
             }
         }
 
@@ -186,7 +187,7 @@ export component InspectorColorControls inherits Rectangle {
             position: root.alpha / 255;
             enabled: root.editable;
             dragging: root.dragging;
-            thumb-shadow: #00000070;
+            thumb-shadow: Style.shadows.color-slider.color;
             started => { root.begin-gesture(); }
             moved(position) => {
                 root.alpha = (255 * position).round();
@@ -201,7 +202,7 @@ export component InspectorColorControls inherits Rectangle {
                     for col in ceil(parent.width / 8px): Rectangle {
                         x: col * 8px;
                         width: 8px;
-                        background: (row + col).mod(2) == 0 ? InspectorTokens.panel-bg : InspectorTokens.field-border;
+                        background: (row + col).mod(2) == 0 ? Style.inspector.panel-bg : Style.inspector.field-border;
                     }
                 }
             }
@@ -212,7 +213,7 @@ export component InspectorColorControls inherits Rectangle {
 
         HorizontalLayout {
             height: 26px;
-            spacing: 8px;
+            spacing: Style.spacing.regular;
             InspectorTextFieldBase {
                 accessible-name: "Hex color";
                 live-edit: true;
@@ -223,7 +224,7 @@ export component InspectorColorControls inherits Rectangle {
             }
             HorizontalLayout {
                 width: 78px;
-                spacing: 2px;
+                spacing: Style.spacing.tight;
                 InspectorTextFieldBase {
                     accessible-name: "Opacity percentage";
                     live-edit: true;
@@ -241,8 +242,8 @@ export component InspectorColorControls inherits Rectangle {
                 }
                 Text {
                     text: "%";
-                    color: InspectorTokens.muted;
-                    font-size: 11px;
+                    color: Style.inspector.muted;
+                    font-size: Style.typography.caption.size;
                     vertical-alignment: center;
                 }
             }

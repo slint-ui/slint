@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { StudioTheme } from "../common.slint";
-import { InspectorTokens } from "tokens.slint";
+import { Style } from "../../style.slint";
+
+
 
 export component InspectorRotationKnob inherits FocusScope {
     in property <float> value;
@@ -20,8 +21,8 @@ export component InspectorRotationKnob inherits FocusScope {
     private property <float> accumulated;
     private property <angle> last-angle;
     private property <bool> shift-pressed;
-    width: 32px;
-    height: 32px;
+    width: Style.inspector.dial-size;
+    height: Style.inspector.dial-size;
     accessible-role: AccessibleRole.slider;
     accessible-label: root.accessible-name;
     accessible-value: "\{root.visual-value}";
@@ -36,7 +37,7 @@ export component InspectorRotationKnob inherits FocusScope {
         }
     }
     function pointer-angle() -> angle {
-        return atan2((touch.mouse-x - 16px) / 1px, (16px - touch.mouse-y) / 1px) - root.angle-offset;
+        return atan2((touch.mouse-x - Style.inspector.dial-size / 2) / 1px, (Style.inspector.dial-size / 2 - touch.mouse-y) / 1px) - root.angle-offset;
     }
     function update(shift: bool) {
         let angle = root.pointer-angle();
@@ -67,27 +68,27 @@ export component InspectorRotationKnob inherits FocusScope {
         return reject;
     }
     Rectangle {
-        border-radius: 16px;
-        background: @linear-gradient(145deg, StudioTheme.dark ? #262a30 : #bdc3cc, StudioTheme.dark ? #737c87 : #ffffff);
-        border-width: 1px;
-        border-color: root.has-focus ? InspectorTokens.accent : StudioTheme.dark ? #454b55 : #cbd0d8;
+        border-radius: Style.inspector.dial-size / 2;
+        background: Style.inspector.dial-ring;
+        border-width: Style.controls.border-width;
+        border-color: root.has-focus ? Style.inspector.accent : Style.inspector.dial-ring-border;
         Rectangle {
-            x: 2px; y: 2px; width: 28px; height: 28px;
-            border-radius: 14px;
-            background: @radial-gradient(circle at 10px 7px, StudioTheme.dark ? #89919b : #ffffff, StudioTheme.dark ? #5b626d : #f4f6f9 55%, StudioTheme.dark ? #343a43 : #d8dde5);
-            border-width: 0.5px;
-            border-color: StudioTheme.dark ? #858e99 : #ffffff;
-            drop-shadow-color: #00000025;
-            drop-shadow-blur: 2px;
-            drop-shadow-offset-y: 1px;
+            x: Style.inspector.dial-inset; y: Style.inspector.dial-inset; width: Style.inspector.dial-face-size; height: Style.inspector.dial-face-size;
+            border-radius: (Style.inspector.dial-size - Style.inspector.dial-dot-size) / 2;
+            background: Style.inspector.dial-face;
+            border-width: Style.controls.hairline-width;
+            border-color: Style.inspector.dial-face-border;
+            drop-shadow-color: Style.shadows.dial.color;
+            drop-shadow-blur: Style.shadows.dial.blur;
+            drop-shadow-offset-y: Style.shadows.dial.offset-y;
         }
         Rectangle {
-            x: 14px + (root.visual-value.mod(360) * 1deg + root.angle-offset).sin() * 9px;
-            y: 14px - (root.visual-value.mod(360) * 1deg + root.angle-offset).cos() * 9px;
-            width: 4px; height: 4px; border-radius: 2px;
-            background: @linear-gradient(180deg, #0879b7, #38b9fa);
-            border-width: 0.5px;
-            border-color: StudioTheme.dark ? #343e4a : #b9cbd9;
+            x: (Style.inspector.dial-size - Style.inspector.dial-dot-size) / 2 + (root.visual-value.mod(360) * 1deg + root.angle-offset).sin() * Style.inspector.dial-dot-distance;
+            y: (Style.inspector.dial-size - Style.inspector.dial-dot-size) / 2 - (root.visual-value.mod(360) * 1deg + root.angle-offset).cos() * Style.inspector.dial-dot-distance;
+            width: Style.inspector.dial-dot-size; height: Style.inspector.dial-dot-size; border-radius: Style.inspector.dial-dot-size / 2;
+            background: Style.inspector.dial-dot;
+            border-width: Style.controls.hairline-width;
+            border-color: Style.inspector.dial-dot-border;
         }
     }
     touch := TouchArea {

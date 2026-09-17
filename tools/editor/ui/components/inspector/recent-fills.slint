@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../../style.slint";
 import { Api, FillData } from "../../api.slint";
-import { InspectorTokens } from "tokens.slint";
+
 
 export component InspectorRecentFills inherits Rectangle {
     in property <bool> allow-gradient;
@@ -11,15 +12,15 @@ export component InspectorRecentFills inherits Rectangle {
     private property <[FillData]> fills: Api.filter-recent-fills(Api.recent-fills, root.allow-gradient);
     height: layout.preferred-height;
     layout := VerticalLayout {
-        spacing: 8px;
-        Text { text: "Recent fills"; color: InspectorTokens.muted; font-size: 11px; font-weight: FontWeight.semi-bold; }
-        if root.fills.length == 0: Text { text: "No recent fills"; color: InspectorTokens.muted; font-size: 11px; }
+        spacing: Style.spacing.regular;
+        Text { text: "Recent fills"; color: Style.inspector.muted; font-size: Style.typography.caption.size; font-weight: FontWeight.semi-bold; }
+        if root.fills.length == 0: Text { text: "No recent fills"; color: Style.inspector.muted; font-size: Style.typography.caption.size; }
         if root.fills.length > 0: HorizontalLayout {
-            spacing: 6px;
+            spacing: Style.spacing.compact;
             alignment: start;
             for fill in root.fills: FocusScope {
-                width: 22px;
-                height: 22px;
+                width: Style.inspector.recent-swatch-size;
+                height: Style.inspector.recent-swatch-size;
                 key-pressed(event) => {
                     if root.editable && (event.text == Key.Return || event.text == Key.Space) {
                         root.chosen(fill);
@@ -28,9 +29,9 @@ export component InspectorRecentFills inherits Rectangle {
                     return reject;
                 }
                 Rectangle {
-                    border-radius: 3px;
-                    border-width: 1px;
-                    border-color: parent.has-focus ? InspectorTokens.accent : InspectorTokens.divider;
+                    border-radius: Style.controls.compact-radius;
+                    border-width: Style.controls.border-width;
+                    border-color: parent.has-focus ? Style.inspector.accent : Style.inspector.divider;
                     background: Api.fill-brush(fill);
                 }
                 TouchArea {

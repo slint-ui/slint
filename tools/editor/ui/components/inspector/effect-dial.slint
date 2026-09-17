@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../../style.slint";
 
 import { InspectorRotationKnob } from "rotation-knob.slint";
 
@@ -10,8 +11,8 @@ export component InspectorEffectDial inherits Rectangle {
     in property <string> commit-key;
     callback accepted(angle) -> bool;
 
-    width: 32px;
-    height: 32px;
+    width: Style.inspector.dial-size;
+    height: Style.inspector.dial-size;
 
     InspectorRotationKnob {
         accessible-name: root.accessible-name;
