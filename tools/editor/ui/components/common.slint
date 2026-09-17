@@ -206,6 +206,7 @@ export component PrimerTextInput inherits Rectangle {
                 text: "";
                 color: root.style.normal.foreground;
                 font-size: root.style.text.size;
+                font-weight: root.style.text.weight;
                 accessible-label: root.accessible-name;
                 single-line: true;
                 wrap: no-wrap;
@@ -221,6 +222,7 @@ export component PrimerTextInput inherits Rectangle {
                 text: root.placeholder;
                 color: root.style.muted;
                 font-size: root.style.text.size;
+                font-weight: root.style.text.weight;
                 vertical-alignment: center;
             }
         }
@@ -318,6 +320,7 @@ export component ComponentPaletteRow inherits Rectangle {
             overflow: elide;
             color: root.active ? root.style.selected-foreground : root.style.foreground;
             font-size: root.style.text.size;
+            font-weight: root.style.text.weight;
             horizontal-stretch: 1;
         }
     }

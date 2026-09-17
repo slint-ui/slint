@@ -121,6 +121,7 @@ component FloatingReadOnlyField inherits Rectangle {
             text: root.value;
             color: root.style.foreground;
             font-size: root.style.text.size;
+            font-weight: root.style.text.weight;
             vertical-alignment: center;
             overflow: elide;
         }
@@ -155,6 +156,7 @@ component FloatingSyntaxField inherits Rectangle {
             text: root.value;
             color: Colors.foreground;
             font-size: root.style.text.size;
+            font-weight: root.style.text.weight;
             wrap: word-wrap;
         }
     }
