@@ -669,22 +669,9 @@ impl WinitWindowAdapter {
             .dispatch_event_with_result(WindowEvent::ScaleFactorChanged { scale_factor })?;
 
         #[cfg(target_os = "ios")]
-        let (content_view, keyboard_curve_self) = {
-            use objc2::Message as _;
-            use raw_window_handle::HasWindowHandle as _;
+        let (content_view, keyboard_curve_self) =
+            (crate::ios::content_view(&winit_window), self.self_weak.clone());
 
-            let raw_window_handle::RawWindowHandle::UiKit(window_handle) =
-                winit_window.window_handle().unwrap().as_raw()
-            else {
-                panic!()
-            };
-            let view = unsafe { &*(window_handle.ui_view.as_ptr() as *const objc2_ui_kit::UIView) }
-                .retain();
-            (view, self.self_weak.clone())
-        };
-
-        // A window created after UIKit connected the scene isn't covered by the
-        // scene delegate, so attach it here.
         #[cfg(target_os = "ios")]
         crate::ios::attach_window_to_scene(&content_view);
 
