@@ -290,23 +290,18 @@ fn json_to_expression(
             }
         }
         Type::Color => match value {
-            serde_json::Value::String(s) => match color_from_str(s) {
-                Some(argb) => Expression::Cast {
-                    from: Box::new(Expression::NumberLiteral(argb as f64, Unit::None)),
-                    to: Type::Color,
-                },
-                None => {
-                    ctx.diag.push_error(
-                        format!(
-                            "Cannot parse '{s}' as a color, at '{}' in {}",
-                            breadcrumb(breadcrumb_segments),
-                            file.display()
-                        ),
-                        node,
-                    );
-                    Expression::Invalid
+            serde_json::Value::String(s) => {
+                color_expression(s, breadcrumb_segments, file, node, ctx)
+            }
+            _ => mismatch(value, target, breadcrumb_segments, file, node, ctx),
+        },
+        Type::Brush => match value {
+            serde_json::Value::String(s) => {
+                match color_expression(s, breadcrumb_segments, file, node, ctx) {
+                    Expression::Invalid => Expression::Invalid,
+                    color => Expression::Cast { from: Box::new(color), to: Type::Brush },
                 }
-            },
+            }
             _ => mismatch(value, target, breadcrumb_segments, file, node, ctx),
         },
         Type::Enumeration(e) => match value {
@@ -396,4 +391,32 @@ fn json_to_expression(
 fn color_from_str(s: &str) -> Option<u32> {
     i_slint_common::color_parsing::parse_color_literal(s)
         .or_else(|| i_slint_common::color_parsing::named_colors().get(s).copied())
+}
+
+/// Parse `s` as a color and return a `Type::Color`-typed expression for it, or report a
+/// diagnostic and return `Expression::Invalid` if `s` isn't a valid color.
+fn color_expression(
+    s: &str,
+    breadcrumb_segments: &[SmolStr],
+    file: &std::path::Path,
+    node: &syntax_nodes::AtFromJson,
+    ctx: &mut LookupCtx,
+) -> Expression {
+    match color_from_str(s) {
+        Some(argb) => Expression::Cast {
+            from: Box::new(Expression::NumberLiteral(argb as f64, Unit::None)),
+            to: Type::Color,
+        },
+        None => {
+            ctx.diag.push_error(
+                format!(
+                    "Cannot parse '{s}' as a color, at '{}' in {}",
+                    breadcrumb(breadcrumb_segments),
+                    file.display()
+                ),
+                node,
+            );
+            Expression::Invalid
+        }
+    }
 }
