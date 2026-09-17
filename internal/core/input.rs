@@ -2640,28 +2640,13 @@ mod touch_tests {
     fn single_finger_press_move_release() {
         let mut state = TouchState::default();
 
-        let evs = state.process(
-            1,
-            pt(100.0, 200.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Pressed(100.0, 200.0)]);
 
-        let evs = state.process(
-            1,
-            pt(110.0, 200.0),
-            TouchPhase::Moved,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(1, pt(110.0, 200.0), TouchPhase::Moved, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Moved(110.0, 200.0)]);
 
-        let evs = state.process(
-            1,
-            pt(110.0, 200.0),
-            TouchPhase::Ended,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(1, pt(110.0, 200.0), TouchPhase::Ended, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Released(110.0, 200.0), Ev::Exit]);
     }
 
@@ -2669,19 +2654,9 @@ mod touch_tests {
     fn single_finger_cancel() {
         let mut state = TouchState::default();
 
-        state.process(
-            1,
-            pt(100.0, 200.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
 
-        let evs = state.process(
-            1,
-            pt(100.0, 200.0),
-            TouchPhase::Cancelled,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Cancelled, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Released(100.0, 200.0), Ev::Exit]);
     }
 
@@ -2689,20 +2664,10 @@ mod touch_tests {
     fn non_primary_move_ignored() {
         let mut state = TouchState::default();
         // Touch 1 is primary.
-        state.process(
-            1,
-            pt(100.0, 200.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
 
         // Move for a different ID that was never started (edge case).
-        let evs = state.process(
-            99,
-            pt(50.0, 50.0),
-            TouchPhase::Moved,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(99, pt(50.0, 50.0), TouchPhase::Moved, Default::default());
         assert!(classify(&evs).is_empty());
     }
 
@@ -2715,31 +2680,16 @@ mod touch_tests {
         let mut state = TouchState::default();
 
         // Finger 1 down.
-        let evs = state.process(
-            1,
-            pt(100.0, 200.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Pressed(100.0, 200.0)]);
 
         // Finger 2 down → synthesized release for finger 1.
-        let evs = state.process(
-            2,
-            pt(200.0, 200.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(2, pt(200.0, 200.0), TouchPhase::Started, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Released(100.0, 200.0)]);
         assert!(matches!(state.gesture_state, GestureRecognitionState::TwoFingersDown { .. }));
 
         // Move finger 2 far enough to trigger pinch (> 8px threshold).
-        let evs = state.process(
-            2,
-            pt(220.0, 200.0),
-            TouchPhase::Moved,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(2, pt(220.0, 200.0), TouchPhase::Moved, Default::default());
         assert_eq!(classify(&evs), vec![Ev::PinchStarted, Ev::RotationStarted]);
         assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
     }
@@ -2748,26 +2698,11 @@ mod touch_tests {
     fn two_fingers_below_threshold_no_gesture() {
         let mut state = TouchState::default();
 
-        state.process(
-            1,
-            pt(100.0, 200.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
-        state.process(
-            2,
-            pt(200.0, 200.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
+        state.process(2, pt(200.0, 200.0), TouchPhase::Started, Default::default());
 
         // Small movement within threshold.
-        let evs = state.process(
-            2,
-            pt(202.0, 200.0),
-            TouchPhase::Moved,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(2, pt(202.0, 200.0), TouchPhase::Moved, Default::default());
         assert!(classify(&evs).is_empty());
         assert!(matches!(state.gesture_state, GestureRecognitionState::TwoFingersDown { .. }));
     }
@@ -2777,27 +2712,17 @@ mod touch_tests {
         let mut state = TouchState::default();
 
         // Set up: finger 1 at (0, 0), finger 2 at (100, 0) → distance = 100.
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, crate::animations::Instant::default());
-        state.process(
-            2,
-            pt(100.0, 0.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started, Default::default());
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started, Default::default());
 
         // Move finger 2 to (120, 0) to exceed threshold and start pinching.
-        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, crate::animations::Instant::default());
+        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, Default::default());
         assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
 
         // Now move finger 2 further to (180, 0).
         // New distance = 180, initial distance (re-snapshotted) = 120.
         // Scale = 180/120 = 1.5, delta = 1.5 - 1.0 = 0.5.
-        let evs = state.process(
-            2,
-            pt(180.0, 0.0),
-            TouchPhase::Moved,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(2, pt(180.0, 0.0), TouchPhase::Moved, Default::default());
         let classified = classify(&evs);
         assert_eq!(classified.len(), 2);
         if let Ev::PinchMoved(delta) = classified[0] {
@@ -2813,28 +2738,18 @@ mod touch_tests {
 
         // Finger 1 at origin, finger 2 on the X axis at (100, 0).
         // Initial angle = atan2(0, 100) = 0°.
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, crate::animations::Instant::default());
-        state.process(
-            2,
-            pt(100.0, 0.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started, Default::default());
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started, Default::default());
 
         // Move finger 2 far enough to trigger gesture.
-        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, crate::animations::Instant::default());
+        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, Default::default());
         assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
 
         // Rotate ~45° clockwise: move finger 2 from (120, 0) to roughly
         // (70.7, 70.7) which is at 45° from origin.
         // atan2(70.7, 70.7) ≈ 45°. Delta from re-snapshotted 0° = +45°.
         // Slint convention: positive = clockwise → delta ≈ +45°.
-        let evs = state.process(
-            2,
-            pt(70.7, 70.7),
-            TouchPhase::Moved,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(2, pt(70.7, 70.7), TouchPhase::Moved, Default::default());
         let classified = classify(&evs);
         assert_eq!(classified.len(), 2);
         if let Ev::RotationMoved(delta) = classified[1] {
@@ -2850,33 +2765,18 @@ mod touch_tests {
 
         // Finger 1 at origin, finger 2 at (-100, -10).
         // angle = atan2(-10, -100) ≈ -174.3°.
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, crate::animations::Instant::default());
-        state.process(
-            2,
-            pt(-100.0, -10.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started, Default::default());
+        state.process(2, pt(-100.0, -10.0), TouchPhase::Started, Default::default());
 
         // Trigger gesture by moving far enough.
-        state.process(
-            2,
-            pt(-120.0, -10.0),
-            TouchPhase::Moved,
-            crate::animations::Instant::default(),
-        );
+        state.process(2, pt(-120.0, -10.0), TouchPhase::Moved, Default::default());
         assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
 
         // Rotate across the ±180° boundary: move finger 2 to (-100, 10).
         // New angle = atan2(10, -100) ≈ 174.3°.
         // Raw angular change crosses ±180°, but per-frame delta should be
         // small (~11.4° which is 2 * 5.7°), NOT a ~349° jump.
-        let evs = state.process(
-            2,
-            pt(-100.0, 10.0),
-            TouchPhase::Moved,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(2, pt(-100.0, 10.0), TouchPhase::Moved, Default::default());
         let classified = classify(&evs);
         if let Ev::RotationMoved(delta) = classified[1] {
             assert!(
@@ -2897,23 +2797,13 @@ mod touch_tests {
     fn pinch_end_with_remaining_finger() {
         let mut state = TouchState::default();
 
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, crate::animations::Instant::default());
-        state.process(
-            2,
-            pt(100.0, 0.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started, Default::default());
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started, Default::default());
         // Trigger pinch.
-        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, crate::animations::Instant::default());
+        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, Default::default());
 
         // Lift finger 2 → gesture ends, finger 1 gets re-pressed.
-        let evs = state.process(
-            2,
-            pt(120.0, 0.0),
-            TouchPhase::Ended,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(2, pt(120.0, 0.0), TouchPhase::Ended, Default::default());
         let classified = classify(&evs);
         assert_eq!(classified, vec![Ev::PinchEnded, Ev::RotationEnded, Ev::Pressed(0.0, 0.0)]);
         assert!(matches!(state.gesture_state, GestureRecognitionState::Idle));
@@ -2924,22 +2814,12 @@ mod touch_tests {
     fn pinch_cancel_emits_cancelled_and_exit() {
         let mut state = TouchState::default();
 
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, crate::animations::Instant::default());
-        state.process(
-            2,
-            pt(100.0, 0.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
-        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, crate::animations::Instant::default());
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started, Default::default());
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started, Default::default());
+        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, Default::default());
 
         // Cancel finger 2.
-        let evs = state.process(
-            2,
-            pt(120.0, 0.0),
-            TouchPhase::Cancelled,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(2, pt(120.0, 0.0), TouchPhase::Cancelled, Default::default());
         let classified = classify(&evs);
         assert_eq!(classified, vec![Ev::PinchCancelled, Ev::RotationCancelled, Ev::Exit]);
         assert!(state.primary_touch_id.is_none());
@@ -2949,27 +2829,12 @@ mod touch_tests {
     fn two_fingers_down_lift_before_threshold_returns_to_idle() {
         let mut state = TouchState::default();
 
-        state.process(
-            1,
-            pt(100.0, 200.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
-        state.process(
-            2,
-            pt(200.0, 200.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
+        state.process(2, pt(200.0, 200.0), TouchPhase::Started, Default::default());
         assert!(matches!(state.gesture_state, GestureRecognitionState::TwoFingersDown { .. }));
 
         // Lift finger 2 without exceeding movement threshold.
-        let evs = state.process(
-            2,
-            pt(200.0, 200.0),
-            TouchPhase::Ended,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(2, pt(200.0, 200.0), TouchPhase::Ended, Default::default());
         let classified = classify(&evs);
         // Remaining finger 1 gets re-pressed.
         assert_eq!(classified, vec![Ev::Pressed(100.0, 200.0)]);
@@ -2981,35 +2846,15 @@ mod touch_tests {
     fn two_fingers_down_cancel_both_emits_exit() {
         let mut state = TouchState::default();
 
-        state.process(
-            1,
-            pt(100.0, 200.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
-        state.process(
-            2,
-            pt(200.0, 200.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
+        state.process(2, pt(200.0, 200.0), TouchPhase::Started, Default::default());
 
         // Cancel finger 2 (gesture finger, no remaining → Exit).
-        let evs = state.process(
-            2,
-            pt(200.0, 200.0),
-            TouchPhase::Cancelled,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(2, pt(200.0, 200.0), TouchPhase::Cancelled, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Exit]);
 
         // Cancel finger 1 (now in Idle, but not primary since cancel cleared it).
-        let evs = state.process(
-            1,
-            pt(100.0, 200.0),
-            TouchPhase::Cancelled,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Cancelled, Default::default());
         assert!(classify(&evs).is_empty());
     }
 
@@ -3021,21 +2866,11 @@ mod touch_tests {
     fn third_finger_ignored_for_gesture() {
         let mut state = TouchState::default();
 
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, crate::animations::Instant::default());
-        state.process(
-            2,
-            pt(100.0, 0.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started, Default::default());
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started, Default::default());
 
         // Third finger: no additional events.
-        let evs = state.process(
-            3,
-            pt(50.0, 50.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(3, pt(50.0, 50.0), TouchPhase::Started, Default::default());
         assert!(classify(&evs).is_empty());
         assert_eq!(state.active_touches.len(), 3);
     }
@@ -3060,27 +2895,12 @@ mod touch_tests {
         let mut state = TouchState::default();
 
         // Two fingers at the exact same position → distance = 0.
-        state.process(
-            1,
-            pt(100.0, 100.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
-        state.process(
-            2,
-            pt(100.0, 100.0),
-            TouchPhase::Started,
-            crate::animations::Instant::default(),
-        );
+        state.process(1, pt(100.0, 100.0), TouchPhase::Started, Default::default());
+        state.process(2, pt(100.0, 100.0), TouchPhase::Started, Default::default());
         assert!(matches!(state.gesture_state, GestureRecognitionState::TwoFingersDown { .. }));
 
         // Move one finger far enough to trigger gesture.
-        let evs = state.process(
-            2,
-            pt(120.0, 100.0),
-            TouchPhase::Moved,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(2, pt(120.0, 100.0), TouchPhase::Moved, Default::default());
         assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
         let classified = classify(&evs);
         assert_eq!(classified.len(), 2);
@@ -3088,12 +2908,7 @@ mod touch_tests {
 
         // Move further — scale should not be inf/NaN despite initial_distance
         // having been 0 (re-snapshotted to 20.0 at threshold crossing).
-        let evs = state.process(
-            2,
-            pt(140.0, 100.0),
-            TouchPhase::Moved,
-            crate::animations::Instant::default(),
-        );
+        let evs = state.process(2, pt(140.0, 100.0), TouchPhase::Moved, Default::default());
         let classified = classify(&evs);
         if let Ev::PinchMoved(delta) = classified[0] {
             assert!(delta.is_finite(), "scale delta should be finite, got {}", delta);
