@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Colors, Metrics, Typography, InspectorLayoutStyle } from "../style.slint";
+import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
 import { InspectorComboOption } from "inspector/control-data.slint";
 import { Api, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
 import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "common.slint";
@@ -22,7 +22,7 @@ import { InspectorCornerEditor } from "inspector/corner-editor.slint";
 import { ScrollView } from "std-widgets.slint";
 
 export component InspectorPane inherits Rectangle {
-    in property <InspectorLayoutStyle> style: Style.inspector-layout;
+    in property <InspectorStyle> style: Style.inspector-layout;
     in property <ElementInformation> element-information;
 
     callback element-selected();

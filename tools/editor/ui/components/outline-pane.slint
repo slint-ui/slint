@@ -1,20 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, Colors, Typography, TreeDropStyle } from "../style.slint";
+import { Style, Metrics, Colors, Typography, TreeStyle } from "../style.slint";
 import { Api, DropLocation, EditorSurfaceMode, OutlineTreeNode } from "../api.slint";
 import { EditorTreeView } from "editor-tree-view.slint";
 
 import { AppState, SectionTitle } from "common.slint";
 
 export component OutlinePane inherits Rectangle {
-    in property <TreeDropStyle> style: Style.tree-drop;
+    in property <TreeStyle> style: Style.tree;
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
     property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
     callback element-selected();
     callback drag-started();
 
-    // background: Style.tree-row.hover-background;
+    // background: root.style.row.hover-background;
 
     VerticalLayout {
         padding-right: Metrics.space-medium;
@@ -87,11 +87,11 @@ export component OutlinePane inherits Rectangle {
                     horizontal-stretch: 1;
                     vertical-stretch: 0;
                     height: root-drop-area.has-drag ? Metrics.control-small : root.style.root-drop-height;
-                    border-radius: Style.tree-row.radius;
+                    border-radius: root.style.row.radius;
                     border-width: root-drop-area.has-drag && self.drop-allowed
                         ? root.style.drop-border-width
                         : 0px;
-                    border-color: Style.tree-row.accent;
+                    border-color: root.style.row.accent;
                     background: root-drop-area.has-drag && self.drop-allowed
                         ? root.style.drop-background
                         : transparent;
@@ -145,10 +145,10 @@ export component OutlinePane inherits Rectangle {
 
                     Text {
                         visible: root-drop-area.has-drag && root-drop-target.drop-allowed;
-                        x: Style.tree-row.padding-inline;
+                        x: root.style.row.padding-inline;
                         width: parent.width - 2 * self.x;
                         text: "Drop as child of root";
-                        color: Style.tree-row.foreground;
+                        color: root.style.row.foreground;
                         font-size: Typography.control.size;
                         horizontal-alignment: center;
                         vertical-alignment: center;

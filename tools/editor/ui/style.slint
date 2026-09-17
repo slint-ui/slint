@@ -360,6 +360,19 @@ export struct TreeRowStyle {
     icon-opacity: float = 0.5,
 }
 
+export struct TreeStyle {
+    row: TreeRowStyle,
+    guide: color,
+    selected-guide: color,
+    file-guide: color,
+    guide-width: length,
+    drop-background: color,
+    drop-border-width: length,
+    drop-line-height: length,
+    root-drop-height: length,
+    rename: PaintStyle,
+}
+
 export struct DragPreviewStyle {
     background: color = #ffffff,
     subtle: color = #f6f8fa,
@@ -380,7 +393,9 @@ export struct FloatingPanelStyle {
     background: color,
 }
 
-export struct InspectorLayoutStyle {
+export struct InspectorStyle {
+    gradient-label-width: length = 58px,
+    gradient-value-width: length = 62px,
     divider: color,
     label-width: length = 52px,
     row-gap: length,
@@ -498,10 +513,6 @@ export struct GradientStopRowStyle {
     swatch-size: length = 14px,
 }
 
-export struct GradientFieldsStyle {
-    label-width: length = 58px,
-    value-width: length = 62px,
-}
 
 export struct InfoIconStyle {
     size: length = 14px,
@@ -512,24 +523,8 @@ export struct InfoIconStyle {
     hover: brush,
 }
 
-export struct RenameFieldStyle {
-    background: brush,
-    border: brush,
-}
 
-export struct TreeGuidesStyle {
-    guide: color,
-    guide-width: length,
-    selected-guide: color,
-    file-guide: color,
-}
 
-export struct TreeDropStyle {
-    drop-background: color,
-    drop-border-width: length,
-    drop-line-height: length,
-    root-drop-height: length,
-}
 
 export struct PaletteRowStyle {
     drag-opacity: float = 0.56,
@@ -708,7 +703,9 @@ struct PickerTheme {
 
 struct NavigationTheme {
     tree-row: TreeRowStyle,
-    tree-guides: TreeGuidesStyle,
+    guide: color,
+    selected-guide: color,
+    file-guide: color,
     drop-background: color,
     palette-row: PaletteRowStyle,
 }
@@ -905,7 +902,7 @@ export global LightTheme {
 
     out property <DragPreviewStyle> drag-preview: {
         shadow: { color: #33415535, blur: 18px, offset-y: 8px },
-        row-border: LightTheme.tree-guides.guide,
+        row-border: LightTheme.guide,
     };
 
     out property <FloatingPanelStyle> floating-panel: {
@@ -979,11 +976,9 @@ export global LightTheme {
         directory-icon: #d29922,
     };
 
-    out property <TreeGuidesStyle> tree-guides: {
-        guide: LightTheme.divider,
-        selected-guide: #c4c4c4,
-        file-guide: LightTheme.divider,
-    };
+    out property <color> guide: LightTheme.divider;
+    out property <color> selected-guide: #c4c4c4;
+    out property <color> file-guide: LightTheme.divider;
 
     out property <color> drop-background: #eaf5ff;
 
@@ -1214,7 +1209,7 @@ export global DarkTheme {
 
     out property <DragPreviewStyle> drag-preview: {
         shadow: { color: #00000055, blur: 18px, offset-y: 8px },
-        row-border: DarkTheme.tree-guides.guide,
+        row-border: DarkTheme.guide,
     };
 
     out property <FloatingPanelStyle> floating-panel: {
@@ -1288,11 +1283,9 @@ export global DarkTheme {
         directory-icon: DarkTheme.colors.accent,
     };
 
-    out property <TreeGuidesStyle> tree-guides: {
-        guide: DarkTheme.divider,
-        selected-guide: #474747,
-        file-guide: DarkTheme.divider,
-    };
+    out property <color> guide: DarkTheme.divider;
+    out property <color> selected-guide: #474747;
+    out property <color> file-guide: DarkTheme.divider;
 
     out property <color> drop-background: DarkTheme.colors.accent.with-alpha(0.14);
 
@@ -1496,12 +1489,16 @@ export global Theme {
 
     out property <NavigationTheme> navigation: root.current == ThemeKind.dark ? {
         tree-row: DarkTheme.tree-row,
-        tree-guides: DarkTheme.tree-guides,
+        guide: DarkTheme.guide,
+        selected-guide: DarkTheme.selected-guide,
+        file-guide: DarkTheme.file-guide,
         drop-background: DarkTheme.drop-background,
         palette-row: DarkTheme.palette-row,
     } : {
         tree-row: LightTheme.tree-row,
-        tree-guides: LightTheme.tree-guides,
+        guide: LightTheme.guide,
+        selected-guide: LightTheme.selected-guide,
+        file-guide: LightTheme.file-guide,
         drop-background: LightTheme.drop-background,
         palette-row: LightTheme.palette-row,
     };
@@ -1604,12 +1601,8 @@ export global Style {
 
 
 
-    out property <GradientFieldsStyle> gradient-fields;
 
-    out property <RenameFieldStyle> rename-field: {
-        background: Palette.control-background,
-        border: Palette.border,
-    };
+
 
     out property <PaletteCardStyle> palette-card: {
         background: Theme.shell.palette-card.background,
@@ -1784,7 +1777,7 @@ export global Style {
         inactive: Theme.overlay.marker-inactive,
     };
 
-    out property <InspectorLayoutStyle> inspector-layout: {
+    out property <InspectorStyle> inspector-layout: {
         row-gap: Metrics.space-compact,
         padding: root.inspector-layout-padding,
         column-gap: Metrics.space-regular,
@@ -1872,7 +1865,7 @@ export global Style {
 
 
 
-    out property <TreeRowStyle> tree-row: {
+    private property <TreeRowStyle> tree-row: {
         height: Metrics.control-medium,
         font-size: Typography.body.size,
         radius: Metrics.radius-medium,
@@ -1889,18 +1882,21 @@ export global Style {
         directory-icon: Theme.navigation.tree-row.directory-icon,
     };
 
-    out property <TreeGuidesStyle> tree-guides: {
-        guide-width: Metrics.border-width,
-        guide: Theme.navigation.tree-guides.guide,
-        selected-guide: Theme.navigation.tree-guides.selected-guide,
-        file-guide: Theme.navigation.tree-guides.file-guide,
-    };
 
-    out property <TreeDropStyle> tree-drop: {
+
+
+
+    out property <TreeStyle> tree: {
+        row: root.tree-row,
+        guide-width: Metrics.border-width,
+        guide: Theme.navigation.guide,
+        selected-guide: Theme.navigation.selected-guide,
+        file-guide: Theme.navigation.file-guide,
         drop-border-width: Metrics.border-width,
         drop-line-height: Metrics.focus-width,
         root-drop-height: Metrics.space-regular,
         drop-background: Theme.navigation.drop-background,
+        rename: { background: Palette.control-background, border: Palette.border },
     };
 
     out property <PaletteRowStyle> palette-row: {
