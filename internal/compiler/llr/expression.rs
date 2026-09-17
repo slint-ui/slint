@@ -1295,11 +1295,14 @@ impl ContextMap {
         match self {
             ContextMap::Identity => ctx.clone(),
             ContextMap::InSubElement { path, parent } => {
-                let mut sc = ctx.parent_sub_component_idx(*parent).unwrap();
+                // Keep the parent chain of the frame we land on: an expression there may
+                // itself have `parent_level > 0` references, and they resolve in that frame.
+                let (mut sc, parent_scope) =
+                    ctx.scope_at_parent_level(*parent).expect("invalid parent reference");
                 for i in path {
                     sc = ctx.compilation_unit.sub_components[sc].sub_components[*i].ty;
                 }
-                EvaluationContext::new_sub_component(ctx.compilation_unit, sc, (), None)
+                EvaluationContext::new_sub_component(ctx.compilation_unit, sc, (), parent_scope)
             }
             ContextMap::InGlobal(g) => EvaluationContext::new_global(ctx.compilation_unit, *g, ()),
         }
