@@ -7697,6 +7697,7 @@ dependencies = [
  "spin_on",
  "tempfile",
  "tokio",
+ "tr",
  "tracing",
  "tracing-subscriber",
  "web-sys",

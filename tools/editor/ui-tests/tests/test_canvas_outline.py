@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 import slint_testing
 from canvas_interactions import center
+from editor_sync import wait_for_source
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     elements_with_label,
@@ -71,9 +72,9 @@ def test_click_selection_keeps_visible_hover_outline(
     editor_environment: dict[str, str],
     fixture_project: Path,
 ) -> None:
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
+    source = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
         window = first_window(editor)
         artboard = window_element_with_label(window, "Artboard")
         target = slint_testing.LogicalPosition(

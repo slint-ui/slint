@@ -11,6 +11,11 @@ component FileTreeRow inherits Rectangle {
     in property <FileTreeNode> node;
     in property <int> max-gutter-columns: 8;
     in property <bool> tree-has-hover: false;
+    in property <bool> keyboard-current: false;
+    in property <bool> editing: false;
+    in property <length> rename-right-extension;
+    in-out property <string> rename-name;
+    in property <string> rename-error;
 
     property <bool> folder: node.kind == FileTreeNodeKind.folder;
     property <int> level-safe: max(1, node.indent-level + 1);
@@ -19,19 +24,37 @@ component FileTreeRow inherits Rectangle {
     property <int> selected-guide-index: node.show-selected-guide ? root.level-safe - 2 : -1;
     property <color> selected-guide-color: Palette.color-scheme == ColorScheme.dark ? #474747 : #c4c4c4;
     property <color> guide-color: Palette.color-scheme == ColorScheme.dark ? #303030 : #e2e2e2;
+    property <color> error-color: Palette.color-scheme == ColorScheme.dark ? #ff7b72 : #cf222e;
 
     callback row-hover-changed(string, bool);
+    callback row-focus-requested(string);
+    callback rename-started(string);
+    callback rename-finished();
+    callback rename-submitted();
 
-    height: EditorTreeTokens.row-height;
+    init => {
+        if root.keyboard-current && !root.editing {
+            row-focus.focus();
+        }
+    }
+
+    changed keyboard-current => {
+        if root.keyboard-current && !root.editing {
+            row-focus.focus();
+        }
+    }
+
+    height: EditorTreeTokens.row-height + (rename-error == "" ? 0px : EditorTreeTokens.row-height);
     horizontal-stretch: 1;
     border-radius: EditorTreeTokens.row-radius;
-    background: node.is-selected ? EditorTreeTokens.row-bg-current : touch.has-hover ? EditorTreeTokens.row-bg-hover : transparent;
+    background: node.is-selected || row-focus.has-focus ? EditorTreeTokens.row-bg-current : touch.has-hover ? EditorTreeTokens.row-bg-hover : transparent;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.node.path;
     accessible-item-selectable: !root.folder;
     accessible-item-selected: root.node.is-selected;
     accessible-expanded: root.folder && root.node.is-expanded;
     accessible-action-default => {
+        root.focus-row();
         root.activate();
     }
     accessible-action-expand => {
@@ -52,85 +75,189 @@ component FileTreeRow inherits Rectangle {
         }
     }
 
-    HorizontalLayout {
-        alignment: start;
-        cross-axis-alignment: center;
-        padding-left: EditorTreeTokens.row-padding-inline;
-        padding-right: EditorTreeTokens.row-padding-inline;
-        spacing: 0px;
+    function focus-row() {
+        root.row-focus-requested(root.node.path);
+        row-focus.focus();
+    }
 
-        if root.gutter-segments > 0: HorizontalLayout {
-            alignment: start;
+    function begin-rename() {
+        if !root.folder {
+            root.rename-name = root.node.label;
+            root.rename-started(root.node.path);
+        }
+    }
 
-            for slot[index] in root.max-gutter-columns: Rectangle {
-                width: index < root.gutter-segments ? EditorTreeTokens.toggle-width : 0px;
+    row-focus := FocusScope {
+        focus-on-click: false;
+
+        key-pressed(event) => {
+            if !root.folder && ((Platform.os == OperatingSystemType.macos && event.text == Key.Return)
+                    || (Platform.os != OperatingSystemType.macos && event.text == Key.F2)) {
+                root.begin-rename();
+                return accept;
+            }
+            if Platform.os != OperatingSystemType.macos && event.text == Key.Return {
+                root.activate();
+                return accept;
+            }
+            return reject;
+        }
+
+        HorizontalLayout {
+            alignment: stretch;
+            cross-axis-alignment: center;
+            padding-left: EditorTreeTokens.row-padding-inline;
+            padding-right: EditorTreeTokens.row-padding-inline;
+            spacing: 0px;
+
+            if root.gutter-segments > 0: HorizontalLayout {
+                horizontal-stretch: 0;
+                alignment: start;
+
+                for slot[index] in root.max-gutter-columns: Rectangle {
+                    width: index < root.gutter-segments ? EditorTreeTokens.toggle-width : 0px;
+                    height: EditorTreeTokens.row-height;
+
+                    if index < root.gutter-segments && (root.tree-has-hover || index == root.selected-guide-index): Rectangle {
+                        property <bool> active-folder-guide: index == root.selected-guide-index;
+                        x: (parent.width - EditorTreeTokens.guide-width) / 2;
+                        width: EditorTreeTokens.guide-width;
+                        height: EditorTreeTokens.row-height;
+                        background: active-folder-guide ? root.selected-guide-color : root.guide-color;
+                    }
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 0;
+                width: EditorTreeTokens.disclosure-hit-size;
                 height: EditorTreeTokens.row-height;
 
-                if index < root.gutter-segments && (root.tree-has-hover || index == root.selected-guide-index): Rectangle {
-                    property <bool> active-folder-guide: index == root.selected-guide-index;
-                    x: (parent.width - EditorTreeTokens.guide-width) / 2;
-                    width: EditorTreeTokens.guide-width;
+                Image {
+                    visible: root.folder && root.node.has-children;
+                    width: 12px;
+                    height: 12px;
+                    x: 0px;
+                    y: (parent.height - self.height) / 2;
+                    source: root.node.is-expanded ? FileTreeIcons.chevron-down : FileTreeIcons.chevron-right;
+                    colorize: EditorTreeTokens.muted-text;
+                }
+            }
+
+            HorizontalLayout {
+                horizontal-stretch: 1;
+                spacing: EditorTreeTokens.content-gap;
+                alignment: stretch;
+                cross-axis-alignment: center;
+                padding-right: EditorTreeTokens.row-padding-inline;
+                min-height: EditorTreeTokens.row-height;
+
+                Image {
+                    horizontal-stretch: 0;
+                    width: EditorTreeTokens.icon-size;
+                    height: EditorTreeTokens.icon-size;
+                    vertical-alignment: center;
+                    source: root.folder
+                        ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
+                        : root.node.kind == FileTreeNodeKind.image ? FileTreeIcons.image
+                        : FileTreeIcons.file-code;
+                    colorize: root.folder ? EditorTreeTokens.directory-icon : EditorTreeTokens.muted-text;
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
                     height: EditorTreeTokens.row-height;
-                    background: active-folder-guide ? root.selected-guide-color : root.guide-color;
+
+                    Text {
+                        visible: !root.editing;
+                        width: parent.width;
+                        height: parent.height;
+                        vertical-alignment: center;
+                        text: root.node.label;
+                        color: EditorTreeTokens.text;
+                        font-size: EditorTreeTokens.row-font-size;
+                        overflow: elide;
+                        wrap: no-wrap;
+                    }
                 }
             }
         }
 
-        Rectangle {
-            width: EditorTreeTokens.disclosure-hit-size;
-            height: EditorTreeTokens.row-height;
+        if root.editing: Rectangle {
+            x: EditorTreeTokens.row-padding-inline
+                + root.gutter-segments * EditorTreeTokens.toggle-width
+                + EditorTreeTokens.disclosure-hit-size
+                + EditorTreeTokens.icon-size
+                + EditorTreeTokens.content-gap;
+            y: 2px;
+            width: root.width + root.rename-right-extension - self.x;
+            height: EditorTreeTokens.row-height - 4px;
+            border-width: 1px;
+            border-color: root.rename-error == "" ? Palette.border : root.error-color;
+            background: Palette.control-background;
 
-            Image {
-                visible: root.folder && root.node.has-children;
-                width: 12px;
-                height: 12px;
-                x: 0px;
-                y: (parent.height - self.height) / 2;
-                source: root.node.is-expanded ? FileTreeIcons.chevron-down : FileTreeIcons.chevron-right;
-                colorize: EditorTreeTokens.muted-text;
-            }
-        }
-
-        HorizontalLayout {
-            spacing: EditorTreeTokens.content-gap;
-            alignment: start;
-            cross-axis-alignment: center;
-            padding-right: EditorTreeTokens.row-padding-inline;
-            min-height: EditorTreeTokens.row-height;
-
-            Image {
-                width: EditorTreeTokens.icon-size;
-                height: EditorTreeTokens.icon-size;
-                vertical-alignment: center;
-                source: root.folder
-                    ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
-                    : root.node.kind == FileTreeNodeKind.image ? FileTreeIcons.image
-                    : FileTreeIcons.file-code;
-                colorize: root.folder ? EditorTreeTokens.directory-icon : EditorTreeTokens.muted-text;
-            }
-
-            Text {
-                horizontal-stretch: 1;
-                vertical-alignment: center;
-                text: root.node.label;
+            input := TextInput {
+                x: 1px;
+                width: parent.width - 2px;
+                height: parent.height;
+                text <=> root.rename-name;
                 color: EditorTreeTokens.text;
                 font-size: EditorTreeTokens.row-font-size;
-                overflow: elide;
+                vertical-alignment: center;
+                single-line: true;
                 wrap: no-wrap;
+                accessible-label: "Rename " + root.node.label;
+                init => {
+                    self.focus();
+                    self.set-selection-offsets(0, root.node.rename-selection-end);
+                }
+                accepted => { root.rename-submitted(); }
+                changed has-focus => {
+                    if root.editing && !self.has-focus {
+                        root.rename-submitted();
+                    }
+                }
+                key-pressed(event) => {
+                    if event.text == Key.Escape {
+                        root.rename-finished();
+                        row-focus.focus();
+                        return accept;
+                    }
+                    return reject;
+                }
             }
         }
     }
 
+    if root.rename-error != "": Text {
+        x: EditorTreeTokens.disclosure-hit-size + EditorTreeTokens.icon-size;
+        y: EditorTreeTokens.row-height;
+        width: parent.width - self.x;
+        height: EditorTreeTokens.row-height;
+        text: root.rename-error;
+        color: root.error-color;
+        font-size: EditorTreeTokens.row-font-size;
+        overflow: elide;
+        wrap: no-wrap;
+    }
+
     touch := TouchArea {
+        enabled: !root.editing;
         mouse-cursor: pointer;
         clicked => {
+            root.focus-row();
             root.activate();
         }
     }
 }
 
 export component FileTreeView inherits ListView {
+    in property <length> rename-right-extension;
     private property <string> hovered-row-key: "";
+    private property <string> focused-row-key: "";
+    private property <string> editing-row-key: "";
+    private property <string> rename-name: "";
+    private property <string> rename-error: "";
     private property <bool> tree-has-hover: hovered-row-key != "";
 
     horizontal-stretch: 1;
@@ -138,10 +265,40 @@ export component FileTreeView inherits ListView {
     accessible-label: "Files";
 
     for row in Project.file-tree: FileTreeRow {
-        width: root.visible-width;
+        width: root.visible-width - root.rename-right-extension;
         node: row;
         tree-has-hover: root.tree-has-hover;
+        keyboard-current: row.path == root.focused-row-key;
+        editing: row.path == root.editing-row-key;
+        rename-right-extension: root.rename-right-extension;
+        rename-name <=> root.rename-name;
+        rename-error: row.path == root.editing-row-key ? root.rename-error : "";
         row-hover-changed(path, has-hover) => { root.update-hovered-row(path, has-hover); }
+        row-focus-requested(path) => {
+            if root.editing-row-key != "" && root.editing-row-key != path {
+                root.submit-rename();
+            }
+            root.focused-row-key = path;
+        }
+        rename-started(path) => {
+            root.rename-error = "";
+            root.editing-row-key = path;
+        }
+        rename-finished => {
+            root.rename-error = "";
+            root.editing-row-key = "";
+        }
+        rename-submitted => { root.submit-rename(); }
+    }
+
+    function submit-rename() {
+        if root.editing-row-key == "" {
+            return;
+        }
+        root.rename-error = Api.file-tree-rename(root.editing-row-key, root.rename-name);
+        if root.rename-error == "" {
+            root.editing-row-key = "";
+        }
     }
 
     function update-hovered-row(path: string, has-hover: bool) {
