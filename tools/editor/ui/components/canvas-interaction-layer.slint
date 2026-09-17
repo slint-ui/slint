@@ -324,9 +324,11 @@ export component CanvasInteractionLayer inherits Rectangle {
     pure function horizontal-text-alignment(index: int) -> TextHorizontalAlignment {
         if index == 0 { return TextHorizontalAlignment.start; }
         if index == 1 { return TextHorizontalAlignment.end; }
+        if index == 2 { return TextHorizontalAlignment.left; }
         if index == 3 { return TextHorizontalAlignment.center; }
         if index == 4 { return TextHorizontalAlignment.right; }
-        return TextHorizontalAlignment.left;
+        debug("Error: unexpected", "horizontal-text-alignment: " + index);
+        return TextHorizontalAlignment.start;
     }
 
     pure function vertical-text-alignment(index: int) -> TextVerticalAlignment {
