@@ -1,0 +1,32 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nicholas Turner <nicholas.turner@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Foo {
+    in property <float> pi: 3.1;
+    in property <float> t: 0.0;
+
+    match pi {
+//  >   <error{Cannot match on 'pi', which is of type float}
+        2.9: Rectangle { }
+        3.0: Rectangle { }
+        3.1: Rectangle { }
+        3.2: Rectangle { }
+        *: Rectangle { }
+    }
+
+    match t {
+//  >   <error{Cannot match on 't', which is of type float}
+        0.0: Rectangle { }
+        *: Rectangle { }
+    }
+
+    function returns-float() -> float {
+        0.5
+    }
+
+    match returns-float() {
+//  >   <error{Cannot match on 'returns-float()', which is of type float}
+        0.0: Rectangle { }
+        *: Rectangle { }
+    }
+}

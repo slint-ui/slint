@@ -161,7 +161,7 @@ The match element feature is in its early stages. The following restrictions app
   }
   ```
 
-- Float comparisons produce a warning. Comparing floating-point values for exact equality is not reliable, so the compiler emits a warning for each fractional float case value.
+- Float comparisons produce an error. Comparing floating-point values for exact equality is not reliable, so the compiler emits an error for each float case value.
 
 - `@children` cannot appear inside a match case.
 
