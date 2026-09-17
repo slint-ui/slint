@@ -1,30 +1,31 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "../style.slint";
+import { Style, Metrics, Colors, Typography, TreeDropStyle } from "../style.slint";
 import { Api, DropLocation, EditorSurfaceMode, OutlineTreeNode } from "../api.slint";
 import { EditorTreeView } from "editor-tree-view.slint";
 
 import { AppState, SectionTitle } from "common.slint";
 
 export component OutlinePane inherits Rectangle {
+    in property <TreeDropStyle> style: Style.tree-drop;
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
     property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
     callback element-selected();
     callback drag-started();
 
-    // background: Style.tree.row-bg-hover;
+    // background: Style.tree-row.hover-background;
 
     VerticalLayout {
-        padding-right: Style.spacing.medium;
-        padding-top: Style.spacing.medium;
-        padding-bottom: Style.spacing.medium;
-        spacing: Style.spacing.small;
+        padding-right: Metrics.space-medium;
+        padding-top: Metrics.space-medium;
+        padding-bottom: Metrics.space-medium;
+        spacing: Metrics.space-small;
 
         HorizontalLayout {
             alignment: start;
             cross-axis-alignment: center;
-            padding-left: Style.spacing.large;
+            padding-left: Metrics.space-large;
 
             SectionTitle {
                 label: "OUTLINE";
@@ -35,11 +36,11 @@ export component OutlinePane inherits Rectangle {
             vertical-stretch: 1;
 
             Text {
-                x: Style.spacing.large;
-                width: parent.width - 2 * Style.spacing.large;
+                x: Metrics.space-large;
+                width: parent.width - 2 * Metrics.space-large;
                 text: root.image-mode ? "Nothing to Outline" : "No outline available";
-                color: Style.colors.muted;
-                font-size: Style.typography.control.size;
+                color: Colors.muted;
+                font-size: Typography.control.size;
                 horizontal-alignment: center;
                 vertical-alignment: center;
             }
@@ -85,14 +86,14 @@ export component OutlinePane inherits Rectangle {
                 root-drop-target := Rectangle {
                     horizontal-stretch: 1;
                     vertical-stretch: 0;
-                    height: root-drop-area.has-drag ? Style.controls.small-height : Style.tree.root-drop-height;
-                    border-radius: Style.tree.row-radius;
+                    height: root-drop-area.has-drag ? Metrics.control-small : root.style.root-drop-height;
+                    border-radius: Style.tree-row.radius;
                     border-width: root-drop-area.has-drag && self.drop-allowed
-                        ? Style.tree.drop-target-border-width
+                        ? root.style.drop-border-width
                         : 0px;
-                    border-color: Style.tree.accent;
+                    border-color: Style.tree-row.accent;
                     background: root-drop-area.has-drag && self.drop-allowed
-                        ? Style.tree.drop-target-bg
+                        ? root.style.drop-background
                         : transparent;
                     property <bool> drop-allowed: false;
                     accessible-role: AccessibleRole.list-item;
@@ -144,11 +145,11 @@ export component OutlinePane inherits Rectangle {
 
                     Text {
                         visible: root-drop-area.has-drag && root-drop-target.drop-allowed;
-                        x: Style.tree.row-padding-inline;
+                        x: Style.tree-row.padding-inline;
                         width: parent.width - 2 * self.x;
                         text: "Drop as child of root";
-                        color: Style.tree.text;
-                        font-size: Style.typography.control.size;
+                        color: Style.tree-row.foreground;
+                        font-size: Typography.control.size;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                         overflow: elide;

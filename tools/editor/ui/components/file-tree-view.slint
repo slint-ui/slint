@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "../style.slint";
+import { Style, Colors, Metrics, TreeRowStyle, TreeGuidesStyle, RenameFieldStyle } from "../style.slint";
 import { FileTreeIcons } from "file-tree-icons.slint";
 
 import { Api, FileTreeNode, FileTreeNodeKind } from "../api.slint";
@@ -9,6 +9,9 @@ import { Project } from "../project.slint";
 import { ListView } from "std-widgets.slint";
 
 component FileTreeRow inherits Rectangle {
+    in property <RenameFieldStyle> rename-style: Style.rename-field;
+    in property <TreeGuidesStyle> guide-style: Style.tree-guides;
+    in property <TreeRowStyle> style: Style.tree-row;
     in property <FileTreeNode> node;
     in property <int> max-gutter-columns: 8;
     in property <bool> tree-has-hover: false;
@@ -23,9 +26,9 @@ component FileTreeRow inherits Rectangle {
     property <int> gutter-segments: max(0, level-safe - 1);
     property <bool> row-has-hover: touch.has-hover;
     property <int> selected-guide-index: node.show-selected-guide ? root.level-safe - 2 : -1;
-    property <color> selected-guide-color: Style.tree.selected-guide;
-    property <color> guide-color: Style.tree.file-guide;
-    property <color> error-color: Style.tree.error;
+    property <color> selected-guide-color: root.guide-style.selected-guide;
+    property <color> guide-color: root.guide-style.file-guide;
+    property <color> error-color: Colors.danger;
 
     callback row-hover-changed(string, bool);
     callback row-focus-requested(string);
@@ -45,10 +48,10 @@ component FileTreeRow inherits Rectangle {
         }
     }
 
-    height: Style.tree.row-height + (rename-error == "" ? 0px : Style.tree.row-height);
+    height: root.style.height + (rename-error == "" ? 0px : root.style.height);
     horizontal-stretch: 1;
-    border-radius: Style.tree.row-radius;
-    background: node.is-selected || row-focus.has-focus ? Style.tree.row-bg-current : touch.has-hover ? Style.tree.row-bg-hover : transparent;
+    border-radius: root.style.radius;
+    background: node.is-selected || row-focus.has-focus ? root.style.selected-background : touch.has-hover ? root.style.hover-background : transparent;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.node.path;
     accessible-item-selectable: !root.folder;
@@ -107,8 +110,8 @@ component FileTreeRow inherits Rectangle {
         HorizontalLayout {
             alignment: stretch;
             cross-axis-alignment: center;
-            padding-left: Style.tree.row-padding-inline;
-            padding-right: Style.tree.row-padding-inline;
+            padding-left: root.style.padding-inline;
+            padding-right: root.style.padding-inline;
             spacing: 0px;
 
             if root.gutter-segments > 0: HorizontalLayout {
@@ -116,14 +119,14 @@ component FileTreeRow inherits Rectangle {
                 alignment: start;
 
                 for slot[index] in root.max-gutter-columns: Rectangle {
-                    width: index < root.gutter-segments ? Style.tree.toggle-width : 0px;
-                    height: Style.tree.row-height;
+                    width: index < root.gutter-segments ? root.style.toggle-width : 0px;
+                    height: root.style.height;
 
                     if index < root.gutter-segments && (root.tree-has-hover || index == root.selected-guide-index): Rectangle {
                         property <bool> active-folder-guide: index == root.selected-guide-index;
-                        x: (parent.width - Style.tree.guide-width) / 2;
-                        width: Style.tree.guide-width;
-                        height: Style.tree.row-height;
+                        x: (parent.width - root.guide-style.guide-width) / 2;
+                        width: root.guide-style.guide-width;
+                        height: root.style.height;
                         background: active-folder-guide ? root.selected-guide-color : root.guide-color;
                     }
                 }
@@ -131,43 +134,43 @@ component FileTreeRow inherits Rectangle {
 
             Rectangle {
                 horizontal-stretch: 0;
-                width: Style.tree.disclosure-hit-size;
-                height: Style.tree.row-height;
+                width: root.style.hit-size;
+                height: root.style.height;
 
                 Image {
                     visible: root.folder && root.node.has-children;
-                    width: Style.controls.small-icon-size;
-                    height: Style.controls.small-icon-size;
+                    width: Metrics.icon-small;
+                    height: Metrics.icon-small;
                     x: 0px;
                     y: (parent.height - self.height) / 2;
                     source: root.node.is-expanded ? FileTreeIcons.chevron-down : FileTreeIcons.chevron-right;
-                    colorize: Style.tree.muted-text;
+                    colorize: root.style.muted;
                 }
             }
 
             HorizontalLayout {
                 horizontal-stretch: 1;
-                spacing: Style.tree.content-gap;
+                spacing: root.style.gap;
                 alignment: stretch;
                 cross-axis-alignment: center;
-                padding-right: Style.tree.row-padding-inline;
-                min-height: Style.tree.row-height;
+                padding-right: root.style.padding-inline;
+                min-height: root.style.height;
 
                 Image {
                     horizontal-stretch: 0;
-                    width: Style.tree.icon-size;
-                    height: Style.tree.icon-size;
+                    width: root.style.icon-size;
+                    height: root.style.icon-size;
                     vertical-alignment: center;
                     source: root.folder
                         ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
                         : root.node.kind == FileTreeNodeKind.image ? FileTreeIcons.image
                         : FileTreeIcons.file-code;
-                    colorize: root.folder ? Style.tree.directory-icon : Style.tree.muted-text;
+                    colorize: root.folder ? root.style.directory-icon : root.style.muted;
                 }
 
                 Rectangle {
                     horizontal-stretch: 1;
-                    height: Style.tree.row-height;
+                    height: root.style.height;
 
                     Text {
                         visible: !root.editing;
@@ -175,8 +178,8 @@ component FileTreeRow inherits Rectangle {
                         height: parent.height;
                         vertical-alignment: center;
                         text: root.node.label;
-                        color: Style.tree.text;
-                        font-size: Style.tree.row-font-size;
+                        color: root.style.foreground;
+                        font-size: root.style.font-size;
                         overflow: elide;
                         wrap: no-wrap;
                     }
@@ -185,25 +188,25 @@ component FileTreeRow inherits Rectangle {
         }
 
         if root.editing: Rectangle {
-            x: Style.tree.row-padding-inline
-                + root.gutter-segments * Style.tree.toggle-width
-                + Style.tree.disclosure-hit-size
-                + Style.tree.icon-size
-                + Style.tree.content-gap;
-            y: Style.spacing.tight;
+            x: root.style.padding-inline
+                + root.gutter-segments * root.style.toggle-width
+                + root.style.hit-size
+                + root.style.icon-size
+                + root.style.gap;
+            y: Metrics.space-tight;
             width: root.width + root.rename-right-extension - self.x;
-            height: Style.tree.row-height - 2 * Style.spacing.tight;
-            border-width: Style.controls.border-width;
-            border-color: root.rename-error == "" ? Style.tree.rename-border : root.error-color;
-            background: Style.tree.rename-bg;
+            height: root.style.height - 2 * Metrics.space-tight;
+            border-width: Metrics.border-width;
+            border-color: root.rename-error == "" ? root.rename-style.border : root.error-color;
+            background: root.rename-style.background;
 
             input := TextInput {
-                x: Style.controls.border-width;
-                width: parent.width - 2 * Style.controls.border-width;
+                x: Metrics.border-width;
+                width: parent.width - 2 * Metrics.border-width;
                 height: parent.height;
                 text <=> root.rename-name;
-                color: Style.tree.text;
-                font-size: Style.tree.row-font-size;
+                color: root.style.foreground;
+                font-size: root.style.font-size;
                 vertical-alignment: center;
                 single-line: true;
                 wrap: no-wrap;
@@ -231,13 +234,13 @@ component FileTreeRow inherits Rectangle {
     }
 
     if root.rename-error != "": Text {
-        x: Style.tree.disclosure-hit-size + Style.tree.icon-size;
-        y: Style.tree.row-height;
+        x: root.style.hit-size + root.style.icon-size;
+        y: root.style.height;
         width: parent.width - self.x;
-        height: Style.tree.row-height;
+        height: root.style.height;
         text: root.rename-error;
         color: root.error-color;
-        font-size: Style.tree.row-font-size;
+        font-size: root.style.font-size;
         overflow: elide;
         wrap: no-wrap;
     }
@@ -253,6 +256,7 @@ component FileTreeRow inherits Rectangle {
 }
 
 export component FileTreeView inherits ListView {
+    in property <TreeRowStyle> style: Style.tree-row;
     in property <length> rename-right-extension;
     private property <string> hovered-row-key: "";
     private property <string> focused-row-key: "";
@@ -266,6 +270,7 @@ export component FileTreeView inherits ListView {
     accessible-label: "Files";
 
     for row in Project.file-tree: FileTreeRow {
+        style: root.style;
         width: root.visible-width - root.rename-right-extension;
         node: row;
         tree-has-hover: root.tree-has-hover;

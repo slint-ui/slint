@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style } from "../style.slint";
+import { Style, Metrics, Colors, Typography, ButtonStyle, PaletteCardStyle } from "../style.slint";
 import { BodyLabel, ComponentPaletteRow, EdgeDivider, HorizontalResizeDivider, MutedLabel, SectionTitle, PrimerTextInput, SidebarToggleButton } from "common.slint";
 import { Api, EditorSurfaceMode, ElementLibraryGroup, ElementLibraryEntry } from "../api.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
@@ -10,14 +10,15 @@ import { FileTreeView } from "file-tree-view.slint";
 import { ScrollView } from "std-widgets.slint";
 
 component NewSlintFileButton inherits Rectangle {
+    in property <ButtonStyle> style: Style.compact-button;
     in property <bool> enabled: true;
     callback clicked();
 
-    width: Style.controls.small-height;
-    height: Style.controls.small-height;
-    border-radius: Style.controls.row-radius;
-    background: touch.has-hover && root.enabled ? Style.colors.panel-subtle : transparent;
-    opacity: root.enabled ? 1 : Style.controls.disabled-opacity;
+    width: root.style.height;
+    height: root.style.height;
+    border-radius: root.style.radius;
+    background: touch.has-hover && root.enabled ? root.style.hover.background : root.style.normal.background;
+    opacity: root.enabled ? 1 : root.style.disabled-opacity;
     accessible-role: AccessibleRole.button;
     accessible-label: @tr("New Slint file");
     accessible-enabled: root.enabled;
@@ -28,10 +29,10 @@ component NewSlintFileButton inherits Rectangle {
     }
 
     Image {
-        width: Style.controls.icon-size;
-        height: Style.controls.icon-size;
+        width: Metrics.icon-medium;
+        height: Metrics.icon-medium;
         source: @image-url("../assets/lucide/file-plus.svg");
-        colorize: Style.colors.muted;
+        colorize: root.style.normal.foreground;
     }
 
     touch := TouchArea {
@@ -46,33 +47,34 @@ component NewSlintFileButton inherits Rectangle {
 }
 
 component ElementsUnavailableNotice inherits Rectangle {
-    height: Style.layout.palette-card-height;
-    border-radius: Style.controls.panel-radius;
-    border-width: Style.controls.border-width;
-    border-color: Style.colors.soft-border;
-    background: Style.colors.card-bg;
+    in property <PaletteCardStyle> style: Style.palette-card;
+    height: root.style.height;
+    border-radius: Metrics.radius-large;
+    border-width: Metrics.border-width;
+    border-color: Colors.subtle-border;
+    background: root.style.background;
 
     HorizontalLayout {
-        padding: Style.spacing.medium;
-        spacing: Style.spacing.medium;
+        padding: Metrics.space-medium;
+        spacing: Metrics.space-medium;
         cross-axis-alignment: center;
 
         Rectangle {
             width: 34px;
             height: 34px;
-            border-radius: Style.controls.panel-radius;
-            border-width: Style.controls.border-width;
-            border-color: Style.colors.decorative-border;
-            background: Style.colors.card-icon-bg;
+            border-radius: Metrics.radius-large;
+            border-width: Metrics.border-width;
+            border-color: root.style.border;
+            background: root.style.icon-background;
 
             Rectangle {
                 x: 9px;
                 y: 9px;
-                width: Style.controls.icon-size;
-                height: Style.controls.icon-size;
-                border-radius: Style.controls.row-radius;
-                border-width: Style.controls.focus-width;
-                border-color: Style.colors.muted-icon;
+                width: Metrics.icon-medium;
+                height: Metrics.icon-medium;
+                border-radius: Metrics.radius-medium;
+                border-width: Metrics.focus-width;
+                border-color: root.style.muted-icon;
                 background: transparent;
             }
 
@@ -82,13 +84,13 @@ component ElementsUnavailableNotice inherits Rectangle {
                 width: 20px;
                 height: 2px;
                 border-radius: 1px;
-                background: Style.colors.decorative-icon;
+                background: root.style.icon;
             }
         }
 
         VerticalLayout {
             horizontal-stretch: 1;
-            spacing: Style.spacing.small;
+            spacing: Metrics.space-small;
             alignment: center;
 
             BodyLabel {
@@ -104,40 +106,41 @@ component ElementsUnavailableNotice inherits Rectangle {
 }
 
 component FilesUnavailableNotice inherits Rectangle {
-    height: Style.layout.palette-card-height;
-    border-radius: Style.controls.panel-radius;
-    border-width: Style.controls.border-width;
-    border-color: Style.colors.soft-border;
-    background: Style.colors.card-bg;
+    in property <PaletteCardStyle> style: Style.palette-card;
+    height: root.style.height;
+    border-radius: Metrics.radius-large;
+    border-width: Metrics.border-width;
+    border-color: Colors.subtle-border;
+    background: root.style.background;
 
     HorizontalLayout {
-        padding: Style.spacing.medium;
-        spacing: Style.spacing.medium;
+        padding: Metrics.space-medium;
+        spacing: Metrics.space-medium;
         cross-axis-alignment: center;
 
         Rectangle {
             width: 34px;
             height: 34px;
-            border-radius: Style.controls.panel-radius;
-            border-width: Style.controls.border-width;
-            border-color: Style.colors.decorative-border;
-            background: Style.colors.card-icon-bg;
+            border-radius: Metrics.radius-large;
+            border-width: Metrics.border-width;
+            border-color: root.style.border;
+            background: root.style.icon-background;
 
             Rectangle {
                 x: 8px;
                 y: 10px;
                 width: 18px;
                 height: 14px;
-                border-radius: Style.controls.field-radius;
-                border-width: Style.controls.focus-width;
-                border-color: Style.colors.muted-icon;
+                border-radius: Metrics.radius-small;
+                border-width: Metrics.focus-width;
+                border-color: root.style.muted-icon;
                 background: transparent;
             }
         }
 
         VerticalLayout {
             horizontal-stretch: 1;
-            spacing: Style.spacing.small;
+            spacing: Metrics.space-small;
             alignment: center;
 
             BodyLabel {
@@ -169,10 +172,10 @@ component ElementPaletteGroup inherits VerticalLayout {
     spacing: 0px;
 
     if root.matches.length > 0: Rectangle {
-        height: Style.controls.height;
-        border-radius: Style.controls.field-radius;
-        border-width: group-focus.has-focus ? Style.controls.focus-width : 0px;
-        border-color: Style.colors.accent-strong;
+        height: Metrics.control-medium;
+        border-radius: Metrics.radius-small;
+        border-width: group-focus.has-focus ? Metrics.focus-width : 0px;
+        border-color: Colors.focus;
         background: transparent;
         accessible-role: AccessibleRole.button;
         accessible-label: root.group.label;
@@ -192,15 +195,15 @@ component ElementPaletteGroup inherits VerticalLayout {
         }
 
         HorizontalLayout {
-            spacing: Style.spacing.compact;
-            padding-left: Style.spacing.tight;
+            spacing: Metrics.space-compact;
+            padding-left: Metrics.space-tight;
             cross-axis-alignment: center;
             Image {
                 visible: root.query == "";
-                width: Style.controls.small-icon-size;
-                height: Style.controls.small-icon-size;
+                width: Metrics.icon-small;
+                height: Metrics.icon-small;
                 source: root.expanded ? EditorTreeIcons.chevron-down : EditorTreeIcons.chevron-right;
-                colorize: Style.colors.muted;
+                colorize: Colors.muted;
             }
             MutedLabel { text: root.group.label; horizontal-stretch: 1; }
         }
@@ -214,10 +217,10 @@ component ElementPaletteGroup inherits VerticalLayout {
     if root.matches.length > 0 && root.expanded: VerticalLayout {
         spacing: 0px;
         for row in ceil(root.matches.length / 2): HorizontalLayout {
-            spacing: Style.spacing.small;
+            spacing: Metrics.space-small;
             for column in 2: Rectangle {
                 horizontal-stretch: 1;
-                height: Style.controls.large-height;
+                height: Metrics.control-large;
                 if row * 2 + column < root.matches.length: ComponentPaletteRow {
                     width: parent.width;
                     enabled: root.enabled;
@@ -259,7 +262,7 @@ component ElementPaletteRows inherits VerticalLayout {
             }
 
             Rectangle {
-                min-height: Style.controls.field-height;
+                min-height: Metrics.control-compact;
                 vertical-stretch: 1;
                 if Api.element-library.length > 0 && !Api.element-library-has-matches(Api.element-library, root.query): MutedLabel {
                     width: parent.width;
@@ -283,7 +286,7 @@ export component LeftPane inherits Rectangle {
     callback create-new-slint-file();
 
     private property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
-    private property <length> default-elements-height: root.image-mode ? Style.layout.image-pane-height : Style.layout.component-pane-height;
+    private property <length> default-elements-height: root.image-mode ? Style.panes.image-height : Style.panes.component-height;
     private property <length> requested-elements-height: root.elements-pane-height > 0px
         ? root.elements-pane-height
         : root.default-elements-height;
@@ -292,7 +295,7 @@ export component LeftPane inherits Rectangle {
     private property <length> drag-start-height;
 
     function clamp-elements-height(height: length) -> length {
-        return height.clamp(Style.layout.pane-minimum, max(Style.layout.pane-minimum, root.height - Style.layout.files-pane-minimum));
+        return height.clamp(Style.panes.minimum, max(Style.panes.minimum, root.height - Style.panes.files-minimum));
     }
 
     init => {
@@ -311,8 +314,8 @@ export component LeftPane inherits Rectangle {
         root.elements-height = root.clamp-elements-height(root.requested-elements-height);
     }
 
-    width: Style.layout.left-pane-width;
-    background: Style.colors.panel-bg;
+    width: Style.panes.left-width;
+    background: Colors.surface;
     accessible-role: AccessibleRole.navigation;
     accessible-label: "Project and elements";
 
@@ -325,11 +328,11 @@ export component LeftPane inherits Rectangle {
         spacing: 0px;
 
         HorizontalLayout {
-            height: Style.layout.left-heading-height;
-            padding-top: Style.spacing.medium;
-            padding-left: Style.spacing.medium;
-            padding-right: Style.spacing.medium;
-            spacing: Style.spacing.medium;
+            height: Style.panes.heading-height;
+            padding-top: Metrics.space-medium;
+            padding-left: Metrics.space-medium;
+            padding-right: Metrics.space-medium;
+            spacing: Metrics.space-medium;
             cross-axis-alignment: center;
 
             if root.can-collapse: SidebarToggleButton {
@@ -342,12 +345,12 @@ export component LeftPane inherits Rectangle {
 
             VerticalLayout {
                 horizontal-stretch: 1;
-                spacing: Style.spacing.tight;
+                spacing: Metrics.space-tight;
                 alignment: center;
 
                 BodyLabel {
                     text: "Project";
-                    font-size: Style.typography.action.size;
+                    font-size: Typography.action.size;
                 }
 
                 MutedLabel {
@@ -357,14 +360,14 @@ export component LeftPane inherits Rectangle {
         }
 
         VerticalLayout {
-            padding: Style.spacing.medium;
+            padding: Metrics.space-medium;
             padding-bottom: 0px;
             SectionTitle {
                 label: "FILES";
 
                 NewSlintFileButton {
                     x: parent.width - self.width;
-                    y: -Style.spacing.medium;
+                    y: -Metrics.space-medium;
                     enabled: Project.file-tree.length > 0;
                     clicked => { root.create-new-slint-file(); }
                 }
@@ -377,9 +380,9 @@ export component LeftPane inherits Rectangle {
 
                 FileTreeView {
                     x: 0px;
-                    width: parent.width + Style.spacing.medium;
+                    width: parent.width + Metrics.space-medium;
                     height: parent.height;
-                    rename-right-extension: Style.spacing.medium;
+                    rename-right-extension: Metrics.space-medium;
                 }
             }
         }
@@ -387,24 +390,24 @@ export component LeftPane inherits Rectangle {
         HorizontalResizeDivider {
             resize-label: "Elements pane resize";
             value: root.elements-height;
-            value-maximum: max(Style.layout.pane-minimum, root.height - Style.layout.files-pane-minimum);
+            value-maximum: max(Style.panes.minimum, root.height - Style.panes.files-minimum);
             drag-started => {
                 root.drag-start-height = root.elements-height;
             }
             dragged(delta) => {
                 root.elements-height = root.clamp-elements-height(
-                    max(Style.layout.pane-minimum, root.drag-start-height - delta),
+                    max(Style.panes.minimum, root.drag-start-height - delta),
                 );
             }
             drag-finished(delta) => {
                 if delta != 0px {
                     root.elements-pane-resized(root.clamp-elements-height(
-                        max(Style.layout.pane-minimum, root.drag-start-height - delta),
+                        max(Style.panes.minimum, root.drag-start-height - delta),
                     ));
                 }
             }
             value-set(height) => {
-                let clamped-height = root.clamp-elements-height(max(Style.layout.pane-minimum, height));
+                let clamped-height = root.clamp-elements-height(max(Style.panes.minimum, height));
                 root.elements-height = clamped-height;
                 root.elements-pane-resized(clamped-height);
             }
@@ -415,15 +418,15 @@ export component LeftPane inherits Rectangle {
 
         VerticalLayout {
             height: root.elements-height;
-            spacing: Style.spacing.regular;
-            padding: Style.spacing.medium;
+            spacing: Metrics.space-regular;
+            padding: Metrics.space-medium;
 
             SectionTitle { label: "ELEMENTS"; }
 
             search := PrimerTextInput {
                 placeholder: "Search elements…";
                 accessible-name: "Search elements";
-                background: Style.colors.panel-subtle;
+                background: Colors.subtle;
             }
 
             if root.image-mode: ElementsUnavailableNotice { }

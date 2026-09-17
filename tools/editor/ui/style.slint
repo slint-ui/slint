@@ -53,6 +53,7 @@ export struct PaletteCardStyle {
     icon-background: color,
     icon: color,
     border: color,
+    muted-icon: color,
 }
 
 export struct DialogStyle {
@@ -469,6 +470,7 @@ export struct TreeRowStyle {
     icon-size: length,
     focus-width: length,
     drag-opacity: float,
+    icon-opacity: float,
 }
 
 export struct RenameFieldStyle {
@@ -493,7 +495,6 @@ export struct TreeDropStyle {
 export struct PaletteRowStyle {
     drag-opacity: float,
     icon-opacity: float,
-    muted-icon: color,
     height: length,
     radius: length,
     hover: brush,
@@ -1472,6 +1473,7 @@ export global Style {
         icon-background: Colors.surface.with-alpha(0.72),
         icon: Colors.muted.with-alpha(0.82),
         border: Colors.border.with-alpha(0.82),
+        muted-icon: Colors.muted.with-alpha(0.72),
     };
 
     out property <DialogStyle> dialog: {
@@ -1893,6 +1895,7 @@ export global Style {
         icon-size: Metrics.icon-medium,
         focus-width: Metrics.focus-width,
         drag-opacity: 0.45,
+        icon-opacity: 0.5,
     };
 
     out property <RenameFieldStyle> rename-field: {
@@ -1917,7 +1920,6 @@ export global Style {
     out property <PaletteRowStyle> palette-row: {
         drag-opacity: 0.56,
         icon-opacity: 0.5,
-        muted-icon: Colors.muted.with-alpha(0.72),
         height: Metrics.control-large,
         radius: Metrics.radius-medium,
         hover: Colors.subtle,
@@ -1965,9 +1967,9 @@ export global Style {
         radius: Metrics.radius-medium,
         border-width: Metrics.border-width,
         text: Typography.control,
-        normal: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
-        hover: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
-        pressed: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
+        normal: { background: transparent, foreground: Colors.muted, border: Colors.border },
+        hover: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
+        pressed: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.focus,
         disabled-opacity: 0.55,
