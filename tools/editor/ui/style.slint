@@ -659,7 +659,7 @@ export struct ColorPalette {
     danger: color,
 }
 
-export enum ThemeKind { system, light, dark }
+export enum ThemeKind { light, dark }
 
 export global Metrics {
     out property <length> space-tight: 2px;
@@ -671,7 +671,7 @@ export global Metrics {
     out property <length> space-section: 24px;
     out property <length> border-width: 1px;
     out property <length> focus-width: 2px;
-    out property <length> hairline-width: 0.5px;
+    out property <physical-length> hairline-width: 1phx;
     out property <length> radius-small: 4px;
     out property <length> radius-medium: 6px;
     out property <length> radius-large: 8px;
@@ -1776,10 +1776,7 @@ export global DarkTheme {
 }
 
 export global Theme {
-    in property <ThemeKind> preference: ThemeKind.system;
-    out property <ThemeKind> current: root.preference == ThemeKind.system
-        ? (Palette.color-scheme == ColorScheme.dark ? ThemeKind.dark : ThemeKind.light)
-        : root.preference;
+    out property <ThemeKind> current: Palette.color-scheme == ColorScheme.dark ? ThemeKind.dark : ThemeKind.light;
     out property <ColorPalette> colors: root.current == ThemeKind.dark ? DarkTheme.colors : LightTheme.colors;
 }
 
@@ -1794,15 +1791,12 @@ export global Colors {
     out property <color> accent: Theme.colors.accent;
     out property <color> focus: Theme.colors.focus;
     out property <color> selection: Theme.colors.selection;
-    out property <color> subtle-selection: Theme.colors.subtle-selection;
     out property <color> focus-background: Theme.colors.focus-background;
-    out property <color> text-selection: Theme.colors.text-selection;
     out property <color> on-accent: Theme.colors.on-accent;
     out property <color> danger: Theme.colors.danger;
 }
 
 export global Elevation {
-    out property <ShadowStyle> popup: Theme.current == ThemeKind.dark ? DarkTheme.popup : LightTheme.popup;
     out property <ShadowStyle> floating: Theme.current == ThemeKind.dark ? DarkTheme.floating : LightTheme.floating;
 }
 
@@ -1812,16 +1806,11 @@ export global Style {
     out property <CollapsedSidebarStyle> collapsed-sidebar: SharedStyle.collapsed-sidebar;
     out property <PaletteCardStyle> palette-card: Theme.current == ThemeKind.dark ? DarkTheme.palette-card : LightTheme.palette-card;
     out property <DialogStyle> dialog: Theme.current == ThemeKind.dark ? DarkTheme.dialog : LightTheme.dialog;
-    out property <ErrorNoticeStyle> error-notice: Theme.current == ThemeKind.dark ? DarkTheme.error-notice : LightTheme.error-notice;
     out property <UpdateStatusStyle> update-status: Theme.current == ThemeKind.dark ? DarkTheme.update-status : LightTheme.update-status;
     out property <ImageTabsStyle> image-tabs: Theme.current == ThemeKind.dark ? DarkTheme.image-tabs : LightTheme.image-tabs;
-    out property <ImageRailStyle> image-rail: Theme.current == ThemeKind.dark ? DarkTheme.image-rail : LightTheme.image-rail;
     out property <ImageDetailsStyle> image-details: Theme.current == ThemeKind.dark ? DarkTheme.image-details : LightTheme.image-details;
     out property <ImageFieldStyle> image-field: Theme.current == ThemeKind.dark ? DarkTheme.image-field : LightTheme.image-field;
     out property <ImageSyntaxStyle> image-syntax: Theme.current == ThemeKind.dark ? DarkTheme.image-syntax : LightTheme.image-syntax;
-    out property <ImagePreviewStyle> image-preview: Theme.current == ThemeKind.dark ? DarkTheme.image-preview : LightTheme.image-preview;
-    out property <ImageCanvasStyle> image-canvas: Theme.current == ThemeKind.dark ? DarkTheme.image-canvas : LightTheme.image-canvas;
-    out property <ImageErrorStyle> image-error: SharedStyle.image-error;
     out property <WelcomeShellStyle> welcome-shell: Theme.current == ThemeKind.dark ? DarkTheme.welcome-shell : LightTheme.welcome-shell;
     out property <WelcomeHeroStyle> welcome-hero: SharedStyle.welcome-hero;
     out property <WelcomeActionsStyle> welcome-actions: Theme.current == ThemeKind.dark ? DarkTheme.welcome-actions : LightTheme.welcome-actions;
@@ -1840,7 +1829,6 @@ export global Style {
     out property <DropIndicatorStyle> drop-indicator: SharedStyle.drop-indicator;
     out property <FloatingPanelStyle> floating-panel: Theme.current == ThemeKind.dark ? DarkTheme.floating-panel : LightTheme.floating-panel;
     out property <TransparencyGridStyle> transparency-grid: SharedStyle.transparency-grid;
-    out property <GradientMarkerStyle> gradient-marker: Theme.current == ThemeKind.dark ? DarkTheme.gradient-marker : LightTheme.gradient-marker;
     out property <InspectorLayoutStyle> inspector-layout: Theme.current == ThemeKind.dark ? DarkTheme.inspector-layout : LightTheme.inspector-layout;
     out property <FillPickerStyle> fill-picker: Theme.current == ThemeKind.dark ? DarkTheme.fill-picker : LightTheme.fill-picker;
     out property <EffectSliderStyle> effect-slider: Theme.current == ThemeKind.dark ? DarkTheme.effect-slider : LightTheme.effect-slider;
@@ -1848,11 +1836,7 @@ export global Style {
     out property <RotationDialStyle> rotation-dial: Theme.current == ThemeKind.dark ? DarkTheme.rotation-dial : LightTheme.rotation-dial;
     out property <ComboMenuStyle> combo-menu: Theme.current == ThemeKind.dark ? DarkTheme.combo-menu : LightTheme.combo-menu;
     out property <RecentFillsStyle> recent-fills: SharedStyle.recent-fills;
-    out property <ColorPlaneStyle> color-plane: Theme.current == ThemeKind.dark ? DarkTheme.color-plane : LightTheme.color-plane;
     out property <ColorSliderStyle> color-slider: Theme.current == ThemeKind.dark ? DarkTheme.color-slider : LightTheme.color-slider;
-    out property <ColorHexStyle> color-hex: SharedStyle.color-hex;
-    out property <GradientRampStyle> gradient-ramp: Theme.current == ThemeKind.dark ? DarkTheme.gradient-ramp : LightTheme.gradient-ramp;
-    out property <GradientStopRowStyle> gradient-stop-row: SharedStyle.gradient-stop-row;
     out property <GradientFieldsStyle> gradient-fields: SharedStyle.gradient-fields;
     out property <InfoIconStyle> info-icon: Theme.current == ThemeKind.dark ? DarkTheme.info-icon : LightTheme.info-icon;
     out property <CopyButtonStyle> copy-button: Theme.current == ThemeKind.dark ? DarkTheme.copy-button : LightTheme.copy-button;
@@ -1872,7 +1856,6 @@ export global Style {
     out property <ColorControlsStyle> color-controls: Theme.current == ThemeKind.dark ? DarkTheme.color-controls : LightTheme.color-controls;
     out property <GradientStopsStyle> gradient-stops: Theme.current == ThemeKind.dark ? DarkTheme.gradient-stops : LightTheme.gradient-stops;
     out property <ImageAssetEditorStyle> image-asset-editor: Theme.current == ThemeKind.dark ? DarkTheme.image-asset-editor : LightTheme.image-asset-editor;
-    out property <ButtonStyle> copy-action: Theme.current == ThemeKind.dark ? DarkTheme.copy-action : LightTheme.copy-action;
     out property <CornerModeStyle> corner-mode: Theme.current == ThemeKind.dark ? DarkTheme.corner-mode : LightTheme.corner-mode;
     out property <CornerEditorStyle> corner-editor: Theme.current == ThemeKind.dark ? DarkTheme.corner-editor : LightTheme.corner-editor;
     out property <ColorFieldStyle> color-field: Theme.current == ThemeKind.dark ? DarkTheme.color-field : LightTheme.color-field;
