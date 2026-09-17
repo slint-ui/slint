@@ -104,6 +104,11 @@ export struct StyleLayout {
     inspector-pane-width: length,
     top-bar-height: length,
     status-bar-height: length,
+    splitter-size: length,
+    pane-minimum: length,
+    search-height: length,
+    sidebar-button-width: length,
+    sidebar-button-height: length,
 }
 
 export struct StyleCanvas {
@@ -116,6 +121,55 @@ export struct StyleCanvas {
     rotation-zone-size: length,
     radius-handle-size: length,
     radius-handle-inset: length,
+}
+
+export struct StyleSpacing {
+    tight: length,
+    small: length,
+    compact: length,
+    regular: length,
+    control-inset: length,
+    medium: length,
+    pane-inset: length,
+    large: length,
+    icon-gap: length,
+    section: length,
+}
+
+export struct StyleTypography {
+    caption: TextStyle,
+    control: TextStyle,
+    body: TextStyle,
+    action: TextStyle,
+    heading: TextStyle,
+    hero: TextStyle,
+}
+
+export struct StyleControls {
+    border-width: length,
+    focus-width: length,
+    hairline-width: length,
+    compact-radius: length,
+    field-radius: length,
+    small-radius: length,
+    row-radius: length,
+    panel-radius: length,
+    dialog-radius: length,
+    field-height: length,
+    small-height: length,
+    height: length,
+    large-height: length,
+    icon-size: length,
+    small-icon-size: length,
+    large-icon-size: length,
+    disabled-opacity: float,
+}
+
+export struct StyleMotion {
+    fast: duration,
+    feedback: duration,
+    normal: duration,
+    layout: duration,
 }
 
 export global Style {
@@ -219,6 +273,11 @@ export global Style {
         inspector-pane-width: 232px,
         top-bar-height: 54px,
         status-bar-height: 26px,
+        splitter-size: 6px,
+        pane-minimum: 120px,
+        search-height: 34px,
+        sidebar-button-width: 34px,
+        sidebar-button-height: 30px,
     };
 
     out property <StyleCanvas> canvas: {
@@ -231,5 +290,54 @@ export global Style {
         rotation-zone-size: 22px,
         radius-handle-size: 10px,
         radius-handle-inset: 10px,
+    };
+
+    out property <StyleSpacing> spacing: {
+        tight: 2px,
+        small: 4px,
+        compact: 6px,
+        regular: 8px,
+        control-inset: 10px,
+        medium: 12px,
+        pane-inset: 14px,
+        large: 16px,
+        icon-gap: 18px,
+        section: 24px,
+    };
+
+    out property <StyleTypography> typography: {
+        caption: { size: 11px, weight: 400 },
+        control: { size: 12px, weight: 400 },
+        body: { size: 13px, weight: 400 },
+        action: { size: 14px, weight: 400 },
+        heading: { size: 16px, weight: 400 },
+        hero: { size: 34px, weight: 400 },
+    };
+
+    out property <StyleControls> controls: {
+        border-width: 1px,
+        focus-width: 2px,
+        hairline-width: 0.5px,
+        compact-radius: 3px,
+        field-radius: 4px,
+        small-radius: 5px,
+        row-radius: 6px,
+        panel-radius: 8px,
+        dialog-radius: 9px,
+        field-height: 24px,
+        small-height: 28px,
+        height: 32px,
+        large-height: 36px,
+        icon-size: 16px,
+        small-icon-size: 12px,
+        large-icon-size: 18px,
+        disabled-opacity: 0.55,
+    };
+
+    out property <StyleMotion> motion: {
+        fast: 120ms,
+        feedback: 140ms,
+        normal: 150ms,
+        layout: 180ms,
     };
 }
