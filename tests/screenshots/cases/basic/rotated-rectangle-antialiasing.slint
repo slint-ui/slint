@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// BASE_THRESHOLD=3
+//ignore: software
+
+// A rotated rectangle has anti-aliased edges, with and without a border
+export component TestCase inherits Window {
+    width: 64px;
+    height: 32px;
+    background: white;
+
+    Rectangle {
+        x: 6px;
+        y: 6px;
+        width: 20px;
+        height: 20px;
+        background: blue;
+        transform-rotation: 20deg;
+    }
+
+    Rectangle {
+        x: 38px;
+        y: 6px;
+        width: 20px;
+        height: 20px;
+        background: red;
+        border-width: 2px;
+        border-color: black;
+        transform-rotation: 20deg;
+    }
+}
