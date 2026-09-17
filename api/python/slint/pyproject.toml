@@ -71,6 +71,10 @@ slint-dev = { path = "../slint-dev" }
 [tool.cibuildwheel.ios]
 # Expose Rust toolchain to the restricted iOS build environment
 xbuild-tools = ["rustc", "cargo", "rustup", "cc", "ar"]
+# Supply the PyO3 build configuration instead of letting maturin generate one;
+# see ios_pyo3_config.py for why the generated one doesn't link.
+before-build = "python {package}/ios_pyo3_config.py /tmp/slint-pyo3-ios-config.txt"
+environment = { PYO3_CONFIG_FILE = "/tmp/slint-pyo3-ios-config.txt" }
 
 [tool.maturin]
 editable-profile = "dev"
