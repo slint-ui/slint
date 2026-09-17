@@ -32,4 +32,6 @@ export component SuperSimple {
 //                              >                                           <error{'hello' is not a value of the enum 'MyEnum'. Expected one of: foo, bar}
     property <Point> not_a_struct: @from-json("from-json-data.json", "an_array");
 //                                 >                                           <error{Cannot use the JSON array at 'an_array' in 📂/tests/syntax/expressions/from-json-data.json for a value of type Point}
+    property <brush> invalid_gradient: @from-json("from-json-data.json", "not_a_gradient");
+//                                     >                                                 <error{Cannot parse 'linear-gradient(not-an-angle, #fff, #000)' as a gradient, at 'not_a_gradient' in 📂/tests/syntax/expressions/from-json-data.json: 📂/tests/syntax/expressions/from-json-data.json:1: Unknown unqualified identifier 'not-an-angle'}
 }

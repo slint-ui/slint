@@ -1165,3 +1165,24 @@ pub fn parse_tokens(
     document::parse_document(&mut p);
     SyntaxNode { node: rowan::SyntaxNode::new_root(p.builder.finish()), source_file }
 }
+
+/// Parse a single expression on its own, without a surrounding `.slint` document. Used by
+/// `@from-json(...)` to parse a gradient literal (e.g. `@linear-gradient(...)`) found inside a
+/// JSON string value, so it can be resolved with the same code as a gradient written directly
+/// in a `.slint` file.
+pub(crate) fn parse_expression_fragment(
+    source: &str,
+    path: std::path::PathBuf,
+    build_diagnostics: &mut BuildDiagnostics,
+) -> SyntaxNode {
+    let mut p = DefaultParser::new(source, build_diagnostics);
+    p.source_file = std::sync::Arc::new(crate::diagnostics::SourceFileInner::new(
+        path,
+        source.to_string(),
+    ));
+    expressions::parse_expression(&mut p);
+    SyntaxNode {
+        node: rowan::SyntaxNode::new_root(p.builder.finish()),
+        source_file: p.source_file.clone(),
+    }
+}

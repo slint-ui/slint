@@ -17,6 +17,9 @@
   "a_partial_point": { "x": 9 },
   "a_nested": { "point": { "x": 3, "y": 4 }, "label": "hi" },
   "an_array_of_points": [ { "x": 1, "y": 1 }, { "x": 2, "y": 2 } ],
+  "linear_gradient": "linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%)",
+  "radial_gradient": "radial-gradient(circle, #f00 0%, #0f0 50%, #00f 100%)",
+  "conic_gradient": "conic-gradient(#f00 0deg, #0f0 120deg, #00f 240deg, #f00 360deg)",
 
   "element": {
     "sub_element": {
