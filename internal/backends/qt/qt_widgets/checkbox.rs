@@ -133,6 +133,9 @@ impl Item for NativeCheckBox {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
+        if !self.enabled() {
+            return KeyEventResult::EventIgnored;
+        }
         match event.event_type {
             KeyEventType::KeyPressed
                 if event.key_event.text == " " || event.key_event.text == "\n" =>
