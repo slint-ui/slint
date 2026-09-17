@@ -127,126 +127,46 @@ mod tests_general_velocity_tracker {
     fn test_velocity_tracker_cases() {
         let base_time = crate::animations::current_tick();
         let test_cases = [
-            // (
-            //     "x only",
-            //     vec![
-            //         (base_time, LogicalVector::new(0.0, 0.0)),
-            //         (base_time + Duration::from_millis(10), LogicalVector::new(1.0, 0.0)),
-            //         (base_time + Duration::from_millis(20), LogicalVector::new(2.0, 0.0)),
-            //     ],
-            //     LogicalVector::new(2. / 20e-3, 0.),
-            // ),
-            // (
-            //     "y only",
-            //     vec![
-            //         (base_time, LogicalVector::new(0.0, 0.0)),
-            //         (base_time + Duration::from_millis(15), LogicalVector::new(0.0, 4.0)),
-            //         (base_time + Duration::from_millis(30), LogicalVector::new(0.0, 8.0)),
-            //     ],
-            //     LogicalVector::new(0., 8. / 30e-3),
-            // ),
-            // (
-            //     "x and y",
-            //     vec![
-            //         (base_time, LogicalVector::new(0.0, 0.0)),
-            //         (base_time + Duration::from_millis(15), LogicalVector::new(3., 4.0)),
-            //         (base_time + Duration::from_millis(30), LogicalVector::new(6., 8.0)),
-            //     ],
-            //     LogicalVector::new(6. / 30e-3, 8. / 30e-3),
-            // ),
-            // (
-            //     // (x(t) = t^2 -> tau = t - 3 (age from newest) -> x(tau) = (tau + 3)^2 = tau ^2 + 6tau + 9
-            //     // dx(tau)/dtau = 2 * tau + 6, at tau = 0 (newest point) -> dx(tau)/dtau = 6
-            //     //
-            //     // y(t) = 4*t^2 -> dy(t)/dt = 8 * t, at t = 3 (tau = 0): 24
-            //     "square x and y",
-            //     vec![
-            //         (base_time, LogicalVector::new(0.0, 0.0)),
-            //         (base_time + Duration::from_millis(10), LogicalVector::new(1. * 1., 4. * 1.)),
-            //         (base_time + Duration::from_millis(20), LogicalVector::new(1. * 4., 4. * 4.)),
-            //         (base_time + Duration::from_millis(30), LogicalVector::new(1. * 9., 4. * 9.)),
-            //     ],
-            //     LogicalVector::new(600., 2.4e3),
-            // ),
-            // (
-            //     "Real with mouse",
-            //     vec![
-            //         (
-            //             base_time + Duration::from_millis(29235),
-            //             LogicalVector::new(-3.3085938, -10.964844),
-            //         ),
-            //         (
-            //             base_time + Duration::from_millis(29245),
-            //             LogicalVector::new(-2.6132813, -7.8320313),
-            //         ),
-            //         (
-            //             base_time + Duration::from_millis(29252),
-            //             LogicalVector::new(-6.84375, -17.117188),
-            //         ),
-            //         (base_time + Duration::from_millis(29262), LogicalVector::new(-6.0, -28.0)),
-            //         (base_time + Duration::from_millis(29271), LogicalVector::new(-14.0, -78.0)),
-            //         (base_time + Duration::from_millis(29278), LogicalVector::new(-6.0, -50.0)),
-            //         (base_time + Duration::from_millis(29287), LogicalVector::new(-6.0, -54.0)),
-            //         (base_time + Duration::from_millis(29296), LogicalVector::new(-2.0, -36.0)),
-            //         (base_time + Duration::from_millis(29305), LogicalVector::new(-2.0, -66.0)),
-            //         (base_time + Duration::from_millis(29313), LogicalVector::new(-2.0, -52.0)),
-            //         (base_time + Duration::from_millis(29322), LogicalVector::new(0.0, -42.0)),
-            //         (base_time + Duration::from_millis(29331), LogicalVector::new(0.0, -34.0)),
-            //     ],
-            //     LogicalVector::new(0., 0.),
-            // ),
-            // (
-            //     "Problem case. Fitting through 3 points it overshoots",
-            //     vec![
-            //         (base_time + Duration::from_millis(32605), LogicalVector::new(1.0, -41.333313)),
-            //         (base_time + Duration::from_millis(32623), LogicalVector::new(0.0, -189.33334)),
-            //         (base_time + Duration::from_millis(32640), LogicalVector::new(0.0, -1.333313)),
-            //     ],
-            //     LogicalVector::new(0., 4000.),
-            // ),
             (
-                "Problem case many datapoints",
+                "x only",
                 vec![
-                    (base_time + Duration::from_millis(62290), LogicalVector::new(12.6667, -117.0)),
-                    (base_time + Duration::from_millis(62307), LogicalVector::new(11.0, -75.6667)),
-                    (base_time + Duration::from_millis(63072), LogicalVector::new(1.0, -13.3334)),
-                    (
-                        base_time + Duration::from_millis(63088),
-                        LogicalVector::new(5.6667, -70.3333),
-                    ),
-                    (base_time + Duration::from_millis(63104), LogicalVector::new(25.0, -140.6667)),
-                    (base_time + Duration::from_millis(63118), LogicalVector::new(28.0, -132.3333)),
-                    (
-                        base_time + Duration::from_millis(64024),
-                        LogicalVector::new(7.3333, -124.3333),
-                    ),
-                    (base_time + Duration::from_millis(64046), LogicalVector::new(16.6667, -161.0)),
-                    (base_time + Duration::from_millis(67850), LogicalVector::new(-0.6667, -22.0)),
-                    (base_time + Duration::from_millis(67867), LogicalVector::new(5.6667, -94.0)),
-                    (
-                        base_time + Duration::from_millis(67884),
-                        LogicalVector::new(34.3333, -200.6667),
-                    ),
-                    (base_time + Duration::from_millis(67886), LogicalVector::new(0.3333, -1.3333)),
-                    (
-                        base_time + Duration::from_millis(68978),
-                        LogicalVector::new(4.3333, -53.6667),
-                    ),
-                    (base_time + Duration::from_millis(68994), LogicalVector::new(12.3333, -127.0)),
-                    (base_time + Duration::from_millis(70748), LogicalVector::new(1.6667, -77.0)),
-                    (
-                        base_time + Duration::from_millis(70768),
-                        LogicalVector::new(19.6667, -150.3333),
-                    ),
-                    (
-                        base_time + Duration::from_millis(70785),
-                        LogicalVector::new(23.6667, -150.3333),
-                    ),
-                    (base_time + Duration::from_millis(71548), LogicalVector::new(-4.0, -66.6667)),
-                    (base_time + Duration::from_millis(71566), LogicalVector::new(-3.0, -204.0)),
-                    (base_time + Duration::from_millis(71580), LogicalVector::new(0.0, -1.3333)),
+                    (base_time, LogicalVector::new(0.0, 0.0)),
+                    (base_time + Duration::from_millis(10), LogicalVector::new(1.0, 0.0)),
+                    (base_time + Duration::from_millis(20), LogicalVector::new(2.0, 0.0)),
                 ],
-                LogicalVector::new(0., 0.),
+                LogicalVector::new(2. / 20e-3, 0.),
+            ),
+            (
+                "y only",
+                vec![
+                    (base_time, LogicalVector::new(0.0, 0.0)),
+                    (base_time + Duration::from_millis(15), LogicalVector::new(0.0, 4.0)),
+                    (base_time + Duration::from_millis(30), LogicalVector::new(0.0, 8.0)),
+                ],
+                LogicalVector::new(0., 8. / 30e-3),
+            ),
+            (
+                "x and y",
+                vec![
+                    (base_time, LogicalVector::new(0.0, 0.0)),
+                    (base_time + Duration::from_millis(15), LogicalVector::new(3., 4.0)),
+                    (base_time + Duration::from_millis(30), LogicalVector::new(6., 8.0)),
+                ],
+                LogicalVector::new(6. / 30e-3, 8. / 30e-3),
+            ),
+            (
+                // (x(t) = t^2 -> tau = t - 3 (age from newest) -> x(tau) = (tau + 3)^2 = tau ^2 + 6tau + 9
+                // dx(tau)/dtau = 2 * tau + 6, at tau = 0 (newest point) -> dx(tau)/dtau = 6
+                //
+                // y(t) = 4*t^2 -> dy(t)/dt = 8 * t, at t = 3 (tau = 0): 24
+                "square x and y",
+                vec![
+                    (base_time, LogicalVector::new(0.0, 0.0)),
+                    (base_time + Duration::from_millis(10), LogicalVector::new(1. * 1., 4. * 1.)),
+                    (base_time + Duration::from_millis(20), LogicalVector::new(1. * 4., 4. * 4.)),
+                    (base_time + Duration::from_millis(30), LogicalVector::new(1. * 9., 4. * 9.)),
+                ],
+                LogicalVector::new(600., 2.4e3),
             ),
         ];
 
