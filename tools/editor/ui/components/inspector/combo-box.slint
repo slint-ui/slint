@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Colors, Metrics, Typography, FieldStyle, ComboMenuStyle } from "../../style.slint";
+import { Style, PaintStyle, Colors, Metrics, Typography, FieldStyle, ComboMenuStyle } from "../../style.slint";
 import { InspectorComboOption } from "control-data.slint";
 import { EditorIcons } from "../common.slint";
 
@@ -19,13 +19,15 @@ export component InspectorComboBox inherits Rectangle {
     in property <string> placeholder: "";
     in property <length> popup-available-height: root.menu-style.max-height;
     callback accepted(string) -> bool;
+    private property <PaintStyle> paint: fallback-popup.is-open ? root.style.focus
+        : native-menu-touch.has-hover || combo-focus.has-focus ? root.style.hover : root.style.normal;
 
     width: wide ? Style.inspector-layout.content-width : Style.inspector-layout.column-width;
     height: root.style.height;
     border-radius: root.style.radius;
-    background: fallback-popup.is-open ? root.style.focus.background : native-menu-touch.has-hover || combo-focus.has-focus ? root.style.hover.background : root.style.normal.background;
+    background: root.paint.background;
     border-width: fallback-popup.is-open || combo-focus.has-focus ? Metrics.border-width : 0px;
-    border-color: root.style.focus-border;
+    border-color: fallback-popup.is-open || combo-focus.has-focus ? root.style.focus-border : root.paint.border;
     accessible-role: AccessibleRole.combobox;
     accessible-label: root.accessible-name;
     accessible-value: root.value;
@@ -139,7 +141,7 @@ export component InspectorComboBox inherits Rectangle {
 
             if root.prefix != "": Text {
                 text: root.prefix;
-                color: root.style.normal.foreground;
+                color: root.paint.foreground;
                 font-size: Typography.caption.size;
                 vertical-alignment: center;
             }
@@ -147,7 +149,7 @@ export component InspectorComboBox inherits Rectangle {
             Text {
                 horizontal-stretch: 1;
                 text: root.value != "" ? root.value : root.placeholder;
-                color: root.value != "" ? root.style.normal.foreground : root.style.muted;
+                color: root.value != "" ? root.paint.foreground : root.style.muted;
                 font-size: root.style.text.size;
                 vertical-alignment: center;
                 overflow: elide;

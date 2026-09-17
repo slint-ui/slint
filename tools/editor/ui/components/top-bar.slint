@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, Colors, Typography, ButtonStyle } from "../style.slint";
+import { Style, PaintStyle, Metrics, Colors, Typography, ButtonStyle } from "../style.slint";
 import { Api, EditorSurfaceMode } from "../api.slint";
 import { Preview } from "../preview.slint";
 
@@ -12,18 +12,20 @@ component RunButton inherits Rectangle {
     in property <bool> enabled;
     in property <bool> running;
     callback clicked;
+    private property <PaintStyle> paint: !root.enabled ? root.style.disabled
+        : touch.pressed ? root.style.pressed
+        : touch.has-hover ? root.style.hover : root.style.normal;
 
     width: bt.width + 2 * root.style.padding-inline;
     height: root.style.height;
     border-radius: root.style.radius;
-    background: enabled
-        ? touch.pressed ? root.style.pressed.background : touch.has-hover ? root.style.hover.background : root.style.normal.background
-        : root.style.disabled.background;
+    background: root.paint.background;
+    border-color: root.paint.border;
     opacity: enabled ? 1 : root.style.disabled-opacity;
 
     bt := Text {
         text: root.running ? "Running" : "Run";
-        color: enabled ? root.style.normal.foreground : root.style.disabled.foreground;
+        color: root.paint.foreground;
         font-size: root.style.text.size;
         font-weight: root.style.text.weight;
         horizontal-alignment: center;

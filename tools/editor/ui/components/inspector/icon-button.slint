@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, ButtonStyle } from "../../style.slint";
+import { Style, PaintStyle, Metrics, ButtonStyle } from "../../style.slint";
 
 export component InspectorIconButton inherits Rectangle {
     in property <ButtonStyle> style: Style.inspector-icon-button;
@@ -9,13 +9,15 @@ export component InspectorIconButton inherits Rectangle {
     in property <string> label: root.kind;
     in property <bool> selected: false;
     callback clicked;
+    private property <PaintStyle> paint: root.selected ? root.style.pressed
+        : touch.has-hover || button-focus.has-focus ? root.style.hover : root.style.normal;
 
     width: root.style.height;
     height: root.style.height;
     border-radius: root.style.radius;
-    background: selected ? root.style.pressed.background : touch.has-hover || button-focus.has-focus ? root.style.hover.background : root.style.normal.background;
+    background: root.paint.background;
     border-width: button-focus.has-focus ? root.style.border-width : 0px;
-    border-color: root.style.focus-border;
+    border-color: button-focus.has-focus ? root.style.focus-border : root.paint.border;
     accessible-role: button;
     accessible-label: root.label;
     accessible-checked: root.selected;
@@ -39,14 +41,14 @@ export component InspectorIconButton inherits Rectangle {
         width: 11px;
         height: 7px;
         border-width: Metrics.border-width;
-        border-color: root.selected ? root.style.focus-border : root.style.normal.foreground;
+        border-color: root.paint.foreground;
         border-radius: 5.5px;
 
         Rectangle {
             width: 3px;
             height: 3px;
             border-radius: 1.5px;
-            background: root.selected ? root.style.focus-border : root.style.normal.foreground;
+            background: root.paint.foreground;
         }
     }
 
@@ -56,7 +58,7 @@ export component InspectorIconButton inherits Rectangle {
         width: 6px;
         height: 11px;
         border-width: Metrics.border-width;
-        border-color: root.selected ? root.style.focus-border : root.style.normal.foreground;
+        border-color: root.paint.foreground;
         border-radius: Metrics.radius-small;
         transform-rotation: 28deg;
     }

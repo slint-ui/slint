@@ -1027,9 +1027,9 @@ export global LightTheme {
     };
 
     out property <ButtonStyle> primary-button: {
-        normal: { background: #0969da, foreground: LightTheme.colors.on-accent, border: LightTheme.colors.border },
-        hover: { background: #0860ca, foreground: LightTheme.colors.on-accent, border: LightTheme.colors.border },
-        pressed: { background: #0756b5, foreground: LightTheme.colors.on-accent, border: LightTheme.colors.border },
+        normal: { background: #0969da, foreground: LightTheme.colors.on-accent, border: #0969da },
+        hover: { background: #0860ca, foreground: LightTheme.colors.on-accent, border: #0860ca },
+        pressed: { background: #0756b5, foreground: LightTheme.colors.on-accent, border: #0756b5 },
         disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         focus-border: LightTheme.colors.focus,
         icon-color: LightTheme.colors.muted,
@@ -1039,7 +1039,7 @@ export global LightTheme {
         normal: { background: transparent, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         hover: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         pressed: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
-        disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
+        disabled: { background: transparent, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         focus-border: LightTheme.colors.focus,
         icon-color: LightTheme.colors.muted,
     };
@@ -1048,7 +1048,7 @@ export global LightTheme {
         normal: { background: #eeeeef, foreground: LightTheme.welcome-shell.foreground, border: LightTheme.colors.border },
         hover: { background: #e2e3e5, foreground: LightTheme.welcome-shell.foreground, border: LightTheme.colors.border },
         pressed: { background: #d9dadd, foreground: LightTheme.welcome-shell.foreground, border: LightTheme.colors.border },
-        disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
+        disabled: { background: #eeeeef, foreground: LightTheme.welcome-shell.foreground, border: LightTheme.colors.border },
         focus-border: LightTheme.colors.focus,
         icon-color: LightTheme.welcome-shell.muted,
     };
@@ -1064,7 +1064,7 @@ export global LightTheme {
 
     out property <FieldStyle> field: {
         normal: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
-        hover: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
+        hover: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         focus: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         muted: LightTheme.colors.muted,
@@ -1101,7 +1101,7 @@ export global LightTheme {
     out property <ButtonStyle> copy-action: {
         normal: { background: LightTheme.inspector-field.normal.background, foreground: LightTheme.colors.foreground, border: LightTheme.inspector-layout.divider },
         hover: { background: LightTheme.inspector-field.hover.background, foreground: LightTheme.colors.foreground, border: LightTheme.inspector-layout.divider },
-        pressed: { background: LightTheme.colors.selection, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
+        pressed: { background: LightTheme.inspector-field.hover.background, foreground: LightTheme.colors.foreground, border: LightTheme.inspector-layout.divider },
         disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         focus-border: LightTheme.colors.focus,
         icon-color: LightTheme.colors.muted,
@@ -1360,9 +1360,9 @@ export global DarkTheme {
     };
 
     out property <ButtonStyle> primary-button: {
-        normal: { background: #196bd6, foreground: DarkTheme.colors.on-accent, border: DarkTheme.colors.border },
-        hover: { background: #2073dd, foreground: DarkTheme.colors.on-accent, border: DarkTheme.colors.border },
-        pressed: { background: #135bb9, foreground: DarkTheme.colors.on-accent, border: DarkTheme.colors.border },
+        normal: { background: #196bd6, foreground: DarkTheme.colors.on-accent, border: #196bd6 },
+        hover: { background: #2073dd, foreground: DarkTheme.colors.on-accent, border: #2073dd },
+        pressed: { background: #135bb9, foreground: DarkTheme.colors.on-accent, border: #135bb9 },
         disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         focus-border: DarkTheme.colors.focus,
         icon-color: DarkTheme.colors.muted,
@@ -1372,7 +1372,7 @@ export global DarkTheme {
         normal: { background: transparent, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         hover: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         pressed: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
-        disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
+        disabled: { background: transparent, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         focus-border: DarkTheme.colors.focus,
         icon-color: DarkTheme.colors.muted,
     };
@@ -1381,7 +1381,7 @@ export global DarkTheme {
         normal: { background: #424347, foreground: DarkTheme.welcome-shell.foreground, border: DarkTheme.colors.border },
         hover: { background: #4d4f54, foreground: DarkTheme.welcome-shell.foreground, border: DarkTheme.colors.border },
         pressed: { background: #55575d, foreground: DarkTheme.welcome-shell.foreground, border: DarkTheme.colors.border },
-        disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
+        disabled: { background: #424347, foreground: DarkTheme.welcome-shell.foreground, border: DarkTheme.colors.border },
         focus-border: DarkTheme.colors.focus,
         icon-color: DarkTheme.welcome-shell.muted,
     };
@@ -1397,7 +1397,7 @@ export global DarkTheme {
 
     out property <FieldStyle> field: {
         normal: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
-        hover: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
+        hover: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         focus: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         muted: DarkTheme.colors.muted,
@@ -1434,7 +1434,7 @@ export global DarkTheme {
     out property <ButtonStyle> copy-action: {
         normal: { background: DarkTheme.inspector-field.normal.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.inspector-layout.divider },
         hover: { background: DarkTheme.inspector-field.hover.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.inspector-layout.divider },
-        pressed: { background: DarkTheme.colors.selection, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
+        pressed: { background: DarkTheme.inspector-field.hover.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.inspector-layout.divider },
         disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         focus-border: DarkTheme.colors.focus,
         icon-color: DarkTheme.colors.muted,
@@ -1634,7 +1634,6 @@ export global Style {
 
     private property <length> image-tabs-height: Metrics.control-medium;
 
-    private property <ImageErrorStyle> image-error;
 
     out property <WelcomeHeroStyle> welcome-hero;
 
@@ -1661,9 +1660,7 @@ export global Style {
 
     out property <RecentFillsStyle> recent-fills;
 
-    private property <ColorHexStyle> color-hex;
 
-    private property <GradientStopRowStyle> gradient-stop-row;
 
     out property <GradientFieldsStyle> gradient-fields;
 
@@ -2118,7 +2115,6 @@ export global Style {
     out property <ColorControlsStyle> color-controls: {
         plane: root.color-plane,
         slider: root.color-slider,
-        hex: root.color-hex,
         row-height: root.combo-menu.row-height,
         gap: Metrics.space-medium,
     };
@@ -2126,7 +2122,6 @@ export global Style {
     out property <GradientStopsStyle> gradient-stops: {
         ramp: root.gradient-ramp,
         marker: root.gradient-marker,
-        row: root.gradient-stop-row,
         gap: Metrics.space-regular,
     };
 
@@ -2138,7 +2133,6 @@ export global Style {
         details: root.image-details,
         nine-slice: root.nine-slice,
         image: root.image-canvas,
-        error: root.image-error,
     };
 
     private property <ButtonStyle> copy-action: {

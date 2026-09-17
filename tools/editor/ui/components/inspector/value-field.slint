@@ -18,7 +18,7 @@ export component InspectorValueField inherits Rectangle {
     width: Style.inspector-layout.column-width;
     height: root.style.height;
 
-    InspectorTextFieldBase {
+    field := InspectorTextFieldBase {
         style: root.style;
         accessible-name: root.accessible-name;
         width: parent.width;
@@ -42,7 +42,7 @@ export component InspectorValueField inherits Rectangle {
         }
         if root.corner-index < 0: Text {
             text: root.prefix;
-            color: root.enabled ? root.style.normal.foreground : root.style.disabled.foreground;
+            color: field.paint-foreground;
             font-size: Typography.caption.size;
             vertical-alignment: center;
         }

@@ -12,6 +12,7 @@ export component InspectorTextFieldBase inherits Rectangle {
     private property <PaintStyle> paint: !root.enabled ? root.style.disabled
         : input.has-focus ? root.style.focus
         : touch.has-hover ? root.style.hover : root.style.normal;
+    out property <color> paint-foreground: root.paint.foreground;
     in property <string> commit-key: "";
     private property <string> active-commit-key: root.commit-key;
     private property <bool> edited: false;

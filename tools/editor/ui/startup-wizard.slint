@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, Colors, Motion, Typography, WelcomeBrandStyle, ButtonStyle, RecentProjectRowStyle, WelcomeShellStyle } from "style.slint";
+import { Style, PaintStyle, Metrics, Colors, Motion, Typography, WelcomeBrandStyle, ButtonStyle, RecentProjectRowStyle, WelcomeShellStyle } from "style.slint";
 import { Project } from "project.slint";
 
 component BrandMark inherits Rectangle {
@@ -62,6 +62,9 @@ component WelcomeAction inherits Rectangle {
     in property <bool> folder: false;
     in property <bool> enabled: true;
     callback clicked;
+    private property <PaintStyle> paint: !root.enabled ? root.style.disabled
+        : touch.pressed ? root.style.pressed
+        : touch.has-hover ? root.style.hover : root.style.normal;
 
     accessible-role: AccessibleRole.button;
     accessible-label: root.label;
@@ -74,7 +77,8 @@ component WelcomeAction inherits Rectangle {
 
     height: root.style.height;
     border-radius: root.style.radius;
-    background: touch.pressed ? root.style.pressed.background : touch.has-hover ? root.style.hover.background : root.style.normal.background;
+    background: root.paint.background;
+    border-color: root.paint.border;
     animate background { duration: Motion.feedback; easing: ease-out-quad; }
 
     HorizontalLayout {
@@ -90,7 +94,7 @@ component WelcomeAction inherits Rectangle {
 
         Text {
             text: root.label;
-            color: root.style.normal.foreground;
+            color: root.paint.foreground;
             font-size: root.style.text.size;
             font-weight: root.style.text.weight;
             vertical-alignment: center;

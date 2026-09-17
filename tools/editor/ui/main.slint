@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, Typography, Colors, Elevation, DialogStyle } from "style.slint";
+import { Style, PaintStyle, Metrics, Typography, Colors, Elevation, DialogStyle } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, Hover } from "api.slint";
@@ -124,18 +124,20 @@ component NewFileErrorPopup inherits PopupWindow {
                 }
 
                 Rectangle {
+                    private property <PaintStyle> paint: close-touch.pressed ? root.style.close-button.pressed
+                        : close-touch.has-hover ? root.style.close-button.hover : root.style.close-button.normal;
                     width: bt.width + 2 * root.style.close-button.padding-inline;
                     height: root.style.close-button.height;
                     x: parent.width - self.width - Metrics.space-large;
                     y: (parent.height - self.height) / 2;
                     border-width: Metrics.border-width;
-                    border-color: close-touch.pressed ? root.style.close-button.pressed.background : close-touch.has-hover ? root.style.close-button.hover.background : root.style.close-button.normal.background;
+                    border-color: self.paint.border;
                     border-radius: root.style.close-button.radius;
-                    background: close-touch.pressed ? root.style.close-button.pressed.background : close-touch.has-hover ? root.style.close-button.hover.background : root.style.close-button.normal.background;
+                    background: self.paint.background;
 
                     bt := Text {
                         text: @tr("Close");
-                        color: root.style.close-button.normal.foreground;
+                        color: parent.paint.foreground;
                         font-size: root.style.close-button.text.size;
                         font-weight: root.style.close-button.text.weight;
                         horizontal-alignment: center;

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, Colors, Typography, ButtonStyle, PaletteCardStyle } from "../style.slint";
+import { Style, PaintStyle, Metrics, Colors, Typography, ButtonStyle, PaletteCardStyle } from "../style.slint";
 import { BodyLabel, ComponentPaletteRow, EdgeDivider, HorizontalResizeDivider, MutedLabel, SectionTitle, PrimerTextInput, SidebarToggleButton } from "common.slint";
 import { Api, EditorSurfaceMode, ElementLibraryGroup, ElementLibraryEntry } from "../api.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
@@ -13,11 +13,15 @@ component NewSlintFileButton inherits Rectangle {
     in property <ButtonStyle> style: Style.compact-button;
     in property <bool> enabled: true;
     callback clicked();
+    private property <PaintStyle> paint: !root.enabled ? root.style.disabled
+        : touch.pressed ? root.style.pressed
+        : touch.has-hover ? root.style.hover : root.style.normal;
 
     width: root.style.height;
     height: root.style.height;
     border-radius: root.style.radius;
-    background: touch.has-hover && root.enabled ? root.style.hover.background : root.style.normal.background;
+    background: root.paint.background;
+    border-color: root.paint.border;
     opacity: root.enabled ? 1 : root.style.disabled-opacity;
     accessible-role: AccessibleRole.button;
     accessible-label: @tr("New Slint file");
@@ -32,7 +36,7 @@ component NewSlintFileButton inherits Rectangle {
         width: Metrics.icon-medium;
         height: Metrics.icon-medium;
         source: @image-url("../assets/lucide/file-plus.svg");
-        colorize: root.style.normal.foreground;
+        colorize: root.paint.foreground;
     }
 
     touch := TouchArea {

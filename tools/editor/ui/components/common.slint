@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, Colors, Typography, Motion, FieldStyle, SidebarToggleStyle, PaletteRowStyle } from "../style.slint";
+import { Style, PaintStyle, Metrics, Colors, Typography, Motion, FieldStyle, SidebarToggleStyle, PaletteRowStyle } from "../style.slint";
 import { ElementVisuals } from "element-presentation.slint";
 import { Api, CanvasCorner, ElementKind } from "../api.slint";
 
@@ -176,12 +176,14 @@ export component PrimerTextInput inherits Rectangle {
     in property <string> placeholder: "";
     in property <string> leading-text: "";
     in property <string> accessible-name: "";
+    private property <PaintStyle> paint: editor.has-focus ? root.style.focus : root.style.normal;
 
     height: root.style.height;
     border-radius: root.style.radius;
     border-width: root.style.border-width;
-    border-color: editor.has-focus ? root.style.focus-border : root.style.normal.border;
-    background: root.style.normal.background;
+    border-color: editor.has-focus ? root.style.focus-border : root.paint.border;
+    background: root.paint.background;
+
     animate border-color { duration: Motion.fast; }
 
     HorizontalLayout {
@@ -204,7 +206,7 @@ export component PrimerTextInput inherits Rectangle {
                 width: parent.width;
                 height: parent.height;
                 text: "";
-                color: root.style.normal.foreground;
+                color: root.paint.foreground;
                 font-size: root.style.text.size;
                 font-weight: root.style.text.weight;
                 accessible-label: root.accessible-name;

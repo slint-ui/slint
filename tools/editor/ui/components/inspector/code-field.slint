@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Typography, Colors, FieldStyle } from "../../style.slint";
+import { Style, Typography, FieldStyle } from "../../style.slint";
 
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
@@ -16,7 +16,7 @@ export component InspectorCodeField inherits Rectangle {
     horizontal-stretch: 1;
     height: root.style.height;
 
-    InspectorTextFieldBase {
+    field := InspectorTextFieldBase {
         style: root.style;
         accessible-name: root.accessible-name;
         width: parent.width;
@@ -28,7 +28,7 @@ export component InspectorCodeField inherits Rectangle {
 
         if root.prefix != "": Text {
             text: root.prefix;
-            color: Colors.foreground;
+            color: field.paint-foreground;
             font-size: Typography.caption.size;
             vertical-alignment: center;
         }

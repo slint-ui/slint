@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { EditorGrid } from "editor-grid.slint";
-import { Style, Metrics, Typography, Colors, NineSliceStyle, ImageTabsStyle, ImageFieldStyle, ImageSyntaxStyle, CopyButtonStyle, ImageDetailsStyle, ImageAssetEditorStyle } from "../style.slint";
+import { Style, PaintStyle, Metrics, Typography, Colors, NineSliceStyle, ImageTabsStyle, ImageFieldStyle, ImageSyntaxStyle, CopyButtonStyle, ImageDetailsStyle, ImageAssetEditorStyle } from "../style.slint";
 // cspell:ignore nesw
 
 import { Api } from "../api.slint";
@@ -166,13 +166,15 @@ component FloatingCopyButton inherits Rectangle {
     in property <CopyButtonStyle> style: Style.copy-button;
     in property <string> label: "Copy";
     callback clicked;
+    private property <PaintStyle> paint: touch.pressed ? root.style.button.pressed
+        : touch.has-hover || copy-focus.has-focus ? root.style.button.hover : root.style.button.normal;
 
     width: root.style.width;
     height: root.style.button.height;
     border-radius: root.style.button.radius;
     border-width: copy-focus.has-focus ? Metrics.focus-width : Metrics.border-width;
-    border-color: copy-focus.has-focus ? root.style.button.focus-border : root.style.button.normal.border;
-    background: touch.has-hover || copy-focus.has-focus ? (root.style.button.hover.background) : (root.style.button.normal.background);
+    border-color: copy-focus.has-focus ? root.style.button.focus-border : root.paint.border;
+    background: root.paint.background;
     accessible-role: button;
     accessible-label: root.label;
     accessible-action-default => {
@@ -190,8 +192,8 @@ component FloatingCopyButton inherits Rectangle {
     }
 
     Text {
-        text: "Copy";
-        color: root.style.button.normal.foreground;
+        text: root.label;
+        color: root.paint.foreground;
         font-size: root.style.button.text.size;
         font-weight: root.style.button.text.weight;
         horizontal-alignment: center;
