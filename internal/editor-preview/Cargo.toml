@@ -34,7 +34,7 @@ testing = ["dep:i-slint-backend-testing", "dep:spin_on"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
-i-slint-live-preview = { version = "=1.18.0", path = "../live-preview", features = ["protocol", "file-watcher"] }
+i-slint-live-preview = { version = "=1.18.1", path = "../live-preview", features = ["protocol", "file-watcher"] }
 
 itertools = { workspace = true }
 lsp-types = { workspace = true }
