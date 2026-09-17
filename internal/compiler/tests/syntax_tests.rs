@@ -503,6 +503,12 @@ fn process_file_source(
     compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources;
     compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".into());
+    // The interpreter inlines every component, which merges an instance into
+    // its base. A diagnostic that depends on the two staying apart needs the
+    // element tree native codegen sees.
+    if source.contains("config:no_inlining") {
+        compiler_config.inline_all_elements = false;
+    }
     compiler_config.components_to_generate =
         if is_slint_sc || source.contains("config:generate_all_exported_windows") {
             // Slint SC always compiles the exported windows
