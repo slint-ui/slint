@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cspell:ignore getcolors tobytes
+# cspell:ignore getcolors getpixel tobytes
 
 import math
 from io import BytesIO
@@ -67,8 +67,15 @@ def test_selection_overlays_are_clipped_to_canvas(
         canvas = window_element_with_label(window, "Editor canvas")
         artboard = window_element_with_label(window, "Artboard")
         select_outline_row(window, "bounds-rectangle")
-        window_element_with_label(window, "Selected Rectangle")
+        initial_frame = window_element_with_label(window, "Selected Rectangle")
         before = screenshot(window)
+        scale = before.width / window.root_element.size.width
+        border_x = round(
+            (initial_frame.absolute_position.x + initial_frame.size.width / 2) * scale
+        )
+        border_y = math.floor(initial_frame.absolute_position.y * scale) - 1
+        outline_color = before.getpixel((border_x, border_y))
+        assert outline_color != before.getpixel((border_x, border_y - 2))
         x, y = artboard.absolute_position.x + 96, artboard.absolute_position.y + 80
         if edge == "left":
             x = canvas.absolute_position.x - 40
@@ -102,7 +109,7 @@ def test_selection_overlays_are_clipped_to_canvas(
         )
         visible = after.crop(region)
         colors = visible.getcolors(visible.width * visible.height) or []
-        assert sum(count for count, color in colors if color == (82, 174, 255)) > 20
+        assert sum(count for count, color in colors if color == outline_color) > 20
 
 
 @pytest.mark.parametrize("edge", ["left", "top"])
