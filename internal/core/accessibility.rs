@@ -126,7 +126,9 @@ pub fn accessible_descendents(root_item: &ItemRc) -> impl Iterator<Item = ItemRc
 ///
 /// When descendants expose `accessible-item-index`, the delegate focus value refers to that
 /// logical index. This matters for virtualized collections, whose materialized descendants don't
-/// start at index zero. Trees without indexed descendants retain the positional behavior.
+/// start at index zero. If that index is not materialized, focus remains on the container, even
+/// when the value also matches a materialized position. Trees without indexed descendants retain
+/// the positional behavior.
 pub fn accessible_focus_delegate_position(root_item: &ItemRc) -> Option<usize> {
     let delegate_index = root_item
         .accessible_string_property(AccessibleStringProperty::DelegateFocus)?

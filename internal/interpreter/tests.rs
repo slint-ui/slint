@@ -969,9 +969,14 @@ fn accessible_delegate_focus_uses_virtualized_item_index() {
     assert!(materialized_indices.len() < 100);
     assert!(!materialized_indices.contains(&0));
     let delegate_position = accessible_focus_delegate_position(&list).expect("focus delegate");
-    assert_eq!(materialized_indices[delegate_position], 52);
+    let delegate = accessible_descendents(&list).nth(delegate_position).expect("delegate item");
+    assert_eq!(
+        delegate.accessible_string_property(AccessibleStringProperty::ItemIndex).as_deref(),
+        Some("52")
+    );
 
     instance.set_property("focus-index", Value::from(0)).unwrap();
+    // Position zero is materialized, but logical item zero is not.
     assert_eq!(accessible_focus_delegate_position(&list), None);
 
     let legacy = accessible_descendents(&root)
