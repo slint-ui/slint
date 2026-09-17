@@ -39,6 +39,18 @@ export struct StyleColors {
     marker-bg: color,
     marker-active: color,
     handle-border: color,
+    dialog-border: color,
+    dialog-bg: color,
+    error-icon-bg: color,
+    error-icon-text: color,
+    error-border: color,
+    error-bg: color,
+    error-text: color,
+    dialog-footer-bg: color,
+    dialog-footer-divider: color,
+    floating-border: color,
+    update-error: color,
+    action-text: color,
 }
 
 export struct StyleInspector {
@@ -136,6 +148,42 @@ export struct StyleWelcome {
     text: color,
     muted: color,
     accent: color,
+    shell-width: length,
+    shell-height: length,
+    outer-inset: length,
+    compact-threshold: length,
+    compact-side-width: length,
+    side-width: length,
+    shell-radius: length,
+    action-height: length,
+    action-radius: length,
+    action-inset: length,
+    action-gap: length,
+    recent-height: length,
+    recent-radius: length,
+    recent-inset-left: length,
+    recent-inset-right: length,
+    recent-gap: length,
+    recent-icon-size: length,
+    recent-text-gap: length,
+    brand-size: length,
+    hero-top: length,
+    hero-gap: length,
+    hero-title-height: length,
+    hero-subtitle-height: length,
+    action-block-inset: length,
+    action-bottom-inset: length,
+    action-block-height: length,
+    action-block-gap: length,
+    recent-panel-inset: length,
+    recent-panel-height: length,
+    recent-panel-gap: length,
+    pressed-bg: color,
+    selected-muted: color,
+    shell-border: color,
+    brand-brush: brush,
+    brand-grid-horizontal: color,
+    brand-grid-vertical: color,
 }
 
 export struct StyleLayout {
@@ -153,6 +201,17 @@ export struct StyleLayout {
     files-pane-minimum: length,
     left-heading-height: length,
     palette-card-height: length,
+    window-width: length,
+    window-height: length,
+    window-min-width: length,
+    window-min-height: length,
+    dialog-width: length,
+    dialog-height: length,
+    dialog-padding: length,
+    dialog-footer-height: length,
+    dialog-error-height: length,
+    dialog-error-icon-size: length,
+    dialog-error-inset: length,
 }
 
 export struct StyleCanvas {
@@ -187,6 +246,8 @@ export struct StyleTypography {
     action: TextStyle,
     heading: TextStyle,
     hero: TextStyle,
+    family: string,
+    error-icon: TextStyle,
 }
 
 export struct StyleControls {
@@ -223,6 +284,10 @@ export struct StyleShadows {
     slider: ShadowStyle,
     color-plane: ShadowStyle,
     color-slider: ShadowStyle,
+    dialog: ShadowStyle,
+    floating: ShadowStyle,
+    welcome: ShadowStyle,
+    brand: ShadowStyle,
 }
 
 export global Style {
@@ -255,6 +320,18 @@ export global Style {
         marker-bg: Style.dark ? #3f3f3f : #b5ccdd,
         marker-active: #0c8ce9,
         handle-border: #ffffff,
+        dialog-border: Style.dark ? #4a4d55 : #c8cbd2,
+        dialog-bg: Style.dark ? #292a30 : #ffffff,
+        error-icon-bg: Style.dark ? #542a2c : #fce6e5,
+        error-icon-text: Style.dark ? #ffb4ab : #b3261e,
+        error-border: Style.dark ? #63373a : #e0c5c2,
+        error-bg: Style.dark ? #342426 : #fff7f6,
+        error-text: Style.dark ? #f1b8b4 : #7a2925,
+        dialog-footer-bg: Style.dark ? #25262b : #fafafa,
+        dialog-footer-divider: Style.dark ? #3b3d43 : #e1e2e6,
+        floating-border: Style.dark ? #ffffff18 : #d0d7de,
+        update-error: Style.dark ? #ff9a94 : #b42318,
+        action-text: #ffffff,
     };
 
     private property <color> inspector-accent: Style.colors.accent;
@@ -358,6 +435,42 @@ export global Style {
         text: Style.dark ? #f4f4f5 : #252527,
         muted: Style.dark ? #b5b6ba : #797a7d,
         accent: #0878f8,
+        shell-width: 740px,
+        shell-height: 460px,
+        outer-inset: 16px,
+        compact-threshold: 620px,
+        compact-side-width: 220px,
+        side-width: 270px,
+        shell-radius: 19.5px,
+        action-height: 35px,
+        action-radius: 17.5px,
+        action-inset: 11px,
+        action-gap: 10px,
+        recent-height: 44px,
+        recent-radius: 6.5px,
+        recent-inset-left: 11px,
+        recent-inset-right: 9px,
+        recent-gap: 11px,
+        recent-icon-size: 27px,
+        recent-text-gap: 1.5px,
+        brand-size: 103px,
+        hero-top: 64px,
+        hero-gap: 18px,
+        hero-title-height: 37px,
+        hero-subtitle-height: 17px,
+        action-block-inset: 56px,
+        action-bottom-inset: 130px,
+        action-block-height: 79px,
+        action-block-gap: 9px,
+        recent-panel-inset: 10px,
+        recent-panel-height: 195px,
+        recent-panel-gap: 5px,
+        pressed-bg: #d9dadd,
+        selected-muted: #d7e7ff,
+        shell-border: Style.dark ? #ffffff22 : #98999d,
+        brand-brush: @linear-gradient(155deg, #32e1ff 0%, #0b89ff 52%, #115bea 100%),
+        brand-grid-horizontal: #ffffff26,
+        brand-grid-vertical: #ffffff22,
     };
 
     out property <StyleLayout> layout: {
@@ -375,6 +488,17 @@ export global Style {
         files-pane-minimum: 250px,
         left-heading-height: 48px,
         palette-card-height: 82px,
+        window-width: 1360px,
+        window-height: 860px,
+        window-min-width: 1040px,
+        window-min-height: 680px,
+        dialog-width: 360px,
+        dialog-height: 212px,
+        dialog-padding: 20px,
+        dialog-footer-height: 56px,
+        dialog-error-height: 46px,
+        dialog-error-icon-size: 30px,
+        dialog-error-inset: 11px,
     };
 
     out property <StyleCanvas> canvas: {
@@ -409,6 +533,8 @@ export global Style {
         action: { size: 14px, weight: 400 },
         heading: { size: 16px, weight: 400 },
         hero: { size: 34px, weight: 400 },
+        family: "Inter",
+        error-icon: { size: 20px, weight: 400 },
     };
 
     out property <StyleControls> controls: {
@@ -445,5 +571,9 @@ export global Style {
         slider: { color: #00000028, blur: 6px, offset-y: 2px },
         color-plane: { color: #00000080, blur: 3px, offset-y: 0px },
         color-slider: { color: #00000070, blur: 2px, offset-y: 0px },
+        dialog: { color: Style.dark ? #00000085 : #161b233d, blur: 24px, offset-y: 12px },
+        floating: { color: Style.dark ? #00000055 : #64748b28, blur: 18px, offset-y: 8px },
+        welcome: { color: Style.dark ? #00000080 : #00000030, blur: 17px, offset-y: 8px },
+        brand: { color: #00000033, blur: 11px, offset-y: 6px },
     };
 }

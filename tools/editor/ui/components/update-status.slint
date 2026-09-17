@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../style.slint";
 import { Api, UpdateState } from "../api.slint";
-import { EditorMetrics, StudioTheme } from "common.slint";
+import { EditorMetrics } from "common.slint";
 
 // The updater says the same things whatever the platform; only where they are
 // said differs. macOS has a unified title bar with room beside the traffic
@@ -61,14 +62,14 @@ export global UpdateStatus {
 
     public pure function foreground() -> color {
         if Api.update-state == UpdateState.Error {
-            return StudioTheme.dark ? #ff9a94 : #b42318;
+            return Style.colors.update-error;
         }
         if Api.update-state == UpdateState.Available
             || Api.update-state == UpdateState.ReadyToInstall
             || Api.update-state == UpdateState.RestartRequired {
-            return StudioTheme.accent;
+            return Style.colors.accent;
         }
-        return StudioTheme.muted;
+        return Style.colors.muted;
     }
 
     // The bar behind the text, filling as the download runs.
@@ -83,14 +84,14 @@ export component UpdateStatusPill inherits Rectangle {
     width: Api.update-state == UpdateState.Error ? 260px : 132px;
     height: 20px;
     border-radius: self.height / 2;
-    border-width: 1px;
-    border-color: StudioTheme.border;
-    background: StudioTheme.panel-bg;
+    border-width: Style.controls.border-width;
+    border-color: Style.colors.border;
+    background: Style.colors.panel-bg;
     clip: true;
 
     Rectangle {
         x: 0px;
-        background: StudioTheme.accent;
+        background: Style.colors.accent;
         opacity: UpdateStatus.progress-opacity();
         width: parent.width * Api.update-download-progress;
     }
@@ -100,7 +101,7 @@ export component UpdateStatusPill inherits Rectangle {
         width: parent.width - 18px;
         text: UpdateStatus.label();
         color: UpdateStatus.foreground();
-        font-size: 11px;
+        font-size: Style.typography.caption.size;
         font-weight: FontWeight.medium;
         horizontal-alignment: center;
         vertical-alignment: center;
@@ -120,12 +121,12 @@ export component UpdateStatusPill inherits Rectangle {
 // than an overlay, so the canvas gives up the height instead of being covered.
 export component UpdateStatusBar inherits Rectangle {
     height: EditorMetrics.status-bar-height;
-    background: StudioTheme.panel-bg;
+    background: Style.colors.panel-bg;
     clip: true;
 
     Rectangle {
         x: 0px;
-        background: StudioTheme.accent;
+        background: Style.colors.accent;
         opacity: UpdateStatus.progress-opacity();
         width: parent.width * Api.update-download-progress;
     }
@@ -133,13 +134,13 @@ export component UpdateStatusBar inherits Rectangle {
     Rectangle {
         y: 0px;
         height: 1px;
-        background: StudioTheme.border;
+        background: Style.colors.border;
     }
 
     HorizontalLayout {
         alignment: end;
-        padding-left: 12px;
-        padding-right: 12px;
+        padding-left: Style.spacing.medium;
+        padding-right: Style.spacing.medium;
 
         // Only the label is the button. The bar runs the width of the window,
         // so a TouchArea filling it would make the whole bottom edge mean
@@ -149,7 +150,7 @@ export component UpdateStatusBar inherits Rectangle {
             label := Text {
                 text: UpdateStatus.label();
                 color: UpdateStatus.foreground();
-                font-size: 11px;
+                font-size: Style.typography.caption.size;
                 font-weight: FontWeight.medium;
                 vertical-alignment: center;
                 overflow: elide;

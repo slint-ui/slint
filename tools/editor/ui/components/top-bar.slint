@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../style.slint";
 import { Api, EditorSurfaceMode } from "../api.slint";
 import { Preview } from "../preview.slint";
-import { EditorMetrics, StudioTheme } from "common.slint";
+import { EditorMetrics } from "common.slint";
 import { Project } from "../project.slint";
 
 component RunButton inherits Rectangle {
@@ -11,18 +12,18 @@ component RunButton inherits Rectangle {
     in property <bool> running;
     callback clicked;
 
-    width: bt.width + 16px;
-    height: 32px;
-    border-radius: 6px;
+    width: bt.width + 2 * Style.spacing.regular;
+    height: Style.controls.height;
+    border-radius: Style.controls.row-radius;
     background: enabled
-        ? touch.has-hover ? StudioTheme.accent-strong : StudioTheme.accent
-        : StudioTheme.panel-subtle;
+        ? touch.has-hover ? Style.colors.accent-strong : Style.colors.accent
+        : Style.colors.panel-subtle;
     opacity: enabled ? 1 : 0.55;
 
     bt := Text {
         text: root.running ? "Running" : "Run";
-        color: enabled ? white : StudioTheme.muted;
-        font-size: 13px;
+        color: enabled ? Style.colors.action-text : Style.colors.muted;
+        font-size: Style.typography.body.size;
         font-weight: FontWeight.bold;
         horizontal-alignment: center;
         vertical-alignment: center;
@@ -39,12 +40,12 @@ component RunButton inherits Rectangle {
 
 export component EditorTopBar inherits Rectangle {
     height: EditorMetrics.top-bar-height;
-    background: StudioTheme.panel-bg;
+    background: Style.colors.panel-bg;
 
     Rectangle {
         y: parent.height - 1px;
         height: 1px;
-        background: StudioTheme.border;
+        background: Style.colors.border;
     }
 
     HorizontalLayout {
@@ -53,15 +54,15 @@ export component EditorTopBar inherits Rectangle {
 
         Text {
             text: Project.selected-project-file;
-            color: StudioTheme.muted;
-            font-size: 13px;
+            color: Style.colors.muted;
+            font-size: Style.typography.body.size;
             vertical-alignment: center;
             overflow: elide;
         }
     }
 
     RunButton {
-        x: parent.width - self.width - 16px;
+        x: parent.width - self.width - Style.spacing.large;
         y: (parent.height - self.height) / 2;
         enabled: Preview.can-run && Api.editor-surface-mode == EditorSurfaceMode.component;
         running: Preview.is-running;

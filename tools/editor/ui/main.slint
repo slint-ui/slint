@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, Hover } from "api.slint";
@@ -10,7 +11,7 @@ export { FillSessionRequest, FillSessionTarget } from "components/inspector/fill
 import { Project } from "project.slint";
 import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
-import { AppState, ElementKind, SidebarToggleButton, StudioTheme } from "components/common.slint";
+import { AppState, ElementKind, SidebarToggleButton } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
 import { GradientOverlay } from "components/gradient-overlay.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
@@ -28,19 +29,19 @@ component NewFileErrorPopup inherits PopupWindow {
     in property <string> error;
     callback dismissed();
 
-    width: 360px;
-    height: 212px;
+    width: Style.layout.dialog-width;
+    height: Style.layout.dialog-height;
     close-policy: no-auto-close;
 
     Rectangle {
-        border-width: 1px;
-        border-color: StudioTheme.dark ? #4a4d55 : #c8cbd2;
-        border-radius: 9px;
-        background: StudioTheme.dark ? #292a30 : #ffffff;
+        border-width: Style.controls.border-width;
+        border-color: Style.colors.dialog-border;
+        border-radius: Style.controls.dialog-radius;
+        background: Style.colors.dialog-bg;
         clip: true;
-        drop-shadow-blur: 24px;
-        drop-shadow-offset-y: 12px;
-        drop-shadow-color: StudioTheme.dark ? #00000085 : #161b233d;
+        drop-shadow-blur: Style.shadows.dialog.blur;
+        drop-shadow-offset-y: Style.shadows.dialog.offset-y;
+        drop-shadow-color: Style.shadows.dialog.color;
 
         VerticalLayout {
             height: parent.height;
@@ -49,60 +50,60 @@ component NewFileErrorPopup inherits PopupWindow {
                 vertical-stretch: 1;
 
                 VerticalLayout {
-                    padding: 20px;
-                    spacing: 14px;
+                    padding: Style.layout.dialog-padding;
+                    spacing: Style.spacing.pane-inset;
 
                     HorizontalLayout {
-                        spacing: 12px;
+                        spacing: Style.spacing.medium;
                         cross-axis-alignment: start;
 
                         Rectangle {
-                            width: 30px;
-                            height: 30px;
-                            border-radius: 15px;
-                            background: StudioTheme.dark ? #542a2c : #fce6e5;
+                            width: Style.layout.dialog-error-icon-size;
+                            height: Style.layout.dialog-error-icon-size;
+                            border-radius: Style.layout.dialog-error-icon-size / 2;
+                            background: Style.colors.error-icon-bg;
 
                             Text {
                                 text: "×";
-                                color: StudioTheme.dark ? #ffb4ab : #b3261e;
-                                font-size: 20px;
+                                color: Style.colors.error-icon-text;
+                                font-size: Style.typography.error-icon.size;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
                             }
                         }
 
                         VerticalLayout {
-                            spacing: 4px;
+                            spacing: Style.spacing.small;
 
                             Text {
                                 text: @tr("Couldn’t create file");
-                                color: StudioTheme.text;
-                                font-size: 16px;
+                                color: Style.colors.text;
+                                font-size: Style.typography.heading.size;
                                 font-weight: FontWeight.bold;
                             }
 
                             Text {
                                 text: @tr("A new Slint file couldn’t be created in the project root.");
-                                color: StudioTheme.muted;
-                                font-size: 13px;
+                                color: Style.colors.muted;
+                                font-size: Style.typography.body.size;
                                 wrap: word-wrap;
                             }
                         }
                     }
 
                     Rectangle {
-                        height: 46px;
-                        border-width: 1px;
-                        border-color: StudioTheme.dark ? #63373a : #e0c5c2;
-                        border-radius: 6px;
-                        background: StudioTheme.dark ? #342426 : #fff7f6;
+                        height: Style.layout.dialog-error-height;
+                        border-width: Style.controls.border-width;
+                        border-color: Style.colors.error-border;
+                        border-radius: Style.controls.row-radius;
+                        background: Style.colors.error-bg;
 
                         Text {
-                            x: 11px;
-                            width: parent.width - 22px;
+                            x: Style.layout.dialog-error-inset;
+                            width: parent.width - 2 * Style.layout.dialog-error-inset;
                             text: root.error;
-                            color: StudioTheme.dark ? #f1b8b4 : #7a2925;
-                            font-size: 11px;
+                            color: Style.colors.error-text;
+                            font-size: Style.typography.caption.size;
                             wrap: word-wrap;
                             vertical-alignment: center;
                         }
@@ -111,14 +112,14 @@ component NewFileErrorPopup inherits PopupWindow {
             }
 
             Rectangle {
-                height: 56px;
+                height: Style.layout.dialog-footer-height;
                 vertical-stretch: 0;
-                background: StudioTheme.dark ? #25262b : #fafafa;
+                background: Style.colors.dialog-footer-bg;
 
                 Rectangle {
                     height: 1px;
                     y: 0px;
-                    background: StudioTheme.dark ? #3b3d43 : #e1e2e6;
+                    background: Style.colors.dialog-footer-divider;
                 }
 
                 Rectangle {
@@ -126,15 +127,15 @@ component NewFileErrorPopup inherits PopupWindow {
                     height: 32px;
                     x: parent.width - self.width - 16px;
                     y: (parent.height - self.height) / 2;
-                    border-width: 1px;
-                    border-color: close-touch.has-hover ? StudioTheme.accent-strong : StudioTheme.accent;
-                    border-radius: 5px;
-                    background: close-touch.has-hover ? StudioTheme.accent-strong : StudioTheme.accent;
+                    border-width: Style.controls.border-width;
+                    border-color: close-touch.has-hover ? Style.colors.accent-strong : Style.colors.accent;
+                    border-radius: Style.controls.small-radius;
+                    background: close-touch.has-hover ? Style.colors.accent-strong : Style.colors.accent;
 
                     bt := Text {
                         text: @tr("Close");
-                        color: white;
-                        font-size: 13px;
+                        color: Style.colors.action-text;
+                        font-size: Style.typography.body.size;
                         font-weight: FontWeight.bold;
                         horizontal-alignment: center;
                         vertical-alignment: center;
@@ -156,13 +157,13 @@ component NewFileErrorPopup inherits PopupWindow {
 }
 
 export component EditorUi inherits Window {
-    preferred-width: 1360px;
-    preferred-height: 860px;
-    min-width: 1040px;
-    min-height: 680px;
+    preferred-width: Style.layout.window-width;
+    preferred-height: Style.layout.window-height;
+    min-width: Style.layout.window-min-width;
+    min-height: Style.layout.window-min-height;
     title: "Slint Visual Editor";
-    background: StudioTheme.app-bg;
-    default-font-family: "Inter";
+    background: Style.colors.app-bg;
+    default-font-family: Style.typography.family;
 
     init => {
         EditorWindow.width = root.width;
@@ -299,7 +300,7 @@ export component EditorUi inherits Window {
                 }
 
                 Rectangle {
-                    background: StudioTheme.app-bg;
+                    background: Style.colors.app-bg;
                 }
 
                 VerticalLayout {
@@ -365,24 +366,24 @@ export component EditorUi inherits Window {
                     width: 274px;
                     height: 42px;
                     border-radius: 12px;
-                    border-width: 1px;
-                    border-color: StudioTheme.dark ? #ffffff18 : #d0d7de;
-                    background: StudioTheme.panel-bg.with-alpha(0.92);
+                    border-width: Style.controls.border-width;
+                    border-color: Style.colors.floating-border;
+                    background: Style.colors.panel-bg.with-alpha(0.92);
                     drop-shadow-blur: 16px;
                     drop-shadow-offset-y: 8px;
-                    drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b28;
+                    drop-shadow-color: Style.shadows.floating.color;
 
                     HorizontalLayout {
-                        padding-left: 12px;
-                        padding-right: 6px;
-                        spacing: 10px;
+                        padding-left: Style.spacing.medium;
+                        padding-right: Style.spacing.compact;
+                        spacing: Style.spacing.control-inset;
                         cross-axis-alignment: center;
 
                         Text {
                             horizontal-stretch: 1;
                             text: Project.selected-project-file;
-                            color: StudioTheme.text;
-                            font-size: 13px;
+                            color: Style.colors.text;
+                            font-size: Style.typography.body.size;
                             font-weight: FontWeight.extra-bold;
                             vertical-alignment: center;
                             overflow: elide;
