@@ -32,7 +32,7 @@ export component InspectorColorField inherits Rectangle {
         width: parent.width;
         value: root.value;
         commit-key: root.commit-key;
-        field-padding-left: 7px;
+        field-padding-left: Style.spacing.regular;
         content-spacing: Style.spacing.compact;
         accepted(text) => {
             return root.accepted(text);
@@ -61,7 +61,7 @@ export component InspectorColorField inherits Rectangle {
                 for row in 3: Rectangle {
                     x: 2.5px + row * 2.5px;
                     y: 2.5px;
-                    width: 1px;
+                    width: Style.controls.border-width;
                     height: 6px;
                     background: Style.inspector.muted.with-alpha(0.35);
                 }
@@ -69,7 +69,7 @@ export component InspectorColorField inherits Rectangle {
                     x: 2.5px;
                     y: 2.5px + col * 2.5px;
                     width: 6px;
-                    height: 1px;
+                    height: Style.controls.border-width;
                     background: Style.inspector.muted.with-alpha(0.35);
                 }
             }

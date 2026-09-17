@@ -16,7 +16,7 @@ export component InspectorSegment inherits Rectangle {
     horizontal-stretch: 1;
     background: selected ? Style.inspector.panel-bg : touch.has-hover || segment-focus.has-focus ? Style.inspector.field-bg-hover : transparent;
     border-radius: selected ? Style.inspector.field-radius : 0px;
-    border-width: segment-focus.has-focus ? 2px : selected ? 1px : 0px;
+    border-width: segment-focus.has-focus ? Style.controls.focus-width : selected ? Style.controls.border-width : 0px;
     border-color: segment-focus.has-focus ? Style.inspector.accent : Style.inspector.divider;
     accessible-role: button;
     accessible-label: root.label;

@@ -30,7 +30,7 @@ export component InspectorPickerPanel inherits Rectangle {
             Rectangle { }
             InspectorSegment { kind: "text"; label: "Close"; width: Style.inspector.close-width; accessible-label: "Close " + root.title; clicked => { root.closed(); } }
         }
-        Rectangle { height: 1px; background: Style.inspector.divider; }
+        Rectangle { height: Style.controls.border-width; background: Style.inspector.divider; }
         @children
     }
 }

@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style } from "../style.slint";
+
+export component EditorGrid inherits Rectangle {
+    clip: true;
+    for row in ceil(root.height / Style.canvas.grid-pitch): Rectangle {
+        y: row * Style.canvas.grid-pitch;
+        height: Style.canvas.grid-width;
+        background: Style.canvas.grid-color;
+    }
+    for col in ceil(root.width / Style.canvas.grid-pitch): Rectangle {
+        x: col * Style.canvas.grid-pitch;
+        width: Style.canvas.grid-width;
+        background: Style.canvas.grid-color;
+    }
+}

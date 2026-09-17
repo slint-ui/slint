@@ -48,7 +48,7 @@ component GradientHandle inherits FocusScope {
         height: Style.canvas.gradient-endpoint-size;
         border-radius: Style.controls.row-radius;
         background: Style.colors.handle-border;
-        border-width: root.has-focus ? 2px : 0px;
+        border-width: root.has-focus ? Style.controls.focus-width : 0px;
         border-color: Style.colors.accent-strong;
         drop-shadow-blur: 3px;
         drop-shadow-color: Style.shadows.gradient-endpoint.color;

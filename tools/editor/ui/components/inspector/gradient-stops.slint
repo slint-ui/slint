@@ -55,7 +55,7 @@ export component InspectorGradientStops inherits Rectangle {
                 height: Style.inspector.stop-marker-size;
                 border-radius: Style.controls.field-radius;
                 background: Api.create-brush(BrushKind.linear, 90, transparent, root.value.stops);
-                border-width: ramp.has-focus ? 1px : 0px;
+                border-width: ramp.has-focus ? Style.controls.border-width : 0px;
                 border-color: Style.inspector.accent;
             }
             for stop[index] in root.value.stops: GradientStopMarker {
@@ -88,7 +88,7 @@ export component InspectorGradientStops inherits Rectangle {
                         ramp.focus();
                         root.gesture-value = root.value;
                         let index = Api.nearest-gradient-stop(root.value.stops, position);
-                        if index >= 0 && abs(root.value.stops[index].position - position) * (self.width - Style.inspector.stop-marker-size) <= 10px {
+                        if index >= 0 && abs(root.value.stops[index].position - position) * (self.width - Style.inspector.stop-marker-size) <= Style.inspector.stop-pick-distance {
                             root.selected-index = index;
                         } else { FillSession.add-stop-position(position); }
                         root.dragging = true;
@@ -110,7 +110,7 @@ export component InspectorGradientStops inherits Rectangle {
             InspectorSegment {
                 kind: "text";
                 label: "+";
-                width: Style.inspector.stop-marker-size;
+                width: Style.inspector.stop-action-width;
                 accessible-label: "Add gradient stop";
                 clicked => {
                     FillSession.add-stop-position(Api.gradient-stop-gap(root.value.stops));
@@ -169,9 +169,9 @@ export component InspectorGradientStops inherits Rectangle {
                                     return reject;
                                 }
                                 HorizontalLayout {
-                                    spacing: 5px;
+                                    spacing: Style.spacing.compact;
                                     cross-axis-alignment: center;
-                                    Rectangle { width: 14px; height: 14px; background: stop.color; border-radius: Style.controls.compact-radius; }
+                                    Rectangle { width: Style.inspector.stop-swatch-size; height: Style.inspector.stop-swatch-size; background: stop.color; border-radius: Style.controls.compact-radius; }
                                     Text { text: Api.color-to-data(stop.color).short-text; color: Style.inspector.text; font-size: Style.typography.caption.size; vertical-alignment: center; }
                                 }
                                 TouchArea {

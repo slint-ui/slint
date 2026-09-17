@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../style.slint";
 import { BodyLabel, MutedLabel, StudioTheme } from "common.slint";
 
 export component LibraryComponentRow inherits Rectangle {
@@ -9,7 +10,7 @@ export component LibraryComponentRow inherits Rectangle {
 
     height: 70px;
     border-radius: 8px;
-    border-width: 1px;
+    border-width: Style.controls.border-width;
     border-color: StudioTheme.border;
     background: StudioTheme.panel-bg;
 
@@ -22,7 +23,7 @@ export component LibraryComponentRow inherits Rectangle {
             height: 42px;
             border-radius: 7px;
             background: #e0e7ff;
-            border-width: 1px;
+            border-width: Style.controls.border-width;
             border-color: #a5b4fc;
 
             Text {

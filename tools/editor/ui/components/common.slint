@@ -75,7 +75,7 @@ export global EditorMetrics {
 }
 
 export component EdgeDivider inherits Rectangle {
-    width: 1px;
+    width: Style.controls.border-width;
     background: Style.colors.border;
 }
 
@@ -142,7 +142,7 @@ export component HorizontalResizeDivider inherits FocusScope {
     Rectangle {
         width: parent.width;
         height: parent.height;
-        border-width: root.has-focus ? 1px : 0px;
+        border-width: root.has-focus ? Style.controls.border-width : 0px;
         border-color: Style.colors.accent-strong;
         background: touch.has-hover || touch.pressed
             ? Style.colors.accent.with-alpha(0.12)
@@ -152,7 +152,7 @@ export component HorizontalResizeDivider inherits FocusScope {
     Rectangle {
         y: (parent.height - self.height) / 2;
         width: parent.width;
-        height: 1px;
+        height: Style.controls.border-width;
         background: root.line-color;
     }
 
@@ -282,7 +282,7 @@ export component SidebarToggleButton inherits Rectangle {
     Rectangle {
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
-        width: 18px;
+        width: Style.controls.large-icon-size;
         height: 16px;
         border-radius: Style.controls.compact-radius;
         border-width: Style.controls.focus-width;
@@ -372,14 +372,14 @@ export component ComponentPaletteRow inherits Rectangle {
     }
 
     HorizontalLayout {
-        padding-left: 7px;
-        padding-right: 7px;
+        padding-left: Style.spacing.regular;
+        padding-right: Style.spacing.regular;
         spacing: Style.spacing.regular;
         cross-axis-alignment: center;
 
         Image {
-            width: 18px;
-            height: 18px;
+            width: Style.controls.large-icon-size;
+            height: Style.controls.large-icon-size;
             source: ElementVisuals.for-kind(root.kind).icon;
             colorize: root.active ? Style.colors.accent-strong : Style.colors.text;
             opacity: root.active ? 1 : Style.controls.inactive-icon-opacity;
@@ -468,7 +468,7 @@ export global AppState {
     }
 
     pure function outline-drag-pointer-gap() -> length {
-        return 6px;
+        return Style.controls.row-radius;
     }
 
     public function update-outline-drag-position(window-position: Point) {

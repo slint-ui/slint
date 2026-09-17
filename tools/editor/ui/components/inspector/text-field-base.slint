@@ -22,7 +22,7 @@ export component InspectorTextFieldBase inherits Rectangle {
     height: Style.inspector.field-height;
     border-radius: Style.inspector.field-radius;
     background: !enabled ? Style.inspector.field-bg.with-alpha(0.65) : input.has-focus ? Style.inspector.panel-bg : touch.has-hover ? Style.inspector.field-bg-hover : Style.inspector.field-bg;
-    border-width: input.has-focus ? 1px : 0px;
+    border-width: input.has-focus ? Style.controls.border-width : 0px;
     border-color: Style.inspector.accent;
     accessible-role: AccessibleRole.text-input;
     accessible-label: root.accessible-name;
@@ -85,7 +85,7 @@ export component InspectorTextFieldBase inherits Rectangle {
                 font-size: root.input-font-size;
                 vertical-alignment: center;
                 selection-background-color: Style.inspector.accent.with-alpha(0.28);
-                text-cursor-width: 1px;
+                text-cursor-width: Style.controls.border-width;
 
                 edited => {
                     root.edited = true;

@@ -8,10 +8,10 @@ export component InspectorInfoIcon inherits Rectangle {
     in property <string> label: "More information";
     callback activated;
 
-    width: 14px;
-    height: 14px;
-    border-radius: 7px;
-    border-width: icon-focus.has-focus ? 2px : 1px;
+    width: Style.inspector.info-size;
+    height: Style.inspector.info-size;
+    border-radius: Style.inspector.info-size / 2;
+    border-width: icon-focus.has-focus ? Style.controls.focus-width : Style.controls.border-width;
     border-color: touch.has-hover || icon-focus.has-focus ? Style.inspector.accent : Style.inspector.muted.with-alpha(0.72);
     background: touch.has-hover || icon-focus.has-focus ? Style.inspector.accent.with-alpha(0.10) : transparent;
     accessible-role: button;

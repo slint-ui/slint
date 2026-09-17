@@ -31,13 +31,13 @@ component BrandMark inherits Rectangle {
 
     for row in 4: Rectangle {
         y: root.mark-size * (22% + row * 19%);
-        height: 1px;
+        height: Style.controls.border-width;
         background: Style.welcome.brand-grid-horizontal;
     }
 
     for col in 4: Rectangle {
         x: root.mark-size * (22% + col * 19%);
-        width: 1px;
+        width: Style.controls.border-width;
         background: Style.welcome.brand-grid-vertical;
     }
 

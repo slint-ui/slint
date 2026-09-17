@@ -12,7 +12,7 @@ export component InspectorCopyButton inherits Rectangle {
     height: Style.inspector.field-height;
     border-radius: Style.inspector.field-radius;
     background: touch.has-hover || button-focus.has-focus ? Style.inspector.field-bg-hover : Style.inspector.field-bg;
-    border-width: button-focus.has-focus ? 2px : 1px;
+    border-width: button-focus.has-focus ? Style.controls.focus-width : Style.controls.border-width;
     border-color: button-focus.has-focus ? Style.inspector.accent : Style.inspector.divider;
     accessible-role: button;
     accessible-label: root.label;

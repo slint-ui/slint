@@ -38,10 +38,10 @@ component ColorSlider inherits Rectangle {
         }
     }
     Rectangle {
-        x: root.position * parent.width - 7px;
-        width: 14px;
-        height: 14px;
-        border-radius: 7px;
+        x: root.position * parent.width - Style.inspector.color-slider-thumb-size / 2;
+        width: Style.inspector.color-slider-thumb-size;
+        height: Style.inspector.color-slider-thumb-size;
+        border-radius: Style.inspector.color-slider-thumb-size / 2;
         border-width: Style.controls.focus-width;
         border-color: Style.colors.handle-border;
         drop-shadow-color: root.thumb-shadow;
@@ -155,10 +155,10 @@ export component InspectorColorControls inherits Rectangle {
                 }
             }
             Rectangle {
-                x: root.saturation * parent.width - 6px;
-                y: (1 - root.brightness) * parent.height - 6px;
-                width: 12px;
-                height: 12px;
+                x: root.saturation * parent.width - Style.inspector.color-plane-thumb-size / 2;
+                y: (1 - root.brightness) * parent.height - Style.inspector.color-plane-thumb-size / 2;
+                width: Style.controls.small-icon-size;
+                height: Style.controls.small-icon-size;
                 border-radius: Style.controls.row-radius;
                 border-width: Style.controls.focus-width;
                 border-color: Style.colors.handle-border;
@@ -197,11 +197,11 @@ export component InspectorColorControls inherits Rectangle {
             canceled => { root.cancel-gesture(); }
             Rectangle {
                 for row in 2: Rectangle {
-                    y: row * 8px;
-                    height: 8px;
-                    for col in ceil(parent.width / 8px): Rectangle {
-                        x: col * 8px;
-                        width: 8px;
+                    y: row * Style.inspector.checker-size;
+                    height: Style.inspector.checker-size;
+                    for col in ceil(parent.width / Style.inspector.checker-size): Rectangle {
+                        x: col * Style.inspector.checker-size;
+                        width: Style.inspector.checker-size;
                         background: (row + col).mod(2) == 0 ? Style.inspector.panel-bg : Style.inspector.field-border;
                     }
                 }
@@ -212,7 +212,7 @@ export component InspectorColorControls inherits Rectangle {
         }
 
         HorizontalLayout {
-            height: 26px;
+            height: Style.inspector.menu-row-height;
             spacing: Style.spacing.regular;
             InspectorTextFieldBase {
                 accessible-name: "Hex color";
@@ -223,13 +223,13 @@ export component InspectorColorControls inherits Rectangle {
                 accepted(text) => { return root.commit-text(text); }
             }
             HorizontalLayout {
-                width: 78px;
+                width: Style.inspector.color-hex-width;
                 spacing: Style.spacing.tight;
                 InspectorTextFieldBase {
                     accessible-name: "Opacity percentage";
                     live-edit: true;
                     enabled: root.editable;
-                    width: 58px;
+                    width: Style.inspector.color-hex-input-width;
                     value: (root.alpha * 100 / 255).to-fixed(0);
                     commit-key: root.session-key;
                     accepted(text) => {

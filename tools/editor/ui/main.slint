@@ -117,15 +117,15 @@ component NewFileErrorPopup inherits PopupWindow {
                 background: Style.colors.dialog-footer-bg;
 
                 Rectangle {
-                    height: 1px;
+                    height: Style.controls.border-width;
                     y: 0px;
                     background: Style.colors.dialog-footer-divider;
                 }
 
                 Rectangle {
-                    width: bt.width + 16px;
-                    height: 32px;
-                    x: parent.width - self.width - 16px;
+                    width: bt.width + 2 * Style.spacing.regular;
+                    height: Style.controls.height;
+                    x: parent.width - self.width - Style.spacing.large;
                     y: (parent.height - self.height) / 2;
                     border-width: Style.controls.border-width;
                     border-color: close-touch.pressed ? Style.colors.action-pressed : close-touch.has-hover ? Style.colors.action-hover : Style.colors.action-bg;
@@ -361,16 +361,16 @@ export component EditorUi inherits Window {
                 DragPreview { parent-origin: parent.absolute-position; }
 
                 if root.sidebars-collapsed: Rectangle {
-                    x: 18px;
-                    y: EditorMetrics.top-bar-height + 14px;
-                    width: 274px;
-                    height: 42px;
+                    x: Style.spacing.large;
+                    y: EditorMetrics.top-bar-height + Style.spacing.medium;
+                    width: Style.layout.collapsed-panel-width;
+                    height: Style.layout.collapsed-panel-height;
                     border-radius: 12px;
                     border-width: Style.controls.border-width;
                     border-color: Style.colors.floating-border;
                     background: Style.colors.panel-bg.with-alpha(0.92);
-                    drop-shadow-blur: 16px;
-                    drop-shadow-offset-y: 8px;
+                    drop-shadow-blur: Style.shadows.floating.blur;
+                    drop-shadow-offset-y: Style.shadows.floating.offset-y;
                     drop-shadow-color: Style.shadows.floating.color;
 
                     HorizontalLayout {
@@ -443,7 +443,7 @@ export component EditorUi inherits Window {
     }
 
     if UpdateStatus.in-titlebar() && UpdateStatus.has-news(): UpdateStatusPill {
-        x: 100px;
-        y: 16px;
+        x: Style.layout.titlebar-safe-left;
+        y: Style.spacing.large;
     }
 }

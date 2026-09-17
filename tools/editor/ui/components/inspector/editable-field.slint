@@ -21,7 +21,7 @@ export component InspectorEditableField inherits Rectangle {
         width: parent.width;
         value: root.value;
         commit-key: root.commit-key;
-        field-padding-right: 5px;
+        field-padding-right: Style.spacing.regular;
         content-spacing: Style.spacing.small;
         accepted(text) => {
             return root.accepted(text);

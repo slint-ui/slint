@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../../style.slint";
 import { InspectorSegment } from "segment.slint";
 import { InspectorTokens } from "tokens.slint";
 
@@ -44,7 +45,7 @@ export component InspectorSegmentedIconControl inherits Rectangle {
             }
         }
 
-        Rectangle { width: 1px; background: InspectorTokens.panel-bg; }
+        Rectangle { width: Style.controls.border-width; background: InspectorTokens.panel-bg; }
 
         InspectorSegment {
             kind: root.kind;
@@ -57,7 +58,7 @@ export component InspectorSegmentedIconControl inherits Rectangle {
             }
         }
 
-        Rectangle { width: 1px; background: InspectorTokens.panel-bg; }
+        Rectangle { width: Style.controls.border-width; background: InspectorTokens.panel-bg; }
 
         InspectorSegment {
             kind: root.kind;

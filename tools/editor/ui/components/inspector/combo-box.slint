@@ -22,7 +22,7 @@ export component InspectorComboBox inherits Rectangle {
     height: Style.inspector.field-height;
     border-radius: Style.inspector.field-radius;
     background: fallback-popup.is-open ? Style.inspector.panel-bg : native-menu-touch.has-hover || combo-focus.has-focus ? Style.inspector.field-bg-hover : Style.inspector.field-bg;
-    border-width: fallback-popup.is-open || combo-focus.has-focus ? 1px : 0px;
+    border-width: fallback-popup.is-open || combo-focus.has-focus ? Style.controls.border-width : 0px;
     border-color: Style.inspector.accent;
     accessible-role: AccessibleRole.combobox;
     accessible-label: root.accessible-name;
@@ -131,7 +131,7 @@ export component InspectorComboBox inherits Rectangle {
 
         HorizontalLayout {
             padding-left: Style.spacing.regular;
-            padding-right: 5px;
+            padding-right: Style.spacing.regular;
             spacing: Style.spacing.small;
             cross-axis-alignment: center;
 

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { EditorGrid } from "editor-grid.slint";
 import { Style } from "../style.slint";
 // cspell:ignore nesw
 
@@ -48,7 +49,7 @@ component ImageEditorTab inherits Rectangle {
     height: Style.layout.image-tab-height;
     horizontal-stretch: 1;
     border-radius: Style.controls.row-radius;
-    border-width: tab-focus.has-focus ? 2px : selected ? 1px : 0px;
+    border-width: tab-focus.has-focus ? Style.controls.focus-width : selected ? Style.controls.border-width : 0px;
     border-color: tab-focus.has-focus ? Style.colors.accent-strong : Style.colors.border;
     background: selected ? Style.colors.panel-bg : touch.has-hover || tab-focus.has-focus ? Style.colors.panel-subtle : transparent;
     accessible-role: button;
@@ -101,8 +102,8 @@ component FloatingReadOnlyField inherits Rectangle {
 
     HorizontalLayout {
         padding-left: Style.spacing.regular;
-        padding-right: 7px;
-        spacing: 5px;
+        padding-right: Style.spacing.regular;
+        spacing: Style.spacing.compact;
         cross-axis-alignment: center;
 
         Text {
@@ -127,7 +128,7 @@ component FloatingSyntaxField inherits Rectangle {
     in property <string> value;
     in property <length> max-field-height: Style.layout.image-syntax-max-height;
 
-    height: min(max(Style.layout.image-syntax-min-height, syntax-text.preferred-height + 12px), root.max-field-height);
+    height: min(max(Style.layout.image-syntax-min-height, syntax-text.preferred-height + 2 * Style.spacing.compact), root.max-field-height);
     border-radius: Style.controls.field-radius;
     background: Style.inspector.field-bg;
     clip: true;
@@ -135,10 +136,10 @@ component FloatingSyntaxField inherits Rectangle {
     accessible-value: root.value;
 
     syntax-scroll := ScrollView {
-        x: 8px;
-        y: 6px;
-        width: parent.width - 16px;
-        height: parent.height - 12px;
+        x: Style.spacing.regular;
+        y: Style.spacing.compact;
+        width: parent.width - 2 * Style.spacing.regular;
+        height: parent.height - 2 * Style.spacing.compact;
         content-width: self.width;
         content-height: syntax-text.preferred-height;
         horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
@@ -162,7 +163,7 @@ component FloatingCopyButton inherits Rectangle {
     width: Style.inspector.copy-width;
     height: Style.controls.field-height;
     border-radius: Style.controls.field-radius;
-    border-width: copy-focus.has-focus ? 2px : 1px;
+    border-width: copy-focus.has-focus ? Style.controls.focus-width : Style.controls.border-width;
     border-color: copy-focus.has-focus ? Style.colors.accent-strong : Style.inspector.divider;
     background: touch.has-hover || copy-focus.has-focus ? (Style.inspector.field-bg-hover) : (Style.inspector.field-bg);
     accessible-role: button;
@@ -440,17 +441,7 @@ export component ImageAssetEditor inherits Rectangle {
         );
     }
 
-    for row in 28: Rectangle {
-        y: row * Style.canvas.grid-pitch;
-        height: 1px;
-        background: Style.canvas.grid-color;
-    }
-
-    for col in 48: Rectangle {
-        x: col * Style.canvas.grid-pitch;
-        width: 1px;
-        background: Style.canvas.grid-color;
-    }
+    EditorGrid { }
 
     if root.has-image(): Rectangle {
         x: (parent.width - self.width - root.left-pane-offset) / 2;
@@ -511,16 +502,16 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if root.has-image(): Rectangle {
-        x: root.rail-x - 12px;
+        x: root.rail-x - Style.spacing.medium;
         y: 0px;
-        width: root.rail-width + 24px;
+        width: root.rail-width + 2 * Style.spacing.medium;
         height: parent.height;
         background: Style.colors.image-rail-bg;
 
         Rectangle {
             // needed to stop the line centering in the parent
             x: 0px;
-            width: 1px;
+            width: Style.controls.border-width;
             background: Style.colors.image-rail-border;
         }
     }
@@ -605,65 +596,65 @@ export component ImageAssetEditor inherits Rectangle {
         }
 
         Rectangle {
-            x: root.left-display - 2px;
-            width: 4px;
+            x: root.left-display - Style.canvas.slice-line-width / 2;
+            width: Style.canvas.slice-line-width;
             height: parent.height;
-            border-radius: 2px;
+            border-radius: Style.canvas.slice-line-width / 2;
             background: Style.canvas.slice-color;
         }
 
         Rectangle {
-            x: parent.width - root.right-display - 2px;
-            width: 4px;
+            x: parent.width - root.right-display - Style.canvas.slice-line-width / 2;
+            width: Style.canvas.slice-line-width;
             height: parent.height;
-            border-radius: 2px;
+            border-radius: Style.canvas.slice-line-width / 2;
             background: Style.canvas.slice-color;
         }
 
         Rectangle {
-            y: root.top-display - 2px;
+            y: root.top-display - Style.canvas.slice-line-width / 2;
             width: parent.width;
-            height: 4px;
-            border-radius: 2px;
+            height: Style.canvas.slice-line-width;
+            border-radius: Style.canvas.slice-line-width / 2;
             background: Style.canvas.slice-color;
         }
 
         Rectangle {
-            y: parent.height - root.bottom-display - 2px;
+            y: parent.height - root.bottom-display - Style.canvas.slice-line-width / 2;
             width: parent.width;
-            height: 4px;
-            border-radius: 2px;
+            height: Style.canvas.slice-line-width;
+            border-radius: Style.canvas.slice-line-width / 2;
             background: Style.canvas.slice-color;
         }
 
         GuideHandle {
             label: "L";
             label-x: root.left-display - self.width / 2;
-            label-y: parent.height + 10px;
+            label-y: parent.height + Style.canvas.slice-label-gap;
         }
 
         GuideHandle {
             label: "R";
             label-x: parent.width - root.right-display - self.width / 2;
-            label-y: parent.height + 10px;
+            label-y: parent.height + Style.canvas.slice-label-gap;
         }
 
         GuideHandle {
             label: "T";
-            label-x: parent.width + 10px;
+            label-x: parent.width + Style.canvas.slice-label-gap;
             label-y: root.top-display - self.height / 2;
         }
 
         GuideHandle {
             label: "B";
-            label-x: parent.width + 10px;
+            label-x: parent.width + Style.canvas.slice-label-gap;
             label-y: parent.height - root.bottom-display - self.height / 2;
         }
 
         left-guide := TouchArea {
-            x: root.left-display - 10px;
-            width: 20px;
-            height: parent.height + 38px;
+            x: root.left-display - Style.canvas.slice-hit-size / 2;
+            width: Style.canvas.slice-hit-size;
+            height: parent.height + Style.canvas.slice-hit-extension;
             mouse-cursor: ew-resize;
             moved => {
                 if self.pressed {
@@ -673,9 +664,9 @@ export component ImageAssetEditor inherits Rectangle {
         }
 
         right-guide := TouchArea {
-            x: parent.width - root.right-display - 10px;
-            width: 20px;
-            height: parent.height + 38px;
+            x: parent.width - root.right-display - Style.canvas.slice-hit-size / 2;
+            width: Style.canvas.slice-hit-size;
+            height: parent.height + Style.canvas.slice-hit-extension;
             mouse-cursor: ew-resize;
             moved => {
                 if self.pressed {
@@ -685,9 +676,9 @@ export component ImageAssetEditor inherits Rectangle {
         }
 
         top-guide := TouchArea {
-            y: root.top-display - 10px;
-            width: parent.width + 38px;
-            height: 20px;
+            y: root.top-display - Style.canvas.slice-hit-size / 2;
+            width: parent.width + Style.canvas.slice-hit-extension;
+            height: Style.canvas.slice-hit-size;
             mouse-cursor: ns-resize;
             moved => {
                 if self.pressed {
@@ -697,9 +688,9 @@ export component ImageAssetEditor inherits Rectangle {
         }
 
         bottom-guide := TouchArea {
-            y: parent.height - root.bottom-display - 10px;
-            width: parent.width + 38px;
-            height: 20px;
+            y: parent.height - root.bottom-display - Style.canvas.slice-hit-size / 2;
+            width: parent.width + Style.canvas.slice-hit-extension;
+            height: Style.canvas.slice-hit-size;
             mouse-cursor: ns-resize;
             moved => {
                 if self.pressed {

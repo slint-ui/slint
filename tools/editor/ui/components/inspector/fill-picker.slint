@@ -61,7 +61,7 @@ export component InspectorFillPicker inherits Rectangle {
                         FillSession.close-picker(true, true);
                     }
                     if FillSession.request.unsupported: VerticalLayout {
-                        spacing: 5px;
+                        spacing: Style.spacing.compact;
                         Text {
                             text: FillSession.request.expression;
                             color: Style.inspector.text;

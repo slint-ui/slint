@@ -62,7 +62,7 @@ export component InspectorGradientGeometry inherits Rectangle {
             }
             if root.value.kind != BrushKind.radial && !root.canvas-active: InspectorTextFieldBase {
                 accessible-name: "Gradient angle degrees";
-                width: 62px;
+                width: Style.inspector.gradient-value-width;
                 value: root.value.angle.to-fixed(1);
                 commit-key: root.session-key;
                 accepted(text) => {
@@ -72,7 +72,7 @@ export component InspectorGradientGeometry inherits Rectangle {
         }
         if root.value.kind != BrushKind.linear && !root.canvas-active: HorizontalLayout {
             spacing: Style.spacing.regular;
-            Text { text: "Center"; color: Style.inspector.muted; font-size: Style.typography.caption.size; vertical-alignment: center; width: 58px; }
+            Text { text: "Center"; color: Style.inspector.muted; font-size: Style.typography.caption.size; vertical-alignment: center; width: Style.inspector.gradient-label-width; }
             InspectorComboBox {
                 accessible-name: "Gradient center";
                 value: root.value.custom-center ? "Custom" : "Automatic";
@@ -85,7 +85,7 @@ export component InspectorGradientGeometry inherits Rectangle {
         }
         if root.value.kind != BrushKind.linear && root.value.custom-center && !root.canvas-active: HorizontalLayout {
             spacing: Style.spacing.regular;
-            Text { text: "X / Y px"; color: Style.inspector.muted; font-size: Style.typography.caption.size; vertical-alignment: center; width: 58px; }
+            Text { text: "X / Y px"; color: Style.inspector.muted; font-size: Style.typography.caption.size; vertical-alignment: center; width: Style.inspector.gradient-label-width; }
             InspectorTextFieldBase {
                 accessible-name: "Gradient center X";
                 value: root.value.center-x.to-fixed(1);
@@ -115,7 +115,7 @@ export component InspectorGradientGeometry inherits Rectangle {
         }
         if root.value.kind == BrushKind.radial && !root.canvas-active: HorizontalLayout {
             spacing: Style.spacing.regular;
-            Text { text: "Radius"; color: Style.inspector.muted; font-size: Style.typography.caption.size; vertical-alignment: center; width: 58px; }
+            Text { text: "Radius"; color: Style.inspector.muted; font-size: Style.typography.caption.size; vertical-alignment: center; width: Style.inspector.gradient-label-width; }
             InspectorComboBox {
                 accessible-name: "Gradient radius mode";
                 value: root.value.custom-radius ? "Custom" : "Automatic";
@@ -128,7 +128,7 @@ export component InspectorGradientGeometry inherits Rectangle {
         }
         if root.value.kind == BrushKind.radial && root.value.custom-radius && !root.canvas-active: HorizontalLayout {
             spacing: Style.spacing.regular;
-            Text { text: "px"; color: Style.inspector.muted; font-size: Style.typography.caption.size; vertical-alignment: center; width: 58px; }
+            Text { text: "px"; color: Style.inspector.muted; font-size: Style.typography.caption.size; vertical-alignment: center; width: Style.inspector.gradient-label-width; }
             InspectorTextFieldBase {
                 accessible-name: "Gradient radius";
                 value: root.value.radius.to-fixed(1);

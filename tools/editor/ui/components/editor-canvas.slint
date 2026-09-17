@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { EditorGrid } from "editor-grid.slint";
 import { Style } from "../style.slint";
 import { Api, DropMark } from "../api.slint";
 import { AppState, EditorCursors, EditorMetrics, ElementKind } from "common.slint";
@@ -36,17 +37,7 @@ export component EditorCanvas inherits Rectangle {
 
     background: Style.colors.canvas;
 
-    for row in 28: Rectangle {
-        y: row * Style.canvas.grid-pitch;
-        height: 1px;
-        background: Style.canvas.grid-color;
-    }
-
-    for col in 48: Rectangle {
-        x: col * Style.canvas.grid-pitch;
-        width: 1px;
-        background: Style.canvas.grid-color;
-    }
+    EditorGrid { }
 
     TouchArea {
         mouse-cursor: EditorCursors.canvas-default;

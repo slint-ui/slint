@@ -171,7 +171,7 @@ component ElementPaletteGroup inherits VerticalLayout {
     if root.matches.length > 0: Rectangle {
         height: 32px;
         border-radius: Style.controls.field-radius;
-        border-width: group-focus.has-focus ? 2px : 0px;
+        border-width: group-focus.has-focus ? Style.controls.focus-width : 0px;
         border-color: Style.colors.accent-strong;
         background: transparent;
         accessible-role: AccessibleRole.button;
