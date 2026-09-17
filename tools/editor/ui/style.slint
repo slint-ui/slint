@@ -665,7 +665,7 @@ struct ShellTheme {
     palette-card: PaletteCardStyle,
     dialog: DialogStyle,
     error-notice: ErrorNoticeStyle,
-    update-status: UpdateStatusStyle,
+    status-error: color,
 }
 
 struct ImageTheme {
@@ -673,9 +673,9 @@ struct ImageTheme {
     image-rail: ImageRailStyle,
     image-details: ImageDetailsStyle,
     image-field: ImageFieldStyle,
-    image-syntax: ImageSyntaxStyle,
+    syntax-background: brush,
     image-preview: ImagePreviewStyle,
-    image-canvas: ImageCanvasStyle,
+    canvas-shadow: ShadowStyle,
 }
 
 struct WelcomeTheme {
@@ -684,23 +684,23 @@ struct WelcomeTheme {
 }
 
 struct CanvasTheme {
-    canvas-surface: CanvasSurfaceStyle,
-    grid: GridStyle,
+    background: color,
+    grid-color: color,
     artboard: ArtboardStyle,
-    selection-frame: SelectionFrameStyle,
+    selection-accent: color,
 }
 
 struct OverlayTheme {
     gradient-overlay: GradientOverlayStyle,
-    nine-slice: NineSliceStyle,
-    tooltip: TooltipStyle,
+    slice-label-border: color,
+    tooltip-paint: PaintStyle,
     drag-preview: DragPreviewStyle,
     floating-panel: FloatingPanelStyle,
-    gradient-marker: GradientMarkerStyle,
+    marker-inactive: color,
 }
 
 struct InspectorTheme {
-    inspector-layout: InspectorLayoutStyle,
+    divider: color,
     fill-picker: FillPickerStyle,
     effect-slider: EffectSliderStyle,
     radius-slider: RadiusSliderStyle,
@@ -710,14 +710,14 @@ struct InspectorTheme {
 
 struct PickerTheme {
     color-plane: ColorPlaneStyle,
-    color-slider: ColorSliderStyle,
+    slider-thumb-border: color,
     info-icon: InfoIconStyle,
 }
 
 struct NavigationTheme {
     tree-row: TreeRowStyle,
     tree-guides: TreeGuidesStyle,
-    tree-drop: TreeDropStyle,
+    drop-background: color,
     palette-row: PaletteRowStyle,
 }
 
@@ -837,9 +837,7 @@ export global LightTheme {
         foreground: #7a2925,
     };
 
-    out property <UpdateStatusStyle> update-status: {
-        error: #b42318,
-    };
+    out property <color> status-error: #b42318;
 
     out property <ImageTabsStyle> image-tabs: {
         normal: { background: transparent, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
@@ -865,20 +863,16 @@ export global LightTheme {
         muted: LightTheme.colors.muted,
     };
 
-    out property <ImageSyntaxStyle> image-syntax: {
-        background: LightTheme.inspector-field.normal.background,
-    };
+    out property <brush> syntax-background: LightTheme.inspector-field.normal.background;
 
     out property <ImagePreviewStyle> image-preview: {
         border: #cbd5e166,
         background: LightTheme.colors.surface.with-alpha(0.76),
-        canvas: LightTheme.canvas-surface.background.with-alpha(0.72),
+        canvas: LightTheme.background.with-alpha(0.72),
         shadow: { color: #64748b12, blur: 8px, offset-y: 3px },
     };
 
-    out property <ImageCanvasStyle> image-canvas: {
-        shadow: { color: #64748b30, blur: 24px, offset-y: 14px },
-    };
+    out property <ShadowStyle> canvas-shadow: { color: #64748b30, blur: 24px, offset-y: 14px };
 
     out property <WelcomeShellStyle> welcome-shell: {
         stage: #c9c9c9,
@@ -896,13 +890,9 @@ export global LightTheme {
         muted: LightTheme.welcome-shell.muted,
     };
 
-    out property <CanvasSurfaceStyle> canvas-surface: {
-        background: #eef2f7,
-    };
+    out property <color> background: #eef2f7;
 
-    out property <GridStyle> grid: {
-        color: #00000008,
-    };
+    out property <color> grid-color: #00000008;
 
     out property <ArtboardStyle> artboard: {
         background: #ffffff,
@@ -910,22 +900,16 @@ export global LightTheme {
         border: LightTheme.colors.border,
     };
 
-    out property <SelectionFrameStyle> selection-frame: {
-        accent: #0b99fe,
-    };
+    out property <color> selection-accent: #0b99fe;
 
     out property <GradientOverlayStyle> gradient-overlay: {
         endpoint-background: LightTheme.colors.on-accent,
         focus-border: LightTheme.colors.focus,
     };
 
-    out property <NineSliceStyle> nine-slice: {
-        label-border: #ffffff,
-    };
+    out property <color> slice-label-border: #ffffff;
 
-    out property <TooltipStyle> tooltip: {
-        normal: { background: LightTheme.colors.focus, foreground: LightTheme.colors.on-accent, border: LightTheme.colors.border },
-    };
+    out property <PaintStyle> tooltip-paint: { background: LightTheme.colors.focus, foreground: LightTheme.colors.on-accent, border: LightTheme.colors.border };
 
     out property <DragPreviewStyle> drag-preview: {
         shadow: { color: #33415535, blur: 18px, offset-y: 8px },
@@ -937,18 +921,14 @@ export global LightTheme {
         background: LightTheme.colors.surface.with-alpha(0.92),
     };
 
-    out property <GradientMarkerStyle> gradient-marker: {
-        inactive: #b5ccdd,
-    };
+    out property <color> marker-inactive: #b5ccdd;
 
-    out property <InspectorLayoutStyle> inspector-layout: {
-        divider: #e5e5e5,
-    };
+    out property <color> divider: #e5e5e5;
 
     out property <FillPickerStyle> fill-picker: {
         shadow: { color: #64748b35, blur: 18px, offset-y: 8px },
         background: LightTheme.colors.surface,
-        border: LightTheme.inspector-layout.divider,
+        border: LightTheme.divider,
     };
 
     out property <EffectSliderStyle> effect-slider: {
@@ -963,7 +943,7 @@ export global LightTheme {
     out property <RadiusSliderStyle> radius-slider: {
         fill: transparent,
         thumb: LightTheme.colors.muted,
-        track: LightTheme.inspector-layout.divider,
+        track: LightTheme.divider,
         focus-border: LightTheme.colors.accent,
     };
 
@@ -978,20 +958,18 @@ export global LightTheme {
 
     out property <ComboMenuStyle> combo-menu: {
         background: LightTheme.colors.surface,
-        border: LightTheme.inspector-layout.divider,
+        border: LightTheme.divider,
         shadow: LightTheme.popup,
     };
 
     out property <ColorPlaneStyle> color-plane: {
         thumb-border: LightTheme.colors.on-accent,
-        border: LightTheme.inspector-layout.divider,
+        border: LightTheme.divider,
         checker-light: LightTheme.colors.surface,
         checker-dark: LightTheme.inspector-field.normal.border,
     };
 
-    out property <ColorSliderStyle> color-slider: {
-        thumb-border: LightTheme.colors.on-accent,
-    };
+    out property <color> slider-thumb-border: LightTheme.colors.on-accent;
 
     out property <InfoIconStyle> info-icon: {
         foreground: LightTheme.colors.muted,
@@ -1010,14 +988,12 @@ export global LightTheme {
     };
 
     out property <TreeGuidesStyle> tree-guides: {
-        guide: LightTheme.inspector-layout.divider,
+        guide: LightTheme.divider,
         selected-guide: #c4c4c4,
-        file-guide: LightTheme.inspector-layout.divider,
+        file-guide: LightTheme.divider,
     };
 
-    out property <TreeDropStyle> tree-drop: {
-        drop-background: #eaf5ff,
-    };
+    out property <color> drop-background: #eaf5ff;
 
     out property <PaletteRowStyle> palette-row: {
         hover: LightTheme.colors.subtle,
@@ -1088,7 +1064,7 @@ export global LightTheme {
         foreground: LightTheme.colors.foreground,
         muted: LightTheme.colors.muted,
         selected-surface: LightTheme.colors.surface,
-        border: LightTheme.inspector-layout.divider,
+        border: LightTheme.divider,
         focus-border: LightTheme.colors.accent,
     };
 
@@ -1099,9 +1075,9 @@ export global LightTheme {
     };
 
     out property <ButtonStyle> copy-action: {
-        normal: { background: LightTheme.inspector-field.normal.background, foreground: LightTheme.colors.foreground, border: LightTheme.inspector-layout.divider },
-        hover: { background: LightTheme.inspector-field.hover.background, foreground: LightTheme.colors.foreground, border: LightTheme.inspector-layout.divider },
-        pressed: { background: LightTheme.inspector-field.hover.background, foreground: LightTheme.colors.foreground, border: LightTheme.inspector-layout.divider },
+        normal: { background: LightTheme.inspector-field.normal.background, foreground: LightTheme.colors.foreground, border: LightTheme.divider },
+        hover: { background: LightTheme.inspector-field.hover.background, foreground: LightTheme.colors.foreground, border: LightTheme.divider },
+        pressed: { background: LightTheme.inspector-field.hover.background, foreground: LightTheme.colors.foreground, border: LightTheme.divider },
         disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         focus-border: LightTheme.colors.focus,
         icon-color: LightTheme.colors.muted,
@@ -1170,9 +1146,7 @@ export global DarkTheme {
         foreground: #f1b8b4,
     };
 
-    out property <UpdateStatusStyle> update-status: {
-        error: #ff9a94,
-    };
+    out property <color> status-error: #ff9a94;
 
     out property <ImageTabsStyle> image-tabs: {
         normal: { background: transparent, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
@@ -1198,20 +1172,16 @@ export global DarkTheme {
         muted: DarkTheme.colors.muted,
     };
 
-    out property <ImageSyntaxStyle> image-syntax: {
-        background: DarkTheme.inspector-field.normal.background,
-    };
+    out property <brush> syntax-background: DarkTheme.inspector-field.normal.background;
 
     out property <ImagePreviewStyle> image-preview: {
         border: #ffffff18,
         background: DarkTheme.colors.surface.with-alpha(0.76),
-        canvas: DarkTheme.canvas-surface.background.with-alpha(0.72),
+        canvas: DarkTheme.background.with-alpha(0.72),
         shadow: { color: #00000028, blur: 8px, offset-y: 3px },
     };
 
-    out property <ImageCanvasStyle> image-canvas: {
-        shadow: { color: #00000055, blur: 24px, offset-y: 14px },
-    };
+    out property <ShadowStyle> canvas-shadow: { color: #00000055, blur: 24px, offset-y: 14px };
 
     out property <WelcomeShellStyle> welcome-shell: {
         stage: #202124,
@@ -1229,13 +1199,9 @@ export global DarkTheme {
         muted: DarkTheme.welcome-shell.muted,
     };
 
-    out property <CanvasSurfaceStyle> canvas-surface: {
-        background: #1f1f1f,
-    };
+    out property <color> background: #1f1f1f;
 
-    out property <GridStyle> grid: {
-        color: #ffffff0a,
-    };
+    out property <color> grid-color: #ffffff0a;
 
     out property <ArtboardStyle> artboard: {
         background: #f7f8fb,
@@ -1243,22 +1209,16 @@ export global DarkTheme {
         border: DarkTheme.colors.border,
     };
 
-    out property <SelectionFrameStyle> selection-frame: {
-        accent: #0c8ce9,
-    };
+    out property <color> selection-accent: #0c8ce9;
 
     out property <GradientOverlayStyle> gradient-overlay: {
         endpoint-background: DarkTheme.colors.on-accent,
         focus-border: DarkTheme.colors.focus,
     };
 
-    out property <NineSliceStyle> nine-slice: {
-        label-border: #111827,
-    };
+    out property <color> slice-label-border: #111827;
 
-    out property <TooltipStyle> tooltip: {
-        normal: { background: DarkTheme.colors.focus, foreground: DarkTheme.colors.on-accent, border: DarkTheme.colors.border },
-    };
+    out property <PaintStyle> tooltip-paint: { background: DarkTheme.colors.focus, foreground: DarkTheme.colors.on-accent, border: DarkTheme.colors.border };
 
     out property <DragPreviewStyle> drag-preview: {
         shadow: { color: #00000055, blur: 18px, offset-y: 8px },
@@ -1270,18 +1230,14 @@ export global DarkTheme {
         background: DarkTheme.colors.surface.with-alpha(0.92),
     };
 
-    out property <GradientMarkerStyle> gradient-marker: {
-        inactive: #3f3f3f,
-    };
+    out property <color> marker-inactive: #3f3f3f;
 
-    out property <InspectorLayoutStyle> inspector-layout: {
-        divider: #414141,
-    };
+    out property <color> divider: #414141;
 
     out property <FillPickerStyle> fill-picker: {
         shadow: { color: #00000080, blur: 18px, offset-y: 8px },
         background: DarkTheme.colors.surface,
-        border: DarkTheme.inspector-layout.divider,
+        border: DarkTheme.divider,
     };
 
     out property <EffectSliderStyle> effect-slider: {
@@ -1296,7 +1252,7 @@ export global DarkTheme {
     out property <RadiusSliderStyle> radius-slider: {
         fill: DarkTheme.colors.accent,
         thumb: DarkTheme.colors.accent,
-        track: DarkTheme.inspector-layout.divider,
+        track: DarkTheme.divider,
         focus-border: DarkTheme.colors.accent,
     };
 
@@ -1311,20 +1267,18 @@ export global DarkTheme {
 
     out property <ComboMenuStyle> combo-menu: {
         background: DarkTheme.colors.surface,
-        border: DarkTheme.inspector-layout.divider,
+        border: DarkTheme.divider,
         shadow: DarkTheme.popup,
     };
 
     out property <ColorPlaneStyle> color-plane: {
         thumb-border: DarkTheme.colors.on-accent,
-        border: DarkTheme.inspector-layout.divider,
+        border: DarkTheme.divider,
         checker-light: DarkTheme.colors.surface,
         checker-dark: DarkTheme.inspector-field.normal.border,
     };
 
-    out property <ColorSliderStyle> color-slider: {
-        thumb-border: DarkTheme.colors.on-accent,
-    };
+    out property <color> slider-thumb-border: DarkTheme.colors.on-accent;
 
     out property <InfoIconStyle> info-icon: {
         foreground: DarkTheme.colors.muted,
@@ -1343,14 +1297,12 @@ export global DarkTheme {
     };
 
     out property <TreeGuidesStyle> tree-guides: {
-        guide: DarkTheme.inspector-layout.divider,
+        guide: DarkTheme.divider,
         selected-guide: #474747,
-        file-guide: DarkTheme.inspector-layout.divider,
+        file-guide: DarkTheme.divider,
     };
 
-    out property <TreeDropStyle> tree-drop: {
-        drop-background: DarkTheme.colors.accent.with-alpha(0.14),
-    };
+    out property <color> drop-background: DarkTheme.colors.accent.with-alpha(0.14);
 
     out property <PaletteRowStyle> palette-row: {
         hover: DarkTheme.colors.subtle,
@@ -1421,7 +1373,7 @@ export global DarkTheme {
         foreground: DarkTheme.colors.foreground,
         muted: DarkTheme.colors.muted,
         selected-surface: DarkTheme.colors.surface,
-        border: DarkTheme.inspector-layout.divider,
+        border: DarkTheme.divider,
         focus-border: DarkTheme.colors.accent,
     };
 
@@ -1432,9 +1384,9 @@ export global DarkTheme {
     };
 
     out property <ButtonStyle> copy-action: {
-        normal: { background: DarkTheme.inspector-field.normal.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.inspector-layout.divider },
-        hover: { background: DarkTheme.inspector-field.hover.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.inspector-layout.divider },
-        pressed: { background: DarkTheme.inspector-field.hover.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.inspector-layout.divider },
+        normal: { background: DarkTheme.inspector-field.normal.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.divider },
+        hover: { background: DarkTheme.inspector-field.hover.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.divider },
+        pressed: { background: DarkTheme.inspector-field.hover.background, foreground: DarkTheme.colors.foreground, border: DarkTheme.divider },
         disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         focus-border: DarkTheme.colors.focus,
         icon-color: DarkTheme.colors.muted,
@@ -1462,12 +1414,12 @@ export global Theme {
         palette-card: DarkTheme.palette-card,
         dialog: DarkTheme.dialog,
         error-notice: DarkTheme.error-notice,
-        update-status: DarkTheme.update-status,
+        status-error: DarkTheme.status-error,
     } : {
         palette-card: LightTheme.palette-card,
         dialog: LightTheme.dialog,
         error-notice: LightTheme.error-notice,
-        update-status: LightTheme.update-status,
+        status-error: LightTheme.status-error,
     };
 
     out property <ImageTheme> image: root.current == ThemeKind.dark ? {
@@ -1475,17 +1427,17 @@ export global Theme {
         image-rail: DarkTheme.image-rail,
         image-details: DarkTheme.image-details,
         image-field: DarkTheme.image-field,
-        image-syntax: DarkTheme.image-syntax,
+        syntax-background: DarkTheme.syntax-background,
         image-preview: DarkTheme.image-preview,
-        image-canvas: DarkTheme.image-canvas,
+        canvas-shadow: DarkTheme.canvas-shadow,
     } : {
         image-tabs: LightTheme.image-tabs,
         image-rail: LightTheme.image-rail,
         image-details: LightTheme.image-details,
         image-field: LightTheme.image-field,
-        image-syntax: LightTheme.image-syntax,
+        syntax-background: LightTheme.syntax-background,
         image-preview: LightTheme.image-preview,
-        image-canvas: LightTheme.image-canvas,
+        canvas-shadow: LightTheme.canvas-shadow,
     };
 
     out property <WelcomeTheme> welcome: root.current == ThemeKind.dark ? {
@@ -1497,42 +1449,42 @@ export global Theme {
     };
 
     out property <CanvasTheme> canvas: root.current == ThemeKind.dark ? {
-        canvas-surface: DarkTheme.canvas-surface,
-        grid: DarkTheme.grid,
+        background: DarkTheme.background,
+        grid-color: DarkTheme.grid-color,
         artboard: DarkTheme.artboard,
-        selection-frame: DarkTheme.selection-frame,
+        selection-accent: DarkTheme.selection-accent,
     } : {
-        canvas-surface: LightTheme.canvas-surface,
-        grid: LightTheme.grid,
+        background: LightTheme.background,
+        grid-color: LightTheme.grid-color,
         artboard: LightTheme.artboard,
-        selection-frame: LightTheme.selection-frame,
+        selection-accent: LightTheme.selection-accent,
     };
 
     out property <OverlayTheme> overlay: root.current == ThemeKind.dark ? {
         gradient-overlay: DarkTheme.gradient-overlay,
-        nine-slice: DarkTheme.nine-slice,
-        tooltip: DarkTheme.tooltip,
+        slice-label-border: DarkTheme.slice-label-border,
+        tooltip-paint: DarkTheme.tooltip-paint,
         drag-preview: DarkTheme.drag-preview,
         floating-panel: DarkTheme.floating-panel,
-        gradient-marker: DarkTheme.gradient-marker,
+        marker-inactive: DarkTheme.marker-inactive,
     } : {
         gradient-overlay: LightTheme.gradient-overlay,
-        nine-slice: LightTheme.nine-slice,
-        tooltip: LightTheme.tooltip,
+        slice-label-border: LightTheme.slice-label-border,
+        tooltip-paint: LightTheme.tooltip-paint,
         drag-preview: LightTheme.drag-preview,
         floating-panel: LightTheme.floating-panel,
-        gradient-marker: LightTheme.gradient-marker,
+        marker-inactive: LightTheme.marker-inactive,
     };
 
     out property <InspectorTheme> inspector: root.current == ThemeKind.dark ? {
-        inspector-layout: DarkTheme.inspector-layout,
+        divider: DarkTheme.divider,
         fill-picker: DarkTheme.fill-picker,
         effect-slider: DarkTheme.effect-slider,
         radius-slider: DarkTheme.radius-slider,
         rotation-dial: DarkTheme.rotation-dial,
         combo-menu: DarkTheme.combo-menu,
     } : {
-        inspector-layout: LightTheme.inspector-layout,
+        divider: LightTheme.divider,
         fill-picker: LightTheme.fill-picker,
         effect-slider: LightTheme.effect-slider,
         radius-slider: LightTheme.radius-slider,
@@ -1542,23 +1494,23 @@ export global Theme {
 
     out property <PickerTheme> picker: root.current == ThemeKind.dark ? {
         color-plane: DarkTheme.color-plane,
-        color-slider: DarkTheme.color-slider,
+        slider-thumb-border: DarkTheme.slider-thumb-border,
         info-icon: DarkTheme.info-icon,
     } : {
         color-plane: LightTheme.color-plane,
-        color-slider: LightTheme.color-slider,
+        slider-thumb-border: LightTheme.slider-thumb-border,
         info-icon: LightTheme.info-icon,
     };
 
     out property <NavigationTheme> navigation: root.current == ThemeKind.dark ? {
         tree-row: DarkTheme.tree-row,
         tree-guides: DarkTheme.tree-guides,
-        tree-drop: DarkTheme.tree-drop,
+        drop-background: DarkTheme.drop-background,
         palette-row: DarkTheme.palette-row,
     } : {
         tree-row: LightTheme.tree-row,
         tree-guides: LightTheme.tree-guides,
-        tree-drop: LightTheme.tree-drop,
+        drop-background: LightTheme.drop-background,
         palette-row: LightTheme.palette-row,
     };
 
@@ -1698,7 +1650,7 @@ export global Style {
     };
 
     out property <UpdateStatusStyle> update-status: {
-        error: Theme.shell.update-status.error,
+        error: Theme.shell.status-error,
     };
 
     out property <ImageTabsStyle> image-tabs: {
@@ -1745,7 +1697,7 @@ export global Style {
         radius: Metrics.radius-small,
         padding-inline: Metrics.space-regular,
         padding-block: Metrics.space-compact,
-        background: Theme.image.image-syntax.background,
+        background: Theme.image.syntax-background,
     };
 
     private property <ImagePreviewStyle> image-preview: {
@@ -1756,7 +1708,7 @@ export global Style {
     };
 
     private property <ImageCanvasStyle> image-canvas: {
-        shadow: Theme.image.image-canvas.shadow,
+        shadow: Theme.image.canvas-shadow,
     };
 
     out property <WelcomeShellStyle> welcome-shell: {
@@ -1787,11 +1739,11 @@ export global Style {
 
     out property <CanvasSurfaceStyle> canvas-surface: {
         grid: root.grid,
-        background: Theme.canvas.canvas-surface.background,
+        background: Theme.canvas.background,
     };
 
     out property <GridStyle> grid: {
-        color: Theme.canvas.grid.color,
+        color: Theme.canvas.grid-color,
     };
 
     out property <ArtboardStyle> artboard: {
@@ -1801,7 +1753,7 @@ export global Style {
     };
 
     out property <SelectionFrameStyle> selection-frame: {
-        accent: Theme.canvas.selection-frame.accent,
+        accent: Theme.canvas.selection-accent,
     };
 
     out property <GradientOverlayStyle> gradient-overlay: {
@@ -1815,14 +1767,14 @@ export global Style {
     out property <NineSliceStyle> nine-slice: {
         label-shadow: { color: #00000055, blur: 8px, offset-y: 2px },
         text: { size: Typography.caption.size, weight: FontWeight.black },
-        label-border: Theme.overlay.nine-slice.label-border,
+        label-border: Theme.overlay.slice-label-border,
     };
 
     out property <TooltipStyle> tooltip: {
         shadow: { color: #33415535, blur: 12px, offset-y: 4px },
         radius: Metrics.radius-medium,
         text: Typography.control,
-        normal: Theme.overlay.tooltip.normal,
+        normal: Theme.overlay.tooltip-paint,
     };
 
     out property <DragPreviewStyle> drag-preview: {
@@ -1839,7 +1791,7 @@ export global Style {
 
     private property <GradientMarkerStyle> gradient-marker: {
         checker: root.transparency-grid,
-        inactive: Theme.overlay.gradient-marker.inactive,
+        inactive: Theme.overlay.marker-inactive,
     };
 
     out property <InspectorLayoutStyle> inspector-layout: {
@@ -1847,7 +1799,7 @@ export global Style {
         padding: root.inspector-layout-padding,
         column-gap: Metrics.space-regular,
         content-width: root.panes.inspector-width - Metrics.border-width - 2 * root.inspector-layout-padding,
-        divider: Theme.inspector.inspector-layout.divider,
+        divider: Theme.inspector.divider,
     };
 
     out property <FillPickerStyle> fill-picker: {
@@ -1912,7 +1864,7 @@ export global Style {
     out property <ColorSliderStyle> color-slider: {
         shadow: { color: #00000070, blur: 2px, offset-y: 0px },
         radius: Metrics.radius-large,
-        thumb-border: Theme.picker.color-slider.thumb-border,
+        thumb-border: Theme.picker.slider-thumb-border,
     };
 
     private property <GradientRampStyle> gradient-ramp: {
@@ -1960,7 +1912,7 @@ export global Style {
         drop-border-width: Metrics.border-width,
         drop-line-height: Metrics.focus-width,
         root-drop-height: Metrics.space-regular,
-        drop-background: Theme.navigation.tree-drop.drop-background,
+        drop-background: Theme.navigation.drop-background,
     };
 
     out property <PaletteRowStyle> palette-row: {
