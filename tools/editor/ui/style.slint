@@ -70,6 +70,7 @@ export struct ErrorNoticeStyle {
 }
 
 export struct ButtonStyle {
+    width: length,
     height: length,
     padding-inline: length,
     gap: length,
@@ -149,10 +150,6 @@ export struct ImageSyntaxStyle {
     padding-block: length,
 }
 
-export struct CopyButtonStyle {
-    width: length = 54px,
-    button: ButtonStyle,
-}
 
 export struct ImageDetailsStyle {
     height: length = 260px,
@@ -166,7 +163,7 @@ export struct ImageDetailsStyle {
     heading: TextStyle,
     field: ImageFieldStyle,
     syntax: ImageSyntaxStyle,
-    copy: CopyButtonStyle,
+    copy: ButtonStyle,
 }
 
 export struct ImagePreviewStyle {
@@ -262,6 +259,7 @@ export struct GridStyle {
 }
 
 export struct CanvasSurfaceStyle {
+    drop-indicator: PaintStyle = { background: #ffffff, foreground: #ffffff },
     background: color,
     grid: GridStyle,
 }
@@ -376,10 +374,6 @@ export struct DragPreviewStyle {
     text: TextStyle,
 }
 
-export struct DropIndicatorStyle {
-    background: brush = #ffffff,
-    foreground: brush = #ffffff,
-}
 
 export struct FloatingPanelStyle {
     border: color,
@@ -397,6 +391,7 @@ export struct InspectorLayoutStyle {
 }
 
 export struct FillPickerStyle {
+    recent-swatch-size: length = 22px,
     width: length = 260px,
     gap: length,
     margin: length,
@@ -464,9 +459,6 @@ export struct ComboMenuStyle {
     shadow: ShadowStyle,
 }
 
-export struct RecentFillsStyle {
-    swatch-size: length = 22px,
-}
 
 export struct ColorPlaneStyle {
     height: length = 170px,
@@ -1600,7 +1592,6 @@ export global Style {
 
     out property <RadiusHandleStyle> radius-handle;
 
-    out property <DropIndicatorStyle> drop-indicator;
 
     out property <TransparencyGridStyle> transparency-grid;
 
@@ -1610,7 +1601,6 @@ export global Style {
 
     private property <length> rotation-dial-inset: 2px;
 
-    out property <RecentFillsStyle> recent-fills;
 
 
 
@@ -1880,9 +1870,7 @@ export global Style {
         hover: Theme.picker.info-icon.hover,
     };
 
-    out property <CopyButtonStyle> copy-button: {
-        button: root.copy-action,
-    };
+
 
     out property <TreeRowStyle> tree-row: {
         height: Metrics.control-medium,
@@ -2087,7 +2075,8 @@ export global Style {
         image: root.image-canvas,
     };
 
-    private property <ButtonStyle> copy-action: {
+    out property <ButtonStyle> copy-button: {
+        width: 54px,
         height: Metrics.control-compact,
         padding-inline: Metrics.space-regular,
         gap: Metrics.space-regular,

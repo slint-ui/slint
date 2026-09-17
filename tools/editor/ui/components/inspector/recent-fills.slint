@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, Colors, Typography, RecentFillsStyle } from "../../style.slint";
+import { Style, Metrics, Colors, Typography, FillPickerStyle } from "../../style.slint";
 import { Api, FillData } from "../../api.slint";
 
 export component InspectorRecentFills inherits Rectangle {
-    in property <RecentFillsStyle> style: Style.recent-fills;
+    in property <FillPickerStyle> style: Style.fill-picker;
     in property <bool> allow-gradient;
     in property <bool> editable;
     callback chosen(FillData);
@@ -19,8 +19,8 @@ export component InspectorRecentFills inherits Rectangle {
             spacing: Metrics.space-compact;
             alignment: start;
             for fill in root.fills: FocusScope {
-                width: root.style.swatch-size;
-                height: root.style.swatch-size;
+                width: root.style.recent-swatch-size;
+                height: root.style.recent-swatch-size;
                 key-pressed(event) => {
                     if root.editable && (event.text == Key.Return || event.text == Key.Space) {
                         root.chosen(fill);

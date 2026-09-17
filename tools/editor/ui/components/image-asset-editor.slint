@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { EditorGrid } from "editor-grid.slint";
-import { Style, PaintStyle, Metrics, Typography, Colors, NineSliceStyle, ImageTabsStyle, ImageFieldStyle, ImageSyntaxStyle, CopyButtonStyle, ImageDetailsStyle, ImageAssetEditorStyle } from "../style.slint";
+import { Style, PaintStyle, Metrics, Typography, Colors, NineSliceStyle, ImageTabsStyle, ImageFieldStyle, ImageSyntaxStyle, ButtonStyle, ImageDetailsStyle, ImageAssetEditorStyle } from "../style.slint";
 // cspell:ignore nesw
 
 import { Api } from "../api.slint";
@@ -163,17 +163,17 @@ component FloatingSyntaxField inherits Rectangle {
 }
 
 component FloatingCopyButton inherits Rectangle {
-    in property <CopyButtonStyle> style: Style.copy-button;
+    in property <ButtonStyle> style: Style.copy-button;
     in property <string> label: "Copy";
     callback clicked;
-    private property <PaintStyle> paint: touch.pressed ? root.style.button.pressed
-        : touch.has-hover || copy-focus.has-focus ? root.style.button.hover : root.style.button.normal;
+    private property <PaintStyle> paint: touch.pressed ? root.style.pressed
+        : touch.has-hover || copy-focus.has-focus ? root.style.hover : root.style.normal;
 
     width: root.style.width;
-    height: root.style.button.height;
-    border-radius: root.style.button.radius;
+    height: root.style.height;
+    border-radius: root.style.radius;
     border-width: copy-focus.has-focus ? Metrics.focus-width : Metrics.border-width;
-    border-color: copy-focus.has-focus ? root.style.button.focus-border : root.paint.border;
+    border-color: copy-focus.has-focus ? root.style.focus-border : root.paint.border;
     background: root.paint.background;
     accessible-role: button;
     accessible-label: root.label;
@@ -194,8 +194,8 @@ component FloatingCopyButton inherits Rectangle {
     Text {
         text: root.label;
         color: root.paint.foreground;
-        font-size: root.style.button.text.size;
-        font-weight: root.style.button.text.weight;
+        font-size: root.style.text.size;
+        font-weight: root.style.text.weight;
         horizontal-alignment: center;
         vertical-alignment: center;
     }

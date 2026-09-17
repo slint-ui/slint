@@ -128,8 +128,8 @@ export component EditorCanvas inherits Rectangle {
                 y: min(drop-mark.y1, drop-mark.y2);
                 width: max((drop-mark.x2 - drop-mark.x1).abs(), 2px);
                 height: max((drop-mark.y2 - drop-mark.y1).abs(), 2px);
-                border-color: Style.drop-indicator.foreground;
-                background: Style.drop-indicator.background;
+                border-color: root.style.drop-indicator.foreground;
+                background: root.style.drop-indicator.background;
                 accessible-role: AccessibleRole.region;
                 accessible-label: "Canvas drop marker";
             }
