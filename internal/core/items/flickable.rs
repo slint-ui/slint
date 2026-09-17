@@ -13,10 +13,10 @@ use super::{
 use crate::animations::Instant;
 use crate::animations::simulations::PositionSimulation;
 use crate::animations::simulations::scroll_spring::SpringSimulation;
-use crate::input::InternalKeyEvent;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,
 };
+use crate::input::{InternalKeyEvent, TouchHistory};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::ItemWeak;
 use crate::items::AutoBool;
@@ -551,14 +551,51 @@ impl FlickableDataInner {
         flick_rc: &ItemRc,
         position: LogicalPoint,
         delta: LogicalVector,
+        history: &TouchHistory,
         content_x: &Pin<&Property<LogicalLength>>,
         content_y: &Pin<&Property<LogicalLength>>,
     ) -> bool {
         let current_tick = crate::animations::current_tick();
         let current_pos = LogicalPoint::from_lengths(content_x.get(), content_y.get());
 
-        self.maybe_lose_momentum(&current_tick);
-        self.velocity_rb.push(current_tick, delta);
+        if history.history.len() > 0 {
+            let mut last_time = self
+                .velocity_rb
+                .last_time()
+                .unwrap_or(current_tick - history.history.first().unwrap().1);
+
+            // Make sure we don't get a negative diff
+            let mut clamp_time = |t| {
+                last_time = last_time.max(t);
+                last_time
+            };
+
+            if let Some(event_pos) = history.event_pos {
+                for (older, newer) in history.history.iter().zip(history.history.iter().skip(1)) {
+                    let instant = clamp_time(current_tick - newer.1);
+                    self.maybe_lose_momentum(&instant);
+                    let delta = newer.0 - older.0;
+                    self.velocity_rb.push(instant, delta);
+                }
+                self.maybe_lose_momentum(&current_tick);
+                let delta = event_pos - history.history.last().unwrap().0;
+                self.velocity_rb.push(current_tick, delta);
+            } else {
+                // Every event is already a delta
+                for e in history.history.iter() {
+                    let instant = clamp_time(current_tick - e.1);
+                    self.maybe_lose_momentum(&instant);
+                    self.velocity_rb
+                        .push(instant, LogicalVector::from_lengths(e.0.x_length(), e.0.y_length()));
+                }
+
+                // We cannot use the input delta because this is the sum of all history deltas
+                // So we don't have to push any further values here
+            }
+        } else {
+            self.maybe_lose_momentum(&current_tick);
+            self.velocity_rb.push(current_tick, delta);
+        }
 
         // We calculate the new content position by adding the mouse delta in the flickable
         // coordinate system to the current content position.
@@ -569,7 +606,7 @@ impl FlickableDataInner {
         content_x.set(new_pos.x_length());
         content_y.set(new_pos.y_length());
 
-        self.last_scroll_event = Some((crate::animations::current_tick(), position));
+        self.last_scroll_event = Some((current_tick, position));
 
         // Indicate if flicked
         current_pos.x_length() != new_pos.x_length() || current_pos.y_length() != new_pos.y_length()
@@ -626,8 +663,15 @@ impl FlickableDataInner {
         let mut flicked = false;
         match phase {
             TouchPhase::Cancelled => {
-                flicked =
-                    self.scroll_move(flick, flick_rc, position, delta, &content_x, &content_y);
+                flicked = self.scroll_move(
+                    flick,
+                    flick_rc,
+                    position,
+                    delta,
+                    &Default::default(),
+                    &content_x,
+                    &content_y,
+                );
             }
             TouchPhase::Started => {
                 self.velocity_rb = Default::default();
@@ -637,8 +681,15 @@ impl FlickableDataInner {
             TouchPhase::Moved => {
                 if self.capture_events.is_some_and(|capture| capture == CaptureEvents::MouseWheel) {
                     // Touchpad case with different phases
-                    flicked =
-                        self.scroll_move(flick, flick_rc, position, delta, &content_x, &content_y);
+                    flicked = self.scroll_move(
+                        flick,
+                        flick_rc,
+                        position,
+                        delta,
+                        &Default::default(),
+                        &content_x,
+                        &content_y,
+                    );
                 } else {
                     // Mousewheel case with no phase
                     // Add a short animation that covers the delta for smooth scrolling
@@ -868,6 +919,9 @@ impl FlickableDataInner {
                             Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
                                 let curr_val = content_y.get().0;
                                 content_y.set_physic_animation_value(weak.clone());
+                                if velocity_estimation.velocity.y > 0. {
+                                    println!("RB: {:?}", self.velocity_rb);
+                                }
                                 println!(
                                     "Create new simulation. Velocity: {:?}, carried velocity: {:?}",
                                     velocity_estimation.velocity.y + carried_velocity_y,
@@ -955,7 +1009,6 @@ impl FlickableData {
                     return InputEventFilterResult::ForwardAndIgnore;
                 }
 
-                inner.velocity_rb = Default::default();
                 inner.pressed_mouse_state = Some((crate::animations::current_tick(), *position));
                 inner.last_mouse_position = *position;
                 inner.capture_momentum();
@@ -967,8 +1020,10 @@ impl FlickableData {
                 content_y.remove_binding(); // Stop animation by removing the binding
 
                 if inner.capture_events.is_some() {
+                    println!("Mouse filter pressed, Intercept");
                     InputEventFilterResult::Intercept
                 } else {
+                    println!("Mouse filter pressed, delay forward");
                     InputEventFilterResult::DelayForwarding(FORWARD_DELAY.as_millis() as _)
                 }
             }
@@ -991,10 +1046,13 @@ impl FlickableData {
                         },
                     );
                 if do_intercept {
+                    println!("Mouse filter moved. Intercept: {do_intercept}");
                     InputEventFilterResult::Intercept
                 } else if inner.pressed_mouse_state.is_some() {
+                    println!("Mouse filter moved. ForwardAndInterceptGrab");
                     InputEventFilterResult::ForwardAndInterceptGrab
                 } else {
+                    println!("Mouse filter moved. Intercept: {do_intercept}");
                     InputEventFilterResult::ForwardEvent
                 }
             }
@@ -1120,6 +1178,7 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { .. } => {
+                println!("Handle mouse Press");
                 inner.capture_events = Some(CaptureEvents::MouseOrTouchScreen);
                 inner.capture_momentum();
                 inner.last_scroll_event =
@@ -1144,7 +1203,7 @@ impl FlickableData {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Moved { position, .. } => {
+            MouseEvent::Moved { position, history, .. } => {
                 // Important constraint: The content_y might not be stable, and might jump around
                 // wildly!
                 // This is especially the case if a ListView is involved, which will continuously
@@ -1162,6 +1221,7 @@ impl FlickableData {
                     if is_capturing
                         || self.should_capture_mouse_direction(mouse_delta, flick, flick_rc)
                     {
+                        println!("Handle mouse Move");
                         // The drag event is meant to move the content, set it to the new position
                         // and start capturing mouse events.
                         let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
@@ -1172,6 +1232,7 @@ impl FlickableData {
                             flick_rc,
                             *position,
                             mouse_delta,
+                            history,
                             &content_x,
                             &content_y,
                         );
@@ -1206,6 +1267,7 @@ impl FlickableData {
                         // drag in a unsupported direction gives up the grab
                         InputEventResult::EventIgnored
                     } else {
+                        println!("Handle mouse No Move yet, still wait");
                         // the mouse was moved, but not enough to start the drag, we still want to accept further events
                         // so that we may pass the threshold at some point
                         InputEventResult::EventAccepted
