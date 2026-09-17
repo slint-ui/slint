@@ -154,7 +154,6 @@ export struct ImageSyntaxStyle {
     padding-block: length,
 }
 
-
 export struct ImageDetailsStyle {
     height: length = 260px,
     preview-height: length = 154px,
@@ -242,7 +241,6 @@ export struct RecentProjectRowStyle {
     icon-size: length = 27px,
     text-gap: length,
     selected-muted: color = #d7e7ff,
-    background: brush = #0000,
     hover: brush,
     foreground: color,
     muted: color,
@@ -391,8 +389,8 @@ export struct DragPreviewStyle {
     text: TextStyle,
 }
 
-
 export struct FloatingPanelStyle {
+    shadow: ShadowStyle,
     border: color,
     background: color,
 }
@@ -478,7 +476,6 @@ export struct ComboMenuStyle {
     shadow: ShadowStyle,
 }
 
-
 export struct ColorPlaneStyle {
     height: length = 170px,
     thumb-size: length = 12px,
@@ -517,7 +514,6 @@ export struct GradientStopRowStyle {
     swatch-size: length = 14px,
 }
 
-
 export struct InfoIconStyle {
     size: length = 14px,
     text: TextStyle,
@@ -526,9 +522,6 @@ export struct InfoIconStyle {
     accent: color,
     hover: brush,
 }
-
-
-
 
 export struct PaletteRowStyle {
     drag-opacity: float = 0.56,
@@ -549,7 +542,6 @@ export struct FieldAppearance {
     focus: PaintStyle,
     disabled: PaintStyle,
     muted: color,
-    focus-border: brush,
     selection: color,
 }
 
@@ -566,7 +558,6 @@ export struct FieldStyle {
 export struct SegmentStyle {
     height: length,
     radius: length,
-    background: brush,
     hover: brush,
     foreground: color,
     muted: color,
@@ -597,7 +588,6 @@ export struct GradientStopsStyle {
     ramp: GradientRampStyle,
     marker: GradientMarkerStyle,
     row: GradientStopRowStyle,
-    gap: length,
 }
 
 export struct ImageAssetEditorStyle {
@@ -690,7 +680,7 @@ struct OverlayTheme {
     slice-label-border: color,
     tooltip-paint: PaintStyle,
     drag-preview: DragPreviewStyle,
-    floating-panel: FloatingPanelStyle,
+    floating-panel: PaintStyle,
     marker-inactive: color,
 }
 
@@ -736,11 +726,6 @@ struct ControlsTheme {
     segment: SegmentStyle,
     sidebar-toggle: SidebarToggleStyle,
     corner-mode: CornerModeStyle,
-}
-
-struct ElevationTheme {
-    popup: ShadowStyle,
-    floating: ShadowStyle,
 }
 
 export global Metrics {
@@ -913,7 +898,7 @@ export global LightTheme {
         row-border: LightTheme.guide,
     };
 
-    out property <FloatingPanelStyle> floating-panel: {
+    out property <PaintStyle> floating-panel: {
         border: #d0d7de,
         background: LightTheme.colors.surface.with-alpha(0.92),
     };
@@ -1036,25 +1021,22 @@ export global LightTheme {
     out property <FieldAppearance> field: {
         normal: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
         hover: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
-        focus: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
+        focus: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.focus },
         disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         muted: LightTheme.colors.muted,
-        focus-border: LightTheme.colors.focus,
         selection: LightTheme.colors.text-selection,
     };
 
     out property <FieldAppearance> inspector-field: {
         normal: { background: #f5f5f5, foreground: LightTheme.colors.foreground, border: #d9d9d9},
         hover: { background: #eeeeee, foreground: LightTheme.colors.foreground, border: #d9d9d9},
-        focus: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
+        focus: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.accent },
         disabled: { background: ( #f5f5f5).with-alpha(0.65), foreground: LightTheme.colors.muted, border: #d9d9d9},
         muted: LightTheme.colors.muted,
-        focus-border: LightTheme.colors.accent,
         selection: LightTheme.colors.text-selection,
     };
 
     out property <SegmentStyle> segment: {
-        background: LightTheme.inspector-field.normal.background,
         hover: LightTheme.inspector-field.hover.background,
         foreground: LightTheme.colors.foreground,
         muted: LightTheme.colors.muted,
@@ -1220,7 +1202,7 @@ export global DarkTheme {
         row-border: DarkTheme.guide,
     };
 
-    out property <FloatingPanelStyle> floating-panel: {
+    out property <PaintStyle> floating-panel: {
         border: #ffffff18,
         background: DarkTheme.colors.surface.with-alpha(0.92),
     };
@@ -1343,25 +1325,22 @@ export global DarkTheme {
     out property <FieldAppearance> field: {
         normal: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
         hover: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
-        focus: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
+        focus: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.focus },
         disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         muted: DarkTheme.colors.muted,
-        focus-border: DarkTheme.colors.focus,
         selection: DarkTheme.colors.text-selection,
     };
 
     out property <FieldAppearance> inspector-field: {
         normal: { background: #383838, foreground: DarkTheme.colors.foreground, border: #4b4b4b},
         hover: { background: #414141, foreground: DarkTheme.colors.foreground, border: #4b4b4b},
-        focus: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
+        focus: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.accent },
         disabled: { background: ( #383838).with-alpha(0.65), foreground: DarkTheme.colors.muted, border: #4b4b4b},
         muted: DarkTheme.colors.muted,
-        focus-border: DarkTheme.colors.accent,
         selection: DarkTheme.colors.text-selection,
     };
 
     out property <SegmentStyle> segment: {
-        background: DarkTheme.inspector-field.normal.background,
         hover: DarkTheme.inspector-field.hover.background,
         foreground: DarkTheme.colors.foreground,
         muted: DarkTheme.colors.muted,
@@ -1545,13 +1524,7 @@ export global Theme {
         corner-mode: LightTheme.corner-mode,
     };
 
-    out property <ElevationTheme> elevation: root.current == ThemeKind.dark ? {
-        popup: DarkTheme.popup,
-        floating: DarkTheme.floating,
-    } : {
-        popup: LightTheme.popup,
-        floating: LightTheme.floating,
-    };
+    out property <ShadowStyle> floating-shadow: root.current == ThemeKind.dark ? DarkTheme.floating : LightTheme.floating;
 }
 
 export global Colors {
@@ -1570,10 +1543,6 @@ export global Colors {
     out property <color> danger: Theme.colors.danger;
 }
 
-export global Elevation {
-    out property <ShadowStyle> floating: Theme.elevation.floating;
-}
-
 export global Style {
     out property <ShellStyle> shell;
 
@@ -1581,12 +1550,7 @@ export global Style {
 
     out property <CollapsedSidebarStyle> collapsed-sidebar;
 
-    private property <length> image-tabs-height: Metrics.control-medium;
-
-
     out property <WelcomeHeroStyle> welcome-hero;
-
-    private property <length> welcome-actions-gap: Metrics.space-regular;
 
     out property <RecentProjectListStyle> recent-project-list;
 
@@ -1597,20 +1561,7 @@ export global Style {
 
     out property <RadiusHandleStyle> radius-handle;
 
-
     out property <TransparencyGridStyle> transparency-grid;
-
-    private property <length> inspector-layout-padding: Metrics.space-medium;
-
-    private property <length> rotation-dial-size: 32px;
-
-    private property <length> rotation-dial-inset: 2px;
-
-
-
-
-
-
 
     out property <PaletteCardStyle> palette-card: {
         background: Theme.shell.palette-card.background,
@@ -1645,8 +1596,8 @@ export global Style {
     };
 
     out property <ImageTabsStyle> image-tabs: {
-        height: root.image-tabs-height,
-        group-height: root.image-tabs-height + 2 * Metrics.space-small,
+        height: Metrics.control-medium,
+        group-height: Metrics.control-medium + 2 * Metrics.space-small,
         radius: Metrics.radius-medium,
         normal: Theme.image.image-tabs.normal,
         hover: Theme.image.image-tabs.hover,
@@ -1713,8 +1664,8 @@ export global Style {
     };
 
     out property <WelcomeActionsStyle> welcome-actions: {
-        height: 2 * root.welcome-button.height + root.welcome-actions-gap,
-        gap: root.welcome-actions-gap,
+        height: 2 * root.welcome-button.height + Metrics.space-regular,
+        gap: Metrics.space-regular,
     };
 
     out property <RecentProjectRowStyle> recent-project-row: {
@@ -1776,6 +1727,7 @@ export global Style {
     };
 
     out property <FloatingPanelStyle> floating-panel: {
+        shadow: Theme.floating-shadow,
         border: Theme.overlay.floating-panel.border,
         background: Theme.overlay.floating-panel.background,
     };
@@ -1787,9 +1739,9 @@ export global Style {
 
     out property <InspectorStyle> inspector-layout: {
         row-gap: Metrics.space-compact,
-        padding: root.inspector-layout-padding,
+        padding: Metrics.space-medium,
         column-gap: Metrics.space-regular,
-        content-width: root.panes.inspector-width - Metrics.border-width - 2 * root.inspector-layout-padding,
+        content-width: root.panes.inspector-width - Metrics.border-width - 2 * Metrics.space-medium,
         divider: Theme.inspector.divider,
     };
 
@@ -1824,9 +1776,9 @@ export global Style {
     };
 
     out property <RotationDialStyle> rotation-dial: {
-        size: root.rotation-dial-size,
-        inset: root.rotation-dial-inset,
-        face-size: root.rotation-dial-size - 2 * root.rotation-dial-inset,
+        size: 32px,
+        inset: 2px,
+        face-size: 32px - 2 * 2px,
         dot: @linear-gradient(180deg, #0879b7, #38b9fa),
         shadow: { color: #00000025, blur: 2px, offset-y: 1px },
         ring: Theme.inspector.rotation-dial.ring,
@@ -1871,8 +1823,6 @@ export global Style {
         hover: Theme.picker.info-icon.hover,
     };
 
-
-
     private property <TreeRowStyle> tree-row: {
         height: Metrics.control-medium,
         font-size: Typography.body.size,
@@ -1889,10 +1839,6 @@ export global Style {
         accent: Theme.navigation.tree-row.accent,
         directory-icon: Theme.navigation.tree-row.directory-icon,
     };
-
-
-
-
 
     out property <TreeStyle> tree: {
         row: root.tree-row,
@@ -1926,7 +1872,7 @@ export global Style {
         border-width: Metrics.border-width,
         text: Typography.strong-body,
         disabled-opacity: Metrics.disabled-opacity,
-            appearance: Theme.buttons.primary-button,
+        appearance: Theme.buttons.primary-button,
     };
 
     out property <ButtonStyle> compact-button: {
@@ -1937,7 +1883,7 @@ export global Style {
         border-width: Metrics.border-width,
         text: Typography.control,
         disabled-opacity: Metrics.disabled-opacity,
-            appearance: Theme.buttons.compact-button,
+        appearance: Theme.buttons.compact-button,
     };
 
     out property <ButtonStyle> welcome-button: {
@@ -1948,7 +1894,7 @@ export global Style {
         border-width: Metrics.border-width,
         text: { size: Typography.action.size, weight: FontWeight.extra-bold },
         disabled-opacity: Metrics.disabled-opacity,
-            appearance: Theme.buttons.welcome-button,
+        appearance: Theme.buttons.welcome-button,
     };
 
     out property <ButtonStyle> inspector-icon-button: {
@@ -1959,7 +1905,7 @@ export global Style {
         border-width: Metrics.border-width,
         text: Typography.control,
         disabled-opacity: Metrics.disabled-opacity,
-            appearance: Theme.buttons.inspector-icon-button,
+        appearance: Theme.buttons.inspector-icon-button,
     };
 
     out property <FieldStyle> field: {
@@ -1969,7 +1915,7 @@ export global Style {
         padding-inline: Metrics.space-medium,
         gap: Metrics.space-regular,
         text: Typography.body,
-            appearance: Theme.fields.field,
+        appearance: Theme.fields.field,
     };
 
     out property <FieldStyle> inspector-field: {
@@ -1979,7 +1925,7 @@ export global Style {
         padding-inline: Metrics.space-regular,
         gap: Metrics.space-compact,
         text: Typography.control,
-            appearance: Theme.fields.inspector-field,
+        appearance: Theme.fields.inspector-field,
     };
 
     pure function field-variant(base: FieldStyle, gap: length, text: TextStyle) -> FieldStyle {
@@ -2001,7 +1947,6 @@ export global Style {
         height: root.inspector-field.height,
         radius: root.inspector-field.radius,
         text: Typography.control,
-        background: Theme.controls.segment.background,
         hover: Theme.controls.segment.hover,
         foreground: Theme.controls.segment.foreground,
         muted: Theme.controls.segment.muted,
@@ -2028,7 +1973,6 @@ export global Style {
     out property <GradientStopsStyle> gradient-stops: {
         ramp: root.gradient-ramp,
         marker: root.gradient-marker,
-        gap: Metrics.space-regular,
     };
 
     out property <ImageAssetEditorStyle> image-asset-editor: {
@@ -2050,7 +1994,7 @@ export global Style {
         border-width: Metrics.border-width,
         text: { size: Typography.control.size, weight: FontWeight.extra-bold },
         disabled-opacity: Metrics.disabled-opacity,
-            appearance: Theme.buttons.copy-action,
+        appearance: Theme.buttons.copy-action,
     };
 
     out property <CornerModeStyle> corner-mode: {

@@ -181,7 +181,7 @@ export component PrimerTextInput inherits Rectangle {
     height: root.style.height;
     border-radius: root.style.radius;
     border-width: root.style.border-width;
-    border-color: editor.has-focus ? root.style.appearance.focus-border : root.paint.border;
+    border-color: editor.has-focus ? root.style.appearance.focus.border : root.paint.border;
     background: root.paint.background;
 
     animate border-color { duration: Motion.fast; }

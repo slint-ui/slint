@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, PaintStyle, Metrics, Typography, Colors, Elevation, DialogStyle } from "style.slint";
+import { Style, PaintStyle, Metrics, Typography, Colors, DialogStyle } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, Hover } from "api.slint";
@@ -372,9 +372,9 @@ export component EditorUi inherits Window {
                     border-width: Metrics.border-width;
                     border-color: Style.floating-panel.border;
                     background: Style.floating-panel.background;
-                    drop-shadow-blur: Elevation.floating.blur;
-                    drop-shadow-offset-y: Elevation.floating.offset-y;
-                    drop-shadow-color: Elevation.floating.color;
+                    drop-shadow-blur: Style.floating-panel.shadow.blur;
+                    drop-shadow-offset-y: Style.floating-panel.shadow.offset-y;
+                    drop-shadow-color: Style.floating-panel.shadow.color;
 
                     HorizontalLayout {
                         padding-left: Metrics.space-medium;

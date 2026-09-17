@@ -27,7 +27,7 @@ export component InspectorComboBox inherits Rectangle {
     border-radius: root.style.radius;
     background: root.paint.background;
     border-width: fallback-popup.is-open || combo-focus.has-focus ? Metrics.border-width : 0px;
-    border-color: fallback-popup.is-open || combo-focus.has-focus ? root.style.appearance.focus-border : root.paint.border;
+    border-color: fallback-popup.is-open || combo-focus.has-focus ? root.style.appearance.focus.border : root.paint.border;
     accessible-role: AccessibleRole.combobox;
     accessible-label: root.accessible-name;
     accessible-value: root.value;
@@ -254,7 +254,7 @@ export component InspectorComboBox inherits Rectangle {
                                 x: 7px;
                                 width: 14px;
                                 text: index == root.selected-index ? "✓" : "";
-                                color: root.style.appearance.focus-border;
+                                color: root.style.appearance.focus.border;
                                 font-size: root.style.text.size;
                                 font-weight: FontWeight.semi-bold;
                                 horizontal-alignment: center;

@@ -22,7 +22,7 @@ export component InspectorTextFieldBase inherits Rectangle {
     border-radius: root.style.radius;
     background: root.paint.background;
     border-width: input.has-focus ? root.style.border-width : 0px;
-    border-color: input.has-focus ? root.style.appearance.focus-border : root.paint.border;
+    border-color: input.has-focus ? root.style.appearance.focus.border : root.paint.border;
     accessible-role: AccessibleRole.text-input;
     accessible-label: root.accessible-name;
     accessible-value: input.text;
