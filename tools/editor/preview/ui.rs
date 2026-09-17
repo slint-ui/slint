@@ -213,6 +213,7 @@ pub fn initialize_editor(
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
+    api.on_override_element_text(super::override_element_text);
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
@@ -241,6 +242,7 @@ pub fn initialize_editor(
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
     api.on_set_element_id(super::set_element_id);
+    api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));
     api.on_property_declaration_ranges(super::property_declaration_ranges);
     let property_api_weak = api_weak.clone();
     api.on_current_property_value_data(move |property_name| {
