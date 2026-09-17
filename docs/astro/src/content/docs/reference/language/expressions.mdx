@@ -212,7 +212,7 @@ The JSON value is converted to match the declared type of the property:
 | `length`, `physical-length`, `duration`, `angle`, `relative-font-size` | a number, interpreted in the type's default unit (`px`, `phx`, `ms`, `deg`, or `rem`, respectively) |
 | `string`                                                               | a string                                                                                            |
 | `color`                                                                | a string, e.g. `"#ff0000"` or `"red"`                                                               |
-| `brush`                                                                | a string, e.g. `"#ff0000"` or `"red"`                                                               |
+| `brush`                                                                | a color string like `color`                                                                         |
 | an enum                                                                | a string naming one of its values, optionally prefixed with `"EnumName."`                           |
 | an array `[T]`                                                         | an array, each element converted per `T`'s row                                                      |
 | a struct                                                               | an object; each field is looked up by name and converted per its own type, recursively              |
