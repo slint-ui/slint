@@ -1667,9 +1667,11 @@ mod tests {
                 |context| context.set_color_scheme(scheme),
             )
             .unwrap();
-            assert_eq!(style.get_dark(), scheme == i_slint_core::items::ColorScheme::Dark);
-            let colors = style.get_colors();
-            surfaces.push(colors.panel_bg);
+            assert_eq!(
+                editor.global::<super::Colors>().get_dark(),
+                scheme == i_slint_core::items::ColorScheme::Dark
+            );
+            surfaces.push(style.get_field().normal.background.color());
             let mut render = Vec::new();
             for welcome in [false, true] {
                 editor.global::<super::Api>().set_startup_wizard_visible(welcome);
@@ -1678,8 +1680,12 @@ mod tests {
                 render.extend_from_slice(snapshot.as_bytes());
             }
             renders.push(render);
-            for background in [colors.action_bg, colors.action_hover, colors.action_pressed] {
-                let foreground = luminance(colors.action_text);
+            let button = style.get_primary_button();
+            for paint in [button.normal, button.hover, button.pressed] {
+                let foreground = luminance(paint.foreground);
+                let slint::Brush::SolidColor(background) = paint.background else {
+                    panic!("filled actions use solid backgrounds");
+                };
                 let background = luminance(background);
                 let contrast =
                     (foreground.max(background) + 0.05) / (foreground.min(background) + 0.05);

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Colors, Metrics, Typography, SegmentStyle } from "../../style.slint";
+import { Style, Metrics, SegmentStyle } from "../../style.slint";
 import { InspectorSegmentIcon } from "segment-icon.slint";
 
 export component InspectorSegment inherits Rectangle {
@@ -43,6 +43,7 @@ export component InspectorSegment inherits Rectangle {
         vertical-alignment: center;
     }
     if root.kind != "text": InspectorSegmentIcon {
+        style: root.style;
         kind: root.kind;
         index: root.index;
         selected: root.selected;

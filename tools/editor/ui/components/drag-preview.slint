@@ -113,8 +113,8 @@ export component DragPreview inherits Rectangle {
     if !AppState.outline-drag-active && AppState.palette-drag-kind == ElementKind.text: Text {
         text: "Text";
         color: root.style.foreground;
-        font-size: Typography.symbol.size;
-        font-weight: FontWeight.extra-bold;
+        font-size: root.style.text.size;
+        font-weight: root.style.text.weight;
         vertical-alignment: center;
     }
 

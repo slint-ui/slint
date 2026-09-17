@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Metrics, Typography, Colors, Elevation, DialogStyle } from "style.slint";
-export { Style } from "style.slint";
+export { Style, Colors } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, Hover } from "api.slint";
@@ -68,7 +68,7 @@ component NewFileErrorPopup inherits PopupWindow {
                             Text {
                                 text: "×";
                                 color: root.style.error.icon-foreground;
-                                font-size: Typography.error-icon.size;
+                                font-size: root.style.error.icon-text.size;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
                             }

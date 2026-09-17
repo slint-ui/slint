@@ -1,13 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, Colors } from "../../style.slint";
+import { Style, Metrics, ColorFieldStyle } from "../../style.slint";
 
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { FillSession } from "fill-session.slint";
 import { Api, PropertyValue, PropertyValueKind } from "../../api.slint";
 
 export component InspectorColorField inherits Rectangle {
+    in property <ColorFieldStyle> style: Style.color-field;
     in property <string> accessible-name: "";
     in property <string> value;
     in property <brush> swatch;
@@ -24,9 +25,10 @@ export component InspectorColorField inherits Rectangle {
     private property <PropertyValue> property-data: Api.current-property-value-data(root.property-name);
 
     width: wide ? Style.inspector-layout.content-width : Style.inspector-layout.column-width;
-    height: Style.inspector-field.height;
+    height: root.style.field.height;
 
     InspectorTextFieldBase {
+        style: root.style.field;
         accessible-name: root.accessible-name;
         width: parent.width;
         value: root.value;
@@ -38,7 +40,7 @@ export component InspectorColorField inherits Rectangle {
         }
 
         swatch-focus := FocusScope {
-            width: Style.inspector-field.height;
+            width: root.style.field.height;
             key-pressed(event) => {
                 if event.text == Key.Return || event.text == " " {
                     root.show-picker();
@@ -54,7 +56,7 @@ export component InspectorColorField inherits Rectangle {
                 height: 11px;
                 border-radius: 2.5px;
                 border-width: Metrics.border-width;
-                border-color: Colors.muted;
+                border-color: root.style.swatch-border;
                 background: root.swatch;
 
                 for row in 3: Rectangle {
@@ -62,14 +64,14 @@ export component InspectorColorField inherits Rectangle {
                     y: 2.5px;
                     width: Metrics.border-width;
                     height: 6px;
-                    background: Style.info-icon.decorative;
+                    background: root.style.decorative;
                 }
                 for col in 3: Rectangle {
                     x: 2.5px;
                     y: 2.5px + col * 2.5px;
                     width: 6px;
                     height: Metrics.border-width;
-                    background: Style.info-icon.decorative;
+                    background: root.style.decorative;
                 }
             }
 

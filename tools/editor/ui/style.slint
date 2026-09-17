@@ -66,6 +66,7 @@ export struct ErrorNoticeStyle {
     background: color,
     foreground: color,
     radius: length,
+    icon-text: TextStyle,
 }
 
 export struct ButtonStyle {
@@ -372,6 +373,7 @@ export struct DragPreviewStyle {
     ghost-opacity: float,
     row: TreeRowStyle,
     row-border: brush,
+    text: TextStyle,
 }
 
 export struct DropIndicatorStyle {
@@ -392,7 +394,6 @@ export struct InspectorLayoutStyle {
     column-width: length,
     column-gap: length,
     content-width: length,
-    corner-field-width: length,
 }
 
 export struct FillPickerStyle {
@@ -424,6 +425,7 @@ export struct EffectSliderStyle {
     control-height: length,
     border: color,
     foreground: color,
+    suffix-text: TextStyle,
 }
 
 export struct RadiusSliderStyle {
@@ -511,7 +513,6 @@ export struct GradientFieldsStyle {
 
 export struct InfoIconStyle {
     size: length,
-    decorative: color,
     text: TextStyle,
     foreground: color,
     border: color,
@@ -568,7 +569,6 @@ export struct FieldStyle {
 }
 
 export struct SegmentStyle {
-    selected-background: color,
     height: length,
     radius: length,
     background: brush,
@@ -616,6 +616,31 @@ export struct ImageAssetEditorStyle {
     error: ImageErrorStyle,
 }
 
+export struct CornerModeStyle {
+    selected-background: color,
+    width: length,
+    height: length,
+    radius: length,
+    background: brush,
+    foreground: color,
+    muted: color,
+    focus-border: brush,
+}
+
+export struct CornerEditorStyle {
+    field-width: length,
+    gap: length,
+    mode: CornerModeStyle,
+    slider: RadiusSliderStyle,
+    field: FieldStyle,
+}
+
+export struct ColorFieldStyle {
+    decorative: color,
+    field: FieldStyle,
+    swatch-border: color,
+}
+
 export global Colors {
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
     out property <color> background: Colors.dark ? #2c2c2c : #f6f8fa;
@@ -656,6 +681,7 @@ export global Metrics {
     out property <length> icon-medium: 16px;
     out property <length> icon-small: 12px;
     out property <length> icon-large: 18px;
+    out property <float> disabled-opacity: 0.55;
 }
 
 export global Typography {
@@ -664,14 +690,10 @@ export global Typography {
     out property <TextStyle> body: { size: 13px, weight: FontWeight.normal };
     out property <TextStyle> action: { size: 14px, weight: FontWeight.normal };
     out property <TextStyle> heading: { size: 16px, weight: FontWeight.bold };
-    out property <TextStyle> hero: { size: 34px, weight: FontWeight.bold };
+    out property <TextStyle> hero: { size: 34px, weight: FontWeight.semi-bold };
     out property <string> family: "Inter";
-    out property <TextStyle> error-icon: { size: 20px, weight: FontWeight.normal };
     out property <TextStyle> section-heading: { size: 12px, weight: FontWeight.bold };
     out property <TextStyle> strong-body: { size: 13px, weight: FontWeight.bold };
-    out property <TextStyle> symbol: { size: 24px, weight: FontWeight.normal };
-    out property <TextStyle> info-symbol: { size: 10px, weight: FontWeight.bold };
-    out property <TextStyle> slider-tick: { size: 9px, weight: FontWeight.normal };
 }
 
 export global Motion {
@@ -685,803 +707,7 @@ export global Elevation {
     out property <ShadowStyle> floating: { color: Colors.dark ? #00000055 : #64748b28, blur: 18px, offset-y: 8px };
 }
 
-export struct StyleColors {
-    app-bg: color,
-    panel-bg: color,
-    panel-subtle: color,
-    text: color,
-    muted: color,
-    border: color,
-    soft-border: color,
-    accent: color,
-    accent-strong: color,
-    canvas-outline: color,
-    canvas: color,
-    phone-bg: color,
-    phone-text: color,
-    object-bg: color,
-    object-subtle: color,
-    object-border: color,
-    object-muted: color,
-    drop-mark-background: brush,
-    drop-mark-foreground: brush,
-    checker-light: color,
-    checker-dark: color,
-    marker-bg: color,
-    marker-active: color,
-    handle-border: color,
-    dialog-border: color,
-    dialog-bg: color,
-    error-icon-bg: color,
-    error-icon-text: color,
-    error-border: color,
-    error-bg: color,
-    error-text: color,
-    dialog-footer-bg: color,
-    dialog-footer-divider: color,
-    floating-border: color,
-    update-error: color,
-    action-text: color,
-    image-field-bg: color,
-    image-rail-bg: color,
-    image-rail-border: color,
-    image-preview-border: color,
-    action-bg: color,
-    action-hover: color,
-    action-pressed: color,
-    selection-bg: color,
-    selection-subtle-bg: color,
-    focus-bg: color,
-    text-selection-bg: color,
-    muted-icon: color,
-    decorative-icon: color,
-    decorative-border: color,
-    card-bg: color,
-    card-icon-bg: color,
-    floating-bg: color,
-    image-preview-bg: color,
-    image-preview-canvas: color,
-}
-
-export struct StyleInspector {
-    picker-width: length,
-    picker-gap: length,
-    picker-margin: length,
-    panel-bg: color,
-    divider: color,
-    field-bg: color,
-    field-bg-hover: color,
-    field-border: color,
-    text: color,
-    muted: color,
-    accent: color,
-    selected-control-bg: color,
-    slider-fill: color,
-    slider-thumb: color,
-    label-width: length,
-    row-gap: length,
-    side-padding: length,
-    section-title-size: length,
-    field-height: length,
-    field-radius: length,
-    column-width: length,
-    column-gap: length,
-    wide-width: length,
-    stop-action-width: length,
-    close-width: length,
-    stop-position-width: length,
-    stop-opacity-width: length,
-    stop-row-height: length,
-    stop-ramp-height: length,
-    stop-marker-size: length,
-    stop-marker-radius: length,
-    stop-ramp-inset: length,
-    dial-size: length,
-    dial-inset: length,
-    dial-face-size: length,
-    dial-dot-size: length,
-    dial-dot-distance: length,
-    copy-width: length,
-    menu-row-height: length,
-    menu-available-height: length,
-    recent-swatch-size: length,
-    color-field-height: length,
-    color-slider-height: length,
-    color-slider-thumb-size: length,
-    color-plane-thumb-size: length,
-    checker-size: length,
-    dial-ring: brush,
-    dial-face: brush,
-    dial-dot: brush,
-    dial-ring-border: color,
-    dial-face-border: color,
-    dial-dot-border: color,
-    slider-height: length,
-    slider-label-width: length,
-    slider-track-width: length,
-    slider-track-height: length,
-    slider-thumb-size: length,
-    slider-value-width: length,
-    slider-plain-value-width: length,
-    slider-suffix-width: length,
-    radius-thumb-size: length,
-    radius-track-width: length,
-    radius-inset: length,
-    gradient-label-width: length,
-    gradient-value-width: length,
-    color-hex-width: length,
-    color-hex-input-width: length,
-    stop-pick-distance: length,
-    info-size: length,
-    stop-swatch-size: length,
-    read-only-bg: color,
-    decorative-icon: color,
-    slider-pressed: color,
-    picker-min-height: length,
-    corner-field-width: length,
-}
-
-export struct StyleTree {
-    row-bg-hover: color,
-    row-bg-current: color,
-    drop-target-bg: color,
-    text: color,
-    muted-text: color,
-    accent: color,
-    guide: color,
-    directory-icon: color,
-    row-height: length,
-    row-font-size: length,
-    row-radius: length,
-    row-padding-inline: length,
-    content-gap: length,
-    toggle-width: length,
-    disclosure-hit-size: length,
-    icon-size: length,
-    guide-width: length,
-    focus-ring-width: length,
-    drop-target-border-width: length,
-    drop-indicator-height: length,
-    root-drop-height: length,
-    selected-guide: color,
-    file-guide: color,
-    rename-bg: brush,
-    rename-border: brush,
-    error: color,
-}
-
-export struct StyleWelcome {
-    stage-bg: color,
-    shell-bg: color,
-    side-bg: color,
-    control-bg: color,
-    control-hover: color,
-    text: color,
-    muted: color,
-    accent: color,
-    shell-width: length,
-    shell-height: length,
-    outer-inset: length,
-    compact-threshold: length,
-    compact-side-width: length,
-    side-width: length,
-    shell-radius: length,
-    action-height: length,
-    action-radius: length,
-    action-inset: length,
-    recent-height: length,
-    recent-radius: length,
-    recent-inset-right: length,
-    recent-gap: length,
-    recent-icon-size: length,
-    recent-text-gap: length,
-    brand-size: length,
-    hero-top: length,
-    hero-gap: length,
-    hero-title-height: length,
-    hero-subtitle-height: length,
-    action-block-inset: length,
-    action-bottom-inset: length,
-    action-block-height: length,
-    action-block-gap: length,
-    recent-panel-inset: length,
-    recent-panel-height: length,
-    recent-panel-gap: length,
-    pressed-bg: color,
-    selected-muted: color,
-    shell-border: color,
-    brand-brush: brush,
-    brand-grid-horizontal: color,
-    brand-grid-vertical: color,
-}
-
-export struct StyleLayout {
-    left-pane-width: length,
-    inspector-pane-width: length,
-    top-bar-height: length,
-    status-bar-height: length,
-    splitter-size: length,
-    pane-minimum: length,
-    search-height: length,
-    sidebar-button-width: length,
-    sidebar-button-height: length,
-    component-pane-height: length,
-    image-pane-height: length,
-    files-pane-minimum: length,
-    left-heading-height: length,
-    palette-card-height: length,
-    window-width: length,
-    window-height: length,
-    window-min-width: length,
-    window-min-height: length,
-    dialog-width: length,
-    dialog-height: length,
-    dialog-padding: length,
-    dialog-footer-height: length,
-    dialog-error-height: length,
-    dialog-error-icon-size: length,
-    dialog-error-inset: length,
-    image-tab-height: length,
-    image-tab-group-height: length,
-    image-tab-group-width: length,
-    image-tab-bar-height: length,
-    image-rail-margin: length,
-    image-rail-gap: length,
-    image-property-height: length,
-    image-preview-property-height: length,
-    image-preview-panel-height: length,
-    image-safe-bottom: length,
-    image-preview-minimum: length,
-    image-wide-field-width: length,
-    image-field-width: length,
-    image-syntax-min-height: length,
-    image-syntax-max-height: length,
-    collapsed-panel-width: length,
-    collapsed-panel-height: length,
-    titlebar-safe-left: length,
-    update-pill-width: length,
-    update-error-pill-width: length,
-    update-pill-height: length,
-    image-preview-heading-height: length,
-    image-preview-heading-top: length,
-    image-preview-body-top: length,
-    image-preview-body-bottom: length,
-    image-fit-bottom: length,
-    image-error-margin: length,
-    image-error-height: length,
-    image-error-max-width: length,
-    collapsed-panel-radius: length,
-}
-
-export struct StyleCanvas {
-    phone-frame-radius: length,
-    phone-outer-padding: length,
-    selection-outline-width: length,
-    hover-outline-width: length,
-    selection-handle-size: length,
-    selection-handle-touch-size: length,
-    rotation-zone-size: length,
-    radius-handle-size: length,
-    radius-handle-inset: length,
-    grid-pitch: length,
-    grid-width: length,
-    artboard-top-minimum: length,
-    gradient-hit-size: length,
-    gradient-endpoint-size: length,
-    slice-label-size: length,
-    slice-line-width: length,
-    slice-hit-size: length,
-    slice-label-gap: length,
-    slice-hit-extension: length,
-    preview-handle-size: length,
-    tooltip-offset: length,
-    tooltip-padding-inline: length,
-    tooltip-padding-block: length,
-    grid-color: color,
-    slice-color: color,
-    slice-overlay: color,
-    slice-label-text: color,
-    slice-label-border: color,
-    gradient-halo: color,
-    gradient-axis-hit-size: length,
-    gradient-axis-width: length,
-    gradient-stop-offset: length,
-}
-
-export struct StyleSpacing {
-    tight: length,
-    small: length,
-    compact: length,
-    regular: length,
-    medium: length,
-    large: length,
-    section: length,
-}
-
-export struct StyleTypography {
-    caption: TextStyle,
-    control: TextStyle,
-    body: TextStyle,
-    action: TextStyle,
-    heading: TextStyle,
-    hero: TextStyle,
-    family: string,
-    error-icon: TextStyle,
-    section-heading: TextStyle,
-    strong-body: TextStyle,
-    symbol: TextStyle,
-    info-symbol: TextStyle,
-    slider-tick: TextStyle,
-}
-
-export struct StyleControls {
-    border-width: length,
-    focus-width: length,
-    hairline-width: length,
-    field-radius: length,
-    row-radius: length,
-    panel-radius: length,
-    field-height: length,
-    small-height: length,
-    height: length,
-    large-height: length,
-    icon-size: length,
-    small-icon-size: length,
-    large-icon-size: length,
-    disabled-opacity: float,
-    drag-source-opacity: float,
-    palette-drag-opacity: float,
-    drag-ghost-opacity: float,
-    inactive-icon-opacity: float,
-    drag-content-opacity: float,
-}
-
-export struct StyleMotion {
-    fast: duration,
-    feedback: duration,
-    normal: duration,
-    layout: duration,
-}
-
-export struct StyleShadows {
-    popup: ShadowStyle,
-    picker: ShadowStyle,
-    dial: ShadowStyle,
-    slider: ShadowStyle,
-    color-plane: ShadowStyle,
-    color-slider: ShadowStyle,
-    dialog: ShadowStyle,
-    floating: ShadowStyle,
-    welcome: ShadowStyle,
-    brand: ShadowStyle,
-    artboard: ShadowStyle,
-    image: ShadowStyle,
-    image-panel: ShadowStyle,
-    image-preview: ShadowStyle,
-    slice-label: ShadowStyle,
-    gradient-endpoint: ShadowStyle,
-    gradient-axis: ShadowStyle,
-    tooltip: ShadowStyle,
-    drag: ShadowStyle,
-}
-
 export global Style {
-    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
-
-    private property <color> colors-accent: Style.dark ? #2379f4 : #0d99ff;
-
-    private property <color> colors-muted: Style.dark ? #b7b7b7 : #6e7781;
-
-    private property <color> colors-border: Style.dark ? #494949 : #d0d7de;
-
-    private property <color> colors-panel-subtle: Style.dark ? #383838 : #f6f8fa;
-
-    private property <color> colors-panel-bg: Style.dark ? #2c2c2c : #ffffff;
-
-    private property <color> colors-canvas: Style.dark ? #1f1f1f : #eef2f7;
-
-    out property <StyleColors> colors: {
-        app-bg: Style.dark ? #2c2c2c : #f6f8fa,
-        panel-bg: root.colors-panel-bg,
-        panel-subtle: root.colors-panel-subtle,
-        text: Style.dark ? #f1f1f1 : #1f2328,
-        muted: root.colors-muted,
-        border: root.colors-border,
-        soft-border: Style.dark ? #3f3f3f : #eaeef2,
-        accent: root.colors-accent,
-        accent-strong: Style.dark ? root.colors-accent.mix(#ffffff, 0.75) : #52aeff,
-        canvas-outline: Style.dark ? #0c8ce9 : #0b99fe,
-        canvas: root.colors-canvas,
-        phone-bg: Style.dark ? #f7f8fb : #ffffff,
-        phone-text: #20252d,
-        object-bg: #ffffff,
-        object-subtle: #f6f8fa,
-        object-border: #d0d7de,
-        object-muted: #6e7781,
-        drop-mark-background: #ffffff,
-        drop-mark-foreground: #ffffff,
-        checker-light: #ffffff,
-        checker-dark: #e1e1e1,
-        marker-bg: Style.dark ? #3f3f3f : #b5ccdd,
-        marker-active: #0c8ce9,
-        handle-border: #ffffff,
-        dialog-border: Style.dark ? #4a4d55 : #c8cbd2,
-        dialog-bg: Style.dark ? #292a30 : #ffffff,
-        error-icon-bg: Style.dark ? #542a2c : #fce6e5,
-        error-icon-text: Style.dark ? #ffb4ab : #b3261e,
-        error-border: Style.dark ? #63373a : #e0c5c2,
-        error-bg: Style.dark ? #342426 : #fff7f6,
-        error-text: Style.dark ? #f1b8b4 : #7a2925,
-        dialog-footer-bg: Style.dark ? #25262b : #fafafa,
-        dialog-footer-divider: Style.dark ? #3b3d43 : #e1e2e6,
-        floating-border: Style.dark ? #ffffff18 : #d0d7de,
-        update-error: Style.dark ? #ff9a94 : #b42318,
-        action-text: #ffffff,
-        image-field-bg: Style.dark ? #383838aa : #f5f5f5cc,
-        image-rail-bg: Style.dark ? white.with-alpha(0.1) : white.with-alpha(0.4),
-        image-rail-border: Style.dark ? #ffffff16 : #cbd5e166,
-        image-preview-border: Style.dark ? #ffffff18 : #cbd5e166,
-        action-bg: Style.dark ? #196bd6 : #0969da,
-        action-hover: Style.dark ? #2073dd : #0860ca,
-        action-pressed: Style.dark ? #135bb9 : #0756b5,
-        selection-bg: root.colors-accent.with-alpha(0.14),
-        selection-subtle-bg: root.colors-accent.with-alpha(0.10),
-        focus-bg: root.colors-accent.with-alpha(0.12),
-        text-selection-bg: root.colors-accent.with-alpha(0.28),
-        muted-icon: root.colors-muted.with-alpha(0.72),
-        decorative-icon: root.colors-muted.with-alpha(0.82),
-        decorative-border: root.colors-border.with-alpha(0.82),
-        card-bg: root.colors-panel-subtle.with-alpha(0.72),
-        card-icon-bg: root.colors-panel-bg.with-alpha(0.72),
-        floating-bg: root.colors-panel-bg.with-alpha(0.92),
-        image-preview-bg: root.colors-panel-bg.with-alpha(0.76),
-        image-preview-canvas: root.colors-canvas.with-alpha(0.72),
-    };
-
-    private property <color> inspector-accent: Style.colors.accent;
-
-    private property <color> inspector-muted: Style.colors.muted;
-
-    private property <length> inspector-side-padding: Style.spacing.medium;
-
-    private property <length> inspector-field-height: Style.controls.field-height;
-
-    private property <length> inspector-stop-marker-size: 24px;
-
-    private property <length> inspector-dial-size: 32px;
-
-    private property <length> inspector-dial-inset: 2px;
-
-    private property <color> inspector-field-bg: Style.dark ? #383838 : #f5f5f5;
-
-    out property <StyleInspector> inspector: {
-        picker-width: 260px,
-        picker-gap: Style.spacing.regular,
-        picker-margin: Style.spacing.regular,
-        panel-bg: Style.colors.panel-bg,
-        divider: Style.dark ? #414141 : #e5e5e5,
-        field-bg: root.inspector-field-bg,
-        field-bg-hover: Style.dark ? #414141 : #eeeeee,
-        field-border: Style.dark ? #4b4b4b : #d9d9d9,
-        text: Style.colors.text,
-        muted: root.inspector-muted,
-        accent: root.inspector-accent,
-        selected-control-bg: Style.dark ? Style.colors.action-bg : Style.colors.accent.with-alpha(0.14),
-        slider-fill: Style.dark ? root.inspector-accent : transparent,
-        slider-thumb: Style.dark ? root.inspector-accent : root.inspector-muted,
-        label-width: 52px,
-        row-gap: Style.spacing.compact,
-        side-padding: root.inspector-side-padding,
-        section-title-size: Style.typography.section-heading.size,
-        field-height: root.inspector-field-height,
-        field-radius: Style.controls.field-radius,
-        column-width: 88px,
-        column-gap: Style.spacing.regular,
-        wide-width: Style.layout.inspector-pane-width - Style.controls.border-width - 2 * root.inspector-side-padding,
-        stop-action-width: 24px,
-        close-width: 48px,
-        stop-position-width: 66px,
-        stop-opacity-width: 48px,
-        stop-row-height: 28px,
-        stop-ramp-height: Style.spacing.small + root.inspector-field-height + root.inspector-stop-marker-size + Style.spacing.compact,
-        stop-marker-size: root.inspector-stop-marker-size,
-        stop-marker-radius: 5px,
-        stop-ramp-inset: root.inspector-stop-marker-size / 2,
-        dial-size: root.inspector-dial-size,
-        dial-inset: root.inspector-dial-inset,
-        dial-face-size: root.inspector-dial-size - 2 * root.inspector-dial-inset,
-        dial-dot-size: 4px,
-        dial-dot-distance: 9px,
-        copy-width: 54px,
-        menu-row-height: 26px,
-        menu-available-height: 220px,
-        recent-swatch-size: 22px,
-        color-field-height: 170px,
-        color-slider-height: 16px,
-        color-slider-thumb-size: 14px,
-        color-plane-thumb-size: 12px,
-        checker-size: 8px,
-        dial-ring: @linear-gradient(145deg, Style.dark ? #262a30 : #bdc3cc, Style.dark ? #737c87 : #ffffff),
-        dial-face: @radial-gradient(circle at 10px 7px, Style.dark ? #89919b : #ffffff, Style.dark ? #5b626d : #f4f6f9 55%, Style.dark ? #343a43 : #d8dde5),
-        dial-dot: @linear-gradient(180deg, #0879b7, #38b9fa),
-        dial-ring-border: Style.dark ? #454b55 : #cbd0d8,
-        dial-face-border: Style.dark ? #858e99 : #ffffff,
-        dial-dot-border: Style.dark ? #343e4a : #b9cbd9,
-        slider-height: 34px,
-        slider-label-width: 48px,
-        slider-track-width: 62px,
-        slider-track-height: 3px,
-        slider-thumb-size: 11px,
-        slider-value-width: 44px,
-        slider-plain-value-width: 52px,
-        slider-suffix-width: 12px,
-        radius-thumb-size: 10px,
-        radius-track-width: 2px,
-        radius-inset: 6px,
-        gradient-label-width: 58px,
-        gradient-value-width: 62px,
-        color-hex-width: 78px,
-        color-hex-input-width: 58px,
-        stop-pick-distance: 10px,
-        info-size: 14px,
-        stop-swatch-size: 14px,
-        read-only-bg: root.inspector-field-bg.with-alpha(0.65),
-        decorative-icon: root.inspector-muted.with-alpha(0.35),
-        slider-pressed: root.inspector-accent.with-alpha(0.88),
-        picker-min-height: 200px,
-        corner-field-width: 72px,
-    };
-
-    out property <StyleTree> tree: {
-        row-bg-hover: Style.dark ? #383838 : #f5f5f5,
-        row-bg-current: Style.dark ? Style.colors.accent.with-alpha(0.22) : #e4f4ff,
-        drop-target-bg: Style.dark ? Style.colors.accent.with-alpha(0.14) : #eaf5ff,
-        text: Style.colors.text,
-        muted-text: Style.colors.muted,
-        accent: Style.dark ? Style.colors.accent : #0969da,
-        guide: Style.inspector.divider,
-        directory-icon: Style.dark ? Style.colors.accent : #d29922,
-        row-height: Style.controls.height,
-        row-font-size: Style.typography.body.size,
-        row-radius: Style.controls.row-radius,
-        row-padding-inline: Style.spacing.regular,
-        content-gap: Style.spacing.regular,
-        toggle-width: Style.controls.icon-size,
-        disclosure-hit-size: 20px,
-        icon-size: Style.controls.icon-size,
-        guide-width: Style.controls.border-width,
-        focus-ring-width: Style.controls.focus-width,
-        drop-target-border-width: Style.controls.border-width,
-        drop-indicator-height: Style.controls.focus-width,
-        root-drop-height: Style.spacing.regular,
-        selected-guide: Style.dark ? #474747 : #c4c4c4,
-        file-guide: Style.inspector.divider,
-        rename-bg: Palette.control-background,
-        rename-border: Palette.border,
-        error: Style.dark ? #ff7b72 : #cf222e,
-    };
-
-    private property <length> welcome-action-height: Style.controls.large-height;
-
-    private property <length> welcome-action-block-gap: Style.spacing.regular;
-
-    out property <StyleWelcome> welcome: {
-        stage-bg: Style.dark ? #202124 : #c9c9c9,
-        shell-bg: Style.dark ? #303134 : #ffffff,
-        side-bg: Style.dark ? #2a2b2e : #f5f5f6,
-        control-bg: Style.dark ? #424347 : #eeeeef,
-        control-hover: Style.dark ? #4d4f54 : #e2e3e5,
-        text: Style.dark ? #f4f4f5 : #252527,
-        muted: Style.dark ? #b5b6ba : #797a7d,
-        accent: #0878f8,
-        shell-width: 740px,
-        shell-height: 460px,
-        outer-inset: 16px,
-        compact-threshold: 620px,
-        compact-side-width: 220px,
-        side-width: 270px,
-        shell-radius: 20px,
-        action-height: root.welcome-action-height,
-        action-radius: root.welcome-action-height / 2,
-        action-inset: Style.spacing.medium,
-        recent-height: 44px,
-        recent-radius: Style.controls.row-radius,
-        recent-inset-right: Style.spacing.medium,
-        recent-gap: Style.spacing.regular,
-        recent-icon-size: 27px,
-        recent-text-gap: Style.spacing.tight,
-        brand-size: 103px,
-        hero-top: 64px,
-        hero-gap: 18px,
-        hero-title-height: 37px,
-        hero-subtitle-height: 17px,
-        action-block-inset: 56px,
-        action-bottom-inset: 130px,
-        action-block-height: 2 * root.welcome-action-height + root.welcome-action-block-gap,
-        action-block-gap: root.welcome-action-block-gap,
-        recent-panel-inset: 10px,
-        recent-panel-height: 195px,
-        recent-panel-gap: 5px,
-        pressed-bg: Style.dark ? #55575d : #d9dadd,
-        selected-muted: #d7e7ff,
-        shell-border: Style.dark ? #ffffff22 : #98999d,
-        brand-brush: @linear-gradient(155deg, #32e1ff 0%, #0b89ff 52%, #115bea 100%),
-        brand-grid-horizontal: #ffffff26,
-        brand-grid-vertical: #ffffff22,
-    };
-
-    private property <length> layout-image-tab-height: Style.controls.height;
-
-    out property <StyleLayout> layout: {
-        left-pane-width: 286px,
-        inspector-pane-width: 232px,
-        top-bar-height: 54px,
-        status-bar-height: 26px,
-        splitter-size: 6px,
-        pane-minimum: 120px,
-        search-height: Style.controls.height,
-        sidebar-button-width: 34px,
-        sidebar-button-height: Style.controls.height,
-        component-pane-height: 360px,
-        image-pane-height: 540px,
-        files-pane-minimum: 250px,
-        left-heading-height: 48px,
-        palette-card-height: 82px,
-        window-width: 1360px,
-        window-height: 860px,
-        window-min-width: 1040px,
-        window-min-height: 680px,
-        dialog-width: 360px,
-        dialog-height: 212px,
-        dialog-padding: 20px,
-        dialog-footer-height: 56px,
-        dialog-error-height: 46px,
-        dialog-error-icon-size: 30px,
-        dialog-error-inset: 11px,
-        image-tab-height: root.layout-image-tab-height,
-        image-tab-group-height: root.layout-image-tab-height + 2 * Style.spacing.small,
-        image-tab-group-width: 216px,
-        image-tab-bar-height: 58px,
-        image-rail-margin: 24px,
-        image-rail-gap: 28px,
-        image-property-height: 260px,
-        image-preview-property-height: 154px,
-        image-preview-panel-height: 196px,
-        image-safe-bottom: 44px,
-        image-preview-minimum: 48px,
-        image-wide-field-width: 250px,
-        image-field-width: 96px,
-        image-syntax-min-height: 78px,
-        image-syntax-max-height: 96px,
-        collapsed-panel-width: 274px,
-        collapsed-panel-height: 42px,
-        titlebar-safe-left: 100px,
-        update-pill-width: 132px,
-        update-error-pill-width: 260px,
-        update-pill-height: 20px,
-        image-preview-heading-height: 18px,
-        image-preview-heading-top: 8px,
-        image-preview-body-top: 34px,
-        image-preview-body-bottom: 12px,
-        image-fit-bottom: 64px,
-        image-error-margin: 40px,
-        image-error-height: 96px,
-        image-error-max-width: 520px,
-        collapsed-panel-radius: 12px,
-    };
-
-    out property <StyleCanvas> canvas: {
-        phone-frame-radius: 34px,
-        phone-outer-padding: 1px,
-        selection-outline-width: 1px,
-        hover-outline-width: 2px,
-        selection-handle-size: 8px,
-        selection-handle-touch-size: 12px,
-        rotation-zone-size: 22px,
-        radius-handle-size: 10px,
-        radius-handle-inset: 10px,
-        grid-pitch: 32px,
-        grid-width: 1px,
-        artboard-top-minimum: 40px,
-        gradient-hit-size: 32px,
-        gradient-endpoint-size: 12px,
-        slice-label-size: 22px,
-        slice-line-width: 4px,
-        slice-hit-size: 20px,
-        slice-label-gap: 10px,
-        slice-hit-extension: 38px,
-        preview-handle-size: 14px,
-        tooltip-offset: 12px,
-        tooltip-padding-inline: 7px,
-        tooltip-padding-block: 4px,
-        grid-color: Style.dark ? #ffffff0a : #00000008,
-        slice-color: #ffd33d,
-        slice-overlay: #ffffff1a,
-        slice-label-text: #111827,
-        slice-label-border: Style.dark ? #111827 : #ffffff,
-        gradient-halo: #ffffff90,
-        gradient-axis-hit-size: 10px,
-        gradient-axis-width: 2px,
-        gradient-stop-offset: 6px,
-    };
-
-    out property <StyleSpacing> spacing: {
-        tight: 2px,
-        small: 4px,
-        compact: 6px,
-        regular: 8px,
-        medium: 12px,
-        large: 16px,
-        section: 24px,
-    };
-
-    out property <StyleTypography> typography: {
-        caption: { size: 11px, weight: FontWeight.normal },
-        control: { size: 12px, weight: FontWeight.normal },
-        body: { size: 13px, weight: FontWeight.normal },
-        action: { size: 14px, weight: FontWeight.normal },
-        heading: { size: 16px, weight: FontWeight.bold },
-        hero: { size: 34px, weight: FontWeight.bold },
-        family: "Inter",
-        error-icon: { size: 20px, weight: FontWeight.normal },
-        section-heading: { size: 12px, weight: FontWeight.bold },
-        strong-body: { size: 13px, weight: FontWeight.bold },
-        symbol: { size: 24px, weight: FontWeight.normal },
-        info-symbol: { size: 10px, weight: FontWeight.bold },
-        slider-tick: { size: 9px, weight: FontWeight.normal },
-    };
-
-    out property <StyleControls> controls: {
-        border-width: 1px,
-        focus-width: 2px,
-        hairline-width: 0.5px,
-        field-radius: 4px,
-        row-radius: 6px,
-        panel-radius: 8px,
-        field-height: 24px,
-        small-height: 28px,
-        height: 32px,
-        large-height: 36px,
-        icon-size: 16px,
-        small-icon-size: 12px,
-        large-icon-size: 18px,
-        disabled-opacity: 0.55,
-        drag-source-opacity: 0.45,
-        palette-drag-opacity: 0.56,
-        drag-ghost-opacity: 0.5,
-        inactive-icon-opacity: 0.5,
-        drag-content-opacity: 0.72,
-    };
-
-    out property <StyleMotion> motion: {
-        fast: 120ms,
-        feedback: 150ms,
-        normal: 150ms,
-        layout: 180ms,
-    };
-
-    out property <StyleShadows> shadows: {
-        popup: { color: Style.dark ? #00000066 : #64748b30, blur: 12px, offset-y: 4px },
-        picker: { color: Style.dark ? #00000080 : #64748b35, blur: 18px, offset-y: 8px },
-        dial: { color: #00000025, blur: 2px, offset-y: 1px },
-        slider: { color: #00000028, blur: 6px, offset-y: 2px },
-        color-plane: { color: #00000080, blur: 3px, offset-y: 0px },
-        color-slider: { color: #00000070, blur: 2px, offset-y: 0px },
-        dialog: { color: Style.dark ? #00000085 : #161b233d, blur: 24px, offset-y: 12px },
-        floating: { color: Style.dark ? #00000055 : #64748b28, blur: 18px, offset-y: 8px },
-        welcome: { color: Style.dark ? #00000080 : #00000030, blur: 18px, offset-y: 8px },
-        brand: { color: #00000033, blur: 11px, offset-y: 6px },
-        artboard: { color: Style.dark ? #00000055 : #64748b30, blur: 30px, offset-y: 18px },
-        image: { color: Style.dark ? #00000055 : #64748b30, blur: 24px, offset-y: 14px },
-        image-panel: { color: Style.dark ? #00000055 : #64748b25, blur: 18px, offset-y: 8px },
-        image-preview: { color: Style.dark ? #00000028 : #64748b12, blur: 8px, offset-y: 3px },
-        slice-label: { color: #00000055, blur: 8px, offset-y: 2px },
-        gradient-endpoint: { color: #0008, blur: 3px, offset-y: 0px },
-        gradient-axis: { color: #000a, blur: 2px, offset-y: 0px },
-        tooltip: { color: #33415535, blur: 12px, offset-y: 4px },
-        drag: { color: Style.dark ? #00000055 : #33415535, blur: 18px, offset-y: 8px },
-    };
-
     out property <ShellStyle> shell: {
         width: 1360px,
         height: 860px,
@@ -1542,6 +768,7 @@ export global Style {
         background: Colors.dark ? #342426 : #fff7f6,
         foreground: Colors.dark ? #f1b8b4 : #7a2925,
         radius: Metrics.radius-medium,
+        icon-text: { size: 20px, weight: FontWeight.normal },
     };
 
     out property <UpdateStatusStyle> update-status: {
@@ -1781,6 +1008,7 @@ export global Style {
         ghost-opacity: 0.5,
         row: Style.tree-row,
         row-border: Style.tree-guides.guide,
+        text: { size: 24px, weight: FontWeight.extra-bold },
     };
 
     out property <DropIndicatorStyle> drop-indicator: {
@@ -1816,7 +1044,6 @@ export global Style {
         column-width: 88px,
         column-gap: Metrics.space-regular,
         content-width: Style.panes.inspector-width - Metrics.border-width - 2 * root.inspector-layout-padding,
-        corner-field-width: 72px,
     };
 
     out property <FillPickerStyle> fill-picker: {
@@ -1848,6 +1075,7 @@ export global Style {
         control-height: Style.inspector-field.height,
         border: Colors.surface,
         foreground: Colors.foreground,
+        suffix-text: { size: 9px, weight: FontWeight.normal },
     };
 
     out property <RadiusSliderStyle> radius-slider: {
@@ -1937,8 +1165,7 @@ export global Style {
 
     out property <InfoIconStyle> info-icon: {
         size: 14px,
-        decorative: Colors.muted.with-alpha(0.35),
-        text: { size: Typography.info-symbol.size, weight: FontWeight.semi-bold },
+        text: { size: 10px, weight: FontWeight.semi-bold },
         foreground: Colors.muted,
         border: Colors.muted.with-alpha(0.72),
         accent: Colors.accent,
@@ -1947,7 +1174,7 @@ export global Style {
 
     out property <CopyButtonStyle> copy-button: {
         width: 54px,
-        button: { height: Metrics.control-compact, padding-inline: Metrics.space-regular, gap: Metrics.space-regular, radius: Metrics.radius-small, border-width: Metrics.border-width, text: { size: Typography.control.size, weight: FontWeight.extra-bold }, normal: { background: Style.inspector-field.normal.background, foreground: Colors.foreground, border: Style.inspector-layout.divider }, hover: { background: Style.inspector-field.hover.background, foreground: Colors.foreground, border: Style.inspector-layout.divider }, pressed: { background: Colors.selection, foreground: Colors.foreground, border: Colors.border }, disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border }, focus-border: Colors.focus, disabled-opacity: 0.55, icon-color: Colors.muted },
+        button: Style.copy-action,
     };
 
     out property <TreeRowStyle> tree-row: {
@@ -1998,24 +1225,8 @@ export global Style {
         selected: Colors.subtle-selection,
         foreground: Colors.foreground,
         selected-foreground: Colors.focus,
-        disabled-opacity: Style.button.disabled-opacity,
+        disabled-opacity: Metrics.disabled-opacity,
         text: Typography.control,
-    };
-
-    out property <ButtonStyle> button: {
-        height: Metrics.control-medium,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-regular,
-        radius: Metrics.radius-medium,
-        border-width: Metrics.border-width,
-        text: Typography.control,
-        normal: { background: Colors.surface, foreground: Colors.foreground, border: Colors.border },
-        hover: { background: Colors.subtle, foreground: Colors.foreground, border: Colors.border },
-        pressed: { background: Colors.selection, foreground: Colors.foreground, border: Colors.border },
-        disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
-        focus-border: Colors.focus,
-        disabled-opacity: 0.55,
-        icon-color: Colors.muted,
     };
 
     out property <ButtonStyle> primary-button: {
@@ -2030,7 +1241,7 @@ export global Style {
         pressed: { background: Colors.dark ? #135bb9 : #0756b5, foreground: Colors.on-accent, border: Colors.border },
         disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.focus,
-        disabled-opacity: 0.55,
+        disabled-opacity: Metrics.disabled-opacity,
         icon-color: Colors.muted,
     };
 
@@ -2046,7 +1257,7 @@ export global Style {
         pressed: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.focus,
-        disabled-opacity: 0.55,
+        disabled-opacity: Metrics.disabled-opacity,
         icon-color: Colors.muted,
     };
 
@@ -2062,7 +1273,7 @@ export global Style {
         pressed: { background: Colors.dark ? #55575d : #d9dadd, foreground: Style.welcome-shell.foreground, border: Colors.border },
         disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.focus,
-        disabled-opacity: 0.55,
+        disabled-opacity: Metrics.disabled-opacity,
         icon-color: Style.welcome-shell.muted,
     };
 
@@ -2078,7 +1289,7 @@ export global Style {
         pressed: { background: Colors.focus-background, foreground: Colors.accent, border: Colors.border },
         disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
         focus-border: Colors.accent,
-        disabled-opacity: 0.55,
+        disabled-opacity: Metrics.disabled-opacity,
         icon-color: Colors.muted,
     };
 
@@ -2115,7 +1326,6 @@ export global Style {
     };
 
     out property <SegmentStyle> segment: {
-        selected-background: Colors.dark ? Style.primary-button.normal.background : Colors.accent.with-alpha(0.14),
         height: Style.inspector-field.height,
         radius: Style.inspector-field.radius,
         background: Style.inspector-field.normal.background,
@@ -2161,5 +1371,46 @@ export global Style {
         nine-slice: Style.nine-slice,
         image: Style.image-canvas,
         error: Style.image-error,
+    };
+
+    out property <ButtonStyle> copy-action: {
+        height: Metrics.control-compact,
+        padding-inline: Metrics.space-regular,
+        gap: Metrics.space-regular,
+        radius: Metrics.radius-small,
+        border-width: Metrics.border-width,
+        text: { size: Typography.control.size, weight: FontWeight.extra-bold },
+        normal: { background: Style.inspector-field.normal.background, foreground: Colors.foreground, border: Style.inspector-layout.divider },
+        hover: { background: Style.inspector-field.hover.background, foreground: Colors.foreground, border: Style.inspector-layout.divider },
+        pressed: { background: Colors.selection, foreground: Colors.foreground, border: Colors.border },
+        disabled: { background: Colors.subtle, foreground: Colors.muted, border: Colors.border },
+        focus-border: Colors.focus,
+        disabled-opacity: Metrics.disabled-opacity,
+        icon-color: Colors.muted,
+    };
+
+    out property <CornerModeStyle> corner-mode: {
+        selected-background: Colors.dark ? Style.primary-button.normal.background : Colors.accent.with-alpha(0.14),
+        width: Metrics.control-small,
+        height: Metrics.control-compact,
+        radius: Metrics.radius-small,
+        background: Style.inspector-field.normal.background,
+        foreground: Colors.foreground,
+        muted: Colors.muted,
+        focus-border: Colors.accent,
+    };
+
+    out property <CornerEditorStyle> corner-editor: {
+        field-width: 72px,
+        gap: Metrics.space-compact,
+        mode: Style.corner-mode,
+        slider: Style.radius-slider,
+        field: Style.inspector-field,
+    };
+
+    out property <ColorFieldStyle> color-field: {
+        decorative: Colors.muted.with-alpha(0.35),
+        field: Style.inspector-field,
+        swatch-border: Colors.muted,
     };
 }

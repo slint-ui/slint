@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Colors, Metrics, Typography, Elevation, FieldStyle, ComboMenuStyle } from "../../style.slint";
+import { Style, Colors, Metrics, Typography, FieldStyle, ComboMenuStyle } from "../../style.slint";
 import { InspectorComboOption } from "control-data.slint";
 import { EditorIcons } from "../common.slint";
 
@@ -184,7 +184,7 @@ export component InspectorComboBox inherits Rectangle {
         forward-focus: popup-focus;
 
         Rectangle {
-            background: root.style.focus.background;
+            background: root.menu-style.background;
             border-width: Metrics.border-width;
             border-color: root.menu-style.border;
             border-radius: root.style.radius;

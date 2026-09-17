@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, Colors, Typography } from "../../style.slint";
+import { Style, Metrics, Typography, FieldStyle } from "../../style.slint";
 
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
 export component InspectorValueField inherits Rectangle {
+    in property <FieldStyle> style: Style.inspector-field;
     in property <string> accessible-name: "";
     in property <string> prefix;
     in property <int> corner-index: -1;
@@ -15,9 +16,10 @@ export component InspectorValueField inherits Rectangle {
     callback accepted(string) -> bool;
 
     width: Style.inspector-layout.column-width;
-    height: Style.inspector-field.height;
+    height: root.style.height;
 
     InspectorTextFieldBase {
+        style: root.style;
         accessible-name: root.accessible-name;
         width: parent.width;
         value: root.value;
@@ -35,12 +37,12 @@ export component InspectorValueField inherits Rectangle {
                 : root.corner-index == 1 ? "M 1 2 L 6 2 Q 10 2 10 6 L 10 11"
                 : root.corner-index == 2 ? "M 2 1 L 2 6 Q 2 10 6 10 L 11 10"
                 : "M 1 10 L 6 10 Q 10 10 10 6 L 10 1";
-            stroke: Colors.muted;
+            stroke: root.style.muted;
             stroke-width: Metrics.border-width;
         }
         if root.corner-index < 0: Text {
             text: root.prefix;
-            color: root.enabled ? Colors.foreground : Colors.muted;
+            color: root.enabled ? root.style.normal.foreground : root.style.disabled.foreground;
             font-size: Typography.caption.size;
             vertical-alignment: center;
         }
