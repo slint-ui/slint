@@ -1675,11 +1675,7 @@ impl TypeLoader {
             // If there was error (esp parse error) we don't want to report further error in this document.
             // because they might be nonsense (TODO: we should check that the parse error were really in this document).
             // But we still want to create a document to give better error messages in the root document.
-            let mut ignore_diag = BuildDiagnostics::default();
-            ignore_diag.push_error_with_span(
-                "Dummy error because some of the code asserts there was an error".into(),
-                Default::default(),
-            );
+            let mut ignore_diag = BuildDiagnostics::discarded();
             let doc = crate::object_tree::Document::from_node(
                 dependency_doc,
                 imports,

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore qualname
-use i_slint_compiler::diagnostics::{ByteFormat, SourceFile, Spanned};
+use i_slint_compiler::diagnostics::{BuildDiagnostics, ByteFormat, SourceFile, Spanned};
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
 use i_slint_compiler::lookup::LookupCtx;
@@ -185,7 +185,7 @@ struct ExpressionContextInfo {
 /// The compiler skips its passes on a document that has errors, which is what a document being
 /// edited usually looks like. Without this, the loop variable has no type.
 fn resolve_repeater_models(scope: &[object_tree::ElementRc], tr: &TypeRegister) {
-    let mut build_diagnostics = Default::default();
+    let mut build_diagnostics = BuildDiagnostics::discarded();
     for (i, elem) in scope.iter().enumerate() {
         object_tree::visit_repeater_model_expression(elem, |expr, _, property_type| {
             let node = match expr.ignore_debug_hooks() {
@@ -286,7 +286,7 @@ pub fn with_lookup_ctx<R>(
 
     resolve_repeater_models(&scope, tr);
 
-    let mut build_diagnostics = Default::default();
+    let mut build_diagnostics = BuildDiagnostics::discarded();
     let mut lookup_context = LookupCtx::empty_context(
         tr,
         &mut build_diagnostics,

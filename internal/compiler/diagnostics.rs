@@ -361,6 +361,21 @@ impl IntoIterator for BuildDiagnostics {
 }
 
 impl BuildDiagnostics {
+    /// Diagnostics for analyzing code that may already be in error, and whose
+    /// messages are thrown away.
+    ///
+    /// Seeded with an error because the compiler asserts that an error was
+    /// reported before it produces an `ElementType::Error` or an invalid
+    /// expression.
+    pub fn discarded() -> Self {
+        let mut diag = Self::default();
+        diag.push_error_with_span(
+            "Dummy error because some of the code asserts there was an error".into(),
+            Default::default(),
+        );
+        diag
+    }
+
     pub fn push_diagnostic_with_span(
         &mut self,
         message: String,
