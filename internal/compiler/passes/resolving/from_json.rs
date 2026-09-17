@@ -297,14 +297,9 @@ fn json_to_expression(
         },
         Type::Brush => match value {
             serde_json::Value::String(s) => {
-                if let Some(gradient) = gradient_expression(s, breadcrumb_segments, file, node, ctx)
-                {
-                    gradient
-                } else {
-                    match color_expression(s, breadcrumb_segments, file, node, ctx) {
-                        Expression::Invalid => Expression::Invalid,
-                        color => Expression::Cast { from: Box::new(color), to: Type::Brush },
-                    }
+                match color_expression(s, breadcrumb_segments, file, node, ctx) {
+                    Expression::Invalid => Expression::Invalid,
+                    color => Expression::Cast { from: Box::new(color), to: Type::Brush },
                 }
             }
             _ => mismatch(value, target, breadcrumb_segments, file, node, ctx),
@@ -424,83 +419,4 @@ fn color_expression(
             Expression::Invalid
         }
     }
-}
-
-/// If `s` looks like a gradient literal — either the `.slint` form (`@linear-gradient(...)`) or
-/// the plain CSS-style form JSON data more naturally uses (`linear-gradient(...)`, no `@`), same
-/// for `radial-gradient(...)`/`conic-gradient(...)` — parse it with the same grammar and
-/// resolving logic as a gradient written directly in a `.slint` file, and return the resulting
-/// `Type::Brush`-typed expression (or `Expression::Invalid`, with a diagnostic already reported,
-/// if it fails to parse). Returns `None` for anything that isn't a gradient literal, so the
-/// caller can fall back to treating `s` as a plain color.
-fn gradient_expression(
-    s: &str,
-    breadcrumb_segments: &[SmolStr],
-    file: &std::path::Path,
-    node: &syntax_nodes::AtFromJson,
-    ctx: &mut LookupCtx,
-) -> Option<Expression> {
-    let trimmed = s.trim_start();
-    let without_at = trimmed.strip_prefix('@').unwrap_or(trimmed);
-    let is_gradient = ["linear-gradient(", "linear_gradient(", "radial-gradient(", "radial_gradient(", "conic-gradient(", "conic_gradient("]
-        .iter()
-        .any(|prefix| without_at.starts_with(prefix));
-    if !is_gradient {
-        return None;
-    }
-    let with_at = format!("@{without_at}");
-    let mut parse_diag = crate::diagnostics::BuildDiagnostics::default();
-    let fragment =
-        crate::parser::parse_expression_fragment(&with_at, file.to_path_buf(), &mut parse_diag);
-    // `parse_expression_fragment` wraps its result in a generic `Expression` node; the
-    // `AtGradient` node (if `s` parsed as a gradient) is that node's only child.
-    let Some(gradient_node) = (!parse_diag.has_errors())
-        .then(|| fragment.child_node(SyntaxKind::AtGradient))
-        .flatten()
-        .map(syntax_nodes::AtGradient::from)
-    else {
-        ctx.diag.push_error(
-            format!(
-                "Cannot parse '{s}' as a gradient, at '{}' in {}",
-                breadcrumb(breadcrumb_segments),
-                file.display()
-            ),
-            node,
-        );
-        return Some(Expression::Invalid);
-    };
-
-    // Resolve with a scratch diagnostics collector: `from_at_gradient` reports errors (e.g. an
-    // invalid angle) with spans into the fragment's synthetic source, which would look confusing
-    // reported as-is. On failure, report one clean error pointing at the `@from-json(...)` call
-    // instead, consistent with every other diagnostic in this file.
-    let mut resolve_diag = crate::diagnostics::BuildDiagnostics::default();
-    let mut scratch_ctx = LookupCtx {
-        property_name: ctx.property_name,
-        property_type: ctx.property_type.clone(),
-        expected_type: ctx.expected_type.clone(),
-        component_scope: ctx.component_scope,
-        diag: &mut resolve_diag,
-        symbol_counters: ctx.symbol_counters.clone(),
-        arguments: ctx.arguments.clone(),
-        type_register: ctx.type_register,
-        type_loader: ctx.type_loader,
-        current_token: ctx.current_token.clone(),
-        local_variables: ctx.local_variables.clone(),
-        expected_type_probe: ctx.expected_type_probe.clone(),
-    };
-    let expr = Expression::from_at_gradient(gradient_node, &mut scratch_ctx);
-    if resolve_diag.has_errors() {
-        ctx.diag.push_error(
-            format!(
-                "Cannot parse '{s}' as a gradient, at '{}' in {}: {}",
-                breadcrumb(breadcrumb_segments),
-                file.display(),
-                resolve_diag.to_string_vec().join("; ")
-            ),
-            node,
-        );
-        return Some(Expression::Invalid);
-    }
-    Some(expr)
 }

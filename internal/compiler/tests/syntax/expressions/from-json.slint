@@ -44,10 +44,6 @@ export component SuperSimple {
     property <color> a_named_color: @from-json("from-json-data.json", "a_named_color");
     // A color string also converts to a brush
     property <brush> a_color_as_brush: @from-json("from-json-data.json", "a_color");
-    // A gradient literal string, parsed and resolved the same way as a `.slint`-source gradient
-    property <brush> a_linear_gradient: @from-json("from-json-data.json", "a_linear_gradient");
-    property <brush> a_radial_gradient: @from-json("from-json-data.json", "a_radial_gradient");
-    property <brush> a_conic_gradient: @from-json("from-json-data.json", "a_conic_gradient");
     // Parsing an enum. The enums are represented as strings in the json file
     property <MyEnum> an_enum: @from-json("from-json-data.json", "an_enum");
     property <MyEnum> an_enum_prefixed: @from-json("from-json-data.json", "an_enum_prefixed");

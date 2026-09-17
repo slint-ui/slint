@@ -34,9 +34,6 @@ export component TestCase {
     property <Direction> a_direction: @from-json("from_json.json", "a_direction");
     property <Direction> a_direction_prefixed: @from-json("from_json.json", "a_direction_prefixed");
     property <brush> color_to_brush: @from-json("from_json.json", "a_color");
-    property <brush> linear_gradient: @from-json("from_json.json");
-    property <brush> radial_gradient: @from-json("from_json.json");
-    property <brush> conic_gradient: @from-json("from_json.json");
 
     // array / struct, including nesting, a defaulted field, and array-of-struct
     property <[int]> an_array: @from-json("from_json.json", "an_array");
@@ -77,10 +74,7 @@ export component TestCase {
         && a_complex_nested.nested[0].label == "first"
         && a_complex_nested.nested[1].point.x == 9 && a_complex_nested.nested[1].point.y == 10
         && a_complex_nested.nested[1].label == "second"
-        && color_to_brush == #ff0000
-        && linear_gradient == @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%)
-        && radial_gradient == @radial-gradient(circle, #f00 0%, #0f0 50%, #00f 100%)
-        && conic_gradient == @conic-gradient(#f00 0deg, #0f0 120deg, #00f 240deg, #f00 360deg);
+        && color_to_brush == #ff0000;
 }
 
 /*
