@@ -196,7 +196,6 @@ def manual_rotation_drag(
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
     window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
     angles = [_rotation_tooltip_value(window)]
-    rotations = []
     for step in range(1, 4):
         fraction = step / 3
         position = slint_testing.LogicalPosition(
@@ -205,12 +204,12 @@ def manual_rotation_drag(
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(position))
         angles.append(_rotation_tooltip_value(window))
-        rotations.append(frame_rotation(window, kind))
+    final_rotation = frame_rotation(window, kind)
     snapshot.assert_unchanged_now()
 
     assert all(0 <= angle < 360 for angle in angles)
     assert angles[-1] == target_angle or crosses_zero
-    turned = (rotations[-1] - initial_rotation + math.pi) % (2 * math.pi) - math.pi
+    turned = (final_rotation - initial_rotation + math.pi) % (2 * math.pi) - math.pi
     assert abs(turned) > math.radians(1)
     if crosses_zero:
         assert any(angle >= 345 for angle in angles)
