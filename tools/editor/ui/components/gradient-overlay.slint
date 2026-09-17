@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../style.slint";
 import { Api, FillData, LinearGradientAxis, SelectionRectangle } from "../api.slint";
 import { FillSession } from "inspector/fill-session.slint";
-import { StudioTheme } from "common.slint";
+
 import { GradientStopMarker } from "../../../lsp/ui/components/widgets/gradient-stop-marker.slint";
 
 enum GradientGestureKind {
@@ -26,25 +27,31 @@ component GradientHandle inherits FocusScope {
     callback finished();
     callback focused();
     callback keyboard(KeyEvent) -> EventResult;
-    width: 32px;
-    height: 32px;
+    width: Style.canvas.gradient-hit-size;
+    height: Style.canvas.gradient-hit-size;
     z: touch.pressed ? 3 : root.selected || root.has-focus ? 2 : 1;
     key-pressed(event) => { return root.keyboard(event); }
     changed has-focus => { if root.has-focus { root.focused(); } }
     if !root.endpoint: GradientStopMarker {
+        marker-size: Style.inspector.stop-marker-size;
+        marker-radius: Style.inspector.stop-marker-radius;
+        inactive-color: Style.colors.marker-bg;
+        active-color: Style.colors.marker-active;
+        checker-light: Style.colors.checker-light;
+        checker-dark: Style.colors.checker-dark;
         y: 0px;
         active: root.selected || root.has-focus;
         stop-color: root.color;
     }
     if root.endpoint: Rectangle {
-        width: 12px;
-        height: 12px;
-        border-radius: 6px;
-        background: white;
+        width: Style.canvas.gradient-endpoint-size;
+        height: Style.canvas.gradient-endpoint-size;
+        border-radius: Style.controls.row-radius;
+        background: Style.colors.handle-border;
         border-width: root.has-focus ? 2px : 0px;
-        border-color: StudioTheme.accent-strong;
+        border-color: Style.colors.accent-strong;
         drop-shadow-blur: 3px;
-        drop-shadow-color: #0008;
+        drop-shadow-color: Style.shadows.gradient-endpoint.color;
     }
     touch := TouchArea {
         mouse-cursor: grab;
@@ -226,8 +233,8 @@ export component GradientOverlay inherits FocusScope {
         width: root.axis-length * 2;
         height: self.width;
         border-radius: self.width / 2;
-        border-width: 1px;
-        border-color: #ffffff90;
+        border-width: Style.controls.border-width;
+        border-color: Style.canvas.gradient-halo;
     }
     group := Rectangle {
         x: root.start.x;
@@ -246,7 +253,7 @@ export component GradientOverlay inherits FocusScope {
             private property <angle> angle: segment * 360deg / 96;
             private property <angle> tangent: self.angle + 90deg;
             width: 2 * 3.141593 * root.axis-length / 96 + 1px;
-            height: 12px;
+            height: Style.canvas.gradient-endpoint-size;
             x: root.axis-length * cos(self.angle) - self.width / 2;
             y: root.axis-length * sin(self.angle) - self.height / 2;
             transform-origin: { x: self.width / 2, y: self.height / 2 };
@@ -266,9 +273,9 @@ export component GradientOverlay inherits FocusScope {
             height: 10px;
             Rectangle {
                 height: 2px;
-                background: white;
+                background: Style.colors.handle-border;
                 drop-shadow-blur: 2px;
-                drop-shadow-color: #000a;
+                drop-shadow-color: Style.shadows.gradient-axis.color;
             }
             touch := TouchArea {
                 mouse-cursor: grab;
@@ -289,7 +296,7 @@ export component GradientOverlay inherits FocusScope {
             private property <GradientGestureKind> gesture-kind: endpoint == 0 ? GradientGestureKind.start-handle : GradientGestureKind.end-handle;
             x: (endpoint == 0 ? 0px : root.axis-length) - self.width / 2;
             endpoint: true;
-            color: white;
+            color: Style.colors.action-text;
             label: root.conic ? (endpoint == 0 ? "Gradient center handle" : "Gradient rotation handle") : root.radial ? (endpoint == 0 ? "Gradient center handle" : "Gradient radius handle") : (endpoint == 0 ? "Gradient start" : "Gradient end");
             window-point(p) => { return group.window-point({ x: self.x + p.x, y: self.y + p.y }); }
             keyboard(event) => { return root.handle-key(self.gesture-kind, event); }

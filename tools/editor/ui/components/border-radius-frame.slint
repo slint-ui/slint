@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../style.slint";
 import { CanvasCorner } from "../api.slint";
-import { EditorMetrics, StudioTheme } from "common.slint";
+import { EditorMetrics } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
 export component BorderRadiusFrame inherits MoveResizeFrame {
@@ -76,9 +77,9 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
         width: EditorMetrics.radius-handle-size;
         height: EditorMetrics.radius-handle-size;
         border-radius: EditorMetrics.radius-handle-size / 2;
-        background: white;
-        border-width: 1px;
-        border-color: StudioTheme.accent-strong;
+        background: Style.colors.handle-border;
+        border-width: Style.controls.border-width;
+        border-color: Style.colors.accent-strong;
 
         if root.enable-border-radius-edits: TouchArea {
             mouse-cursor: pointer;

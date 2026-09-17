@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style } from "../style.slint";
 // cspell:ignore nesw
 import { CanvasCorner } from "../api.slint";
-import { EditorCursors, EditorMetrics, StudioTheme } from "common.slint";
+import { EditorCursors, EditorMetrics } from "common.slint";
 
 export component MoveResizeFrame inherits Rectangle {
     in property <bool> enabled: true;
@@ -306,11 +307,11 @@ export component MoveResizeFrame inherits Rectangle {
                 width: root.width + 2 * EditorMetrics.selection-outline-width;
                 height: root.height + 2 * EditorMetrics.selection-outline-width;
                 border-width: EditorMetrics.selection-outline-width;
-                border-color: StudioTheme.canvas-outline;
+                border-color: Style.colors.canvas-outline;
             }
 
             if root.proportional-resizing(): Path {
-                stroke: StudioTheme.accent-strong;
+                stroke: Style.colors.accent-strong;
                 stroke-width: 1phx;
                 viewbox-width: root.width / 1px;
                 viewbox-height: root.height / 1px;
@@ -408,9 +409,9 @@ export component MoveResizeFrame inherits Rectangle {
                     y: root.resize-handle-y(corner);
                     width: EditorMetrics.selection-handle-size;
                     height: EditorMetrics.selection-handle-size;
-                    background: white;
-                    border-width: 1px;
-                    border-color: StudioTheme.accent-strong;
+                    background: Style.colors.handle-border;
+                    border-width: Style.controls.border-width;
+                    border-color: Style.colors.accent-strong;
                     visible: root.show-resize-handles;
 
                     TouchArea {
