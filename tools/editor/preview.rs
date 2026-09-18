@@ -887,6 +887,40 @@ fn set_code_binding(
     )
 }
 
+fn set_code_bindings(
+    element_url: slint::SharedString,
+    element_version: i32,
+    element_offset: i32,
+    bindings: slint::ModelRc<ui::CodeBinding>,
+) -> bool {
+    use slint::Model;
+
+    let Ok(url) = Url::parse(element_url.as_str()) else { return false };
+    let Ok(offset) = u32::try_from(element_offset) else { return false };
+    let version = (element_version >= 0).then_some(element_version);
+    let Some(document_cache) = document_cache() else { return false };
+    let changes = bindings
+        .iter()
+        .map(|binding| {
+            i_slint_editor_preview::editing::PropertyChange::new(
+                binding.name.as_str(),
+                binding.value.to_string(),
+            )
+        })
+        .collect();
+    let Some(edit) = properties::update_element_properties(
+        &document_cache,
+        i_slint_editor_preview::editing::VersionedPosition::new(
+            VersionedUrl::new(url, version),
+            offset.into(),
+        ),
+        changes,
+    ) else {
+        return false;
+    };
+    send_workspace_edit("Edit properties".to_string(), edit, true)
+}
+
 fn set_color_binding(
     element_url: slint::SharedString,
     element_version: i32,

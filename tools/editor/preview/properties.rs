@@ -770,6 +770,21 @@ pub fn set_binding_impl(
     let properties = get_properties(element, LayoutKind::None);
     let property = get_property_information(&properties, property_name).ok()?;
 
+    if new_expression.is_empty() {
+        if property.defined_at.is_none() {
+            return Some(i_slint_editor_preview::editing::create_text_document_edit(
+                uri,
+                version,
+                vec![],
+            ));
+        }
+        let edit = remove_binding(uri, version, element, property_name, format).ok()?;
+        let lsp_types::DocumentChanges::Edits(mut edits) = edit.document_changes? else {
+            return None;
+        };
+        return edits.pop();
+    }
+
     if property.defined_at.is_some() {
         // Change an already defined property:
         create_text_document_edit_for_set_binding_on_existing_property(
@@ -2003,6 +2018,35 @@ component MyComp {
         assert_eq!(&tc.new_text, "5px");
         assert_eq!(tc.range.start, lsp_types::Position { line: 17, character: 27 });
         assert_eq!(tc.range.end, lsp_types::Position { line: 17, character: 32 });
+    }
+
+    #[test]
+    fn test_set_bindings_removes_and_updates_atomically() {
+        let source =
+            "component Foo inherits Rectangle {\n    width: 30px;\n    background: red;\n}\n";
+        let (dc, uri, _) = i_slint_editor_preview::test::loaded_document_cache(source.into());
+        let element = dc
+            .element_at_offset(&uri, TextSize::new(source.find("Rectangle").unwrap() as u32))
+            .unwrap();
+        let changes = vec![
+            i_slint_editor_preview::editing::PropertyChange::new("background", String::new()),
+            i_slint_editor_preview::editing::PropertyChange::new("width", "40px".into()),
+            i_slint_editor_preview::editing::PropertyChange::new(
+                "drop-shadow-color",
+                String::new(),
+            ),
+        ];
+        let edit = set_bindings(uri.clone(), None, &element, &changes, dc.format).unwrap();
+        let applied =
+            i_slint_editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        assert_eq!(
+            applied[0].contents,
+            "component Foo inherits Rectangle {\n    width: 40px;\n}\n"
+        );
+
+        let mut invalid = changes;
+        invalid.push(i_slint_editor_preview::editing::PropertyChange::new("unknown", "1".into()));
+        assert!(set_bindings(uri, None, &element, &invalid, dc.format).is_none());
     }
 
     #[test]

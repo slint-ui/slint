@@ -6,10 +6,12 @@ from pathlib import Path
 import pytest
 import slint_testing
 from inspector_interactions import FIELDS, edit_field, inspector_field, wait_for_field
+from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     first_window,
     launch_editor,
+    press_shortcut,
     select_outline_row,
     wait_until,
     window_element_with_label,
@@ -618,17 +620,9 @@ def test_invalid_text_content_does_not_change_source(
         )
 
 
-ATOMIC_SHADOW_OFFSET_REQUIRED = pytest.mark.skip(
-    reason="Shadow angle persists offset-x but leaves offset-y unchanged"
-)
 SHADOW_CONTROLS = (
     ("color", "Shadow color", "#12345678"),
-    pytest.param(
-        "angle",
-        "Shadow angle",
-        "0",
-        marks=ATOMIC_SHADOW_OFFSET_REQUIRED,
-    ),
+    ("angle", "Shadow angle", "0"),
     ("distance", "Shadow distance", "12"),
     ("blur", "Shadow blur", "24"),
     ("spread", "Shadow spread", "6"),
@@ -640,12 +634,7 @@ SHADOW_BOUNDARIES = (
     ("blur", "Shadow blur", "128"),
     ("spread", "Shadow spread", "-64"),
     ("spread", "Shadow spread", "64"),
-    pytest.param(
-        "angle",
-        "Shadow angle",
-        "359",
-        marks=ATOMIC_SHADOW_OFFSET_REQUIRED,
-    ),
+    ("angle", "Shadow angle", "359"),
 )
 
 
@@ -767,7 +756,6 @@ def test_shadow_control_boundary_writes_exact_source(
         )
 
 
-@pytest.mark.skip(reason="Effect switching only applies the first shadow-property edit")
 @pytest.mark.parametrize("effect", ("none", "drop", "inner"))
 def test_rectangle_effect_value_writes_exact_source(
     editor_binary: Path,
@@ -781,17 +769,26 @@ def test_rectangle_effect_value_writes_exact_source(
     if effect == "drop":
         source_file.write_bytes(starting_source)
     snapshot = SourceSnapshot.capture(fixture_project)
-    expected = baseline
-    if effect == "none":
-        expected = b"".join(
-            line
-            for line in baseline.splitlines(keepends=True)
-            if not line.lstrip().startswith(b"drop-shadow-")
+    expected = b"".join(
+        line
+        for line in baseline.splitlines(keepends=True)
+        if not line.lstrip().startswith(b"drop-shadow-")
+    )
+    if effect != "none":
+        color = "#00000040" if effect == "drop" else "#00000030"
+        properties = (
+            f"        {effect}-shadow-color: {color};\n"
+            f"        {effect}-shadow-blur: 16px;\n"
+            f"        {effect}-shadow-spread: 0px;\n"
+            f"        {effect}-shadow-offset-x: 0px;\n"
+            f"        {effect}-shadow-offset-y: 8px;\n"
+        ).encode()
+        anchor = (
+            b"        height: 96px;\n        background: #2563eb;"
+            if effect == "drop"
+            else b"        background: #2563eb;"
         )
-    elif effect == "inner":
-        expected = shadow_source(baseline, "inner").replace(
-            b"inner-shadow-color: #00000040", b"inner-shadow-color: #00000030"
-        )
+        expected = replace_once(expected, anchor, properties + anchor)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Rectangle")
@@ -805,6 +802,11 @@ def test_rectangle_effect_value_writes_exact_source(
             {"none": "None", "drop": "Drop Shadow", "inner": "Inner Shadow"}[effect],
             slint_testing.AccessibleRole.Combobox,
         )
+        select_element(window, "Rectangle")
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(starting_source, INSPECTOR_SOURCE)
+        press_shortcut(window, keys.Control, keys.Shift, "z")
+        snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
 
 
 INVALID_EDITS = (

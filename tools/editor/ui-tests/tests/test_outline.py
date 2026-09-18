@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 import slint_testing
 from canvas_interactions import center
+from editor_sync import wait_for_source
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
@@ -13,6 +14,7 @@ from ui_driver import (
     first_window,
     launch_editor,
     press_key,
+    press_shortcut,
     select_outline_row,
     wait_until,
     window_element_with_label,
@@ -226,7 +228,6 @@ def test_outline_disclosure_collapses_and_expands_without_source_edit(
     ],
     ids=["return", "space"],
 )
-@pytest.mark.skip(reason="Tab does not move focus to the next outline row")
 def test_outline_keyboard_selection_synchronizes_editor(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -236,11 +237,11 @@ def test_outline_keyboard_selection_synchronizes_editor(
     target: str,
     selection: str,
 ) -> None:
+    source_file = fixture_project / "OutlineCases.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
-    ) as editor:
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
+        wait_for_source(source_file, source_file.read_bytes())
         select_outline_row(window, initial)
         row = outline_row(window, target)
         assert not row.accessible_item_selected
@@ -252,6 +253,14 @@ def test_outline_keyboard_selection_synchronizes_editor(
             selection,
             slint_testing.AccessibleRole.Region,
         )
+        press_shortcut(window, keys.Shift, keys.Tab)
+        press_key(window, key)
+        wait_until(
+            lambda: outline_row(window, initial).accessible_item_selected or None
+        )
+        window_element_with_label(
+            window, "Selected Rectangle", slint_testing.AccessibleRole.Region
+        )
         snapshot.assert_unchanged()
 
 
@@ -259,20 +268,8 @@ def test_outline_keyboard_selection_synchronizes_editor(
     "source,target",
     [
         ("sibling-a", "sibling-a"),
-        pytest.param(
-            "container",
-            "child-a",
-            marks=pytest.mark.skip(
-                reason="Dropping a parent onto its descendant rewrites the source"
-            ),
-        ),
-        pytest.param(
-            "<root>",
-            "child-a",
-            marks=pytest.mark.skip(
-                reason="Dragging the component root rewrites the source"
-            ),
-        ),
+        ("container", "child-a"),
+        ("<root>", "child-a"),
     ],
     ids=["self", "cycle", "root"],
 )
@@ -283,11 +280,12 @@ def test_illegal_outline_drops_do_not_change_source(
     source: str,
     target: str,
 ) -> None:
+    source_file = fixture_project / "OutlineCases.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
-    ) as editor:
-        drag_row(first_window(editor), source, target, "onto")
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        wait_for_source(source_file, source_file.read_bytes())
+        drag_row(window, source, target, "onto")
         snapshot.assert_unchanged()
 
 

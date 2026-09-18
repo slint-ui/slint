@@ -11,7 +11,6 @@ export component OutlinePane inherits Rectangle {
     in property <TreeStyle> style: Style.tree;
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
     property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
-    callback element-selected();
     callback drag-started();
 
     // background: root.style.row.hover-background;
@@ -179,7 +178,6 @@ export component OutlinePane inherits Rectangle {
                     }
                     row-current-requested(uri, offset) => {
                         Api.outline-select-element(uri, offset, true);
-                        root.element-selected();
                     }
                     row-expanded-changed(row-index, expanded) => {
                         Api.outline-set-expanded(row-index, expanded);

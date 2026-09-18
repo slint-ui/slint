@@ -363,8 +363,13 @@ fn drop_edit(
             }
             let moving_element =
                 document_cache.element_at_offset(&url, TextSize::new(item_offset))?;
-            if moving_element == drop_info.target_element_node {
-                return None;
+            moving_element.parent()?;
+            let mut ancestor = Some(drop_info.target_element_node.clone());
+            while let Some(element) = ancestor {
+                if moving_element == element {
+                    return None;
+                }
+                ancestor = element.parent();
             }
             preview::drop_location::create_swap_element_workspace_edit(
                 &drop_info,

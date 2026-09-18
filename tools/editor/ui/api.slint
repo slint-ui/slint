@@ -1,6 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+export struct CodeBinding {
+    name: string,
+    value: string,
+}
+
 export enum CanvasCorner {
     top-left,
     top-right,
@@ -746,6 +751,7 @@ export global Api {
     // ## Property Editor
     pure callback test-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
     pure callback set-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
+    pure callback set-code-bindings(element-url: string, element-version: int, element-offset: int, bindings: [CodeBinding]) -> bool;
     pure callback set-color-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: color);
     callback set-element-id(element-url: string, element-version: int, element-offset: int, new-id: string);
 
