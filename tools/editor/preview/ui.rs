@@ -1630,6 +1630,77 @@ mod tests {
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
 
     #[test]
+    fn corner_radius_cursor_changes_on_hover_and_stays_during_drag() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                x: 40.,
+                y: 40.,
+                width: 180.,
+                height: 120.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        let radius_changed = std::rc::Rc::new(std::cell::Cell::new(false));
+        let changed = radius_changed.clone();
+        api.on_override_selected_element_border_radius(move |_, _, _| changed.set(true));
+        editor.show().unwrap();
+
+        let center = |label: &str| {
+            let element =
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, label)
+                    .next()
+                    .unwrap();
+            let position = element.absolute_position();
+            let size = element.size();
+            LogicalPosition::new(position.x + size.width / 2., position.y + size.height / 2.)
+        };
+        let cursor = || {
+            i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                window.mouse_cursor()
+            })
+        };
+        editor
+            .window()
+            .dispatch_event(WindowEvent::PointerMoved { position: center("Selected Rectangle") });
+        let canvas_cursor = cursor();
+        assert_eq!(canvas_cursor, editor.global::<super::EditorCursors>().get_canvas_default());
+
+        let start = center("Rectangle radius top-left");
+        editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+        let radius_cursor = cursor();
+        assert_ne!(radius_cursor, canvas_cursor);
+        assert_eq!(radius_cursor, editor.global::<super::EditorCursors>().get_corner_radius());
+        assert!(matches!(
+            radius_cursor,
+            i_slint_core::cursor::MouseCursorInner::CustomMouseCursor { .. }
+        ));
+
+        editor.window().dispatch_event(WindowEvent::PointerPressed {
+            position: start,
+            button: PointerEventButton::Left,
+        });
+        assert_eq!(cursor(), radius_cursor);
+        let end = LogicalPosition::new(start.x + 20., start.y + 20.);
+        editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
+        assert!(radius_changed.get());
+        assert_eq!(cursor(), radius_cursor);
+        editor.window().dispatch_event(WindowEvent::PointerReleased {
+            position: end,
+            button: PointerEventButton::Left,
+        });
+    }
+
+    #[test]
     fn begin_fill_session_accepts_previous_target_before_replacing_it() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
