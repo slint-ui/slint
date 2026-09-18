@@ -637,6 +637,7 @@ impl FlickableDataInner {
         {
             self.capture_momentum();
             self.capture_events = Some(CaptureEvents::MouseWheel);
+            self.velocity_rb = Default::default();
         }
 
         let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
