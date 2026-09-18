@@ -4,10 +4,10 @@
 import { execFileSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-const runtimeRoot = fileURLToPath(new URL("../../../", import.meta.url));
+import { runtimeRoot, verifyRuntime } from "./runtime-pin.mjs";
 
 export async function dependencyNotices(moduleIds) {
+    verifyRuntime();
     const packages = new Map();
     for (const input of moduleIds) {
         if (!input.includes("node_modules/")) continue;

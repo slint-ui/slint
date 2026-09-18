@@ -102,6 +102,16 @@ assert.equal(provenance.manifest, "api/wasm-interpreter/Cargo.toml");
 assert.match(provenance.revision, /^[a-f0-9]{40}$/);
 assert.equal(provenance.revision, runtimePin.revision);
 assert.equal(provenance.version, runtimePin.version);
+const dependencies = JSON.parse(
+    await archive.file(`${prefix}dependencies.json`).async("string"),
+);
+assert.equal(
+    dependencies.packages.find(
+        (pkg) =>
+            pkg.ecosystem === "cargo" && pkg.name === "slint-wasm-interpreter",
+    )?.version,
+    runtimePin.version,
+);
 assert.equal(manifest.id, "1474418299182276871");
 assert.deepEqual(manifest.networkAccess.allowedDomains, ["none"]);
 assert.ok(
