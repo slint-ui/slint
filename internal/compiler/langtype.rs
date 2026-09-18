@@ -1049,7 +1049,10 @@ impl Display for Function {
             if i > 0 {
                 write!(formatter, ", ")?;
             }
-            write!(formatter, "{arg}")?;
+            match self.arg_names.get(i).filter(|name| !name.is_empty()) {
+                Some(name) => write!(formatter, "{name}: {arg}")?,
+                None => write!(formatter, "{arg}")?,
+            }
         }
         let return_type = if self.return_type == Type::Void {
             String::new()
