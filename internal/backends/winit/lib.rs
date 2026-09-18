@@ -369,8 +369,8 @@ impl BackendBuilder {
     }
 
     #[cfg(target_family = "wasm")]
-    /// Configures this builder to spawn the event loop using [`winit::platform::web::EventLoopExtWebSys::spawn()`]
-    /// run `run_event_loop()` is called.
+    /// Configures this builder to spawn the event loop rather than block in it when
+    /// `run_event_loop()` is called.
     pub fn with_spawn_event_loop(mut self, enable: bool) -> Self {
         self.spawn_event_loop = enable;
         self

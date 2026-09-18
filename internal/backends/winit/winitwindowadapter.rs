@@ -638,7 +638,7 @@ impl WinitWindowAdapter {
 
         #[cfg(target_os = "ios")]
         let (content_view, keyboard_curve_self) =
-            (crate::ios::content_view(&winit_window), self.self_weak.clone());
+            (crate::ios::content_view(&*winit_window), self.self_weak.clone());
 
         #[cfg(target_os = "ios")]
         crate::ios::attach_window_to_scene(&content_view);
@@ -1809,7 +1809,7 @@ impl WinitWindowAdapter {
                 #[cfg(target_os = "macos")]
                 if !self.first_frame_presented.get() {
                     *self.reveal_on_first_frame.borrow_mut() =
-                        crate::macos::RevealOnFirstFrame::new(&winit_window);
+                        crate::macos::RevealOnFirstFrame::new(&*winit_window);
                 }
             }
 

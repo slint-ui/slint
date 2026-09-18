@@ -27,7 +27,7 @@ pub(crate) struct RevealOnFirstFrame {
 }
 
 impl RevealOnFirstFrame {
-    pub(crate) fn new(winit_window: &winit::window::Window) -> Option<Self> {
+    pub(crate) fn new(winit_window: &dyn winit::window::Window) -> Option<Self> {
         let ns_window = ns_view(winit_window)?.window()?;
         let alpha = ns_window.alphaValue();
         ns_window.setAlphaValue(0.0);
@@ -41,7 +41,7 @@ impl Drop for RevealOnFirstFrame {
     }
 }
 
-pub(crate) fn ns_view(winit_window: &winit::window::Window) -> Option<&NSView> {
+pub(crate) fn ns_view(winit_window: &dyn winit::window::Window) -> Option<&NSView> {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
     let RawWindowHandle::AppKit(handle) = winit_window.window_handle().ok()?.as_raw() else {

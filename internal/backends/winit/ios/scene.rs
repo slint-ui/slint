@@ -63,7 +63,7 @@ pub(crate) fn attach_window_to_scene(view: &UIView) {
 }
 
 /// The `UIView` winit renders into.
-pub(crate) fn content_view(winit_window: &winit::window::Window) -> Retained<UIView> {
+pub(crate) fn content_view(winit_window: &dyn winit::window::Window) -> Retained<UIView> {
     use raw_window_handle::HasWindowHandle as _;
 
     let raw_window_handle::RawWindowHandle::UiKit(handle) = winit_window
@@ -113,7 +113,7 @@ pub(crate) fn install_scene_lifecycle(
         for adapter in active_windows.values().filter_map(Weak::upgrade) {
             let Some(window) = adapter
                 .winit_window()
-                .map(|winit_window| content_view(&winit_window))
+                .map(|winit_window| content_view(&*winit_window))
                 .and_then(|view| view.window())
             else {
                 continue;
