@@ -635,7 +635,6 @@ impl FlickableDataInner {
                 crate::animations::current_tick() - start < SCROLL_FILTER_DURATION
             })
         {
-            self.velocity_rb = VelocityRingBuffer::default();
             self.capture_events = Some(CaptureEvents::MouseWheel);
         }
 
