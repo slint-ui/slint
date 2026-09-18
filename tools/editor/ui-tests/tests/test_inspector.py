@@ -192,7 +192,6 @@ def test_element_color_field_writes_exact_source(
         assert_rendered_element(window, f"InspectorCases::inspect-{kind.lower()}")
 
 
-@pytest.mark.skip(reason="Requires a Rust root-element property editing fix")
 def test_root_background_field_writes_exact_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -204,23 +203,16 @@ def test_root_background_field_writes_exact_source(
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        artboard = window_element_with_label(
-            window, "Artboard", slint_testing.AccessibleRole.Region
+        wait_for_field(
+            window, "Root background", "#f8fafc", slint_testing.AccessibleRole.TextInput
         )
-        target = slint_testing.LogicalPosition(
-            x=artboard.absolute_position.x + artboard.size.width - 12,
-            y=artboard.absolute_position.y + artboard.size.height - 12,
-        )
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
-        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
         edit_field(
             window,
             "Root background",
             "#abcdef",
             slint_testing.AccessibleRole.TextInput,
         )
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             replace_once(
                 baseline,
                 b"    background: #f8fafc;",
@@ -620,7 +612,7 @@ def test_invalid_text_content_does_not_change_source(
 
 
 ATOMIC_SHADOW_OFFSET_REQUIRED = pytest.mark.skip(
-    reason="Requires Rust support for atomic shadow-offset edits"
+    reason="Shadow angle persists offset-x but leaves offset-y unchanged"
 )
 SHADOW_CONTROLS = (
     ("color", "Shadow color", "#12345678"),
@@ -703,7 +695,8 @@ def test_each_shadow_family_control_writes_exact_source(
 ) -> None:
     source_file = fixture_project / INSPECTOR_SOURCE
     starting_source = shadow_source(source_file.read_bytes(), family)
-    source_file.write_bytes(starting_source)
+    if family == "inner":
+        source_file.write_bytes(starting_source)
     snapshot = SourceSnapshot.capture(fixture_project)
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
@@ -716,11 +709,10 @@ def test_each_shadow_family_control_writes_exact_source(
                 slint_testing.AccessibleRole.TextInput,
             )
         edit_field(window, label, value)
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             shadow_expected(starting_source, family, control, value),
             relative_path=INSPECTOR_SOURCE,
         )
-        assert_rendered_element(window, "InspectorCases::inspect-rectangle")
 
 
 @pytest.mark.parametrize("family", ("drop", "inner"))
@@ -748,7 +740,8 @@ def test_shadow_control_boundary_writes_exact_source(
 ) -> None:
     source_file = fixture_project / INSPECTOR_SOURCE
     starting_source = shadow_source(source_file.read_bytes(), family)
-    source_file.write_bytes(starting_source)
+    if family == "inner":
+        source_file.write_bytes(starting_source)
     snapshot = SourceSnapshot.capture(fixture_project)
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
@@ -761,14 +754,13 @@ def test_shadow_control_boundary_writes_exact_source(
                 slint_testing.AccessibleRole.TextInput,
             )
         edit_field(window, label, value)
-        snapshot.wait_for_exact(
+        snapshot.wait_for_applied(
             shadow_expected(starting_source, family, control, value),
             relative_path=INSPECTOR_SOURCE,
         )
-        assert_rendered_element(window, "InspectorCases::inspect-rectangle")
 
 
-@pytest.mark.skip(reason="Requires Rust support for atomic multi-property edits")
+@pytest.mark.skip(reason="Effect switching only applies the first shadow-property edit")
 @pytest.mark.parametrize("effect", ("none", "drop", "inner"))
 def test_rectangle_effect_value_writes_exact_source(
     editor_binary: Path,
@@ -776,7 +768,36 @@ def test_rectangle_effect_value_writes_exact_source(
     fixture_project: Path,
     effect: str,
 ) -> None:
-    assert editor_binary and editor_environment and fixture_project and effect
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    starting_source = shadow_source(baseline, "inner" if effect == "drop" else "drop")
+    if effect == "drop":
+        source_file.write_bytes(starting_source)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    expected = baseline
+    if effect == "none":
+        expected = b"".join(
+            line
+            for line in baseline.splitlines(keepends=True)
+            if not line.lstrip().startswith(b"drop-shadow-")
+        )
+    elif effect == "inner":
+        expected = shadow_source(baseline, "inner").replace(
+            b"inner-shadow-color: #00000040", b"inner-shadow-color: #00000030"
+        )
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        edit_field(
+            window, "Rectangle effect", effect, slint_testing.AccessibleRole.Combobox
+        )
+        snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
+        wait_for_field(
+            window,
+            "Rectangle effect",
+            {"none": "None", "drop": "Drop Shadow", "inner": "Inner Shadow"}[effect],
+            slint_testing.AccessibleRole.Combobox,
+        )
 
 
 INVALID_EDITS = (

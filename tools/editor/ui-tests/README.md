@@ -80,15 +80,14 @@ Set `SLINT_EDITOR_BINARY` to test a different editor binary.
 
 ## Skipped Cases
 
-The suite retains skipped cases for behavior that needs editor changes:
+The remaining skipped cases reproduce these editor limitations:
 
-- navigating outline focus with the keyboard
-- rejecting descendant cycles and component-root outline drops
-- recovering a deleted root source file without relaunching
-- editing a component-root property from the inspector
-- switching shadow families as one atomic property edit
-- changing both shadow-offset properties atomically through the angle control
-- undoing and redoing corner-radius handle edits
-- editing rotation and corner radius from the Rectangle inspector for undo and redo
+- Tab does not move focus to the next outline row (two cases).
+- Descendant-cycle and component-root outline drops rewrite source (two cases).
+- Recreating a deleted root source file does not reload its preview (one case).
+- Effect switching only applies the first shadow-property edit (three cases).
+- Shadow-angle editing persists offset-x but leaves offset-y unchanged (four cases).
 
-Remove a skip when its implementation lands and the case passes.
+Root-background editing and Rectangle rotation and radius undo/redo are enabled.
+Radius edits persist four corner properties while preserving the shorthand.
+Remove a skip only when its case passes against the editor.

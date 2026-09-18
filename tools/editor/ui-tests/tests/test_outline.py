@@ -12,6 +12,8 @@ from ui_driver import (
     elements_with_label,
     first_window,
     launch_editor,
+    press_key,
+    select_outline_row,
     wait_until,
     window_element_with_label,
 )
@@ -225,7 +227,7 @@ def test_outline_disclosure_collapses_and_expands_without_source_edit(
     ],
     ids=["return", "space"],
 )
-@pytest.mark.skip(reason="No keyboard-only outline focus navigation is available")
+@pytest.mark.skip(reason="Tab does not move focus to the next outline row")
 def test_outline_keyboard_selection_synchronizes_editor(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -240,15 +242,11 @@ def test_outline_keyboard_selection_synchronizes_editor(
         editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
     ) as editor:
         window = first_window(editor)
-        initial_row = outline_row(window, initial)
+        select_outline_row(window, initial)
         row = outline_row(window, target)
-        initial_row.single_click(slint_testing.PointerEventButton.Left)
-        assert initial_row.accessible_item_selected
         assert not row.accessible_item_selected
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Tab))
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Tab))
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
+        press_key(window, keys.Tab)
+        press_key(window, key)
         wait_until(lambda: row if row.accessible_item_selected else None)
         window_element_with_label(
             window,
@@ -259,23 +257,21 @@ def test_outline_keyboard_selection_synchronizes_editor(
 
 
 @pytest.mark.parametrize(
-    "source,target,location",
+    "source,target",
     [
-        ("sibling-a", "sibling-a", "onto"),
+        ("sibling-a", "sibling-a"),
         pytest.param(
             "container",
             "child-a",
-            "onto",
             marks=pytest.mark.skip(
-                reason="Requires a Rust descendant-cycle rejection fix"
+                reason="Dropping a parent onto its descendant rewrites the source"
             ),
         ),
         pytest.param(
             "<root>",
             "child-a",
-            "onto",
             marks=pytest.mark.skip(
-                reason="Requires a Rust component-root rejection fix"
+                reason="Dragging the component root rewrites the source"
             ),
         ),
     ],
@@ -287,13 +283,12 @@ def test_illegal_outline_drops_do_not_change_source(
     fixture_project: Path,
     source: str,
     target: str,
-    location: str,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(
         editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
     ) as editor:
-        drag_row(first_window(editor), source, target, location)
+        drag_row(first_window(editor), source, target, "onto")
         snapshot.assert_unchanged()
 
 
