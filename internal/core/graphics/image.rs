@@ -587,8 +587,8 @@ impl ImageInner {
                 crate::debug_log!("Compressed SVG (.svgz) is not supported on the web");
                 return None;
             }
-            return htmlimage::HTMLImage::new_from_data(data.as_slice(), mime_type)
-                .map(|html_image| ImageInner::HTMLImage(vtable::VRc::new(html_image)));
+            htmlimage::HTMLImage::new_from_data(data.as_slice(), mime_type)
+                .map(|html_image| ImageInner::HTMLImage(vtable::VRc::new(html_image)))
         }
 
         #[cfg(not(target_arch = "wasm32"))]
