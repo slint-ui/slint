@@ -23,6 +23,7 @@ import { EditorWindow } from "components/common.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export { Api, Hover, Preview, Project, FillSession }
+export { ElementVisuals } from "components/element-presentation.slint";
 export { EditorCursors, EditorWindow } from "components/common.slint";
 
 component NewFileErrorPopup inherits PopupWindow {
@@ -160,6 +161,7 @@ component NewFileErrorPopup inherits PopupWindow {
 }
 
 export component EditorUi inherits Window {
+    private property <bool> palette-drag-in-outline: false;
     preferred-width: Style.shell.width;
     preferred-height: Style.shell.height;
     min-width: Style.shell.min-width;
@@ -351,10 +353,17 @@ export component EditorUi inherits Window {
                                 sidebars-collapsed: root.sidebars-collapsed;
                             }
 
-                            DragPreview { parent-origin: parent.absolute-position; }
+                            DragPreview {
+                                parent-origin: parent.absolute-position;
+                                visible: (AppState.outline-drag-active || AppState.palette-drag-kind != ElementKind.none)
+                                    && !(Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed && root.palette-drag-in-outline);
+                            }
                         }
 
                         if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
+                            changed palette-drag-in-outline => {
+                                root.palette-drag-in-outline = self.palette-drag-in-outline;
+                            }
                             outline-pane-height: root.outline-pane-height;
                             element-information: Api.current-element;
                             inspector-scroll-y <=> root.inspector-scroll-y;
