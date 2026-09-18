@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from editor_sync import wait_for_source
 from gradient_interactions import (
     around,
     center,
@@ -53,6 +54,7 @@ def test_custom_gradient_geometry_uses_layout_size(
 """
     source_file.write_text(source)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         rectangle = wait_until(
@@ -84,7 +86,6 @@ def test_custom_gradient_geometry_uses_layout_size(
 def test_non_canvas_gradient_keeps_numeric_geometry(
     editor_binary, editor_environment, tmp_path, kind, target
 ):
-    from editor_sync import wait_for_source
     from ui_driver import elements_with_label, press_key
 
     prefix = {"linear": "0deg", "radial": "circle", "conic": "from 0deg"}[kind]
@@ -165,6 +166,7 @@ def test_picker_uses_live_preview_stop_markers(
     )
     file = gradient_document(tmp_path, expression)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
@@ -190,6 +192,7 @@ def test_custom_geometry_survives_mode_changes(
     file = gradient_document(tmp_path, expression)
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
@@ -216,6 +219,7 @@ def test_stop_precision_survives_save_and_reopen(
     file = gradient_document(tmp_path, expression)
     snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
 
@@ -281,6 +285,7 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
@@ -326,6 +331,7 @@ def test_picker_pointer_cancel_restores_stops(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
@@ -359,6 +365,7 @@ def test_stop_interactions_preserve_color_identity(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
@@ -406,6 +413,7 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
     file.write_text(source)
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         for cancel in [True, False]:
@@ -450,6 +458,7 @@ def test_recent_gradient_resets_custom_geometry_initialization(
     file = gradient_document(tmp_path, "@radial-gradient(circle, red 0%, blue 100%)")
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)

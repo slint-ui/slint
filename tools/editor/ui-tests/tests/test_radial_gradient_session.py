@@ -5,6 +5,7 @@ import math
 
 import pytest
 import slint_testing
+from editor_sync import wait_for_source
 from gradient_interactions import center, click, control, gesture, open_radial, shifted
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
@@ -25,6 +26,7 @@ def test_escape_restores_radial_gesture(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+        wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
         start = center(control(window, label), 35)
@@ -47,6 +49,7 @@ def test_radial_keyboard_and_collapsed_radius(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+        wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
         c = center(control(window, "Gradient center handle"), 35)
@@ -84,10 +87,10 @@ def test_radial_keyboard_and_collapsed_radius(
 def test_external_edit_invalidates_radial_session(
     editor_binary, editor_environment, radial_scene
 ):
-    from editor_sync import wait_for_source
 
     original = radial_scene.read_text()
     with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+        wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
         c = center(control(window, "Gradient center handle"), 35)

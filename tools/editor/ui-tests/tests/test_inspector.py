@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from editor_sync import wait_for_source
 from inspector_interactions import FIELDS, edit_field, inspector_field, wait_for_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
@@ -615,21 +616,19 @@ def test_invalid_text_content_does_not_change_source(
         )
 
 
-SHADOW_CONTROLS = (
-    ("color", "Shadow color", "#12345678"),
-    ("angle", "Shadow angle", "0"),
-    ("distance", "Shadow distance", "12"),
-    ("blur", "Shadow blur", "24"),
-    ("spread", "Shadow spread", "6"),
-)
-SHADOW_BOUNDARIES = (
-    ("distance", "Shadow distance", "0"),
-    ("distance", "Shadow distance", "96"),
-    ("blur", "Shadow blur", "0"),
-    ("blur", "Shadow blur", "128"),
-    ("spread", "Shadow spread", "-64"),
-    ("spread", "Shadow spread", "64"),
-    ("angle", "Shadow angle", "359"),
+SHADOW_EDITS = (
+    pytest.param("color", "Shadow color", "#12345678", id="color"),
+    pytest.param("angle", "Shadow angle", "0", id="angle"),
+    pytest.param("distance", "Shadow distance", "12", id="distance"),
+    pytest.param("blur", "Shadow blur", "24", id="blur"),
+    pytest.param("spread", "Shadow spread", "6", id="spread"),
+    pytest.param("distance", "Shadow distance", "0", id="distance-0"),
+    pytest.param("distance", "Shadow distance", "96", id="distance-96"),
+    pytest.param("blur", "Shadow blur", "0", id="blur-0"),
+    pytest.param("blur", "Shadow blur", "128", id="blur-128"),
+    pytest.param("spread", "Shadow spread", "-64", id="spread--64"),
+    pytest.param("spread", "Shadow spread", "64", id="spread-64"),
+    pytest.param("angle", "Shadow angle", "359", id="angle-359"),
 )
 
 
@@ -672,10 +671,9 @@ def shadow_expected(source: bytes, family: str, control: str, value: str) -> byt
 @pytest.mark.parametrize("family", ("drop", "inner"))
 @pytest.mark.parametrize(
     ("control", "label", "value"),
-    SHADOW_CONTROLS,
-    ids=("color", "angle", "distance", "blur", "spread"),
+    SHADOW_EDITS,
 )
-def test_each_shadow_family_control_writes_exact_source(
+def test_shadow_control_writes_exact_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
@@ -691,59 +689,9 @@ def test_each_shadow_family_control_writes_exact_source(
     snapshot = SourceSnapshot.capture(fixture_project)
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, starting_source)
         window = first_window(editor)
         select_element(window, "Rectangle")
-        if control in {"blur", "spread"}:
-            inspector_field(
-                window,
-                f"{label} value",
-                slint_testing.AccessibleRole.TextInput,
-            )
-        edit_field(window, label, value)
-        snapshot.wait_for_applied(
-            shadow_expected(starting_source, family, control, value),
-            relative_path=INSPECTOR_SOURCE,
-        )
-
-
-@pytest.mark.parametrize("family", ("drop", "inner"))
-@pytest.mark.parametrize(
-    ("control", "label", "value"),
-    SHADOW_BOUNDARIES,
-    ids=(
-        "distance-0",
-        "distance-96",
-        "blur-0",
-        "blur-128",
-        "spread--64",
-        "spread-64",
-        "angle-359",
-    ),
-)
-def test_shadow_control_boundary_writes_exact_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-    family: str,
-    control: str,
-    label: str,
-    value: str,
-) -> None:
-    source_file = fixture_project / INSPECTOR_SOURCE
-    starting_source = shadow_source(source_file.read_bytes(), family)
-    if family == "inner":
-        source_file.write_bytes(starting_source)
-    snapshot = SourceSnapshot.capture(fixture_project)
-
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        select_element(window, "Rectangle")
-        if control in {"blur", "spread"}:
-            inspector_field(
-                window,
-                f"{label} value",
-                slint_testing.AccessibleRole.TextInput,
-            )
         edit_field(window, label, value)
         snapshot.wait_for_applied(
             shadow_expected(starting_source, family, control, value),

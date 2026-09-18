@@ -746,7 +746,7 @@ fn create_text_document_edit_for_set_binding_on_known_property(
     )
 }
 
-pub fn set_binding_impl(
+fn set_binding(
     uri: Url,
     version: SourceFileVersion,
     element: &i_slint_editor_preview::ElementRcNode,
@@ -791,7 +791,7 @@ pub fn set_binding_impl(
     }
 }
 
-pub fn set_bindings(
+fn set_bindings(
     uri: Url,
     version: SourceFileVersion,
     element: &i_slint_editor_preview::ElementRcNode,
@@ -800,14 +800,10 @@ pub fn set_bindings(
 ) -> Option<lsp_types::WorkspaceEdit> {
     let edits = properties
         .iter()
-        .filter_map(|p| {
-            set_binding_impl(uri.clone(), version, element, &p.name, p.value.clone(), format)
-        })
-        .collect::<Vec<_>>();
+        .map(|p| set_binding(uri.clone(), version, element, &p.name, p.value.clone(), format))
+        .collect::<Option<Vec<_>>>()?;
 
-    (edits.len() == properties.len()).then_some(
-        i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(edits),
-    )
+    Some(i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(edits))
 }
 
 fn element_at_source_code_position(

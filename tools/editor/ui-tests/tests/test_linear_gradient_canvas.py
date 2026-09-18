@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from editor_sync import wait_for_source
 from gradient_interactions import center, click, control, gesture, shifted
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, wait_for_source_change
@@ -54,6 +55,7 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient stop 2"), rotation)
@@ -92,6 +94,7 @@ def test_linear_canvas_activation_and_colour(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         assert not elements_with_label(window.root_element, "Gradient start")
@@ -152,6 +155,7 @@ def test_linear_endpoint_drag_and_session_history(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient start"))
@@ -180,6 +184,7 @@ def test_linear_double_click_and_delete(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         axis = control(window, "Gradient axis")
@@ -204,6 +209,7 @@ def test_linear_drag_escape_restores_gesture(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, handle))
@@ -232,6 +238,7 @@ def test_linear_axis_translation_tracks_rotated_rectangles(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient start"), rotation)
@@ -265,6 +272,7 @@ def test_linear_layout_size_and_keyboard(
 """)
     baseline = scene.read_bytes()
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient start"))
@@ -282,7 +290,6 @@ def test_linear_layout_size_and_keyboard(
         press_key(window, keys.RightArrow)
         click(window, "Close Custom")
         saved = wait_for_source_change(scene, baseline)
-        from editor_sync import wait_for_source
 
         wait_for_source(scene, saved)
         assert b"red, blue" not in saved
@@ -301,6 +308,7 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         click(window, "Edit stop 1 color")
@@ -324,10 +332,10 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
 def test_linear_external_edit_cancels_stale_draft(
     editor_binary, editor_environment, scene
 ):
-    from editor_sync import wait_for_source
 
     original = scene.read_text()
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         click(window, "Edit stop 1 color")
@@ -355,6 +363,7 @@ def test_linear_extended_axis_round_trip(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient start"))

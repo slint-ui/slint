@@ -6,6 +6,7 @@
 from io import BytesIO
 from pathlib import Path
 
+from editor_sync import wait_for_source
 from gradient_interactions import (
     center,
     control,
@@ -26,6 +27,7 @@ def test_coincident_canvas_insertion_preserves_rendering(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
