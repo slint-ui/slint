@@ -115,7 +115,7 @@ export component LineEditBase inherits Rectangle {
 
             MenuItem {
                 title: @tr("Cut");
-                enabled: !root.read-only && root.enabled;
+                enabled: !root.read-only && root.enabled && root.input-type != InputType.password;
                 activated => {
                     text-input.cut();
                 }
@@ -123,7 +123,7 @@ export component LineEditBase inherits Rectangle {
 
             MenuItem {
                 title: @tr("Copy");
-                enabled: !root.text.is-empty;
+                enabled: !root.text.is-empty && root.input-type != InputType.password;
                 activated => {
                     text-input.copy();
                 }
