@@ -5,13 +5,18 @@ import threading
 from pathlib import Path
 
 import pytest
-from source_snapshot import SourceSnapshot, exact_source_mismatch
+from source_snapshot import (
+    SourceSnapshot,
+    exact_source_mismatch,
+    replace_once,
+    wait_for_source_change,
+)
 
 
 def test_source_snapshot_accepts_exact_edit(fixture_project: Path) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
     main_file = fixture_project / "Main.slint"
-    expected = main_file.read_bytes().replace(b"#f8fafc", b"#ffffff")
+    expected = replace_once(main_file.read_bytes(), b"#f8fafc", b"#ffffff")
 
     main_file.write_bytes(expected)
 
@@ -49,3 +54,20 @@ def test_source_snapshot_rejects_unexpected_edit(fixture_project: Path) -> None:
 
 def test_source_snapshot_observes_unchanged_project(fixture_project: Path) -> None:
     SourceSnapshot.capture(fixture_project).assert_unchanged(quiescence=0.01)
+
+
+@pytest.mark.parametrize("source", [b"missing", b"target target"])
+def test_replace_once_rejects_non_unique_target(source: bytes) -> None:
+    with pytest.raises(AssertionError):
+        replace_once(source, b"target", b"replacement")
+
+
+def test_source_change_ignores_truncated_write(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    baseline = b"component Main inherits Window {}\n"
+    updated = b"component Main inherits Window { width: 40px; }\n"
+    readings = iter([baseline, b"", updated])
+    monkeypatch.setattr(Path, "read_bytes", lambda _: next(readings))
+    monkeypatch.setattr("ui_driver.time.sleep", lambda _: None)
+    assert wait_for_source_change(tmp_path / "Main.slint", baseline) == updated

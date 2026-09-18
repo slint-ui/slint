@@ -217,7 +217,6 @@ def test_stale_revision_commit_is_rejected(
         snapshot.assert_unchanged()
 
 
-@pytest.mark.skip(reason="Recreating the deleted root file does not reload its preview")
 def test_deleted_root_file_recovers_without_relaunch(
     editor_binary: Path,
     editor_environment: dict[str, str],

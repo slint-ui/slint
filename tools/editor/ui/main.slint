@@ -358,7 +358,6 @@ export component EditorUi inherits Window {
                             outline-pane-height: root.outline-pane-height;
                             element-information: Api.current-element;
                             inspector-scroll-y <=> root.inspector-scroll-y;
-                            element-selected => { editor.focus(); }
                             outline-drag-started => { editor.focus(); }
                             outline-pane-resized(height) => {
                                 root.outline-pane-resized(height);

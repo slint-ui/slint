@@ -7,9 +7,10 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from editor_sync import wait_for_source
+from gradient_interactions import around, center, click, control, gesture, shifted
 from slint_testing import keys
-from source_snapshot import SourceSnapshot
-from test_linear_gradient_canvas import center, click, control, gesture, shifted
+from source_snapshot import SourceSnapshot, wait_for_source_change
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -46,11 +47,6 @@ def open_conic(window):
     control(window, "Add gradient stop")
 
 
-def around(c, radius, degrees):
-    angle = math.radians(degrees - 90)
-    return shifted(c, x=radius * math.cos(angle), y=radius * math.sin(angle))
-
-
 def stop_center(window, index, position, start=220, rotation=0):
     return center(
         control(window, f"Gradient stop {index}"),
@@ -64,6 +60,7 @@ def test_conic_escape_restores_gesture(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         open_conic(window)
         label = {
@@ -98,6 +95,7 @@ def test_conic_keyboard_and_seam_neighbor(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         open_conic(window)
         c = center(control(window, "Gradient center handle"), 130)
@@ -144,10 +142,10 @@ def test_conic_keyboard_and_seam_neighbor(
 def test_external_edit_invalidates_conic_session(
     editor_binary, editor_environment, conic_scene
 ):
-    from editor_sync import wait_for_source
 
     original = conic_scene.read_text()
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         open_conic(window)
         c = center(control(window, "Gradient center handle"), 130)
@@ -170,6 +168,7 @@ def test_conic_center_translation(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         open_conic(window)
         c = center(control(window, "Gradient center handle"), rotation + 130)
@@ -195,6 +194,7 @@ def test_conic_rotation_crosses_the_seam(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         open_conic(window)
         c = center(control(window, "Gradient center handle"), 260)
@@ -216,12 +216,8 @@ def test_conic_rotation_crosses_the_seam(
         )
         original.assert_unchanged_now()
         click(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                conic_scene.read_bytes()
-                if conic_scene.read_bytes() != original.sources[Path(conic_scene.name)]
-                else None
-            )
+        saved = wait_for_source_change(
+            conic_scene, original.sources[Path(conic_scene.name)]
         )
         original.wait_for_applied(saved, conic_scene.name)
         angle = re.search(rb"from ([0-9.]+)deg", saved)
@@ -248,6 +244,7 @@ def test_conic_noop_and_collapsed_rotation_do_not_write_source(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         open_conic(window)
         c = center(control(window, "Gradient center handle"), 130)
@@ -268,6 +265,7 @@ def test_conic_seam_handles_and_stop_crossing(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         open_conic(window)
         c = center(control(window, "Gradient center handle"), 130)
@@ -315,6 +313,7 @@ def test_conic_seam_handles_and_stop_crossing(
 def test_conic_ring_insertion(editor_binary, editor_environment, conic_scene, tmp_path):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         open_conic(window)
         c = center(control(window, "Gradient center handle"), 130)
@@ -344,6 +343,7 @@ def test_conic_insertion_samples_straight_alpha(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         open_conic(window)
         c = center(control(window, "Gradient center handle"), 130)
@@ -367,6 +367,7 @@ def test_conic_coincident_stops_keep_keyboard_focus(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         open_conic(window)
         click(window, "Gradient stop 1")
@@ -398,6 +399,7 @@ def test_conic_picker_and_canvas_share_selection_and_color(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         open_conic(window)
         (tmp_path / "conic-picker-and-canvas.png").write_bytes(
@@ -442,6 +444,7 @@ def test_conic_activation_from_solid(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         click(window, "Rectangle background color picker")

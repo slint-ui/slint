@@ -9,10 +9,9 @@ from pathlib import Path
 
 import pytest
 import slint_testing
-from canvas_interactions import center
+from canvas_interactions import begin_palette_drag, center
 from editor_sync import wait_for_source
 from PIL import Image
-from test_palette import begin_palette_drag
 from ui_driver import (
     first_window,
     launch_editor,

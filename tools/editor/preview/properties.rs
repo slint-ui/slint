@@ -746,20 +746,7 @@ fn create_text_document_edit_for_set_binding_on_known_property(
     )
 }
 
-pub fn set_binding(
-    uri: Url,
-    version: SourceFileVersion,
-    element: &i_slint_editor_preview::ElementRcNode,
-    property_name: &str,
-    new_expression: String,
-    format: i_slint_editor_preview::ByteFormat,
-) -> Option<lsp_types::WorkspaceEdit> {
-    set_binding_impl(uri, version, element, property_name, new_expression, format).map(|edit| {
-        i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![edit])
-    })
-}
-
-pub fn set_binding_impl(
+fn set_binding(
     uri: Url,
     version: SourceFileVersion,
     element: &i_slint_editor_preview::ElementRcNode,
@@ -769,6 +756,17 @@ pub fn set_binding_impl(
 ) -> Option<lsp_types::TextDocumentEdit> {
     let properties = get_properties(element, LayoutKind::None);
     let property = get_property_information(&properties, property_name).ok()?;
+
+    if new_expression.is_empty() {
+        if property.defined_at.is_none() {
+            return Some(i_slint_editor_preview::editing::create_text_document_edit(
+                uri,
+                version,
+                vec![],
+            ));
+        }
+        return remove_binding(uri, version, element, property_name, format).ok();
+    }
 
     if property.defined_at.is_some() {
         // Change an already defined property:
@@ -793,7 +791,7 @@ pub fn set_binding_impl(
     }
 }
 
-pub fn set_bindings(
+fn set_bindings(
     uri: Url,
     version: SourceFileVersion,
     element: &i_slint_editor_preview::ElementRcNode,
@@ -802,14 +800,10 @@ pub fn set_bindings(
 ) -> Option<lsp_types::WorkspaceEdit> {
     let edits = properties
         .iter()
-        .filter_map(|p| {
-            set_binding_impl(uri.clone(), version, element, &p.name, p.value.clone(), format)
-        })
-        .collect::<Vec<_>>();
+        .map(|p| set_binding(uri.clone(), version, element, &p.name, p.value.clone(), format))
+        .collect::<Option<Vec<_>>>()?;
 
-    (edits.len() == properties.len()).then_some(
-        i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(edits),
-    )
+    Some(i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(edits))
 }
 
 fn element_at_source_code_position(
@@ -853,22 +847,13 @@ pub fn update_element_properties(
     )
 }
 
-fn create_workspace_edit_for_remove_binding(
-    uri: Url,
-    version: SourceFileVersion,
-    range: lsp_types::Range,
-) -> lsp_types::WorkspaceEdit {
-    let edit = lsp_types::TextEdit { range, new_text: String::new() };
-    i_slint_editor_preview::editing::create_workspace_edit(uri.clone(), version, vec![edit])
-}
-
-pub fn remove_binding(
+fn remove_binding(
     uri: Url,
     version: SourceFileVersion,
     element: &i_slint_editor_preview::ElementRcNode,
     property_name: &str,
     format: i_slint_editor_preview::ByteFormat,
-) -> Result<lsp_types::WorkspaceEdit> {
+) -> Result<lsp_types::TextDocumentEdit> {
     let source_file = element.with_element_node(|node| node.source_file.clone());
 
     let token = find_property_binding_offset(element, property_name)
@@ -891,7 +876,7 @@ pub fn remove_binding(
                 let range =
                     util::text_range_to_lsp_range(&source_file, TextRange::new(start, end), format);
                 let edit = lsp_types::TextEdit { range, new_text: String::new() };
-                return Ok(i_slint_editor_preview::editing::create_workspace_edit(
+                return Ok(i_slint_editor_preview::editing::create_text_document_edit(
                     uri.clone(),
                     version,
                     vec![edit],
@@ -903,7 +888,7 @@ pub fn remove_binding(
                 let range =
                     util::text_range_to_lsp_range(&source_file, TextRange::new(start, end), format);
                 let edit = lsp_types::TextEdit { range, new_text: ";".into() };
-                return Ok(i_slint_editor_preview::editing::create_workspace_edit(
+                return Ok(i_slint_editor_preview::editing::create_text_document_edit(
                     uri.clone(),
                     version,
                     vec![edit],
@@ -947,7 +932,12 @@ pub fn remove_binding(
 
             let range =
                 util::text_range_to_lsp_range(&source_file, TextRange::new(start, end), format);
-            return Ok(create_workspace_edit_for_remove_binding(uri, version, range));
+            let edit = lsp_types::TextEdit { range, new_text: String::new() };
+            return Ok(i_slint_editor_preview::editing::create_text_document_edit(
+                uri,
+                version,
+                vec![edit],
+            ));
         }
         if ancestor.kind() == SyntaxKind::Element {
             // There should have been a binding before the element!
@@ -1945,7 +1935,16 @@ component MyComp {
         new_value: &str,
     ) -> Option<lsp_types::WorkspaceEdit> {
         let (element, _, dc, url) = properties_at_position(18, 15).unwrap();
-        set_binding(url, None, &element, property_name, new_value.to_string(), dc.format)
+        set_bindings(
+            url,
+            None,
+            &element,
+            &[i_slint_editor_preview::editing::PropertyChange::new(
+                property_name,
+                new_value.to_string(),
+            )],
+            dc.format,
+        )
     }
 
     #[test]
@@ -2006,6 +2005,35 @@ component MyComp {
     }
 
     #[test]
+    fn test_set_bindings_removes_and_updates_atomically() {
+        let source =
+            "component Foo inherits Rectangle {\n    width: 30px;\n    background: red;\n}\n";
+        let (dc, uri, _) = i_slint_editor_preview::test::loaded_document_cache(source.into());
+        let element = dc
+            .element_at_offset(&uri, TextSize::new(source.find("Rectangle").unwrap() as u32))
+            .unwrap();
+        let changes = vec![
+            i_slint_editor_preview::editing::PropertyChange::new("background", String::new()),
+            i_slint_editor_preview::editing::PropertyChange::new("width", "40px".into()),
+            i_slint_editor_preview::editing::PropertyChange::new(
+                "drop-shadow-color",
+                String::new(),
+            ),
+        ];
+        let edit = set_bindings(uri.clone(), None, &element, &changes, dc.format).unwrap();
+        let applied =
+            i_slint_editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        assert_eq!(
+            applied[0].contents,
+            "component Foo inherits Rectangle {\n    width: 40px;\n}\n"
+        );
+
+        let mut invalid = changes;
+        invalid.push(i_slint_editor_preview::editing::PropertyChange::new("unknown", "1".into()));
+        assert!(set_bindings(uri, None, &element, &invalid, dc.format).is_none());
+    }
+
+    #[test]
     fn test_remove_binding() {
         let source = r#"
 component Foo inherits Window {
@@ -2018,7 +2046,10 @@ component Foo inherits Window {
         let elem = dc
             .element_at_offset(&uri, TextSize::new(source.find("Window").unwrap() as u32))
             .unwrap();
-        let edit = remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap();
+        let edit =
+            i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![
+                remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap(),
+            ]);
 
         let applied =
             i_slint_editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
@@ -2035,7 +2066,10 @@ component Foo inherits Window {
         let elem = dc
             .element_at_offset(&uri, TextSize::new(source.find("Foo {").unwrap() as u32))
             .unwrap();
-        let edit = remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap();
+        let edit =
+            i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![
+                remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap(),
+            ]);
 
         let applied =
             i_slint_editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
@@ -2067,7 +2101,10 @@ component Foo inherits Window {
         let elem = dc
             .element_at_offset(&uri, TextSize::new(source.find("Window").unwrap() as u32))
             .unwrap();
-        let edit = remove_binding(uri.clone(), None, &elem, "test1", dc.format).unwrap();
+        let edit =
+            i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![
+                remove_binding(uri.clone(), None, &elem, "test1", dc.format).unwrap(),
+            ]);
         let applied =
             i_slint_editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
@@ -2084,7 +2121,10 @@ component Foo inherits Window {
 "#
         );
 
-        let edit = remove_binding(uri.clone(), None, &elem, "test2", dc.format).unwrap();
+        let edit =
+            i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![
+                remove_binding(uri.clone(), None, &elem, "test2", dc.format).unwrap(),
+            ]);
         let applied =
             i_slint_editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
@@ -2099,7 +2139,10 @@ component Foo inherits Window {
 "#
         );
 
-        let edit = remove_binding(uri.clone(), None, &elem, "test3", dc.format).unwrap();
+        let edit =
+            i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![
+                remove_binding(uri.clone(), None, &elem, "test3", dc.format).unwrap(),
+            ]);
         let applied =
             i_slint_editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(

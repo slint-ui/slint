@@ -787,40 +787,33 @@ fn rename_component(
     }
 }
 
-fn evaluate_binding(
+fn evaluate_bindings(
     element_url: slint::SharedString,
     element_version: i32,
     element_offset: i32,
-    property_name: slint::SharedString,
-    property_value: String,
+    bindings: impl IntoIterator<Item = ui::CodeBinding>,
 ) -> Option<lsp_types::WorkspaceEdit> {
     let element_url = Url::parse(element_url.as_ref()).ok()?;
     let element_version = if element_version < 0 { None } else { Some(element_version) };
     let element_offset = u32::try_from(element_offset).ok()?.into();
-    let property_name = property_name.to_string();
-
     let document_cache = document_cache()?;
-    let element = document_cache.element_at_offset(&element_url, element_offset)?;
-
-    if property_value.is_empty() {
-        properties::remove_binding(
-            element_url,
-            element_version,
-            &element,
-            &property_name,
-            document_cache.format,
-        )
-        .ok()
-    } else {
-        properties::set_binding(
-            element_url,
-            element_version,
-            &element,
-            &property_name,
-            property_value,
-            document_cache.format,
-        )
-    }
+    let changes = bindings
+        .into_iter()
+        .map(|binding| {
+            i_slint_editor_preview::editing::PropertyChange::new(
+                binding.name.as_str(),
+                binding.value.to_string(),
+            )
+        })
+        .collect();
+    properties::update_element_properties(
+        &document_cache,
+        i_slint_editor_preview::editing::VersionedPosition::new(
+            VersionedUrl::new(element_url, element_version),
+            element_offset,
+        ),
+        changes,
+    )
 }
 
 fn test_code_binding(
@@ -830,29 +823,11 @@ fn test_code_binding(
     property_name: slint::SharedString,
     property_value: slint::SharedString,
 ) -> bool {
-    test_binding(
+    let Some(edit) = evaluate_bindings(
         element_url,
         element_version,
         element_offset,
-        property_name,
-        property_value.to_string(),
-    )
-}
-
-// Backend function called by `test_*_binding`
-fn test_binding(
-    element_url: slint::SharedString,
-    element_version: i32,
-    element_offset: i32,
-    property_name: slint::SharedString,
-    property_value: String,
-) -> bool {
-    let Some(edit) = evaluate_binding(
-        element_url,
-        element_version,
-        element_offset,
-        property_name,
-        property_value,
+        [ui::CodeBinding { name: property_name, value: property_value }],
     ) else {
         return false;
     };
@@ -871,6 +846,20 @@ fn set_code_binding(
     property_name: slint::SharedString,
     property_value: slint::SharedString,
 ) -> bool {
+    set_code_bindings(
+        element_url,
+        element_version,
+        element_offset,
+        [ui::CodeBinding { name: property_name, value: property_value }],
+    )
+}
+
+fn set_code_bindings(
+    element_url: slint::SharedString,
+    element_version: i32,
+    element_offset: i32,
+    bindings: impl IntoIterator<Item = ui::CodeBinding>,
+) -> bool {
     let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
     lsp.send_telemetry(&mut [(
         "type".to_string(),
@@ -878,13 +867,11 @@ fn set_code_binding(
     )])
     .ok();
 
-    set_binding(
-        element_url,
-        element_version,
-        element_offset,
-        property_name,
-        property_value.to_string(),
-    )
+    let Some(edit) = evaluate_bindings(element_url, element_version, element_offset, bindings)
+    else {
+        return false;
+    };
+    send_workspace_edit("Edit properties".to_string(), edit, true)
 }
 
 fn set_color_binding(
@@ -901,33 +888,13 @@ fn set_color_binding(
         + ((rgba.blue as u32) << 8)
         + (rgba.alpha as u32);
 
-    let _ = set_binding(
+    let _ = set_code_binding(
         element_url,
         element_version,
         element_offset,
         property_name,
-        format!("#{value:08x}"),
+        format!("#{value:08x}").into(),
     );
-}
-
-/// Internal function called by all the `set_*_binding` functions
-fn set_binding(
-    element_url: slint::SharedString,
-    element_version: i32,
-    element_offset: i32,
-    property_name: slint::SharedString,
-    property_value: String,
-) -> bool {
-    let Some(edit) = evaluate_binding(
-        element_url,
-        element_version,
-        element_offset,
-        property_name,
-        property_value,
-    ) else {
-        return false;
-    };
-    send_workspace_edit("Edit property".to_string(), edit, true)
 }
 
 fn set_element_id(
@@ -2944,10 +2911,11 @@ mod tests {
     }
 
     #[test]
-    fn set_binding_rejects_an_edit_while_another_edit_is_pending() {
+    fn property_edits_share_validation_and_telemetry() {
         const SOURCE: &str = r#"
-export component Main {
-    text := Text { text: "Old"; }
+export component Main inherits Rectangle {
+    width: 30px;
+    background: #000000;
 }
 "#;
         let path = i_slint_editor_preview::test::main_test_file_name();
@@ -2963,18 +2931,94 @@ export component Main {
         .unwrap();
         assert!(!diagnostics.has_errors());
 
-        let messages = Rc::new(RefCell::new(Vec::new()));
-        reset_preview_state(messages.clone());
-        PREVIEW_STATE.with_borrow_mut(|state| {
-            state.document_cache.replace(Some(Rc::new(document_cache)));
-            state.workspace_edit_sent = true;
-        });
-
-        let offset = SOURCE.find("Text {").unwrap() as i32;
-        let accepted =
-            set_binding(url.as_str().into(), 1, offset, "text".into(), r#""New""#.to_owned());
-        assert!(!accepted);
-        assert!(messages.borrow().is_empty());
+        let document_cache = Rc::new(document_cache);
+        let offset = SOURCE.find("Rectangle {").unwrap() as i32;
+        for kind in ["single", "batch", "color"] {
+            for case in ["valid", "stale", "pending", "invalid"] {
+                let messages = Rc::new(RefCell::new(Vec::new()));
+                reset_preview_state(messages.clone());
+                PREVIEW_STATE.with_borrow_mut(|state| {
+                    state.document_cache.replace(Some(document_cache.clone()));
+                    state.workspace_edit_sent = case == "pending";
+                });
+                let version = if case == "stale" { 0 } else { 1 };
+                let name: SharedString =
+                    if case == "invalid" { "unknown" } else { "background" }.into();
+                assert_eq!(
+                    test_code_binding(
+                        url.as_str().into(),
+                        version,
+                        offset,
+                        name.clone(),
+                        "#12345678".into(),
+                    ),
+                    case == "valid" || case == "pending",
+                );
+                assert!(messages.borrow().is_empty());
+                let accepted = match kind {
+                    "single" => Some(set_code_binding(
+                        url.as_str().into(),
+                        version,
+                        offset,
+                        name,
+                        "#12345678".into(),
+                    )),
+                    "batch" => Some(set_code_bindings(
+                        url.as_str().into(),
+                        version,
+                        offset,
+                        [
+                            ui::CodeBinding { name, value: "#12345678".into() },
+                            ui::CodeBinding { name: "width".into(), value: "40px".into() },
+                        ],
+                    )),
+                    "color" => {
+                        set_color_binding(
+                            url.as_str().into(),
+                            version,
+                            offset,
+                            name,
+                            slint::Color::from_argb_u8(0x78, 0x12, 0x34, 0x56),
+                        );
+                        None
+                    }
+                    _ => unreachable!(),
+                };
+                if let Some(accepted) = accepted {
+                    assert_eq!(accepted, case == "valid", "{kind}: {case}");
+                }
+                let messages = messages.borrow();
+                assert_eq!(
+                    messages
+                        .iter()
+                        .filter(|message| matches!(
+                            message, PreviewToLspMessage::TelemetryEvent(event)
+                                if event.get("type") == Some(&serde_json::json!("property_changed"))
+                        ))
+                        .count(),
+                    1
+                );
+                let edits: Vec<_> = messages
+                    .iter()
+                    .filter_map(|message| {
+                        if let PreviewToLspMessage::SendWorkspaceEdit { edit, .. } = message {
+                            Some(edit)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                assert_eq!(edits.len(), usize::from(case == "valid"), "{kind}: {case}");
+                if let Some(edit) = edits.first() {
+                    let applied = text_edit::apply_workspace_edit(&document_cache, edit).unwrap();
+                    let mut expected = SOURCE.replace("#000000", "#12345678");
+                    if kind == "batch" {
+                        expected = expected.replace("30px", "40px");
+                    }
+                    assert_eq!(applied[0].contents, expected);
+                }
+            }
+        }
         reset_preview_state(Default::default());
     }
 

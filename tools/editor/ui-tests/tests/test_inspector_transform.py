@@ -7,13 +7,16 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from editor_sync import wait_for_source
+from inspector_interactions import edit_field as edit_inspector_field
+from inspector_interactions import wait_for_field as wait_for_inspector_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
-from test_inspector import edit_field as edit_inspector_field
-from test_inspector import wait_for_field as wait_for_inspector_field
 from ui_driver import (
     first_window,
     launch_editor,
+    press_keys,
+    press_shortcut,
     select_outline_row,
     window_element_with_label,
 )
@@ -72,17 +75,6 @@ def action(window, label):
     ).invoke_accessible_default_action()
 
 
-def shortcut(window, redo=False):
-    window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Control))
-    if redo:
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
-    window.dispatch_event(slint_testing.KeyPressedEvent(text="z"))
-    window.dispatch_event(slint_testing.KeyReleasedEvent(text="z"))
-    if redo:
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
-    window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Control))
-
-
 @pytest.mark.parametrize(
     ("value", "display"),
     [
@@ -110,10 +102,10 @@ def test_rotation_numeric_exact_source_and_undo(
         edit_field(window, "Rotation", value)
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, "Rotation", display)
-        shortcut(window)
+        press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline, relative_path=SOURCE)
         wait_for_field(window, "Rotation", "32")
-        shortcut(window, redo=True)
+        press_shortcut(window, keys.Control, keys.Shift, "z")
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, "Rotation", display)
 
@@ -163,10 +155,10 @@ def test_link_uses_top_left_and_one_undo_restores_expressions(
         action(window, "All corners")
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, "All corner radii", "8")
-        shortcut(window)
+        press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline, relative_path=SOURCE)
         wait_for_field(window, LABELS[1], "16")
-        shortcut(window, redo=True)
+        press_shortcut(window, keys.Control, keys.Shift, "z")
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
 
 
@@ -189,7 +181,7 @@ def test_shared_corner_value_is_atomic_and_not_clamped(
         edit_field(window, "All corner radii", value)
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, "All corner radii", value)
-        shortcut(window)
+        press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline, relative_path=SOURCE)
 
 
@@ -269,7 +261,7 @@ def test_knob_crosses_zero_with_transient_preview(
                 relative_path=SOURCE,
             )
             wait_for_field(window, "Rotation", "10")
-            shortcut(window)
+            press_shortcut(window, keys.Control, "z")
             snapshot.wait_for_applied(baseline, relative_path=SOURCE)
             wait_for_field(window, "Rotation", "350")
 
@@ -407,7 +399,7 @@ def test_corner_slider_previews_then_commits_once(
                 )
             snapshot.wait_for_applied(expected, relative_path=SOURCE)
             wait_for_field(window, "All corner radii", "48")
-            shortcut(window)
+            press_shortcut(window, keys.Control, "z")
             snapshot.wait_for_applied(baseline, relative_path=SOURCE)
 
 
@@ -468,11 +460,11 @@ def test_knob_shift_drag_snaps_and_retains_keyboard_focus(
         snapshot.wait_for_applied(
             baseline.replace(b"32deg", b"46deg"), relative_path=SOURCE
         )
-        shortcut(window)
+        press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(
             baseline.replace(b"32deg", b"45deg"), relative_path=SOURCE
         )
-        shortcut(window)
+        press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline, relative_path=SOURCE)
 
 
@@ -480,10 +472,12 @@ def test_source_reload_cancels_knob_gesture(
     editor_binary, editor_environment, fixture_project
 ):
     baseline = prepare(fixture_project)
+    snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(
         editor_binary, editor_environment, fixture_project / SOURCE
     ) as app:
         window = first_window(app)
+        wait_for_source(fixture_project / SOURCE, baseline)
         select_element(window, "Rectangle")
         knob = window_element_with_label(window, "Rotation knob")
         start, end = point(knob, 32), point(knob, 62)
@@ -496,14 +490,15 @@ def test_source_reload_cancels_knob_gesture(
         wait_for_field(window, "Rotation", "62")
         updated = baseline.replace(b"32deg", b"17.5deg")
         (fixture_project / SOURCE).write_bytes(updated)
+        snapshot.wait_for_applied(updated, SOURCE)
         wait_for_field(window, "Rotation", "17.5")
+        updated_snapshot = SourceSnapshot.capture(fixture_project)
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(
                 end, slint_testing.PointerEventButton.Left
             )
         )
-        time.sleep(0.2)
-        assert (fixture_project / SOURCE).read_bytes() == updated
+        updated_snapshot.assert_unchanged()
 
 
 @pytest.mark.parametrize(
@@ -527,14 +522,12 @@ def test_text_input_undo_does_not_revert_document(
             window, label, slint_testing.AccessibleRole.TextInput
         )
         field.single_click(slint_testing.PointerEventButton.Left)
-        for character in text:
-            window.dispatch_event(slint_testing.KeyPressedEvent(text=character))
-            window.dispatch_event(slint_testing.KeyReleasedEvent(text=character))
+        press_keys(window, text)
         wait_for_field(window, label, text)
-        shortcut(window)
+        press_shortcut(window, keys.Control, "z")
         assert field.accessible_value != text
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
-        shortcut(window, redo=True)
+        press_shortcut(window, keys.Control, keys.Shift, "z")
         wait_for_field(window, label, text)
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
 
@@ -549,6 +542,7 @@ def test_undo_while_dragging_cancels_release(
         editor_binary, editor_environment, fixture_project / SOURCE
     ) as app:
         window = first_window(app)
+        wait_for_source(fixture_project / SOURCE, baseline)
         select_element(window, "Rectangle")
         if history:
             edit_field(window, "Rotation", "42")
@@ -565,14 +559,14 @@ def test_undo_while_dragging_cancels_release(
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
         wait_for_field(window, "Rotation", "72" if history else "62")
-        shortcut(window)
+        press_shortcut(window, keys.Control, "z")
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(
                 end, slint_testing.PointerEventButton.Left
             )
         )
-        time.sleep(0.3)
         snapshot.wait_for_applied(baseline, relative_path=SOURCE)
+        snapshot.assert_unchanged()
         wait_for_field(window, "Rotation", "32")
 
 
