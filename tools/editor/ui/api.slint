@@ -149,6 +149,7 @@ export struct HoveredElement {
 
 export global Hover {
     in-out property <HoveredElement> element;
+    in property <int> preview-generation;
     pure callback element-at(x: length, y: length, enter-component: bool) -> HoveredElement;
 }
 
