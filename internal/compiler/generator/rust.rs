@@ -5420,10 +5420,7 @@ fn compile_builtin_function_call(
             };
             let arg_name = ident(arg_name);
             let closure_expression = compile_expression(expression, ctx);
-            quote!({
-                let arr = #arr_expression;
-                sp::model_any(&arr, |#arg_name| -> bool { #closure_expression })
-            })
+            quote!(sp::model_any(&#arr_expression, |#arg_name| -> bool { #closure_expression }))
         }
         BuiltinFunction::ArrayAll => {
             let arr_expression = compile_expression_to_value(&arguments[0], ctx);
@@ -5432,10 +5429,7 @@ fn compile_builtin_function_call(
             };
             let arg_name = ident(arg_name);
             let closure_expression = compile_expression(expression, ctx);
-            quote!({
-                let arr = #arr_expression;
-                sp::model_all(&arr, |#arg_name| -> bool { #closure_expression })
-            })
+            quote!(sp::model_all(&#arr_expression, |#arg_name| -> bool { #closure_expression }))
         }
         BuiltinFunction::ArrayFindIndex => {
             let arr_expression = compile_expression_to_value(&arguments[0], ctx);
@@ -5444,10 +5438,7 @@ fn compile_builtin_function_call(
             };
             let arg_name = ident(arg_name);
             let closure_expression = compile_expression(expression, ctx);
-            quote!({
-                let arr = #arr_expression;
-                sp::model_find_index(&arr, |#arg_name| -> bool { #closure_expression })
-            })
+            quote!(sp::model_find_index(&#arr_expression, |#arg_name| -> bool { #closure_expression }))
         }
     }
 }

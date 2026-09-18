@@ -85,6 +85,12 @@ export component TestCase {
         self.ints.any((x) => x == 2) && x == 5
     }
 
+    // The same model appears twice in one expression, so the generated code must not
+    // consume it in the predicate call (#13471).
+    out property <string> same-model-index: people[people.find-index((p) => p.age == 25)].name;
+    out property <int> same-model-nested: people.find-index((p) => p.name == people[people.length - 1].name);
+    out property <bool> same-model-any-and-all: people.any((p) => p.age == 25) && people.all((p) => p.age > 20);
+
     out property <bool> nested-closure-arg-shadows: {
         let person = "outer";
         self.groups.any((person) => person.any((person) => person.name == "Alice")) && person == "outer"
@@ -104,7 +110,8 @@ export component TestCase {
         && nested-closure-arg-shadows
         && empty-find-index == -1 && ints-find-index-three == 2 && ints-find-index-missing == -1
         && strings-find-index-world == 1 && strings-find-index-missing == -1
-        && people-find-index-charlie == 2 && people-find-index-first-adult == 0;
+        && people-find-index-charlie == 2 && people-find-index-first-adult == 0
+        && same-model-index == "Bob" && same-model-nested == 3 && same-model-any-and-all;
 }
 
 /*
@@ -151,6 +158,9 @@ assert(instance.get_strings_find_index_world() == 1);
 assert(instance.get_strings_find_index_missing() == -1);
 assert(instance.get_people_find_index_charlie() == 2);
 assert(instance.get_people_find_index_first_adult() == 0);
+assert_eq(instance.get_same_model_index(), "Bob");
+assert_eq(instance.get_same_model_nested(), 3);
+assert(instance.get_same_model_any_and_all());
 ```
 
 ```rust
@@ -197,6 +207,9 @@ assert_eq!(instance.get_strings_find_index_world(), 1);
 assert_eq!(instance.get_strings_find_index_missing(), -1);
 assert_eq!(instance.get_people_find_index_charlie(), 2);
 assert_eq!(instance.get_people_find_index_first_adult(), 0);
+assert_eq!(instance.get_same_model_index(), "Bob");
+assert_eq!(instance.get_same_model_nested(), 3);
+assert!(instance.get_same_model_any_and_all());
 
 let model: std::rc::Rc<slint::VecModel<i32>> = std::rc::Rc::new(vec![1, 2, 3].into());
 instance.set_ints(slint::ModelRc::from(model.clone()));
@@ -278,5 +291,8 @@ assert(instance.strings_find_index_world == 1);
 assert(instance.strings_find_index_missing == -1);
 assert(instance.people_find_index_charlie == 2);
 assert(instance.people_find_index_first_adult == 0);
+assert.equal(instance.same_model_index, "Bob");
+assert.equal(instance.same_model_nested, 3);
+assert(instance.same_model_any_and_all);
 ```
 */
