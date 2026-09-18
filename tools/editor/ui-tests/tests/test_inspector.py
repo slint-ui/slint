@@ -203,6 +203,13 @@ def test_root_background_field_writes_exact_source(
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
+        outline = window_element_with_label(window, "Current file outline")
+        root_row = (
+            outline.query_descendants()
+            .match_accessible_role(slint_testing.AccessibleRole.ListItem)
+            .find_all()[0]
+        )
+        root_row.invoke_accessible_default_action()
         wait_for_field(
             window, "Root background", "#f8fafc", slint_testing.AccessibleRole.TextInput
         )

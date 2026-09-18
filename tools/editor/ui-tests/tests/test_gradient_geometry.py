@@ -98,13 +98,13 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         if target == "text":
             select_outline_row(window, "label")
         else:
-            from test_linear_gradient_canvas import gesture, shifted
-
-            artboard = window_element_with_label(
-                window, "Artboard", slint_testing.AccessibleRole.Region
+            outline = window_element_with_label(window, "Current file outline")
+            root_row = (
+                outline.query_descendants()
+                .match_accessible_role(slint_testing.AccessibleRole.ListItem)
+                .find_all()[0]
             )
-            point = shifted(artboard.absolute_position, x=390, y=390)
-            gesture(window, point, point)
+            root_row.invoke_accessible_default_action()
         picker = (
             "Text color color picker"
             if target == "text"

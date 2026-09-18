@@ -733,32 +733,6 @@ fn find_component_identifiers(
     result
 }
 
-/// Find the last component in the `document`
-pub fn find_last_component_identifier(
-    document: &syntax_nodes::Document,
-) -> Option<syntax_nodes::DeclaredIdentifier> {
-    let last_identifier = {
-        let mut tmp = None;
-        for el in document.ExportsList() {
-            if let Some(component) = el.Component() {
-                tmp = Some(component.DeclaredIdentifier());
-            }
-        }
-        tmp
-    };
-
-    if let Some(component) = document.Component().last() {
-        let identifier = component.DeclaredIdentifier();
-        if identifier.text_range().start()
-            > last_identifier.as_ref().map(|i| i.text_range().start()).unwrap_or_default()
-        {
-            return Some(identifier);
-        }
-    }
-
-    last_identifier
-}
-
 fn rename_component(
     old_name: slint::SharedString,
     old_url: slint::SharedString,
@@ -2665,35 +2639,15 @@ fn set_selected_element(
             });
 
             if let Some(document_cache) = document_cache_from(preview_state)
-                && let Some((uri, version, selection)) = selection
-                    .clone()
-                    .or_else(|| {
-                        let current = preview_state.current_component()?;
-
-                        let document = document_cache.get_document(&current.url)?;
-                        let document = document.node.as_ref()?;
-
-                        let identifier = if let Some(name) = &current.component {
-                            find_component_identifiers(document, name).last().cloned()
-                        } else {
-                            find_last_component_identifier(document)
-                        }?;
-
-                        let path = identifier.source_file.path().to_path_buf();
-                        let offset = identifier.text_range().start();
-
-                        Some(ElementSelection { path, offset, instance_index: 0 })
-                    })
-                    .as_ref()
-                    .and_then(|selection| {
-                        let url = Url::from_file_path(&selection.path).ok()?;
-                        let version = document_cache.document_version(&url);
-                        Some((
-                            url.clone(),
-                            version,
-                            document_cache.element_at_offset(&url, selection.offset)?,
-                        ))
-                    })
+                && let Some((uri, version, selection)) = selection.as_ref().and_then(|selection| {
+                    let url = Url::from_file_path(&selection.path).ok()?;
+                    let version = document_cache.document_version(&url);
+                    Some((
+                        url.clone(),
+                        version,
+                        document_cache.element_at_offset(&url, selection.offset)?,
+                    ))
+                })
             {
                 if let Some(editor_ui) = &preview_state.editor_ui {
                     let win = i_slint_core::window::WindowInner::from_pub(editor_ui.window())
@@ -2716,8 +2670,9 @@ fn set_selected_element(
                         properties::query_properties(&uri, version, &selection, in_layout).ok(),
                     ));
                 }
-            } else if !notify_editor_about_selection_after_update
-                && !preview_state.workspace_edit_sent
+            } else if selection.is_none()
+                || (!notify_editor_about_selection_after_update
+                    && !preview_state.workspace_edit_sent)
             {
                 api.set_current_element(Default::default());
                 api.set_properties(Default::default());

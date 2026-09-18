@@ -63,7 +63,6 @@ def wait_for_outline_state(
         ),
         timeout=15,
     )
-    assert outline_rows(window)[0].accessible_item_selected
 
 
 def drop_position(

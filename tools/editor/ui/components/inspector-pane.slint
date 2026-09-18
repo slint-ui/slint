@@ -122,7 +122,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function is-root-selection() -> bool {
-        return !root.has-backend-rect();
+        return Api.selection.highlight-index >= 0 && root.element-information.id == "root";
     }
 
     function selected-x() -> length {
