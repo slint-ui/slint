@@ -52,11 +52,11 @@ test.describe("homepage", () => {
             main.getByRole("link", { name: "Download APK", exact: true }),
         ).toHaveAttribute(
             "href",
-            "https://material.slint.dev/apk/slint_material.apk",
+            new URL("apk/slint_material.apk", base).pathname,
         );
         await expect(
             main.getByRole("link", { name: "Web Gallery", exact: true }),
-        ).toHaveAttribute("href", "https://material.slint.dev/wasm/");
+        ).toHaveAttribute("href", new URL("wasm/", base).pathname);
         const menu = page.getByRole("button", {
             name: "Toggle Menu",
             exact: true,
