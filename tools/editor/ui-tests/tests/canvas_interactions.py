@@ -42,13 +42,19 @@ def position_distance(
     return math.hypot(left.x - right.x, left.y - right.y)
 
 
-def selection_frame(window: slint_testing.Window, kind: str) -> Frame:
-    selected = window_element_with_label(
-        window, f"Selected {kind}", slint_testing.AccessibleRole.Region
-    )
-    position = selected.absolute_position
-    size = selected.size
+def element_frame(element: slint_testing.Element) -> Frame:
+    assert element.is_valid
+    position = element.absolute_position
+    size = element.size
     return (position.x, position.y, size.width, size.height)
+
+
+def selection_frame(window: slint_testing.Window, kind: str) -> Frame:
+    return element_frame(
+        window_element_with_label(
+            window, f"Selected {kind}", slint_testing.AccessibleRole.Region
+        )
+    )
 
 
 def frame_rotation(window: slint_testing.Window, kind: str) -> float:
@@ -95,7 +101,6 @@ def manual_drag(
     dy: float,
     snapshot: SourceSnapshot,
     shift: bool = False,
-    require_multiple_transient_states: bool = True,
     fixed_handle_label: str | None = None,
 ) -> slint_testing.LogicalPosition | None:
     button = slint_testing.PointerEventButton.Left
@@ -103,7 +108,10 @@ def manual_drag(
     rotation = frame_rotation(window, kind)
     start = center(handle, rotation)
     end = slint_testing.LogicalPosition(x=start.x + dx, y=start.y + dy)
-    initial_frame = selection_frame(window, kind)
+    selected = window_element_with_label(
+        window, f"Selected {kind}", slint_testing.AccessibleRole.Region
+    )
+    initial_frame = element_frame(selected)
     fixed_handle_center = (
         center(window_element_with_label(window, fixed_handle_label), rotation)
         if fixed_handle_label is not None
@@ -122,11 +130,10 @@ def manual_drag(
             y=start.y + dy * fraction,
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(position))
-        transient_states.append(selection_frame(window, kind))
+        transient_states.append(element_frame(selected))
 
     assert transient_states[-1] != initial_frame
-    if require_multiple_transient_states:
-        assert len(set(transient_states)) >= 2
+    assert len(set(transient_states)) >= 2
     if fixed_handle_center is not None:
         assert fixed_handle_label is not None
         assert (
@@ -189,7 +196,6 @@ def manual_rotation_drag(
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
     window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
     angles = [_rotation_tooltip_value(window)]
-    rotations = []
     for step in range(1, 4):
         fraction = step / 3
         position = slint_testing.LogicalPosition(
@@ -198,12 +204,12 @@ def manual_rotation_drag(
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(position))
         angles.append(_rotation_tooltip_value(window))
-        rotations.append(frame_rotation(window, kind))
+    final_rotation = frame_rotation(window, kind)
     snapshot.assert_unchanged_now()
 
     assert all(0 <= angle < 360 for angle in angles)
     assert angles[-1] == target_angle or crosses_zero
-    turned = (rotations[-1] - initial_rotation + math.pi) % (2 * math.pi) - math.pi
+    turned = (final_rotation - initial_rotation + math.pi) % (2 * math.pi) - math.pi
     assert abs(turned) > math.radians(1)
     if crosses_zero:
         assert any(angle >= 345 for angle in angles)
@@ -232,79 +238,6 @@ def rotation_delta(
     target_x = frame_center.x + relative_x * cosine - relative_y * sine
     target_y = frame_center.y + relative_x * sine + relative_y * cosine
     return target_x - start.x, target_y - start.y
-
-
-def cancel_pointer_interaction(
-    window: slint_testing.Window,
-    handle: slint_testing.Element,
-    dx: float,
-    dy: float,
-    snapshot: SourceSnapshot,
-    kind: str,
-) -> None:
-    start = center(handle)
-    target = slint_testing.LogicalPosition(x=start.x + dx, y=start.y + dy)
-    frame_kind = "Rectangle" if kind == "Rectangle-radius" else kind
-    initial_frame = selection_frame(window, frame_kind)
-    button = slint_testing.PointerEventButton.Left
-    readout_label = {
-        "Rectangle-radius": "Radius value",
-        "Text": "Rotation angle",
-    }.get(kind)
-
-    window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-    if kind == "Text":
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
-    initial_readout = (
-        float(
-            window_element_with_label(
-                window, readout_label, slint_testing.AccessibleRole.Text
-            ).accessible_value
-        )
-        if readout_label is not None
-        else None
-    )
-    window.dispatch_event(slint_testing.PointerMoveEvent(target))
-
-    if readout_label is None:
-        wait_until(
-            lambda: (
-                frame
-                if (frame := selection_frame(window, frame_kind)) != initial_frame
-                else None
-            )
-        )
-    else:
-        wait_until(
-            lambda: (
-                value
-                if (
-                    value := float(
-                        window_element_with_label(
-                            window, readout_label, slint_testing.AccessibleRole.Text
-                        ).accessible_value
-                    )
-                )
-                != initial_readout
-                else None
-            )
-        )
-    snapshot.assert_unchanged_now()
-
-    window.dispatch_event(slint_testing.PointerExitedEvent())
-    window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
-    if kind == "Text":
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
-    wait_until(
-        lambda: (
-            True
-            if same_state(selection_frame(window, frame_kind), initial_frame)
-            else None
-        )
-    )
-    assert not elements_with_label(window.root_element, "Rotation angle")
-    assert not elements_with_label(window.root_element, "Radius value")
-    snapshot.assert_unchanged()
 
 
 def live_modifier_resize(
@@ -363,23 +296,16 @@ def manual_radius_drag(
     if shift:
         window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-    initial_value = float(
-        window_element_with_label(
-            window, "Radius value", slint_testing.AccessibleRole.Text
-        ).accessible_value
+    tooltip = window_element_with_label(
+        window, "Radius value", slint_testing.AccessibleRole.Text
     )
+    initial_value = float(tooltip.accessible_value)
     window.dispatch_event(slint_testing.PointerMoveEvent(target))
+    assert tooltip.is_valid
     wait_until(
         lambda: (
             value
-            if (
-                value := float(
-                    window_element_with_label(
-                        window, "Radius value", slint_testing.AccessibleRole.Text
-                    ).accessible_value
-                )
-            )
-            != initial_value
+            if (value := float(tooltip.accessible_value)) != initial_value
             else None
         )
     )

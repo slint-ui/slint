@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 import slint_testing
 from canvas_interactions import (
-    cancel_pointer_interaction,
     center,
     fixture_element,
+    frame_rotation,
     hover_fixture_element,
     live_modifier_resize,
     manual_drag,
@@ -18,6 +18,7 @@ from canvas_interactions import (
     position_distance,
     radius_handle,
     rotation_delta,
+    rotation_start,
     same_state,
     selection_frame,
 )
@@ -76,9 +77,6 @@ PALETTE_DROP_SIZES = {
     "Text": (220, 40),
     "Image": (160, 96),
 }
-RUST_FIX_REQUIRED = pytest.mark.skip(
-    reason="Requires a Rust visual editor behavior fix"
-)
 
 
 def replace_once(source: bytes, old: bytes, new: bytes) -> bytes:
@@ -612,7 +610,6 @@ def test_component_palette_drag_over_rotated_element_does_not_crash(
 ) -> None:
     source_file = fixture_project / "RotatedCanvasCases.slint"
     baseline = source_file.read_bytes()
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_outline_row(window, "rotated-free-rectangle")
@@ -862,46 +859,41 @@ def wait_for_radius_tooltip(window: slint_testing.Window, radius: float) -> None
     )
 
 
-@pytest.mark.parametrize(
-    "kind",
-    [pytest.param("Rectangle", marks=RUST_FIX_REQUIRED), "Text", "Image"],
-)
+@pytest.mark.parametrize("kind", MOVE_KINDS)
+@pytest.mark.parametrize("outside_window", (False, True))
 def test_move_element_writes_exact_source_on_release(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
     kind: str,
+    outside_window: bool,
 ) -> None:
     source_file = fixture_project / "Main.slint"
     baseline = source_file.read_bytes()
     positions = {
-        "Rectangle": (
-            b"        x: 40px;\n        y: 40px;",
-            b"        x: 60px;\n        y: 56px;",
-        ),
-        "Text": (
-            b"        x: 180px;\n        y: 56px;",
-            b"        x: 200px;\n        y: 72px;",
-        ),
-        "Image": (
-            b"        x: 230px;\n        y: 132px;",
-            b"        x: 250px;\n        y: 148px;",
-        ),
+        "Rectangle": (40, 40),
+        "Text": (180, 56),
+        "Image": (230, 132),
     }
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         snapshot = SourceSnapshot.capture(fixture_project)
         select_fixture_element(window, kind)
-        manual_drag(
-            window,
-            window_element_with_label(window, f"{kind} move handle"),
-            20,
-            16,
-            snapshot,
+        handle = window_element_with_label(window, f"{kind} move handle")
+        dx, dy = 20, 16
+        if outside_window:
+            start = center(handle)
+            size = window.root_element.size
+            dx = math.ceil(size.width + OUTSIDE_ARTBOARD_DISTANCE - start.x)
+            dy = math.ceil(size.height + OUTSIDE_ARTBOARD_DISTANCE - start.y)
+        manual_drag(window, handle, dx, dy, snapshot)
+        x, y = positions[kind]
+        expected = replace_once(
+            baseline,
+            f"        x: {x}px;\n        y: {y}px;".encode(),
+            f"        x: {x + dx}px;\n        y: {y + dy}px;".encode(),
         )
-        expected = replace_once(baseline, *positions[kind])
-        snapshot.wait_for_exact(expected)
+        snapshot.wait_for_applied(expected)
 
 
 @pytest.mark.parametrize("kind", MOVE_KINDS)
@@ -914,21 +906,11 @@ def test_move_rotated_element_writes_exact_source_on_release(
     source_file = fixture_project / "RotatedCanvasCases.slint"
     baseline = source_file.read_bytes()
     positions = {
-        "Rectangle": (
-            b"        x: 64px;\n        y: 56px;",
-            b"        x: 84px;\n        y: 72px;",
-        ),
-        "Text": (
-            b"        x: 160px;\n        y: 64px;",
-            b"        x: 180px;\n        y: 80px;",
-        ),
-        "Image": (
-            b"        x: 200px;\n        y: 208px;",
-            b"        x: 220px;\n        y: 224px;",
-        ),
+        "Rectangle": (64, 56),
+        "Text": (160, 64),
+        "Image": (200, 208),
     }
-
-    source_file.write_bytes(baseline)
+    dx, dy = 20, 16
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         snapshot = SourceSnapshot.capture(fixture_project)
@@ -936,11 +918,16 @@ def test_move_rotated_element_writes_exact_source_on_release(
         manual_drag(
             window,
             window_element_with_label(window, f"{kind} move handle"),
-            20,
-            16,
+            dx,
+            dy,
             snapshot,
         )
-        expected = replace_once(baseline, *positions[kind])
+        x, y = positions[kind]
+        expected = replace_once(
+            baseline,
+            f"        x: {x}px;\n        y: {y}px;".encode(),
+            f"        x: {x + dx}px;\n        y: {y + dy}px;".encode(),
+        )
         snapshot.wait_for_exact(expected, "RotatedCanvasCases.slint")
 
 
@@ -979,14 +966,13 @@ def test_each_resize_handle_writes_exact_source_on_release(
 ) -> None:
     source_file = fixture_project / "Main.slint"
     baseline = source_file.read_bytes()
-    original = b"        x: 40px;\n        y: 40px;\n        width: 180px;\n        height: 120px;"
+    original = geometry_source((40, 40, 180, 120))
     geometries = {
-        "top-left": b"        x: 20px;\n        y: 24px;\n        width: 200px;\n        height: 136px;",
-        "top-right": b"        x: 40px;\n        y: 24px;\n        width: 200px;\n        height: 136px;",
-        "bottom-right": b"        x: 40px;\n        y: 40px;\n        width: 200px;\n        height: 136px;",
-        "bottom-left": b"        x: 20px;\n        y: 40px;\n        width: 200px;\n        height: 136px;",
+        "top-left": (20, 24, 200, 136),
+        "top-right": (40, 24, 200, 136),
+        "bottom-right": (40, 40, 200, 136),
+        "bottom-left": (20, 40, 200, 136),
     }
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
@@ -997,7 +983,7 @@ def test_each_resize_handle_writes_exact_source_on_release(
             *CORNER_DELTAS[corner],
             snapshot,
         )
-        expected = replace_once(baseline, original, geometries[corner])
+        expected = replace_once(baseline, original, geometry_source(geometries[corner]))
         snapshot.wait_for_exact(expected)
 
 
@@ -1008,7 +994,6 @@ def test_shift_resize_is_proportional(
 ) -> None:
     source_file = fixture_project / "Main.slint"
     baseline = source_file.read_bytes()
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
@@ -1042,7 +1027,6 @@ def test_resize_modifier_changes_during_drag(
 ) -> None:
     source_file = fixture_project / "Main.slint"
     baseline = source_file.read_bytes()
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
@@ -1084,14 +1068,8 @@ def test_rotated_element_resize_writes_exact_source(
     }
     element_id = f"rotated-free-{kind.lower()}"
 
-    x, y, width, height = geometries[kind]
-    original = (
-        f"        x: {x}px;\n"
-        f"        y: {y}px;\n"
-        f"        width: {width}px;\n"
-        f"        height: {height}px;"
-    ).encode()
-    source_file.write_bytes(baseline)
+    geometry = geometries[kind]
+    original = geometry_source(geometry)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         snapshot = SourceSnapshot.capture(fixture_project)
@@ -1105,20 +1083,12 @@ def test_rotated_element_resize_writes_exact_source(
             fixed_handle_label=opposite_label,
         )
         assert fixed_handle_center is not None
-        new_x, new_y, new_width, new_height = rotated_resize_values(
-            x,
-            y,
-            width,
-            height,
+        expected_geometry = rotated_resize_values(
+            *geometry,
             corner,
             *CORNER_DELTAS[corner],
         )
-        changed = (
-            f"        x: {new_x}px;\n"
-            f"        y: {new_y}px;\n"
-            f"        width: {new_width}px;\n"
-            f"        height: {new_height}px;"
-        ).encode()
+        changed = geometry_source(expected_geometry)
         # The handles are read back, so the preview has to hold the edited source.
         snapshot.wait_for_applied(
             replace_once(baseline, original, changed),
@@ -1152,7 +1122,6 @@ def run_canvas_boundary_case(
         "Image": (128, 480, 128, 96),
     }
     element_id = f"bounds-{kind.lower()}"
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_outline_row(window, element_id)
@@ -1167,80 +1136,47 @@ def run_canvas_boundary_case(
         bottom = top + artboard.size.height
         if operation == "move":
             label = f"{kind} move handle"
-            desired_pointer = (
-                (
-                    left - OUTSIDE_ARTBOARD_DISTANCE,
-                    top - OUTSIDE_ARTBOARD_DISTANCE,
-                )
-                if target == "top-left"
-                else (
-                    right + OUTSIDE_ARTBOARD_DISTANCE,
-                    bottom + OUTSIDE_ARTBOARD_DISTANCE,
-                )
-            )
-            start = center(window_element_with_label(window, label))
-            delta = (
-                desired_pointer[0] - start.x,
-                desired_pointer[1] - start.y,
-            )
             expected_geometry = outside_move_values(geometry, target)
         else:
             label = f"{kind} resize {target}"
-            handle = window_element_with_label(window, label)
-            start = center(handle)
-            target_position = {
-                "top-left": (
-                    left - OUTSIDE_ARTBOARD_DISTANCE,
-                    top - OUTSIDE_ARTBOARD_DISTANCE,
-                ),
-                "top-right": (
-                    right + OUTSIDE_ARTBOARD_DISTANCE,
-                    top - OUTSIDE_ARTBOARD_DISTANCE,
-                ),
-                "bottom-right": (
-                    right + OUTSIDE_ARTBOARD_DISTANCE,
-                    bottom + OUTSIDE_ARTBOARD_DISTANCE,
-                ),
-                "bottom-left": (
-                    left - OUTSIDE_ARTBOARD_DISTANCE,
-                    bottom + OUTSIDE_ARTBOARD_DISTANCE,
-                ),
-            }[target]
-            delta = (
-                target_position[0] - start.x,
-                target_position[1] - start.y,
-            )
             expected_geometry = outside_resize_values(geometry, target)
+        target_position = {
+            "top-left": (
+                left - OUTSIDE_ARTBOARD_DISTANCE,
+                top - OUTSIDE_ARTBOARD_DISTANCE,
+            ),
+            "top-right": (
+                right + OUTSIDE_ARTBOARD_DISTANCE,
+                top - OUTSIDE_ARTBOARD_DISTANCE,
+            ),
+            "bottom-right": (
+                right + OUTSIDE_ARTBOARD_DISTANCE,
+                bottom + OUTSIDE_ARTBOARD_DISTANCE,
+            ),
+            "bottom-left": (
+                left - OUTSIDE_ARTBOARD_DISTANCE,
+                bottom + OUTSIDE_ARTBOARD_DISTANCE,
+            ),
+        }[target]
+        handle = window_element_with_label(window, label)
+        start = center(handle)
+        delta = (
+            target_position[0] - start.x,
+            target_position[1] - start.y,
+        )
 
         snapshot = SourceSnapshot.capture(fixture_project)
-        manual_drag(
-            window,
-            window_element_with_label(window, label),
-            *delta,
-            snapshot,
-            require_multiple_transient_states=False,
-        )
+        manual_drag(window, handle, *delta, snapshot)
         expected = replace_once(
             baseline,
             geometry_source(geometry),
             geometry_source(expected_geometry),
         )
-        snapshot.wait_for_exact(expected, "BoundsCases.slint")
+        snapshot.wait_for_applied(expected, "BoundsCases.slint")
 
 
-@pytest.mark.parametrize(
-    ("kind", "direction"),
-    [
-        pytest.param(
-            kind,
-            direction,
-            marks=RUST_FIX_REQUIRED if kind == "Text" else (),
-            id=f"{kind}-{direction}",
-        )
-        for kind in BOUNDARY_KINDS
-        for direction in BOUNDARY_MOVE_DIRECTIONS
-    ],
-)
+@pytest.mark.parametrize("kind", BOUNDARY_KINDS)
+@pytest.mark.parametrize("direction", BOUNDARY_MOVE_DIRECTIONS)
 def test_artboard_allows_moved_element_outside(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -1325,7 +1261,6 @@ def test_each_rotation_zone_writes_exact_source_on_release(
     baseline = source_file.read_bytes()
     original = b'        text: "Fixture text";'
     rotated = original + b"\n        transform-rotation: 15deg;"
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Text")
@@ -1376,25 +1311,17 @@ def test_rotation_crosses_zero_with_exact_source(
 
 def radius_source(baseline: bytes, radii: dict[str, int]) -> bytes:
     original = b"        border-radius: 12px;"
-    properties = {"border-radius": 12}
-    properties.update(
-        {f"border-{corner}-radius": radius for corner, radius in radii.items()}
-    )
+    properties = {"border-radius": 12} | {
+        f"border-{corner}-radius": radius for corner, radius in radii.items()
+    }
     changed = "\n".join(
         f"        {name}: {value}px;" for name, value in sorted(properties.items())
     ).encode()
     return replace_once(baseline, original, changed)
 
 
-@RUST_FIX_REQUIRED
-@pytest.mark.parametrize(
-    ("single", "corner"),
-    [
-        pytest.param(single, corner, id=f"{single}-{corner}")
-        for single in (False, True)
-        for corner in CORNERS
-    ],
-)
+@pytest.mark.parametrize("single", (False, True))
+@pytest.mark.parametrize("corner", CORNERS)
 def test_each_radius_handle_writes_exact_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -1406,7 +1333,6 @@ def test_each_radius_handle_writes_exact_source(
     baseline = source_file.read_bytes()
     radii = {corner: 16} if single else {name: 16 for name in CORNERS}
     expected = radius_source(baseline, radii)
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
@@ -1418,17 +1344,11 @@ def test_each_radius_handle_writes_exact_source(
             snapshot,
             shift=single,
         )
-        snapshot.wait_for_exact(expected)
+        snapshot.wait_for_applied(expected)
 
 
-@pytest.mark.parametrize(
-    ("single", "corner"),
-    [
-        pytest.param(single, corner, id=f"{single}-{corner}")
-        for single in (False, True)
-        for corner in CORNERS
-    ],
-)
+@pytest.mark.parametrize("single", (False, True))
+@pytest.mark.parametrize("corner", CORNERS)
 def test_radius_handles_follow_preview_during_drag(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -1437,8 +1357,6 @@ def test_radius_handles_follow_preview_during_drag(
     corner: str,
 ) -> None:
     source_file = fixture_project / "Main.slint"
-    baseline = source_file.read_bytes()
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
@@ -1519,8 +1437,6 @@ def test_radius_drag_mode_does_not_change_after_pointer_press(
     single_corner: bool,
 ) -> None:
     source_file = fixture_project / "Main.slint"
-    baseline = source_file.read_bytes()
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
@@ -1560,8 +1476,6 @@ def test_clamped_radius_drag_keeps_handles_aligned_with_preview(
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "Main.slint"
-    baseline = source_file.read_bytes()
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
@@ -1642,7 +1556,6 @@ def test_repeated_rectangles_show_radius_handles_only_on_primary_instance(
         snapshot.assert_unchanged()
 
 
-@RUST_FIX_REQUIRED
 def test_radius_is_clamped_to_half_the_shortest_side(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -1651,7 +1564,6 @@ def test_radius_is_clamped_to_half_the_shortest_side(
     source_file = fixture_project / "Main.slint"
     baseline = source_file.read_bytes()
     expected = radius_source(baseline, {name: 60 for name in CORNERS})
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
@@ -1663,76 +1575,104 @@ def test_radius_is_clamped_to_half_the_shortest_side(
             100,
             snapshot,
         )
-        snapshot.wait_for_exact(expected)
+        snapshot.wait_for_applied(expected)
 
 
-@RUST_FIX_REQUIRED
-@pytest.mark.parametrize(
-    ("kind", "label", "delta"),
-    [
-        pytest.param(
-            "Rectangle", "Rectangle resize bottom-right", (20, 16), id="resize"
-        ),
-        pytest.param("Text", "Text rotate top-left", (20, -20), id="rotation"),
-        pytest.param(
-            "Rectangle-radius", "Rectangle radius top-left", (4, 4), id="radius"
-        ),
-    ],
-)
-def test_pointer_exit_cancels_interaction_and_allows_recovery(
+def test_resize_continues_outside_window_and_commits_on_release(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    kind: str,
-    label: str,
-    delta: tuple[int, int],
 ) -> None:
     source_file = fixture_project / "Main.slint"
     baseline = source_file.read_bytes()
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        select_fixture_element(window, "Text" if kind == "Text" else "Rectangle")
-        handle = (
-            radius_handle(window, "top-left")
-            if kind == "Rectangle-radius"
-            else window_element_with_label(window, label)
-        )
+        select_fixture_element(window, "Rectangle")
+        handle = window_element_with_label(window, "Rectangle resize bottom-right")
+        start = center(handle)
+        size = window.root_element.size
+        dx = math.ceil(size.width + OUTSIDE_ARTBOARD_DISTANCE - start.x)
+        dy = math.ceil(size.height + OUTSIDE_ARTBOARD_DISTANCE - start.y)
         snapshot = SourceSnapshot.capture(fixture_project)
-        cancel_pointer_interaction(window, handle, *delta, snapshot, kind)
-        if kind == "Rectangle":
-            manual_drag(
-                window,
-                window_element_with_label(window, label),
-                *delta,
-                snapshot,
+        manual_drag(window, handle, dx, dy, snapshot)
+        expected = replace_once(
+            baseline,
+            b"        width: 180px;\n        height: 120px;",
+            f"        width: {180 + dx}px;\n        height: {120 + dy}px;".encode(),
+        )
+        snapshot.wait_for_applied(expected)
+
+
+def test_rotation_continues_outside_window_and_commits_on_release(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    baseline = source_file.read_bytes()
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_fixture_element(window, "Text")
+        handle = window_element_with_label(window, "Text rotate top-left")
+        start = rotation_start(handle)
+        x, y, width, height = selection_frame(window, "Text")
+        cx, cy = x + width / 2, y + height / 2
+        vx, vy = start.x - cx, start.y - cy
+        size = window.root_element.size
+        scale = 4 * max(size.width, size.height) / math.hypot(vx, vy)
+        snapshot = SourceSnapshot.capture(fixture_project)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
+        target = start
+        for degrees in (15, 30):
+            angle = math.radians(degrees)
+            target = slint_testing.LogicalPosition(
+                x=cx + (vx * math.cos(angle) - vy * math.sin(angle)) * scale,
+                y=cy + (vx * math.sin(angle) + vy * math.cos(angle)) * scale,
             )
-            expected = replace_once(
-                baseline,
-                b"        width: 180px;\n        height: 120px;",
-                b"        width: 200px;\n        height: 136px;",
+            assert target.x < 0 or target.y < 0
+            window.dispatch_event(slint_testing.PointerMoveEvent(target))
+            wait_until(
+                lambda degrees=degrees: (
+                    True
+                    if abs(math.degrees(frame_rotation(window, "Text")) - degrees) < 1
+                    else None
+                )
             )
-        elif kind == "Text":
-            manual_rotation_drag(
-                window,
-                window_element_with_label(window, label),
-                *delta,
-                snapshot,
-            )
-            expected = replace_once(
-                baseline,
-                b'        text: "Fixture text";',
-                b'        text: "Fixture text";\n        transform-rotation: 15deg;',
-            )
-        else:
-            manual_radius_drag(
-                window,
-                radius_handle(window, "top-left"),
-                *delta,
-                snapshot,
-            )
-            expected = radius_source(baseline, {corner: 16 for corner in CORNERS})
-        snapshot.wait_for_exact(expected)
+            snapshot.assert_unchanged()
+        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
+        original = b'        text: "Fixture text";'
+        expected = replace_once(
+            baseline, original, original + b"\n        transform-rotation: 30deg;"
+        )
+        snapshot.wait_for_applied(expected)
+
+
+def test_radius_drag_continues_outside_window_and_commits_on_release(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    baseline = source_file.read_bytes()
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_fixture_element(window, "Rectangle")
+        handle = radius_handle(window, "top-left")
+        start = center(handle)
+        size = window.root_element.size
+        snapshot = SourceSnapshot.capture(fixture_project)
+        manual_radius_drag(
+            window,
+            handle,
+            size.width + OUTSIDE_ARTBOARD_DISTANCE - start.x,
+            size.height + OUTSIDE_ARTBOARD_DISTANCE - start.y,
+            snapshot,
+        )
+        expected = radius_source(baseline, {corner: 60 for corner in CORNERS})
+        snapshot.wait_for_applied(expected)
 
 
 @pytest.mark.parametrize("label", THRESHOLD_LABELS)
@@ -1743,8 +1683,6 @@ def test_handle_click_below_drag_threshold_does_not_edit_source(
     label: str,
 ) -> None:
     source_file = fixture_project / "Main.slint"
-    baseline = source_file.read_bytes()
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
@@ -1788,8 +1726,6 @@ def test_disabled_manipulation_does_not_edit_source(
     corner: str,
 ) -> None:
     source_file = fixture_project / "CanvasCases.slint"
-    baseline = source_file.read_bytes()
-    source_file.write_bytes(baseline)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         snapshot = SourceSnapshot.capture(fixture_project)
