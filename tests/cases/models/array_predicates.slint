@@ -85,8 +85,8 @@ export component TestCase {
         self.ints.any((x) => x == 2) && x == 5
     }
 
-    // The same model appears twice in one expression, so the generated code must not
-    // consume it in the predicate call (#13471).
+    // The same model appears twice in one expression,
+    // so the generated code must not consume it in the predicate call (#13471).
     out property <string> same-model-index: people[people.find-index((p) => p.age == 25)].name;
     out property <int> same-model-nested: people.find-index((p) => p.name == people[people.length - 1].name);
     out property <bool> same-model-any-and-all: people.any((p) => p.age == 25) && people.all((p) => p.age > 20);
@@ -158,8 +158,8 @@ assert(instance.get_strings_find_index_world() == 1);
 assert(instance.get_strings_find_index_missing() == -1);
 assert(instance.get_people_find_index_charlie() == 2);
 assert(instance.get_people_find_index_first_adult() == 0);
-assert_eq(instance.get_same_model_index(), "Bob");
-assert_eq(instance.get_same_model_nested(), 3);
+assert(instance.get_same_model_index() == "Bob");
+assert(instance.get_same_model_nested() == 3);
 assert(instance.get_same_model_any_and_all());
 ```
 
@@ -291,8 +291,8 @@ assert(instance.strings_find_index_world == 1);
 assert(instance.strings_find_index_missing == -1);
 assert(instance.people_find_index_charlie == 2);
 assert(instance.people_find_index_first_adult == 0);
-assert.equal(instance.same_model_index, "Bob");
-assert.equal(instance.same_model_nested, 3);
+assert(instance.same_model_index == "Bob");
+assert(instance.same_model_nested == 3);
 assert(instance.same_model_any_and_all);
 ```
 */
