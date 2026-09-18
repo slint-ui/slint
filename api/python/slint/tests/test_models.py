@@ -103,6 +103,10 @@ def test_model_notify() -> None:
     assert instance.get_property("layout-height") == 100
     model.set_row_data(1, 50)
     assert instance.get_property("layout-height") == 150
+    model[-1] = 25
+    assert instance.get_property("layout-height") == 125
+    model[-1] = 50
+    assert instance.get_property("layout-height") == 150
     model.push_row(75)
     instance._process_pending_events()
     assert instance.get_property("layout-height") == 225
@@ -145,6 +149,8 @@ def test_python_model_sequence() -> None:
     assert list(model) == [1, 2, 3, 4, 5]
     model[0] = 100
     assert list(model) == [100, 2, 3, 4, 5]
+    model[-1] = 500
+    assert list(model) == [100, 2, 3, 4, 500]
     assert model[2] == 3
 
 
