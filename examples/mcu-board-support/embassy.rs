@@ -69,7 +69,9 @@ impl<PlatformImpl: PlatformBackend + 'static> slint::platform::Platform
                     &'static EmbassyBackend<PlatformImpl>,
                 >(self)
             };
-            spawner.must_spawn(main_loop_task(Box::pin(this.run_loop())));
+            spawner.spawn(
+                main_loop_task(Box::pin(this.run_loop())).expect("Failed to spawn main loop task"),
+            );
         });
     }
 

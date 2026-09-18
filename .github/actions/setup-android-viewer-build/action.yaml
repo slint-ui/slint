@@ -1,0 +1,48 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore sdkmanager
+
+---
+name: Set up the Android viewer build
+description: |
+    Install what tools/viewer/android/build-native.sh and the gradle project
+    need, at the versions F-Droid rebuilds the viewer with. The NDK, cargo-ndk
+    and resvg pins live here; docs/internal/release.md says when to move them.
+
+runs:
+    using: composite
+    steps:
+        - name: Install the Android SDK components and the NDK
+          shell: bash
+          run: |
+              ndk=27.0.12077973
+              gradle_setting() { sed -n "s/^ *$1 = \"\\?\([0-9.]*\)\"\\?\$/\\1/p" tools/viewer/android/app/build.gradle.kts; }
+              ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install \
+                  "platforms;android-$(gradle_setting compileSdk)" "build-tools;$(gradle_setting buildToolsVersion)" "ndk;$ndk"
+              echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/$ndk" >> $GITHUB_ENV
+        - name: Install the Skia build dependencies
+          shell: bash
+          run: sudo apt-get install -y ninja-build
+        - uses: actions/setup-java@v5
+          with:
+              distribution: temurin
+              java-version: "21"
+        - name: Read the gradle version from the wrapper properties
+          shell: bash
+          run: echo "GRADLE_VERSION=$(sed -n 's/.*gradle-\([0-9.]*\)-bin.zip/\1/p' tools/viewer/android/gradle/wrapper/gradle-wrapper.properties)" >> $GITHUB_ENV
+        - uses: gradle/actions/setup-gradle@v6.3.0
+          with:
+              gradle-version: ${{ env.GRADLE_VERSION }}
+        - name: Cache cargo-ndk and resvg
+          id: cargo-tools-cache
+          uses: actions/cache@v6
+          with:
+              path: |
+                  ~/.cargo/bin/cargo-ndk
+                  ~/.cargo/bin/resvg
+              key: android-viewer-cargo-tools-cargo-ndk-4.1.2-resvg-0.48.1
+        - name: Install cargo-ndk and resvg
+          if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
+          shell: bash
+          run: cargo install --locked cargo-ndk@4.1.2 resvg@0.48.1

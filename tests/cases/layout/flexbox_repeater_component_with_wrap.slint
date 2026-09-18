@@ -67,7 +67,6 @@ export component TestCase inherits Window {
 
         for s in labels: Card {
             label: s;
-            flex-shrink: 0;
             // Regression guard: an explicit vertical constraint on a repeated
             // height-for-width cell must be evaluated in the *instance's*
             // context. Its NamedReference points inside the repeated
@@ -94,7 +93,6 @@ export component TestCase inherits Window {
 
         for s in labels: Card2 {
             label: s;
-            flex-shrink: 0;
         }
         anchor2 := Rectangle { height: 5px; }
     }
@@ -109,11 +107,11 @@ export component TestCase inherits Window {
         spacing: 0px;
         padding: 0px;
 
-        staticCard := Card { label: long; flex-shrink: 0; }
+        staticCard := Card { label: long; }
         m1 := Rectangle { height: 1px; }
-        refCard := Card { label: "One"; flex-shrink: 0; }
+        refCard := Card { label: "One"; }
         m2 := Rectangle { height: 1px; }
-        for s in [long, long]: Card { label: s; flex-shrink: 0; }
+        for s in [long, long]: Card { label: s; }
         anchor3 := Rectangle { height: 1px; }
     }
 
@@ -126,7 +124,7 @@ export component TestCase inherits Window {
         padding: 0px;
 
         b0 := Rectangle { height: 1px; }
-        for k in [0, 1]: Rectangle { height: 30px; flex-shrink: 0; }
+        for k in [0, 1]: Rectangle { height: 30px; }
         bAnchor := Rectangle { height: 1px; }
     }
 
@@ -145,7 +143,7 @@ export component TestCase inherits Window {
         padding-right: 40px;
 
         pTop := Rectangle { height: 1px; }
-        for s in [long]: Card { label: s; pad: 10px; flex-shrink: 0; }
+        for s in [long]: Card { label: s; pad: 10px; }
         pBot := Rectangle { height: 1px; }
     }
 

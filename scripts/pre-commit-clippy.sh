@@ -16,16 +16,26 @@
 #    pass_filenames: true
 
 declare -A seen
-pkgs=()
+declare -A workspace_of_dir
+declare -A pkgs_by_workspace
 
 for file in "$@"; do
     dir=$(dirname "$file")
     while [ "$dir" != "." ] && [ "$dir" != "/" ]; do
         if [ -f "$dir/Cargo.toml" ]; then
             pkg=$(grep -m1 '^name\s*=' "$dir/Cargo.toml" | sed 's/.*"\(.*\)".*/\1/')
-            if [ -n "$pkg" ] && [ -z "${seen[$pkg]}" ]; then
-                seen[$pkg]=1
-                pkgs+=(-p "$pkg")
+            if [ -n "$pkg" ]; then
+                workspace=${workspace_of_dir[$dir]}
+                if [ -z "$workspace" ]; then
+                    # Some directories are their own workspace, and clippy has
+                    # to run from there rather than from the repository root.
+                    workspace=$(cargo locate-project --workspace --message-format plain --manifest-path "$dir/Cargo.toml") || exit 1
+                    workspace_of_dir[$dir]=$workspace
+                fi
+                if [ -z "${seen[$workspace:$pkg]}" ]; then
+                    seen[$workspace:$pkg]=1
+                    pkgs_by_workspace[$workspace]+="$pkg "
+                fi
             fi
             break
         fi
@@ -33,8 +43,16 @@ for file in "$@"; do
     done
 done
 
-if [ ${#pkgs[@]} -eq 0 ]; then
-    exit 0
-fi
+status=0
+for workspace in "${!pkgs_by_workspace[@]}"; do
+    workspace_dir=$(dirname "$workspace")
+    args=()
+    for pkg in ${pkgs_by_workspace[$workspace]}; do
+        args+=(-p "$pkg")
+    done
+    # Only some of the workspaces have a Cargo.lock, and --locked refuses to create one.
+    [ -f "$workspace_dir/Cargo.lock" ] && args+=(--locked)
+    ( cd "$workspace_dir" && cargo clippy "${args[@]}" -- -D warnings ) || status=1
+done
 
-cargo clippy --locked "${pkgs[@]}" -- -D warnings
+exit $status

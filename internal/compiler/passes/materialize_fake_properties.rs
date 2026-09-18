@@ -7,7 +7,7 @@
 
 use crate::diagnostics::Spanned;
 use crate::expression_tree::{BindingExpression, Expression, Unit};
-use crate::langtype::{ElementType, Type};
+use crate::langtype::{ElementType, PropertyLookupMode, Type};
 use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
@@ -39,14 +39,14 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
     });
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        for prop in elem.borrow().bindings.keys() {
+        for prop in elem.borrow().real_bindings().map(|(name, _)| name) {
             let nr = NamedReference::new(elem, prop.clone());
-            if let std::collections::hash_map::Entry::Vacant(e) = to_materialize.entry(nr) {
+            if let std::collections::hash_map::Entry::Vacant(entry) = to_materialize.entry(nr) {
                 let elem = elem.borrow();
                 if let Some(ty) =
                     should_materialize(&elem.property_declarations, &elem.base_type, prop)
                 {
-                    e.insert(ty);
+                    entry.insert(ty);
                 }
             }
         }
@@ -55,6 +55,13 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
     for (nr, ty) in to_materialize {
         let elem = nr.element();
 
+        // Note: a DebugHook binding must materialize like the binding it wraps would.
+        // A referenced property whose binding is a *synthetic* hook counts as uninitialized
+        // (see `must_initialize`), so `initialize` below upgrades the hook in place with the
+        // computed default — e.g. geometry_props references (geometry_props.x → img.x) reach
+        // this for unbound geometry, and the Transform element's two-way reference reaches it
+        // for the injected `transform-rotation`. Skipping hooked properties here instead would
+        // leave a binding on a property that never exists at runtime.
         elem.borrow_mut().property_declarations.insert(
             nr.name().clone(),
             PropertyDeclaration { property_type: ty, ..PropertyDeclaration::default() },
@@ -68,31 +75,33 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
         }
         if let Some(init_expr) = initialize(&elem, nr.name()) {
             let mut elem_mut = elem.borrow_mut();
-            let span = elem_mut.to_source_location();
-            match elem_mut.bindings.entry(nr.name().clone()) {
-                std::collections::btree_map::Entry::Vacant(e) => {
-                    let mut binding = BindingExpression::new_with_span(init_expr, span);
-                    binding.priority = i32::MAX;
-                    e.insert(binding.into());
-                }
-                std::collections::btree_map::Entry::Occupied(mut e) => {
-                    e.get_mut().get_mut().expression = init_expr;
-                }
+            if let Some(cell) = elem_mut.binding_cell_including_synthetic(nr.name()) {
+                // A synthetic debug hook may occupy the slot (must_initialize treats it as
+                // uninitialized): upgrade it in place, keeping the wrapper and id so the
+                // property stays live-editable.
+                cell.borrow_mut().set_value_expression(init_expr);
+            } else {
+                let span = elem_mut.to_source_location();
+                let mut binding = BindingExpression::new_with_span(init_expr, span);
+                binding.priority = i32::MAX;
+                elem_mut.set_binding(nr.name().clone(), binding);
             }
         }
     }
 }
 
-// One must initialize if there is an actual expression for that binding
+// One must initialize if there is no real expression for that binding.
 fn must_initialize(elem: &Element, prop: &str) -> bool {
-    match elem.bindings.get(prop) {
+    match elem.binding(prop) {
         None => true,
-        Some(b) => matches!(b.borrow().expression, Expression::Invalid),
+        Some(b) => {
+            matches!(b.value_expression(), Expression::Invalid)
+        }
     }
 }
 
 /// Returns a type if the property needs to be materialized.
-fn should_materialize(
+pub(crate) fn should_materialize(
     property_declarations: &BTreeMap<SmolStr, PropertyDeclaration>,
     base_type: &ElementType,
     prop: &str,
@@ -117,10 +126,13 @@ fn should_materialize(
         } else if prop == "close-policy" {
             // PopupWindow::close-policy
             return Some(Type::Enumeration(
-                crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone()),
+                crate::typeregister::BUILTIN.enums.PopupClosePolicy.clone(),
             ));
         } else {
-            let ty = base_type.lookup_property(prop).property_type.clone();
+            let ty = base_type
+                .lookup_property(prop, PropertyLookupMode::InternalName)
+                .property_type
+                .clone();
             return (ty != Type::Invalid).then_some(ty);
         }
     }
@@ -162,7 +174,7 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
     // Note that Rectangles and Empties are similarly optimized in layout_constraint_prop, and
     // we rely on struct field access simplification for those.
     if elem.borrow().builtin_type().is_some_and(|n| n.name == "Image") {
-        if elem.borrow().layout_info_prop(Orientation::Horizontal).is_none() {
+        if elem.borrow().effective_layout_info_prop(Orientation::Horizontal).is_none() {
             match name {
                 "min-width" => return Some(Expression::NumberLiteral(0., Unit::Px)),
                 "max-width" => return Some(Expression::NumberLiteral(f32::MAX as _, Unit::Px)),
@@ -171,7 +183,7 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
             }
         }
 
-        if elem.borrow().layout_info_prop(Orientation::Vertical).is_none() {
+        if elem.borrow().effective_layout_info_prop(Orientation::Vertical).is_none() {
             match name {
                 "min-height" => return Some(Expression::NumberLiteral(0., Unit::Px)),
                 "max-height" => return Some(Expression::NumberLiteral(f32::MAX as _, Unit::Px)),
@@ -202,7 +214,7 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
 }
 
 fn layout_constraint_prop(elem: &ElementRc, field: &str, orient: Orientation) -> Expression {
-    let expr = match elem.borrow().layout_info_prop(orient) {
+    let expr = match elem.borrow().effective_layout_info_prop(orient) {
         Some(e) => Expression::PropertyReference(e.clone()),
         None => crate::layout::implicit_layout_info_call(
             elem,
@@ -220,5 +232,6 @@ fn size_div_2(elem: &ElementRc, field: &str) -> Expression {
         lhs: Expression::PropertyReference(NamedReference::new(elem, field.into())).into(),
         op: '/',
         rhs: Expression::NumberLiteral(2., Unit::None).into(),
+        source_location: None,
     }
 }

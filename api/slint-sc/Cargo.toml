@@ -20,7 +20,10 @@ path = "lib.rs"
 default = []
 
 [dev-dependencies]
+slint-sc-coverage = { path = "../../tools/slint-sc-coverage" }
+image = { workspace = true }
 rayon = { workspace = true }
+serde_json = { workspace = true }
 tempfile = "3"
 regex = "1"
 

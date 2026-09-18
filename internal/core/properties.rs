@@ -328,6 +328,7 @@ struct BindingVTable {
     intercept_set: unsafe fn(_self: *const BindingHolder, value: *const c_void) -> bool,
     intercept_set_binding:
         unsafe fn(_self: *const BindingHolder, new_binding: *mut BindingHolder) -> bool,
+    velocity: unsafe fn(_self: *const BindingHolder) -> Option<f32>,
 }
 
 /// A binding trait object can be used to dynamically produces values for a property.
@@ -358,6 +359,12 @@ unsafe trait BindingCallable<T> {
     /// When returning true, the call was intercepted and the binding will not be removed.
     unsafe fn intercept_set_binding(self: Pin<&Self>, _new_binding: *mut BindingHolder) -> bool {
         false
+    }
+
+    /// Returns the current velocity in the property's units per second so a spring retarget can
+    /// maintain velocity. Non spring bindings return None
+    fn velocity(self: Pin<&Self>) -> Option<f32> {
+        None
     }
 
     /// Set to true if and only if Self is a TwoWayBinding<T>
@@ -519,6 +526,11 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
         }
     }
 
+    /// Safety: _self must be a pointer to a `BindingHolder<B>`
+    unsafe fn velocity<T, B: BindingCallable<T>>(_self: *const BindingHolder) -> Option<f32> {
+        unsafe { Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding)).velocity() }
+    }
+
     trait HasBindingVTable<T> {
         const VT: &'static BindingVTable;
     }
@@ -529,6 +541,7 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
             mark_dirty: mark_dirty::<T, B>,
             intercept_set: intercept_set::<T, B>,
             intercept_set_binding: intercept_set_binding::<T, B>,
+            velocity: velocity::<T, B>,
         };
     }
 
@@ -656,6 +669,17 @@ impl PropertyHandle {
             (*binding).dependencies.set(core::ptr::null_mut());
         }
         Some(binding)
+    }
+
+    /// Returns the velocity reported by the currently installed binding, if any (see
+    /// `BindingCallable::velocity`). Used to carry velocity over across a retarget.
+    fn current_velocity(&self) -> Option<f32> {
+        self.access(|b| {
+            b.and_then(|b| unsafe {
+                // Safety: b is a valid BindingHolder
+                (b.vtable.velocity)(&*b as *const BindingHolder)
+            })
+        })
     }
 
     fn remove_binding(&self) {
@@ -1147,8 +1171,10 @@ fn properties_simple_test() {
 }
 
 mod change_tracker;
+mod erased_bindings;
 mod two_way_binding;
 pub use change_tracker::*;
+pub use erased_bindings::*;
 mod properties_animations;
 pub use properties_animations::*;
 
@@ -1165,20 +1191,29 @@ pub struct StateInfo {
     pub change_time: crate::animations::Instant,
 }
 
-struct StateInfoBinding<F> {
+struct StateInfoBinding<F, T> {
     dirty_time: Cell<Option<crate::animations::Instant>>,
     binding: F,
+    _phantom: core::marker::PhantomData<fn() -> T>,
 }
 
-unsafe impl<F: Fn() -> i32> crate::properties::BindingCallable<StateInfo> for StateInfoBinding<F> {
-    fn evaluate(self: Pin<&Self>, value: &mut StateInfo) -> BindingResult {
+unsafe impl<F: Fn() -> i32, T> crate::properties::BindingCallable<T> for StateInfoBinding<F, T>
+where
+    T: Default + From<StateInfo> + 'static,
+    StateInfo: TryFrom<T>,
+{
+    fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
         let new_state = (self.binding)();
         let timestamp = self.dirty_time.take();
-        if new_state != value.current_state {
-            value.previous_state = value.current_state;
-            value.change_time = timestamp.unwrap_or_else(crate::animations::current_tick);
-            value.current_state = new_state;
+        // The conversion only fails on the property's initial value
+        // (`Value::Void` in the interpreter); start from the default then.
+        let mut state_info: StateInfo = core::mem::take(value).try_into().unwrap_or_default();
+        if new_state != state_info.current_state {
+            state_info.previous_state = state_info.current_state;
+            state_info.change_time = timestamp.unwrap_or_else(crate::animations::current_tick);
+            state_info.current_state = new_state;
         }
+        *value = T::from(state_info);
         BindingResult::KeepBinding
     }
 
@@ -1189,10 +1224,20 @@ unsafe impl<F: Fn() -> i32> crate::properties::BindingCallable<StateInfo> for St
     }
 }
 
-/// Sets a binding that returns a state to a StateInfo property
-pub fn set_state_binding(property: Pin<&Property<StateInfo>>, binding: impl Fn() -> i32 + 'static) {
-    let bind_callable = StateInfoBinding { dirty_time: Cell::new(None), binding };
-    // Safety: The StateInfoBinding is a BindingCallable for type StateInfo
+/// Sets a binding that returns a state index to a property that stores
+/// state-tracking information. The property type `T` must be convertible
+/// to/from [`StateInfo`]: `Property<StateInfo>` itself, or a type-erased
+/// storage like the interpreter's `Property<Value>`.
+pub fn set_state_binding<T>(property: Pin<&Property<T>>, binding: impl Fn() -> i32 + 'static)
+where
+    T: Default + From<StateInfo> + 'static,
+    StateInfo: TryFrom<T>,
+{
+    let bind_callable = StateInfoBinding {
+        dirty_time: Cell::new(None),
+        binding,
+        _phantom: core::marker::PhantomData,
+    };
     unsafe {
         property.handle.set_binding(
             bind_callable,
@@ -1237,6 +1282,7 @@ impl<const NEEDS_SET_DIRTY: bool> Default for PropertyTracker<NEEDS_SET_DIRTY, (
             mark_dirty: |_, _| (),
             intercept_set: |_, _| false,
             intercept_set_binding: |_, _| false,
+            velocity: |_| None,
         };
 
         let holder = BindingHolder {
@@ -1361,6 +1407,7 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
                 mark_dirty: mark_dirty::<B>,
                 intercept_set: |_, _| false,
                 intercept_set_binding: |_, _| false,
+                velocity: |_| None,
             };
         }
 

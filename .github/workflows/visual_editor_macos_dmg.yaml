@@ -1,0 +1,195 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Visual Editor macOS DMG
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        type: choice
+        default: nightly
+        required: false
+        description: "Publishing prefix under visual-editor.slint.dev, which also picks the feed the build points at"
+        options:
+          - nightly
+          - stable
+
+  workflow_call:
+    inputs:
+      channel:
+        type: string
+        default: nightly
+        required: false
+        description: "Publishing prefix under visual-editor.slint.dev, which also picks the feed the build points at"
+
+  pull_request:
+    branches:
+      - visual-editor
+
+permissions:
+  contents: read
+
+env:
+  MACOSX_DEPLOYMENT_TARGET: "12.0"
+  CARGO_INCREMENTAL: false
+  MACOS_CARGO_TIMINGS: "1"
+  SLINT_EDITOR_CHANNEL: ${{ inputs.channel || 'nightly' }}
+
+jobs:
+  dmg:
+    name: Build signed notarized DMG
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      MACOS_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+      MACOS_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}
+      MACOS_KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+      MACOS_DEVELOPER_ID: ${{ secrets.APPLE_DEV_ID }}
+      NOTARY_API_KEY_BASE64: ${{ secrets.APPLE_APPSTORE_PRIVATE_KEY_BASE64 }}
+      NOTARY_API_KEY_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_KEY }}
+      NOTARY_ISSUER_ID: ${{ secrets.APPLE_APPSTORE_ISSUER_ID }}
+      # Signing the appcast is the only thing that uses this, and pull requests
+      # don't get that far. Same-repo pull requests do receive secrets, so
+      # leaving it in scope would hand the signing key to anything a branch
+      # cares to run. The public half is checked into the packaging script.
+      EDITOR_SPARKLE_ED_PRIVATE_KEY: ${{ github.event_name != 'pull_request' && secrets.EDITOR_SPARKLE_ED_PRIVATE_KEY || '' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # Free space from the image or the build will run out of space
+      - name: Free unused macOS runner disk space
+        run: |
+          echo "::group::Disk before cleanup"
+          df -h /
+          echo "::endgroup::"
+
+          sudo rm -rf \
+              "$ANDROID_HOME" \
+              "$ANDROID_SDK_ROOT" \
+              /Users/runner/Library/Android/sdk \
+              /Users/runner/Library/Developer/CoreSimulator
+
+          echo "::group::Disk after cleanup"
+          df -h /
+          echo "::endgroup::"
+      # cache the build
+      - uses: ./.github/actions/setup-rust
+        with:
+          key: visual-editor-macos-dmg
+          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+
+      - name: Install macOS Rust target
+        run: rustup target add aarch64-apple-darwin
+
+      # Cache Homebrew's downloaded bottles only.
+      - name: Restore Homebrew downloads
+        id: homebrew-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: ${{ runner.os }}-${{ runner.arch }}-homebrew-macos-dmg-tools-${{ hashFiles('.github/workflows/visual_editor_macos_dmg.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-homebrew-macos-dmg-tools-
+
+      - name: Install packaging tools
+        run: brew install xcodegen create-dmg
+
+      - name: Cache Homebrew downloads
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.homebrew-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: ${{ steps.homebrew-cache.outputs.cache-primary-key }}
+
+      # Separate tasks to make it clear where a failure occurs.
+      - name: Validate packaging environment
+        run: ./scripts/package_macos_visual_editor.bash validate-environment
+
+      - name: Install signing material
+        run: ./scripts/package_macos_visual_editor.bash install-signing-material
+
+      - uses: ./.github/actions/install-sparkle
+
+      # The build number is a timestamp, so pin it once here and let every later
+      # step reuse it. Recomputing it per step would bake one number into the app
+      # and advertise a higher one in the appcast, and the update would never
+      # settle. DMG_PATH is derived from it, so it gets pinned the same way.
+      - name: Pin build identity
+        run: |
+          build_number="$(./scripts/package_macos_visual_editor.bash build-number)"
+          echo "BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
+          echo "DMG_PATH=$(BUILD_NUMBER="$build_number" ./scripts/package_macos_visual_editor.bash dmg-path)" >> "$GITHUB_ENV"
+
+      - name: Archive app with Xcode
+        run: ./scripts/package_macos_visual_editor.bash archive-app
+
+      - name: Stage and sign app
+        run: ./scripts/package_macos_visual_editor.bash stage-and-sign-app
+
+      - name: Notarize and staple app
+        run: ./scripts/package_macos_visual_editor.bash notarize-and-staple-app
+
+      - name: Create DMG
+        id: create-dmg
+        uses: L-Super/create-dmg-actions@v1.1.0
+        with:
+          dmg_name: Slint Visual Editor
+          src_dir: target/macos-visual-editor-dmg/dmg-stage/Slint Visual Editor.app
+          background: tools/editor/packaging/macos/dmg-background.svg
+          window_size: 660x420
+          icon_size: "112"
+          icon_position: 184 278
+          app_drop_link: 474 278
+
+      - name: Sign DMG
+        run: |
+          mkdir -p dist
+          mv "${{ steps.create-dmg.outputs.dmg_path }}" "$DMG_PATH"
+          ./scripts/package_macos_visual_editor.bash sign-dmg
+
+      - name: Notarize and staple DMG
+        run: ./scripts/package_macos_visual_editor.bash notarize-and-staple-dmg
+
+      # Sparkle installs from the DMG, so the appcast can only be signed once the
+      # DMG is stapled and won't change again. Pull requests skip it: they don't
+      # publish, and they don't have the signing key.
+      - name: Create Sparkle appcast
+        if: ${{ github.event_name != 'pull_request' }}
+        run: ./scripts/package_macos_visual_editor.bash create-appcast
+
+      - name: Assess stapled app
+        run: ./scripts/package_macos_visual_editor.bash assess-stapled-app
+
+      - name: Clean up signing material
+        if: ${{ always() }}
+        run: ./scripts/package_macos_visual_editor.bash cleanup
+
+      # These two files are exactly what gets published, nothing else.
+      - name: Upload DMG and appcast artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: slint-visual-editor-macos
+          path: |
+            dist/*.dmg
+            dist/appcast.xml
+          if-no-files-found: error
+
+      - name: Upload notarization logs
+        uses: actions/upload-artifact@v7
+        with:
+          name: slint-visual-editor-notarization-logs
+          path: |
+            target/macos-visual-editor-dmg/app-notarization-log.json
+            target/macos-visual-editor-dmg/notarization-log.json
+          if-no-files-found: error
+
+      - name: Upload Rust build report
+        uses: actions/upload-artifact@v7
+        with:
+          name: slint-visual-editor-rust-build-report
+          path: target/macos-visual-editor-dmg/cargo-timings/**
+          if-no-files-found: error
+
+      - name: Smoke test app launch
+        run: ./scripts/package_macos_visual_editor.bash smoke-test-app-launch

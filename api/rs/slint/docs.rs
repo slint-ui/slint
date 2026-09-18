@@ -231,7 +231,7 @@ pub mod cargo_features {
     #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
     //!
     //! More information about the backend and renderers is available in the
-    //![Slint Documentation](slint:backends_and_renderers)")]
+    //! [Slint Documentation](slint:backends_and_renderers)
     use crate::*;
 }
 

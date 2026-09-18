@@ -5,6 +5,8 @@ import { test, expect } from "vitest";
 
 import { DataTransfer, loadSource, private_api } from "../dist/index.js";
 
+private_api.initTesting();
+
 test("default DataTransfer is empty", () => {
     const dt = new DataTransfer();
     expect(dt.hasPlainText).toBe(false);
@@ -159,7 +161,7 @@ test("DataTransfer round-trips through Slint callbacks", () => {
         export component App {}
         `,
         "data_transfer_callback.slint",
-    );
+    ) as any;
     const app = new ui.App() as unknown as {
         Api: {
             identity: (dt: DataTransfer) => DataTransfer;

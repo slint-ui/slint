@@ -24,8 +24,13 @@ cpp = []
 rust = ["quote", "proc-macro2"]
 python = ["dep:pathdiff", "dep:serde", "smol_str/serde", "dep:serde_json", "dep:flate2", "dep:base64"]
 
-# Safety-critical subset: enables the SlintSc output format and compile-time checks
-slint-sc = ["quote", "proc-macro2"]
+# Keep the documentation of the builtin elements in the binary, for hover documentation
+# and doc generation.
+builtin-docs = []
+
+# Safety-critical subset: enables the SlintSc output format and compile-time checks.
+# The `image` crate decodes `@image-url()` images at compile time.
+slint-sc = ["quote", "proc-macro2", "proc-macro2/span-locations", "image"]
 
 # Support for proc_macro spans in the token (only useful for use within a proc macro)
 proc_macro_span = ["quote", "proc-macro2"]
@@ -46,7 +51,7 @@ renderer-software = [
 # Enable `image`'s default feature set (additional codecs). This is enabled by
 # default by `slint-build` and the `slint-compiler` binary for compatibility, but
 # can be opted out from to keep builds minimal.
-image-default-formats = ["image?/default"]
+image-default-formats = ["image?/default-formats"]
 # Enable support to embed the fonts as signed distance fields
 sdf-fonts = ["renderer-software", "dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgebra", "dep:rayon"]
 
@@ -63,9 +68,10 @@ i-slint-common = { workspace = true, features = ["default", "color-parsing", "ma
 
 num_enum = "0.7"
 icu_normalizer = { workspace = true }
+icu_properties = { workspace = true }
 unicode-segmentation = { workspace = true }
 strum = { workspace = true }
-rowan = { version = "0.16.1" }
+rowan = { version = "0.17.0" }
 smol_str = { workspace = true }
 derive_more = { workspace = true }
 annotate-snippets = { version = "0.12.9", optional = true }
@@ -76,7 +82,7 @@ lyon_extra = "1.0.1"
 by_address = { workspace = true }
 itertools = { workspace = true }
 url = "2.2.1"
-linked_hash_set = "0.1.4"
+indexmap = "2.14"
 typed-index-collections = { workspace = true }
 
 # for processing and embedding the rendered image (texture)
@@ -98,13 +104,14 @@ pathdiff = { version = "0.2.3", optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 flate2 = { version = "1.1.5", optional = true }
-base64 = { version = "0.22.1", optional = true }
+base64 = { version = "0.23", optional = true }
 data-url = "0.3.2"
 
 [dev-dependencies]
 i-slint-parser-test-macro = { path = "./parser-test-macro" }
 
 regex = "1.3.7"
+serde_json = { workspace = true }
 spin_on = { workspace = true }
 rayon = { workspace = true }
 divan = "0.1.14"

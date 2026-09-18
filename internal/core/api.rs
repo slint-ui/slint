@@ -7,8 +7,8 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
-use crate::context::WindowEventDispatchResult;
-use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
+use crate::input::{BackendMouseEvent, InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
+use crate::platform::WindowEventDispatchResult;
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -23,22 +23,6 @@ pub use crate::graphics::{
 pub use crate::input::Keys;
 pub use crate::sharedvector::SharedVector;
 pub use crate::{format, string::SharedString, string::ToSharedString};
-
-impl From<crate::input::KeyEventResult> for WindowEventDispatchResult {
-    fn from(value: crate::input::KeyEventResult) -> Self {
-        match value {
-            crate::input::KeyEventResult::EventAccepted => Self::Accepted,
-            crate::input::KeyEventResult::EventIgnored => Self::Ignored,
-        }
-    }
-}
-
-impl From<Option<crate::window::MouseDispatchResult>> for WindowEventDispatchResult {
-    /// `None` (no component to dispatch to) and `accepted: false` both map to `Ignored`.
-    fn from(value: Option<crate::window::MouseDispatchResult>) -> Self {
-        if value.is_some_and(|r| r.accepted) { Self::Accepted } else { Self::Ignored }
-    }
-}
 
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.
@@ -296,22 +280,6 @@ pub enum GraphicsAPI<'a> {
     /// The rendering is based on WGPU 29.x. Use the provided fields to submit commits to the provided
     /// WGPU command queue.
     ///
-    /// *Note*: This function is behind the [`unstable-wgpu-28` feature flag](slint:rust:slint/docs/cargo_features/#backends)
-    ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
-    ///
-    /// See also the [`slint::wgpu_28`](slint:rust:slint/wgpu_28) module.
-    #[cfg(feature = "unstable-wgpu-28")]
-    #[non_exhaustive]
-    WGPU28 {
-        /// The WGPU instance used for rendering.
-        instance: wgpu_28::Instance,
-        /// The WGPU device used for rendering.
-        device: wgpu_28::Device,
-        /// The WGPU queue for used for command submission.
-        queue: wgpu_28::Queue,
-    },
-    /// WGPU command queue.
-    ///
     /// *Note*: This function is behind the [`unstable-wgpu-29` feature flag](slint:rust:slint/docs/cargo_features/#backends)
     ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
     ///
@@ -326,6 +294,23 @@ pub enum GraphicsAPI<'a> {
         /// The WGPU queue for used for command submission.
         queue: wgpu_29::Queue,
     },
+    /// The rendering is based on WGPU 30.x. Use the provided fields to submit commits to the provided
+    /// WGPU command queue.
+    ///
+    /// *Note*: This function is behind the [`unstable-wgpu-30` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
+    ///
+    /// See also the [`slint::wgpu_30`](slint:rust:slint/wgpu_30) module.
+    #[cfg(feature = "unstable-wgpu-30")]
+    #[non_exhaustive]
+    WGPU30 {
+        /// The WGPU instance used for rendering.
+        instance: wgpu_30::Instance,
+        /// The WGPU device used for rendering.
+        device: wgpu_30::Device,
+        /// The WGPU queue for used for command submission.
+        queue: wgpu_30::Queue,
+    },
 }
 
 impl core::fmt::Debug for GraphicsAPI<'_> {
@@ -335,10 +320,10 @@ impl core::fmt::Debug for GraphicsAPI<'_> {
             GraphicsAPI::WebGL { context_type, .. } => {
                 write!(f, "GraphicsAPI::WebGL(context_type = {context_type})")
             }
-            #[cfg(feature = "unstable-wgpu-28")]
-            GraphicsAPI::WGPU28 { .. } => write!(f, "GraphicsAPI::WGPU28"),
             #[cfg(feature = "unstable-wgpu-29")]
             GraphicsAPI::WGPU29 { .. } => write!(f, "GraphicsAPI::WGPU29"),
+            #[cfg(feature = "unstable-wgpu-30")]
+            GraphicsAPI::WGPU30 { .. } => write!(f, "GraphicsAPI::WGPU30"),
         }
     }
 }
@@ -643,10 +628,10 @@ impl Window {
     /// the top left corner of the window.
     ///
     /// This function panics if there is an error processing the event.
-    /// Use [`Self::try_dispatch_event()`] to handle the error.
+    /// Use [`Self::dispatch_event_with_result()`] to handle the error.
     #[track_caller]
     pub fn dispatch_event(&self, event: crate::platform::WindowEvent) {
-        self.try_dispatch_event(event).unwrap()
+        self.dispatch_event_with_result(event).unwrap();
     }
 
     /// Dispatch a window event to the scene.
@@ -655,15 +640,37 @@ impl Window {
     ///
     /// Any position fields in the event must be in the logical pixel coordinate system relative to
     /// the top left corner of the window.
+    #[deprecated(note = "use `dispatch_event_with_result` instead")]
     pub fn try_dispatch_event(
         &self,
         event: crate::platform::WindowEvent,
     ) -> Result<(), PlatformError> {
+        self.dispatch_event_with_result(event).map(|_| ())
+    }
+
+    /// Dispatch a window event to the scene.
+    ///
+    /// Use this when you're implementing your own backend and want to forward user input events.
+    ///
+    /// Any position fields in the event must be in the logical pixel coordinate system relative to
+    /// the top left corner of the window.
+    ///
+    /// Returns a [`WindowEventDispatchResult`] indicating how the event was handled.
+    pub fn dispatch_event_with_result(
+        &self,
+        event: crate::platform::WindowEvent,
+    ) -> Result<WindowEventDispatchResult, PlatformError> {
         // Only clone the event when a hook is installed to avoid allocation on the hot path.
-        let event_for_hook = self
-            .0
-            .try_context()
-            .and_then(|ctx| ctx.0.window_event_hook.borrow().is_some().then(|| event.clone()));
+        // Events a backend delivers in the internal representation are reported as the public
+        // event they correspond to, if there is one.
+        let hook_installed =
+            self.0.try_context().is_some_and(|ctx| ctx.0.window_event_hook.borrow().is_some());
+        let event_for_hook = hook_installed
+            .then(|| match &event {
+                crate::platform::WindowEvent::Internal(event) => event.public_representation(),
+                event => Some(event.clone()),
+            })
+            .flatten();
         let dispatch_result = match event {
             crate::platform::WindowEvent::PointerPressed { position, button } => self
                 .0
@@ -755,14 +762,30 @@ impl Window {
                 self.0.set_active(bool);
                 WindowEventDispatchResult::Accepted
             }
+            crate::platform::WindowEvent::Internal(event) => match event.into_inner() {
+                crate::platform::InternalEvent::Mouse(BackendMouseEvent::Exit) => {
+                    // Teardown event, always accepted like `WindowEvent::PointerExited`.
+                    self.0.process_mouse_input(MouseEvent::Exit);
+                    WindowEventDispatchResult::Accepted
+                }
+                crate::platform::InternalEvent::Mouse(event) => {
+                    self.0.process_mouse_input(event.into()).into()
+                }
+                crate::platform::InternalEvent::Key(event) => {
+                    self.0.process_key_input(event).into()
+                }
+                crate::platform::InternalEvent::Touch { id, position, phase } => {
+                    self.0.process_touch_input(id, position, phase).into()
+                }
+            },
         };
         if let Some(event_for_hook) = event_for_hook
             && let Some(ctx) = self.0.try_context()
             && let Some(hook) = ctx.0.window_event_hook.borrow().as_ref()
         {
-            hook(&self.0.window_adapter(), &event_for_hook, dispatch_result);
+            hook(&self.0.window_adapter(), &event_for_hook, dispatch_result.clone());
         }
-        Ok(())
+        Ok(dispatch_result)
     }
 
     /// Returns true if there is an animation currently active on any property in the Window; false otherwise.
@@ -809,6 +832,9 @@ impl Window {
     /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
     ///
     /// Note that this function may be slow to call as it may need to re-render the scene.
+    ///
+    /// Only available with the `std` feature.
+    #[cfg(feature = "std")]
     pub fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         self.0.window_adapter().renderer().take_snapshot()
     }

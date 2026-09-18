@@ -20,8 +20,8 @@ use std::rc::Rc;
 
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::lengths::logical_point_from_api;
-use i_slint_core::platform::{PlatformError, PointerEventButton, WindowEvent};
-use i_slint_core::window::{WindowAdapter, WindowInner};
+use i_slint_core::platform::{InternalEvent, PlatformError, PointerEventButton, WindowEvent};
+use i_slint_core::window::WindowAdapter;
 use i_slint_core::{Property, SharedString};
 use input::LibinputInterface;
 use input::event::keyboard::{KeyState, KeyboardEventTrait};
@@ -231,7 +231,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                                 .clamp(0., screen_size.height);
                             self.mouse_pos.set(Some(mouse_pos));
                             let event = WindowEvent::PointerMoved { position: mouse_pos };
-                            window.try_dispatch_event(event).map_err(Self::Error::other)?;
+                            window.dispatch_event_with_result(event).map_err(Self::Error::other)?;
                         }
                         input::event::PointerEvent::MotionAbsolute(abs_motion_event) => {
                             let mouse_pos = LogicalPosition {
@@ -243,7 +243,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             };
                             self.mouse_pos.set(Some(mouse_pos));
                             let event = WindowEvent::PointerMoved { position: mouse_pos };
-                            window.try_dispatch_event(event).map_err(Self::Error::other)?;
+                            window.dispatch_event_with_result(event).map_err(Self::Error::other)?;
                         }
                         input::event::PointerEvent::Button(button_event) => {
                             // https://github.com/torvalds/linux/blob/0dd2a6fb1e34d6dcb96806bc6b111388ad324722/include/uapi/linux/input-event-codes.h#L355
@@ -264,7 +264,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                                     WindowEvent::PointerReleased { position: mouse_pos, button }
                                 }
                             };
-                            window.try_dispatch_event(event).map_err(Self::Error::other)?;
+                            window.dispatch_event_with_result(event).map_err(Self::Error::other)?;
                         }
                         _ => {}
                     }
@@ -277,20 +277,20 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                         );
                         let slot = touch_down_event.slot().unwrap_or(0) as i32;
                         set_touch_pos(&mut self.last_touch_positions, slot, pos);
-                        WindowInner::from_pub(window).process_touch_input(
-                            slot,
-                            logical_point_from_api(pos),
-                            i_slint_core::input::TouchPhase::Started,
-                        );
+                        window.dispatch_event(WindowEvent::internal(InternalEvent::Touch {
+                            id: slot,
+                            position: logical_point_from_api(pos),
+                            phase: i_slint_core::input::TouchPhase::Started,
+                        }));
                     }
                     input::event::TouchEvent::Up(touch_up_event) => {
                         let slot = touch_up_event.slot().unwrap_or(0) as i32;
                         let pos = take_touch_pos(&mut self.last_touch_positions, slot);
-                        WindowInner::from_pub(window).process_touch_input(
-                            slot,
-                            logical_point_from_api(pos),
-                            i_slint_core::input::TouchPhase::Ended,
-                        );
+                        window.dispatch_event(WindowEvent::internal(InternalEvent::Touch {
+                            id: slot,
+                            position: logical_point_from_api(pos),
+                            phase: i_slint_core::input::TouchPhase::Ended,
+                        }));
                     }
                     input::event::TouchEvent::Motion(touch_motion_event) => {
                         let pos = LogicalPosition::new(
@@ -299,20 +299,20 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                         );
                         let slot = touch_motion_event.slot().unwrap_or(0) as i32;
                         set_touch_pos(&mut self.last_touch_positions, slot, pos);
-                        WindowInner::from_pub(window).process_touch_input(
-                            slot,
-                            logical_point_from_api(pos),
-                            i_slint_core::input::TouchPhase::Moved,
-                        );
+                        window.dispatch_event(WindowEvent::internal(InternalEvent::Touch {
+                            id: slot,
+                            position: logical_point_from_api(pos),
+                            phase: i_slint_core::input::TouchPhase::Moved,
+                        }));
                     }
                     input::event::TouchEvent::Cancel(touch_cancel_event) => {
                         let slot = touch_cancel_event.slot().unwrap_or(0) as i32;
                         let pos = take_touch_pos(&mut self.last_touch_positions, slot);
-                        WindowInner::from_pub(window).process_touch_input(
-                            slot,
-                            logical_point_from_api(pos),
-                            i_slint_core::input::TouchPhase::Cancelled,
-                        );
+                        window.dispatch_event(WindowEvent::internal(InternalEvent::Touch {
+                            id: slot,
+                            position: logical_point_from_api(pos),
+                            phase: i_slint_core::input::TouchPhase::Cancelled,
+                        }));
                     }
                     _ => {}
                 },
@@ -369,7 +369,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             KeyState::Pressed => WindowEvent::KeyPressed { text },
                             KeyState::Released => WindowEvent::KeyReleased { text },
                         };
-                        window.try_dispatch_event(event).map_err(Self::Error::other)?;
+                        window.dispatch_event_with_result(event).map_err(Self::Error::other)?;
                     }
                 }
                 _ => {}

@@ -31,11 +31,12 @@ default = [
 ]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with Slint 1.2
+## This feature is required to keep the compatibility with Slint 1.18
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added.
 ## [More info in this blog post](https://slint.dev/blog/rust-adding-default-cargo-feature.html)
-"compat-1-2" = []
+"compat-1-18" = []
+"compat-1-2" = ["compat-1-18", "i-slint-backend-linuxkms?/libseat", "i-slint-backend-linuxkms?/libinput"]
 "compat-1-0" = ["compat-1-2", "renderer-software"]
 
 ## Enable use of the Rust standard library.
@@ -198,21 +199,41 @@ renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu", "i-sl
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "dep:i-slint-renderer-skia", "std"]
 
 ## Same as `renderer-skia`, but Skia will always use OpenGL.
-## Note: This is not supported on iOS. Use `renderer-skia` on iOS to enable Meta based rendering.
+## Note: This is not supported on iOS. Use `renderer-skia` on iOS to enable Metal based rendering.
 renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "dep:i-slint-renderer-skia", "std"]
 
-## Same as `renderer-skia`, but Skia will always use Vulkan.
+## Same as `renderer-skia`, but Skia will prefer Vulkan when selecting a backend.
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "dep:i-slint-renderer-skia", "std"]
 
 ## Render using the software renderer.
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 
-## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
-## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead.
-backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
+## Render using [vello](https://crates.io/crates/vello) on [WGPU](http://wgpu.rs).
+##
+## Also available with the linuxkms backend, where it renders onto a DRM plane.
+##
+## This renderer is experimental: it is never selected automatically when another renderer is
+## also enabled. Select it with `SLINT_BACKEND=winit-vello`, `SLINT_BACKEND=linuxkms-vello` or
+## [`BackendSelector::renderer_name()`](crate::BackendSelector::renderer_name()).
+renderer-vello = ["i-slint-backend-selector/renderer-vello", "std"]
 
-## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
+## KMS with Vulkan or EGL on Linux is used to render the application in full screen mode, without any
 ## windowing system.
+##
+## With `compat-1-2` this implies libseat and libinput support. With `compat-1-18` or newer it is
+## the minimal feature set, without libseat and libinput; add `backend-linuxkms-libseat` and
+## `backend-linuxkms-libinput` to opt back in.
+backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "dep:i-slint-backend-linuxkms", "std"]
+
+## Add libseat to the LinuxKMS backend, for GPU and input device access without root privileges.
+backend-linuxkms-libseat = ["i-slint-backend-selector/backend-linuxkms-libseat", "std"]
+
+## Add libinput to the LinuxKMS backend, to react to mouse, touch and keyboard input.
+backend-linuxkms-libinput = ["i-slint-backend-selector/backend-linuxkms-libinput", "std"]
+
+## **Deprecated** Use `backend-linuxkms-libinput` instead, which selects the same
+## combination of the LinuxKMS backend: libinput for mouse, touch and keyboard input,
+## but no libseat.
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
 ## Use the backend based on the [android-activity](https://docs.rs/android-activity) crate. (Using it's native activity feature)
@@ -228,37 +249,23 @@ backend-android-activity-05 = [
   "i-slint-backend-android-activity/aa-05",
 ]
 
-## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 28.x.
-##
-## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because WGPU releases new major
-## versions frequently. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
-## by a feature with a similar name but the WGPU version suffix being bumped.
-##
-## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
-## in your `Cargo.toml` when enabling this feature:
-##
-## ```toml
-## slint = { version = "~1.18", features = ["unstable-wgpu-28"] }
-## ```
-unstable-wgpu-28 = [
-  "i-slint-core/unstable-wgpu-28",
-  "i-slint-backend-selector/unstable-wgpu-28",
-  "i-slint-backend-android-activity?/unstable-wgpu-28",
-  "dep:wgpu-28",
-]
+#! ### Unstable features
+
+#! The following features expose APIs built on top of third-party crates that release new major
+#! versions more frequently than Slint. They carry the major version of that crate as a suffix
+#! and are *NOT* subject to the usual Slint API stability guarantees: a future minor release of
+#! Slint may change or remove them, typically replacing them with a feature of the same name but
+#! a bumped version suffix.
+#!
+#! To avoid unintended compilation failures, we recommend using the
+#! [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
+#! in your `Cargo.toml` when enabling any of these features:
+#!
+#! ```toml
+#! slint = { version = "~1.18", features = ["unstable-wgpu-30"] }
+#! ```
 
 ## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 29.x.
-##
-## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because WGPU releases new major
-## versions frequently. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
-## by a feature with a similar name but the WGPU version suffix being bumped.
-##
-## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
-## in your `Cargo.toml` when enabling this feature:
-##
-## ```toml
-## slint = { version = "~1.18", features = ["unstable-wgpu-29"] }
-## ```
 unstable-wgpu-29 = [
   "i-slint-core/unstable-wgpu-29",
   "i-slint-backend-selector/unstable-wgpu-29",
@@ -266,43 +273,21 @@ unstable-wgpu-29 = [
   "dep:wgpu-29",
 ]
 
-## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because winit releases new major
-## versions more frequently than Slint. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
-## by a feature with a similar name but the winit version suffix being bumped.
-##
-## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
-## in your `Cargo.toml` when enabling this feature:
-##
-## ```toml
-## slint = { version = "~1.18", features = ["unstable-winit-031"] }
-## ```
+## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 30.x.
+unstable-wgpu-30 = [
+  "i-slint-core/unstable-wgpu-30",
+  "i-slint-backend-selector/unstable-wgpu-30",
+  "i-slint-backend-android-activity?/unstable-wgpu-30",
+  "dep:wgpu-30",
+]
+
+## Expose [winit](https://crates.io/crates/winit) based APIs in the winit backend, based on winit version 0.31.x.
 unstable-winit-031 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-backend-selector/unstable-winit-031"]
 
-
 ## Enable support for exposing [libinput](https://docs.rs/input/latest/input/index.html) related APIs in the LinuxKMS backend.
-##
-## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
-## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the input version suffix being bumped.
-##
-## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
-## in your `Cargo.toml` when enabling this feature:
-##
-## ```toml
-## slint = { version = "~1.18", features = ["unstable-libinput-09"] }
-## ```
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
 ## Enable support for exposing [fontique](https://docs.rs/fontique/0.11.0/fontique/) related APIs.
-##
-## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
-## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the fontique version suffix being bumped.
-##
-## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
-## in your `Cargo.toml` when enabling this feature:
-##
-## ```toml
-## slint = { version = "~1.18", features = ["unstable-fontique-011"] }
-## ```
 unstable-fontique-011 = ["i-slint-common/shared-fontique"]
 
 [dependencies]
@@ -314,7 +299,7 @@ i-slint-common = { workspace = true }
 i-slint-renderer-software = { workspace = true, optional = true }
 i-slint-live-preview = { workspace = true, optional = true, features = ["live-component"] }
 
-const-field-offset = { version = "0.2.0", path = "../../../helper_crates/const-field-offset" }
+const-field-offset = { version = "0.2.1", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }
 vtable = { workspace = true }
 
@@ -326,8 +311,8 @@ raw-window-handle-06 = { workspace = true, optional = true }
 
 unicode-segmentation = { workspace = true }
 
-wgpu-28 = { workspace = true, optional = true }
 wgpu-29 = { workspace = true, optional = true }
+wgpu-30 = { workspace = true, optional = true }
 
 i-slint-backend-winit = { workspace = true, optional = true }
 i-slint-renderer-skia = { workspace = true, optional = true }
@@ -355,6 +340,13 @@ i-slint-renderer-software = { path = "../../../internal/renderers/software", fea
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux
 i-slint-backend-qt = { workspace = true, features = ["enable"], optional = true }
+# Marker edge, never used from code: `compat-1-2` enables features on this optional
+# dependency, and only `backend-linuxkms` activates it, which is what restores the
+# pre-1.18 meaning of that feature while leaving `backend-linuxkms-noseat` alone.
+# Do not route those feature references through i-slint-backend-selector: its own
+# edge to the backend is also activated by `backend-linuxkms-noseat`, which would
+# then gain libseat and break targets that do not have it.
+i-slint-backend-linuxkms = { workspace = true, optional = true }
 
 [package.metadata.docs.rs]
 features = [
@@ -365,6 +357,7 @@ features = [
   "renderer-femtovg",
   "raw-window-handle-06",
   "unstable-wgpu-29",
+  "unstable-wgpu-30",
   "unstable-winit-031",
   "unstable-libinput-09",
   "unstable-fontique-011",

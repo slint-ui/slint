@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- cspell:ignore MSIX MSVCP rescap slintvisualeditor VCRUNTIME -->
+<Package
+    xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+    xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+    xmlns:uap2="http://schemas.microsoft.com/appx/manifest/uap/windows10/2"
+    xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+    xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+    xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+    xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+    xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+    IgnorableNamespaces="uap uap2 uap3 uap10 desktop desktop6 rescap uap5"
+    xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+>
+  <!--
+    `Name` and `Publisher` are the identity reserved for this app in Partner
+    Center and have to match it exactly, otherwise the Store rejects the
+    submission. The publisher GUID is not a secret: it is part of every
+    published package.
+
+    `Version` is filled in from the crate version when packaging, which is why
+    it reads 0.0.0.0 here. Cargo versions have three fields and MSIX versions
+    have four, and the Store reserves the fourth and requires it to be 0, so
+    every submission needs its own crate version.
+  -->
+  <Identity
+        Name="Slint.SlintVisualEditor"
+        Publisher="CN=5B95CD31-D8E6-4E15-9577-6F0D625F4F1C"
+        Version="0.0.0.0"
+    />
+  <Properties>
+    <DisplayName>Slint Visual Editor</DisplayName>
+    <!-- Has to match the publisher display name of the Partner Center account. -->
+    <PublisherDisplayName>Slint</PublisherDisplayName>
+    <Logo>Assets\SlintVisualEditor-Logo.png</Logo>
+  </Properties>
+  <Dependencies>
+    <TargetDeviceFamily
+            Name="Windows.Desktop"
+            MinVersion="10.0.18362.0"
+            MaxVersionTested="10.0.26200.0"
+        />
+    <!--
+      Skia is C++ and links against the Visual C++ runtime, so the executable
+      imports MSVCP140.dll and VCRUNTIME140.dll, which a clean Windows install
+      does not have. Depending on the framework package that carries them lets
+      the Store install them along with the app, instead of the app failing to
+      start until the user finds the redistributable themselves.
+    -->
+    <PackageDependency
+            Name="Microsoft.VCLibs.140.00.UWPDesktop"
+            MinVersion="14.0.30704.0"
+            Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+        />
+  </Dependencies>
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+  <Applications>
+    <Application
+            Id="slintvisualeditor"
+            Executable="slint-visual-editor.exe"
+            uap10:TrustLevel="mediumIL"
+            EntryPoint="Windows.FullTrustApplication"
+        >
+      <uap:VisualElements
+                DisplayName="Slint Visual Editor"
+                Description="The graphical editor for the Slint UI description language"
+                BackgroundColor="transparent"
+                Square150x150Logo="Assets\SlintVisualEditor-Logo-150x150.png"
+                Square44x44Logo="Assets\SlintVisualEditor-Logo-44x44.png"
+            >
+        <uap:DefaultTile
+          Square310x310Logo="Assets\SlintVisualEditor-Logo-310x310.png"
+          Wide310x150Logo="Assets\SlintVisualEditor-Logo-310x150.png"
+          Square71x71Logo="Assets\SlintVisualEditor-Logo-71x71.png"
+          />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

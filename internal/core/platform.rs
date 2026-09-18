@@ -65,11 +65,13 @@ pub trait Platform {
         Err(PlatformError::NoEventLoopProvider)
     }
 
-    /// Called once by `set_platform` immediately after the [`crate::SlintContext`]
-    /// has been constructed, to give the platform a weak handle to its own context.
-    /// Platforms can stash the handle and later use it to spawn futures or write
-    /// process-wide state without going through a window adapter. The default impl
-    /// drops the handle.
+    /// Called once by [`crate::SlintContext::new`], as the context that owns this platform
+    /// finishes construction, to give the platform a weak handle to it. Platforms can stash
+    /// the handle and later use it to spawn futures or write context-wide state without
+    /// going through a window adapter. The default impl drops the handle.
+    ///
+    /// Every context binds its own platform, not only the one installed as the thread's
+    /// global context, so a backend driving a context can always find it.
     #[doc(hidden)]
     fn bind_context(&self, _ctx: crate::SlintContextWeak, _: crate::InternalToken) {}
 
@@ -269,12 +271,10 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
                 *EVENTLOOP_PROXY.lock().unwrap() = Some(proxy);
             }
         }
-        instance
-            .set(crate::SlintContext::new(platform))
-            .map_err(|_| SetPlatformError::AlreadySet)
-            .unwrap();
-        let ctx = instance.get().unwrap();
-        ctx.platform().bind_context(ctx.downgrade(), crate::InternalToken);
+        // The slot is free, so this claims it. The returned handle is dropped here; the
+        // context stays alive because the slot holds it.
+        drop(crate::SlintContext::new(platform));
+        debug_assert!(instance.get().is_some(), "SlintContext::new claims a free slot");
         // Ensure a sane starting point for the animation tick.
         update_timers_and_animations();
         Ok(())
@@ -287,9 +287,16 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
 /// This function should be called before rendering or processing input event, at the
 /// beginning of each event loop iteration.
 pub fn update_timers_and_animations() {
-    crate::animations::update_animations();
-    crate::timers::TimerList::maybe_activate_timers(crate::animations::Instant::now());
-    crate::properties::ChangeTracker::run_change_handlers();
+    match crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().cloned()) {
+        Some(ctx) => ctx.update_timers_and_animations(),
+        None => {
+            // Pre-platform behavior: with no context there is no clock either, so only
+            // zero-duration timers in the pending list are due.
+            crate::animations::update_animations(Default::default());
+            crate::timers::TimerList::maybe_activate_timers(Default::default());
+            crate::properties::ChangeTracker::run_change_handlers();
+        }
+    }
 }
 
 /// Returns the duration before the next timer is expected to be activated. This is the
@@ -302,24 +309,52 @@ pub fn update_timers_and_animations() {
 /// Only go to sleep if [`Window::has_active_animations()`](crate::api::Window::has_active_animations())
 /// returns false.
 pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
-    crate::timers::TimerList::next_timeout().map(|timeout| {
-        let duration_since_start = crate::context::GLOBAL_CONTEXT
-            .with(|p| p.get().map(|p| p.platform().duration_since_start()))
-            .unwrap_or_default();
-        core::time::Duration::from_millis(
-            timeout.0.saturating_sub(duration_since_start.as_millis() as u64),
-        )
-    })
+    match crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().cloned()) {
+        Some(ctx) => ctx.duration_until_next_timer_update(),
+        // No context, hence no clock: the deadline is measured from a zero origin.
+        None => crate::timers::TimerList::next_timeout()
+            .map(|timeout| core::time::Duration::from_millis(timeout.0)),
+    }
 }
 
 // reexport key enum to the public api
 pub use crate::input::PointerEventButton;
 pub use crate::input::key_codes::Key;
 
+/// Result of dispatching a window event through Slint's runtime with
+/// [`Window::dispatch_event_with_result()`](crate::api::Window::dispatch_event_with_result).
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum WindowEventDispatchResult {
+    /// The event was handled. For example, a key handler consumed a key press, or
+    /// the window acted on a resize or close request.
+    Accepted,
+    /// The event wasn't handled: no element consumed it, or a handler actively refused it,
+    /// such as a `close-requested` callback returning `reject` to keep the window open.
+    Rejected,
+}
+
+impl From<crate::input::KeyEventResult> for WindowEventDispatchResult {
+    fn from(value: crate::input::KeyEventResult) -> Self {
+        match value {
+            crate::input::KeyEventResult::EventAccepted => Self::Accepted,
+            crate::input::KeyEventResult::EventIgnored => Self::Rejected,
+        }
+    }
+}
+
+impl From<Option<crate::window::MouseDispatchResult>> for WindowEventDispatchResult {
+    /// `None` (no component to dispatch to) and `accepted: false` both map to `Rejected`.
+    fn from(value: Option<crate::window::MouseDispatchResult>) -> Self {
+        if value.is_some_and(|r| r.accepted) { Self::Accepted } else { Self::Rejected }
+    }
+}
+
+// api/node/build.rs parses this enum to generate the Node.js window event types.
 /// A event that describes user input or windowing system events.
 ///
 /// Slint backends typically receive events from the windowing system, translate them to this
-/// enum and deliver them to the scene of items via [`slint::Window::try_dispatch_event()`](`crate::api::Window::try_dispatch_event()`).
+/// enum and deliver them to the scene of items via [`slint::Window::dispatch_event_with_result()`](`crate::api::Window::dispatch_event_with_result()`).
 ///
 /// The pointer variants describe events originating from an input device such as a mouse
 /// or a contact point on a touch-enabled surface.
@@ -332,20 +367,26 @@ pub use crate::input::key_codes::Key;
 pub enum WindowEvent {
     /// A pointer was pressed.
     PointerPressed {
+        /// The position of the pointer, in logical pixels relative to the top left corner of the window.
         position: LogicalPosition,
         /// The button that was pressed.
         button: PointerEventButton,
     },
     /// A pointer was released.
     PointerReleased {
+        /// The position of the pointer, in logical pixels relative to the top left corner of the window.
         position: LogicalPosition,
         /// The button that was released.
         button: PointerEventButton,
     },
     /// The position of the pointer has changed.
-    PointerMoved { position: LogicalPosition },
+    PointerMoved {
+        /// The new position of the pointer, in logical pixels relative to the top left corner of the window.
+        position: LogicalPosition,
+    },
     /// The wheel button of a mouse was rotated to initiate scrolling.
     PointerScrolled {
+        /// The position of the pointer when the scroll occurred.
         position: LogicalPosition,
         /// The amount of logical pixels to scroll in the horizontal direction.
         delta_x: f32,
@@ -353,6 +394,8 @@ pub enum WindowEvent {
         delta_y: f32,
     },
     /// The pointer exited the window.
+    ///
+    /// Always reported as [`Accepted`](WindowEventDispatchResult::Accepted).
     PointerExited,
     /// A key was pressed.
     KeyPressed {
@@ -401,7 +444,7 @@ pub enum WindowEvent {
     /// The backend must send this event to ensure that the `width` and `height` property of the root Window
     /// element are properly set.
     Resized {
-        /// The new logical size of the window
+        /// The new logical size of the window.
         size: LogicalSize,
     },
     /// The user requested to close the window.
@@ -417,6 +460,12 @@ pub enum WindowEvent {
     /// The backend should dispatch this event with true when the window gains focus
     /// and false when the window loses focus.
     WindowActiveChanged(bool),
+
+    /// An event that one of Slint's own backends delivers in the runtime's internal representation.
+    ///
+    /// This isn't public API, use [`WindowEvent::internal()`] to construct it.
+    #[doc(hidden)]
+    Internal(InternalEventBox),
 }
 
 impl WindowEvent {
@@ -427,7 +476,201 @@ impl WindowEvent {
             WindowEvent::PointerReleased { position, .. } => Some(*position),
             WindowEvent::PointerMoved { position } => Some(*position),
             WindowEvent::PointerScrolled { position, .. } => Some(*position),
+            WindowEvent::Internal(event) => event.position(),
             _ => None,
+        }
+    }
+
+    /// Wraps an event in the runtime's internal representation,
+    /// for Slint's own backends to deliver via [`Window::dispatch_event_with_result()`](crate::api::Window::dispatch_event_with_result).
+    #[doc(hidden)]
+    pub fn internal(event: impl Into<InternalEvent>) -> Self {
+        Self::Internal(InternalEventBox::new(event.into()))
+    }
+}
+
+/// Owning pointer to an [`InternalEvent`].
+///
+/// The payload lives behind a pointer, so that the size of [`WindowEvent`] and the way the C++
+/// bindings represent it don't depend on the internal event.
+/// It's a dedicated type rather than a `Box`, because a `Box` of an unsized type is two pointers
+/// wide, which the generated C++ struct wouldn't match.
+#[doc(hidden)]
+#[repr(transparent)]
+pub struct InternalEventBox(core::ptr::NonNull<InternalEvent>);
+
+// Safety: the box exclusively owns the event it points to, which the assertion below keeps
+// `Send` and `Sync`.
+#[allow(unsafe_code)]
+unsafe impl Send for InternalEventBox {}
+#[allow(unsafe_code)]
+unsafe impl Sync for InternalEventBox {}
+
+// A backend may build events on one thread and dispatch them from the event loop's thread.
+const _: () = {
+    const fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<WindowEvent>();
+    assert_send_sync::<InternalEvent>();
+};
+
+#[allow(unsafe_code)]
+impl InternalEventBox {
+    fn new(event: InternalEvent) -> Self {
+        // Safety: `Box::into_raw` never returns null.
+        Self(unsafe { core::ptr::NonNull::new_unchecked(Box::into_raw(Box::new(event))) })
+    }
+
+    /// Takes the event out of the box.
+    pub(crate) fn into_inner(self) -> InternalEvent {
+        let this = core::mem::ManuallyDrop::new(self);
+        // Safety: the pointer comes from `Box::into_raw` in `new()`, and `ManuallyDrop` keeps
+        // `Drop` from freeing it a second time.
+        *unsafe { Box::from_raw(this.0.as_ptr()) }
+    }
+}
+
+#[allow(unsafe_code)]
+impl Drop for InternalEventBox {
+    fn drop(&mut self) {
+        // Safety: the pointer comes from `Box::into_raw` in `new()` and is freed only here or in
+        // `into_inner()`, which doesn't run this.
+        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
+    }
+}
+
+#[allow(unsafe_code)]
+impl core::ops::Deref for InternalEventBox {
+    type Target = InternalEvent;
+    fn deref(&self) -> &InternalEvent {
+        // Safety: the pointer comes from `Box::into_raw` in `new()` and stays valid until `Drop`.
+        unsafe { self.0.as_ref() }
+    }
+}
+
+impl Clone for InternalEventBox {
+    fn clone(&self) -> Self {
+        Self::new(InternalEvent::clone(self))
+    }
+}
+
+impl PartialEq for InternalEventBox {
+    fn eq(&self, other: &Self) -> bool {
+        **self == **other
+    }
+}
+
+impl core::fmt::Debug for InternalEventBox {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        InternalEvent::fmt(self, f)
+    }
+}
+
+/// An event that one of Slint's own backends delivers in the representation the runtime uses internally.
+///
+/// These carry information that the [`WindowEvent`] variants can't express,
+/// such as the touch finger id, the click count, the gesture phase, drag payloads or input method composition.
+/// Backends wrap them with [`WindowEvent::internal()`] and dispatch them like any other event,
+/// so that all input takes the same path into the runtime and is observed by the window event hook.
+///
+/// This isn't public API: the variants and their payload change without notice.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum InternalEvent {
+    /// A pointer event, including the ones that have no public representation, such as gestures.
+    Mouse(crate::input::BackendMouseEvent),
+    /// A key event, including input method composition updates.
+    Key(crate::input::InternalKeyEvent),
+    /// A touch point update, which the runtime turns into pointer or gesture events.
+    Touch {
+        /// The id of the finger that produced the event.
+        /// Must be non-negative and distinct among the fingers currently down.
+        /// Ids may be reused once a finger lifts.
+        id: i32,
+        /// The position of the finger, in logical coordinates.
+        position: crate::lengths::LogicalPoint,
+        /// Whether the finger was put down, moved, lifted or cancelled.
+        phase: crate::input::TouchPhase,
+    },
+}
+
+impl From<crate::input::BackendMouseEvent> for InternalEvent {
+    fn from(event: crate::input::BackendMouseEvent) -> Self {
+        Self::Mouse(event)
+    }
+}
+
+impl From<crate::input::InternalKeyEvent> for InternalEvent {
+    fn from(event: crate::input::InternalKeyEvent) -> Self {
+        Self::Key(event)
+    }
+}
+
+impl InternalEvent {
+    /// The public event this event corresponds to, if any.
+    ///
+    /// This is what the window event hook observes,
+    /// so that hooks only ever see events they could dispatch themselves.
+    /// Events without a public representation aren't reported:
+    /// gestures, touch and input method composition.
+    pub(crate) fn public_representation(&self) -> Option<WindowEvent> {
+        use crate::input::{BackendMouseEvent, KeyEventType};
+        use crate::lengths::logical_position_to_api;
+
+        match self {
+            Self::Mouse(event) => match event {
+                BackendMouseEvent::Pressed { position, button, .. } => {
+                    Some(WindowEvent::PointerPressed {
+                        position: logical_position_to_api(*position),
+                        button: *button,
+                    })
+                }
+                BackendMouseEvent::Released { position, button, .. } => {
+                    Some(WindowEvent::PointerReleased {
+                        position: logical_position_to_api(*position),
+                        button: *button,
+                    })
+                }
+                BackendMouseEvent::Moved { position, .. } => {
+                    Some(WindowEvent::PointerMoved { position: logical_position_to_api(*position) })
+                }
+                BackendMouseEvent::Wheel { position, delta_x, delta_y, .. } => {
+                    Some(WindowEvent::PointerScrolled {
+                        position: logical_position_to_api(*position),
+                        delta_x: *delta_x as f32,
+                        delta_y: *delta_y as f32,
+                    })
+                }
+                BackendMouseEvent::Exit => Some(WindowEvent::PointerExited),
+                BackendMouseEvent::PinchGesture { .. }
+                | BackendMouseEvent::RotationGesture { .. } => None,
+            },
+            Self::Key(event) => {
+                let text = event.key_event.text.clone();
+                match event.event_type {
+                    KeyEventType::KeyPressed if event.key_event.repeat => {
+                        Some(WindowEvent::KeyPressRepeated { text })
+                    }
+                    KeyEventType::KeyPressed => Some(WindowEvent::KeyPressed { text }),
+                    KeyEventType::KeyReleased => Some(WindowEvent::KeyReleased { text }),
+                    KeyEventType::UpdateComposition | KeyEventType::CommitComposition => None,
+                }
+            }
+            // There's no public touch event, and the pointer events the runtime synthesizes from
+            // a touch point carry a finger id that `WindowEvent` can't express.
+            Self::Touch { .. } => None,
+        }
+    }
+
+    /// The position of the pointer or finger for this event, if any.
+    fn position(&self) -> Option<LogicalPosition> {
+        match self {
+            Self::Mouse(event) => crate::input::MouseEvent::from(*event)
+                .position()
+                .map(crate::lengths::logical_position_to_api),
+            Self::Key(_) => None,
+            Self::Touch { position, .. } => {
+                Some(crate::lengths::logical_position_to_api(*position))
+            }
         }
     }
 }

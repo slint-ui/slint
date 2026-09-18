@@ -4,9 +4,12 @@
 // A column FlexboxLayout that is a child of a HorizontalLayout with a
 // non-stretch cross-axis-alignment (start) must wrap into extra columns only
 // when there isn't enough height. With room it stays a single natural-height
-// column. Its reported width must match the columns it lays out, so it never
-// overlaps a sibling. Fixed-size Rectangles keep the geometry deterministic
-// across backends (no fonts).
+// column, and reports that column's width, so it never overlaps a sibling.
+// Without room it cannot wrap either: the layout measures it at an unbounded
+// height (see flexbox_column_wrap_width.slint) and gives it one column's
+// width, and a column flex never wraps into columns wider than its width. The
+// third item overflows below the flex instead. Fixed-size Rectangles keep the
+// geometry deterministic across backends (no fonts).
 //
 // unwrapped single-line height = 40 + 5 + 40 + 5 + 40 = 130px.
 //
@@ -17,12 +20,16 @@
 // unwrapped single-line width = 40 + 5 + 40 + 5 + 40 = 130px, row height 50px.
 //
 // Visual aids: the magenta outline is each flex's reported box; the sibling is
-// translucent orange. Before the fix the flex reserved less than it drew, so
-// items spilled past the outline into the sibling; now the outline hugs the
-// items and stops before the sibling.
+// translucent orange. The outline hugs the items and stops before the sibling,
+// except in the short column case, where the third item spills below it.
+//
+// The third column repeats the no-wrap cases with a repeater among the cells:
+// the natural single-line size is then computed from runtime cell arrays
+// instead of static cells. Repeated items can't be referenced by id, so these
+// assert on the flex's reported box (main extent 130px = single line).
 
 export component TestCase inherits Window {
-    width: 800px;
+    width: 1200px;
     height: 490px;
 
     // Column of "flex-direction: column" cases on the left, "flex-direction:
@@ -40,6 +47,13 @@ export component TestCase inherits Window {
         vertical-alignment: center;
         font-size: 15px;
         text: "flex-direction: row (in a VerticalLayout)";
+    }
+    Text {
+        x: 800px; y: 0; width: 400px; height: 35px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        font-size: 15px;
+        text: "repeated cells";
     }
 
     // --- Tall: 300px is more than the 130px the column needs -> no wrap ---
@@ -68,7 +82,7 @@ export component TestCase inherits Window {
         }
     }
 
-    // --- Short: 90px only fits two items -> the third wraps to a 2nd column ---
+    // --- Short: 90px only fits two items -> the third overflows below ---
     shortFlexBg := Rectangle {
         x: 0; y: 340px; width: 400px; height: 90px;
         border-color: gray;
@@ -142,6 +156,54 @@ export component TestCase inherits Window {
         }
     }
 
+    // --- Tall with a repeater: a static cell followed by two repeated ones,
+    // same geometry as the tall case -> no wrap ---
+    repTallFlexBg := Rectangle {
+        x: 800px; y: 40px; width: 400px; height: 300px;
+        border-color: gray;
+        border-width: 1px;
+        HorizontalLayout {
+            alignment: start;
+            cross-axis-alignment: start;
+            spacing: 10px;
+            repTallFlex := FlexboxLayout {
+                flex-direction: column;
+                spacing: 5px;
+                Rectangle { width: 50px; height: 40px; background: #c33; }
+                for c in [#3c3, #36c]: Rectangle { width: 50px; height: 40px; background: c; }
+            }
+            repTallSibling := Rectangle { min-width: 100px; height: 130px; background: #ffa50080; }
+        }
+        Rectangle {
+            x: repTallFlex.x; y: repTallFlex.y; width: repTallFlex.width; height: repTallFlex.height;
+            background: transparent; border-color: #f0f; border-width: 2px;
+        }
+    }
+
+    // --- Wide with a repeater: two repeated cells before a static one,
+    // same geometry as the wide case -> no wrap ---
+    repWideFlexBg := Rectangle {
+        x: 800px; y: 350px; width: 300px; height: 130px;
+        border-color: gray;
+        border-width: 1px;
+        VerticalLayout {
+            alignment: start;
+            cross-axis-alignment: start;
+            spacing: 10px;
+            repWideFlex := FlexboxLayout {
+                flex-direction: row;
+                spacing: 5px;
+                for c in [#c33, #3c3]: Rectangle { width: 40px; height: 50px; background: c; }
+                Rectangle { width: 40px; height: 50px; background: #36c; }
+            }
+            repWideSibling := Rectangle { min-height: 60px; width: 130px; background: #ffa50080; }
+        }
+        Rectangle {
+            x: repWideFlex.x; y: repWideFlex.y; width: repWideFlex.width; height: repWideFlex.height;
+            background: transparent; border-color: #f0f; border-width: 2px;
+        }
+    }
+
     // Tall: the three items form a single column (same x, increasing y) and the
     // flex stays one column wide.
     out property <bool> tall_single_column: t1.x == t2.x && t2.x == t3.x
@@ -150,10 +212,12 @@ export component TestCase inherits Window {
     // The sibling sits to the right of the flex, no overlap.
     out property <bool> tall_no_overlap: tallSibling.x >= tallFlex.x + tallFlex.width;
 
-    // Short: the third item wrapped into a second column, so the flex is wider
-    // than a single column.
-    out property <bool> short_wraps: s3.x > s1.x && shortFlex.width > 50px;
-    out property <bool> short_no_overlap: shortSibling.x >= shortFlex.x + shortFlex.width;
+    // Short: the flex is reported one column wide and does not wrap, so the
+    // third item stacks below the second, past the flex's height, and the
+    // sibling is placed right after the column.
+    out property <bool> short_overflows_down: s3.x == s1.x && s3.y >= shortFlex.height
+        && shortFlex.width == 50px;
+    out property <bool> short_sibling_after_column: shortSibling.x == shortFlex.x + shortFlex.width + 10px;
 
     // Rotated: wide row forms a single row (same y, increasing x) and the flex
     // stays one row tall.
@@ -168,8 +232,18 @@ export component TestCase inherits Window {
     out property <bool> narrow_wraps: n3.y > n1.y && narrowFlex.height > 50px;
     out property <bool> narrow_no_overlap: narrowSibling.y >= narrowFlex.y + narrowFlex.height;
 
-    out property <bool> test: tall_single_column && tall_no_overlap && short_wraps && short_no_overlap
-        && wide_single_row && wide_no_overlap && narrow_wraps && narrow_no_overlap;
+    // Repeated: one column wide, and the reported height is the natural
+    // single-column height (three items + two spacings), so it did not wrap.
+    out property <bool> rep_tall_natural: repTallFlex.width == 50px && repTallFlex.height == 130px;
+    out property <bool> rep_tall_no_overlap: repTallSibling.x >= repTallFlex.x + repTallFlex.width;
+
+    // Repeated rotated: one row tall, natural single-row width.
+    out property <bool> rep_wide_natural: repWideFlex.height == 50px && repWideFlex.width == 130px;
+    out property <bool> rep_wide_no_overlap: repWideSibling.y >= repWideFlex.y + repWideFlex.height;
+
+    out property <bool> test: tall_single_column && tall_no_overlap && short_overflows_down && short_sibling_after_column
+        && wide_single_row && wide_no_overlap && narrow_wraps && narrow_no_overlap
+        && rep_tall_natural && rep_tall_no_overlap && rep_wide_natural && rep_wide_no_overlap;
 }
 
 /*
@@ -177,12 +251,16 @@ export component TestCase inherits Window {
 auto handle = TestCase::create();
 assert(handle->get_tall_single_column());
 assert(handle->get_tall_no_overlap());
-assert(handle->get_short_wraps());
-assert(handle->get_short_no_overlap());
+assert(handle->get_short_overflows_down());
+assert(handle->get_short_sibling_after_column());
 assert(handle->get_wide_single_row());
 assert(handle->get_wide_no_overlap());
 assert(handle->get_narrow_wraps());
 assert(handle->get_narrow_no_overlap());
+assert(handle->get_rep_tall_natural());
+assert(handle->get_rep_tall_no_overlap());
+assert(handle->get_rep_wide_natural());
+assert(handle->get_rep_wide_no_overlap());
 assert(handle->get_test());
 ```
 
@@ -190,12 +268,16 @@ assert(handle->get_test());
 let instance = TestCase::new().unwrap();
 assert!(instance.get_tall_single_column(), "tall column flex must not wrap");
 assert!(instance.get_tall_no_overlap(), "tall flex overlaps its sibling");
-assert!(instance.get_short_wraps(), "short column flex must wrap into a 2nd column");
-assert!(instance.get_short_no_overlap(), "short flex overlaps its sibling");
+assert!(instance.get_short_overflows_down(), "short column flex must overflow below, not wrap into a 2nd column");
+assert!(instance.get_short_sibling_after_column(), "short flex sibling not placed after the reported column");
 assert!(instance.get_wide_single_row(), "wide row flex must not wrap");
 assert!(instance.get_wide_no_overlap(), "wide flex overlaps its sibling");
 assert!(instance.get_narrow_wraps(), "narrow row flex must wrap into a 2nd row");
 assert!(instance.get_narrow_no_overlap(), "narrow flex overlaps its sibling");
+assert!(instance.get_rep_tall_natural(), "repeated column flex must keep its natural size");
+assert!(instance.get_rep_tall_no_overlap(), "repeated column flex overlaps its sibling");
+assert!(instance.get_rep_wide_natural(), "repeated row flex must keep its natural size");
+assert!(instance.get_rep_wide_no_overlap(), "repeated row flex overlaps its sibling");
 assert!(instance.get_test());
 ```
 
@@ -203,12 +285,16 @@ assert!(instance.get_test());
 var instance = new slint.TestCase();
 assert(instance.tall_single_column);
 assert(instance.tall_no_overlap);
-assert(instance.short_wraps);
-assert(instance.short_no_overlap);
+assert(instance.short_overflows_down);
+assert(instance.short_sibling_after_column);
 assert(instance.wide_single_row);
 assert(instance.wide_no_overlap);
 assert(instance.narrow_wraps);
 assert(instance.narrow_no_overlap);
+assert(instance.rep_tall_natural);
+assert(instance.rep_tall_no_overlap);
+assert(instance.rep_wide_natural);
+assert(instance.rep_wide_no_overlap);
 assert(instance.test);
 ```
 */

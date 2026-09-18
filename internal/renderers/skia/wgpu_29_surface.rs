@@ -10,6 +10,7 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 
 use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use wgpu_29 as wgpu;
@@ -20,20 +21,34 @@ use crate::SkiaSharedContext;
 mod dx12;
 #[cfg(target_vendor = "apple")]
 mod metal;
-#[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
+#[cfg(skia_wgpu_vulkan)]
 mod vulkan;
+
+/// See [`crate::attachment_color_space`].
+pub(crate) fn attachment_color_space(texture: &wgpu::Texture) -> skia_safe::ColorSpace {
+    crate::attachment_color_space(crate::TextureEncoding::from_format_is_srgb(
+        texture.format().is_srgb(),
+    ))
+}
+
+/// See [`crate::sampled_texture_color_space`].
+#[cfg_attr(not(feature = "unstable-wgpu-29"), allow(dead_code))]
+pub(crate) fn sampled_texture_color_space(texture: &wgpu::Texture) -> skia_safe::ColorSpace {
+    crate::sampled_texture_color_space(crate::TextureEncoding::from_format_is_srgb(
+        texture.format().is_srgb(),
+    ))
+}
 
 /// Skia rendering surface backed by WGPU. Supports both on-screen rendering (with a
 /// window surface) and offscreen rendering into caller-provided textures.
 pub struct WGPUSurface {
     pub(crate) gr_context: RefCell<skia_safe::gpu::DirectContext>,
-    instance: wgpu::Instance,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    wgpu: Rc<SharedWgpuState>,
     surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
     surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
     pub(crate) backend: Backend,
+    alpha_modes: Vec<wgpu::CompositeAlphaMode>,
 }
 
 impl WGPUSurface {
@@ -46,18 +61,32 @@ impl WGPUSurface {
             i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
                 surface_target,
                 requested_graphics_api,
-                wgpu::Backends::GL /* we're not mapping that to skia because we can't save/restore state */
-                    .union(if cfg!(target_os = "windows") {
-                        wgpu::Backends::VULKAN
-                    } else {
-                        wgpu::Backends::empty()
-                    }),
+                i_slint_core::graphics::wgpu_29::default_backends_to_avoid(),
             )?;
+        Self::init_with_parts(
+            Rc::new(SharedWgpuState { instance, adapter, device, queue }),
+            surface,
+            size,
+        )
+    }
 
-        let mut surface_config =
-            surface.get_default_config(&adapter, size.width, size.height).unwrap();
+    fn init_with_parts(
+        wgpu: Rc<SharedWgpuState>,
+        surface: wgpu::Surface<'static>,
+        size: PhysicalWindowSize,
+    ) -> Result<Self, PlatformError> {
+        let SharedWgpuState { adapter, device, queue, .. } = &*wgpu;
+        #[cfg(target_vendor = "apple")]
+        metal::set_layer_contents_gravity(&surface);
 
-        let swapchain_capabilities = surface.get_capabilities(&adapter);
+        // On iOS a window has no size until UIKit attaches it to a scene,
+        // and wgpu rejects a zero-sized configure.
+        // Start at 1x1; `resize_event` applies the real size.
+        let mut surface_config = surface
+            .get_default_config(adapter, size.width.max(1), size.height.max(1))
+            .ok_or_else(|| PlatformError::from("WGPU surface is not compatible with adapter"))?;
+
+        let swapchain_capabilities = surface.get_capabilities(adapter);
         let swapchain_format = swapchain_capabilities
             .formats
             .iter()
@@ -67,30 +96,39 @@ impl WGPUSurface {
             .copied()
             .unwrap_or_else(|| swapchain_capabilities.formats[0]);
         surface_config.format = swapchain_format;
-        surface.configure(&device, &surface_config);
 
-        let backend: Backend = adapter.get_info().backend.try_into()?;
+        // Prefer FIFO modes over the Mailbox that `get_default_config` picks on some backends
+        // (it takes the first advertised mode, and DX12 lists Mailbox first), for frame pacing
+        // and better energy efficiency. `AutoVsync` falls back to FifoRelaxed and then Fifo, so
+        // it is supported everywhere.
+        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
 
-        let gr_context = backend.make_context(&adapter, &device, &queue);
+        let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
+        surface.configure(device, &surface_config);
+        if let Some(e) = spin_on::spin_on(error_scope.pop()) {
+            return Err(PlatformError::from(format!("Error configuring WGPU surface: {e}")));
+        }
+
+        let backend = Backend::new(adapter, device)?;
+
+        let gr_context = backend
+            .make_context(adapter, device, queue)
+            .ok_or_else(|| PlatformError::from("Failed to create Skia context from WGPU"))?;
 
         Ok(Self {
-            gr_context: RefCell::new(
-                gr_context.ok_or_else(|| {
-                    PlatformError::from("Failed to create Skia context from WGPU")
-                })?,
-            ),
-            instance,
-            device,
-            queue,
+            gr_context: gr_context.into(),
+            wgpu,
             surface_config: Some(surface_config).into(),
             surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
+            alpha_modes: swapchain_capabilities.alpha_modes,
         })
     }
 
     pub(crate) fn new_offscreen(
         instance: wgpu::Instance,
+        adapter: wgpu::Adapter,
         device: wgpu::Device,
         queue: wgpu::Queue,
         backend: Backend,
@@ -98,13 +136,12 @@ impl WGPUSurface {
     ) -> Self {
         Self {
             gr_context: RefCell::new(gr_context),
-            instance,
-            device,
-            queue,
+            wgpu: Rc::new(SharedWgpuState { instance, adapter, device, queue }),
             surface_config: None.into(),
             surface: None,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
+            alpha_modes: vec![],
         }
     }
 
@@ -114,9 +151,10 @@ impl WGPUSurface {
     pub(crate) fn flush_and_submit(&self, gr_context: &mut skia_safe::gpu::DirectContext) {
         let textures_to_transition = self.textures_to_transition_for_sampling.take();
         if !textures_to_transition.is_empty() {
-            let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Skia texture transition encoder"),
-            });
+            let mut encoder =
+                self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Skia texture transition encoder"),
+                });
             encoder.transition_resources(
                 std::iter::empty(),
                 textures_to_transition.iter().map(|texture| wgpu::TextureTransition {
@@ -125,27 +163,149 @@ impl WGPUSurface {
                     state: wgpu::TextureUses::RESOURCE,
                 }),
             );
-            self.queue.submit(Some(encoder.finish()));
+            self.wgpu.queue.submit(Some(encoder.finish()));
         }
 
         gr_context.submit(None);
     }
 }
 
+/// The wgpu stack a surface renders with.
+///
+/// [`SkiaSharedContext`] caches the one the first window created, so that later windows it can
+/// serve reuse it instead of creating their own.
+/// That cache holds a weak reference and every surface a strong one, so the resources go away
+/// with the last surface using them.
+/// Were they to outlive the surfaces, they'd be destroyed whenever the last renderer happens to
+/// be dropped, and tearing a wgpu device down from a thread-local destructor aborts the process
+/// on macOS, where the Metal backend needs an autorelease pool that is gone by then.
+/// A window that is still shown owns its surface, so that case remains.
+pub(crate) struct SharedWgpuState {
+    instance: wgpu::Instance,
+    adapter: wgpu::Adapter,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+}
+
+/// Whether `device` offers everything `settings` asks of it.
+///
+/// The instance and adapter parts of the settings are covered by
+/// [`adapter_matches_graphics_api_request`].
+#[cfg(feature = "unstable-wgpu-29")]
+fn device_satisfies_settings(
+    device: &wgpu::Device,
+    settings: &i_slint_core::graphics::wgpu_29::api::WGPUSettings,
+) -> bool {
+    device.features().contains(settings.device_required_features)
+        && settings.device_required_limits.check_limits(&device.limits())
+}
+
+fn adapter_matches_graphics_api_request(
+    adapter: &wgpu::Adapter,
+    requested_graphics_api: Option<&RequestedGraphicsAPI>,
+) -> bool {
+    let backend = adapter.get_info().backend;
+
+    #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
+    match requested_graphics_api {
+        None => true,
+        Some(RequestedGraphicsAPI::Metal) => backend == wgpu::Backend::Metal,
+        Some(RequestedGraphicsAPI::Vulkan) => backend == wgpu::Backend::Vulkan,
+        Some(RequestedGraphicsAPI::Direct3D) => backend == wgpu::Backend::Dx12,
+        #[cfg(feature = "unstable-wgpu-29")]
+        Some(RequestedGraphicsAPI::WGPU29(
+            i_slint_core::graphics::wgpu_29::api::WGPUConfiguration::Automatic(settings),
+        )) => {
+            let backend_bit = match backend {
+                wgpu::Backend::Vulkan => wgpu::Backends::VULKAN,
+                wgpu::Backend::Metal => wgpu::Backends::METAL,
+                wgpu::Backend::Dx12 => wgpu::Backends::DX12,
+                wgpu::Backend::Gl => wgpu::Backends::GL,
+                wgpu::Backend::BrowserWebGpu => wgpu::Backends::BROWSER_WEBGPU,
+                _ => return false,
+            };
+            settings.backends.contains(backend_bit)
+        }
+        Some(_) => false,
+    }
+}
+
 impl crate::Surface for WGPUSurface {
     fn new(
-        _shared_context: &SkiaSharedContext,
+        shared_context: &SkiaSharedContext,
         window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError> {
-        Self::new_with_surface(
-            Box::new(WindowAndDisplayHandle(window_handle, display_handle))
-                as Box<dyn wgpu::DisplayAndWindowHandle + 'static>,
-            size,
-            requested_graphics_api,
-        )
+        let make_target = || -> Box<dyn wgpu::DisplayAndWindowHandle + 'static> {
+            Box::new(WindowAndDisplayHandle(window_handle.clone(), display_handle.clone()))
+        };
+
+        #[cfg(feature = "unstable-wgpu-29")]
+        let manual_configuration = matches!(
+            &requested_graphics_api,
+            Some(RequestedGraphicsAPI::WGPU29(
+                i_slint_core::graphics::wgpu_29::api::WGPUConfiguration::Manual { .. }
+            ))
+        );
+        #[cfg(not(feature = "unstable-wgpu-29"))]
+        let manual_configuration = false;
+
+        #[cfg(feature = "unstable-wgpu-29")]
+        #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
+        let requested_settings = match &requested_graphics_api {
+            Some(RequestedGraphicsAPI::WGPU29(
+                i_slint_core::graphics::wgpu_29::api::WGPUConfiguration::Automatic(settings),
+            )) => Some(settings.clone()),
+            _ => None,
+        };
+
+        // try to reuse old / shared graphics primitives from previous windows with matching
+        // settings
+        if !manual_configuration {
+            let shared_state = shared_context.0.wgpu_29_state.borrow().upgrade();
+            if let Some(shared) = shared_state {
+                #[cfg(feature = "unstable-wgpu-29")]
+                let settings_compatible = requested_settings
+                    .as_ref()
+                    .is_none_or(|settings| device_satisfies_settings(&shared.device, settings));
+                #[cfg(not(feature = "unstable-wgpu-29"))]
+                let settings_compatible = true;
+                if settings_compatible
+                    && adapter_matches_graphics_api_request(
+                        &shared.adapter,
+                        requested_graphics_api.as_ref(),
+                    )
+                    && let Ok(surface) = shared.instance.create_surface(make_target())
+                    && shared.adapter.is_surface_supported(&surface)
+                {
+                    match Self::init_with_parts(shared, surface, size) {
+                        Ok(surface) => return Ok(surface),
+                        Err(err) => {
+                            // The shared device may be lost. Drop it and start over.
+                            i_slint_core::debug_log!(
+                                "Failed to reuse the shared WGPU device: {err} . Re-initializing"
+                            );
+                            shared_context.0.wgpu_29_state.take();
+                        }
+                    }
+                }
+            }
+        }
+
+        let (instance, adapter, device, queue, surface) =
+            i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
+                make_target(),
+                requested_graphics_api,
+                i_slint_core::graphics::wgpu_29::default_backends_to_avoid(),
+            )?;
+        let wgpu = Rc::new(SharedWgpuState { instance, adapter, device, queue });
+        let new_surface = Self::init_with_parts(wgpu.clone(), surface, size)?;
+        if !manual_configuration {
+            *shared_context.0.wgpu_29_state.borrow_mut() = Rc::downgrade(&wgpu);
+        }
+        Ok(new_surface)
     }
 
     fn name(&self) -> &'static str {
@@ -172,12 +332,10 @@ impl crate::Surface for WGPUSurface {
             gr_context.flush_submit_and_sync_cpu();
         }
 
-        // Prefer FIFO modes over possible Mailbox setting for frame pacing and better energy efficiency.
-        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
         surface_config.width = size.width;
         surface_config.height = size.height;
 
-        surface.configure(&self.device, surface_config);
+        surface.configure(&self.wgpu.device, surface_config);
         Ok(())
     }
 
@@ -215,7 +373,7 @@ impl crate::Surface for WGPUSurface {
                 // dropped before a new `Surface` is made"), panicking on the first frame on
                 // Wayland. Drop it first. (`Outdated`/`Lost` carry nothing → no-op.)
                 drop(stale);
-                surface.configure(&self.device, surface_config);
+                surface.configure(&self.wgpu.device, surface_config);
                 match surface.get_current_texture() {
                     wgpu::CurrentSurfaceTexture::Success(t) => t,
                     _ => return Ok(DrawOutcome::Occluded),
@@ -223,14 +381,31 @@ impl crate::Surface for WGPUSurface {
             }
         };
 
-        let skia_surface = self.backend.make_surface(gr_context, &frame.texture);
+        let skia_surface = self.backend.make_swapchain_surface(gr_context, &frame.texture);
 
         let mut skia_surface = skia_surface
             .ok_or_else(|| PlatformError::from("Failed to create Skia surface from WGPU"))?;
 
         callback(skia_surface.canvas(), Some(gr_context), 0);
 
+        self.backend.release_swapchain_surface(gr_context, &mut skia_surface);
+
         self.flush_and_submit(gr_context);
+
+        // Skia drew via the raw queue behind wgpu's back; referencing the frame texture in a submission makes the present semaphore wait for that work.
+        let mut encoder =
+            self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Skia present ordering encoder"),
+            });
+        encoder.transition_resources(
+            std::iter::empty(),
+            std::iter::once(wgpu::TextureTransition {
+                texture: &frame.texture,
+                selector: None,
+                state: wgpu::TextureUses::PRESENT,
+            }),
+        );
+        self.wgpu.queue.submit(Some(encoder.finish()));
 
         if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
             pre_present_callback();
@@ -259,24 +434,24 @@ impl crate::Surface for WGPUSurface {
     #[cfg(feature = "unstable-wgpu-29")]
     fn with_graphics_api(&self, callback: &mut dyn FnMut(GraphicsAPI<'_>)) {
         let api = i_slint_core::graphics::create_graphics_api_wgpu_29(
-            self.instance.clone(),
-            self.device.clone(),
-            self.queue.clone(),
+            self.wgpu.instance.clone(),
+            self.wgpu.device.clone(),
+            self.wgpu.queue.clone(),
         );
         callback(api)
     }
 
-    #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
+    #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
     fn import_wgpu_texture(
         &self,
         canvas: &skia_safe::Canvas,
         any_wgpu_texture: &i_slint_core::graphics::WGPUTexture,
     ) -> Option<skia_safe::Image> {
-        let texture = match any_wgpu_texture {
-            #[cfg(feature = "unstable-wgpu-28")]
-            i_slint_core::graphics::WGPUTexture::WGPU28Texture(..) => return None,
+        let texture: wgpu_29::Texture = match any_wgpu_texture {
             #[cfg(feature = "unstable-wgpu-29")]
             i_slint_core::graphics::WGPUTexture::WGPU29Texture(texture) => texture.clone(),
+            #[cfg(feature = "unstable-wgpu-30")]
+            i_slint_core::graphics::WGPUTexture::WGPU30Texture(..) => return None,
         };
 
         // Skia won't submit commands right away, so remember the texture and transition before
@@ -284,6 +459,32 @@ impl crate::Surface for WGPUSurface {
         self.textures_to_transition_for_sampling.borrow_mut().push(texture.clone());
 
         self.backend.import_texture(canvas, texture)
+    }
+
+    fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
+        // `Opaque` discards the scene's alpha; pick a translucent mode if offered.
+        // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
+        use wgpu::CompositeAlphaMode::{Opaque, PostMultiplied, PreMultiplied};
+        let wanted: &[wgpu::CompositeAlphaMode] =
+            if transparent { &[PreMultiplied, PostMultiplied] } else { &[Opaque] };
+        let Some(mode) = wanted.iter().copied().find(|m| self.alpha_modes.contains(m)) else {
+            return Ok(());
+        };
+
+        let mut surface_config_opt = self.surface_config.borrow_mut();
+        let (Some(surface_config), Some(surface)) = (surface_config_opt.as_mut(), &self.surface)
+        else {
+            return Ok(());
+        };
+        if surface_config.alpha_mode != mode {
+            surface_config.alpha_mode = mode;
+            surface.configure(&self.wgpu.device, surface_config);
+        }
+        Ok(())
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
     }
 }
 
@@ -313,20 +514,34 @@ pub(crate) enum Backend {
     Metal,
     #[cfg(target_family = "windows")]
     Dx12,
-    #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
-    Vulkan,
+    #[cfg(skia_wgpu_vulkan)]
+    Vulkan {
+        /// The family Skia has to hand the swapchain image back to, see
+        /// [`Backend::release_swapchain_surface`].
+        queue_family_index: u32,
+    },
 }
 
-impl TryFrom<wgpu::Backend> for Backend {
-    type Error = PlatformError;
-
-    fn try_from(wgpu_backend: wgpu::Backend) -> Result<Self, Self::Error> {
-        match wgpu_backend {
+impl Backend {
+    pub(crate) fn new(
+        adapter: &wgpu::Adapter,
+        _device: &wgpu::Device,
+    ) -> Result<Self, PlatformError> {
+        match adapter.get_info().backend {
             wgpu_29::Backend::Noop => {
                 Err(PlatformError::from("Cannot use WGPU Noop backend with Skia"))
             }
-            #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
-            wgpu_29::Backend::Vulkan => Ok(Self::Vulkan),
+            #[cfg(skia_wgpu_vulkan)]
+            wgpu_29::Backend::Vulkan => Ok(Self::Vulkan {
+                // SAFETY: `_device` is a Vulkan device, as the adapter's backend just said.
+                queue_family_index: unsafe { vulkan::queue_family_index(_device) }.ok_or_else(
+                    || {
+                        PlatformError::from(
+                            "Cannot query the queue family of the WGPU Vulkan device",
+                        )
+                    },
+                )?,
+            }),
             #[cfg(target_vendor = "apple")]
             wgpu_29::Backend::Metal => Ok(Self::Metal),
             #[cfg(target_family = "windows")]
@@ -337,9 +552,7 @@ impl TryFrom<wgpu::Backend> for Backend {
             ))),
         }
     }
-}
 
-impl Backend {
     pub(crate) fn make_context(
         &self,
         _adapter: &wgpu::Adapter,
@@ -351,8 +564,8 @@ impl Backend {
             Self::Metal => metal::make_metal_context(device, queue),
             #[cfg(target_family = "windows")]
             Self::Dx12 => unsafe { dx12::make_dx12_context(&_adapter, &device, &queue) },
-            #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
-            Self::Vulkan => unsafe { vulkan::make_vulkan_context(device, queue) },
+            #[cfg(skia_wgpu_vulkan)]
+            Self::Vulkan { .. } => unsafe { vulkan::make_vulkan_context(device, queue) },
         }
     }
 
@@ -366,11 +579,71 @@ impl Backend {
             Self::Metal => unsafe { metal::make_metal_surface(gr_context, texture) },
             #[cfg(target_family = "windows")]
             Self::Dx12 => unsafe { dx12::make_dx12_surface(gr_context, texture) },
-            #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
-            Self::Vulkan => unsafe { vulkan::make_vulkan_surface(gr_context, texture) },
+            #[cfg(skia_wgpu_vulkan)]
+            Self::Vulkan { .. } => unsafe {
+                vulkan::make_vulkan_surface(
+                    gr_context,
+                    texture,
+                    skia_safe::gpu::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                )
+            },
         }
     }
 
+    /// Like [`Self::make_surface`], but for the swapchain image handed out by
+    /// [`wgpu::Surface::get_current_texture`].
+    ///
+    /// Nothing on this path writes the image before Skia does, so a freshly created swapchain
+    /// hands out images that are still in `UNDEFINED`, and naming the `PRESENT` layout wgpu
+    /// leaves them in from the second frame on would make Skia's barrier claim a layout the
+    /// image isn't in yet. `UNDEFINED` is accurate for the first use and legal for every later
+    /// one, at the price of discarding the previous contents, which this path never reads:
+    /// `render()` passes a buffer age of 0, so the scene is repainted in full every frame.
+    /// Pair every call with [`Self::release_swapchain_surface`].
+    pub(crate) fn make_swapchain_surface(
+        &self,
+        gr_context: &mut skia_safe::gpu::DirectContext,
+        texture: &wgpu::Texture,
+    ) -> Option<skia_safe::Surface> {
+        match self {
+            #[cfg(target_vendor = "apple")]
+            Self::Metal => unsafe { metal::make_metal_surface(gr_context, texture) },
+            #[cfg(target_family = "windows")]
+            Self::Dx12 => unsafe { dx12::make_dx12_surface(gr_context, texture) },
+            #[cfg(skia_wgpu_vulkan)]
+            Self::Vulkan { .. } => unsafe {
+                vulkan::make_vulkan_surface(
+                    gr_context,
+                    texture,
+                    skia_safe::gpu::vk::ImageLayout::UNDEFINED,
+                )
+            },
+        }
+    }
+
+    /// Hands a surface made by [`Self::make_swapchain_surface`] back in the state
+    /// [`wgpu::SurfaceTexture::present`] expects to find it in.
+    pub(crate) fn release_swapchain_surface(
+        &self,
+        _gr_context: &mut skia_safe::gpu::DirectContext,
+        _skia_surface: &mut skia_safe::Surface,
+    ) {
+        match self {
+            // Metal and D3D12 have no image layout for Skia to hand back.
+            #[cfg(target_vendor = "apple")]
+            Self::Metal => {}
+            #[cfg(target_family = "windows")]
+            Self::Dx12 => {}
+            #[cfg(skia_wgpu_vulkan)]
+            Self::Vulkan { queue_family_index } => vulkan::release_vulkan_swapchain_surface(
+                _gr_context,
+                _skia_surface,
+                *queue_family_index,
+            ),
+        }
+    }
+
+    #[cfg_attr(not(feature = "unstable-wgpu-29"), allow(dead_code))]
     pub(crate) fn import_texture(
         &self,
         canvas: &skia_safe::Canvas,
@@ -381,8 +654,8 @@ impl Backend {
             Self::Metal => unsafe { metal::import_metal_texture(canvas, texture) },
             #[cfg(target_family = "windows")]
             Self::Dx12 => unsafe { dx12::import_dx12_texture(canvas, texture) },
-            #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
-            Self::Vulkan => unsafe { vulkan::import_vulkan_texture(canvas, texture) },
+            #[cfg(skia_wgpu_vulkan)]
+            Self::Vulkan { .. } => unsafe { vulkan::import_vulkan_texture(canvas, texture) },
         }
     }
 }

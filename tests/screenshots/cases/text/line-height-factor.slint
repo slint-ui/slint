@@ -1,0 +1,93 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Till Adam <till.adam@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `line-height-factor` scales the font's natural line height (ascent + descent + line gap);
+// the added (or removed) leading is split half above and half below each line's glyphs
+// following the CSS leading model. A factor above 1 pushes every line's glyphs down by the
+// added half-leading (including the first line, relative to the item's top-left corner) and
+// grows the item by the same amount below the last line; below 1 pulls the lines together
+// instead, clamped so nothing is cut off. Each row below wraps the same two-line text with the
+// natural line height (the default factor of 1), a compressed factor (0.5) and an expanded one
+// (2), inside a TextGeometry so the resulting item height is visible against the glyph rows,
+// once for each of Text and TextInput.
+//ignore: skia
+//SIZE=210x184
+
+component TextGeometry inherits Rectangle {
+    border-width: 1px;
+    border-color: red;
+}
+
+export component TestCase inherits Window {
+    default-font-family: "Noto Sans";
+    default-font-size: 14px;
+    background: white;
+    width: 210px;
+    height: 184px;
+
+    HorizontalLayout {
+        x: 4px; y: 4px;
+        width: 60px;
+        Text {
+            wrap: word-wrap;
+            color: black;
+            text: "wwww wwww";
+            TextGeometry {}
+        }
+    }
+    HorizontalLayout {
+        x: 74px; y: 4px;
+        width: 60px;
+        Text {
+            wrap: word-wrap;
+            color: black;
+            text: "wwww wwww";
+            line-height-factor: 0.5;
+            TextGeometry {}
+        }
+    }
+    HorizontalLayout {
+        x: 144px; y: 4px;
+        width: 60px;
+        Text {
+            wrap: word-wrap;
+            color: black;
+            text: "wwww wwww";
+            line-height-factor: 2;
+            TextGeometry {}
+        }
+    }
+
+    HorizontalLayout {
+        x: 4px; y: 100px;
+        width: 60px;
+        TextInput {
+            wrap: word-wrap;
+            color: black;
+            text: "wwww wwww";
+            TextGeometry {}
+        }
+    }
+    HorizontalLayout {
+        x: 74px; y: 100px;
+        width: 60px;
+        TextInput {
+            wrap: word-wrap;
+            color: black;
+            text: "wwww wwww";
+            line-height-factor: 0.5;
+            TextGeometry {}
+        }
+    }
+    HorizontalLayout {
+        x: 144px; y: 100px;
+        width: 60px;
+        TextInput {
+            wrap: word-wrap;
+            color: black;
+            text: "wwww wwww";
+            line-height-factor: 2;
+            TextGeometry {}
+        }
+    }
+}

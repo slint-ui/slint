@@ -10,8 +10,8 @@ import {
     ExportedInterface as Interface,
 } from "export_interfaces.slint";
 
-export component TestCase
- uses { Interface from base } {
+export component TestCase {
+    implement Interface <=> base;
     base := Base {}
 
     out property <bool> test: self.value == 2.71;

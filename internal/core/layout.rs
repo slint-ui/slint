@@ -6,8 +6,8 @@
 // cspell:ignore coord
 
 use crate::items::{
-    CrossAxisAlignment, DialogButtonRole, FlexboxLayoutAlignContent, FlexboxLayoutAlignSelf,
-    FlexboxLayoutDirection, FlexboxLayoutWrap, LayoutAlignment,
+    CrossAxisAlignment, DialogButtonRole, FlexboxLayoutDirection, FlexboxLayoutWrap,
+    LayoutAlignment,
 };
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
@@ -50,7 +50,9 @@ impl Default for LayoutInfo {
 }
 
 impl LayoutInfo {
-    // Note: This "logic" is duplicated in the cpp generator's generated code for merging layout infos.
+    // Note: This "logic" is duplicated in the cpp generator's generated code for merging layout
+    // infos, and in the compiler's const_propagation pass, which folds merges of constant
+    // layout infos at compile time.
     #[must_use]
     pub fn merge(&self, other: &LayoutInfo) -> Self {
         Self {
@@ -427,6 +429,16 @@ mod grid_internal {
         for cdata in layout_data.iter_mut() {
             if cdata.stretch == marker_for_empty {
                 cdata.stretch = 0.;
+            }
+            // A cell collapsed to a fixed zero size can pull the row/col's
+            // max below its min (#9724). The minimum is the hard constraint,
+            // so raise max to meet it; min == max now, so that's pref's only
+            // legal value too. Guarded: this must not touch rows without a
+            // min/max conflict, since to_layout_data's output also drives
+            // solve_grid_layout.
+            if cdata.max < cdata.min {
+                cdata.max = cdata.min;
+                cdata.pref = cdata.min;
             }
         }
         layout_data
@@ -1149,13 +1161,15 @@ pub struct FlexboxLayoutData<'a> {
     pub padding_v: Padding,
     pub alignment: LayoutAlignment,
     pub direction: FlexboxLayoutDirection,
-    pub align_content: FlexboxLayoutAlignContent,
+    pub cross_axis_line_alignment: LayoutAlignment,
     pub cross_axis_alignment: CrossAxisAlignment,
     pub flex_wrap: FlexboxLayoutWrap,
     /// Horizontal constraints (width) for each cell
-    pub cells_h: Slice<'a, FlexboxLayoutItemInfo>,
+    pub cells_h: Slice<'a, LayoutItemInfo>,
     /// Vertical constraints (height) for each cell
-    pub cells_v: Slice<'a, FlexboxLayoutItemInfo>,
+    pub cells_v: Slice<'a, LayoutItemInfo>,
+    /// Per-item flex properties, one per cell (axis-independent)
+    pub flex_props: Slice<'a, FlexItemProps>,
 }
 
 #[repr(C)]
@@ -1163,41 +1177,51 @@ pub struct FlexboxLayoutData<'a> {
 /// The information about a single item in a box or grid layout
 pub struct LayoutItemInfo {
     pub constraint: LayoutInfo,
+    /// Per-item cross-axis alignment override for box layouts
+    /// (`Auto` = use the container's `cross-axis-alignment`)
+    pub cross_axis_self_alignment: CrossAxisAlignment,
+    /// Visual ordering of box layout cells (lower values appear first, default 0).
+    /// Only [`solve_box_layout`] reads it; the cross-axis solve and both
+    /// layout-info functions ignore it. A FlexboxLayout carries it in
+    /// [`FlexItemProps`] instead, and a GridLayout orders its cells with
+    /// `row`/`col`, so both leave this at 0.
+    pub layout_order: i32,
+}
+
+/// The per-item flex properties of a FlexboxLayout cell.
+///
+/// A cell's size constraint is per-axis (`cells_h`/`cells_v`), but these
+/// properties apply to the item as a whole, so they live in a single parallel
+/// array instead of being duplicated into both axes.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct FlexItemProps {
+    /// Per-item cross-axis alignment override (Auto = use container's cross-axis-alignment)
+    pub cross_axis_self_alignment: CrossAxisAlignment,
+    /// Visual ordering of flex items (lower values appear first, default 0)
+    pub layout_order: i32,
 }
 
 #[repr(C)]
-#[derive(Debug, Clone)]
-/// The information about a single item in a flexbox layout
+#[derive(Debug, Clone, Default)]
+/// One flexbox cell's full layout info, read from a single item instance via the
+/// item vtable. The bulk cell data in [`FlexboxLayoutData`] keeps the constraint
+/// and [`FlexItemProps`] in separate parallel arrays; this bundles both for the
+/// per-instance query.
 pub struct FlexboxLayoutItemInfo {
     pub constraint: LayoutInfo,
-    /// Flex grow factor (0 = don't grow, default)
-    pub flex_grow: f32,
-    /// Flex shrink factor (0 = don't shrink, default)
-    pub flex_shrink: f32,
-    /// Flex basis in logical pixels (-1 = auto, meaning use preferred size; default)
-    pub flex_basis: Coord,
-    /// Per-item cross-axis alignment override (Auto = use container's cross-axis-alignment)
-    pub flex_align_self: FlexboxLayoutAlignSelf,
-    /// Visual ordering of flex items (lower values appear first, default 0)
-    pub flex_order: i32,
-}
-
-impl Default for FlexboxLayoutItemInfo {
-    fn default() -> Self {
-        Self {
-            constraint: LayoutInfo::default(),
-            flex_grow: 0.0,
-            flex_shrink: 1.0,
-            flex_basis: -1 as _,
-            flex_align_self: FlexboxLayoutAlignSelf::Auto,
-            flex_order: 0,
-        }
-    }
+    pub props: FlexItemProps,
 }
 
 impl From<LayoutItemInfo> for FlexboxLayoutItemInfo {
     fn from(info: LayoutItemInfo) -> Self {
-        Self { constraint: info.constraint, ..Default::default() }
+        Self {
+            constraint: info.constraint,
+            props: FlexItemProps {
+                cross_axis_self_alignment: info.cross_axis_self_alignment,
+                layout_order: info.layout_order,
+            },
+        }
     }
 }
 
@@ -1230,6 +1254,19 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
             }
         })
         .collect();
+
+    // `layout-order` reorders the cells like the CSS `order` property. Solve on
+    // the reordered list; the results are written back in declaration order
+    // below, as a cell's cache slot is fixed by its declaration index.
+    let order_map: Vec<usize> = if data.cells.iter().any(|c| c.layout_order != 0) {
+        let mut indices: Vec<usize> = (0..layout_data.len()).collect();
+        // sort_by_key is a stable sort, so equal orders keep declaration order
+        indices.sort_by_key(|&i| data.cells[i].layout_order);
+        layout_data = indices.iter().map(|&i| layout_data[i].clone()).collect();
+        indices
+    } else {
+        Vec::new()
+    };
 
     let pref_size: Coord = layout_data.iter().map(|it| it.pref).sum();
 
@@ -1281,10 +1318,37 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
     }
 
     let mut generator = LayoutCacheGenerator::new(&repeater_indices, &mut result);
-    for layout in layout_data.iter() {
-        generator.add(layout.pos, layout.size);
+    if order_map.is_empty() {
+        for layout in layout_data.iter() {
+            generator.add(layout.pos, layout.size);
+        }
+    } else {
+        let mut geom = alloc::vec![(0 as Coord, 0 as Coord); layout_data.len()];
+        for (sorted_idx, &declared_idx) in order_map.iter().enumerate() {
+            let layout = &layout_data[sorted_idx];
+            geom[declared_idx] = (layout.pos, layout.size);
+        }
+        for (pos, size) in geom {
+            generator.add(pos, size);
+        }
     }
     result
+}
+
+/// Resolves the effective alignment of an item on the cross axis: `auto` on the
+/// item uses the container's alignment, and `auto` on the container is `stretch`.
+fn resolve_cross_axis_alignment(
+    self_alignment: CrossAxisAlignment,
+    container_alignment: CrossAxisAlignment,
+) -> CrossAxisAlignment {
+    let alignment = match self_alignment {
+        CrossAxisAlignment::Auto => container_alignment,
+        other => other,
+    };
+    match alignment {
+        CrossAxisAlignment::Auto => CrossAxisAlignment::Stretch,
+        other => other,
+    }
 }
 
 /// Cross-axis solve: returns (position, size) per cell, like [`solve_box_layout`].
@@ -1300,18 +1364,22 @@ pub fn solve_box_layout_ortho(
     let size_without_padding = data.size - data.padding.begin - data.padding.end;
     let mut generator = LayoutCacheGenerator::new(&repeater_indices, &mut result);
     for c in data.cells.iter() {
+        let alignment =
+            resolve_cross_axis_alignment(c.cross_axis_self_alignment, data.cross_axis_alignment);
         let min =
             c.constraint.min.max(c.constraint.min_percent * size_without_padding / 100 as Coord);
         let max =
             c.constraint.max.min(c.constraint.max_percent * size_without_padding / 100 as Coord);
-        let size = match data.cross_axis_alignment {
+        let size = match alignment {
             CrossAxisAlignment::Stretch => size_without_padding,
             _ => c.constraint.preferred,
         }
         .min(max)
         .max(min);
-        let pos = match data.cross_axis_alignment {
-            CrossAxisAlignment::Stretch | CrossAxisAlignment::Start => data.padding.begin,
+        let pos = match alignment {
+            CrossAxisAlignment::Auto | CrossAxisAlignment::Stretch | CrossAxisAlignment::Start => {
+                data.padding.begin
+            }
             CrossAxisAlignment::End => data.padding.begin + size_without_padding - size,
             CrossAxisAlignment::Center => {
                 data.padding.begin + (size_without_padding - size) / 2 as Coord
@@ -1373,32 +1441,64 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, CrossAxisAlignment, FlexboxLayoutAlignContent, FlexboxLayoutAlignSelf,
-        FlexboxLayoutItemInfo, FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignment,
-        Padding, Slice,
+        Coord, CrossAxisAlignment, FlexItemProps, FlexboxLayoutWrap as SlintFlexboxLayoutWrap,
+        LayoutAlignment, LayoutInfo, LayoutItemInfo, Padding, Slice, resolve_cross_axis_alignment,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
     use taffy::prelude::*;
 
+    /// Start/End map to FlexStart/FlexEnd to respect the flex direction (including reverse);
+    /// AlignContent::Start/End would ignore the direction and always use the writing mode.
+    fn to_align_content(alignment: LayoutAlignment) -> AlignContent {
+        match alignment {
+            LayoutAlignment::Stretch => AlignContent::Stretch,
+            LayoutAlignment::Start => AlignContent::FlexStart,
+            LayoutAlignment::End => AlignContent::FlexEnd,
+            LayoutAlignment::Center => AlignContent::Center,
+            LayoutAlignment::SpaceBetween => AlignContent::SpaceBetween,
+            LayoutAlignment::SpaceAround => AlignContent::SpaceAround,
+            LayoutAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
+        }
+    }
+
+    /// How an item's cross-axis size is decided when building the taffy tree.
+    #[derive(Copy, Clone, PartialEq, Eq)]
+    pub enum CrossAxisSizing {
+        /// The item's own preferred cross size, except where it stretches to
+        /// fill its flex line.
+        Preferred,
+        /// `auto`, so the measure callback decides. A column's flex basis is
+        /// `auto` too, so a height-for-width item is measured at the width
+        /// taffy assigns it rather than at its preferred width.
+        FromMeasure,
+        /// `auto` for every item, so one whose measure reports nothing falls
+        /// back to its min constraint. This is how a layout's minimum cross
+        /// size is measured.
+        Minimum,
+    }
+
     /// Parameters for FlexboxTaffyBuilder::new
     pub struct FlexboxLayoutParams<'a> {
-        pub cells_h: &'a Slice<'a, FlexboxLayoutItemInfo>,
-        pub cells_v: &'a Slice<'a, FlexboxLayoutItemInfo>,
+        pub cells_h: &'a Slice<'a, LayoutItemInfo>,
+        pub cells_v: &'a Slice<'a, LayoutItemInfo>,
+        pub flex_props: &'a Slice<'a, FlexItemProps>,
         pub spacing_h: Coord,
         pub spacing_v: Coord,
         pub padding_h: &'a Padding,
         pub padding_v: &'a Padding,
         pub alignment: LayoutAlignment,
-        pub align_content: FlexboxLayoutAlignContent,
+        pub cross_axis_line_alignment: LayoutAlignment,
         pub cross_axis_alignment: CrossAxisAlignment,
         pub flex_wrap: SlintFlexboxLayoutWrap,
+        /// `flex-shrink` for every item. `1.` while wrapping, `0.` for the
+        /// non-wrapping re-solve in `solve_flexbox_layout_with_measure`, whose
+        /// point is to let the content overflow rather than be compressed.
+        pub flex_shrink: f32,
         pub flex_direction: TaffyFlexDirection,
         pub container_width: Option<Coord>,
         pub container_height: Option<Coord>,
-        /// When true, set the cross-axis dimension to `auto` for all items
-        /// so that the measure callback can compute it dynamically (height-for-width).
-        pub use_measure_for_cross_axis: bool,
+        pub cross_axis_sizing: CrossAxisSizing,
     }
 
     /// Build a taffy tree from Slint layout constraints.
@@ -1416,15 +1516,68 @@ mod flexbox_taffy {
         pub fn new(params: FlexboxLayoutParams) -> Self {
             let mut taffy = TaffyTree::<usize>::new();
 
-            // Cross-axis (width) upper bound for a column item: never wider than
-            // the container's content box, so height-for-width items (e.g. wrapped
-            // Text) measure against a real width.
-            let column_cross_cap = match params.flex_direction {
-                TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => params
-                    .container_width
-                    .map(|cw| (cw - params.padding_h.begin - params.padding_h.end).max(0 as Coord)),
-                _ => None,
+            // The container's content box on each axis (the outer size minus that
+            // axis' padding), against which percentage constraints resolve.
+            // `None` when that axis has no finite size: either unknown (an
+            // auto-sized container in the info path) or the `Coord::MAX`
+            // "unbounded" sentinel the info path passes for a no-wrap main axis.
+            // A percentage then has no basis and only the absolute constraint
+            // applies — resolving against `MAX` would overflow the `_percent * s`
+            // product (i32 build) or yield infinity (f32).
+            let content_box = |size: Option<Coord>, pad: &Padding| -> Option<Coord> {
+                size.filter(|s| *s < Coord::MAX).map(|s| (s - pad.begin - pad.end).max(0 as Coord))
             };
+            let content_w = content_box(params.container_width, params.padding_h);
+            let content_h = content_box(params.container_height, params.padding_v);
+
+            // Cross-axis upper bound: an item is never bigger than the
+            // container's content box across the flex direction, so a
+            // height-for-width item (e.g. wrapped `Text`) measures against a real
+            // width, and the container can shrink to the size it reports as its
+            // minimum.
+            let (column_cross_cap, row_cross_cap) = match params.flex_direction {
+                TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => (content_w, None),
+                TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => (None, content_h),
+            };
+
+            // Resolve a percentage min/max against the container's content box and
+            // fold it into the absolute constraint, matching how the box layouts
+            // handle percentages (see `solve_box_layout`). Applied only when the
+            // percentage is non-default and the content size is known, so an item
+            // without a percentage size keeps its plain min/max unchanged.
+            let eff_min = |c: &LayoutInfo, content: Option<Coord>| -> Coord {
+                match content {
+                    Some(s) if c.min_percent > 0 as Coord => {
+                        c.min.max(c.min_percent * s / 100 as Coord)
+                    }
+                    _ => c.min,
+                }
+            };
+            let eff_max = |c: &LayoutInfo, content: Option<Coord>| -> Coord {
+                match content {
+                    Some(s) if c.max_percent < 100 as Coord => {
+                        c.max.min(c.max_percent * s / 100 as Coord)
+                    }
+                    _ => c.max,
+                }
+            };
+
+            // Main-axis growth follows the box layouts: items grow only under
+            // `alignment: stretch`, weighted by the main axis' `*-stretch`
+            // factor. When every factor is 0 (e.g. a row of Buttons, whose
+            // styles set `horizontal-stretch: 0`), fall back to weight 1 so
+            // the line still fills, as it would in a HorizontalLayout. The
+            // all-zero test is container-wide since taffy decides the lines.
+            // The parity has known limits: taffy applies the factors per line
+            // and never hands space to grow-0 items, so a line whose items all
+            // have factor 0 next to a stretchy line won't grow, and space a
+            // max-capped item cannot take stays free instead of going to its
+            // stretch-0 siblings (a box layout redistributes both).
+            let main_cells = match params.flex_direction {
+                TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => params.cells_h,
+                TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => params.cells_v,
+            };
+            let any_stretch = main_cells.iter().any(|c| c.constraint.stretch > 0.);
 
             // Create child nodes from Slint constraints
             let mut children: Vec<NodeId> = params
@@ -1433,6 +1586,7 @@ mod flexbox_taffy {
                 .enumerate()
                 .map(|(idx, cell_h)| {
                     let cell_v = params.cells_v.get(idx);
+                    let flex = params.flex_props.get(idx).cloned().unwrap_or_default();
                     let h_constraint = &cell_h.constraint;
                     let v_constraint = cell_v.map(|c| &c.constraint);
 
@@ -1441,36 +1595,58 @@ mod flexbox_taffy {
                     let preferred_height =
                         v_constraint.map(|vc| vc.preferred_bounded()).unwrap_or(0 as Coord);
 
-                    // flex_basis: use explicit value if set (>= 0), otherwise use preferred size
-                    let flex_basis = if cell_h.flex_basis >= 0 as Coord {
-                        Dimension::length(cell_h.flex_basis as _)
-                    } else {
-                        match params.flex_direction {
-                            TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
-                                Dimension::length(preferred_width as _)
-                            }
-                            // For a column the main axis is the height, so pinning the
-                            // basis to `preferred_height` would stop taffy from ever
-                            // consulting the measure callback. `auto` lets it size the
-                            // item from its content at the width it actually assigns —
-                            // `preferred_height` was measured at the container width,
-                            // which is too wide for an item that does not stretch.
-                            TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse
-                                if params.use_measure_for_cross_axis =>
-                            {
-                                Dimension::auto()
-                            }
-                            TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => {
-                                Dimension::length(preferred_height as _)
-                            }
+                    // The basis is the preferred size of the main axis, except
+                    // where `auto` defers to the measure callback (below)
+                    let flex_basis = match params.flex_direction {
+                        TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
+                            Dimension::length(preferred_width as _)
+                        }
+                        // For a column the main axis is the height, so pinning the
+                        // basis to `preferred_height` would stop taffy from ever
+                        // consulting the measure callback. `auto` lets it size the
+                        // item from its content at the width it actually assigns —
+                        // `preferred_height` was measured at the container width,
+                        // which is too wide for an item that does not stretch.
+                        TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse
+                            if params.cross_axis_sizing == CrossAxisSizing::FromMeasure =>
+                        {
+                            Dimension::auto()
+                        }
+                        TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => {
+                            Dimension::length(preferred_height as _)
                         }
                     };
 
-                    let max_width = h_constraint.max.min(column_cross_cap.unwrap_or(Coord::MAX));
+                    let max_width = eff_max(h_constraint, content_w)
+                        .min(column_cross_cap.unwrap_or(Coord::MAX));
+                    let max_height = v_constraint
+                        .map_or(Coord::MAX, |vc| eff_max(vc, content_h))
+                        .min(row_cross_cap.unwrap_or(Coord::MAX));
                     let max_width_dim = if max_width < Coord::MAX {
                         Dimension::length(max_width as _)
                     } else {
                         Dimension::auto()
+                    };
+
+                    // A stretching item gets `auto` on the cross axis, so it sizes
+                    // to its flex *line's* cross size (the per-column width when
+                    // wrapped), not the whole container. A per-item
+                    // `cross-axis-self-alignment` overrides the container's
+                    // alignment. `auto` is also what lets the measure callback
+                    // decide the cross size, and what lets the minimum pass reach
+                    // the item's min constraint.
+                    let stretches = resolve_cross_axis_alignment(
+                        flex.cross_axis_self_alignment,
+                        params.cross_axis_alignment,
+                    ) == CrossAxisAlignment::Stretch;
+                    let cross_auto =
+                        stretches || params.cross_axis_sizing != CrossAxisSizing::Preferred;
+                    let definite_cross = |preferred: Coord| {
+                        if cross_auto || preferred <= 0 as Coord {
+                            Dimension::auto()
+                        } else {
+                            Dimension::length(preferred as _)
+                        }
                     };
 
                     taffy
@@ -1481,71 +1657,58 @@ mod flexbox_taffy {
                                     width: match params.flex_direction {
                                         TaffyFlexDirection::Column
                                         | TaffyFlexDirection::ColumnReverse => {
-                                            // Stretching items get `auto` width so they
-                                            // size to their flex *line's* cross size (the
-                                            // per-column width when wrapped), not the whole
-                                            // container. A per-item `flex-align-self`
-                                            // overrides the container's alignment.
-                                            let stretches = match cell_h.flex_align_self {
-                                                FlexboxLayoutAlignSelf::Auto => {
-                                                    params.cross_axis_alignment
-                                                        == CrossAxisAlignment::Stretch
-                                                }
-                                                FlexboxLayoutAlignSelf::Stretch => true,
-                                                _ => false,
-                                            };
-                                            if stretches {
-                                                Dimension::auto()
-                                            } else if preferred_width > 0 as Coord {
-                                                Dimension::length(preferred_width as _)
-                                            } else {
-                                                Dimension::auto()
-                                            }
+                                            definite_cross(preferred_width)
                                         }
                                         _ => Dimension::auto(),
                                     },
                                     height: match params.flex_direction {
                                         TaffyFlexDirection::Row
                                         | TaffyFlexDirection::RowReverse => {
-                                            // Cross-axis for row: use auto when measure
-                                            // callback will compute it dynamically
-                                            if params.use_measure_for_cross_axis {
-                                                Dimension::auto()
-                                            } else if preferred_height > 0 as Coord {
-                                                Dimension::length(preferred_height as _)
-                                            } else {
-                                                Dimension::auto()
-                                            }
+                                            definite_cross(preferred_height)
                                         }
                                         _ => Dimension::auto(),
                                     },
                                 },
                                 min_size: Size {
-                                    width: Dimension::length(h_constraint.min as _),
+                                    width: Dimension::length(eff_min(h_constraint, content_w) as _),
                                     height: Dimension::length(
-                                        v_constraint.map(|vc| vc.min as f32).unwrap_or(0.0),
+                                        v_constraint
+                                            .map(|vc| eff_min(vc, content_h) as f32)
+                                            .unwrap_or(0.0),
                                     ),
                                 },
                                 max_size: Size {
                                     width: max_width_dim,
-                                    height: if let Some(vc) = v_constraint {
-                                        if vc.max < Coord::MAX {
-                                            Dimension::length(vc.max as _)
-                                        } else {
-                                            Dimension::auto()
-                                        }
+                                    height: if max_height < Coord::MAX {
+                                        Dimension::length(max_height as _)
                                     } else {
                                         Dimension::auto()
                                     },
                                 },
-                                flex_grow: cell_h.flex_grow,
-                                flex_shrink: cell_h.flex_shrink,
-                                align_self: match cell_h.flex_align_self {
-                                    FlexboxLayoutAlignSelf::Auto => None,
-                                    FlexboxLayoutAlignSelf::Stretch => Some(AlignSelf::Stretch),
-                                    FlexboxLayoutAlignSelf::Start => Some(AlignSelf::FlexStart),
-                                    FlexboxLayoutAlignSelf::End => Some(AlignSelf::FlexEnd),
-                                    FlexboxLayoutAlignSelf::Center => Some(AlignSelf::Center),
+                                flex_grow: if params.alignment == LayoutAlignment::Stretch {
+                                    if any_stretch {
+                                        main_cells.get(idx).map_or(0., |c| c.constraint.stretch)
+                                    } else {
+                                        1.
+                                    }
+                                } else {
+                                    0.
+                                },
+                                // Under `wrap` this is 1: a line with two or
+                                // more items never has negative free space (it
+                                // would have wrapped), so shrinking only applies
+                                // to a single item alone on its line — and that
+                                // item must go down to its min whatever its
+                                // stretch factor, as it would in a box layout.
+                                // The non-wrapping re-solve passes 0, where a
+                                // line does have negative free space.
+                                flex_shrink: params.flex_shrink,
+                                align_self: match flex.cross_axis_self_alignment {
+                                    CrossAxisAlignment::Auto => None,
+                                    CrossAxisAlignment::Stretch => Some(AlignSelf::Stretch),
+                                    CrossAxisAlignment::Start => Some(AlignSelf::FlexStart),
+                                    CrossAxisAlignment::End => Some(AlignSelf::FlexEnd),
+                                    CrossAxisAlignment::Center => Some(AlignSelf::Center),
                                 },
                                 ..Default::default()
                             },
@@ -1557,11 +1720,11 @@ mod flexbox_taffy {
 
             // Sort children by CSS `order` property if any item has a non-zero order.
             // Build a mapping from sorted position -> original index.
-            let has_order = params.cells_h.iter().any(|c| c.flex_order != 0);
+            let has_order = params.flex_props.iter().any(|f| f.layout_order != 0);
             let order_map: Vec<usize> = if has_order {
                 let mut indices: Vec<usize> = (0..children.len()).collect();
                 // sort_by_key is a stable sort, as required by CSS
-                indices.sort_by_key(|&i| params.cells_h.get(i).map_or(0, |c| c.flex_order));
+                indices.sort_by_key(|&i| params.flex_props.get(i).map_or(0, |f| f.layout_order));
                 let sorted_children: Vec<NodeId> = indices.iter().map(|&i| children[i]).collect();
                 children = sorted_children;
                 indices
@@ -1580,32 +1743,16 @@ mod flexbox_taffy {
                             SlintFlexboxLayoutWrap::NoWrap => FlexWrap::NoWrap,
                             SlintFlexboxLayoutWrap::WrapReverse => FlexWrap::WrapReverse,
                         },
-                        justify_content: Some(match params.alignment {
-                            // Start/End map to FlexStart/FlexEnd to respect flex direction (including reverse)
-                            // AlignContent::Start/End would ignore direction and always use writing mode
-                            LayoutAlignment::Start => AlignContent::FlexStart,
-                            LayoutAlignment::End => AlignContent::FlexEnd,
-                            LayoutAlignment::Center => AlignContent::Center,
-                            LayoutAlignment::Stretch => AlignContent::Stretch,
-                            LayoutAlignment::SpaceBetween => AlignContent::SpaceBetween,
-                            LayoutAlignment::SpaceAround => AlignContent::SpaceAround,
-                            LayoutAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
-                        }),
+                        justify_content: Some(to_align_content(params.alignment)),
                         align_items: Some(match params.cross_axis_alignment {
-                            CrossAxisAlignment::Stretch => AlignItems::Stretch,
+                            CrossAxisAlignment::Auto | CrossAxisAlignment::Stretch => {
+                                AlignItems::Stretch
+                            }
                             CrossAxisAlignment::Start => AlignItems::FlexStart,
                             CrossAxisAlignment::End => AlignItems::FlexEnd,
                             CrossAxisAlignment::Center => AlignItems::Center,
                         }),
-                        align_content: Some(match params.align_content {
-                            FlexboxLayoutAlignContent::Stretch => AlignContent::Stretch,
-                            FlexboxLayoutAlignContent::Start => AlignContent::FlexStart,
-                            FlexboxLayoutAlignContent::End => AlignContent::FlexEnd,
-                            FlexboxLayoutAlignContent::Center => AlignContent::Center,
-                            FlexboxLayoutAlignContent::SpaceBetween => AlignContent::SpaceBetween,
-                            FlexboxLayoutAlignContent::SpaceAround => AlignContent::SpaceAround,
-                            FlexboxLayoutAlignContent::SpaceEvenly => AlignContent::SpaceEvenly,
-                        }),
+                        align_content: Some(to_align_content(params.cross_axis_line_alignment)),
                         gap: Size {
                             width: LengthPercentage::length(params.spacing_h as _),
                             height: LengthPercentage::length(params.spacing_v as _),
@@ -1637,8 +1784,8 @@ mod flexbox_taffy {
 
         /// Compute the layout with the given available space.
         ///
-        /// The optional `measure` callback is called by taffy for leaf nodes
-        /// that need dynamic height-for-width (or width-for-height) measurement.
+        /// The `measure` callback is called by taffy for leaf nodes whose size
+        /// it takes from their content (height-for-width).
         /// It receives `(child_index, known_width, known_height)` where `known_width`
         /// / `known_height` are `Some` if taffy has already determined that dimension,
         /// and returns `(width, height)`.
@@ -1646,9 +1793,7 @@ mod flexbox_taffy {
             &mut self,
             available_width: Coord,
             available_height: Coord,
-            mut measure: Option<
-                &mut dyn FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord),
-            >,
+            measure: &mut dyn FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord),
         ) {
             let available_space = taffy::prelude::Size {
                 width: if available_width < Coord::MAX {
@@ -1667,16 +1812,14 @@ mod flexbox_taffy {
                     self.container,
                     available_space,
                     |known_dimensions, _available_space, _node_id, node_context, _style| {
-                        if let (Some(measure), Some(&mut child_index)) =
-                            (measure.as_deref_mut(), node_context)
-                        {
-                            let known_w = known_dimensions.width.map(|w| w as Coord);
-                            let known_h = known_dimensions.height.map(|h| h as Coord);
-                            let (w, h) = measure(child_index, known_w, known_h);
-                            taffy::prelude::Size { width: w as f32, height: h as f32 }
-                        } else {
-                            taffy::prelude::Size::ZERO
-                        }
+                        // Only the container node has no context.
+                        let Some(&mut child_index) = node_context else {
+                            return taffy::prelude::Size::ZERO;
+                        };
+                        let known_w = known_dimensions.width.map(|w| w as Coord);
+                        let known_h = known_dimensions.height.map(|h| h as Coord);
+                        let (w, h) = measure(child_index, known_w, known_h);
+                        taffy::prelude::Size { width: w as f32, height: h as f32 }
                     },
                 )
                 .unwrap_or_else(|e| {
@@ -1778,34 +1921,76 @@ impl<'a> FlexboxLayoutCacheGenerator<'a> {
 /// Measure callback for height-for-width items in a FlexboxLayout.
 ///
 /// Called by taffy during the flex solve for items that need dynamic sizing.
-/// Receives `(child_index, known_width, known_height)` where `known_width`/`known_height`
-/// are `Some` if taffy has already determined that dimension.
-/// Returns `(width, height)`.
-pub type FlexboxMeasureFn<'a> =
-    Option<&'a mut dyn FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord)>;
+/// Receives `(child_index, width, height)` and returns `(width, height)`.
+///
+/// `resolve_measure_defaults` answers a query whose height taffy has already
+/// settled, so the callback is only asked for a height taffy still needs.
+/// `height` is therefore the cell's preferred height, or 0 past the last cell.
+/// Hand it back for a cell whose height does not depend on its width; it is
+/// not a constraint.
+/// `width` is the one taffy assigned, or the cell's preferred width when it
+/// has assigned none.
+/// Return it unchanged.
+/// Taffy can use a returned width when it has settled the height instead,
+/// but `resolve_measure_defaults` answers that query without asking.
+///
+/// The result must be a self-consistent pair, each dimension measured at the
+/// other: taffy caches it, and answers a later query for one dimension with
+/// the half of the pair it kept.
+///
+/// `None` means the caller has no callback of its own, so a dimension taffy
+/// has not assigned falls back to the cell's preferred size.
+/// Taffy itself is always given a callback, so a forgotten one is a compile
+/// error rather than a silently zero-sized item.
+pub type FlexboxMeasureFn<'a> = Option<&'a mut dyn FnMut(usize, Coord, Coord) -> (Coord, Coord)>;
+
+/// The measure that reports nothing, so an item taffy sizes from its content
+/// falls back to its min constraint.
+/// It is taffy-facing: it does not go through
+/// [`resolve_measure_defaults`], which would resolve the unknown dimensions to
+/// the preferred size only to have them thrown away.
+fn zero_measure(_: usize, _: Option<Coord>, _: Option<Coord>) -> (Coord, Coord) {
+    (0 as Coord, 0 as Coord)
+}
+
+/// Adapt a [`FlexboxMeasureFn`] to the taffy-facing closure: resolve the
+/// dimensions taffy did not supply to the cell's preferred size, so the
+/// callback always receives concrete ones.
+///
+/// It answers two kinds of query itself, returning the pre-resolved pair:
+///
+/// - one whose height taffy has already settled,
+/// - any query at all when there is no callback.
+fn resolve_measure_defaults<'a, 'm: 'a>(
+    cells_h: &'a [LayoutItemInfo],
+    cells_v: &'a [LayoutItemInfo],
+    mut measure: FlexboxMeasureFn<'m>,
+) -> impl FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord) + 'a {
+    move |index, known_w, known_h| {
+        let w = known_w.unwrap_or_else(|| {
+            cells_h.get(index).map_or(0 as Coord, |c| c.constraint.preferred_bounded())
+        });
+        let h = known_h.unwrap_or_else(|| {
+            cells_v.get(index).map_or(0 as Coord, |c| c.constraint.preferred_bounded())
+        });
+        // Answering here rather than measuring saves the work.
+        // Taffy keeps the height it settled and discards the one a callback
+        // returns, so the measurement (a text shaping, for a wrapped `Text`)
+        // would be thrown away.
+        // The callback returns the width unchanged, so the pair is the same
+        // either way.
+        match (known_h, measure.as_mut()) {
+            (None, Some(measure)) => measure(index, w, h),
+            _ => (w, h),
+        }
+    }
+}
 
 pub fn solve_flexbox_layout(
     data: &FlexboxLayoutData,
     repeater_indices: Slice<u32>,
 ) -> SharedVector<Coord> {
-    // Build a simple measure callback from the pre-computed cells data.
-    // This enables height-for-width: taffy calls back with the actual
-    // assigned width, and we return the pre-computed height from cells_v.
-    // The cells_v heights were computed with the horizontal preferred size
-    // as constraint, which is a good approximation.
-    let mut measure = |child_index: usize,
-                       known_w: Option<Coord>,
-                       known_h: Option<Coord>|
-     -> (Coord, Coord) {
-        let w = known_w.unwrap_or_else(|| {
-            data.cells_h.get(child_index).map_or(0 as Coord, |c| c.constraint.preferred_bounded())
-        });
-        let h = known_h.unwrap_or_else(|| {
-            data.cells_v.get(child_index).map_or(0 as Coord, |c| c.constraint.preferred_bounded())
-        });
-        (w, h)
-    };
-    solve_flexbox_layout_with_measure(data, repeater_indices, Some(&mut measure))
+    solve_flexbox_layout_with_measure(data, repeater_indices, None)
 }
 
 /// Solve a FlexboxLayout using Taffy
@@ -1836,22 +2021,31 @@ pub fn solve_flexbox_layout_with_measure(
     );
 
     let use_measure = measure.is_some();
-    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
-        cells_h: &data.cells_h,
-        cells_v: &data.cells_v,
-        spacing_h: data.spacing_h,
-        spacing_v: data.spacing_v,
-        padding_h: &data.padding_h,
-        padding_v: &data.padding_v,
-        alignment: data.alignment,
-        align_content: data.align_content,
-        cross_axis_alignment: data.cross_axis_alignment,
-        flex_wrap: data.flex_wrap,
-        flex_direction: taffy_direction,
-        container_width,
-        container_height,
-        use_measure_for_cross_axis: use_measure,
-    });
+    let build = |flex_wrap, flex_shrink| {
+        flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
+            cells_h: &data.cells_h,
+            cells_v: &data.cells_v,
+            flex_props: &data.flex_props,
+            spacing_h: data.spacing_h,
+            spacing_v: data.spacing_v,
+            padding_h: &data.padding_h,
+            padding_v: &data.padding_v,
+            alignment: data.alignment,
+            cross_axis_line_alignment: data.cross_axis_line_alignment,
+            cross_axis_alignment: data.cross_axis_alignment,
+            flex_wrap,
+            flex_shrink,
+            flex_direction: taffy_direction,
+            container_width,
+            container_height,
+            cross_axis_sizing: if use_measure {
+                flexbox_taffy::CrossAxisSizing::FromMeasure
+            } else {
+                flexbox_taffy::CrossAxisSizing::Preferred
+            },
+        })
+    };
+    let mut builder = build(data.flex_wrap, 1.);
 
     let (available_width, available_height) = match data.direction {
         FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => {
@@ -1862,7 +2056,73 @@ pub fn solve_flexbox_layout_with_measure(
         }
     };
 
-    builder.compute_layout(available_width, available_height, measure);
+    // A `None` callback is safe here: the compiler omits one only for layouts
+    // without height-for-width cells, whose pre-computed height is correct for
+    // whatever width taffy assigns.
+    let mut measure = resolve_measure_defaults(&data.cells_h, &data.cells_v, measure);
+    builder.compute_layout(available_width, available_height, &mut measure);
+
+    // A column flex wraps by height, so its columns can be wider than the
+    // width it was given: one column's when its height is not settled (see
+    // `flexbox_layout_info_cross_axis`). Never overflow sideways into a
+    // sibling: solve without wrapping instead, and let the content overflow
+    // downward, like a wrapped Text given too little height.
+    //
+    // `WrapReverse` is left alone. It anchors its lines at the cross end, which
+    // `NoWrap` does not, so re-solving would move the content to the other side;
+    // and the container's own height still drives the wrapping, so an unbounded
+    // available height does not stop it either. Such a flex keeps wrapping past
+    // its width.
+    let is_column = matches!(
+        data.direction,
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse
+    );
+    if is_column && data.flex_wrap == FlexboxLayoutWrap::Wrap && data.width > 0 as Coord {
+        // taffy computes in `f32`, so ignore an overflow below half a pixel.
+        // Integer coordinates are exact and need no tolerance.
+        #[cfg(not(slint_int_coord))]
+        const OVERFLOW_TOLERANCE: Coord = 0.5;
+        #[cfg(slint_int_coord)]
+        const OVERFLOW_TOLERANCE: Coord = 0;
+        let (left, right) = (data.padding_h.begin, data.width - data.padding_h.end);
+        // Taffy indices, not original cell ones: `order` may have sorted them.
+        // Asking whether *any* child overflows does not care about the order.
+        let overflows = (0..data.cells_h.len()).any(|idx| {
+            let (x, _, w, _) = builder.child_geometry(idx);
+            x < left - OVERFLOW_TOLERANCE || x + w > right + OVERFLOW_TOLERANCE
+        });
+        if overflows {
+            // A second full solve, deliberately, and a common one: an
+            // unsettled-height column flex is given one column's width, so any
+            // wrapping at all overflows it. `cross-axis-line-alignment`
+            // places the lines, so a single line wider than the flex lands at a
+            // negative `x` under `center` or `end`, and clamping that one line
+            // back is not enough for the multi-line case this exists for:
+            // taffy has to lay the items out again without wrapping.
+            // `flexbox_column_wrap_line_alignment.slint` covers both.
+            //
+            // Shrink only where the first solve did: items that fit one column
+            // keep the shrinking `wrap` gives them, while content that needed
+            // more than one column is meant to overflow rather than be
+            // compressed into the height that made it wrap
+            // (`flexbox_column_wrap_shrink.slint`). A lone item never wrapped,
+            // however far it overflows.
+            // `cells_h` is the array the children were built from, so it is
+            // the child count; `cells_v` is its main-axis twin, one entry per
+            // cell. The sum uses the cells' preferred sizes, which is what
+            // taffy wraps on too, though a height-for-width cell it measured
+            // may end up a little taller: close enough to tell one column from
+            // several, which is all this decides.
+            let one_column = data.cells_h.len() < 2
+                || flexbox_layout_unwrapped_main(
+                    Slice::from_slice(data.cells_v.as_slice()),
+                    data.spacing_v,
+                    &data.padding_v,
+                ) <= data.height;
+            builder = build(FlexboxLayoutWrap::NoWrap, if one_column { 1. } else { 0. });
+            builder.compute_layout(available_width, available_height, &mut measure);
+        }
+    }
 
     // Extract results using the cache generator to handle repeaters.
     // If `order` sorting was applied, we need to collect results by original index first,
@@ -1896,7 +2156,7 @@ pub fn solve_flexbox_layout_with_measure(
 /// `sqrt`-area "square" that [`flexbox_layout_info_main_axis`] reports as
 /// `preferred`.
 pub fn flexbox_layout_unwrapped_main(
-    cells: Slice<FlexboxLayoutItemInfo>,
+    cells: Slice<LayoutItemInfo>,
     spacing: Coord,
     padding: &Padding,
 ) -> Coord {
@@ -1912,8 +2172,10 @@ pub fn flexbox_layout_unwrapped_main(
 
 /// Return main-axis LayoutInfo for a FlexboxLayout.
 /// Only needs the same-axis cells, avoiding a cross-axis binding loop.
+/// The reported `max` is always unbounded, even when every item is max-capped:
+/// unlike `box_layout_info`, wrapping makes a sum-of-maxes cap ill-defined.
 pub fn flexbox_layout_info_main_axis(
-    cells: Slice<FlexboxLayoutItemInfo>,
+    cells: Slice<LayoutItemInfo>,
     spacing: Coord,
     padding: &Padding,
     flex_wrap: FlexboxLayoutWrap,
@@ -1958,13 +2220,16 @@ pub fn flexbox_layout_info_main_axis(
         let mut acc = 0 as Coord;
         let mut started = false;
         for c in cells.iter() {
-            acc += if started {
-                spacing + c.constraint.preferred_bounded()
-            } else {
-                c.constraint.preferred_bounded()
-            };
+            // taffy breaks the lines on the hypothetical size (the preferred size,
+            // before any growing), so the line fitting has to measure the items
+            // the same way.
+            let size = c.constraint.preferred_bounded();
+            acc += if started { spacing + size } else { size };
             started = true;
-            if acc >= target {
+            // `acc` is the real row width (no trailing gap), but `target` budgets
+            // a gap per item, so add one back before comparing — else a row grabs
+            // one item too many near an integer sqrt.
+            if acc + spacing >= target {
                 break;
             }
         }
@@ -1983,23 +2248,71 @@ pub fn flexbox_layout_info_main_axis(
 
 /// Return cross-axis LayoutInfo for a FlexboxLayout.
 ///
+/// The minimum and the preferred cross size are two different measurements of
+/// the same items, so this runs the flex algorithm twice: once with every item
+/// at its min constraint, once at its preferred size.
+///
 /// `constraint_size` is the main-axis container dimension (width for row,
 /// height for column). When valid (> 0 and < MAX), it's used as the taffy
 /// constraint for accurate wrapping. When invalid (e.g. 0, negative, or
 /// MAX — which can happen due to circular dependencies in nested
 /// perpendicular flexboxes), falls back to a heuristic based on
 /// `flexbox_layout_info_main_axis`.
+#[allow(clippy::too_many_arguments)]
 pub fn flexbox_layout_info_cross_axis(
-    cells_h: Slice<FlexboxLayoutItemInfo>,
-    cells_v: Slice<FlexboxLayoutItemInfo>,
+    cells_h: Slice<LayoutItemInfo>,
+    cells_v: Slice<LayoutItemInfo>,
+    flex_props: Slice<FlexItemProps>,
     spacing_h: Coord,
     spacing_v: Coord,
     padding_h: &Padding,
     padding_v: &Padding,
     direction: FlexboxLayoutDirection,
+    alignment: LayoutAlignment,
     flex_wrap: FlexboxLayoutWrap,
     constraint_size: Coord,
 ) -> LayoutInfo {
+    flexbox_layout_info_cross_axis_with_measure(
+        cells_h,
+        cells_v,
+        flex_props,
+        spacing_h,
+        spacing_v,
+        padding_h,
+        padding_v,
+        direction,
+        alignment,
+        flex_wrap,
+        constraint_size,
+        None,
+    )
+}
+
+/// Same as [`flexbox_layout_info_cross_axis`], with a measure callback so
+/// height-for-width cells (e.g. a nested wrapping flexbox) are measured at the
+/// main-axis size taffy actually assigns them, not at the pre-computed cell
+/// size (which was measured at the container width).
+///
+/// `alignment` is the container's `alignment`: under `stretch` the solve grows
+/// the cells along the main axis, which changes a height-for-width cell's
+/// cross size, so this measurement must grow them the same way.
+#[allow(clippy::too_many_arguments)]
+pub fn flexbox_layout_info_cross_axis_with_measure(
+    cells_h: Slice<LayoutItemInfo>,
+    cells_v: Slice<LayoutItemInfo>,
+    flex_props: Slice<FlexItemProps>,
+    spacing_h: Coord,
+    spacing_v: Coord,
+    padding_h: &Padding,
+    padding_v: &Padding,
+    direction: FlexboxLayoutDirection,
+    alignment: LayoutAlignment,
+    flex_wrap: FlexboxLayoutWrap,
+    constraint_size: Coord,
+    measure: FlexboxMeasureFn<'_>,
+) -> LayoutInfo {
+    debug_assert_eq!(cells_h.len(), cells_v.len());
+    debug_assert_eq!(cells_h.len(), flex_props.len());
     if cells_h.is_empty() {
         assert!(cells_v.is_empty());
         let orientation = match direction {
@@ -2049,10 +2362,14 @@ pub fn flexbox_layout_info_cross_axis(
     } else {
         // Use actual item areas (main * cross) for the heuristic, since both
         // axes' cells are available here (unlike flexbox_layout_info_main_axis).
-        let total_area: Coord = main_cells
+        // Accumulate in f64: with the integer Coord build, Coord-typed products
+        // (and their sum) would overflow for large items.
+        let total_area: f64 = main_cells
             .iter()
             .zip(cross_cells.iter())
-            .map(|(m, c)| m.constraint.preferred_bounded() * c.constraint.preferred_bounded())
+            .map(|(m, c)| {
+                m.constraint.preferred_bounded() as f64 * c.constraint.preferred_bounded() as f64
+            })
             .sum();
         let count = main_cells.len();
         Float::sqrt(total_area as f32) as Coord
@@ -2076,22 +2393,24 @@ pub fn flexbox_layout_info_cross_axis(
         }
     };
 
-    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
+    let params = |cross_axis_sizing| flexbox_taffy::FlexboxLayoutParams {
         cells_h: &cells_h,
         cells_v: &cells_v,
+        flex_props: &flex_props,
         spacing_h,
         spacing_v,
         padding_h,
         padding_v,
-        alignment: LayoutAlignment::Start,
-        align_content: FlexboxLayoutAlignContent::Stretch,
+        alignment,
+        cross_axis_line_alignment: LayoutAlignment::Stretch,
         cross_axis_alignment: CrossAxisAlignment::Stretch,
         flex_wrap,
+        flex_shrink: 1.,
         flex_direction: taffy_direction,
         container_width,
         container_height,
-        use_measure_for_cross_axis: false,
-    });
+        cross_axis_sizing,
+    };
 
     let (available_width, available_height) = match direction {
         FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => {
@@ -2102,12 +2421,27 @@ pub fn flexbox_layout_info_cross_axis(
         }
     };
 
-    builder.compute_layout(available_width, available_height, None);
+    let cross_of = |(width, height): (Coord, Coord)| match direction {
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => height,
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => width,
+    };
 
-    let (total_width, total_height) = builder.container_size();
-    let cross_size = match direction {
-        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => total_height,
-        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => total_width,
+    let mut builder =
+        flexbox_taffy::FlexboxTaffyBuilder::new(params(flexbox_taffy::CrossAxisSizing::Minimum));
+    // Report nothing, so every item falls back to its min constraint.
+    let mut zero = zero_measure;
+    builder.compute_layout(available_width, available_height, &mut zero);
+    let cross_size = cross_of(builder.container_size());
+    // The pass above resolved every `auto` cross size to the item's minimum.
+    // Measure again, which resolves `auto` to the item's preferred size
+    // instead, and sums the flex lines when the items wrap.
+    let preferred = {
+        let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(params(
+            flexbox_taffy::CrossAxisSizing::FromMeasure,
+        ));
+        let mut resolved = resolve_measure_defaults(&cells_h, &cells_v, measure);
+        builder.compute_layout(available_width, available_height, &mut resolved);
+        cross_of(builder.container_size())
     };
 
     LayoutInfo {
@@ -2115,7 +2449,7 @@ pub fn flexbox_layout_info_cross_axis(
         max: Coord::MAX,
         min_percent: 0 as _,
         max_percent: 100 as _,
-        preferred: cross_size,
+        preferred,
         stretch: 0.0,
     }
 }
@@ -2223,19 +2557,54 @@ pub(crate) mod ffi {
     }
 
     /// The measure callback for C FFI. Returns (width, height) via out pointers.
-    /// `known_width`/`known_height` are negative if not determined yet.
+    /// A dimension taffy has not determined arrives pre-resolved to the cell's
+    /// preferred size, so both are concrete.
     /// A null function pointer means no measure callback.
     pub type FlexboxMeasureFnC = unsafe extern "C" fn(
         user_data: *mut core::ffi::c_void,
         child_index: usize,
-        known_width: Coord,
-        known_height: Coord,
+        width: Coord,
+        height: Coord,
         out_width: *mut Coord,
         out_height: *mut Coord,
     );
 
+    /// Turn a C measure callback (nullable fn pointer + user data) into the
+    /// closure form used internally.
+    ///
+    /// # Safety
+    /// `measure_fn`, when non-null, must be a valid `FlexboxMeasureFnC`
+    /// function pointer, passed as `*const c_void` because cbindgen can't
+    /// represent `Option<fn pointer>` in C++.
+    unsafe fn measure_closure_from_c(
+        measure_fn: *const core::ffi::c_void,
+        measure_user_data: *mut core::ffi::c_void,
+    ) -> Option<impl FnMut(usize, Coord, Coord) -> (Coord, Coord)> {
+        const {
+            assert!(
+                core::mem::size_of::<*const core::ffi::c_void>()
+                    == core::mem::size_of::<FlexboxMeasureFnC>()
+            );
+        }
+        if measure_fn.is_null() {
+            return None;
+        }
+        let c_measure = unsafe {
+            core::mem::transmute::<*const core::ffi::c_void, FlexboxMeasureFnC>(measure_fn)
+        };
+        Some(move |child_index: usize, w: Coord, h: Coord| {
+            let mut out_w: Coord = 0 as _;
+            let mut out_h: Coord = 0 as _;
+            // Safety: c_measure is a valid function pointer provided by the caller,
+            // and out_w/out_h are valid mutable pointers.
+            unsafe {
+                c_measure(measure_user_data, child_index, w, h, &mut out_w, &mut out_h);
+            }
+            (out_w, out_h)
+        })
+    }
+
     #[unsafe(no_mangle)]
-    #[allow(unsafe_code)]
     pub extern "C" fn slint_solve_flexbox_layout(
         data: &FlexboxLayoutData,
         repeater_indices: Slice<u32>,
@@ -2243,42 +2612,10 @@ pub(crate) mod ffi {
         measure_fn: *const core::ffi::c_void,
         measure_user_data: *mut core::ffi::c_void,
     ) {
-        // Safety: measure_fn, when non-null, is a valid FlexboxMeasureFnC function pointer
-        // passed as *const c_void because cbindgen can't represent Option<fn pointer> in C++.
-        const {
-            assert!(
-                core::mem::size_of::<*const core::ffi::c_void>()
-                    == core::mem::size_of::<FlexboxMeasureFnC>()
-            );
-        }
-        let measure_fn: Option<FlexboxMeasureFnC> = if measure_fn.is_null() {
-            None
-        } else {
-            Some(unsafe {
-                core::mem::transmute::<*const core::ffi::c_void, FlexboxMeasureFnC>(measure_fn)
-            })
-        };
-        if let Some(c_measure) = measure_fn {
-            let mut measure = |child_index: usize,
-                               known_w: Option<Coord>,
-                               known_h: Option<Coord>|
-             -> (Coord, Coord) {
-                let mut out_w: Coord = 0 as _;
-                let mut out_h: Coord = 0 as _;
-                // Safety: c_measure is a valid function pointer provided by the caller,
-                // and out_w/out_h are valid mutable pointers.
-                unsafe {
-                    c_measure(
-                        measure_user_data,
-                        child_index,
-                        known_w.unwrap_or(-1 as _),
-                        known_h.unwrap_or(-1 as _),
-                        &mut out_w,
-                        &mut out_h,
-                    );
-                }
-                (out_w, out_h)
-            };
+        // Safety: the caller guarantees `measure_fn` is a valid `FlexboxMeasureFnC`
+        // when non-null (see `measure_closure_from_c`).
+        let measure = unsafe { measure_closure_from_c(measure_fn, measure_user_data) };
+        if let Some(mut measure) = measure {
             *result = super::solve_flexbox_layout_with_measure(
                 data,
                 repeater_indices,
@@ -2292,7 +2629,7 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     /// Return main-axis LayoutInfo for a FlexboxLayout (single-axis, no cross-axis dependency).
     pub extern "C" fn slint_flexbox_layout_info_main_axis(
-        cells: Slice<FlexboxLayoutItemInfo>,
+        cells: Slice<LayoutItemInfo>,
         spacing: Coord,
         padding: &Padding,
         flex_wrap: FlexboxLayoutWrap,
@@ -2303,7 +2640,7 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     /// Return the flex's natural single-line (no-wrap) main-axis size.
     pub extern "C" fn slint_flexbox_layout_unwrapped_main(
-        cells: Slice<FlexboxLayoutItemInfo>,
+        cells: Slice<LayoutItemInfo>,
         spacing: Coord,
         padding: &Padding,
     ) -> Coord {
@@ -2313,26 +2650,67 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     /// Return cross-axis LayoutInfo for a FlexboxLayout.
     pub extern "C" fn slint_flexbox_layout_info_cross_axis(
-        cells_h: Slice<FlexboxLayoutItemInfo>,
-        cells_v: Slice<FlexboxLayoutItemInfo>,
+        cells_h: Slice<LayoutItemInfo>,
+        cells_v: Slice<LayoutItemInfo>,
+        flex_props: Slice<FlexItemProps>,
         spacing_h: Coord,
         spacing_v: Coord,
         padding_h: &Padding,
         padding_v: &Padding,
         direction: FlexboxLayoutDirection,
+        alignment: LayoutAlignment,
         flex_wrap: FlexboxLayoutWrap,
         constraint_size: Coord,
     ) -> LayoutInfo {
         super::flexbox_layout_info_cross_axis(
             cells_h,
             cells_v,
+            flex_props,
             spacing_h,
             spacing_v,
             padding_h,
             padding_v,
             direction,
+            alignment,
             flex_wrap,
             constraint_size,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    /// Like `slint_flexbox_layout_info_cross_axis`, with a measure callback so
+    /// height-for-width cells are re-measured at the size taffy assigns them.
+    pub extern "C" fn slint_flexbox_layout_info_cross_axis_with_measure(
+        cells_h: Slice<LayoutItemInfo>,
+        cells_v: Slice<LayoutItemInfo>,
+        flex_props: Slice<FlexItemProps>,
+        spacing_h: Coord,
+        spacing_v: Coord,
+        padding_h: &Padding,
+        padding_v: &Padding,
+        direction: FlexboxLayoutDirection,
+        alignment: LayoutAlignment,
+        flex_wrap: FlexboxLayoutWrap,
+        constraint_size: Coord,
+        measure_fn: *const core::ffi::c_void,
+        measure_user_data: *mut core::ffi::c_void,
+    ) -> LayoutInfo {
+        // Safety: the caller guarantees `measure_fn` is a valid `FlexboxMeasureFnC`
+        // when non-null (see `measure_closure_from_c`).
+        let mut measure = unsafe { measure_closure_from_c(measure_fn, measure_user_data) };
+        super::flexbox_layout_info_cross_axis_with_measure(
+            cells_h,
+            cells_v,
+            flex_props,
+            spacing_h,
+            spacing_v,
+            padding_h,
+            padding_v,
+            direction,
+            alignment,
+            flex_wrap,
+            constraint_size,
+            measure.as_mut().map(|m| m as _),
         )
     }
 }
@@ -2918,5 +3296,377 @@ mod tests {
                 500., 20., 600., 20. // second repeater data
             ]
         );
+    }
+
+    /// `flexbox_layout_unwrapped_main()` computes the container's max-content main
+    /// size by hand, because the main-axis layout-info path may not read the
+    /// cross-axis cells (that would be a binding loop). taffy computes the same
+    /// thing from the same cells, so this pins the two together and fails the day
+    /// the hand-rolled version drifts.
+    ///
+    /// Only meaningful for `no-wrap`: at max-content taffy never wraps (it reports a
+    /// single line), while the wrapping branch of `flexbox_layout_info_main_axis()`
+    /// deliberately reports a roughly square arrangement instead.
+    mod max_content_matches_taffy {
+        use super::*;
+
+        fn cell(preferred: Coord, stretch: f32) -> FlexboxLayoutItemInfo {
+            FlexboxLayoutItemInfo {
+                constraint: LayoutInfo { preferred, stretch, ..Default::default() },
+                ..Default::default()
+            }
+        }
+
+        /// The constraint half of the bundled test cells, as the parallel
+        /// array the runtime takes.
+        fn constraints(cells: &[FlexboxLayoutItemInfo]) -> Vec<LayoutItemInfo> {
+            cells
+                .iter()
+                .map(|c| LayoutItemInfo { constraint: c.constraint.clone(), ..Default::default() })
+                .collect()
+        }
+
+        /// Split the bundled test cells into the parallel (constraint, flex-props)
+        /// arrays the runtime takes.
+        fn split(cells: &[FlexboxLayoutItemInfo]) -> (Vec<LayoutItemInfo>, Vec<FlexItemProps>) {
+            (constraints(cells), cells.iter().map(|c| c.props).collect())
+        }
+
+        /// What taffy makes of the same cells, asked for its max-content main size.
+        fn taffy_max_content_main(cells: &[FlexboxLayoutItemInfo]) -> Coord {
+            let (main, flex) = split(cells);
+            // The cross axis is deliberately left unconstrained: the main-axis result
+            // must not depend on it, which is what makes the loop-free path sound.
+            let cross: Vec<LayoutItemInfo> = cells
+                .iter()
+                .map(|_| LayoutItemInfo {
+                    constraint: LayoutInfo { max: Coord::MAX, ..Default::default() },
+                    ..Default::default()
+                })
+                .collect();
+            let cells_h = Slice::from_slice(&main);
+            let cells_v = Slice::from_slice(&cross);
+            let flex_props = Slice::from_slice(&flex);
+            let pad = Padding::default();
+            let mut builder =
+                flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
+                    cells_h: &cells_h,
+                    cells_v: &cells_v,
+                    flex_props: &flex_props,
+                    spacing_h: 0 as Coord,
+                    spacing_v: 0 as Coord,
+                    padding_h: &pad,
+                    padding_v: &pad,
+                    // Stretch: the strongest growing mode, to show the stretch
+                    // factors cancel out of the max-content size.
+                    alignment: LayoutAlignment::Stretch,
+                    cross_axis_line_alignment: LayoutAlignment::Stretch,
+                    cross_axis_alignment: CrossAxisAlignment::Stretch,
+                    flex_wrap: FlexboxLayoutWrap::NoWrap,
+                    flex_shrink: 1.,
+                    flex_direction: flexbox_taffy::TaffyFlexDirection::Row,
+                    container_width: None,
+                    container_height: None,
+                    cross_axis_sizing: flexbox_taffy::CrossAxisSizing::Preferred,
+                });
+            // A row item gets `size.width: auto`, so taffy asks the measure callback
+            // for its content size. That callback is how Slint reports an item's
+            // natural size, so the comparison is only fair if it answers here too.
+            let mut measure = |idx: usize, known_w: Option<Coord>, known_h: Option<Coord>| {
+                (
+                    known_w.unwrap_or_else(|| cells[idx].constraint.preferred_bounded()),
+                    known_h.unwrap_or(0 as Coord),
+                )
+            };
+            builder.compute_layout(Coord::MAX, Coord::MAX, &mut measure);
+            builder.container_size().0
+        }
+
+        fn ours(cells: &[FlexboxLayoutItemInfo]) -> Coord {
+            let main = constraints(cells);
+            flexbox_layout_unwrapped_main(Slice::from_slice(&main), 0 as Coord, &Padding::default())
+        }
+
+        #[track_caller]
+        fn assert_agrees(name: &str, cells: &[FlexboxLayoutItemInfo]) {
+            let (ours, theirs) = (ours(cells), taffy_max_content_main(cells));
+            assert!((ours - theirs).abs() <= 1 as Coord, "{name}: ours={ours} taffy={theirs}");
+        }
+
+        /// The grow factor (derived from the stretch factor) cancels out of
+        /// taffy's max-content flex fraction, so an item contributes its
+        /// content size and we must land on the same number.
+        #[test]
+        fn agrees() {
+            assert_agrees("plain", &[cell(50., 0.), cell(250., 0.)]);
+            assert_agrees("equal stretch", &[cell(50., 1.), cell(250., 1.)]);
+            assert_agrees("uneven stretch", &[cell(60., 1.), cell(60., 3.)]);
+            assert_agrees("fractional stretch", &[cell(60., 0.5), cell(40., 1.5)]);
+            assert_agrees("mixed stretch and not", &[cell(50., 1.), cell(100., 0.)]);
+            // `preferred-width: 0` with stretch collapses the max-content size
+            // to nothing in taffy too, as it does in a HorizontalLayout.
+            assert_agrees("zero preferred, stretchy", &[cell(0., 1.), cell(0., 1.)]);
+        }
+
+        /// The same cells asked of a *column* container, where the main-axis size
+        /// comes from the basis (the preferred height), not the measure callback.
+        fn taffy_column_main(cells: &[FlexboxLayoutItemInfo]) -> Coord {
+            let (main, flex) = split(cells);
+            // For a column the main axis is vertical: main-axis sizes live in cells_v,
+            // while the cross-axis (width) constraint is left unbounded.
+            let h: Vec<LayoutItemInfo> = cells
+                .iter()
+                .map(|_| LayoutItemInfo {
+                    constraint: LayoutInfo { max: Coord::MAX, ..Default::default() },
+                    ..Default::default()
+                })
+                .collect();
+            let cells_h = Slice::from_slice(&h);
+            let cells_v = Slice::from_slice(&main);
+            let flex_props = Slice::from_slice(&flex);
+            let pad = Padding::default();
+            let mut builder =
+                flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
+                    cells_h: &cells_h,
+                    cells_v: &cells_v,
+                    flex_props: &flex_props,
+                    spacing_h: 0 as Coord,
+                    spacing_v: 0 as Coord,
+                    padding_h: &pad,
+                    padding_v: &pad,
+                    alignment: LayoutAlignment::Stretch,
+                    cross_axis_line_alignment: LayoutAlignment::Stretch,
+                    cross_axis_alignment: CrossAxisAlignment::Stretch,
+                    flex_wrap: FlexboxLayoutWrap::NoWrap,
+                    flex_shrink: 1.,
+                    flex_direction: flexbox_taffy::TaffyFlexDirection::Column,
+                    container_width: None,
+                    container_height: None,
+                    cross_axis_sizing: flexbox_taffy::CrossAxisSizing::Preferred,
+                });
+            let mut measure = |idx: usize, known_w: Option<Coord>, known_h: Option<Coord>| {
+                (
+                    known_w.unwrap_or(0 as Coord),
+                    known_h.unwrap_or_else(|| cells[idx].constraint.preferred_bounded()),
+                )
+            };
+            builder.compute_layout(Coord::MAX, Coord::MAX, &mut measure);
+            builder.container_size().1
+        }
+
+        #[track_caller]
+        fn assert_agrees_column(name: &str, cells: &[FlexboxLayoutItemInfo]) {
+            let (o, t) = (ours(cells), taffy_column_main(cells));
+            assert!((o - t).abs() <= 1 as Coord, "{name}: ours={o} taffy={t}");
+        }
+
+        /// Both axes report the sum of the preferred sizes, so the column case must
+        /// agree just like the row case, even though taffy computes it from the
+        /// basis there instead of the measure callback.
+        #[test]
+        fn agrees_for_a_column() {
+            assert_agrees_column("plain", &[cell(50., 0.), cell(250., 0.)]);
+            assert_agrees_column("equal stretch", &[cell(50., 1.), cell(250., 1.)]);
+            assert_agrees_column("zero preferred, stretchy", &[cell(0., 1.), cell(0., 1.)]);
+        }
+    }
+
+    /// The taffy grow/shrink factors are derived from the container's
+    /// `alignment` and the cells' main-axis stretch factors (see
+    /// `FlexboxTaffyBuilder::new`), mirroring how a box layout distributes
+    /// free space.
+    mod stretch_driven_grow {
+        use super::*;
+
+        fn info(preferred: Coord, stretch: f32) -> LayoutInfo {
+            LayoutInfo { preferred, stretch, ..Default::default() }
+        }
+
+        /// Solve a row of `constraints` in a 400px-wide container and return
+        /// the resulting widths.
+        fn solve_row(alignment: LayoutAlignment, constraints: &[LayoutInfo]) -> Vec<Coord> {
+            let cells_h: Vec<LayoutItemInfo> = constraints
+                .iter()
+                .map(|c| LayoutItemInfo { constraint: c.clone(), ..Default::default() })
+                .collect();
+            let cells_v: Vec<LayoutItemInfo> =
+                constraints.iter().map(|_| LayoutItemInfo::default()).collect();
+            let flex_props: Vec<FlexItemProps> =
+                constraints.iter().map(|_| FlexItemProps::default()).collect();
+            let pad = Padding::default();
+            let mut builder =
+                flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
+                    cells_h: &Slice::from_slice(&cells_h),
+                    cells_v: &Slice::from_slice(&cells_v),
+                    flex_props: &Slice::from_slice(&flex_props),
+                    spacing_h: 0 as Coord,
+                    spacing_v: 0 as Coord,
+                    padding_h: &pad,
+                    padding_v: &pad,
+                    alignment,
+                    cross_axis_line_alignment: LayoutAlignment::Stretch,
+                    cross_axis_alignment: CrossAxisAlignment::Stretch,
+                    flex_wrap: FlexboxLayoutWrap::Wrap,
+                    flex_shrink: 1.,
+                    flex_direction: flexbox_taffy::TaffyFlexDirection::Row,
+                    container_width: Some(400 as Coord),
+                    container_height: None,
+                    cross_axis_sizing: flexbox_taffy::CrossAxisSizing::Preferred,
+                });
+            builder.compute_layout(400 as Coord, Coord::MAX, &mut zero_measure);
+            (0..constraints.len()).map(|i| builder.child_geometry(i).2).collect()
+        }
+
+        #[test]
+        fn grows_by_stretch_only_under_alignment_stretch() {
+            // 200 free pixels split by the stretch weights 3:1.
+            let cells = [info(100., 3.), info(100., 1.)];
+            assert_eq!(solve_row(LayoutAlignment::Stretch, &cells), [250., 150.]);
+            // A zero factor next to a non-zero one stays at its preferred size.
+            let cells = [info(100., 1.), info(100., 0.)];
+            assert_eq!(solve_row(LayoutAlignment::Stretch, &cells), [300., 100.]);
+            // All-zero factors split the free space evenly, like a HorizontalLayout.
+            let cells = [info(100., 0.), info(100., 0.)];
+            assert_eq!(solve_row(LayoutAlignment::Stretch, &cells), [200., 200.]);
+            // Growing requires `alignment: stretch` on the container.
+            let cells = [info(100., 3.), info(100., 1.)];
+            assert_eq!(solve_row(LayoutAlignment::Start, &cells), [100., 100.]);
+        }
+
+        /// An item alone on its line and larger than the container shrinks to
+        /// fit whatever its stretch factor says (the constant taffy shrink
+        /// factor of 1); only its `min` refuses shrinking.
+        #[test]
+        fn lone_oversized_item_shrinks_regardless_of_stretch() {
+            let squeezable =
+                LayoutInfo { preferred: 500., min: 200., stretch: 0., ..Default::default() };
+            assert_eq!(solve_row(LayoutAlignment::Start, &[squeezable]), [400.]);
+            let rigid =
+                LayoutInfo { preferred: 500., min: 450., stretch: 0., ..Default::default() };
+            assert_eq!(solve_row(LayoutAlignment::Start, &[rigid]), [450.]);
+        }
+    }
+
+    /// A percentage constraint must not be resolved against the `Coord::MAX`
+    /// "unbounded" sentinel that the info path passes for a no-wrap main axis.
+    /// `min_percent * MAX / 100` overflows the i32 build (debug panic) and gives
+    /// infinity in the f32 build, which taffy then bakes into the item's size.
+    /// When the container axis is unbounded a percentage has no basis, so the
+    /// item keeps its natural (here zero) size instead.
+    ///
+    /// Checked at the builder because the containing info function reports only
+    /// the *cross* size, while the overflow lands on the item's *main*-axis size;
+    /// the f32 build hides it at the container level but not at the item.
+    #[test]
+    fn percentage_against_unbounded_container_leaves_item_finite() {
+        // A single row cell with `width: 50%` (min_percent == max_percent == 50).
+        let cells_h = [LayoutItemInfo {
+            constraint: LayoutInfo {
+                min_percent: 50 as Coord,
+                max_percent: 50 as Coord,
+                max: Coord::MAX,
+                ..Default::default()
+            },
+            ..Default::default()
+        }];
+        let cells_v = [LayoutItemInfo {
+            constraint: LayoutInfo {
+                preferred: 30 as Coord,
+                max: Coord::MAX,
+                ..Default::default()
+            },
+            ..Default::default()
+        }];
+        let flex_props = [FlexItemProps::default()];
+        let pad = Padding::default();
+        let mut builder =
+            flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
+                cells_h: &Slice::from_slice(&cells_h),
+                cells_v: &Slice::from_slice(&cells_v),
+                flex_props: &Slice::from_slice(&flex_props),
+                spacing_h: 0 as Coord,
+                spacing_v: 0 as Coord,
+                padding_h: &pad,
+                padding_v: &pad,
+                alignment: LayoutAlignment::Start,
+                cross_axis_line_alignment: LayoutAlignment::Stretch,
+                cross_axis_alignment: CrossAxisAlignment::Stretch,
+                flex_wrap: FlexboxLayoutWrap::NoWrap,
+                flex_shrink: 1.,
+                flex_direction: flexbox_taffy::TaffyFlexDirection::Row,
+                // The unbounded main axis: the value the info path feeds here.
+                container_width: Some(Coord::MAX),
+                container_height: None,
+                cross_axis_sizing: flexbox_taffy::CrossAxisSizing::Preferred,
+            });
+        builder.compute_layout(Coord::MAX, Coord::MAX, &mut zero_measure);
+        let (_x, _y, w, _h) = builder.child_geometry(0);
+        // Without the fix the dropped `50% * MAX` makes this the f32 sentinel
+        // (or panics under i32); with it the item just takes its natural size.
+        assert!(w.is_finite() && w < Coord::MAX, "item main-axis size was {w}");
+    }
+
+    /// Runs `grid_internal::to_layout_data` for a single row made of one
+    /// non-spanning cell per constraint, and returns that row's combined
+    /// LayoutData (min/max/pref), for testing the row/col aggregation in
+    /// isolation from the rest of GridLayout.
+    fn row_layout_data(constraints: &[LayoutInfo]) -> grid_internal::LayoutData {
+        let mut organized_data = GridLayoutOrganizedData::default();
+        let mut generator =
+            OrganizedDataGenerator::new(&[], &[], constraints.len(), 0, 0, &mut organized_data);
+        for col in 0..constraints.len() {
+            generator.add(col as u16, 1, 0, 1);
+        }
+        let items: Vec<LayoutItemInfo> = constraints
+            .iter()
+            .map(|constraint| LayoutItemInfo { constraint: *constraint, ..Default::default() })
+            .collect();
+        let mut layout_data = grid_internal::to_layout_data(
+            &organized_data,
+            Slice::from_slice(&items),
+            Orientation::Vertical,
+            Slice::from_slice(&[]),
+            Slice::from_slice(&[]),
+            0 as _,
+            None,
+        );
+        assert_eq!(layout_data.len(), 1);
+        layout_data.remove(0)
+    }
+
+    #[test]
+    fn test_grid_row_collapsed_cell_raises_max_and_pulls_pref_down_with_it() {
+        // Row with a cell collapsed to a fixed zero size (the `height: cond ?
+        // x : 0px` idiom, #9724) next to a cell with an explicit min/preferred
+        // and no max (e.g. `min-height: 5px; preferred-height: 50px;`).
+        let row = row_layout_data(&[
+            LayoutInfo { min: 0 as _, max: 0 as _, preferred: 0 as _, ..Default::default() },
+            LayoutInfo { min: 5 as _, preferred: 50 as _, ..Default::default() },
+        ]);
+        // The collapsed cell's fixed zero pulls the row's max down to 0 while
+        // its sibling's min pulls the row's min up to 5: a real conflict, so
+        // max must be raised to meet min, and the sibling's now out-of-range
+        // preferred (50) must be pulled down with it, not summed into the
+        // row's LayoutInfo as-is.
+        assert_eq!(row.min, 5 as Coord);
+        assert_eq!(row.max, 5 as Coord);
+        assert_eq!(row.pref, 5 as Coord);
+    }
+
+    #[test]
+    fn test_grid_row_without_conflicting_constraints_keeps_its_own_pref() {
+        // No cell forces max below min here (max 10 >= min 0): not a #9724
+        // conflict, so the fix must leave this row untouched. The second
+        // cell's preferred (50) legitimately exceeds the row's own max (10)
+        // already on master; to_layout_data's output also drives
+        // solve_grid_layout, so clamping pref here would silently shrink
+        // rows that never had a min/max conflict in the first place.
+        let row = row_layout_data(&[
+            LayoutInfo { min: 0 as _, max: 10 as _, preferred: 5 as _, ..Default::default() },
+            LayoutInfo { min: 0 as _, preferred: 50 as _, ..Default::default() },
+        ]);
+        assert_eq!(row.min, 0 as Coord);
+        assert_eq!(row.max, 10 as Coord);
+        assert_eq!(row.pref, 50 as Coord);
     }
 }

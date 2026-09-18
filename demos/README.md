@@ -37,12 +37,14 @@ files to uncomment the line starting with `#wasm#` (or use the `sed` line bellow
 You can then use wasm-pack (which you may need to obtain with `cargo install wasm-pack`).
 This will generate the wasm in the `./pkg` directory, which the `index.html` file will open.
 Since wasm files cannot be served from `file://` URL, you need to open a wab server to serve
-the content
+the content.
+The `--features` flags select only the winit backend and the femtovg renderer,
+which keeps the software renderer out of the binary.
 
 ```sh
 cd demos/printerdemo/rust
 sed -i "s/^#wasm# //" Cargo.toml
-wasm-pack build --release --target web
+wasm-pack build --release --target web --no-default-features --features slint/backend-winit,slint/renderer-femtovg
 python3 -m http.server
 ```
 

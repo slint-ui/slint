@@ -13,7 +13,6 @@ use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedRefer
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use smol_str::{SmolStr, format_smolstr};
-use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -41,6 +40,37 @@ pub async fn lower_tabwidget(
     if tab_widgets.is_empty() {
         return;
     }
+
+    // If an element's base is itself a collected TabWidget that already has its own Tab
+    // children (e.g. `component Xyz inherits TabWidget { Tab { ... } }`), it's just
+    // instantiating Xyz rather than defining new Tabs, so skip lowering it here. Lowering it
+    // too would overwrite its base_type and lose the Tabs already lowered on Xyz (issue
+    // #8394); leaving it alone lets inlining pull Xyz's own Tabs in later.
+    //
+    // Any Tab children or an `orientation` override set directly at such an instantiation
+    // site can't be folded into the base, since that would mean moving elements across
+    // component boundaries. Diagnose both cases instead of silently dropping or ignoring them.
+    let tab_widgets: Vec<_> = tab_widgets
+        .into_iter()
+        .filter(|elem| {
+            if !base_chain_declares_tabs(&elem.borrow().base_type, &seen) {
+                return true;
+            }
+            if !elem.borrow().children.is_empty() {
+                diag.push_error(
+                    "Cannot add Tab elements when instantiating a TabWidget subclass that already declares its own Tab; declare them on the subclass instead".to_owned(),
+                    &*elem.borrow(),
+                );
+            }
+            if let Some(orientation) = elem.borrow().binding("orientation") {
+                diag.push_error(
+                    "Cannot set orientation when instantiating a TabWidget subclass that already declares its own Tab; declare it on the subclass instead".to_owned(),
+                    &orientation.span,
+                );
+            }
+            false
+        })
+        .collect();
 
     // Ignore import errors
     let mut build_diags_to_ignore = BuildDiagnostics::default();
@@ -80,6 +110,29 @@ pub async fn lower_tabwidget(
             &empty_type,
             diag,
         );
+    }
+}
+
+/// Walks a chain of `component Sub inherits Base { ... }` steps (as `base_type`s of
+/// components collected as TabWidgets), skipping empty pass-through subclasses, to check
+/// whether some component along the way already declares its own Tab children. Stops (and
+/// returns `false`) as soon as the chain leaves the collected TabWidgets, e.g. at the
+/// style-selected builtin TabWidget itself.
+fn base_chain_declares_tabs(
+    base_type: &ElementType,
+    tab_widget_roots: &HashSet<*const std::cell::RefCell<Element>>,
+) -> bool {
+    let mut base_type = base_type.clone();
+    loop {
+        let ElementType::Component(c) = &base_type else { return false };
+        if !tab_widget_roots.contains(&Rc::as_ptr(&c.root_element)) {
+            return false;
+        }
+        if !c.root_element.borrow().children.is_empty() {
+            return true;
+        }
+        let next = c.root_element.borrow().base_type.clone();
+        base_type = next;
     }
 }
 
@@ -126,41 +179,40 @@ fn process_tabwidget(
             .into(),
             rhs: Expression::NumberLiteral(index as _, Unit::None).into(),
             op: '=',
+            source_location: None,
         };
-        let old = child
-            .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static("visible"), RefCell::new(condition.into()));
+        let old = child.borrow_mut().set_binding(SmolStr::new_static("visible"), condition.into());
         if let Some(old) = old {
             diag.push_error(
                 "The property 'visible' cannot be set for Tabs inside a TabWidget".to_owned(),
-                &old.into_inner(),
+                &old,
             );
         }
         let role = crate::typeregister::BUILTIN
-            .with(|e| e.enums.AccessibleRole.clone())
+            .enums
+            .AccessibleRole
+            .clone()
             .try_value_from_string("tab-panel")
             .unwrap();
-        let old = child.borrow_mut().bindings.insert(
+        let old = child.borrow_mut().set_binding(
             SmolStr::new_static("accessible-role"),
-            RefCell::new(Expression::EnumerationValue(role).into()),
+            Expression::EnumerationValue(role).into(),
         );
         if let Some(old) = old {
             diag.push_error(
                 "The property 'accessible-role' cannot be set for Tabs inside a TabWidget"
                     .to_owned(),
-                &old.into_inner(),
+                &old,
             );
         }
-        let title_ref = RefCell::new(
-            Expression::PropertyReference(NamedReference::new(child, "title".into())).into(),
-        );
-        let old = child.borrow_mut().bindings.insert("accessible-label".into(), title_ref);
+        let title_ref =
+            Expression::PropertyReference(NamedReference::new(child, "title".into())).into();
+        let old = child.borrow_mut().set_binding("accessible-label".into(), title_ref);
         if let Some(old) = old {
             diag.push_error(
                 "The property 'accessible-label' cannot be set for Tabs inside a TabWidget"
                     .to_owned(),
-                &old.into_inner(),
+                &old,
             );
         }
 
@@ -170,50 +222,45 @@ fn process_tabwidget(
             enclosing_component: elem.borrow().enclosing_component.clone(),
             ..Default::default()
         };
-        tab.bindings.insert(
+        tab.set_binding(
             SmolStr::new_static("title"),
             BindingExpression::new_two_way(
                 NamedReference::new(child, SmolStr::new_static("title")).into(),
-            )
-            .into(),
+            ),
         );
-        tab.bindings.insert(
+        tab.set_binding(
             SmolStr::new_static("current"),
             BindingExpression::new_two_way(
                 NamedReference::new(elem, SmolStr::new_static("current-index")).into(),
-            )
-            .into(),
+            ),
         );
-        tab.bindings.insert(
+        tab.set_binding(
             SmolStr::new_static("current-focused"),
             BindingExpression::new_two_way(
                 NamedReference::new(elem, SmolStr::new_static("current-focused")).into(),
-            )
-            .into(),
+            ),
         );
-        tab.bindings.insert(
+        tab.set_binding(
             SmolStr::new_static("tab-index"),
-            RefCell::new(Expression::NumberLiteral(index as _, Unit::None).into()),
+            Expression::NumberLiteral(index as _, Unit::None).into(),
         );
-        tab.bindings.insert(
+        tab.set_binding(
             SmolStr::new_static("num-tabs"),
-            RefCell::new(Expression::NumberLiteral(num_tabs as _, Unit::None).into()),
+            Expression::NumberLiteral(num_tabs as _, Unit::None).into(),
         );
         tabs.push(Element::make_rc(tab));
     }
 
     let mut tabbar_impl = tabbar_horizontal_impl;
-    if let Some(orientation) = elem.borrow().bindings.get("orientation") {
-        if let Expression::EnumerationValue(val) =
-            super::ignore_debug_hooks(&orientation.borrow().expression)
-        {
+    if let Some(orientation) = elem.borrow().binding("orientation") {
+        if let Expression::EnumerationValue(val) = orientation.value_expression() {
             if val.value == 1 {
                 tabbar_impl = tabbar_vertical_impl;
             }
         } else {
             diag.push_error(
                 "The orientation property only supports constants at the moment".into(),
-                &orientation.borrow().span,
+                &orientation.span,
             );
         }
     }
@@ -229,37 +276,33 @@ fn process_tabwidget(
     set_tabbar_geometry_prop(elem, &tabbar, "y");
     set_tabbar_geometry_prop(elem, &tabbar, "width");
     set_tabbar_geometry_prop(elem, &tabbar, "height");
-    tabbar.borrow_mut().bindings.insert(
+    tabbar.borrow_mut().set_binding(
         SmolStr::new_static("num-tabs"),
-        RefCell::new(Expression::NumberLiteral(num_tabs as _, Unit::None).into()),
+        Expression::NumberLiteral(num_tabs as _, Unit::None).into(),
     );
-    tabbar.borrow_mut().bindings.insert(
+    tabbar.borrow_mut().set_binding(
         SmolStr::new_static("current"),
         BindingExpression::new_two_way(
             NamedReference::new(elem, SmolStr::new_static("current-index")).into(),
-        )
-        .into(),
+        ),
     );
-    elem.borrow_mut().bindings.insert(
+    elem.borrow_mut().set_binding(
         SmolStr::new_static("current-focused"),
         BindingExpression::new_two_way(
             NamedReference::new(&tabbar, SmolStr::new_static("current-focused")).into(),
-        )
-        .into(),
+        ),
     );
-    elem.borrow_mut().bindings.insert(
+    elem.borrow_mut().set_binding(
         SmolStr::new_static("tabbar-preferred-width"),
         BindingExpression::new_two_way(
             NamedReference::new(&tabbar, SmolStr::new_static("preferred-width")).into(),
-        )
-        .into(),
+        ),
     );
-    elem.borrow_mut().bindings.insert(
+    elem.borrow_mut().set_binding(
         SmolStr::new_static("tabbar-preferred-height"),
         BindingExpression::new_two_way(
             NamedReference::new(&tabbar, SmolStr::new_static("preferred-height")).into(),
-        )
-        .into(),
+        ),
     );
 
     if let Some(expr) = children
@@ -269,7 +312,7 @@ fn process_tabwidget(
         })
         .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max))
     {
-        elem.borrow_mut().bindings.insert("content-min-width".into(), RefCell::new(expr.into()));
+        elem.borrow_mut().set_binding("content-min-width".into(), expr.into());
     };
     if let Some(expr) = children
         .iter()
@@ -278,7 +321,7 @@ fn process_tabwidget(
         })
         .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max))
     {
-        elem.borrow_mut().bindings.insert("content-min-height".into(), RefCell::new(expr.into()));
+        elem.borrow_mut().set_binding("content-min-height".into(), expr.into());
     };
 
     elem.borrow_mut().children = std::iter::once(tabbar).chain(children).collect();
@@ -290,17 +333,15 @@ fn set_geometry_prop(
     prop: &str,
     diag: &mut BuildDiagnostics,
 ) {
-    let old = content.borrow_mut().bindings.insert(
+    let old = content.borrow_mut().set_binding(
         prop.into(),
-        RefCell::new(
-            Expression::PropertyReference(NamedReference::new(
-                tab_widget,
-                format_smolstr!("content-{}", prop),
-            ))
-            .into(),
-        ),
+        Expression::PropertyReference(NamedReference::new(
+            tab_widget,
+            format_smolstr!("content-{}", prop),
+        ))
+        .into(),
     );
-    if let Some(old) = old.map(RefCell::into_inner) {
+    if let Some(old) = old {
         diag.push_error(
             format!("The property '{prop}' cannot be set for Tabs inside a TabWidget"),
             &old,
@@ -309,14 +350,12 @@ fn set_geometry_prop(
 }
 
 fn set_tabbar_geometry_prop(tab_widget: &ElementRc, tabbar: &ElementRc, prop: &str) {
-    tabbar.borrow_mut().bindings.insert(
+    tabbar.borrow_mut().set_binding(
         prop.into(),
-        RefCell::new(
-            Expression::PropertyReference(NamedReference::new(
-                tab_widget,
-                format_smolstr!("tabbar-{}", prop),
-            ))
-            .into(),
-        ),
+        Expression::PropertyReference(NamedReference::new(
+            tab_widget,
+            format_smolstr!("tabbar-{}", prop),
+        ))
+        .into(),
     );
 }

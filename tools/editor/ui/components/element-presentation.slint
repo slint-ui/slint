@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ElementKind } from "../api.slint";
+import { EditorTreeIcons } from "editor-tree-icons.slint";
+
+export struct ElementPresentation {
+    icon: image,
+    preview-size: Size,
+    corner-radius: length,
+    show-thumbnail: bool,
+    drag-label: string,
+}
+
+// Primitive identity and grouping are defined in preview/element_catalog.rs.
+export global ElementVisuals {
+    public pure function for-kind(kind: ElementKind) -> ElementPresentation {
+        if kind == ElementKind.rectangle {
+            return {
+                icon: EditorTreeIcons.rectangle,
+                preview-size: { width: 160px, height: 64px },
+                corner-radius: 8px,
+                show-thumbnail: false,
+                drag-label: "Rectangle drag preview",
+            };
+        }
+        if kind == ElementKind.text {
+            return {
+                icon: EditorTreeIcons.text,
+                preview-size: { width: 220px, height: 40px },
+                corner-radius: 8px,
+                show-thumbnail: false,
+                drag-label: "Text drag preview",
+            };
+        }
+        if kind == ElementKind.image {
+            return {
+                icon: EditorTreeIcons.image,
+                preview-size: { width: 160px, height: 96px },
+                corner-radius: 16px,
+                show-thumbnail: true,
+                drag-label: "Image drag preview",
+            };
+        }
+        if kind == ElementKind.touch-area {
+            return {
+                icon: EditorTreeIcons.touch-area,
+                preview-size: { width: 160px, height: 96px },
+                corner-radius: 0px,
+                show-thumbnail: false,
+                drag-label: "TouchArea drag preview",
+            };
+        }
+        return {
+            icon: EditorTreeIcons.default-item,
+            preview-size: { width: 96px, height: 48px },
+            corner-radius: 8px,
+            show-thumbnail: false,
+            drag-label: "",
+        };
+    }
+}

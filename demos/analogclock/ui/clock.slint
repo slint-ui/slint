@@ -1,0 +1,105 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// An analog clock for round displays. The software renderer cannot rotate
+// rectangles, so ticks and hands are built from dots placed with sin/cos -
+// which also gives the face a distinctive look on a round AMOLED, where an
+// unlit black background draws no current.
+
+component Dot inherits Rectangle {
+    in property <angle> a;
+    in property <length> r;
+    in property <length> size;
+    x: 233px + self.r * sin(self.a) - self.size / 2;
+    y: 233px - self.r * cos(self.a) - self.size / 2;
+    width: self.size;
+    height: self.size;
+    border-radius: self.size / 2;
+}
+
+export component MainWindow inherits Window {
+    width: 466px;
+    height: 466px;
+    // Everything outside the circular face: nothing on the round panel,
+    // and see-through in a rectangular window (SlintPad, the simulator).
+    background: transparent;
+
+    in property <int> hours: 10;
+    in property <int> minutes: 8;
+    in property <int> seconds: 37;
+
+    property <angle> second-angle: root.seconds * 6deg;
+    property <angle> minute-angle: root.minutes * 6deg + root.seconds * 0.1deg;
+    property <angle> hour-angle: root.hours * 30deg + root.minutes * 0.5deg;
+
+    // The face itself: an explicit circle, so the UI reads as round even
+    // inside a rectangular window. Black, so the round AMOLED leaves these
+    // pixels unlit.
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: 466px;
+        height: 466px;
+        border-radius: 233px;
+        background: #000000;
+    }
+
+    // Hour marks: larger at 12, 3, 6 and 9.
+    for index in 12: Dot {
+        a: index * 30deg;
+        r: 210px;
+        size: mod(index, 3) == 0 ? 14px : 7px;
+        background: mod(index, 3) == 0 ? #e0e0e0 : #606060;
+    }
+
+    // Minute marks.
+    for index in 60: Dot {
+        a: index * 6deg;
+        r: 222px;
+        size: 3px;
+        background: #303030;
+    }
+
+    // Hour hand.
+    for step in 6: Dot {
+        a: root.hour-angle;
+        r: 24px + step * 18px;
+        size: 18px - step * 1px;
+        background: #e0e0e0;
+    }
+
+    // Minute hand.
+    for step in 10: Dot {
+        a: root.minute-angle;
+        r: 24px + step * 17px;
+        size: 11px;
+        background: #a0a0a0;
+    }
+
+    // Second hand.
+    for step in 14: Dot {
+        a: root.second-angle;
+        r: 12px + step * 14px;
+        size: 5px;
+        background: #e04040;
+    }
+
+    // Centre cap.
+    Rectangle {
+        x: 233px - 12px;
+        y: 233px - 12px;
+        width: 24px;
+        height: 24px;
+        border-radius: 12px;
+        background: #e04040;
+    }
+
+    // Small digital readout under the centre.
+    Text {
+        x: 233px - self.width / 2;
+        y: 320px;
+        text: (root.hours < 10 ? "0" : "") + root.hours + ":" + (root.minutes < 10 ? "0" : "") + root.minutes;
+        color: #505050;
+        font-size: 28px;
+    }
+}

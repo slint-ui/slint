@@ -32,10 +32,10 @@ export Xxx := Rectangle {
 
 
     Abc {
+        // 'par' is a private function of Abc, so it isn't visible here and may be shadowed
         property <int> par;
-//                     > <error{Cannot declare property 'par' when a function with the same name exists}
         callback par();
-//               > <error{Cannot declare callback 'par' when a function with the same name exists}
+//               > <error{Cannot declare callback 'par' when a property with the same name exists}
     }
 
     TouchArea {

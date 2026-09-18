@@ -14,9 +14,16 @@ RUN dpkg --add-architecture arm64 && \
 # Work around the Skia source build requiring a newer git version (that supports --path-format=relative with rev-parse, as needed by git-sync-deps.py),
 # as well as a disabling of the directory safety checks (https://github.blog/2022-04-12-git-security-vulnerability-announced/#cve-2022-24765) as
 # /cargo comes from ~/.cargo and may have differing user ids, which breaks when the skia-bindings build clones additional git repos (skia/third_party/external/*)
-RUN DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes software-properties-common && \
-    add-apt-repository -y ppa:git-core/ppa && \
-    apt-get install --assume-yes git && \
+# Don't use add-apt-repository: it resolves the PPA through the Launchpad API, which stalls for minutes on CI and then
+# reports the timeout as "'~git-core' user or team does not exist" (Launchpad bug #1537056).
+# Requesting the key by full fingerprint is enough, because apt rejects the archive if the signature doesn't match.
+RUN curl --silent --show-error --fail --retry 5 \
+        "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xE1DD270288B4E6030699E45FA1715D88E1DF1F24" \
+        -o /usr/share/keyrings/git-core-ppa.asc && \
+    . /etc/os-release && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/git-core-ppa.asc] https://ppa.launchpadcontent.net/git-core/ppa/ubuntu $VERSION_CODENAME main" > /etc/apt/sources.list.d/git-core-ppa.list && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes git && \
     git config --global safe.directory '*'
 
 ENV PKG_CONFIG_PATH_aarch64_unknown_linux_gnu=/usr/lib/aarch64-linux-gnu/pkgconfig

@@ -4,10 +4,15 @@
 
 // Walks dist/**/*.md and verifies every internal link points to a real file
 // in dist/. Catches typos in the linkMap and stale targets after page renames.
-// Anchor fragments are not validated yet — file existence only.
+//
+// Then walks the built pages and verifies that every internal link with an
+// anchor points to an id (or legacy `name`) the target page really has. This
+// half runs on the HTML because that is where the ids of an imported partial
+// and the links written by an .astro component appear; starlight-links-validator
+// sees neither, because it reads the markdown files a page is written from.
 
 import { readdir, readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import { visit } from "unist-util-visit";
@@ -15,15 +20,16 @@ import { visit } from "unist-util-visit";
 // Must match BASE_PATH in docs/common/src/utils/site-config.ts.
 const BASE_PATH = "/docs/";
 const DIST = "dist";
+const INDEX = "index.html";
 
 const parser = unified().use(remarkParse);
 
-async function* walk(dir) {
+async function* walk(dir, extension) {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
         const p = join(dir, entry.name);
         if (entry.isDirectory()) {
-            yield* walk(p);
-        } else if (entry.isFile() && p.endsWith(".md")) {
+            yield* walk(p, extension);
+        } else if (entry.isFile() && p.endsWith(extension)) {
             yield p;
         }
     }
@@ -54,9 +60,15 @@ async function collectLinks(file) {
     return links;
 }
 
+/** The site path a built page is served under, e.g. `reference/colors/`. */
+function pageRoute(file) {
+    const path = relative(DIST, file);
+    return path.endsWith(INDEX) ? path.slice(0, -INDEX.length) : path;
+}
+
 const errors = [];
 
-for await (const file of walk(DIST)) {
+for await (const file of walk(DIST, ".md")) {
     for (const { url, line } of await collectLinks(file)) {
         if (!url.startsWith(BASE_PATH)) {
             continue;
@@ -78,12 +90,56 @@ for await (const file of walk(DIST)) {
     }
 }
 
+// Every anchor a page offers, by the route the page is served under.
+const anchors = new Map();
+const pages = [];
+for await (const file of walk(DIST, ".html")) {
+    const text = await readFile(file, "utf8");
+    pages.push({ file, text });
+    anchors.set(
+        pageRoute(file),
+        new Set(
+            [...text.matchAll(/\s(?:id|name)="([^"]+)"/g)].map(
+                (match) => match[1],
+            ),
+        ),
+    );
+}
+
+for (const { file, text } of pages) {
+    const seen = new Set();
+    for (const [, href] of text.matchAll(/\shref="([^"]+)"/g)) {
+        // Links that climb out of the base path address another Slint site
+        // (the Rust, C++ or Node.js API docs), which this build doesn't hold.
+        // A link without a path is an anchor of the page itself, whose ids
+        // Starlight generates.
+        if (!href.startsWith(BASE_PATH) || href.includes("/../")) {
+            continue;
+        }
+        const [path, anchor] = href.slice(BASE_PATH.length).split("#");
+        if (!anchor || path === "") {
+            continue;
+        }
+        // A path this build has no page for is a redirect or an asset; the
+        // markdown pass above is what checks that a link resolves at all.
+        const target = anchors.get(path.endsWith("/") ? path : `${path}/`);
+        if (target && !target.has(anchor) && !seen.has(href)) {
+            seen.add(href);
+            errors.push({
+                file,
+                line: "?",
+                url: `${BASE_PATH}${path}#${anchor}`,
+            });
+        }
+    }
+}
+
 if (errors.length > 0) {
-    console.error(`\n${errors.length} broken markdown link(s):`);
+    console.error(`\n${errors.length} broken internal link(s):`);
     for (const e of errors) {
         console.error(`  ${e.file}:${e.line} -> ${e.url}`);
     }
     process.exit(1);
 }
 
-console.log("validate-md-links: all internal markdown links resolve");
+console.log("validate-md-links: all internal links and anchors resolve");

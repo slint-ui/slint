@@ -7,10 +7,14 @@ export { NativeStyleMetrics as StyleMetrics }
 // StandardTableView, which are not currently exposed by the public ScrollView
 // (since then it would need to be done for all styles).
 export component InternalScrollView {
-    in-out property <length> viewport-width <=> fli.viewport-width;
-    in-out property <length> viewport-height <=> fli.viewport-height;
-    in-out property <length> viewport-x <=> fli.viewport-x;
-    in-out property <length> viewport-y <=> fli.viewport-y;
+    in-out property <length> content-width <=> fli.content-width;
+    in-out property <length> content-height <=> fli.content-height;
+    in-out property <length> content-x <=> fli.content-x;
+    in-out property <length> content-y <=> fli.content-y;
+    @deprecated in-out property <length> viewport-width <=> content-width;
+    @deprecated in-out property <length> viewport-height <=> content-height;
+    @deprecated in-out property <length> viewport-x <=> content-x;
+    @deprecated in-out property <length> viewport-y <=> content-y;
     out property <length> visible-width <=> fli.width;
     out property <length> visible-height <=> fli.height;
     in-out property <bool> has-focus <=> native.has-focus;
@@ -34,10 +38,10 @@ export component InternalScrollView {
     min-width: native.min-width;
 
     native := NativeScrollView {
-        vertical-max: fli.viewport-height > fli.height ? fli.viewport-height - fli.height : 0phx;
+        vertical-max: fli.content-height > fli.height ? fli.content-height - fli.height : 0phx;
         vertical-page-size: fli.height;
 
-        horizontal-max: fli.viewport-width > fli.width ? fli.viewport-width - fli.width : 0phx;
+        horizontal-max: fli.content-width > fli.width ? fli.content-width - fli.width : 0phx;
         horizontal-page-size: fli.width;
 
         scrolled => root.scrolled();
@@ -51,8 +55,8 @@ export component InternalScrollView {
 
         @children
         mouse-drag-pan-enabled: false;
-        viewport-y <=> native.vertical-value;
-        viewport-x <=> native.horizontal-value;
+        content-y <=> native.vertical-value;
+        content-x <=> native.horizontal-value;
     }
 }
 

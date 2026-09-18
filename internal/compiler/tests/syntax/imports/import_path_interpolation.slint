@@ -1,0 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An import path must be a plain string literal, so `\{...}` interpolation is rejected.
+import { XX } from "foo\{1 + 1}.slint";
+//                 >    <error{Expected plain string literal}

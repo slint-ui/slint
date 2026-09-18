@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `aliased` is two-way bound to a global and animated, but the animation's
+// duration reads a component-local property. The animation cannot move onto
+// the global (it would reference component state a singleton can't reach), so
+// `aliased` stays a real component property, two-way bound to the global.
+
+export global Glob {
+    in-out property <int> val: 8;
+}
+
+export component TestCase inherits Window {
+    in property <duration> dur: 200ms;
+    property <int> aliased <=> Glob.val;
+    animate aliased { duration: dur; }
+    out property <int> observed: aliased;
+    public function bump() { aliased += 100; }
+    out property <bool> test: observed == 8;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_observed(), 8);
+instance.invoke_bump();
+// Halfway through the 200ms animation (linear).
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_observed(), 58);
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_observed(), 108);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_observed(), 8);
+instance.invoke_bump();
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_observed(), 58);
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_observed(), 108);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert.equal(instance.observed, 8);
+instance.bump();
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.observed, 58);
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.observed, 108);
+```
+*/

@@ -1,0 +1,49 @@
+---
+title: Two-Way Bindings
+description: Linking two properties with the <=> operator.
+---
+
+A *two-way binding*, written with `<=>`, links two properties so that they always hold the same value;
+writing either side updates the other:
+
+```slint
+export component Example {
+    in property<brush> rect-color <=> r.background;
+    // The type may be omitted; it is then inferred from the other side.
+    in property rect-color2 <=> r.background;
+    r := Rectangle {
+        background: blue;
+    }
+}
+```
+
+The left-hand side is the property or callback being declared or bound;
+the right-hand side references the property or callback it links to.
+
+- Both sides must have the same type.
+  In a property declaration the type may be omitted and is inferred from the other side.
+- The right-hand side references a property — of the same element, another element, the root component,
+  or a [global](../globals/) (`Global.property`) — or a field of matching type within a property of struct type.
+  Linking to a global's property re-exposes that member on the component.
+- Inside a [`for` element](../repetition-and-conditional-elements/) the right-hand side may be the model value,
+  which stays in sync.
+- Both sides must be compatible in input and output: each must be readable and writable wherever the binding
+  reads or writes it.
+- The initial value of the linked pair is the value of the right-hand side.
+
+The same `<=>` syntax forms a *callback alias* that forwards one callback to another (see [Callbacks](../callbacks/#aliases)).
+A callback alias may target a [global](../globals/)'s callback, including from another global — the supported way
+for one global to implement another's callback.
+
+```slint
+global Logic {
+    in-out property <int> the-value;
+    pure callback magic-operation(int) -> int;
+}
+
+export component MainWindow inherits Window {
+    // re-expose the global's members on the component
+    in-out property the-value <=> Logic.the-value;
+    pure callback magic-operation <=> Logic.magic-operation;
+}
+```

@@ -4,15 +4,20 @@
 #![cfg(target_arch = "wasm32")]
 #![deny(clippy::print_stderr, clippy::print_stdout, clippy::disallowed_methods)]
 
-pub mod common;
+#[cfg(feature = "preview-engine")]
+mod connector;
 mod fmt;
 mod language;
+mod lsp_to_editor;
 #[cfg(feature = "preview-engine")]
 mod preview;
-pub mod util;
+mod server_notifier;
 
-use common::LspToPreviews;
-use common::{DocumentCache, Result};
+pub use i_slint_editor_preview as editor_preview;
+pub use i_slint_editor_preview::util;
+
+use editor_preview::LspToPreviews;
+use editor_preview::{DocumentCache, Result};
 use i_slint_live_preview::{
     file_watcher::FileChangeKind,
     protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl},
@@ -20,69 +25,17 @@ use i_slint_live_preview::{
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
 use lsp_types::Url;
+pub use server_notifier::ServerNotifier;
 
 use std::cell::RefCell;
-use std::future::Future;
 use std::io::ErrorKind;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use crate::editor_preview::wasm_prelude::*;
 
 type JsResult<T> = std::result::Result<T, JsError>;
-
-pub mod wasm_prelude {
-    use std::path::{Path, PathBuf};
-
-    /// lsp_url doesn't have method to convert to and from PathBuf for wasm, so just make some
-    pub trait UrlWasm {
-        fn to_file_path(&self) -> Result<PathBuf, ()>;
-        fn from_file_path<P: AsRef<Path>>(path: P) -> Result<lsp_types::Url, ()>;
-    }
-    impl UrlWasm for lsp_types::Url {
-        fn to_file_path(&self) -> Result<PathBuf, ()> {
-            Ok(self.to_string().into())
-        }
-        fn from_file_path<P: AsRef<Path>>(path: P) -> Result<Self, ()> {
-            Self::parse(path.as_ref().to_str().ok_or(())?).map_err(|_| ())
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct ServerNotifier {
-    send_notification: Function,
-    send_request: Function,
-}
-
-impl ServerNotifier {
-    pub fn send_notification<N: lsp_types::notification::Notification>(
-        &self,
-        params: N::Params,
-    ) -> Result<()> {
-        self.send_notification
-            .call2(&JsValue::UNDEFINED, &N::METHOD.into(), &to_value(&params)?)
-            .map_err(|x| format!("Error calling send_notification: {x:?}"))?;
-        Ok(())
-    }
-
-    pub fn send_request<T: lsp_types::request::Request>(
-        &self,
-        request: T::Params,
-    ) -> Result<impl Future<Output = Result<T::Result>>> {
-        let promise = self
-            .send_request
-            .call2(&JsValue::UNDEFINED, &T::METHOD.into(), &to_value(&request)?)
-            .map_err(|x| format!("Error calling send_request: {x:?}"))?;
-        let future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise));
-        Ok(async move {
-            future.await.map_err(|e| format!("{e:?}").into()).and_then(|v| {
-                serde_wasm_bindgen::from_value(v).map_err(|e| format!("{e:?}").into())
-            })
-        })
-    }
-}
 
 impl RequestHandler {
     fn handle_request(
@@ -255,16 +208,17 @@ pub fn create(
     install_panic_hook();
 
     let send_request = Function::from(send_request.clone());
-    let server_notifier = ServerNotifier { send_notification, send_request };
+    let server_notifier = ServerNotifier::new(send_notification, send_request);
     let init_param = serde_wasm_bindgen::from_value(init_param)?;
 
-    let mut compiler_config = crate::common::document_cache::CompilerConfiguration::default();
+    let mut compiler_config =
+        crate::editor_preview::document_cache::CompilerConfiguration::default();
 
     #[cfg(not(feature = "preview-engine"))]
-    let to_preview = LspToPreviews::with_one(common::DummyLspToPreview::default());
+    let to_preview = LspToPreviews::with_one(editor_preview::DummyLspToPreview::default());
     #[cfg(feature = "preview-engine")]
     let to_preview =
-        LspToPreviews::with_one(preview::connector::WasmLspToPreview::new(server_notifier.clone()));
+        LspToPreviews::with_one(connector::WasmLspToPreview::new(server_notifier.clone()));
 
     let to_preview_clone = to_preview.clone();
     compiler_config.open_import_callback = Some(Rc::new(move |path| {
@@ -291,14 +245,18 @@ pub fn create(
 
     Ok(SlintServer {
         ctx: ReentryGuard::new(Context {
-            document_cache,
-            preview_config: Default::default(),
+            session: crate::editor_preview::EditorSession {
+                document_cache,
+                preview_config: Default::default(),
+                open_urls: Default::default(),
+                previews: vec![crate::editor_preview::PreviewConnection {
+                    to_preview,
+                    to_show: Default::default(),
+                }],
+                pending_recompile: Default::default(),
+            },
             init_param,
             server_notifier,
-            to_show: Default::default(),
-            open_urls: Default::default(),
-            to_preview,
-            pending_recompile: Default::default(),
             host_language_rename_dont_ask_again: Default::default(),
         }),
         rh: Rc::new(rh),
@@ -351,7 +309,7 @@ impl SlintServer {
 
         match message {
             M::Diagnostics { diagnostics, version, uri } => {
-                crate::common::lsp_to_editor::notify_lsp_diagnostics(
+                crate::lsp_to_editor::notify_lsp_diagnostics(
                     &ctx.server_notifier,
                     uri,
                     version,
@@ -361,19 +319,22 @@ impl SlintServer {
             M::ShowDocument { file, selection, .. } => {
                 let sn = ctx.server_notifier.clone();
                 wasm_bindgen_futures::spawn_local(async move {
-                    crate::common::lsp_to_editor::send_show_document_to_editor(
-                        sn, file, selection, true,
-                    )
-                    .await
+                    crate::lsp_to_editor::send_show_document_to_editor(sn, file, selection, true)
+                        .await
                 });
             }
             M::PreviewTypeChanged { target } => {
-                ctx.to_preview
+                ctx.session
+                    .primary_preview()
+                    .to_preview
                     .set_local_target(target)
                     .map_err(|err| js_sys::Error::new(&format!("{err}")))?;
             }
-            M::RequestState { .. } => {
-                crate::language::send_state_to_preview(&ctx);
+            M::RequestState { files, settings } => {
+                crate::language::send_requested_state_to_preview(&ctx, &files, &settings);
+            }
+            M::UpdateUserSettings { name, contents } => {
+                crate::language::store_user_settings(&name, &contents);
             }
             M::SendWorkspaceEdit { label, edit } => {
                 forward_workspace_edit(ctx.server_notifier.clone(), label, Ok(edit));
@@ -391,9 +352,22 @@ impl SlintServer {
                     );
             }
             M::DebugMessage { location, message } => {
-                log(&common::preview_log_message_to_string(&location, &message));
+                log(&editor_preview::preview_log_message_to_string(&location, &message));
             }
-            M::ConnectRemote { .. } | M::DisconnectRemote | M::Pong => {
+            M::ConnectRemote { .. }
+            | M::DisconnectRemote
+            | M::SubmitPairingCode { .. }
+            | M::CancelPairing
+            | M::AcceptUnpairedConnection
+            | M::Pong
+            | M::RequestPreview { .. }
+            | M::PairingReady
+            | M::PairingRequired { .. }
+            | M::PairingTokenChallenge { .. }
+            | M::PairingConfirm { .. }
+            | M::PairingAccepted
+            | M::PairingRejected { .. }
+            | M::Exited => {
                 tracing::debug!("Ignoring remote-preview control message in WASM LSP");
             }
         }
@@ -423,9 +397,12 @@ impl SlintServer {
             lsp_types::FileChangeType::DELETED => FileChangeKind::Deleted,
             _ => return Err(JsError::new("Unknown FileChangeType")),
         };
-        language::trigger_file_watcher(&mut ctx, url, typ)
+        let diagnostics = ctx
+            .session
+            .trigger_file_watcher(url, typ)
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
+        crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
     #[wasm_bindgen]
@@ -437,9 +414,12 @@ impl SlintServer {
     ) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
-        language::open_document(&mut ctx, content, uri.clone(), Some(version))
+        let diagnostics = ctx
+            .session
+            .open_document(content, uri.clone(), Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
+        crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
 
@@ -452,9 +432,12 @@ impl SlintServer {
     ) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
-        language::load_document(&mut ctx, content, uri.clone(), Some(version))
+        let diagnostics = ctx
+            .session
+            .load_document(content, uri.clone(), Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
+        crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
 
@@ -462,7 +445,7 @@ impl SlintServer {
     pub async fn close_document(&self, uri: JsValue) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
-        language::close_document(&mut ctx, uri).await.map_err(|e| JsError::new(&e.to_string()))?;
+        ctx.session.close_document(uri).await.map_err(|e| JsError::new(&e.to_string()))?;
         Ok(JsValue::UNDEFINED)
     }
 

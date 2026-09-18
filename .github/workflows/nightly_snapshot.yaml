@@ -13,14 +13,14 @@ on:
                 required: false
                 description: "What to build and publish"
                 options:
-                    - release       # Publish a versioned release: a draft GitHub release and a non-nightly extension.
+                    - release       # Publish a versioned release: crates.io, a draft GitHub release and a non-nightly extension.
                     - full-nightly  # Publish the website snapshot, plus the VS Code extension and the `nightly` release tag.
                     - website-only  # Publish the website snapshot (docs, demos, editor) only.
                     - test          # Build everything, publish nothing.
 
 env:
     # Keep in sync with features in slint_tool_binary.yaml, cpp_package.yaml, api/node/Cargo.toml, and api/python/slint/Cargo.toml
-    SLINT_BINARY_FEATURES: "backend-linuxkms-noseat,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
+    SLINT_BINARY_FEATURES: "backend-linuxkms-libinput,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
     MACOSX_DEPLOYMENT_TARGET: "11.0"
     SLINT_BUILD_NUMBER: ${{ github.run_number }}
     # Use fat LTO for distributed binaries: smaller size and better runtime perf.
@@ -62,6 +62,7 @@ jobs:
         with:
           release: ${{ github.event.inputs.mode == 'release' }}
           app-id: ${{ vars.READ_WRITE_APP_ID }}
+          slint-sc-coverage: true
 
     wasm_demo:
         uses: ./.github/workflows/wasm_demos.yaml
@@ -73,6 +74,17 @@ jobs:
         uses: ./.github/workflows/cpp_package.yaml
         with:
             extra_cmake_flags: ${{ github.event.inputs.mode != 'release' && '-DCPACK_PACKAGE_VERSION=nightly' || '' }}
+
+    # Build and test the Python wheels without publishing them, so that a broken
+    # wheel build shows up here instead of during a release. In release mode
+    # `trigger_package_publishing` dispatches these workflows to publish.
+    python_wheels:
+        if: github.event.inputs.mode != 'release'
+        uses: ./.github/workflows/upload_pypi.yaml
+
+    python_compiler_wheels:
+        if: github.event.inputs.mode != 'release'
+        uses: ./.github/workflows/upload_pypi_slint_compiler.yaml
 
     check-for-secrets:
         runs-on: ubuntu-latest
@@ -105,7 +117,7 @@ jobs:
                       artifact_name: slint-lsp-aarch64-pc-windows-msvc.exe
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.toolchain }}
@@ -128,7 +140,7 @@ jobs:
             SLINT_NO_QT: 1
         runs-on: macos-15-intel
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: x86_64-apple-darwin
@@ -153,7 +165,7 @@ jobs:
             SLINT_NO_QT: 1
         runs-on: macos-26
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-darwin
@@ -174,7 +186,7 @@ jobs:
         needs: [build_vscode_lsp_macos_x86_64, build_vscode_lsp_macos_aarch64]
         runs-on: macos-15
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
               with:
                   path: "src"
             - uses: actions/download-artifact@v8
@@ -215,7 +227,7 @@ jobs:
                     - aarch64-unknown-linux-gnu
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.target }}
@@ -245,14 +257,14 @@ jobs:
             ]
         runs-on: macos-14
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
+        env:
+            PUBLISH: ${{ github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release' }}
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.8
-              with:
-                version: 10.29.3
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6.0.10
             - name: Install GNU Sed
               run: brew install gnu-sed
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                   node-version: 24
                   package-manager-cache: false
@@ -302,42 +314,45 @@ jobs:
               run: pnpm install --frozen-lockfile
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-            - name: Build package and optionally publish to Visual Studio Marketplace
-              id: publishToVSCM
-              uses: HaaLeo/publish-vscode-extension@v2
-              with:
-                  pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
-                  registryUrl: https://marketplace.visualstudio.com
-                  dryRun: ${{ github.event.inputs.mode != 'full-nightly' && github.event.inputs.mode != 'release' }}
-                  packagePath: editors/vscode
-                  dependencies: false
-            - name: Publish to Open VSX Registry
-              continue-on-error: true
-              if: ${{ github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release' }}
-              uses: HaaLeo/publish-vscode-extension@v2
-              with:
-                  pat: ${{ secrets.OPENVSX_PAT }}
-                  extensionFile: ${{ steps.publishToVSCM.outputs.vsixPath }}
-                  packagePath: ""
+            - name: Package the extension
+              id: package
+              working-directory: editors/vscode
+              run: |
+                  pnpm run package
+                  echo "vsixPath=$PWD/$(ls *.vsix)" >> "$GITHUB_OUTPUT"
             - name: "Upload extension artifact"
               uses: actions/upload-artifact@v7
               with:
                   name: slint-vscode.zip
                   path: |
-                      ${{ steps.publishToVSCM.outputs.vsixPath }}
+                      ${{ steps.package.outputs.vsixPath }}
+            - name: Publish to Visual Studio Marketplace
+              if: ${{ env.PUBLISH == 'true' }}
+              working-directory: editors/vscode
+              env:
+                  VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
+              run: pnpm dlx @vscode/vsce publish --packagePath "${{ steps.package.outputs.vsixPath }}"
+            # The marketplace times out regularly, so publish to Open VSX even when it failed.
+            - name: Publish to Open VSX Registry
+              if: ${{ !cancelled() && env.PUBLISH == 'true' && steps.package.outcome == 'success' }}
+              working-directory: editors/vscode
+              env:
+                  OVSX_PAT: ${{ secrets.OPENVSX_PAT }}
+              run: pnpm dlx ovsx publish --packagePath "${{ steps.package.outputs.vsixPath }}"
+            - name: Explain how to publish manually
+              if: ${{ failure() && steps.package.outcome == 'success' }}
+              run: echo "::error::Download the slint-vscode.zip artifact of this run and upload the .vsix by hand"
 
     build-figma-plugin:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
-            - uses: actions/setup-node@v6
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v6.0.8
-              with:
-                version: 10.29.3
+            - uses: pnpm/action-setup@v6.0.10
             - name: Run pnpm install
               working-directory: tools/figma-inspector
               run: pnpm install --frozen-lockfile
@@ -360,7 +375,7 @@ jobs:
     #    if: github.event.inputs.mode != 'test'
     #    runs-on: ubuntu-22.04
     #    steps:
-    #      - uses: actions/checkout@v6
+    #      - uses: actions/checkout@v7
     #      - name: Upload artifact
     #        uses: actions/upload-artifact@v7
     #        with:
@@ -386,7 +401,7 @@ jobs:
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
                 repositories: website
             - name: Clone website directory
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                 repository: slint-ui/website
                 ref: prod
@@ -418,7 +433,7 @@ jobs:
                   name: android-demos
                   path: android
 
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
               with:
                 path: "slint-src"
                 sparse-checkout: .
@@ -441,7 +456,7 @@ jobs:
                 repositories: www-releases
 
             - name: Clone www-releases/releases and slintpad directory
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               if: ${{ github.event.inputs.mode == 'release' }}
               with:
                 repository: slint-ui/www-releases
@@ -452,7 +467,7 @@ jobs:
                   slintpad
 
             - name: Clone www-releases/snapshots directory
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               if: ${{ github.event.inputs.mode != 'release' }}
               with:
                 repository: slint-ui/www-releases
@@ -482,8 +497,8 @@ jobs:
 
                 mkdir -p $output_path/demos/android
                 cp -a ../android/* $output_path/demos/android/
-                # slint-viewer APK/AAB are too big for the web server (APK is a release asset, AAB a CI artifact).
-                rm -f $output_path/demos/android/slint-viewer.apk \
+                # The slint-viewer APKs are release assets (too big for the web server), the AAB a CI artifact.
+                rm -f $output_path/demos/android/slint-viewer-* \
                       $output_path/demos/android/slint-viewer.aab
 
                 # A directory listing so the published folder is browsable.
@@ -647,9 +662,10 @@ jobs:
                   mv slint-lsp-*.zip artifacts/
                   mv slint-compiler-*.tar.gz artifacts/
                   mv figma-plugin.zip artifacts/
-                  # slint-viewer APK ships as a release asset (too big for the web server).
-                  mv android-demos/slint-viewer.apk artifacts/
-            - uses: actions/checkout@v6
+                  # The slint-viewer APKs ship as release assets (too big for the web
+                  # server), with the version file F-Droid polls.
+                  mv android-demos/slint-viewer-* artifacts/
+            - uses: actions/checkout@v7
               with:
                 path: "slint-src"
                 sparse-checkout: docs
@@ -731,6 +747,36 @@ jobs:
                 https://api.github.com/repos/slint-ui/slint-cpp-templates-stm32/actions/workflows/ci.yaml/dispatches \
                 -d '{"ref":"main"}'
 
+    publish_crates_io:
+        runs-on: ubuntu-22.04
+        permissions:
+            id-token: write # required for crates.io trusted publishing
+            contents: read
+        env:
+            CARGO_PROFILE_DEV_DEBUG: 0
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install Qt
+              uses: jurplel/install-qt-action@v4
+              with:
+                  version: 6.5.1
+                  cache: true
+            - uses: ./.github/actions/setup-rust
+            - name: Package and verify all crates (dry run)
+              run: ./scripts/publish.sh --dry-run
+            # The trusted-publishing token only lives 30 minutes, less than the
+            # verification above takes. Mint it afterwards and upload the
+            # already-verified packages with --no-verify.
+            - name: Authenticate with crates.io
+              id: auth
+              uses: rust-lang/crates-io-auth-action@v1
+            - name: Publish to crates.io
+              if: github.event.inputs.mode == 'release'
+              run: ./scripts/publish.sh --no-verify
+              env:
+                  CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
     trigger_package_publishing:
         if: github.event.inputs.mode == 'release'
         needs: [prepare_release]
@@ -761,32 +807,27 @@ jobs:
             CARGO_TARGET_DIR: ${{ github.workspace }}/target
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install Android API platforms
-              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30" "platforms;android-35" "build-tools;35.0.1"
-            - name: Cache cargo-apk, cargo-ndk and resvg
-              id: cargo-tools-cache
-              uses: actions/cache@v5
+            - uses: ./.github/actions/setup-android-viewer-build
+            - name: Install the Android API platform of the demos
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+            - name: Cache cargo-apk
+              id: cargo-apk-cache
+              uses: actions/cache@v6
               with:
-                  path: |
-                      ~/.cargo/bin/cargo-apk
-                      ~/.cargo/bin/cargo-ndk
-                      ~/.cargo/bin/resvg
-                  key: android-cargo-tools-cache
-            # Only build the tools if not cached
+                  path: ~/.cargo/bin/cargo-apk
+                  key: cargo-apk-cache
             - uses: dtolnay/rust-toolchain@stable
-              if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
-            - name: Install cargo-apk, cargo-ndk and resvg
-              if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
-              run: cargo install --locked cargo-apk cargo-ndk resvg
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+            - name: Install cargo-apk
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+              run: cargo install --locked cargo-apk
 
+            # Stable with arm64-v8a for the cargo-apk demos.
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android
-            # The AAB packages all three ABIs; cargo-apk only needs arm64-v8a.
-            - name: Add extra Android Rust targets for the AAB
-              run: rustup target add armv7-linux-androideabi x86_64-linux-android
 
             - name: dump keystore
               run: |
@@ -804,41 +845,14 @@ jobs:
             - name: Build home automation demo
               run: cargo apk build --manifest-path demos/Cargo.toml -p home-automation --target aarch64-linux-android --lib --release
 
-            # Play Store accepts only AABs for new submissions. Build the
-            # bundle, then derive the nightly slint-viewer APK from it so the
-            # viewer is only compiled once.
-            - name: Set up JDK 17 for Android Gradle Plugin
-              uses: actions/setup-java@v5
-              with:
-                  distribution: temurin
-                  java-version: "17"
-            - name: Set up Gradle
-              uses: gradle/actions/setup-gradle@v6
-              with:
-                  # Installs Gradle on PATH; the AAB project has no wrapper jar.
-                  gradle-version: "8.10.2"
-            - name: Build slint-viewer AAB
+            # Play Store accepts only AABs for new submissions; the per-ABI
+            # APKs are for GitHub releases and F-Droid.
+            - name: Build slint-viewer AAB and per-ABI APKs
               env:
                   ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}
                   ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
                   ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
               run: tools/viewer/android/build-aab.sh
-            # A universal APK works on every ABI the bundle carries.
-            - name: Build slint-viewer APK from the AAB
-              env:
-                  ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-                  ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
-              run: |
-                  curl --fail -L -o bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
-                  java -jar bundletool.jar build-apks --mode=universal \
-                      --bundle=tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab \
-                      --output=slint-viewer.apks \
-                      --ks="$CARGO_APK_RELEASE_KEYSTORE" \
-                      --ks-pass="pass:$ANDROID_KEYSTORE_PASSWORD" \
-                      --ks-key-alias="$ANDROID_KEYSTORE_ALIAS"
-                  mkdir -p target/release/apk
-                  unzip -p slint-viewer.apks universal.apk > target/release/apk/slint-viewer.apk
-
             # A full-nightly goes to internal testing; a release goes to
             # production as a draft that a human publishes, so an accidental
             # `release` run never reaches users.
@@ -858,6 +872,7 @@ jobs:
               run: |
                   mkdir -p android-demos
                   cp -a target/release/apk/*.apk android-demos/ || true
+                  cp -a tools/viewer/android/app/build/outputs/apk/release/slint-viewer-* android-demos/ || true
                   cp -a tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab android-demos/ || true
             - name: "upload APK artifact"
               if: always()
@@ -865,3 +880,33 @@ jobs:
               with:
                   name: android-demos
                   path: android-demos/
+
+    # QA the freshly published nightly release: build an ESP-IDF demo against
+    # the prebuilt Slint C++ packages and slint-compiler downloaded from the
+    # `nightly` release tag (SLINT_ESP_LOCAL_EXAMPLE=OFF), the same way users
+    # consume them via FindSlint.cmake. This runs after prepare_release has
+    # updated the nightly tag, so the downloaded artifacts match this commit.
+    qa_esp_idf:
+        if: github.event.inputs.mode == 'full-nightly'
+        needs: [prepare_release]
+        strategy:
+          matrix:
+            esp-idf-version: [release-v5.3, release-v6.0]
+        runs-on: ubuntu-22.04
+        container: espressif/idf:${{ matrix.esp-idf-version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        steps:
+            - name: Fix up pydantic regression (https://github.com/espressif/idf-component-manager/issues/97#issuecomment-3380777944)
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  cd $IDF_PYTHON_ENV_PATH
+                  bin/pip install pydantic==2.11.10
+            - uses: actions/checkout@v7
+            - run: timeout 600 apt-get update && timeout 600 apt-get install -y libfontconfig1-dev
+            - name: Build Printer demo against the nightly package
+              shell: bash
+              working-directory: demos/printerdemo_mcu/esp-idf
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build

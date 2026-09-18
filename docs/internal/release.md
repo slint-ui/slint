@@ -9,8 +9,19 @@ This document describes the Slint release process
   - Corrosion in api/cpp/CMakeLists.txt
   - Tree sitter: in `.github/workflows/ci.yaml` for the `tree-sitter` job, bump the `tag`
     to the latest release as per https://github.com/tree-sitter/tree-sitter/releases
+  - The pins of the reproducible Android viewer build, which F-Droid's recipe has to match:
+    the Rust toolchain in `tools/viewer/android/rust-toolchain.toml` to the current stable,
+    and the `cargo-ndk` and `resvg` versions in `.github/actions/setup-android-viewer-build/action.yaml`
+    to the latest on crates.io.
 
-* Verify that the list of supported platforms in docs/astro/src/content/docs/guide/platforms/desktop.mdx matches what we * Publish the helper_crates, if needed
+* Verify that the list of supported platforms in docs/astro/src/content/docs/guide/platforms/desktop/ matches what we
+  test on the CI
+
+* Publish the helper_crates, if needed
+
+* If a new crate was added since the last release, publish a dummy 0.0.0 version manually so
+  that the crate exists on crates.io, then configure trusted publishing
+  (see the comment in `scripts/publish.sh`)
 
 * Update version number in the documentation  (Only for major release)
   - Crate documentation have sample .toml files (api/rs/lib.rs, api/rs/build/lib.rs, api/rs/README)
@@ -77,11 +88,6 @@ In the mean time, the version in the master branch can be updated
     Select the right `pre-release/x.y` branch, and choose `release` for the mode.
     As a result artifacts will be built and made available for download, a new VS code extension be built and uploaded to the market places (open-vsx.org and microsoft), and the Android viewer uploaded to Google Play as a draft.
 
- - **Publish to crates.io** using the `./scripts/publish.sh`.
-    (This can be done in parallel to the nightly_snapshot build)
-    Before running the script, make sure that your working directory is clean and that you are checked out on the same commit as the one for which the nightly_snapshot.
-    - If new crates were uploaded to crates.io, go to the crates.io settings and send permission invitations
-
  - **Approve to Python Package Index Uploads:** The nightly snapshot workflow also kicks off the different uploads for the Python Package Index. When completed,
    the deployments from the following jobs will need to be approved (GitHub notifies about pending approvals):
   - https://github.com/slint-ui/slint/actions/workflows/upload_pypi.yaml
@@ -140,6 +146,10 @@ In the mean time, the version in the master branch can be updated
 ## Post-release checks
 
 * Check that the build of https://docs.rs/crate/slint/latest and https://docs.rs/crate/slint-interpreter/latest succeeded
+
+* Check that F-Droid picked the release up and could reproduce it: the build shows up on
+  https://monitor.f-droid.org/builds and the version on https://f-droid.org/packages/dev.slint.viewer/.
+  See `tools/viewer/android/fdroid/README.md` for how it finds the release.
 
 * Check that the [`versions.json`](https://github.com/slint-ui/www-releases/blob/master/releases/versions.json) is accurate.
   (Version of the nightly build and no duplicated version)

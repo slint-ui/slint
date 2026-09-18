@@ -17,12 +17,8 @@ pub fn collect_init_code(component: &Rc<Component>) {
             collect_init_code(base);
         }
 
-        if let Some(init_callback) = elem.borrow_mut().bindings.remove("init") {
-            component
-                .init_code
-                .borrow_mut()
-                .constructor_code
-                .push(init_callback.into_inner().expression);
+        if let Some(init_callback) = elem.borrow_mut().take_binding("init") {
+            component.init_code.borrow_mut().constructor_code.push(init_callback.expression);
         }
     });
     for popup in component.popup_windows.borrow().iter() {

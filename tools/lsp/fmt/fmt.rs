@@ -98,11 +98,17 @@ fn format_node(
         SyntaxKind::PropertyDeclaration => {
             return format_property_declaration(node, writer, state);
         }
+        SyntaxKind::PropertyDeprecation => {
+            return format_property_deprecation(node, writer, state);
+        }
         SyntaxKind::Binding => {
             return format_binding(node, writer, state);
         }
         SyntaxKind::TwoWayBinding => {
             return format_two_way_binding(node, writer, state);
+        }
+        SyntaxKind::ImplementStatement => {
+            return format_implement_statement(node, writer, state);
         }
         SyntaxKind::CallbackConnection => {
             return format_callback_connection(node, writer, state);
@@ -142,6 +148,9 @@ fn format_node(
         }
         SyntaxKind::ChildrenPlaceholder => {
             return format_children_placeholder(node, writer, state);
+        }
+        SyntaxKind::SlotDeclaration => {
+            return format_slot_declaration(node, writer, state);
         }
         SyntaxKind::RepeatedElement => {
             return format_repeated_element(node, writer, state);
@@ -188,6 +197,9 @@ fn format_node(
         SyntaxKind::ExportSpecifier => {
             return format_export_specifier(node, writer, state);
         }
+        SyntaxKind::ExportModule => {
+            return format_export_module(node, writer, state);
+        }
         SyntaxKind::ObjectType => {
             return format_object_type(node, writer, state);
         }
@@ -203,11 +215,8 @@ fn format_node(
         SyntaxKind::ImportSpecifier => {
             return format_import_specifier(node, writer, state);
         }
-        SyntaxKind::UsesSpecifier => {
-            return format_uses_specifier(node, writer, state);
-        }
-        SyntaxKind::ImplementsSpecifier => {
-            return format_implements_specifier(node, writer, state);
+        SyntaxKind::Closure => {
+            return format_closure(node, writer, state);
         }
         _ => (),
     }
@@ -417,7 +426,7 @@ fn format_component(
             && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
         let r = whitespace_to_one_of(
             &mut sub,
-            &[SyntaxKind::Identifier, SyntaxKind::UsesSpecifier, SyntaxKind::Element],
+            &[SyntaxKind::Identifier, SyntaxKind::Element],
             writer,
             state,
             " ",
@@ -590,6 +599,26 @@ fn format_property_declaration(
     Ok(())
 }
 
+fn format_property_deprecation(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::At, writer, state, "")?;
+    // The "deprecated" keyword and an optional `("message")`.
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    if node.child_token(SyntaxKind::LParent).is_some() {
+        let _ok = whitespace_to(&mut sub, SyntaxKind::LParent, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::StringLiteral, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::RParent, writer, state, "")?;
+    }
+    // Drop the whitespace between the deprecation and the property; the caller
+    // inserts a single space before the following keyword.
+    state.skip_all_whitespace = true;
+    Ok(())
+}
+
 fn format_binding(
     node: &SyntaxNode,
     writer: &mut impl TokenWriter,
@@ -618,6 +647,26 @@ fn format_two_way_binding(
     }
     let _ok = whitespace_to(&mut sub, SyntaxKind::DoubleArrow, writer, state, " ")?
         && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+    if node.child_token(SyntaxKind::Semicolon).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+        state.new_line();
+    }
+    for s in sub {
+        fold(s, writer, state)?;
+    }
+    Ok(())
+}
+
+fn format_implement_statement(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?; // "implement"
+    let _ok = whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::DoubleArrow, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
     if node.child_token(SyntaxKind::Semicolon).is_some() {
         whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
         state.new_line();
@@ -779,24 +828,6 @@ fn format_qualified_name(
         state.skip_all_whitespace = true;
         fold(n, writer, state)?;
     }
-    /*if !node
-        .last_token()
-        .and_then(|x| x.next_token())
-        .map(|x| {
-            matches!(
-                x.kind(),
-                SyntaxKind::LParent
-                    | SyntaxKind::RParent
-                    | SyntaxKind::Semicolon
-                    | SyntaxKind::Comma
-            )
-        })
-        .unwrap_or(false)
-    {
-        state.insert_whitespace(" ");
-    } else {
-        state.skip_all_whitespace = true;
-    }*/
     Ok(())
 }
 
@@ -1209,6 +1240,20 @@ fn format_children_placeholder(
     for n in node.children_with_tokens() {
         fold(n, writer, state)?;
     }
+    state.new_line();
+    Ok(())
+}
+
+fn format_slot_declaration(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    finish_node(sub, writer, state)?;
     state.new_line();
     Ok(())
 }
@@ -1811,6 +1856,16 @@ fn format_exports_list(
     // Only handle the brace-list case specially; otherwise fall through.
     let has_lbrace = node.children_with_tokens().any(|n| n.kind() == SyntaxKind::LBrace);
     if !has_lbrace {
+        if node.child_node(SyntaxKind::ExportModule).is_some() {
+            // `export * from "..."`
+            let mut sub = node.children_with_tokens();
+            whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+            whitespace_to(&mut sub, SyntaxKind::ExportModule, writer, state, " ")?;
+            state.skip_all_whitespace = true;
+            finish_node(sub, writer, state)?;
+            state.new_line();
+            return Ok(());
+        }
         // `export component ...` or `export struct ...` — delegate to default
         for n in node.children_with_tokens() {
             fold(n, writer, state)?;
@@ -1935,9 +1990,31 @@ fn format_exports_list(
             _ => break,
         }
     }
+    if node.child_node(SyntaxKind::ExportModule).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::ExportModule, writer, state, " ")?;
+    }
     state.skip_all_whitespace = true;
     finish_node(sub, writer, state)?;
     state.new_line();
+    Ok(())
+}
+
+fn format_export_module(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    if node.child_token(SyntaxKind::Star).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::Star, writer, state, "")?;
+        whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
+    } else {
+        whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    }
+    whitespace_to(&mut sub, SyntaxKind::StringLiteral, writer, state, " ")?;
+    whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    state.skip_all_whitespace = true;
+    finish_node(sub, writer, state)?;
     Ok(())
 }
 
@@ -2127,16 +2204,53 @@ fn format_import_specifier(
 ) -> Result<(), std::io::Error> {
     let is_too_long = node.text().len() > 80.into();
 
+    let mut in_module_clause = node.child_node(SyntaxKind::ImportIdentifierList).is_none();
     for n in node.children_with_tokens() {
         match n.kind() {
             SyntaxKind::ImportIdentifierList => {
                 if let NodeOrToken::Node(n) = n {
                     format_import_identifier(&n, writer, state, is_too_long)?
                 };
+                in_module_clause = true;
+                state.insert_whitespace(" ");
+            }
+            // `from`, or `import` for a font
+            SyntaxKind::Identifier if in_module_clause => {
+                fold(n, writer, state)?;
+                state.insert_whitespace(" ");
+            }
+            // the module path
+            SyntaxKind::StringLiteral if in_module_clause => {
+                fold(n, writer, state)?;
+                state.skip_all_whitespace = true;
             }
             _ => {
                 fold(n, writer, state)?;
             }
+        }
+    }
+
+    if node.child_token(SyntaxKind::Semicolon).is_some() {
+        state.new_line();
+    }
+
+    Ok(())
+}
+
+fn format_closure(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    for s in node.children_with_tokens() {
+        state.skip_all_whitespace = true;
+        match s.kind() {
+            SyntaxKind::FatArrow => {
+                state.insert_whitespace(" ");
+                fold(s, writer, state)?;
+                state.insert_whitespace(" ");
+            }
+            _ => fold(s, writer, state)?,
         }
     }
 
@@ -2243,71 +2357,6 @@ fn format_import_identifier(
             }
             _ => {
                 state.skip_all_whitespace = true;
-                fold(n, writer, state)?;
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Formats a uses specifier.
-///
-/// Ensures that the QualifiedName and `from` Identifier are separated by a space.
-fn format_uses_specifier(
-    node: &SyntaxNode,
-    writer: &mut impl TokenWriter,
-    state: &mut FormatState,
-) -> Result<(), std::io::Error> {
-    let sub = node.children_with_tokens();
-    for n in sub {
-        match n.kind() {
-            SyntaxKind::Whitespace => {
-                fold(n, writer, state)?;
-            }
-            SyntaxKind::LBrace => {
-                fold(n, writer, state)?;
-            }
-            SyntaxKind::UsesIdentifier => {
-                if let Some(uses_node) = n.as_node() {
-                    state.skip_all_whitespace = true;
-                    for child in uses_node.children_with_tokens() {
-                        match child.kind() {
-                            SyntaxKind::Identifier => {
-                                state.whitespace_to_add = Some(" ".into());
-                                fold(child, writer, state)?;
-                            }
-                            _ => {
-                                fold(child, writer, state)?;
-                            }
-                        }
-                    }
-                }
-            }
-            SyntaxKind::RBrace => {
-                fold(n, writer, state)?;
-            }
-            _ => {
-                state.skip_all_whitespace = true;
-                fold(n, writer, state)?;
-            }
-        }
-    }
-    Ok(())
-}
-
-fn format_implements_specifier(
-    node: &SyntaxNode,
-    writer: &mut impl TokenWriter,
-    state: &mut FormatState,
-) -> Result<(), std::io::Error> {
-    let sub = node.children_with_tokens();
-    for n in sub {
-        match n.kind() {
-            SyntaxKind::Identifier | SyntaxKind::QualifiedName => {
-                fold(n, writer, state)?;
-                state.insert_whitespace(" ");
-            }
-            _ => {
                 fold(n, writer, state)?;
             }
         }
@@ -2423,6 +2472,32 @@ Main := Window {
 
     pure callback some-fn({x: int}, string);
     in property <int> foo: 42;
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn deprecated_property() {
+        assert_formatting(
+            r#"
+component W {
+    in-out property <int> new-prop;
+    @deprecated  in-out    property   <int>   old-prop   <=>   new-prop;
+    @deprecated
+
+        in-out property <int> spaced-prop <=> new-prop;
+    @deprecated (   "Use 'new-prop' instead"   )   in-out property <int> older-prop <=> new-prop;
+    @deprecated("msg")in-out property<int>compact<=>new-prop;
+}
+"#,
+            r#"
+component W {
+    in-out property <int> new-prop;
+    @deprecated in-out property <int> old-prop <=> new-prop;
+    @deprecated in-out property <int> spaced-prop <=> new-prop;
+    @deprecated("Use 'new-prop' instead") in-out property <int> older-prop <=> new-prop;
+    @deprecated("msg") in-out property <int> compact <=> new-prop;
 }
 "#,
         );
@@ -2630,6 +2705,56 @@ component A {  if condition : Text {  }  }
             r#"
 component A {
     if condition: Text { }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn match_element() {
+        assert_formatting(
+            r#"component A { match   value  {   0  :  Text {  }   1: Rectangle { background: red; }  } }
+"#,
+            r#"component A {
+    match value {
+        0: Text { }
+        1: Rectangle {
+            background: red;
+        }
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn match_wildcard_case() {
+        assert_formatting(
+            r#"component A { match ( value )  {  0: Text { }    *   :   Text { text: "other"; }  } }
+"#,
+            r#"component A {
+    match (value) {
+        0: Text { }
+        *: Text {
+            text: "other";
+        }
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn match_empty_case() {
+        assert_formatting(
+            r#"component A { match value {  0:{}   1: Text { }   *:{  } } }
+"#,
+            r#"component A {
+    match value {
+        0: { }
+        1: Text { }
+        *: { }
+    }
 }
 "#,
         );
@@ -3210,6 +3335,58 @@ export struct LineEditData {
     }
 
     #[test]
+    fn export_from() {
+        assert_formatting(
+            "export {Foo,Bar}from \"some/path.slint\";",
+            "export { Foo, Bar } from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export {Foo  as   Bar}from \"some/path.slint\";\n",
+            "export { Foo as Bar } from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export { SuperLongTypeName, AnotherVeryLongTypeName, YetAnotherExtremelyLongTypeName }from \"some/path.slint\";\n",
+            "export {\n    SuperLongTypeName,\n    AnotherVeryLongTypeName,\n    YetAnotherExtremelyLongTypeName,\n} from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export { Foo, }from \"some/path.slint\";\n",
+            "export {\n    Foo,\n} from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export { Foo, }from \"some/path.slint\";\n",
+            "export {\n    Foo,\n} from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export { Foo }\nfrom \"some/path.slint\";\n",
+            "export { Foo } from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export { Foo, /* keep me */    Bar }    from \"some/path.slint\";\n",
+            "export { Foo, /* keep me */    Bar } from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export {Foo}from   \"some/path.slint\"  ;\n",
+            "export { Foo } from \"some/path.slint\";\n",
+        );
+    }
+
+    #[test]
+    fn export_star_from() {
+        assert_formatting(
+            "export * from \"some/path.slint\";\n",
+            "export * from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export *    from   \"some/path.slint\";\n",
+            "export * from \"some/path.slint\";\n",
+        );
+        assert_formatting(
+            "export  *  from   \"some/path.slint\"  ;\n",
+            "export * from \"some/path.slint\";\n",
+        );
+    }
+
+    #[test]
     fn preserve_empty_lines() {
         assert_formatting(
             r#"
@@ -3430,6 +3607,17 @@ export component MainWindow2 inherits Rectangle {
     }
 
     #[test]
+    fn implement_statement() {
+        assert_formatting(
+            "export component Foobar{implement   Foo<=>self ;}",
+            r#"export component Foobar {
+    implement Foo <=> self;
+}
+"#,
+        );
+    }
+
+    #[test]
     fn callback_connection() {
         assert_formatting(
             "export component Foobar{ init=>{  debug (1 );} \n\nfoo=>{}  clicked =>   debug(2) ; TouchArea { clicked => root.clicked(); moved=>{debug(3)};\n\n//some comment\n        bar=>{} }  }",
@@ -3553,6 +3741,20 @@ export component MainWindow2 inherits Rectangle {
         );
     }
 
+    #[test]
+    fn closure() {
+        assert_formatting(
+            "component X { property <[int]> arr: [1, 2, 3, 4, 5]; function foo() { arr.any((x)\n     =>   x         ==  1     ); } }",
+            r#"component X {
+    property <[int]> arr: [1, 2, 3, 4, 5];
+    function foo() {
+        arr.any((x) => x == 1);
+    }
+}
+"#,
+        );
+    }
+
     // cspell:disable
     #[test]
     fn import_line_too_long() {
@@ -3560,7 +3762,8 @@ export component MainWindow2 inherits Rectangle {
             r#"import { SuperFooooooooooooooooooooooooooooooooooooooooooooooooo } from "./here.slint";"#,
             r#"import {
     SuperFooooooooooooooooooooooooooooooooooooooooooooooooo,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
     }
 
@@ -3577,43 +3780,112 @@ export component MainWindow2 inherits Rectangle {
     fn single_import_space() {
         assert_formatting(
             r#"import {Foo} from "./here.slint";"#,
-            r#"import { Foo } from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import { Foo} from "./here.slint";"#,
-            r#"import { Foo } from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo } from "./here.slint";"#,
-            r#"import { Foo } from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {     Foo     } from "./here.slint";"#,
-            r#"import { Foo } from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo as FooBar } from "./here.slint";"#,
-            r#"import { Foo as FooBar } from "./here.slint";"#,
+            r#"import { Foo as FooBar } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo as FooBar} from "./here.slint";"#,
-            r#"import { Foo as FooBar } from "./here.slint";"#,
+            r#"import { Foo as FooBar } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foooooooooooooooooooooooooooooooo as FooooooooooooooooooooooooooooooooBar} from "./here.slint";"#,
             r#"import {
     Foooooooooooooooooooooooooooooooo as FooooooooooooooooooooooooooooooooBar,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
     }
 
     // cspell:enable
+
+    #[test]
+    fn import_statement_per_line() {
+        assert_formatting(
+            "import { Foo } from \"a.slint\"; import { Bar } from \"b.slint\";\n",
+            "import { Foo } from \"a.slint\";\nimport { Bar } from \"b.slint\";\n",
+        );
+        assert_formatting(
+            "import \"a.ttf\"; import \"b.ttf\";\n",
+            "import \"a.ttf\";\nimport \"b.ttf\";\n",
+        );
+        assert_formatting(
+            "import { Foo } from \"a.slint\"; component Baz {}\n",
+            "import { Foo } from \"a.slint\";\ncomponent Baz { }\n",
+        );
+        // A trailing comment belongs to the line it was written on
+        assert_formatting(
+            "import { Foo } from \"a.slint\"; // trailing\n",
+            "import { Foo } from \"a.slint\"; // trailing\n",
+        );
+    }
+
+    #[test]
+    fn import_font() {
+        assert_formatting(r#"import "some/font.ttf";"#, "import \"some/font.ttf\";\n");
+        assert_formatting(r#"import   "some/font.ttf"  ;"#, "import \"some/font.ttf\";\n");
+        assert_formatting(
+            "import   \"some/font.ttf\"  ;\nimport {Foo}from \"./here.slint\";\n",
+            "import \"some/font.ttf\";\nimport { Foo } from \"./here.slint\";\n",
+        );
+    }
+
+    #[test]
+    fn import_from() {
+        assert_formatting(
+            r#"import {Foo,Bar}from "./here.slint";"#,
+            r#"import { Foo, Bar } from "./here.slint";
+"#,
+        );
+        assert_formatting(
+            r#"import {Foo  as   Bar}from "./here.slint";"#,
+            r#"import { Foo as Bar } from "./here.slint";
+"#,
+        );
+        assert_formatting(
+            "import { Foo }\nfrom \"./here.slint\";",
+            r#"import { Foo } from "./here.slint";
+"#,
+        );
+        assert_formatting(
+            r#"import {Foo}from   "./here.slint"  ;"#,
+            r#"import { Foo } from "./here.slint";
+"#,
+        );
+        assert_formatting(
+            r#"import { Foo, }from "./here.slint";"#,
+            r#"import {
+    Foo,
+} from "./here.slint";
+"#,
+        );
+    }
 
     #[test]
     /// format_import_identifier
@@ -3623,28 +3895,32 @@ export component MainWindow2 inherits Rectangle {
             r#"import {Foo,} from "./here.slint";"#,
             r#"import {
     Foo,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {  Foo,} from "./here.slint";"#,
             r#"import {
     Foo,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo,  } from "./here.slint";"#,
             r#"import {
     Foo,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo as Fur,  } from "./here.slint";"#,
             r#"import {
     Foo as Fur,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
     }
 
@@ -3653,7 +3929,8 @@ export component MainWindow2 inherits Rectangle {
     fn multiple_imports_behavior() {
         assert_formatting(
             r#"import {Foo, Bar} from "./here.slint";"#,
-            r#"import { Foo, Bar } from "./here.slint";"#,
+            r#"import { Foo, Bar } from "./here.slint";
+"#,
         );
 
         assert_formatting(
@@ -3661,22 +3938,26 @@ export component MainWindow2 inherits Rectangle {
             r#"import {
     Foo,
     Bar,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo,Bar  } from "./here.slint";"#,
-            r#"import { Foo, Bar } from "./here.slint";"#,
+            r#"import { Foo, Bar } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import {Foo,Bar as BarBer } from "./here.slint";"#,
-            r#"import { Foo, Bar as BarBer } from "./here.slint";"#,
+            r#"import { Foo, Bar as BarBer } from "./here.slint";
+"#,
         );
 
         assert_formatting(
             r#"import { Foo, Bar} from "./here.slint";"#,
-            r#"import { Foo, Bar } from "./here.slint";"#,
+            r#"import { Foo, Bar } from "./here.slint";
+"#,
         );
 
         assert_formatting(
@@ -3684,7 +3965,8 @@ export component MainWindow2 inherits Rectangle {
     Foo,
     Bar
 } from "./here.slint";"#,
-            r#"import { Foo, Bar } from "./here.slint";"#,
+            r#"import { Foo, Bar } from "./here.slint";
+"#,
         );
 
         assert_formatting(
@@ -3692,7 +3974,8 @@ export component MainWindow2 inherits Rectangle {
     Foo as Fur,
     Bar
 } from "./here.slint";"#,
-            r#"import { Foo as Fur, Bar } from "./here.slint";"#,
+            r#"import { Foo as Fur, Bar } from "./here.slint";
+"#,
         );
     }
 
@@ -3706,7 +3989,8 @@ export component MainWindow2 inherits Rectangle {
             r#"import {
     Foo, // comment foo
     Bar,   // comment bar
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
@@ -3717,7 +4001,8 @@ export component MainWindow2 inherits Rectangle {
             r#"import {
     Foo, // comment foo
     Bar,   // comment bar
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
@@ -3728,7 +4013,8 @@ export component MainWindow2 inherits Rectangle {
             r#"import {
     Foo, // comment foo
     Bar as BarBer,   // comment bar
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
     }
 
@@ -3750,7 +4036,8 @@ export component MainWindow2 inherits Rectangle {
     Snaf,
     Tar, // comment
     Jar,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
         );
 
         assert_formatting(
@@ -3764,7 +4051,29 @@ export component MainWindow2 inherits Rectangle {
     Tatta,
     Tar,
     Jar,
-} from "./here.slint";"#,
+} from "./here.slint";
+"#,
+        );
+    }
+
+    #[test]
+    fn nested_closure() {
+        assert_formatting(
+            "component X { property <[[int]]> arr: [[1, 2, 3, 4, 5]]; function foo() { arr.any((x)     =>   x.all((y)   => y   ==  7     )      ); } }",
+            r#"component X {
+    property <[[int]]> arr: [[1, 2, 3, 4, 5]];
+    function foo() { arr.any((x) => x.all((y) => y == 7)); }
+}
+"#,
+        );
+
+        assert_formatting(
+            "component X { property <[[{age: int}]]> groups: []; function foo() { groups.any((group)     =>   group.any((person)   => person.age   >  20     ) && group.length == 2      ); } }",
+            r#"component X {
+    property <[[{age: int}]]> groups: [];
+    function foo() { groups.any((group) => group.any((person) => person.age > 20) && group.length == 2); }
+}
+"#,
         );
     }
 }

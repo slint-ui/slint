@@ -110,7 +110,7 @@ test("with a linkMap, <Link> resolves to a .md sibling under the base path", asy
             basePath: "/docs/",
             linkMap: {
                 Expressions: {
-                    href: "guide/language/coding/expressions-and-statements/#anchor",
+                    href: "reference/language/expressions/#anchor",
                 },
             },
         },
@@ -118,7 +118,7 @@ test("with a linkMap, <Link> resolves to a .md sibling under the base path", asy
     const text = await res.text();
     assert.match(
         text,
-        /\[Expr\]\(\/docs\/guide\/language\/coding\/expressions-and-statements\.md#anchor\)/,
+        /\[Expr\]\(\/docs\/reference\/language\/expressions\.md#anchor\)/,
     );
 });
 

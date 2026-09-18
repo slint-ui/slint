@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue #12333: the loop goes through the `viewport-height` alias. The Rectangle fills the
+// Flickable's content element, whose height comes from `flickable.content-height`.
+
+component ScrollView {
+    in-out property <length> viewport-height <=> flickable.content-height;
+
+    flickable := Flickable {
+//               >        <error{The binding for the property 'content-height' is part of a binding loop (flickable.content-height -> flickable-content.height -> cell-info.height -> flickable.content-height)}
+        width: root.width;
+        height: root.height;
+
+        @children
+    }
+}
+
+export component TestCase inherits Window {
+    ScrollView {
+        viewport-height: cell-info.height;
+
+        cell-info := Rectangle { }
+//                   >        <error{The binding for the property 'height' is part of a binding loop (flickable.content-height -> flickable-content.height -> cell-info.height -> flickable.content-height)}
+    }
+}

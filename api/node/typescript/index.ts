@@ -19,6 +19,9 @@ export { ArrayModel } from "./models";
 
 export { language } from "./generated/language";
 
+import * as platform from "./platform";
+export { platform };
+
 import { Diagnostic } from "../binding.cjs";
 
 import { fileURLToPath } from "node:url";
@@ -71,13 +74,13 @@ export interface Window {
     /** Gets or sets the physical size of the window on the screen, */
     physicalSize: Size;
 
-    /** Gets or sets the window's fullscreen state **/
+    /** Gets or sets the window's fullscreen state. */
     fullscreen: boolean;
 
-    /** Gets or sets the window's maximized state **/
+    /** Gets or sets the window's maximized state. */
     maximized: boolean;
 
-    /** Gets or sets the window's minimized state **/
+    /** Gets or sets the window's minimized state. */
     minimized: boolean;
 
     /**
@@ -97,6 +100,15 @@ export interface Window {
 
     /** Issues a request to the windowing system to re-render the contents of the window. */
     requestRedraw(): void;
+
+    /**
+     * Dispatches a window event to the scene.
+     *
+     * Returns whether the scene accepted the event or rejected it.
+     */
+    dispatchEvent(
+        event: platform.WindowEvent,
+    ): platform.WindowEventDispatchResult;
 }
 
 /**
@@ -384,13 +396,31 @@ function loadSlint(loadData: LoadData): Object {
                     );
                 }
 
+                // A `.slint` name may contain dashes, which JavaScript won't
+                // take as a plain identifier, so the properties and callbacks
+                // of a component are exposed under their translated name.
+                // Accept both spellings here, so that the object passed to the
+                // constructor reads like the component it initializes.
+                const componentDefinition = instance.definition();
+                const declaredName = new Map<string, string>();
+                for (const name of [
+                    ...componentDefinition.properties.map((prop) => prop.name),
+                    ...componentDefinition.callbacks,
+                ]) {
+                    declaredName.set(name, name);
+                    declaredName.set(translateName(name), name);
+                }
+
                 for (var key in properties) {
                     const value = properties[key];
+                    // Unknown names are passed through, to be reported by the
+                    // setter below.
+                    const name = declaredName.get(key) ?? key;
 
                     if (value instanceof Function) {
-                        instance.setCallback(key, value);
+                        instance.setCallback(name, value);
                     } else {
-                        instance.setProperty(key, properties[key]);
+                        instance.setProperty(name, properties[key]);
                     }
                 }
 
@@ -732,7 +762,8 @@ class EventLoop {
             }
         }
 
-        // Fallback for Windows, Deno, and runtimes without uv_backend_fd().
+        // Fallback for Deno and runtimes where libuv's I/O source
+        // can't be watched.
         {
             const nodejsPollInterval = 16;
             const id = setInterval(() => {
@@ -782,13 +813,13 @@ var globalEventLoop: EventLoop = new EventLoop();
  *                          on its own under the default, so set this to `false` only when an
  *                          application must run without any visible UI. (default true).
  *
- * On Linux and macOS with Node.js,
- * Slint uses an efficient event loop integration that watches libuv's backend
- * file descriptor from a background thread.
+ * On Linux, macOS, and Windows with Node.js,
+ * Slint uses an efficient event loop integration that watches libuv's
+ * I/O source from a background thread.
  * This provides zero idle CPU usage and near-instant response to both UI and
  * JavaScript events.
  *
- * On Windows and other runtimes (Deno),
+ * On other runtimes (Deno),
  * the integration falls back to polling at 16 millisecond intervals,
  * which consumes a small amount of CPU when idle.
  */

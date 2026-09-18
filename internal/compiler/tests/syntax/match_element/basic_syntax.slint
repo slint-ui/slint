@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component Foo {
-    in-out property <int> foo;
+    in-out property <bool> foo;
     match foo {
-        0: Rectangle { }
-        1: Rectangle { }
+        true: Rectangle { }
+        false: Rectangle { }
     }
 }
 
@@ -34,4 +34,23 @@ export component Baz {
         3: Rectangle { }
         *: Rectangle { }
     }
+}
+
+export component NegativeInt {
+    in-out property <int> num: 0;
+    match num {
+        -5: Rectangle { }
+        5: Rectangle { }
+        *: Rectangle { }
+    }
+}
+
+export component EmptyMatchElement {
+    in-out property <int> xx: 0;
+    match xx {
+//  >error{Expected at least one case}
+
+    }
+//  <error{Expected at least one case}
+    in-out property <int> yy: 20;
 }

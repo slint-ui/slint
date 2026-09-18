@@ -1,0 +1,101 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, PaintStyle, Metrics, ButtonStyle } from "../../style.slint";
+
+export component InspectorIconButton inherits Rectangle {
+    in property <ButtonStyle> style: Style.inspector-icon-button;
+    in property <string> kind;
+    in property <string> label: root.kind;
+    in property <bool> selected: false;
+    callback clicked;
+    private property <PaintStyle> paint: root.selected ? root.style.appearance.pressed
+        : touch.has-hover || button-focus.has-focus ? root.style.appearance.hover : root.style.appearance.normal;
+
+    width: root.style.height;
+    height: root.style.height;
+    border-radius: root.style.radius;
+    background: root.paint.background;
+    border-width: button-focus.has-focus ? root.style.border-width : 0px;
+    border-color: button-focus.has-focus ? root.style.appearance.focus-border : root.paint.border;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-checked: root.selected;
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    button-focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == Key.Space {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    if root.kind == "eye": Rectangle {
+        x: 3.5px;
+        y: 5.5px;
+        width: 11px;
+        height: 7px;
+        border-width: Metrics.border-width;
+        border-color: root.paint.foreground;
+        border-radius: 5.5px;
+
+        Rectangle {
+            width: 3px;
+            height: 3px;
+            border-radius: 1.5px;
+            background: root.paint.foreground;
+        }
+    }
+
+    if root.kind == "drop": Rectangle {
+        x: 6.5px;
+        y: 3px;
+        width: 6px;
+        height: 11px;
+        border-width: Metrics.border-width;
+        border-color: root.paint.foreground;
+        border-radius: Metrics.radius-small;
+        transform-rotation: 28deg;
+    }
+
+    if root.kind == "type-grid": Rectangle {
+        for row in 2: Rectangle {
+            for col in 2: Rectangle {
+                x: 4px + col * 6px;
+                y: 4px + row * 6px;
+                width: 3px;
+                height: 3px;
+                border-radius: 1.5px;
+                border-width: Metrics.border-width;
+                border-color: root.style.appearance.normal.foreground;
+            }
+        }
+    }
+
+    if root.kind == "sliders": Rectangle {
+        for col in 3: Rectangle {
+            x: 4px + col * 4.5px;
+            y: 4px;
+            width: 1px;
+            height: 10px;
+            background: root.style.appearance.normal.foreground;
+            border-radius: 1px;
+        }
+        Rectangle { x: 2.5px; y: 6.5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
+        Rectangle { x: 7px; y: 10.5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
+        Rectangle { x: 11.5px; y: 5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            button-focus.focus();
+            root.clicked();
+        }
+    }
+}

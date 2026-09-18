@@ -16,8 +16,8 @@ export component Example inherits Window {
     ScrollView {
         width: 200px;
         height: 200px;
-        viewport-width: 300px;
-        viewport-height: 300px;
+        content-width: 300px;
+        content-height: 300px;
         Rectangle { width: 30px; height: 30px; x: 275px; y: 50px; background: blue; }
         Rectangle { width: 30px; height: 30px; x: 175px; y: 130px; background: red; }
         Rectangle { width: 30px; height: 30px; x: 25px; y: 210px; background: yellow; }
@@ -27,14 +27,14 @@ export component Example inherits Window {
 ```
 </CodeSnippetMD>
 
-A Scrollview contains a viewport that is bigger than the view and can be
+A ScrollView shows a view onto content that is bigger than the visible area and can be
 scrolled. Compared to a plain <Link type="Flickable"/> it has scrollbar to interact with.
 
-The ScrollView is scrollable if the `viewport-width` and `viewport-height` properties
+The ScrollView is scrollable if the `content-width` and `content-height` properties
 are bigger than the size of the visible area.
 
-If the ScrollView contains a layout, the default value for the `viewport-width` and
-`viewport-height` is the minimum size of that layout.
+If the ScrollView contains a layout, the default value for the `content-width` and
+`content-height` is the minimum size of that layout.
 
 :::note[Note]
 A ScrollView will always instantiate all of its children, so its performance may degrade with large number of children, even if they are not visible.
@@ -59,24 +59,28 @@ Panning with a touch screen and scrolling with the mouse wheel works regardless 
 Used to render the frame as focused or unfocused, but doesn't change the behavior of the widget.
 </SlintProperty>
 
-### viewport-width
-<SlintProperty propName="viewport-width" typeName="length" propertyVisibility="in-out">
-The width of the viewport of the scrollview.
+### content-width
+<SlintProperty propName="content-width" typeName="length" propertyVisibility="in-out">
+The width of the scrollable content of the scrollview.
+This property was formerly known as `viewport-width`, which is still available as a deprecated alias.
 </SlintProperty>
 
-### viewport-height
-<SlintProperty propName="viewport-height" typeName="length" propertyVisibility="in-out">
-The height of the viewport of the scrollview.
+### content-height
+<SlintProperty propName="content-height" typeName="length" propertyVisibility="in-out">
+The height of the scrollable content of the scrollview.
+This property was formerly known as `viewport-height`, which is still available as a deprecated alias.
 </SlintProperty>
 
-### viewport-x
-<SlintProperty propName="viewport-x" typeName="length" propertyVisibility="in-out">
-The `x` position of the scrollview relative to the viewport. This is usually a negative value.
+### content-x
+<SlintProperty propName="content-x" typeName="length" propertyVisibility="in-out">
+The `x` position of the scrollable content relative to the scrollview. This is usually a negative value.
+This property was formerly known as `viewport-x`, which is still available as a deprecated alias.
 </SlintProperty>
 
-### viewport-y
-<SlintProperty propName="viewport-y" typeName="length" propertyVisibility="in-out">
-The `y` position of the scrollview relative to the viewport. This is usually a negative value.
+### content-y
+<SlintProperty propName="content-y" typeName="length" propertyVisibility="in-out">
+The `y` position of the scrollable content relative to the scrollview. This is usually a negative value.
+This property was formerly known as `viewport-y`, which is still available as a deprecated alias.
 </SlintProperty>
 
 ### visible-width
@@ -102,22 +106,22 @@ The horizontal scroll bar visibility policy.
 ## Callbacks
 
 ### scrolled()
-Invoked when `viewport-x` or `viewport-y` is changed by a user action (dragging, scrolling).
+Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
 
 ```slint {11-14}
 ScrollView {
     width: 200px;
     height: 200px;
-    viewport-width: 300px;
-    viewport-height: 300px;
+    content-width: 300px;
+    content-height: 300px;
     Rectangle { width: 30px; height: 30px; x: 275px; y: 50px; background: blue; }
     Rectangle { width: 30px; height: 30px; x: 175px; y: 130px; background: red; }
     Rectangle { width: 30px; height: 30px; x: 25px; y: 210px; background: yellow; }
     Rectangle { width: 30px; height: 30px; x: 98px; y: 55px; background: orange; }
 
     scrolled() => {
-        debug("viewport-x: ", self.viewport-x);
-        debug("viewport-y: ", self.viewport-y);
+        debug("content-x: ", self.content-x);
+        debug("content-y: ", self.content-y);
     }
 }
 ```

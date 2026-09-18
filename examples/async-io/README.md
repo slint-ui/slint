@@ -10,7 +10,7 @@ The http GET requests fetch the closing prices of a few publicly traded stocks, 
 
 The Rust version is contained in [`main.rs`](./main.rs). It uses the `request` crate to establish a network connection and issue the HTTP get requests, using Rusts `async` functions. These are run inside a future run with `slint::spawn_local()`, where we can await for the result of the network request and update the UI directly - as we're being run in the UI thread.
 
-Run the Rust version via `cargo run -p stockticker`.
+Run the Rust version via `cargo run --manifest-path examples/async-io/Cargo.toml` from the root of the repository.
 
 # Python
 

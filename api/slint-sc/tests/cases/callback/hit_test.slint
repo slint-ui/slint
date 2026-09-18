@@ -1,0 +1,129 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    callback lower-clicked;
+    callback upper-clicked;
+    callback beyond-clicked;
+    callback moving-clicked;
+    in-out property <length> moving-x;
+    background: #202020;
+
+    // The two areas overlap between x 16 and x 32
+    TouchArea {
+        x: 0px;
+        y: 0px;
+        width: 32px;
+        height: 32px;
+        clicked => { root.lower-clicked(); }
+    }
+    TouchArea {
+        x: 16px;
+        y: 0px;
+        width: 32px;
+        height: 32px;
+        clicked => { root.upper-clicked(); }
+    }
+
+    // Reaches well past its parent, which doesn't clip it
+    Rectangle {
+        x: 0px;
+        y: 40px;
+        width: 4px;
+        height: 4px;
+        background: #404040;
+        TouchArea {
+            x: 8px;
+            y: 0px;
+            width: 16px;
+            height: 16px;
+            clicked => { root.beyond-clicked(); }
+        }
+    }
+
+    TouchArea {
+        x: root.moving-x;
+        y: 56px;
+        width: 8px;
+        height: 8px;
+        clicked => { root.moving-clicked(); }
+    }
+}
+
+/*
+```rust
+#[derive(Default)]
+struct Application {
+    lower: u32,
+    upper: u32,
+    beyond: u32,
+    moving: u32,
+}
+impl TestCaseCallbacks for Application {
+    fn on_lower_clicked(&mut self, _component: &mut TestCase) { self.lower += 1; }
+    fn on_upper_clicked(&mut self, _component: &mut TestCase) { self.upper += 1; }
+    fn on_beyond_clicked(&mut self, _component: &mut TestCase) { self.beyond += 1; }
+    fn on_moving_clicked(&mut self, _component: &mut TestCase) { self.moving += 1; }
+}
+
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+let mut application = Application::default();
+let press = |x: &mut TestCase, app: &mut Application, at: slint_sc::Point| {
+    x.dispatch_touch_event(slint_sc::TouchEvent::pressed(at), app);
+};
+let release = |x: &mut TestCase, app: &mut Application, at: slint_sc::Point| {
+    x.dispatch_touch_event(slint_sc::TouchEvent::released(at), app);
+};
+let click = |x: &mut TestCase, app: &mut Application, at: slint_sc::Point| {
+    press(x, app, at);
+    release(x, app, at);
+};
+
+// Where only the lower area reaches, it's the one clicked
+click(&mut x, &mut application, slint_sc::Point::new(8, 8));
+assert_eq!((application.lower, application.upper), (1, 0));
+
+// Where both reach, only the one that paints on top is
+//#sls.input.hit.topmost
+click(&mut x, &mut application, slint_sc::Point::new(20, 8));
+assert_eq!((application.lower, application.upper), (1, 1));
+
+// An area is hit outside its parent's geometry, just as it paints there
+//#sls.input.hit.no-parent-clip
+click(&mut x, &mut application, slint_sc::Point::new(16, 48));
+assert_eq!(application.beyond, 1);
+
+// A press and a release on different areas are no click, and neither leaves a
+// press behind for the next release to pair with
+//#sls.input.click.mismatch
+press(&mut x, &mut application, slint_sc::Point::new(8, 8));
+release(&mut x, &mut application, slint_sc::Point::new(40, 8));
+assert_eq!((application.lower, application.upper), (1, 1));
+
+// A release over no area at all is no click either
+press(&mut x, &mut application, slint_sc::Point::new(8, 8));
+release(&mut x, &mut application, slint_sc::Point::new(8, 36));
+assert_eq!(application.lower, 1);
+
+// A second press replaces what the first left remembered, so the release pairs
+// with the second; and a release with no press before it clicks nothing
+//#sls.input.press.replace
+press(&mut x, &mut application, slint_sc::Point::new(8, 8));
+press(&mut x, &mut application, slint_sc::Point::new(40, 8));
+release(&mut x, &mut application, slint_sc::Point::new(40, 8));
+assert_eq!((application.lower, application.upper), (1, 2));
+release(&mut x, &mut application, slint_sc::Point::new(40, 8));
+assert_eq!((application.lower, application.upper), (1, 2));
+
+// Hit testing uses the geometry the area has when the event is dispatched, so
+// moving it between the press and the release breaks the pair
+//#sls.input.hit.current
+let at = slint_sc::Point::new(4, 60);
+press(&mut x, &mut application, at);
+x.set_moving_x(32);
+release(&mut x, &mut application, at);
+assert_eq!(application.moving, 0);
+click(&mut x, &mut application, slint_sc::Point::new(36, 60));
+assert_eq!(application.moving, 1);
+```
+*/

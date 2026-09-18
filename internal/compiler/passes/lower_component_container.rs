@@ -50,14 +50,14 @@ fn diagnose_component_container(element: &ElementRc, diag: &mut BuildDiagnostics
     if !elem.children.is_empty() {
         diag.push_error("ComponentContainers may not have children".into(), &*element.borrow());
     }
-    if let Some(cip) =
-        elem.enclosing_component.upgrade().unwrap().child_insertion_point.borrow().clone()
-        && Rc::ptr_eq(&cip.parent, element)
+    for (name, cip) in &*elem.enclosing_component.upgrade().unwrap().child_insertion_points.borrow()
     {
-        diag.push_error(
-            "The @children placeholder cannot appear in a ComponentContainer".into(),
-            &*element.borrow(),
-        );
+        if Rc::ptr_eq(&cip.parent, element) {
+            diag.push_error(
+                format!("{} cannot appear in a ComponentContainer", slot_error_subject(name)),
+                &*element.borrow(),
+            );
+        }
     }
 }
 

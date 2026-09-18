@@ -80,6 +80,7 @@ export component Button {
                 width: root.icon-size;
                 min-height: root.icon-size;
                 colorize: root.colorize-icon ? root.text-color : transparent;
+                accessible-role: none;
             }
 
             if (root.text != ""): Text {
@@ -108,7 +109,7 @@ export component Button {
         enabled <=> root.enabled;
 
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
+            if (event.text == Key.Space || event.text == Key.Return) {
                 i-touch-area.clicked();
                  return accept;
             }

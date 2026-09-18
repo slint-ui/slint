@@ -9,7 +9,9 @@ import { test, expect } from "vitest";
 
 import { runEventLoop, private_api } from "../dist/index.js";
 
-test.sequential("quit event loop on last window closed with callback", async () => {
+test("quit event loop on last window closed with callback", {
+    concurrent: false,
+}, async () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `

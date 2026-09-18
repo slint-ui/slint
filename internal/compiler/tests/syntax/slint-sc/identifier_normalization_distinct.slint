@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Identifiers whose normalized forms differ are distinct: a leading
+// underscore is preserved, `-` only equals `_` between characters, and case
+// matters. Declaring all of these together is not a collision.
+
+//#sls.lex.identifier.normalization
+
+export component Test inherits Window {
+    property <length> a;
+    property <length> _a;
+    property <length> a-b;
+    property <length> ab;
+    property <length> A;
+}

@@ -7,7 +7,9 @@ This module contains brush related types for the run-time library.
 
 use super::Color;
 use crate::SharedVector;
+use crate::lengths::{PhysicalPx, ScaleFactor};
 use crate::properties::InterpolatedPropertyValue;
+use alloc::borrow::Cow;
 use euclid::default::{Point2D, Size2D};
 
 #[cfg(not(feature = "std"))]
@@ -247,6 +249,11 @@ impl LinearGradientBrush {
         // skip the first fake stop that just contains the angle
         self.0.iter().skip(1)
     }
+
+    /// The color stops as a slice, without the angle header stop.
+    fn stops_slice(&self) -> &[GradientStop] {
+        self.0.as_slice().get(1..).unwrap_or_default()
+    }
 }
 
 /// NaN-aware float equality: two NaNs compare equal (unlike IEEE 754).
@@ -307,6 +314,11 @@ impl RadialGradientBrush {
     /// Returns the color stops of the radial gradient.
     pub fn stops(&self) -> impl Iterator<Item = &GradientStop> {
         self.0.iter().skip(Self::HEADER)
+    }
+
+    /// The color stops as a slice, without the header stops.
+    fn stops_slice(&self) -> &[GradientStop] {
+        self.0.as_slice().get(Self::HEADER..).unwrap_or_default()
     }
 
     /// Sets an explicit center, returning `self` for chaining. `cx` and `cy` are in the
@@ -618,6 +630,11 @@ impl ConicGradientBrush {
         self.0.iter().skip(Self::HEADER)
     }
 
+    /// The color stops as a slice, without the header stops.
+    fn stops_slice(&self) -> &[GradientStop] {
+        self.0.as_slice().get(Self::HEADER..).unwrap_or_default()
+    }
+
     /// Sets an explicit center, returning `self` for chaining. `cx` and `cy` are in the
     /// element's local logical coordinate space.
     pub fn with_center(mut self, cx: f32, cy: f32) -> Self {
@@ -904,6 +921,320 @@ impl InterpolatedPropertyValue for Brush {
             }
         }
     }
+}
+
+/// A [`Brush`] resolved by [`resolve_brush`]: gradient geometry in physical pixels
+/// plus sanitized color stops, so that all renderers share one interpretation of
+/// the brush model.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ResolvedBrush<'a> {
+    /// A plain color fill.
+    SolidColor(Color),
+    /// See [`ResolvedLinearGradient`].
+    LinearGradient(ResolvedLinearGradient<'a>),
+    /// See [`ResolvedRadialGradient`].
+    RadialGradient(ResolvedRadialGradient<'a>),
+    /// See [`ResolvedConicGradient`].
+    ConicGradient(ResolvedConicGradient<'a>),
+}
+
+/// A linear gradient whose stops span the line from `start` to `end`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ResolvedLinearGradient<'a> {
+    /// The point stop position 0 lies on.
+    pub start: euclid::Point2D<f32, PhysicalPx>,
+    /// The point stop position 1 lies on.
+    pub end: euclid::Point2D<f32, PhysicalPx>,
+    /// The sanitized color stops.
+    pub stops: Cow<'a, [GradientStop]>,
+}
+
+/// A radial gradient whose stops span from `center` to `radius`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ResolvedRadialGradient<'a> {
+    /// The center of the gradient.
+    pub center: euclid::Point2D<f32, PhysicalPx>,
+    /// The radius stop position 1 lies on.
+    pub radius: euclid::Length<f32, PhysicalPx>,
+    /// The sanitized color stops.
+    pub stops: Cow<'a, [GradientStop]>,
+}
+
+/// A conic gradient whose stops run one full clockwise turn around `center`,
+/// starting at 12 o'clock (Slint's 0°).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ResolvedConicGradient<'a> {
+    /// The center of the gradient.
+    pub center: euclid::Point2D<f32, PhysicalPx>,
+    /// The sanitized color stops.
+    pub stops: Cow<'a, [GradientStop]>,
+}
+
+/// Resolves a brush against the shape it fills: `size` is the shape's size in
+/// physical pixels; explicit gradient center and radius values are local logical
+/// lengths converted through `scale_factor`. Returns `None` for a fully
+/// transparent brush.
+///
+/// The returned stops are canonical - sorted, strictly increasing, within [0, 1] -
+/// with out-of-range linear/radial stops folded into the gradient geometry and
+/// conic stops clamped (a conic gradient cannot extend past a full turn), so they
+/// are directly usable by backends that render non-canonical stops incorrectly
+/// (vello draws them as a solid fill of the first color). Already-canonical stops,
+/// which is all the compiler produces, are borrowed rather than copied.
+///
+/// A free function rather than a `Brush` method so that it stays out of the public
+/// API that `Brush` is re-exported into.
+pub fn resolve_brush<'a>(
+    brush: &'a Brush,
+    size: euclid::Size2D<f32, PhysicalPx>,
+    scale_factor: ScaleFactor,
+) -> Option<ResolvedBrush<'a>> {
+    if brush.is_transparent() {
+        return None;
+    }
+    Some(match brush {
+        Brush::SolidColor(color) => ResolvedBrush::SolidColor(*color),
+        Brush::LinearGradient(gradient) => {
+            let (stops, extent) = sanitize_color_stops(gradient.stops_slice(), true);
+            let (start, mut end) = line_for_angle(gradient.angle(), size.to_untyped());
+            if extent != 1.0 {
+                // sanitize_color_stops scaled the offsets down into [0, 1]; scale
+                // the gradient line to match, or the ramp comes out compressed.
+                end = start + (end - start) * extent;
+            }
+            ResolvedBrush::LinearGradient(ResolvedLinearGradient {
+                start: start.cast_unit(),
+                end: end.cast_unit(),
+                stops,
+            })
+        }
+        Brush::RadialGradient(gradient) => {
+            let (stops, extent) = sanitize_color_stops(gradient.stops_slice(), true);
+            let (center_x, center_y) =
+                gradient.center_or_default_scaled(size.width, size.height, scale_factor.get());
+            let radius =
+                gradient.radius_or_default_scaled(size.width, size.height, scale_factor.get())
+                    * extent;
+            ResolvedBrush::RadialGradient(ResolvedRadialGradient {
+                center: euclid::point2(center_x, center_y),
+                radius: euclid::Length::new(radius),
+                stops,
+            })
+        }
+        Brush::ConicGradient(gradient) => {
+            let (stops, _) = sanitize_color_stops(gradient.stops_slice(), false);
+            let (center_x, center_y) =
+                gradient.center_or_default_scaled(size.width, size.height, scale_factor.get());
+            ResolvedBrush::ConicGradient(ResolvedConicGradient {
+                center: euclid::point2(center_x, center_y),
+                stops,
+            })
+        }
+    })
+}
+
+/// Massage gradient color stops into a canonical form (see [`resolve_brush`]).
+/// Stops below 0 are replaced by the interpolated color at 0 (the CSS behavior).
+/// For stops beyond 1: with `can_extend`, all positions are divided by the maximum
+/// and that maximum is returned as the second tuple element, so the caller can grow
+/// the gradient geometry by the same factor; without it, they are clamped to the
+/// interpolated color at 1. Duplicate positions (hard color steps) are separated by
+/// the smallest representable amount.
+fn sanitize_color_stops(
+    stops: &[GradientStop],
+    can_extend: bool,
+) -> (Cow<'_, [GradientStop]>, f32) {
+    /// Plain per-channel interpolation, matching how the gradient ramp itself blends.
+    fn color_at(position: f32, a: &GradientStop, b: &GradientStop) -> Color {
+        let t = if b.position > a.position {
+            ((position - a.position) / (b.position - a.position)).clamp(0., 1.)
+        } else {
+            0.
+        };
+        let (ca, cb) = (a.color.to_argb_u8(), b.color.to_argb_u8());
+        let lerp = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t) as u8;
+        Color::from_argb_u8(
+            lerp(ca.alpha, cb.alpha),
+            lerp(ca.red, cb.red),
+            lerp(ca.green, cb.green),
+            lerp(ca.blue, cb.blue),
+        )
+    }
+
+    // The compiler always produces canonical stop lists, so this fast path is the
+    // common case. A NaN position fails these comparisons: slow path.
+    if stops.first().is_none_or(|first| first.position >= 0.)
+        && stops.last().is_none_or(|last| last.position <= 1.)
+        && stops.windows(2).all(|pair| pair[0].position < pair[1].position)
+    {
+        return (Cow::Borrowed(stops), 1.0);
+    }
+
+    let mut stops: alloc::vec::Vec<GradientStop> = stops.to_vec();
+    stops.sort_by(|a, b| a.position.total_cmp(&b.position));
+
+    // Replace everything below 0 with the interpolated color at 0.
+    while stops.len() >= 2 && stops[1].position <= 0. {
+        stops.remove(0);
+    }
+    if let [first, second, ..] = stops.as_slice()
+        && first.position < 0.
+    {
+        stops[0] = GradientStop { color: color_at(0., first, second), position: 0. };
+    } else if let [only] = stops.as_slice()
+        && only.position < 0.
+    {
+        stops[0].position = 0.;
+    }
+
+    // Handle stops beyond 1: normalize (the caller extends the geometry) or clamp to
+    // the interpolated color at 1.
+    let mut extent = 1.0f32;
+    if stops.last().is_some_and(|last| last.position > 1.) {
+        if can_extend {
+            extent = stops.last().unwrap().position;
+            for stop in &mut stops {
+                stop.position /= extent;
+            }
+        } else {
+            while stops.len() >= 2 && stops[stops.len() - 2].position >= 1. {
+                stops.pop();
+            }
+            let clamped_last = match stops.as_slice() {
+                [.., second_to_last, last] if last.position > 1. => {
+                    Some(GradientStop { color: color_at(1., second_to_last, last), position: 1. })
+                }
+                [only] if only.position > 1. => {
+                    Some(GradientStop { color: only.color, position: 1. })
+                }
+                _ => None,
+            };
+            if let Some(stop) = clamped_last {
+                *stops.last_mut().unwrap() = stop;
+            }
+        }
+    }
+
+    // Make positions strictly increasing: separate duplicates (hard color steps) by the
+    // smallest representable amount, then push back anything that got nudged past 1.
+    let mut previous = f32::NEG_INFINITY;
+    for stop in &mut stops {
+        if stop.position <= previous {
+            stop.position = previous.next_up();
+        }
+        previous = stop.position;
+    }
+    let mut next = 1.0f32.next_up();
+    for stop in stops.iter_mut().rev() {
+        if stop.position >= next {
+            stop.position = next.next_down();
+        }
+        next = stop.position;
+    }
+
+    (Cow::Owned(stops), extent)
+}
+
+#[test]
+fn test_resolve_sanitizes_out_of_range_stops() {
+    // Stops beyond 1 extend the gradient line instead of being clamped.
+    let brush = Brush::LinearGradient(LinearGradientBrush::new(
+        180.,
+        [
+            GradientStop { position: 0.0, color: Color::from_rgb_u8(255, 0, 0) },
+            GradientStop { position: 2.0, color: Color::from_rgb_u8(0, 0, 255) },
+        ],
+    ));
+    let Some(ResolvedBrush::LinearGradient(gradient)) =
+        resolve_brush(&brush, [100., 50.].into(), ScaleFactor::new(1.0))
+    else {
+        panic!("expected a resolved linear gradient");
+    };
+    assert_eq!(gradient.stops.last().unwrap().position, 1.0);
+    // A 180° gradient runs from the top edge down; the end extends past the shape.
+    assert_eq!(gradient.start.y, 0.);
+    assert_eq!(gradient.end.y, 100.);
+
+    // A conic gradient cannot extend, so out-of-range stops are clamped to the
+    // interpolated color at position 1 instead. Note that ConicGradientBrush::new
+    // already normalizes, so resolving keeps its stops within [0, 1].
+    let brush = Brush::ConicGradient(ConicGradientBrush::new(
+        0.,
+        [
+            GradientStop { position: 0.0, color: Color::from_rgb_u8(255, 0, 0) },
+            GradientStop { position: 2.0, color: Color::from_rgb_u8(0, 0, 255) },
+        ],
+    ));
+    let Some(ResolvedBrush::ConicGradient(gradient)) =
+        resolve_brush(&brush, [100., 50.].into(), ScaleFactor::new(1.0))
+    else {
+        panic!("expected a resolved conic gradient");
+    };
+    assert!(gradient.stops.iter().all(|stop| (0. ..=1.).contains(&stop.position)));
+    assert_eq!(gradient.center, euclid::point2(50., 25.));
+}
+
+#[test]
+fn test_resolve_makes_stops_strictly_increasing() {
+    let brush = Brush::LinearGradient(LinearGradientBrush::new(
+        0.,
+        [
+            GradientStop { position: 0.5, color: Color::from_rgb_u8(255, 0, 0) },
+            GradientStop { position: 0.5, color: Color::from_rgb_u8(0, 255, 0) },
+            GradientStop { position: 0.2, color: Color::from_rgb_u8(0, 0, 255) },
+        ],
+    ));
+    let Some(ResolvedBrush::LinearGradient(gradient)) =
+        resolve_brush(&brush, [100., 100.].into(), ScaleFactor::new(1.0))
+    else {
+        panic!("expected a resolved linear gradient");
+    };
+    // Sorted and strictly increasing: the duplicate hard step is separated minimally.
+    assert!(gradient.stops.windows(2).all(|pair| pair[0].position < pair[1].position));
+    assert_eq!(gradient.stops[0].color, Color::from_rgb_u8(0, 0, 255));
+}
+
+#[test]
+fn test_resolve_replaces_stops_below_zero() {
+    let brush = Brush::LinearGradient(LinearGradientBrush::new(
+        0.,
+        [
+            GradientStop { position: -1.0, color: Color::from_rgb_u8(0, 0, 0) },
+            GradientStop { position: 1.0, color: Color::from_rgb_u8(200, 200, 200) },
+        ],
+    ));
+    let Some(ResolvedBrush::LinearGradient(gradient)) =
+        resolve_brush(&brush, [100., 100.].into(), ScaleFactor::new(1.0))
+    else {
+        panic!("expected a resolved linear gradient");
+    };
+    // The first stop is replaced by the interpolated color at position 0.
+    assert_eq!(gradient.stops[0].position, 0.0);
+    assert_eq!(gradient.stops[0].color, Color::from_rgb_u8(100, 100, 100));
+}
+
+#[test]
+fn test_resolve_transparent_brush() {
+    assert_eq!(resolve_brush(&Brush::default(), [100., 100.].into(), ScaleFactor::new(1.0)), None);
+}
+
+#[test]
+fn test_resolve_borrows_canonical_stops() {
+    // Already canonical stops are borrowed from the brush, not copied.
+    let brush = Brush::LinearGradient(LinearGradientBrush::new(
+        90.,
+        [
+            GradientStop { position: 0.0, color: Color::from_rgb_u8(255, 0, 0) },
+            GradientStop { position: 1.0, color: Color::from_rgb_u8(0, 0, 255) },
+        ],
+    ));
+    let Some(ResolvedBrush::LinearGradient(gradient)) =
+        resolve_brush(&brush, [100., 100.].into(), ScaleFactor::new(1.0))
+    else {
+        panic!("expected a resolved linear gradient");
+    };
+    assert!(matches!(gradient.stops, Cow::Borrowed(_)));
+    assert_eq!(gradient.stops.len(), 2);
 }
 
 #[test]

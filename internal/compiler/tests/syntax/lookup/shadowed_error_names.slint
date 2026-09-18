@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Diagnostics that name a shadowing member must use its source name, not the mangled internal name
+// it is stored under.
+
+// Two-way binding whose type doesn't match the shadowing property.
+component TwoWayBase {
+    @shadowable in-out property <int> value: 1;
+}
+export component TwoWayMismatch inherits TwoWayBase {
+    in-out property <string> other;
+    in-out property <int> value <=> other;
+//                        >   <warning{'value' shadows the inherited property of the same name}
+//                              >        <^error{The property 'value' does not have the same type as the bound expression: int != string}
+}
+
+// Impure callback invoked from a pure context.
+component CallbackBase {
+    @shadowable callback value();
+}
+export component ImpureCallback inherits CallbackBase {
+    callback value();
+//           >   <warning{'value' shadows the inherited callback of the same name}
+    pure function caller() -> int {
+        root.value();
+//           >   <error{Call of impure callback 'value'}
+        return 1;
+    }
+}
+
+// Impure function invoked from a pure context.
+component FunctionBase {
+    @shadowable public function value() -> int { 1 }
+}
+export component ImpureFunction inherits FunctionBase {
+    public function value() -> int { 2 }
+//                  >   <warning{'value' shadows the inherited function of the same name}
+    pure function caller() -> int {
+        return root.value();
+//                  >   <error{Call of impure function 'value'}
+    }
+}
+
+// A change callback declared twice on the shadowing property.
+component ChangeBase {
+    @shadowable in-out property <int> value: 1;
+}
+export component DuplicatedChange inherits ChangeBase {
+    in-out property <int> value: 1;
+//                        >   <warning{'value' shadows the inherited property of the same name}
+    changed value => {}
+    changed value => {}
+//          >   <error{Duplicated change callback on 'value'}
+}
+
+// Assigning to a shadowing `out` property from outside the component.
+component OutBase {
+    @shadowable out property <int> value: 1;
+}
+component OutDerived inherits OutBase {
+    out property <int> value: 2;
+//                     >   <warning{'value' shadows the inherited property of the same name}
+}
+export component AssignOut {
+    OutDerived {
+        value: 5;
+//      >   <error{Cannot assign to 'out' property 'value'}
+    }
+}

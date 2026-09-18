@@ -20,6 +20,12 @@ If you would like to automatically invoke autofix tasks (formatting, linting) be
 mise generate git-pre-commit --write --task=ci:autofix:fix
 ```
 
+CI's `lint_typecheck` job spell-checks the diff and gates the rest of the CI matrix on it. To catch that locally before pushing, install the pre-push hook:
+
+```
+cp scripts/pre-push-spellcheck.sh .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+```
+
 ## Repository structures
 
 For the crate/directory map of `internal/`, `api/`, `tools/`, and `editors/`, see the
@@ -60,7 +66,9 @@ Run `cargo xtask --help` for the full list.
 ### `ai-plugins`
 
 The Slint skill and marketplace manifests shipped to AI coding assistants (Claude Code,
-Cursor); see [ai-plugins/skills/slint/SKILL.md](../ai-plugins/skills/slint/SKILL.md).
+Cursor, Antigravity); see [ai-plugins/skills/slint/SKILL.md](../ai-plugins/skills/slint/SKILL.md).
+Each assistant reads its own manifest: `.claude-plugin/`, `.cursor-plugin/`, and, for
+Antigravity, `plugin.json` and `mcp_config.json` at the `ai-plugins` root.
 
 ## Documentation
 
@@ -202,3 +210,17 @@ If that looks okay and targets the right branch for your PR, push with force:
 ```
 $ git push -f
 ```
+
+## Changelog
+
+Don't edit `CHANGELOG.md` in a pull request.
+It's written later from the git log, in one commit per release cycle that covers a range of commits.
+
+If a change is noteworthy, add a `ChangeLog:` trailer to the commit message:
+
+```
+ChangeLog: Fixed a GridLayout row collapsing to its min-height when a sibling cell had a fixed zero size
+```
+
+The trailer sets the wording of the entry.
+It doesn't decide whether there is one: the whole log is read, so a commit without a trailer can still get an entry.

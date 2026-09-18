@@ -82,6 +82,26 @@ cargo test -p i-slint-compiler --features display-diagnostics --test syntax_test
 SLINT_SYNTAX_TEST_UPDATE=1 cargo test -p i-slint-compiler --test syntax_tests  # Update expected errors
 ```
 
+### Slint SC (`api/slint-sc`)
+
+The safety-critical runtime is held to complete coverage and full requirement
+traceability, both enforced in CI:
+
+- Every line, function, and code region of the crate must be covered. No
+  exceptions, no exclusion list, so code no test can reach has to go.
+- Every requirement paragraph (a `{#sls.…}` anchor in an `SC: true` page,
+  inside its `<SC>` block) needs at least one test declaring it with a
+  `//#sls.…` comment. Add the test in the same change as the anchor.
+
+```sh
+scripts/slint_sc_test_suite.sh target/slint-sc-coverage   # Run the suites, measure coverage
+cargo llvm-cov report --summary-only                      # Read the coverage back
+scripts/build_safety_manual_coverage.sh                   # Full check: fails on any gap
+```
+
+The gap check is `slint-doc-generator --slint-sc --fail-on-gaps`, which names
+the source locations that never executed and the requirements without a test.
+
 ### Screenshot Tests
 ```sh
 cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots                    # Compare against references
@@ -147,7 +167,7 @@ Slint's `.slint` language intentionally stays close to CSS syntax for visual pro
 Examples already in place:
 - **Color literals** follow CSS syntax (`#rrggbb`, `#rgb`, named colors, `rgb()`, `rgba()`, `hsl()`, `hsla()`).
 - **Gradient syntax** mirrors CSS: `@linear-gradient(angle, color stop, ...)`, `@radial-gradient(...)`.
-- **FlexboxLayout** implements the CSS flexbox model (via the `taffy` crate); property names map closely to their CSS counterparts.
+- **FlexboxLayout** implements the CSS flexbox model (via the `taffy` crate). Its property names follow CSS only where that doesn't clash with Slint's own naming: `gap` is `spacing`, `justify-content` is `alignment`, `align-content` is `cross-axis-line-alignment`.
 - **Filter/shadow properties** (`drop-shadow`, `box-shadow`, `blur`) follow CSS conventions.
 
 When this principle applies: any time you design syntax for a new visual or layout property, check how CSS spells it first. Deviate only when Slint's type system or consistency with existing Slint naming requires it, and document the divergence.
@@ -160,6 +180,13 @@ When this principle applies: any time you design syntax for a new visual or layo
   track how feedback was incorporated; squash them once the review is complete. See
   [`docs/development.md`](docs/development.md#commit-history--code-reviews) for the full
   fixup-then-squash workflow, and for `mise`-based environment setup.
+- Don't edit `CHANGELOG.md`; it's written later from the git log.
+  Add a `ChangeLog:` trailer to the commit message for a noteworthy change.
+  See [`docs/development.md`](docs/development.md#changelog).
+- When responding to review feedback, put the explanation in the commit message and the
+  review reply, not in a new code comment.
+  Add a comment only where the code itself is unclear to someone who never saw the review.
+  See Code Comments rule 4 of the [Writing Style Guide](docs/internal/writing-style-guide.md).
 
 ## Code Style
 

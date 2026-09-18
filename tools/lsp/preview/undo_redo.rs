@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::ui;
-use crate::common::text_edit;
+use crate::editor_preview::editing::text_edit;
 use core::hash::{Hash as _, Hasher as _};
 use i_slint_live_preview::protocol::PreviewToLspMessage;
 
@@ -17,7 +17,9 @@ struct EditItem {
     file_hashes: FileHashes,
 }
 
-pub fn compute_file_hashes(edits: &[crate::common::text_edit::EditedText]) -> FileHashes {
+pub fn compute_file_hashes(
+    edits: &[crate::editor_preview::editing::text_edit::EditedText],
+) -> FileHashes {
     edits
         .iter()
         .map(|e| {

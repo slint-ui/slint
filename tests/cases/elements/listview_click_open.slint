@@ -19,7 +19,7 @@ export component TestCase inherits Window {
     in-out property <int> last_clicked: -1;
 
     in-out property <length> item-height: 25phx;
-    in-out property <length> listview-y <=> lv.viewport_y;
+    in-out property <length> listview-y <=> lv.content_y;
 
     lv := ListView {
         for i in 200: r := Item {
@@ -33,7 +33,7 @@ export component TestCase inherits Window {
                             r.height = item-height;
                             open = false;
                         } else {
-                            lv.viewport_y = -r.y;
+                            lv.content_y = -r.y;
                             r.height = lv.visible-height;
                             open = true;
                         }

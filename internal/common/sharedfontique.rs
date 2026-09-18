@@ -222,3 +222,29 @@ impl AsRef<fontique::Blob<u8>> for HashedBlob {
         &self.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    // cspell:ignore fonttools varLib instancer opsz pyftsubset unicodes
+    use skrifa::MetadataProvider;
+
+    // Keep the embedded font small. Regenerate it with:
+    //   fonttools varLib.instancer -o pinned.ttf Inter-VariableFont.ttf opsz=14
+    //   pyftsubset pinned.ttf --unicodes="U+0000-DFFF,U+F900-10FFFF" --output-file=Inter-VariableFont.ttf
+    #[test]
+    fn embedded_fallback_font_is_minimal() {
+        let data = include_bytes!("sharedfontique/Inter-VariableFont.ttf");
+        let font = skrifa::FontRef::new(data).unwrap();
+
+        let has_pua = font
+            .charmap()
+            .mappings()
+            .any(|(cp, _)| matches!(cp, 0xE000..=0xF8FF | 0xF0000..=0xFFFFD | 0x100000..=0x10FFFD));
+        assert!(!has_pua, "the embedded font maps Private Use Area codepoints; regenerate it");
+
+        assert!(
+            font.axes().iter().all(|axis| axis.tag() != "opsz"),
+            "the embedded font still has an optical-size axis; pin it"
+        );
+    }
+}

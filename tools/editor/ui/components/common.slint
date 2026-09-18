@@ -1,0 +1,430 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, PaintStyle, Metrics, Colors, Typography, Motion, FieldStyle, SidebarToggleStyle, PaletteRowStyle } from "../style.slint";
+import { ElementVisuals } from "element-presentation.slint";
+import { Api, CanvasCorner, ElementKind } from "../api.slint";
+
+export { CanvasCorner, ElementKind }
+
+export global EditorIcons {
+    out property <image> select-chevron: @image-url("../assets/octicons/select-chevron.svg");
+}
+
+export global EditorCursors {
+    out property <MouseCursor> corner-radius: MouseCursor.custom(
+        @image-url("../assets/cursors/corner-radius.png"),
+        14,
+        14,
+    );
+    pure callback rotation-image(angle) -> image;
+    out property <MouseCursor> canvas-default: MouseCursor.custom(
+        @image-url("../assets/cursors/default-32.png"),
+        14,
+        14,
+    );
+}
+
+export global EditorAngles {
+    public pure function normalize(value: angle) -> angle {
+        let normalized = value.mod(360deg);
+        return normalized < 0deg ? normalized + 360deg : normalized;
+    }
+}
+
+export global PreviewMetrics {
+    out property <length> phone-portrait-width: 390px;
+    out property <length> phone-portrait-height: 720px;
+}
+
+export global EditorWindow {
+    in-out property <length> width;
+    in-out property <length> height;
+}
+
+export component EdgeDivider inherits Rectangle {
+    width: Metrics.border-width;
+    background: Colors.border;
+}
+
+export component HorizontalResizeDivider inherits FocusScope {
+    in property <string> resize-label;
+    in property <color> line-color: Colors.border;
+    in property <length> value: Style.panes.minimum;
+    in property <length> value-minimum: Style.panes.minimum;
+    in property <length> value-maximum: Style.panes.minimum;
+    in property <length> value-step: 8px;
+    callback drag-started();
+    callback dragged(length);
+    callback drag-finished(length);
+    callback value-set(length);
+    callback reset-requested();
+
+    height: Style.panes.splitter-size;
+    accessible-role: AccessibleRole.slider;
+    accessible-label: root.resize-label;
+    accessible-description: "Lower pane height. Arrow keys adjust by 8 px; Home and End clamp; Ctrl+Home or double-click resets.";
+    accessible-value: "\{(root.value / 1px).round()} px";
+    accessible-value-minimum: root.value-minimum / 1px;
+    accessible-value-maximum: root.value-maximum / 1px;
+    accessible-value-step: root.value-step / 1px;
+    accessible-action-increment => {
+        root.value-set(min(root.value + root.value-step, root.value-maximum));
+    }
+    accessible-action-decrement => {
+        root.value-set(max(root.value - root.value-step, root.value-minimum));
+    }
+    key-pressed(event) => {
+        if event.modifiers.control && event.text == Key.Home {
+            root.reset-requested();
+            return accept;
+        }
+        if event.text == Key.UpArrow {
+            root.value-set(min(root.value + root.value-step, root.value-maximum));
+            return accept;
+        }
+        if event.text == Key.DownArrow {
+            root.value-set(max(root.value - root.value-step, root.value-minimum));
+            return accept;
+        }
+        if event.text == Key.Home {
+            root.value-set(root.value-minimum);
+            return accept;
+        }
+        if event.text == Key.End {
+            root.value-set(root.value-maximum);
+            return accept;
+        }
+        return reject;
+    }
+
+    accessible-action-set-value(value) => {
+        if value.is-float() {
+            root.value-set(value.to-float().clamp(
+                root.value-minimum / 1px,
+                root.value-maximum / 1px,
+            ) * 1px);
+        }
+    }
+
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        border-width: root.has-focus ? Metrics.border-width : 0px;
+        border-color: Colors.focus;
+        background: touch.has-hover || touch.pressed
+            ? Colors.focus-background
+            : transparent;
+    }
+
+    Rectangle {
+        y: (parent.height - self.height) / 2;
+        width: parent.width;
+        height: Metrics.border-width;
+        background: root.line-color;
+    }
+
+    touch := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: ns-resize;
+        private property <length> press-absolute-y;
+
+        changed pressed => {
+            if self.pressed {
+                root.focus();
+                self.press-absolute-y = self.absolute-position.y + self.mouse-y;
+                root.drag-started();
+            } else {
+                root.drag-finished(self.absolute-position.y + self.mouse-y - self.press-absolute-y);
+                root.clear-focus();
+            }
+        }
+
+        moved => {
+            if self.pressed {
+                root.dragged(self.absolute-position.y + self.mouse-y - self.press-absolute-y);
+            }
+        }
+
+        double-clicked => {
+            root.reset-requested();
+        }
+
+    }
+}
+
+export component BodyLabel inherits Text {
+    color: Colors.foreground;
+    font-size: Typography.body.size;
+    font-weight: FontWeight.medium;
+    overflow: elide;
+}
+
+export component MutedLabel inherits Text {
+    color: Colors.muted;
+    font-size: Typography.control.size;
+    overflow: elide;
+}
+
+export component SectionTitle inherits Text {
+    in property <string> label;
+    text: label;
+    color: Colors.muted;
+    font-size: Typography.caption.size;
+    font-weight: FontWeight.bold;
+}
+
+export component PrimerTextInput inherits Rectangle {
+    in property <FieldStyle> style: Style.field;
+    in-out property <string> text <=> editor.text;
+    in property <string> placeholder: "";
+    in property <string> leading-text: "";
+    in property <string> accessible-name: "";
+    private property <PaintStyle> paint: editor.has-focus ? root.style.appearance.focus : root.style.appearance.normal;
+
+    height: root.style.height;
+    border-radius: root.style.radius;
+    border-width: root.style.border-width;
+    border-color: editor.has-focus ? root.style.appearance.focus.border : root.paint.border;
+    background: root.paint.background;
+
+    animate border-color { duration: Motion.fast; }
+
+    HorizontalLayout {
+        padding-left: root.style.padding-inline;
+        padding-right: root.style.padding-inline;
+        spacing: root.style.gap;
+
+        if root.leading-text != "": Text {
+            text: root.leading-text;
+            color: root.style.appearance.muted;
+            font-size: Typography.action.size;
+            font-weight: FontWeight.bold;
+            vertical-alignment: center;
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+
+            editor := TextInput {
+                width: parent.width;
+                height: parent.height;
+                text: "";
+                color: root.paint.foreground;
+                font-size: root.style.text.size;
+                font-weight: root.style.text.weight;
+                accessible-label: root.accessible-name;
+                single-line: true;
+                wrap: no-wrap;
+                vertical-alignment: center;
+                selection-background-color: root.style.appearance.selection;
+            }
+
+            if editor.text == "": Text {
+                x: editor.x;
+                y: editor.y;
+                width: editor.width;
+                height: editor.height;
+                text: root.placeholder;
+                color: root.style.appearance.muted;
+                font-size: root.style.text.size;
+                font-weight: root.style.text.weight;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+export component SidebarToggleButton inherits Rectangle {
+    in property <SidebarToggleStyle> style: Style.sidebar-toggle;
+    in property <bool> active: false;
+    callback clicked;
+
+    width: root.style.width;
+    height: root.style.height;
+    border-radius: root.style.radius;
+    border-width: Metrics.border-width;
+    border-color: active ? root.style.selected.border : root.style.normal.border;
+    background: active ? root.style.selected.background : touch.has-hover ? root.style.hover.background : root.style.normal.background;
+    animate background, border-color { duration: Motion.fast; }
+
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: Metrics.icon-large;
+        height: Metrics.icon-medium;
+        border-radius: Metrics.radius-small;
+        border-width: Metrics.focus-width;
+        border-color: root.active ? root.style.selected.border : root.style.normal.foreground;
+        background: transparent;
+
+        Rectangle {
+            x: 7px;
+            width: 2px;
+            height: parent.height;
+            background: root.active ? root.style.selected.border : root.style.normal.foreground;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component ComponentPaletteRow inherits Rectangle {
+    in property <PaletteRowStyle> style: Style.palette-row;
+    in property <ElementKind> kind;
+    in property <string> label;
+    in property <bool> enabled: true;
+    in property <bool> drag-enabled: true;
+    callback drag-started();
+
+    property <bool> dragging: dragger.dragging;
+    property <bool> active: root.enabled && (root.dragging || touch.pressed);
+    property <bool> hovered: root.enabled && touch.has-hover && !root.dragging;
+
+    height: root.style.height;
+    horizontal-stretch: 1;
+    border-radius: root.style.radius;
+    background: root.active ? root.style.selected : root.hovered ? root.style.hover : transparent;
+    opacity: !root.enabled ? root.style.disabled-opacity : root.dragging ? root.style.drag-opacity : 1;
+    accessible-role: AccessibleRole.list-item;
+    accessible-label: root.label;
+    accessible-enabled: root.enabled && root.drag-enabled;
+    animate background, opacity { duration: Motion.feedback; easing: ease-out-quad; }
+
+    function pointer-window-position() -> Point {
+        return {
+            x: touch.absolute-position.x + touch.mouse-x,
+            y: touch.absolute-position.y + touch.mouse-y,
+        };
+    }
+
+    HorizontalLayout {
+        padding-left: Metrics.space-regular;
+        padding-right: Metrics.space-regular;
+        spacing: Metrics.space-regular;
+        cross-axis-alignment: center;
+
+        Image {
+            width: Metrics.icon-large;
+            height: Metrics.icon-large;
+            source: ElementVisuals.for-kind(root.kind).icon;
+            colorize: root.active ? root.style.selected-foreground : root.style.foreground;
+            opacity: root.active ? 1 : root.style.icon-opacity;
+        }
+
+        Text {
+            text: root.label;
+            overflow: elide;
+            color: root.active ? root.style.selected-foreground : root.style.foreground;
+            font-size: root.style.text.size;
+            font-weight: root.style.text.weight;
+            horizontal-stretch: 1;
+        }
+    }
+
+    dragger := DragArea {
+        enabled: root.enabled && root.drag-enabled && !AppState.palette-drag-cancelled;
+        data: Api.new-component-data-for-kind(root.kind);
+        allow-copy: true;
+
+        changed dragging => {
+            if self.dragging {
+                AppState.palette-drag-cancelled = false;
+                AppState.update-palette-drag(root.kind, root.pointer-window-position());
+                root.drag-started();
+            } else {
+                AppState.finish-palette-drag();
+            }
+        }
+
+        touch := TouchArea {
+            enabled: root.enabled && root.drag-enabled;
+            mouse-cursor: self.enabled ? pointer : default;
+        }
+    }
+}
+
+export global AppState {
+    in-out property <ElementKind> palette-drag-kind: ElementKind.none;
+    in-out property <Point> palette-drag-preview-position: { x: 0px, y: 0px };
+    in-out property <Size> palette-drag-size: ElementVisuals.for-kind(ElementKind.none).preview-size;
+    in-out property <bool> palette-drag-cancelled: false;
+    in-out property <bool> outline-drag-active: false;
+    in-out property <bool> outline-drag-cancelled: false;
+    in-out property <string> outline-drag-label: "";
+    in-out property <image> outline-drag-icon;
+    in-out property <Point> outline-drag-position: { x: 0px, y: 0px };
+    in-out property <Size> outline-drag-preview-size: { width: 216px, height: 32px };
+
+    public pure function has-active-drag() -> bool {
+        return self.palette-drag-kind != ElementKind.none || self.outline-drag-active;
+    }
+
+    public function update-palette-drag(kind: ElementKind, window-position: Point) {
+        if !self.palette-drag-cancelled {
+            self.palette-drag-kind = kind;
+            self.palette-drag-size = ElementVisuals.for-kind(kind).preview-size;
+            self.palette-drag-preview-position = {
+                x: window-position.x - self.palette-drag-size.width / 2,
+                y: window-position.y - self.palette-drag-size.height / 2,
+            };
+        }
+    }
+
+    public function finish-palette-drag() {
+        self.palette-drag-kind = ElementKind.none;
+        self.palette-drag-cancelled = false;
+    }
+
+    public function cancel-palette-drag() {
+        if self.palette-drag-kind != ElementKind.none {
+            self.palette-drag-cancelled = true;
+            self.palette-drag-kind = ElementKind.none;
+        }
+    }
+
+    public function cancel-outline-drag() {
+        if self.outline-drag-active {
+            self.outline-drag-cancelled = true;
+            self.outline-drag-active = false;
+        }
+    }
+
+    public function cancel-active-drags() {
+        self.cancel-palette-drag();
+        self.cancel-outline-drag();
+    }
+
+    pure function outline-drag-pointer-gap() -> length {
+        return Metrics.radius-medium;
+    }
+
+    public function update-outline-drag-position(window-position: Point) {
+        self.outline-drag-position = {
+            x: window-position.x + self.outline-drag-pointer-gap(),
+            y: window-position.y + self.outline-drag-pointer-gap(),
+        };
+    }
+
+    public function start-outline-drag(label: string, icon: image, window-position: Point) {
+        self.outline-drag-cancelled = false;
+        self.outline-drag-active = true;
+        self.outline-drag-label = label;
+        self.outline-drag-icon = icon;
+        self.update-outline-drag-position(window-position);
+    }
+
+    public function finish-outline-drag() {
+        self.outline-drag-active = false;
+    }
+}

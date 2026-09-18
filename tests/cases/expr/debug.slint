@@ -42,6 +42,8 @@ export component TestCase inherits Window {
 
     im := Image {x:0;y:0;}
 
+    init => { debug("init"); }
+
     pure public function do-debug() {
         debug();
         debug("a string");
@@ -66,6 +68,8 @@ export component TestCase inherits Window {
 /*
 ```rust
 let instance = TestCase::new().unwrap();
+let init_logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+assert_eq!(init_logs, ["init"]);
 assert!(instance.get_test());
 // The test binding called do-debug()
 let binding_logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
@@ -96,5 +100,34 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
 instance.invoke_do_debug();
+```
+
+```js
+// debug() prints to console.log, prefixed with the .slint source location
+const log = require("node:test").mock.method(console, "log", () => {});
+var instance = new slint.TestCase({});
+assert.equal(log.mock.calls.length, 1);
+// The line number of `init => { debug("init"); }` above
+assert(log.mock.calls[0].arguments[0].endsWith("debug.slint:45:15: init"), log.mock.calls[0].arguments[0]);
+// The test binding called do-debug()
+assert(instance.test);
+assert.equal(log.mock.calls.length, 16);
+instance.do_debug();
+log.mock.restore();
+const logs = log.mock.calls.map((call) => call.arguments[0]);
+assert.equal(logs.length, 31);
+const location = /^.*debug\.slint:\d+:\d+: /;
+const messages = logs.map((message) => {
+    assert.match(message, location);
+    return message.replace(location, "");
+});
+assert.equal(messages[16], "");
+assert.equal(messages[17], "a string");
+assert.equal(messages[18], "42");
+assert.equal(messages[21], "beta");
+assert.equal(messages[22], "{ flag: true, name: test, value: 7 }");
+assert.equal(messages[26], "multi 1 true");
+assert.equal(messages[27], "{ active: true, inner: { dir: gamma, pos: { px: 3.5, py: 4.5 }, x: 1, y: 2 }, label: outer }");
+assert.equal(messages[30], "0.1(px×ms⁻¹)");
 ```
 */

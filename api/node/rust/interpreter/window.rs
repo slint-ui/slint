@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::types::{SlintPoint, SlintSize};
-use i_slint_core::window::WindowAdapterRc;
+use crate::types::{JsWindowEvent, JsWindowEventDispatchResult, SlintPoint, SlintSize};
+use i_slint_core::{platform::WindowEvent, window::WindowAdapterRc};
 use slint_interpreter::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 
 /// This type represents a window towards the windowing system, that's used to render the
@@ -122,6 +122,22 @@ impl JsWindow {
     #[napi(js_name = "requestRedraw")]
     pub fn request_redraw(&self) {
         self.inner.request_redraw();
+    }
+
+    /// Dispatch a window event to the scene.
+    #[napi(js_name = "dispatchEvent", ts_return_type = "WindowEventDispatchResult")]
+    pub fn dispatch_event(
+        &self,
+        #[napi(ts_arg_type = "WindowEvent")] event: JsWindowEvent,
+    ) -> napi::Result<JsWindowEventDispatchResult> {
+        let event = WindowEvent::from(event);
+
+        Ok(self
+            .inner
+            .window()
+            .dispatch_event_with_result(event)
+            .map_err(|_| napi::Error::from_reason("Cannot dispatch event".to_string()))?
+            .into())
     }
 
     /// Returns if the window is currently fullscreen

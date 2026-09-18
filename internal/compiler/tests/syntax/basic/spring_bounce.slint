@@ -1,0 +1,34 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component X inherits Rectangle {
+    property <float> a;
+    animate a { easing: spring; }
+    property <float> b;
+    animate b { easing: spring(); }
+//                      >    <error{The spring curve needs a single number literal argument}
+    property <float> c;
+    animate c { easing: spring(0.0); }
+    property <float> d;
+    animate d { easing: spring(-1); }
+    property <float> e;
+    animate e { easing: spring(1.0); }
+    property <float> f;
+    animate f { easing: spring(1.5); }
+//                             > <error{The bounce argument to spring curve must be between -1 and 1}
+    property <float> g;
+    animate g { easing: spring(-2); }
+//                             ><error{The bounce argument to spring curve must be between -1 and 1}
+    property <float> h;
+    animate h { easing: spring(0, 0); }
+//                      >    <error{The spring curve needs a single number literal argument}
+    property <float> i;
+    animate i { easing: spring(50%); }
+//                      >    <error{The spring curve needs a single number literal argument}
+    property <float> j;
+    animate j { easing: spring(32 * 1); }
+//                      >    <error{The spring curve needs a single number literal argument}
+    property <float> k;
+    animate k { easing: spring("string"); }
+//                      >    <error{The spring curve needs a single number literal argument}
+}

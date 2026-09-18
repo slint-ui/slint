@@ -1,0 +1,502 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Colors, Metrics, SelectionFrameStyle } from "../style.slint";
+// cspell:ignore nesw
+import { CanvasCorner } from "../api.slint";
+import { EditorCursors } from "common.slint";
+
+export component MoveResizeFrame inherits Rectangle {
+    in property <SelectionFrameStyle> style: Style.selection-frame;
+    in property <bool> enabled: true;
+    in property <bool> show-outline: true;
+    callback control-hovered();
+    in property <string> accessible-prefix: "Selection";
+    in property <bool> active;
+    in property <bool> shift-pressed;
+    in property <angle> rotation;
+    in property <bool> show-resize-handles: true;
+    in property <bool> show-rotation-handles: true;
+    out property <bool> frame-hover: move-touch.has-hover;
+    out property <bool> move-pressed: move-touch.pressed;
+    out property <bool> move-dragging;
+    out property <bool> rotating;
+    out property <bool> rotation-tooltip-visible;
+    out property <Point> rotation-tooltip-position;
+    out property <angle> rotation-tooltip-value;
+    private property <length> drag-threshold: 2px;
+    private property <bool> resize-pressed;
+    private property <bool> resize-dragging;
+    private property <bool> resize-shift-pressed;
+    private property <CanvasCorner> resize-corner;
+    private property <Size> resize-start-size;
+    private property <Point> resize-start-pointer;
+    private property <Point> resize-fixed-corner;
+    private property <angle> resize-start-rotation;
+    private property <Point> free-resize-position;
+    private property <Size> free-resize-size;
+    in property <bool> resizable: true;
+    in property <bool> moveable: true;
+    callback move-press-started(Point);
+    callback interaction-started();
+    callback interaction-ended();
+    callback pointer-moved(Point);
+    callback move-released(Point);
+    callback moved-to(Point);
+    callback resized-to(CanvasCorner, Point, Size);
+    callback rotated-to(angle);
+    callback double-clicked();
+
+    public pure function corner-on-left(corner: CanvasCorner) -> bool {
+        return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-left;
+    }
+
+    public pure function corner-on-top(corner: CanvasCorner) -> bool {
+        return corner == CanvasCorner.top-left || corner == CanvasCorner.top-right;
+    }
+
+    public pure function corner-name(corner: CanvasCorner) -> string {
+        if corner == CanvasCorner.top-left {
+            return "top-left";
+        }
+        if corner == CanvasCorner.top-right {
+            return "top-right";
+        }
+        if corner == CanvasCorner.bottom-right {
+            return "bottom-right";
+        }
+        return "bottom-left";
+    }
+
+    pure function corner-resize-cursor-is-forward-diagonal(corner: CanvasCorner) -> bool {
+        return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-right;
+    }
+
+    pure function rotation-cursor-angle(corner: CanvasCorner) -> angle {
+        return root.rotation + (corner == CanvasCorner.top-left ? -45deg
+            : corner == CanvasCorner.top-right ? 45deg
+            : corner == CanvasCorner.bottom-right ? 135deg : -135deg);
+    }
+
+    pure function resize-handle-x(corner: CanvasCorner) -> length {
+        return root.corner-on-left(corner)
+            ? -root.style.handle-size / 2
+            : root.width - root.style.handle-size / 2;
+    }
+
+    pure function resize-handle-y(corner: CanvasCorner) -> length {
+        return root.corner-on-top(corner)
+            ? -root.style.handle-size / 2
+            : root.height - root.style.handle-size / 2;
+    }
+
+    pure function rotation-zone-x(corner: CanvasCorner) -> length {
+        return root.corner-on-left(corner)
+            ? root.style.handle-size / 2 - root.style.rotation-hit-size
+            : root.width - root.style.handle-size / 2;
+    }
+
+    pure function rotation-zone-y(corner: CanvasCorner) -> length {
+        return root.corner-on-top(corner)
+            ? root.style.handle-size / 2 - root.style.rotation-hit-size
+            : root.height - root.style.handle-size / 2;
+    }
+
+    pure function local-point-to-parent-at(point: Point, origin: Point, size: Size, rotation: angle) -> Point {
+        let from-center-x = point.x - size.width / 2;
+        let from-center-y = point.y - size.height / 2;
+        return {
+            x: origin.x + size.width / 2 + from-center-x * rotation.cos() - from-center-y * rotation.sin(),
+            y: origin.y + size.height / 2 + from-center-x * rotation.sin() + from-center-y * rotation.cos(),
+        };
+    }
+
+    pure function local-point-to-parent(point: Point) -> Point {
+        return root.local-point-to-parent-at(
+            point,
+            { x: root.x, y: root.y },
+            { width: root.width, height: root.height },
+            root.rotation,
+        );
+    }
+
+    pure function child-local-point(child-position: Point, point: Point) -> Point {
+        return {
+            x: child-position.x + point.x,
+            y: child-position.y + point.y,
+        };
+    }
+
+    pure function parent-delta-to-local(delta: Point, rotation: angle) -> Point {
+        return {
+            x: delta.x * rotation.cos() + delta.y * rotation.sin(),
+            y: -delta.x * rotation.sin() + delta.y * rotation.cos(),
+        };
+    }
+
+    pure function local-delta-to-parent(delta: Point, rotation: angle) -> Point {
+        return {
+            x: delta.x * rotation.cos() - delta.y * rotation.sin(),
+            y: delta.x * rotation.sin() + delta.y * rotation.cos(),
+        };
+    }
+
+    pure function position-for-fixed-corner(corner: CanvasCorner, fixed-parent-point: Point, size: Size, rotation: angle) -> Point {
+        let fixed-local-point = root.opposite-corner-local-point(corner, size);
+        let fixed-delta = root.local-delta-to-parent({
+            x: fixed-local-point.x - size.width / 2,
+            y: fixed-local-point.y - size.height / 2,
+        }, rotation);
+        return {
+            x: fixed-parent-point.x - fixed-delta.x - size.width / 2,
+            y: fixed-parent-point.y - fixed-delta.y - size.height / 2,
+        };
+    }
+
+    pure function pointer-angle(local-x: length, local-y: length) -> angle {
+        return atan2((local-y - root.height / 2) / 1px, (local-x - root.width / 2) / 1px) + root.rotation;
+    }
+
+    pure function snapped-rotation(value: angle) -> angle {
+        return (value / 15deg).round() * 15deg;
+    }
+
+    pure function corner-local-point(corner: CanvasCorner, size: Size) -> Point {
+        return {
+            x: root.corner-on-left(corner) ? 0px : size.width,
+            y: root.corner-on-top(corner) ? 0px : size.height,
+        };
+    }
+
+    pure function opposite-corner-local-point(corner: CanvasCorner, size: Size) -> Point {
+        return root.corner-local-point(root.opposite-corner(corner), size);
+    }
+
+    pure function opposite-corner(corner: CanvasCorner) -> CanvasCorner {
+        if corner == CanvasCorner.top-left {
+            return CanvasCorner.bottom-right;
+        }
+        if corner == CanvasCorner.top-right {
+            return CanvasCorner.bottom-left;
+        }
+        if corner == CanvasCorner.bottom-right {
+            return CanvasCorner.top-left;
+        }
+        return CanvasCorner.top-right;
+    }
+
+    pure function proportional-resizing() -> bool {
+        return root.resize-pressed && root.resize-shift-pressed;
+    }
+
+    function store-free-resize-target(pointer: Point) {
+        let delta = root.parent-delta-to-local({
+            x: pointer.x - root.resize-start-pointer.x,
+            y: pointer.y - root.resize-start-pointer.y,
+        }, root.resize-start-rotation);
+        let target-width = root.corner-on-left(root.resize-corner)
+            ? root.resize-start-size.width - delta.x
+            : root.resize-start-size.width + delta.x;
+        let target-height = root.corner-on-top(root.resize-corner)
+            ? root.resize-start-size.height - delta.y
+            : root.resize-start-size.height + delta.y;
+        root.free-resize-position = root.position-for-fixed-corner(
+            root.resize-corner,
+            root.resize-fixed-corner,
+            { width: target-width, height: target-height },
+            root.resize-start-rotation,
+        );
+        root.free-resize-size = { width: target-width, height: target-height };
+    }
+
+    function emit-resize-target() {
+        if root.proportional-resizing() {
+            let side = max(max(root.free-resize-size.width, root.free-resize-size.height), 80px);
+            root.resized-to(
+                root.resize-corner,
+                root.position-for-fixed-corner(
+                    root.resize-corner,
+                    root.resize-fixed-corner,
+                    { width: side, height: side },
+                    root.resize-start-rotation,
+                ),
+                { width: side, height: side },
+            );
+        } else {
+            root.resized-to(root.resize-corner, root.free-resize-position, root.free-resize-size);
+        }
+    }
+
+    changed shift-pressed => {
+        if root.resize-pressed && root.resize-dragging {
+            root.resize-shift-pressed = root.shift-pressed;
+            root.emit-resize-target();
+        }
+    }
+
+    Rectangle {
+        transform-origin: { x: root.width / 2, y: root.height / 2 };
+        transform-rotation: root.rotation;
+
+        move-touch := TouchArea {
+            enabled: root.enabled;
+            mouse-cursor: EditorCursors.canvas-default;
+            accessible-role: AccessibleRole.button;
+            accessible-label: root.accessible-prefix + " move handle";
+            accessible-enabled: root.moveable;
+            private property <Point> move-start-position;
+            private property <Point> move-start-pointer;
+
+            double-clicked => { root.double-clicked(); }
+
+            changed pressed => {
+                if self.pressed {
+                    root.move-dragging = false;
+                    self.move-start-position = { x: root.x, y: root.y };
+                    let pointer = root.local-point-to-parent({ x: self.mouse-x, y: self.mouse-y });
+                    self.move-start-pointer = pointer;
+                    root.move-press-started(pointer);
+                } else {
+                    if root.move-dragging {
+                        root.interaction-ended();
+                    }
+                    root.move-released(root.local-point-to-parent({ x: self.mouse-x, y: self.mouse-y }));
+                    root.move-dragging = false;
+                }
+            }
+
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.move {
+                    root.pointer-moved(root.local-point-to-parent({
+                        x: self.mouse-x,
+                        y: self.mouse-y,
+                    }));
+                }
+            }
+
+            moved => {
+                let pointer = root.local-point-to-parent({ x: self.mouse-x, y: self.mouse-y });
+                if !root.moveable {
+                    return;
+                }
+                let delta = {
+                    x: pointer.x - self.move-start-pointer.x,
+                    y: pointer.y - self.move-start-pointer.y,
+                };
+                let moved-far-enough = delta.x.abs() >= root.drag-threshold
+                    || delta.y.abs() >= root.drag-threshold;
+                if self.pressed && !root.move-dragging && moved-far-enough {
+                    root.move-dragging = true;
+                    root.interaction-started();
+                }
+                if root.move-dragging {
+                    root.moved-to({
+                        x: ((self.move-start-position.x + delta.x) / 1px).round() * 1px,
+                        y: ((self.move-start-position.y + delta.y) / 1px).round() * 1px,
+                    });
+                }
+            }
+
+        }
+
+        @children
+
+        if root.active && !root.move-dragging: Rectangle {
+            if root.show-outline: Rectangle {
+                x: -root.style.outline-width;
+                y: -root.style.outline-width;
+                width: root.width + 2 * root.style.outline-width;
+                height: root.height + 2 * root.style.outline-width;
+                border-width: root.style.outline-width;
+                border-color: root.style.accent;
+            }
+
+            if root.proportional-resizing(): Path {
+                stroke: Colors.focus;
+                stroke-width: 1phx;
+                viewbox-width: root.width / 1px;
+                viewbox-height: root.height / 1px;
+
+                MoveTo {
+                    x: root.corner-on-left(root.resize-corner) ? 0 : parent.viewbox-width;
+                    y: root.corner-on-top(root.resize-corner) ? 0 : parent.viewbox-height;
+                }
+
+                LineTo {
+                    x: root.corner-on-left(root.resize-corner) ? parent.viewbox-width : 0;
+                    y: root.corner-on-top(root.resize-corner) ? parent.viewbox-height : 0;
+                }
+            }
+
+            for corner in [
+                CanvasCorner.top-left,
+                CanvasCorner.top-right,
+                CanvasCorner.bottom-right,
+                CanvasCorner.bottom-left,
+            ]: Rectangle {
+                visible: root.show-rotation-handles;
+                x: root.rotation-zone-x(corner);
+                y: root.rotation-zone-y(corner);
+                width: root.style.rotation-hit-size;
+                height: root.style.rotation-hit-size;
+                TouchArea {
+                    mouse-cursor: MouseCursor.custom(EditorCursors.rotation-image(root.rotation-cursor-angle(corner)), 12, 12);
+                    accessible-role: AccessibleRole.button;
+                    accessible-label: root.accessible-prefix + " rotate " + root.corner-name(corner);
+                    changed has-hover => {
+                        if self.has-hover { root.control-hovered(); }
+                    }
+                    accessible-enabled: root.show-rotation-handles;
+                    private property <bool> event-shift-pressed;
+                    private property <angle> start-rotation;
+                    private property <angle> start-pointer-angle;
+                    private property <Point> press-position;
+
+                    pointer-event(event) => {
+                        self.event-shift-pressed = event.modifiers.shift;
+                    }
+
+                    changed pressed => {
+                        if self.pressed {
+                            self.press-position = { x: self.mouse-x, y: self.mouse-y };
+                            let local-point = root.child-local-point(
+                                { x: parent.x, y: parent.y },
+                                { x: self.mouse-x, y: self.mouse-y },
+                            );
+                            root.interaction-started();
+                            root.rotating = true;
+                            root.rotation-tooltip-visible = true;
+                            self.start-rotation = root.rotation;
+                            self.start-pointer-angle = root.pointer-angle(local-point.x, local-point.y);
+                            root.rotation-tooltip-position = root.local-point-to-parent(local-point);
+                            root.rotation-tooltip-value = root.rotation;
+                        } else {
+                            root.interaction-ended();
+                            root.rotating = false;
+                            root.rotation-tooltip-visible = false;
+                        }
+                    }
+
+                    moved => {
+                        if !self.pressed {
+                            return;
+                        }
+                        let moved-far-enough = (self.mouse-x - self.press-position.x).abs() >= root.drag-threshold
+                            || (self.mouse-y - self.press-position.y).abs() >= root.drag-threshold;
+                        if !moved-far-enough {
+                            return;
+                        }
+                        let local-point = root.child-local-point(
+                            { x: parent.x, y: parent.y },
+                            { x: self.mouse-x, y: self.mouse-y },
+                        );
+                        let angle = self.start-rotation + root.pointer-angle(local-point.x, local-point.y) - self.start-pointer-angle;
+                        let target-angle = (root.shift-pressed || self.event-shift-pressed) ? root.snapped-rotation(angle) : angle;
+                        root.rotation-tooltip-position = root.local-point-to-parent(local-point);
+                        root.rotation-tooltip-value = target-angle;
+                        root.rotated-to(target-angle);
+                    }
+                }
+            }
+
+            if !root.rotating: Rectangle {
+                for corner in [
+                    CanvasCorner.top-left,
+                    CanvasCorner.top-right,
+                    CanvasCorner.bottom-right,
+                    CanvasCorner.bottom-left,
+                ]: Rectangle {
+                    x: root.resize-handle-x(corner);
+                    y: root.resize-handle-y(corner);
+                    width: root.style.handle-size;
+                    height: root.style.handle-size;
+                    background: root.style.handle-background;
+                    border-width: Metrics.border-width;
+                    border-color: Colors.focus;
+                    visible: root.show-resize-handles;
+
+                    TouchArea {
+                        enabled: root.enabled;
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        width: root.style.hit-size;
+                        height: root.style.hit-size;
+                        mouse-cursor: !root.resizable ? default : root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
+                        accessible-role: AccessibleRole.button;
+                        accessible-label: root.accessible-prefix + " resize " + root.corner-name(corner);
+                        changed has-hover => {
+                            if self.has-hover { root.control-hovered(); }
+                        }
+                        accessible-enabled: root.resizable;
+                        private property <bool> event-shift-pressed;
+
+                        pointer-event(event) => {
+                            self.event-shift-pressed = event.modifiers.shift;
+                            if root.resize-pressed && root.resize-dragging {
+                                root.resize-shift-pressed = event.modifiers.shift;
+                                root.emit-resize-target();
+                            }
+                        }
+
+                        changed pressed => {
+                            if self.pressed && root.resizable {
+                                let pointer = root.local-point-to-parent(root.child-local-point(
+                                    { x: parent.x + self.x, y: parent.y + self.y },
+                                    { x: self.mouse-x, y: self.mouse-y },
+                                ));
+
+                                root.resize-corner = corner;
+                                root.resize-pressed = true;
+                                root.resize-dragging = false;
+                                root.resize-shift-pressed = root.shift-pressed || self.event-shift-pressed;
+                                root.resize-start-size = { width: root.width, height: root.height };
+                                root.resize-start-rotation = root.rotation;
+                                root.resize-start-pointer = pointer;
+                                root.resize-fixed-corner = root.local-point-to-parent-at(
+                                    root.opposite-corner-local-point(corner, root.resize-start-size),
+                                    { x: root.x, y: root.y },
+                                    root.resize-start-size,
+                                    root.resize-start-rotation,
+                                );
+                                root.store-free-resize-target(pointer);
+                            } else {
+                                if root.resize-pressed && root.resize-dragging {
+                                    root.interaction-ended();
+                                }
+                                root.resize-pressed = false;
+                                root.resize-dragging = false;
+                                root.resize-shift-pressed = false;
+                            }
+                        }
+
+                        moved => {
+                            if !root.resize-pressed {
+                                return;
+                            }
+                            let pointer = root.local-point-to-parent(root.child-local-point(
+                                { x: parent.x + self.x, y: parent.y + self.y },
+                                { x: self.mouse-x, y: self.mouse-y },
+                            ));
+                            let delta = {
+                                x: pointer.x - root.resize-start-pointer.x,
+                                y: pointer.y - root.resize-start-pointer.y,
+                            };
+                            let moved-far-enough = delta.x.abs() >= root.drag-threshold
+                                || delta.y.abs() >= root.drag-threshold;
+                            if !root.resize-dragging && moved-far-enough {
+                                root.resize-shift-pressed = root.shift-pressed || self.event-shift-pressed;
+                                root.resize-dragging = true;
+                                root.interaction-started();
+                            }
+                            if !root.resize-dragging {
+                                return;
+                            }
+                            root.store-free-resize-target(pointer);
+                            root.emit-resize-target();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

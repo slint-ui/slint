@@ -3,11 +3,36 @@
 
 //! This module contains all builtin structures exposed in the .slint language.
 
+/// Maps the optional `$(= $field_default:expr)?` capture of a
+/// [`for_each_builtin_structs!`](crate::for_each_builtin_structs) consumer to an `Option`
+/// of the default's `stringify!`-ed tokens:
+/// `builtin_struct_field_default_tokens!($($field_default)?)`.
+/// Note that raw tokens stringify with spaces, such as `- 1.0` or `SortOrder :: Unsorted`.
+#[macro_export]
+macro_rules! builtin_struct_field_default_tokens {
+    () => {
+        None
+    };
+    ($field_default:expr) => {
+        Some(stringify!($field_default))
+    };
+}
+
 /// Call a macro with every builtin structures exposed in the .slint language
 ///
 /// Each struct is declared with `pub struct` if it should be re-exported in a public
 /// language-binding module (e.g. `slint::language` in the Rust crate), or plain `struct`
 /// to stay private. Consumers can dispatch on `$vis:vis`.
+///
+/// A field can declare a default value with `= expression` after its type.
+/// The expression is limited to number literals, bool literals, and enum values,
+/// because the consumers translate it to every target language: Rust and C++ use
+/// the expression verbatim, the other consumers apply their own minimal translation
+/// (see [`builtin_struct_field_default_tokens!`](crate::builtin_struct_field_default_tokens))
+/// and fail their build on anything outside the supported subset.
+/// Fields without a default value default to the zero value of their type.
+/// The consumers that generate documentation render the declared value themselves,
+/// so don't mention it in the field's doc comment.
 ///
 /// ## Example
 /// ```rust
@@ -15,7 +40,7 @@
 ///     ($(
 ///         $(#[$struct_attr:meta])*
 ///         $vis:vis struct $Name:ident {
-///             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+///             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:tt)?, )*
 ///         }
 ///     )*) => {
 ///         $(println!("{} ({}) => [{}]", stringify!($Name), stringify!($vis), stringify!($($field),*));)*
@@ -137,6 +162,19 @@ macro_rules! for_each_builtin_structs {
                 /// The distance between the baseline and the top of a regular upper-case glyph in the font,
                 /// or zero if not specified by the font.
                 cap_height: Coord,
+            }
+
+            /// This structure holds the hints that a `TextInput` gives to the platform's input method
+            /// (e.g. a soft keyboard) about the expected input.
+            /// The input method may take these hints into account, but might also ignore them.
+            #[non_exhaustive]
+            pub struct InputMethodHints {
+                /// The auto-capitalization behavior that the input method should apply.
+                capitalization: CapitalizationMode = (CapitalizationMode::Sentences),
+                /// Hint that the input method may automatically correct spelling mistakes as the user types.
+                auto_correct: bool = true,
+                /// Hint that the input method may offer auto-completion suggestions for the entered text.
+                auto_complete: bool = true,
             }
 
             /// An item in the menu of a menu bar or context menu

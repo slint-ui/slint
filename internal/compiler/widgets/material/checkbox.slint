@@ -135,6 +135,7 @@ export component CheckBox {
             vertical-stretch: 1;
             font-size: root.font-size;
             font-weight: root.font-weight;
+            accessible-role: none;
         }
     }
 
@@ -158,7 +159,7 @@ export component CheckBox {
         enabled <=> root.enabled;
 
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
+            if (event.text == Key.Space || event.text == Key.Return) {
                  i-touch-area.clicked();
                  return accept;
             }

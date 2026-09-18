@@ -95,6 +95,7 @@ To use Slint from C++, the following extra dependencies are needed:
 To use Slint from Node.js, the following extra dependencies are needed.
 
 - **[Node.js](https://nodejs.org/en/)** (including npm) Version 20 or newer is recommended.
+  Building the API from this repository needs a newer version, see [Node.js API Build](#nodejs-api-build).
 - **[Python](https://www.python.org)**
 
 ### Symlinks in the repository (Windows)
@@ -117,6 +118,13 @@ be done with cargo.
 ```sh
 cargo build
 cargo test
+```
+
+The tests of the Slint SC runtime measure the coverage of their `.slint` code, which
+needs the `llvm-tools` rustup component:
+
+```sh
+rustup component add llvm-tools
 ```
 
 ### Workspace layout
@@ -188,7 +196,9 @@ You can pass `-DCMAKE_INSTALL_PREFIX` in the first cmake command in order to cho
 
 ### Node.js API Build
 
-The Slint Node.js API is implemented as a pnpm build. You can build it locally using the following command line:
+The Slint Node.js API is implemented as a pnpm build. Building it needs Node.js 22.13 or newer,
+the minimum required by the pnpm version this repository pins. You can build it locally using the
+following command line:
 
 ```sh
 cd api/node

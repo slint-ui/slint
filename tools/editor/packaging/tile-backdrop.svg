@@ -1,0 +1,34 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    The backdrop of the square Windows tiles, in the proportions Windows wants:
+    inset by a little over a percent, with corners rounded to a good sixth of
+    the tile. The macOS icon uses the same gradient and grid, but insets much
+    further, because macOS gives its icons their padding.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="27" y1="8" x2="497" y2="532" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#25C9EF"/>
+      <stop offset="0.48" stop-color="#168DF4"/>
+      <stop offset="1" stop-color="#1162EF"/>
+    </linearGradient>
+    <linearGradient id="gridFade" x1="256" y1="18" x2="256" y2="516" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="white" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="white" stop-opacity="0.13"/>
+    </linearGradient>
+    <clipPath id="clip">
+      <rect x="7" y="7" width="498" height="498" rx="91"/>
+    </clipPath>
+  </defs>
+
+  <rect x="7" y="7" width="498" height="498" rx="91" fill="url(#bg)"/>
+  <g clip-path="url(#clip)" stroke="url(#gridFade)" stroke-width="2.71">
+    <path d="M107 7V505"/>
+    <path d="M205 7V505"/>
+    <path d="M302 7V505"/>
+    <path d="M399 7V505"/>
+    <path d="M7 115H505"/>
+    <path d="M7 213H505"/>
+    <path d="M7 310H505"/>
+    <path d="M7 408H505"/>
+  </g>
+</svg>

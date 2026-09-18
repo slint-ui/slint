@@ -3,9 +3,11 @@
 
 # cSpell:ignore wohoo
 
-import pytest
-from slint import load_file, CompileError
 from pathlib import Path
+
+import pytest
+
+from slint import CompileError, load_file
 
 
 def base_dir() -> Path:

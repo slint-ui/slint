@@ -1,0 +1,178 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Cells whose width would depend on their height, in box layouts: the mirror
+// of hlayout_height_for_width_cell.slint. A wrapping column flex whose height
+// a layout assigns is measured at an unbounded height, so it reports one
+// column, and it never wraps into columns wider than that. Static and repeated cells must agree on it, in a VerticalLayout's
+// horizontal info, in a HorizontalLayout's solve, and on the nested info path.
+// Binding the cell's `height` would count the columns instead (see
+// flexbox_column_wrap_width.slint).
+
+// A wrapping column flex: 4 boxes of 30px stack into a single 40px-wide
+// column, 120px tall. In a 70px cell the last two boxes spill below it
+// instead of flowing into a second column. The boxes are numbered so the
+// flow order is visible.
+component WrapCol {
+    out property <length> last-x: last.x;
+    out property <length> last-y: last.y;
+    FlexboxLayout {
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px;
+        padding: 0px;
+        cross-axis-line-alignment: start;
+        Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8;
+            Text { x: 0px; width: 100%; height: 100%; text: "1"; font-size: 10px; color: #003366;
+                horizontal-alignment: center; vertical-alignment: center; } }
+        Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8;
+            Text { x: 0px; width: 100%; height: 100%; text: "2"; font-size: 10px; color: #003366;
+                horizontal-alignment: center; vertical-alignment: center; } }
+        Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8;
+            Text { x: 0px; width: 100%; height: 100%; text: "3"; font-size: 10px; color: #003366;
+                horizontal-alignment: center; vertical-alignment: center; } }
+        last := Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8;
+            Text { x: 0px; width: 100%; height: 100%; text: "4"; font-size: 10px; color: #003366;
+                horizontal-alignment: center; vertical-alignment: center; } }
+    }
+    // The bottom edge of the box the parent layout assigned, drawn over the
+    // boxes so it stays visible: whatever sits below it did not fit. Setting
+    // `x`/`y` keeps it out of the implicit layout info (see `default_geometry`),
+    // so it cannot change what is measured here.
+    Rectangle { x: -5px; y: parent.height - 1px; width: parent.width + 10px; height: 2px; background: #e08020; }
+}
+
+export component TestCase inherits Window {
+    width: 800px;
+    // Room for the tallest panel plus the 50px each cell spills below it.
+    height: band-y + 270px;
+
+    // The captions wrap at their panel width, so the bands start below the
+    // tallest of them rather than at a fixed offset.
+    property <length> cap-y: legend.y + legend.height + 12px;
+    property <length> band-y: cap-y + cap-a.height + 6px;
+    // 4 boxes of 30px in one column, in a cell the layout gives 70px.
+    property <length> cell-h: 70px;
+    property <length> content-h: 120px;
+    // Enough gap between two stacked cells that the first one's spill ends
+    // before the second one starts. Vertical only: it cannot change a width.
+    property <length> gap: content-h - cell-h + 10px;
+
+    legend := Text {
+        x: 8px; y: 4px; width: 784px;
+        font-size: 11px; color: #555555;
+        text: "Each cell is a wrapping column FlexboxLayout (WrapCol) whose height the box layout assigns: 70px, ending at the orange line. It is measured as one column, 40px wide, and does not wrap, so boxes 3-4 spill below that line instead of flowing into a second column to the right. What the assertions check is the width: the magenta outline is the box the layout reserved and the blue bar an anchor right after the measured cells, both at 40px per WrapCol, and no box ever crosses to their right.";
+        wrap: word-wrap;
+    }
+
+    // A and B: a VerticalLayout of two 70px WrapCol cells. Its horizontal info
+    // reports one column (40px) for each, and each lays out one column.
+    cap-a := Text { x: 8px; y: cap-y; width: 150px; font-size: 10px; color: #555555; wrap: word-wrap;
+        text: "A: VerticalLayout info — static"; }
+    a-band := HorizontalLayout {
+        x: 8px; y: band-y; width: 150px; height: 2 * cell-h + gap;
+        alignment: start; padding: 0px; spacing: 0px;
+        static-col := VerticalLayout {
+            padding: 0px; spacing: gap;
+            alignment: start;
+            ref-cell := WrapCol { min-height: cell-h; max-height: cell-h; }
+            WrapCol { min-height: cell-h; max-height: cell-h; }
+        }
+        Rectangle { width: 5px; background: #5b8db8; }
+    }
+
+    cap-b := Text { x: 208px; y: cap-y; width: 150px; font-size: 10px; color: #555555; wrap: word-wrap;
+        text: "B: the same, repeated"; }
+    b-band := HorizontalLayout {
+        x: 208px; y: band-y; width: 150px; height: 2 * cell-h + gap;
+        alignment: start; padding: 0px; spacing: 0px;
+        repeated-col := VerticalLayout {
+            padding: 0px; spacing: gap;
+            alignment: start;
+            for x in [1, 2]: WrapCol { min-height: cell-h; max-height: cell-h; }
+        }
+        Rectangle { width: 5px; background: #5b8db8; }
+    }
+
+    // C: a HorizontalLayout's own solve measures a repeated cell like the
+    // static reference. The two rows are a panel apart so their spills don't
+    // meet.
+    cap-c := Text { x: 408px; y: cap-y; width: 150px; font-size: 10px; color: #555555; wrap: word-wrap;
+        text: "C: solve — static, then repeated"; }
+    HorizontalLayout {
+        x: 408px; y: band-y; width: 150px; height: cell-h;
+        alignment: start; padding: 0px; spacing: 0px;
+        WrapCol { min-height: cell-h; max-height: cell-h; }
+        static-anchor := Rectangle { width: 5px; background: #5b8db8; }
+    }
+    HorizontalLayout {
+        x: 408px; y: band-y + cell-h + gap; width: 150px; height: cell-h;
+        alignment: start; padding: 0px; spacing: 0px;
+        for x in [1]: WrapCol { min-height: cell-h; max-height: cell-h; }
+        repeated-anchor := Rectangle { width: 5px; background: #5b8db8; }
+    }
+
+    // D: the outer row queries the inner row's horizontal info (the info path
+    // rather than the solve path), so its box must span both cells.
+    cap-d := Text { x: 608px; y: cap-y; width: 180px; font-size: 10px; color: #555555; wrap: word-wrap;
+        text: "D: nested row, info path"; }
+    d-band := HorizontalLayout {
+        x: 608px; y: band-y; width: 180px; height: cell-h;
+        alignment: start; padding: 0px; spacing: 0px;
+        inner-row := HorizontalLayout {
+            padding: 0px; spacing: 0px;
+            for x in [1, 2]: WrapCol { min-height: cell-h; max-height: cell-h; }
+        }
+        Rectangle { width: 5px; background: #5b8db8; }
+    }
+
+    // Outlines of the reported boxes the assertions check (display only).
+    Rectangle { x: a-band.x + static-col.x; y: a-band.y + static-col.y; width: static-col.width; height: static-col.height;
+        border-color: #f0f; border-width: 1px; }
+    Rectangle { x: b-band.x + repeated-col.x; y: b-band.y + repeated-col.y; width: repeated-col.width; height: repeated-col.height;
+        border-color: #f0f; border-width: 1px; }
+    Rectangle { x: d-band.x + inner-row.x; y: d-band.y + inner-row.y; width: inner-row.width; height: inner-row.height;
+        border-color: #f0f; border-width: 1px; }
+
+    // The reference cell is one column, and its boxes stay within it: the
+    // last one is below the third, past the 70px cell, not in a second column.
+    out property <bool> one-column: static-anchor.x == 40px
+        && ref-cell.last-x == 0px && ref-cell.last-y == 90px;
+    out property <bool> ortho-static-ok: abs(static-col.width - static-anchor.x) < 1px;
+    out property <bool> ortho-repeated-ok: abs(repeated-col.width - static-anchor.x) < 1px;
+    out property <bool> solve-repeated-ok: abs(repeated-anchor.x - static-anchor.x) < 1px;
+    out property <bool> info-nested-ok: abs(inner-row.width - 2 * static-anchor.x) < 1px;
+
+    out property <bool> test: one-column && ortho-static-ok && ortho-repeated-ok
+        && solve-repeated-ok && info-nested-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_one_column(), "reference cell must be one column and stack its boxes below it");
+assert!(instance.get_ortho_static_ok(), "static cell not measured as one column in the ortho pass");
+assert!(instance.get_ortho_repeated_ok(), "repeated cell not measured as one column in the ortho pass");
+assert!(instance.get_solve_repeated_ok(), "repeated cell not measured as one column in the solve");
+assert!(instance.get_info_nested_ok(), "repeated cell not measured as one column on the info path");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_one_column());
+assert(instance.get_ortho_static_ok());
+assert(instance.get_ortho_repeated_ok());
+assert(instance.get_solve_repeated_ok());
+assert(instance.get_info_nested_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.one_column);
+assert(instance.ortho_static_ok);
+assert(instance.ortho_repeated_ok);
+assert(instance.solve_repeated_ok);
+assert(instance.info_nested_ok);
+```
+*/

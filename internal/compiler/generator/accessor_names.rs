@@ -88,7 +88,7 @@ fn format_accessor_name(name: &str, accessor: AccessorKind) -> SmolStr {
 
 /// Same as [`rust_accessor_name`] but wrapped in a [`proc_macro2::Ident`] for
 /// direct use in `quote!` templates.
-#[cfg(feature = "rust")]
+#[cfg(any(feature = "rust", feature = "slint-sc"))]
 pub fn rust_accessor_ident(name: &str, accessor: AccessorKind) -> proc_macro2::Ident {
     quote::format_ident!("{}", rust_accessor_name(name, accessor).as_str())
 }

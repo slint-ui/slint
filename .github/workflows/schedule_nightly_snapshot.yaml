@@ -11,18 +11,19 @@ on:
 
 jobs:
   trigger:
+    if: github.repository == 'slint-ui/slint'
     runs-on: ubuntu-latest
     strategy:
       matrix:
         # Exactly one branch uses `mode: full-nightly`: it owns the `nightly` tag and the VS Code extension.
         include:
-          - branch: pre-release/1.17
-            mode: website-only
-          - branch: master
+          - branch: pre-release/1.18
             mode: full-nightly
+          - branch: master
+            mode: website-only
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ matrix.branch }}

@@ -340,6 +340,14 @@ void set_state_binding(const Property<StateInfo> &property, F binding)
             new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
 }
 
+/// \private
+/// Returns true if a binding or a PropertyTracker is currently being evaluated, so that
+/// property accesses register dependencies. Mirrors i_slint_core's is_currently_tracking.
+inline bool is_currently_tracking()
+{
+    return cbindgen_private::slint_property_is_currently_tracking();
+}
+
 /// PropertyTracker allows keeping track of when properties change and lazily evaluate code
 /// if necessary.
 /// Once constructed, you can call evaluate() with a functor that will be invoked. Any

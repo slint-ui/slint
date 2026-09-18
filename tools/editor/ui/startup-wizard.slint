@@ -1,0 +1,301 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, PaintStyle, Metrics, Colors, Motion, Typography, WelcomeBrandStyle, ButtonStyle, RecentProjectRowStyle, WelcomeShellStyle } from "style.slint";
+import { Project } from "project.slint";
+
+component BrandMark inherits Rectangle {
+    in property <WelcomeBrandStyle> style: Style.welcome-brand;
+    in-out property <length> mark-size: 90px;
+
+    width: mark-size;
+    height: mark-size;
+    border-radius: mark-size * 23%;
+    background: root.style.background;
+    clip: true;
+    drop-shadow-blur: root.style.shadow.blur;
+    drop-shadow-offset-y: root.style.shadow.offset-y;
+    drop-shadow-color: root.style.shadow.color;
+
+    for row in 4: Rectangle {
+        y: root.mark-size * (22% + row * 19%);
+        height: Metrics.border-width;
+        background: root.style.grid-horizontal;
+    }
+
+    for col in 4: Rectangle {
+        x: root.mark-size * (22% + col * 19%);
+        width: Metrics.border-width;
+        background: root.style.grid-vertical;
+    }
+
+    Image {
+        width: parent.width * 56%;
+        height: parent.height * 56%;
+        source: @image-url("assets/slint-mark.svg");
+        colorize: Colors.on-accent;
+        opacity: 0.94;
+    }
+}
+
+component ActionIcon inherits Rectangle {
+    in property <color> icon-color: Style.welcome-shell.muted;
+    in property <bool> folder: false;
+
+    width: Metrics.icon-large;
+    height: Metrics.icon-large;
+    background: transparent;
+
+    Image {
+        width: Metrics.icon-large;
+        height: Metrics.icon-large;
+        source: root.folder
+            ? @image-url("assets/primer-folder-open.svg")
+            : @image-url("assets/primer-plus-circle.svg");
+        colorize: root.icon-color;
+    }
+}
+
+component WelcomeAction inherits Rectangle {
+    in property <ButtonStyle> style: Style.welcome-button;
+    in property <string> label;
+    in property <bool> folder: false;
+    in property <bool> enabled: true;
+    callback clicked;
+    private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
+        : touch.pressed ? root.style.appearance.pressed
+        : touch.has-hover ? root.style.appearance.hover : root.style.appearance.normal;
+
+    accessible-role: AccessibleRole.button;
+    accessible-label: root.label;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
+
+    height: root.style.height;
+    border-radius: root.style.radius;
+    background: root.paint.background;
+    border-color: root.paint.border;
+    animate background { duration: Motion.feedback; easing: ease-out-quad; }
+
+    HorizontalLayout {
+        padding-left: root.style.padding-inline;
+        padding-right: root.style.padding-inline;
+        spacing: root.style.gap;
+        cross-axis-alignment: center;
+
+        ActionIcon {
+            icon-color: root.style.appearance.icon-color;
+            folder: root.folder;
+        }
+
+        Text {
+            text: root.label;
+            color: root.paint.foreground;
+            font-size: root.style.text.size;
+            font-weight: root.style.text.weight;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component RecentProjectRow inherits Rectangle {
+    in property <RecentProjectRowStyle> style: Style.recent-project-row;
+    in property <string> title;
+    in property <string> path;
+    in property <bool> selected: false;
+    in property <bool> enabled: true;
+    callback opened;
+
+    accessible-role: AccessibleRole.list-item;
+    accessible-label: root.title;
+    accessible-description: root.path;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.opened();
+        }
+    }
+
+    height: root.style.height;
+    border-radius: root.style.radius;
+    background: selected ? root.style.selected-background : (touch.has-hover && enabled ? root.style.hover : transparent);
+    animate background { duration: Motion.feedback; easing: ease-out-quad; }
+
+    HorizontalLayout {
+        padding-left: root.style.padding-left;
+        padding-right: root.style.padding-right;
+        spacing: root.style.gap;
+        cross-axis-alignment: center;
+
+        Image {
+            width: root.style.icon-size;
+            height: root.style.icon-size;
+            source: @image-url("assets/primer-file-code.svg");
+            colorize: root.selected ? Colors.on-accent : root.style.selected-background;
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: root.style.text-gap;
+
+            Text {
+                text: root.title;
+                color: root.selected ? Colors.on-accent : root.style.foreground;
+                font-size: Typography.body.size;
+                font-weight: FontWeight.extra-bold;
+                overflow: elide;
+            }
+
+            Text {
+                text: root.path;
+                color: root.selected ? root.style.selected-muted : root.style.muted;
+                font-size: Typography.control.size;
+                overflow: elide;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            root.opened();
+        }
+        double-clicked => {
+            root.opened();
+        }
+
+        Tooltip {
+            text: @markdown("\{root.path}");
+        }
+    }
+}
+
+export component StartupWizard inherits Rectangle {
+    in property <WelcomeShellStyle> style: Style.welcome-shell;
+    callback opened;
+    callback create-new-project;
+    callback open-existing-project;
+
+    property <length> shell-width: min(root.width - 2 * root.style.outer-inset, root.style.width);
+    property <length> shell-height: min(root.height - 2 * root.style.outer-inset, root.style.height);
+    property <length> shell-left: (root.width - shell-width) / 2;
+    property <length> shell-top: (root.height - shell-height) / 2;
+    property <length> side-width: shell-width < root.style.compact-threshold ? root.style.compact-side-width : root.style.side-width;
+    property <length> main-width: shell-width - side-width;
+
+    accessible-role: AccessibleRole.region;
+    accessible-label: "Startup wizard";
+
+    background: root.style.stage;
+
+    Rectangle {
+        x: root.shell-left;
+        y: root.shell-top;
+        width: root.shell-width;
+        height: root.shell-height;
+        border-radius: root.style.radius;
+        border-width: Metrics.border-width;
+        border-color: root.style.border;
+        background: root.style.background;
+        clip: true;
+        drop-shadow-blur: root.style.shadow.blur;
+        drop-shadow-offset-y: root.style.shadow.offset-y;
+        drop-shadow-color: root.style.shadow.color;
+        animate width, height, x, y { duration: Motion.layout; easing: ease-out-quad; }
+
+        Rectangle {
+            width: root.main-width;
+            background: root.style.background;
+        }
+
+        side-panel := Rectangle {
+            x: root.main-width;
+            width: root.side-width;
+            background: root.style.sidebar;
+        }
+
+        brand := BrandMark {
+            mark-size: Style.welcome-hero.brand-size;
+            x: (root.main-width - self.width) / 2;
+            y: Style.welcome-hero.top;
+        }
+
+        hero-title := Text {
+            x: 0px;
+            y: brand.y + brand.height + Style.welcome-hero.gap;
+            width: root.main-width;
+            height: Style.welcome-hero.title-height;
+            text: "Slint Visual Editor";
+            color: root.style.foreground;
+            font-size: Typography.hero.size;
+            font-weight: Typography.hero.weight;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+        Text {
+            x: 0px;
+            y: hero-title.y + hero-title.height - Metrics.space-tight;
+            width: root.main-width;
+            height: Style.welcome-hero.subtitle-height;
+            text: "Version 1.0";
+            color: root.style.muted;
+            font-size: Typography.action.size;
+            horizontal-alignment: center;
+        }
+
+        welcome-actions := VerticalLayout {
+            x: Style.welcome-actions.inset;
+            y: root.shell-height - Style.welcome-actions.bottom-inset;
+            width: root.main-width - 2 * Style.welcome-actions.inset;
+            height: Style.welcome-actions.height;
+            spacing: Style.welcome-actions.gap;
+            WelcomeAction {
+                label: "Create New Project...";
+                clicked => {
+                    root.create-new-project();
+                }
+            }
+
+            WelcomeAction {
+                label: "Open Existing Project...";
+                folder: true;
+                clicked => {
+                    root.open-existing-project();
+                }
+            }
+        }
+
+        recent-list := VerticalLayout {
+            x: root.main-width + Style.recent-project-list.inset;
+            y: Style.recent-project-list.inset;
+            width: root.side-width - 2 * Style.recent-project-list.inset;
+            height: Style.recent-project-list.height;
+            spacing: Style.recent-project-list.gap;
+
+            for project[index] in Project.recent: RecentProjectRow {
+                title: project.name;
+                path: project.root-path;
+                selected: index == 0;
+                opened => {
+                    Project.open-recent-project(project);
+                }
+            }
+        }
+    }
+}

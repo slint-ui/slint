@@ -27,53 +27,21 @@ Slint has a rich type system that includes primitive types, unit types for dimen
 
 ## Core Type Enum
 
-The `Type` enum represents all possible types in Slint:
+The `Type` enum in `internal/compiler/langtype.rs` represents all possible types in Slint. Its
+variants group into:
 
-```rust
-pub enum Type {
-    // Error/placeholder types
-    Invalid,           // Uninitialized or error
-    Void,              // Expression returns nothing
-    InferredProperty,  // Two-way binding type not yet inferred
-    InferredCallback,  // Callback alias type not yet inferred
-
-    // Callable types
-    Callback(Rc<Function>),
-    Function(Rc<Function>),
-
-    // Primitive types
-    Float32,
-    Int32,
-    String,
-    Bool,
-
-    // Unit types (dimensional quantities)
-    Duration,          // Time (ms, s)
-    PhysicalLength,    // Physical pixels (phx)
-    LogicalLength,     // Logical pixels (px, cm, mm, in, pt)
-    Rem,               // Font-relative size
-    Angle,             // Rotation (deg, rad, turn, grad)
-    Percent,           // Percentage values
-
-    // Visual types
-    Color,
-    Brush,
-    Image,
-    Easing,
-
-    // Composite types
-    Array(Rc<Type>),
-    Struct(Rc<Struct>),
-    Enumeration(Rc<Enumeration>),
-
-    // Special types
-    Model,             // Anything convertible to a model
-    UnitProduct(Vec<(Unit, i8)>),  // Product of units (e.g., px²)
-    ElementReference,  // Reference to an element
-    ComponentFactory,  // Factory for dynamic components
-    // ... internal types
-}
-```
+- **Error and placeholder types**: `Invalid` (uninitialized or error), `Void` (an expression
+  returning nothing), and `InferredProperty` / `InferredCallback` for two-way bindings and
+  callback aliases whose type is not resolved yet.
+- **Callable types**: `Callback` and `Function`, each wrapping a `Function` signature.
+- **Primitive types**: `Float32`, `Int32`, `String`, `Bool`.
+- **Unit types** (dimensional quantities): `Duration` (ms, s), `PhysicalLength` (phx),
+  `LogicalLength` (px, cm, mm, in, pt), `Rem`, `Angle` (deg, rad, turn, grad) and `Percent`.
+- **Visual types**: `Color`, `Brush`, `Image`, `Easing`, `PathData`, `StyledText`, `MouseCursor`.
+- **Composite types**: `Array`, `Struct`, `Enumeration`.
+- **Special types**: `Model` (anything convertible to a model), `UnitProduct` (a list of
+  unit/power pairs, e.g. px²), `ElementReference`, `ComponentFactory`, `Closure`, `Keys`,
+  `DataTransfer`, and the internal `LayoutCache` and `ArrayOfU16`.
 
 ## Unit System
 
@@ -146,18 +114,11 @@ property<Large> p: { x: 5 };  // OK: y gets default value
 
 ## Element Types
 
-Elements (components/items) have their own type hierarchy:
-
-```rust
-pub enum ElementType {
-    Component(Rc<Component>),  // User-defined component
-    Builtin(Rc<BuiltinElement>),  // Built-in item (Rectangle, Text, etc.)
-    Native(Rc<NativeClass>),   // After native class resolution
-    Error,                     // Lookup failed
-    Global,                    // Global component base
-    Interface,                 // Interface base
-}
-```
+Elements (components/items) have their own type hierarchy.
+`ElementType` (`internal/compiler/langtype.rs`) is one of: `Component` for a user-defined
+component, `Builtin` for a built-in item such as `Rectangle` or `Text`, `Native` once the
+`resolve_native_classes` pass has run, `Error` when the base type couldn't be looked up, and
+`Global` / `Interface` for the root element of a global or an interface.
 
 ### Property Lookup on Elements
 
@@ -169,29 +130,18 @@ When looking up a property on an element:
 4. For item types, check reserved properties (x, y, width, height, etc.)
 5. Handle property aliases (deprecated names)
 
-```rust
-impl ElementType {
-    pub fn lookup_property(&self, name: &str) -> PropertyLookupResult {
-        // Returns type, visibility, deprecated status, etc.
-    }
-}
-```
+`ElementType::lookup_property()` does all of that and returns a `PropertyLookupResult` carrying
+the resolved name, the type, the visibility and the deprecation status, plus the flags the
+visibility check needs: whether the property is local to the current component and whether it
+came from its direct base.
 
 ## Name Resolution (Lookup)
 
-The `LookupCtx` provides context for resolving identifiers in expressions:
-
-```rust
-pub struct LookupCtx<'a> {
-    pub property_name: Option<&'a str>,     // Current property being bound
-    pub property_type: Type,                 // Type of the whole binding
-    pub expected_type: Type,                 // Type expected at the current position
-    pub component_scope: &'a [ElementRc],   // Element scope stack
-    pub arguments: Vec<SmolStr>,             // Callback/function arguments
-    pub type_register: &'a TypeRegister,    // Type registry
-    pub local_variables: Vec<Vec<(SmolStr, Type)>>,  // Local variable scopes
-}
-```
+`LookupCtx` (`internal/compiler/lookup.rs`) carries everything needed to resolve an identifier:
+the name and type of the property being bound, the type expected at the current position within
+the expression, the element scope stack, the callback/function argument names, the stack of local
+variable scopes, the type register and type loader, the counters that generate unique symbol
+names, plus somewhere to report diagnostics and the token currently being processed.
 
 ### Lookup Order
 
@@ -203,7 +153,7 @@ When resolving an identifier, lookup proceeds in this order:
 4. **Element IDs** - Named elements in the component
 5. **In-scope properties** - Properties from scope stack (legacy syntax: parent properties)
 6. **Global types** - Types from the type register
-7. **Built-in namespaces** - `Colors`, `Easing`, `Math`, `Key`, `FontWeight`
+7. **Built-in namespaces** - `Colors`, `Easing`, `Math`, `Key`, `FontWeight`, `MouseCursor`
 8. **Type-specific values** - Bare `color`, `enum` or `easing` literals (e.g. `red`, `center`), resolved against `expected_type`
 9. **Built-in functions** - Unqualified global functions (`min`, `max`, `clamp`, `abs`, `debug`, ...)
 
@@ -221,29 +171,17 @@ resolves `red` as a color even though the binding's type is the struct `S`.
 
 ### LookupResult
 
-Lookup returns one of:
-
-```rust
-pub enum LookupResult {
-    Expression { expression: Expression, deprecated: Option<String> },
-    Enumeration(Rc<Enumeration>),
-    Namespace(BuiltinNamespace),
-    Callable(LookupResultCallable),
-}
-```
+Lookup returns a `LookupResult`: an `Expression` (with an optional deprecation hint), an
+`Enumeration`, a `Namespace` (a `BuiltinNamespace` value — the ones above plus the internal
+`SlintInternal`), or a `Callable`. See `internal/compiler/lookup.rs`.
 
 ## Type Register
 
-The `TypeRegister` maintains all known types:
-
-```rust
-pub struct TypeRegister {
-    types: HashMap<SmolStr, Type>,
-    elements: HashMap<SmolStr, ElementType>,
-    pub expose_internal_types: bool,
-    // ...
-}
-```
+The `TypeRegister` (`internal/compiler/typeregister.rs`) maps names to property types and to
+element types. Registers chain: each one can have a parent registry, and a lookup that misses
+falls through to it. It also records which types are animatable, which types are only allowed
+inside a given parent (so the error can say "Row can only be within a GridLayout element"), and
+whether internal types should be exposed by lookups.
 
 ### Built-in Types
 
@@ -256,48 +194,24 @@ The register is initialized with:
 
 ### Reserved Properties
 
-All items automatically get reserved properties:
-
-```rust
-// Geometry
-("x", Type::LogicalLength),
-("y", Type::LogicalLength),
-("width", Type::LogicalLength),
-("height", Type::LogicalLength),
-
-// Layout
-("min-width", Type::LogicalLength),
-("max-width", Type::LogicalLength),
-("preferred-width", Type::LogicalLength),
-("horizontal-stretch", Type::Float32),
-// ...
-
-// Grid layout
-("col", Type::Int32),
-("row", Type::Int32),
-("colspan", Type::Int32),
-("rowspan", Type::Int32),
-
-// Accessibility
-("accessible-role", AccessibleRole),
-("accessible-label", Type::String),
-// ...
-```
+All items automatically get reserved properties. `reserved_properties()` in
+`internal/compiler/typeregister.rs` chains the per-category name/type lists — geometry (`x`, `y`,
+`width`, `height`), layout (`min-width`, `preferred-height`, `horizontal-stretch`, ...), grid and
+flexbox layout (`col`, `row`, `colspan`, `rowspan`, `cross-axis-self-alignment`, ...), drop and
+inner shadow, transform, the deprecated rotation-origin names, and accessibility
+(`accessible-role`, `accessible-label`, ...) — and yields each as a
+`(name, Type, PropertyVisibility)` triple. It is a triple rather than a pair because the
+visibility is not uniform: most are `Input`, but the last group covers `Output` (`absolute-position`),
+`Constexpr` (`forward-focus`), `Public` and `Private` (`init`).
 
 ## Property Visibility
 
 Properties have visibility levels that control access:
 
-```rust
-pub enum PropertyVisibility {
-    Private,    // Only accessible within the component
-    Input,      // Can be set from outside, read inside
-    Output,     // Can be read from outside, set inside
-    InOut,      // Both readable and writable
-    Public,     // For functions/callbacks
-    Constexpr,  // Compile-time constant
-}
-```
+`PropertyVisibility` (`internal/compiler/object_tree.rs`) is `Private`, `Input`, `Output` or
+`InOut` for ordinary properties, `Public` or `Protected` for functions, `Constexpr` for built-in
+properties that must be known at compile time, and `Fake` for built-in properties that only ever
+take a binding and can neither be read nor written (such as `Path`'s `commands`).
 
 ### Visibility Rules
 
@@ -312,23 +226,18 @@ pub enum PropertyVisibility {
 
 ### Struct Definition
 
-```rust
-pub struct Struct {
-    pub fields: BTreeMap<SmolStr, Type>,
-    pub name: StructName,  // None, User, BuiltinPublic, BuiltinPrivate
-}
-```
+A `Struct` is its fields (a sorted map from name to `Type`), the resolved and constant-folded
+default value of each field, and a `StructName`. The name is `None` for an anonymous struct,
+`User` for one declared as `struct Foo { }` in .slint (which also keeps the declaration node, the
+`@rust-attr(...)` texts and the declaration order of the fields, since the sorted field map loses
+it), or `Builtin`. See `Struct` and `StructName` in `internal/compiler/langtype.rs`.
 
 ### Enumeration Definition
 
-```rust
-pub struct Enumeration {
-    pub name: SmolStr,
-    pub values: Vec<SmolStr>,
-    pub default_value: usize,  // Index in values
-    pub node: Option<syntax_nodes::EnumDeclaration>,
-}
-```
+An `Enumeration` is its name, its values, the index of the default value within them, the
+declaration node for non-builtin enums, and the `@rust-attr(...)` texts. An `EnumerationValue` is
+an index into `values` plus the enumeration it belongs to.
+See `internal/compiler/langtype.rs`.
 
 ### Accessing Enumeration Values
 
@@ -399,11 +308,13 @@ Expression::Struct {
 ### Registering a Custom Type
 
 ```rust
-register.insert_type(Type::Struct(Rc::new(Struct {
-    fields: [("x".into(), Type::Int32)].into_iter().collect(),
-    name: StructName::User { name: "MyStruct".into(), node },
-})));
+register.insert_type(Type::Struct(Arc::new(Struct::new(
+    [("x".into(), Type::Int32)].into_iter().collect(),
+    struct_name,
+))));
 ```
+
+`Struct::new()` builds one without declared field defaults.
 
 ## Debugging Tips
 
@@ -426,15 +337,13 @@ println!("Type: {}", my_type);  // e.g., "length", "[int]", "{ x: int, y: int }"
 ### Inspecting the Type Register
 
 ```rust
-// List all types
-for (name, ty) in &register.types {
-    println!("{}: {}", name, ty);
+// List all types, including those from the parent registries
+for (name, ty) in register.all_types() {
+    println!("{name}: {ty}");
 }
 
-// Check if type exists
-if let Some(ty) = register.lookup("MyType") {
-    // ...
-}
+// Look up one type: Type::Invalid when it isn't registered
+let ty = register.lookup("MyType");
 ```
 
 ## Testing

@@ -18,11 +18,7 @@ pub fn step_out_of_node(
         if let Some(sibling) = item_tree.next_sibling(self_or_ancestor) {
             return Some(sibling);
         }
-        if let Some(ancestor) = item_tree.parent(self_or_ancestor) {
-            self_or_ancestor = ancestor;
-        } else {
-            return None;
-        }
+        self_or_ancestor = item_tree.parent(self_or_ancestor)?;
     }
 }
 

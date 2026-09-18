@@ -50,12 +50,19 @@ targets:
   MyApp:
     type: application
     platform: iOS
-    deploymentTarget: "12.0"
+    deploymentTarget: "13.0"
     info:
         path: Info.plist
         properties:
+            CADisableMinimumFrameDurationOnPhone: true
             UILaunchScreen:
                 - ImageRespectSafeAreaInsets: false
+            UIApplicationSceneManifest:
+              UIApplicationSupportsMultipleScenes: false
+              UISceneConfigurations:
+                UIWindowSceneSessionRoleApplication:
+                  - UISceneConfigurationName: Slint
+                    UISceneDelegateClassName: SlintWindowSceneDelegate
     sources: []
     postCompileScripts:
       - script: |
@@ -67,6 +74,20 @@ targets:
 Adjust the name, bundle id, and other fields as needed.
 
 This configuration file delegates the build process to cargo through a shell script.
+
+The `CADisableMinimumFrameDurationOnPhone` entry lets animations run at the screen's
+full refresh rate.
+Without it, iOS limits an iPhone app to 60 frames per second,
+even on a ProMotion display that supports 120.
+iPad isn't affected.
+
+The `UIApplicationSceneManifest` entry opts the app into UIKit's scene lifecycle,
+which iOS 27 requires: an app without it fails to launch.
+`SlintWindowSceneDelegate` is the scene delegate that Slint's winit backend provides,
+and it attaches Slint's windows to the scene that UIKit connects.
+Keep the entry as it is.
+For background on the requirement, see Apple's
+[TN3187](https://developer.apple.com/documentation/technotes/tn3187-migrating-to-the-uikit-scene-based-life-cycle).
 
 :::note[Note]
 The shell script is invoked with the name of the binary that cargo produces. Update it to match the name of your project.

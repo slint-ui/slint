@@ -10,6 +10,7 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{BuiltinFunction, Callable, Expression};
@@ -80,14 +81,13 @@ impl<'a> LocalFocusForwards<'a> {
         let mut forwards = HashMap::new();
 
         recurse_elem_no_borrow(&component.root_element, &(), &mut |elem, _| {
-            let Some(forward_focus_binding) =
-                elem.borrow_mut().bindings.remove("forward-focus").map(RefCell::into_inner)
+            let Some(forward_focus_binding) = elem.borrow_mut().take_binding("forward-focus")
             else {
                 return;
             };
 
             let Expression::ElementReference(focus_target) =
-                super::ignore_debug_hooks(&forward_focus_binding.expression)
+                forward_focus_binding.expression.ignore_debug_hooks()
             else {
                 // resolve expressions pass has produced type errors
                 debug_assert!(diag.has_errors());
@@ -224,7 +224,7 @@ impl<'a> LocalFocusForwards<'a> {
                     elem.borrow_mut().property_declarations.insert(
                         function.name().into(),
                         PropertyDeclaration {
-                            property_type: Type::Function(Rc::new(Function {
+                            property_type: Type::Function(Arc::new(Function {
                                 return_type: Type::Void,
                                 args: Vec::new(),
                                 arg_names: Vec::new(),
@@ -234,10 +234,8 @@ impl<'a> LocalFocusForwards<'a> {
                             ..Default::default()
                         },
                     );
-                    elem.borrow_mut().bindings.insert(
-                        function.name().into(),
-                        RefCell::new(set_or_clear_focus_code.into()),
-                    );
+                    elem.borrow_mut()
+                        .set_binding(function.name().into(), set_or_clear_focus_code.into());
                 }
             }
         }

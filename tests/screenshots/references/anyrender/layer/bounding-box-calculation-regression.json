@@ -1,0 +1,27 @@
+[
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L10,0 L10,10 L0,10 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        27.0,
+        27.0
+      ]
+    }
+  }
+]

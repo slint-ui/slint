@@ -505,6 +505,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("(^|/)Cargo\\.lock$", LicenseLocation::NoLicense),
             ("(^|/)flake\\.nix$", LicenseLocation::NoLicense),
             ("(^|/)flake\\.lock$", LicenseLocation::NoLicense),
+            ("(^|/)uv\\.lock$", LicenseLocation::NoLicense),
             ("^demos/.*/zephyr/VERSION$", LicenseLocation::NoLicense),
             ("^examples/mcu-board-support/pico2_st7789/rp_pico2.rs$", LicenseLocation::NoLicense), // third-party file
             // filename based matches:
@@ -543,15 +544,19 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             // Extension matches:
             ("\\.60$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.60\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
+            ("\\.appxmanifest\\.in$", LicenseLocation::NoLicense),
             ("\\.astro$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.cmake$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.cmake.in$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.conf$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.css$", LicenseLocation::NoLicense),
+            ("\\.desktop$", LicenseLocation::NoLicense),
+            ("\\.dict$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.gitattributes$", LicenseLocation::NoLicense),
             ("\\.gitignore$", LicenseLocation::NoLicense),
             ("\\.gltf$", LicenseLocation::NoLicense),
+            ("\\.gpg$", LicenseLocation::NoLicense),
             ("\\.icns$", LicenseLocation::NoLicense),
             ("\\.ico$", LicenseLocation::NoLicense),
             ("\\.vscodeignore$", LicenseLocation::NoLicense),
@@ -607,6 +612,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.wgsl$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.woff$", LicenseLocation::NoLicense),
             ("\\.xml$", LicenseLocation::NoLicense),
+            ("\\.xml\\.in$", LicenseLocation::NoLicense),
             ("\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.yml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
@@ -943,7 +949,7 @@ impl LicenseHeaderCheck {
         for path in &collect_files()? {
             let result = self
                 .check_file(path.as_path())
-                .with_context(|| format!("checking {}", &path.to_string_lossy()));
+                .with_context(|| format!("checking {}", path.to_string_lossy()));
 
             if result.is_err() {
                 seen_errors = true;

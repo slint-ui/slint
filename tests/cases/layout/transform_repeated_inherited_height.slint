@@ -1,0 +1,177 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A transform, opacity, drop shadow or visible binding on a repeated element
+// injects a wrapper as the repeated component's new root. The wrapper's
+// synthesized layoutinfo only forwards the inner root's implicit info, so the
+// component's root constraints must be merged into it — including constraints
+// inherited from a base component, like `FixedHeight`'s height here. They used
+// to be dropped, and the layout solved the repeated cell without them.
+//
+// Most cases assert the *solved* position of a marker element placed after the
+// repeated cell: that position is the cell's solved size, which comes from the
+// repeated instance's own layout info (the broken path). The layouts use
+// `alignment: start` so cells solve to their preferred/min size.
+
+component FixedHeight inherits Rectangle { height: 12px; }
+component FixedWidth inherits Rectangle { width: 30px; }
+component MinSize inherits Rectangle { min-width: 20px; min-height: 8px; }
+component PreferredHeight inherits Rectangle { preferred-height: 40px; }
+component ForwardMin inherits Rectangle {
+    min-height: inner.min-height;
+    inner := VerticalLayout { Rectangle { min-height: 9px; } }
+}
+
+// The original bug: repeated cell with a transform in a VerticalLayout.
+export component TestCaseVerticalTransform inherits Window {
+    width: 100phx; height: 100phx;
+    VerticalLayout {
+        alignment: start;
+        for entry in [0]: FixedHeight { transform-rotation: 1deg; }
+        marker := Rectangle { }
+    }
+    out property <bool> test: marker.y == 12px;
+}
+
+// The other axis, and the Opacity wrapper.
+export component TestCaseHorizontalOpacity inherits Window {
+    width: 100phx; height: 100phx;
+    HorizontalLayout {
+        alignment: start;
+        for entry in [0]: FixedWidth { opacity: 0.5; }
+        marker := Rectangle { }
+    }
+    out property <bool> test: marker.x == 30px;
+}
+
+// A conditional element instead of a `for`, and the drop-shadow wrapper.
+export component TestCaseConditionalShadow inherits Window {
+    width: 100phx; height: 100phx;
+    VerticalLayout {
+        alignment: start;
+        if true: FixedHeight { drop-shadow-color: red; drop-shadow-blur: 2px; }
+        marker := Rectangle { }
+    }
+    out property <bool> test: marker.y == 12px;
+}
+
+// The Clip wrapper injected for a dynamic `visible` binding.
+export component TestCaseVisibleClip inherits Window {
+    width: 100phx; height: 100phx;
+    in property <bool> shown: true;
+    VerticalLayout {
+        alignment: start;
+        for entry in [0]: FixedHeight { visible: root.shown; }
+        marker := Rectangle { }
+    }
+    out property <bool> test: marker.y == 12px;
+}
+
+// Min constraints through a repeated GridLayout cell: the wrapper also takes
+// over the grid-cell role. The window is smaller than the cell's minimum, so
+// the solved column and row sizes are the minimum.
+export component TestCaseGridMin inherits Window {
+    width: 10phx; height: 5phx;
+    GridLayout {
+        Row {
+            for entry in [0]: MinSize { transform-rotation: 1deg; }
+            marker := Rectangle { }
+        }
+    }
+    out property <bool> test: marker.x == 20px && marker.height == 8px;
+}
+
+// An inherited preferred size, and the Opacity wrapper.
+export component TestCaseVerticalPreferred inherits Window {
+    width: 100phx; height: 100phx;
+    VerticalLayout {
+        alignment: start;
+        for entry in [0]: PreferredHeight { opacity: 0.5; }
+        marker := Rectangle { }
+    }
+    out property <bool> test: marker.y == 40px;
+}
+
+// A repeated FlexboxLayout cell: the flexbox's own vertical info comes from
+// the repeated instance's layout info.
+export component TestCaseFlexboxTransform inherits Window {
+    width: 100phx; height: 100phx;
+    VerticalLayout {
+        alignment: start;
+        FlexboxLayout {
+            for entry in [0]: FixedHeight { transform-rotation: 1deg; }
+        }
+        marker := Rectangle { }
+    }
+    out property <bool> test: marker.y == 12px;
+}
+
+// A forwarded min-height is already part of the base's layout info: the
+// wrapper must neither lose it nor apply it twice.
+export component TestCaseForwardedMin inherits Window {
+    width: 100phx; height: 100phx;
+    VerticalLayout {
+        alignment: start;
+        for entry in [0]: ForwardMin { transform-rotation: 1deg; }
+        marker := Rectangle { }
+    }
+    out property <bool> test: marker.y == 9px;
+}
+
+// The other observable of the broken info: the root layout-info of a public
+// component (used for window sizing) merges the repeated cell's layout info.
+export component TestCase inherits Rectangle {
+    VerticalLayout {
+        for entry in [0]: FixedHeight { transform-rotation: 1deg; }
+        Rectangle { }
+    }
+    out property <bool> test: root.preferred-height == 12px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let instance = TestCaseVerticalTransform::new().unwrap();
+assert!(instance.get_test());
+let instance = TestCaseHorizontalOpacity::new().unwrap();
+assert!(instance.get_test());
+let instance = TestCaseConditionalShadow::new().unwrap();
+assert!(instance.get_test());
+let instance = TestCaseVisibleClip::new().unwrap();
+assert!(instance.get_test());
+let instance = TestCaseGridMin::new().unwrap();
+assert!(instance.get_test());
+let instance = TestCaseVerticalPreferred::new().unwrap();
+assert!(instance.get_test());
+let instance = TestCaseFlexboxTransform::new().unwrap();
+assert!(instance.get_test());
+let instance = TestCaseForwardedMin::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+assert(TestCaseVerticalTransform::create()->get_test());
+assert(TestCaseHorizontalOpacity::create()->get_test());
+assert(TestCaseConditionalShadow::create()->get_test());
+assert(TestCaseVisibleClip::create()->get_test());
+assert(TestCaseGridMin::create()->get_test());
+assert(TestCaseVerticalPreferred::create()->get_test());
+assert(TestCaseFlexboxTransform::create()->get_test());
+assert(TestCaseForwardedMin::create()->get_test());
+```
+
+```js
+assert(new slint.TestCase({}).test);
+assert(new slint.TestCaseVerticalTransform({}).test);
+assert(new slint.TestCaseHorizontalOpacity({}).test);
+assert(new slint.TestCaseConditionalShadow({}).test);
+assert(new slint.TestCaseVisibleClip({}).test);
+assert(new slint.TestCaseGridMin({}).test);
+assert(new slint.TestCaseVerticalPreferred({}).test);
+assert(new slint.TestCaseFlexboxTransform({}).test);
+assert(new slint.TestCaseForwardedMin({}).test);
+```
+*/

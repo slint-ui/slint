@@ -1,0 +1,234 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A height-for-width cell directly inside a HorizontalLayout row: the row's
+// vertical info at a known width must measure the cell at the width the row
+// assigns to it — whether the cell is static or repeated.
+
+// A wrapping row flex is height-for-width: its 4 boxes of 30px sit in a single
+// 40px-tall line when wide enough, and flow onto a second line (80px tall) at
+// 70px wide. The boxes are numbered so the flow order is visible.
+component WrapRow {
+    FlexboxLayout {
+        flex-direction: row;
+        flex-wrap: wrap;
+        spacing: 0px;
+        padding: 0px;
+        cross-axis-line-alignment: start;
+        Rectangle { width: 30px; height: 40px; background: #cce6ff; border-width: 1px; border-color: #5b8db8;
+            Text { x: 0px; width: 100%; height: 100%; text: "1"; font-size: 10px; color: #003366;
+                horizontal-alignment: center; vertical-alignment: center; } }
+        Rectangle { width: 30px; height: 40px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8;
+            Text { x: 0px; width: 100%; height: 100%; text: "2"; font-size: 10px; color: #003366;
+                horizontal-alignment: center; vertical-alignment: center; } }
+        Rectangle { width: 30px; height: 40px; background: #cce6ff; border-width: 1px; border-color: #5b8db8;
+            Text { x: 0px; width: 100%; height: 100%; text: "3"; font-size: 10px; color: #003366;
+                horizontal-alignment: center; vertical-alignment: center; } }
+        Rectangle { width: 30px; height: 40px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8;
+            Text { x: 0px; width: 100%; height: 100%; text: "4"; font-size: 10px; color: #003366;
+                horizontal-alignment: center; vertical-alignment: center; } }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 700px;
+    // Derived from the content so the visual aids fit at any font size.
+    height: text-repeated-block.y + text-marker.y + 40px;
+
+    property <[int]> empty-model: [];
+
+    // The captions and blocks are chained off each other's actual geometry:
+    // the text heights depend on the font, so fixed positions would overlap.
+    property <length> band-y: cap-a.y + cap-a.height + 8px;
+
+    // Single-line reference for a font-independent line height.
+    ref := Text {
+        x: 640px;
+        y: 4px;
+        text: "Word";
+        color: #555555;
+    }
+
+    legend := Text {
+        x: 8px; y: 4px; width: 620px;
+        font-size: 11px; color: #555555;
+        text: "Each column is a fixed-width VerticalLayout holding one HorizontalLayout row. The row's cell is a wrapping FlexboxLayout (WrapRow) and therefore height-for-width: the flex flows the blue boxes 1-4 onto a second line at the width the row assigns. The magenta outline is the row's reported box — it must contain both flex lines (80px, not the single-line 40px).";
+        wrap: word-wrap;
+    }
+
+    // Each VerticalLayout is 70px wide, so the row assigns 70px to the WrapRow
+    // and its boxes flow onto a second 40px line: the row's height must be
+    // 80px, not the 40px it measures at its preferred (unwrapped) width.
+
+    cap-a := Text { x: 0px; y: legend.y + legend.height + 10px; font-size: 10px; color: #555555; text: "A: static"; }
+    Text { x: 100px; y: cap-a.y; font-size: 10px; color: #555555; text: "B: repeated"; }
+    Text { x: 200px; y: cap-a.y; font-size: 10px; color: #555555; text: "C: 2 repeated ×70px"; }
+    Text { x: 360px; y: cap-a.y; font-size: 10px; color: #555555; text: "D: empty rep. first"; }
+    Text { x: 480px; y: cap-a.y; font-size: 10px; color: #555555; text: "E: rep. first"; }
+
+    // A: static reference.
+    a-band := VerticalLayout {
+        x: 0; y: band-y; width: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        static-row := HorizontalLayout {
+            WrapRow { }
+        }
+    }
+
+    // B: repeated height-for-width cell.
+    b-band := VerticalLayout {
+        x: 100px; y: band-y; width: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        repeated-row := HorizontalLayout {
+            for x in [1]: WrapRow { }
+        }
+    }
+
+    // C: two repeated instances side by side, each solved at 70px.
+    c-band := VerticalLayout {
+        x: 200px; y: band-y; width: 140px;
+        alignment: start; padding: 0px; spacing: 0px;
+        multi-row := HorizontalLayout {
+            for x in [1, 2]: WrapRow { }
+        }
+    }
+
+    // D: an empty repeater before the static cell must not shift the solved
+    // size the cell is measured at.
+    d-band := VerticalLayout {
+        x: 360px; y: band-y; width: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        empty-rep-row := HorizontalLayout {
+            for x in empty-model: Rectangle { width: 0px; height: 0px; }
+            WrapRow { }
+        }
+    }
+
+    // E: a repeater instance before the static cell offsets its cell index.
+    e-band := VerticalLayout {
+        x: 480px; y: band-y; width: 100px;
+        alignment: start; padding: 0px; spacing: 0px;
+        offset-row := HorizontalLayout {
+            for x in [1]: Rectangle { width: 30px; height: 5px; background: #dcdcdc; border-width: 1px; border-color: #a0a0a0; }
+            WrapRow { }
+        }
+    }
+
+    // Outlines of the rows' reported boxes (display only).
+    Rectangle { x: a-band.x + static-row.x; y: a-band.y + static-row.y; width: static-row.width; height: static-row.height;
+        border-color: #f0f; border-width: 1px; }
+    Rectangle { x: b-band.x + repeated-row.x; y: b-band.y + repeated-row.y; width: repeated-row.width; height: repeated-row.height;
+        border-color: #f0f; border-width: 1px; }
+    Rectangle { x: c-band.x + multi-row.x; y: c-band.y + multi-row.y; width: multi-row.width; height: multi-row.height;
+        border-color: #f0f; border-width: 1px; }
+    Rectangle { x: d-band.x + empty-rep-row.x; y: d-band.y + empty-rep-row.y; width: empty-rep-row.width; height: empty-rep-row.height;
+        border-color: #f0f; border-width: 1px; }
+    Rectangle { x: e-band.x + offset-row.x; y: e-band.y + offset-row.y; width: offset-row.width; height: offset-row.height;
+        border-color: #f0f; border-width: 1px; }
+
+    // F: the repeated-row-with-repeated-cell table shape of issue #12776. The
+    // repeated row is measured through the repeated-instance accessor at the
+    // VerticalLayout's content width, and its own repeated word-wrapped Text
+    // cell at the width the row's solve assigns. Unlike the flex-based
+    // WrapRow, a Text's info is measured at its preferred width unless the
+    // row forwards the solved width, so a fallback to the plain layout info
+    // yields a single-line height and the repeated row comes out shorter
+    // than the static one.
+    cap-f := Text {
+        x: 0px; y: band-y + 110px; width: 620px;
+        font-size: 11px; color: #555555;
+        text: "F: table shape of issue #12776 — static row (left) vs repeated row with repeated wrapped-text cell (right). The blue end bars must line up: a too-short repeated row pulls the right bar up into the text.";
+        wrap: word-wrap;
+    }
+    text-static-block := VerticalLayout {
+        x: 0; y: cap-f.y + cap-f.height + 8px; width: 300px;
+        height: 150px + ref.height * 15;
+        alignment: start; padding: 0px; spacing: 0px;
+        text-static-row := HorizontalLayout {
+            Rectangle { width: 90px; background: #dcdcdc; border-width: 1px; border-color: #a0a0a0;
+                Text { x: 0px; width: 100%; height: 100%; text: "90px"; font-size: 10px; color: #333333;
+                    horizontal-alignment: center; vertical-alignment: center; } }
+            VerticalLayout {
+                padding: 0px;
+                wrap-static := Text {
+                    color: #003366;
+                    text: "A long wrapped cell: the quick brown fox jumps over the lazy dog again and again, until this text clearly needs several lines at the cell's final width.";
+                    wrap: word-wrap;
+                }
+            }
+        }
+        Rectangle { height: 5px; background: #5b8db8; }
+    }
+    text-repeated-block := VerticalLayout {
+        x: 320px; y: text-static-block.y; width: 300px;
+        height: text-static-block.height;
+        alignment: start; padding: 0px; spacing: 0px;
+        for x in [1]: HorizontalLayout {
+            Rectangle { width: 90px; background: #dcdcdc; border-width: 1px; border-color: #a0a0a0;
+                Text { x: 0px; width: 100%; height: 100%; text: "90px"; font-size: 10px; color: #333333;
+                    horizontal-alignment: center; vertical-alignment: center; } }
+            for y in [1]: VerticalLayout {
+                padding: 0px;
+                Text {
+                    color: #003366;
+                    text: "A long wrapped cell: the quick brown fox jumps over the lazy dog again and again, until this text clearly needs several lines at the cell's final width.";
+                    wrap: word-wrap;
+                }
+            }
+        }
+        text-marker := Rectangle { height: 5px; background: #5b8db8; }
+    }
+    Rectangle { x: text-static-block.x + text-static-row.x; y: text-static-block.y + text-static-row.y;
+        width: text-static-row.width; height: text-static-row.height;
+        border-color: #f0f; border-width: 1px; }
+
+    // The reference cell really wrapped (80px, not 40px), otherwise the
+    // equalities below would hold trivially.
+    out property <bool> wrapped: static-row.height > 60px;
+    out property <bool> repeated-ok: abs(repeated-row.height - static-row.height) < 1px;
+    out property <bool> multi-ok: abs(multi-row.height - static-row.height) < 1px;
+    out property <bool> empty-ok: abs(empty-rep-row.height - static-row.height) < 1px;
+    out property <bool> offset-ok: abs(offset-row.height - static-row.height) < 1px;
+    // The static text row wrapped, and the repeated row (whose height is the
+    // marker position: single row, alignment start, no spacing) matches it.
+    out property <bool> text-wraps: text-static-row.height >= 2 * ref.height;
+    out property <bool> text-repeated-ok: abs(text-marker.y - text-static-row.height) < 1px;
+
+    out property <bool> test: wrapped && repeated-ok && multi-ok && empty-ok && offset-ok
+        && text-wraps && text-repeated-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_wrapped(), "reference cell did not wrap");
+assert!(instance.get_repeated_ok(), "repeated height-for-width cell not measured at its solved width");
+assert!(instance.get_multi_ok(), "second repeated height-for-width instance not measured at its solved width");
+assert!(instance.get_empty_ok(), "empty repeater shifted the static height-for-width cell index");
+assert!(instance.get_offset_ok(), "static height-for-width cell after a repeater not measured at its solved width");
+assert!(instance.get_text_wraps(), "static text row did not wrap");
+assert!(instance.get_text_repeated_ok(), "repeated wrapped-text cell not measured at its solved width");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_wrapped());
+assert(instance.get_repeated_ok());
+assert(instance.get_multi_ok());
+assert(instance.get_empty_ok());
+assert(instance.get_offset_ok());
+assert(instance.get_text_wraps());
+assert(instance.get_text_repeated_ok());
+```
+
+```js
+// The text-based properties are left out: nodejs has no test fonts.
+var instance = new slint.TestCase({});
+assert(instance.wrapped);
+assert(instance.repeated_ok);
+assert(instance.multi_ok);
+assert(instance.empty_ok);
+assert(instance.offset_ok);
+```
+*/

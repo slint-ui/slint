@@ -51,17 +51,18 @@ export global AppState {
     out property <float> special-x-pos-scale: orientation == Orientation.landscape ? window-width / 1920px : window-width / 1080px;
     out property <float> special-y-pos-scale: orientation == Orientation.landscape ? window-height / 1080px : window-height / 1920px;
 
-    in-out property <bool> showing-full-screen: false;
     out property <int> full-screen-index: -1;
-    in-out property <int> last-selected-index: -1;
+    out property <bool> showing-full-screen: full-screen-index != -1;
+    // Geometry the selected widget grows to. It's in the same coordinate space as the
+    // per page layout data, so the widget just animates from one to the other.
+    out property <ComponentData> full-screen-data: orientation == Orientation.landscape
+        ? { x: 60, y: 60, width: 1800, height: 900, visible: true }
+        : (graphics-accelerator-available
+            ? { x: 60, y: 60, width: 900, height: 1800, visible: true }
+            : { x: 160, y: 560, width: 800, height: 800, visible: true });
     callback showFullScreen(int);
-    showFullScreen(index)=> {
-       full-screen-index = index;
-
-        if full-screen-index != -1 {
-            last-selected-index = index;
-            showing-full-screen = true;
-       }
+    showFullScreen(index) => {
+        full-screen-index = index;
     }
     out property <string> default-font-family: "Inter";
 

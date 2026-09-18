@@ -10,7 +10,7 @@ use i_slint_core::window::WindowAdapter;
 use i_slint_core::window::WindowInner;
 use slotmap::{Key, KeyData, SlotMap};
 use std::cell::{Cell, RefCell};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::{Rc, Weak};
 
 use crate::{ElementHandle, ElementRoot, LayoutKind};
@@ -91,7 +91,7 @@ fn ensure_event_tracking() -> Result<(), i_slint_core::api::EventLoopError> {
         i_slint_core::context::set_window_event_hook(Some(Box::new(
             move |adapter, event, result| {
                 if let Some(prev) = previous_hook.as_ref() {
-                    prev(adapter, event, result);
+                    prev(adapter, event, result.clone());
                 }
                 state.record_window_event(adapter, event, result);
             },
@@ -100,6 +100,57 @@ fn ensure_event_tracking() -> Result<(), i_slint_core::api::EventLoopError> {
 
         Ok(())
     })
+}
+
+/// Holds modifier keys down for as long as it lives.
+///
+/// Slint takes the modifiers of a pointer event from the window's key state, not
+/// from the event itself, so a modified gesture is a key press, the gesture, and a
+/// key release. Releasing on drop keeps the window's state clean when the gesture
+/// in between fails.
+#[cfg(feature = "mcp")]
+pub(crate) struct HeldModifiers {
+    window_adapter: Rc<dyn WindowAdapter>,
+    modifiers: proto::KeyboardModifiers,
+}
+
+#[cfg(feature = "mcp")]
+impl HeldModifiers {
+    pub(crate) fn hold(
+        window_adapter: Rc<dyn WindowAdapter>,
+        modifiers: Option<&proto::KeyboardModifiers>,
+    ) -> Self {
+        let this = Self { window_adapter, modifiers: modifiers.copied().unwrap_or_default() };
+        for key in this.keys() {
+            this.window_adapter.window().dispatch_event(
+                i_slint_core::platform::WindowEvent::KeyPressed { text: key.into() },
+            );
+        }
+        this
+    }
+
+    fn keys(&self) -> impl DoubleEndedIterator<Item = i_slint_core::input::key_codes::Key> {
+        use i_slint_core::input::key_codes::Key;
+        [
+            (self.modifiers.shift, Key::Shift),
+            (self.modifiers.control, Key::Control),
+            (self.modifiers.alt, Key::Alt),
+            (self.modifiers.meta, Key::Meta),
+        ]
+        .into_iter()
+        .filter_map(|(pressed, key)| pressed.then_some(key))
+    }
+}
+
+#[cfg(feature = "mcp")]
+impl Drop for HeldModifiers {
+    fn drop(&mut self) {
+        for key in self.keys().rev() {
+            self.window_adapter.window().dispatch_event(
+                i_slint_core::platform::WindowEvent::KeyReleased { text: key.into() },
+            );
+        }
+    }
 }
 
 pub(crate) struct RootWrapper<'a>(pub &'a ItemTreeRc);
@@ -123,6 +174,10 @@ pub(crate) struct IntrospectionState {
     pub windows: RefCell<SlotMap<ArenaIndex, TrackedWindow>>,
     pub element_handles: RefCell<SlotMap<ArenaIndex, ElementHandle>>,
     element_handle_order: RefCell<VecDeque<ArenaIndex>>,
+    /// Reverse lookup into `element_handles`, so an element that is mentioned again
+    /// keeps its handle. `ElementHandle` compares by pointer and doesn't hash, so
+    /// entries are bucketed by a hint that equal elements share.
+    element_handle_lookup: RefCell<HashMap<(u32, usize), Vec<ArenaIndex>>>,
     event_log: RefCell<VecDeque<proto::RecordedEvent>>,
     next_event_sequence: Cell<u64>,
     dropped_event_count: Cell<u64>,
@@ -137,6 +192,7 @@ impl IntrospectionState {
             windows: Default::default(),
             element_handles: Default::default(),
             element_handle_order: Default::default(),
+            element_handle_lookup: Default::default(),
             event_log: Default::default(),
             next_event_sequence: Default::default(),
             dropped_event_count: Default::default(),
@@ -185,6 +241,22 @@ impl IntrospectionState {
             .ok_or_else(|| "Attempting to access deleted window".to_string())
     }
 
+    /// Runs the instantiation pass on every tracked window.
+    ///
+    /// The pass materializes repeaters, conditionals and component containers.
+    /// Introspection reads the item tree between events, where nothing else runs the pass.
+    /// A model changed since the last event would otherwise report its old instances (#13223).
+    /// Call this from a transport entry point, never from within a property evaluation.
+    #[cfg(feature = "mcp")]
+    pub fn ensure_windows_instantiated(&self) {
+        // Collect first: the pass runs change handlers, which may re-enter `add_window`.
+        let adapters: Vec<_> =
+            self.windows.borrow().values().filter_map(|w| w.window_adapter.upgrade()).collect();
+        for adapter in adapters {
+            WindowInner::from_pub(adapter.window()).ensure_tree_instantiated();
+        }
+    }
+
     pub fn root_element_handle(&self, window_index: ArenaIndex) -> Result<ArenaIndex, String> {
         Ok(self
             .windows
@@ -194,9 +266,25 @@ impl IntrospectionState {
             .root_element_handle)
     }
 
+    /// Returns the handle for `element`, minting one only if the element isn't
+    /// tracked yet.
+    ///
+    /// Interning keeps a handle stable for as long as the element lives, so a client
+    /// that re-queries doesn't fill the arena with duplicates of what it already has
+    /// and evict its own live handles (#13243).
     pub fn element_to_handle(&self, element: ElementHandle) -> ArenaIndex {
+        let hint = element.identity_hint();
+        if let Some(hint) = hint
+            && let Some(index) = self.tracked_handle(&element, hint)
+        {
+            return index;
+        }
+
         let mut arena = self.element_handles.borrow_mut();
         let index = arena.insert(element);
+        if let Some(hint) = hint {
+            self.element_handle_lookup.borrow_mut().entry(hint).or_default().push(index);
+        }
         let mut order = self.element_handle_order.borrow_mut();
         order.push_back(index);
         if arena.len() > ELEMENT_HANDLE_CAP {
@@ -213,10 +301,40 @@ impl IntrospectionState {
                     order.push_back(oldest);
                     continue;
                 }
-                arena.remove(oldest);
+                if let Some(hint) = arena.remove(oldest).and_then(|e| e.identity_hint()) {
+                    let mut lookup = self.element_handle_lookup.borrow_mut();
+                    if let Some(bucket) = lookup.get_mut(&hint) {
+                        bucket.retain(|candidate| *candidate != oldest);
+                        if bucket.is_empty() {
+                            lookup.remove(&hint);
+                        }
+                    }
+                }
             }
         }
         index
+    }
+
+    /// Returns the handle already tracking `element`, dropping lookup entries whose
+    /// slot was evicted or whose element is gone.
+    fn tracked_handle(&self, element: &ElementHandle, hint: (u32, usize)) -> Option<ArenaIndex> {
+        let arena = self.element_handles.borrow();
+        let mut lookup = self.element_handle_lookup.borrow_mut();
+        let bucket = lookup.get_mut(&hint)?;
+        let mut tracked = None;
+        bucket.retain(|candidate| match arena.get(*candidate) {
+            Some(tracked_element) if tracked_element.is_valid() => {
+                if tracked_element.is_same_element(element) {
+                    tracked = Some(*candidate);
+                }
+                true
+            }
+            _ => false,
+        });
+        if bucket.is_empty() {
+            lookup.remove(&hint);
+        }
+        tracked
     }
 
     pub fn element(&self, request: &str, index: ArenaIndex) -> Result<ElementHandle, String> {
@@ -243,8 +361,13 @@ impl IntrospectionState {
         let adapter = self.window_adapter(window_index)?;
         let window = adapter.window();
         let item_tree = WindowInner::from_pub(window).component();
-        Ok(ElementHandle::find_by_element_id(&RootWrapper(&item_tree), elements_id)
-            .collect::<Vec<_>>())
+        let root = RootWrapper(&item_tree);
+        // Without debug info there are no ids to match, so report that rather than
+        // an empty result that reads like "no such element" (#13225).
+        if !root.root_element().has_debug_info() {
+            return Err(crate::search_api::MISSING_DEBUG_INFO_MESSAGE.into());
+        }
+        Ok(ElementHandle::find_by_element_id(&root, elements_id).collect::<Vec<_>>())
     }
 
     pub fn take_snapshot(
@@ -294,7 +417,7 @@ impl IntrospectionState {
         &self,
         adapter: &Rc<dyn WindowAdapter>,
         event: &i_slint_core::platform::WindowEvent,
-        result: i_slint_core::context::WindowEventDispatchResult,
+        result: i_slint_core::platform::WindowEventDispatchResult,
     ) {
         if !self.recording_enabled.get() {
             return;
@@ -529,18 +652,16 @@ fn convert_pointer_event_button_to_proto(
 }
 
 fn convert_event_dispatch_result(
-    result: i_slint_core::context::WindowEventDispatchResult,
+    result: i_slint_core::platform::WindowEventDispatchResult,
 ) -> proto::RecordedEventResult {
     match result {
-        i_slint_core::context::WindowEventDispatchResult::Accepted => {
+        i_slint_core::platform::WindowEventDispatchResult::Accepted => {
             proto::RecordedEventResult::Accepted
         }
-        i_slint_core::context::WindowEventDispatchResult::Rejected => {
+        i_slint_core::platform::WindowEventDispatchResult::Rejected => {
             proto::RecordedEventResult::Rejected
         }
-        i_slint_core::context::WindowEventDispatchResult::Ignored => {
-            proto::RecordedEventResult::Ignored
-        }
+        _ => unreachable!(),
     }
 }
 
@@ -595,6 +716,19 @@ pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPrope
             Some(LayoutKind::FlexboxLayout) => proto::LayoutKind::FlexboxLayout.into(),
             None => proto::LayoutKind::NotALayout.into(),
         },
+        accessible_item_count: element.accessible_item_count().unwrap_or_default() as u32,
+        accessible_item_index: element.accessible_item_index().unwrap_or_default() as u32,
+        accessible_item_selected: element.accessible_item_selected().unwrap_or_default(),
+        accessible_item_selectable: element.accessible_item_selectable().unwrap_or_default(),
+        accessible_orientation: match element.accessible_orientation().unwrap_or_default() {
+            crate::Orientation::Horizontal => proto::Orientation::Horizontal.into(),
+            crate::Orientation::Vertical => proto::Orientation::Vertical.into(),
+        },
+        accessible_live_region: convert_to_proto_accessible_liveness(
+            element.accessible_live_region().unwrap_or_default(),
+        )
+        .unwrap_or_default()
+        .into(),
     }
 }
 
@@ -676,6 +810,9 @@ pub(crate) fn convert_to_proto_accessible_role(
         i_slint_core::items::AccessibleRole::Image => proto::AccessibleRole::Image,
         i_slint_core::items::AccessibleRole::RadioButton => proto::AccessibleRole::RadioButton,
         i_slint_core::items::AccessibleRole::RadioGroup => proto::AccessibleRole::RadioGroup,
+        i_slint_core::items::AccessibleRole::WindowTitleBar => {
+            proto::AccessibleRole::WindowTitleBar
+        }
         i_slint_core::items::AccessibleRole::Banner => proto::AccessibleRole::Banner,
         i_slint_core::items::AccessibleRole::Complementary => proto::AccessibleRole::Complementary,
         i_slint_core::items::AccessibleRole::ContentInfo => proto::AccessibleRole::ContentInfo,
@@ -684,6 +821,17 @@ pub(crate) fn convert_to_proto_accessible_role(
         i_slint_core::items::AccessibleRole::Navigation => proto::AccessibleRole::Navigation,
         i_slint_core::items::AccessibleRole::Region => proto::AccessibleRole::Region,
         i_slint_core::items::AccessibleRole::Search => proto::AccessibleRole::Search,
+        _ => return None,
+    })
+}
+
+pub(crate) fn convert_to_proto_accessible_liveness(
+    liveness: i_slint_core::items::AccessibleLiveness,
+) -> Option<proto::AccessibleLiveness> {
+    Some(match liveness {
+        i_slint_core::items::AccessibleLiveness::Off => proto::AccessibleLiveness::Off,
+        i_slint_core::items::AccessibleLiveness::Polite => proto::AccessibleLiveness::Polite,
+        i_slint_core::items::AccessibleLiveness::Assertive => proto::AccessibleLiveness::Assertive,
         _ => return None,
     })
 }
@@ -715,6 +863,9 @@ pub(crate) fn convert_from_proto_accessible_role(
         proto::AccessibleRole::Image => i_slint_core::items::AccessibleRole::Image,
         proto::AccessibleRole::RadioButton => i_slint_core::items::AccessibleRole::RadioButton,
         proto::AccessibleRole::RadioGroup => i_slint_core::items::AccessibleRole::RadioGroup,
+        proto::AccessibleRole::WindowTitleBar => {
+            i_slint_core::items::AccessibleRole::WindowTitleBar
+        }
         proto::AccessibleRole::Banner => i_slint_core::items::AccessibleRole::Banner,
         proto::AccessibleRole::Complementary => i_slint_core::items::AccessibleRole::Complementary,
         proto::AccessibleRole::ContentInfo => i_slint_core::items::AccessibleRole::ContentInfo,
@@ -888,8 +1039,16 @@ pub(crate) mod dispatch {
         element: ArenaIndex,
         action: proto::ClickAction,
         button: proto::PointerEventButton,
+        modifiers: Option<proto::KeyboardModifiers>,
     ) -> Result<(), String> {
         let element = state.element("click", element)?;
+        #[cfg(feature = "mcp")]
+        let _modifiers = super::HeldModifiers::hold(
+            element.window_adapter().ok_or_else(|| "element has no window".to_string())?,
+            modifiers.as_ref(),
+        );
+        #[cfg(not(feature = "mcp"))]
+        let _ = modifiers;
         let button = convert_pointer_event_button(button);
         match action {
             proto::ClickAction::SingleClick => element.single_click(button).await,
@@ -898,13 +1057,59 @@ pub(crate) mod dispatch {
         Ok(())
     }
 
+    /// Move the pointer to an element's center without pressing any button.
+    ///
+    /// `click` and `drag` both press, so hover-only behavior cannot be reached
+    /// through them.
+    #[cfg(feature = "mcp")]
+    pub(crate) fn move_pointer_to_element(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+        modifiers: Option<&proto::KeyboardModifiers>,
+    ) -> Result<(), String> {
+        let element = state.element("move_pointer", element)?;
+        let position = element.absolute_center();
+        let window_adapter =
+            element.window_adapter().ok_or_else(|| "element has no window".to_string())?;
+        let _modifiers = super::HeldModifiers::hold(window_adapter.clone(), modifiers);
+        window_adapter
+            .window()
+            .dispatch_event(i_slint_core::platform::WindowEvent::PointerMoved { position });
+        Ok(())
+    }
+
+    /// Send a wheel event over an element's center.
+    #[cfg(feature = "mcp")]
+    pub(crate) fn scroll_element(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+        delta_x: f32,
+        delta_y: f32,
+        modifiers: Option<&proto::KeyboardModifiers>,
+    ) -> Result<(), String> {
+        let element = state.element("scroll_element", element)?;
+        let window_adapter =
+            element.window_adapter().ok_or_else(|| "element has no window".to_string())?;
+        let _modifiers = super::HeldModifiers::hold(window_adapter.clone(), modifiers);
+        element.scroll(delta_x, delta_y);
+        Ok(())
+    }
+
     pub(crate) async fn drag(
         state: &IntrospectionState,
         element: ArenaIndex,
         target: proto::LogicalPosition,
         button: proto::PointerEventButton,
+        modifiers: Option<proto::KeyboardModifiers>,
     ) -> Result<(), String> {
         let element = state.element("drag", element)?;
+        #[cfg(feature = "mcp")]
+        let _modifiers = super::HeldModifiers::hold(
+            element.window_adapter().ok_or_else(|| "element has no window".to_string())?,
+            modifiers.as_ref(),
+        );
+        #[cfg(not(feature = "mcp"))]
+        let _ = modifiers;
         let button = convert_pointer_event_button(button);
         let target = i_slint_core::api::LogicalPosition::new(target.x, target.y);
         element.drag(target, button).await;
@@ -915,6 +1120,70 @@ pub(crate) mod dispatch {
 // ============================================================================
 // Tests
 // ============================================================================
+
+#[cfg(test)]
+fn window_adapter_for_test(app: &impl slint::ComponentHandle) -> std::rc::Rc<dyn WindowAdapter> {
+    WindowInner::from_pub(app.window()).window_adapter()
+}
+
+#[test]
+fn test_element_handle_is_interned() {
+    crate::init_no_event_loop();
+    slint::slint! {
+        export component App inherits Window { width: 100px; height: 50px; }
+    }
+    let app = App::new().unwrap();
+    let adapter = window_adapter_for_test(&app);
+    let state = IntrospectionState::new();
+
+    // Both calls mention the same root element.
+    state.add_window(&adapter);
+    state.add_window(&adapter);
+
+    let roots: Vec<_> =
+        state.windows.borrow().values().map(|window| window.root_element_handle).collect();
+    assert_eq!(roots[0], roots[1], "the same element was given two handles");
+    assert_eq!(state.element_handles.borrow().len(), 1);
+}
+
+#[test]
+fn test_element_handle_differs_per_element() {
+    crate::init_no_event_loop();
+    slint::slint! {
+        export component App inherits Window { width: 100px; height: 50px; }
+    }
+    let first = App::new().unwrap();
+    let second = App::new().unwrap();
+    let state = IntrospectionState::new();
+
+    state.add_window(&window_adapter_for_test(&first));
+    state.add_window(&window_adapter_for_test(&second));
+
+    let roots: Vec<_> =
+        state.windows.borrow().values().map(|window| window.root_element_handle).collect();
+    assert_ne!(roots[0], roots[1]);
+    assert_eq!(state.element_handles.borrow().len(), 2);
+}
+
+#[test]
+fn test_element_handle_is_recreated_after_eviction() {
+    crate::init_no_event_loop();
+    slint::slint! {
+        export component App inherits Window { width: 100px; height: 50px; }
+    }
+    let app = App::new().unwrap();
+    let adapter = window_adapter_for_test(&app);
+    let state = IntrospectionState::new();
+    state.add_window(&adapter);
+    let evicted = state.windows.borrow().values().next().unwrap().root_element_handle;
+
+    state.element_handles.borrow_mut().remove(evicted);
+    let item_tree = WindowInner::from_pub(adapter.window()).component();
+    let recreated = state.element_to_handle(RootWrapper(&item_tree).root_element());
+
+    assert_ne!(recreated, evicted, "the evicted slot was handed out again");
+    assert_eq!(state.element_handles.borrow().len(), 1);
+}
 
 #[test]
 fn test_dispatch_element_properties_stale_handle() {
@@ -939,11 +1208,20 @@ fn test_dispatch_click_double_click_stale_handle() {
             ArenaIndex::default(),
             proto::ClickAction::DoubleClick,
             proto::PointerEventButton::Left,
+            None,
         )
         .await
         .unwrap_err();
         assert!(err.contains("Invalid element handle"), "got: {err}");
     });
+}
+
+#[test]
+#[cfg(feature = "mcp")]
+fn test_dispatch_move_pointer_stale_handle() {
+    let state = IntrospectionState::new();
+    let err = dispatch::move_pointer_to_element(&state, ArenaIndex::default(), None).unwrap_err();
+    assert!(err.contains("Invalid element handle"), "got: {err}");
 }
 
 #[test]
@@ -985,7 +1263,7 @@ fn test_event_log_filters_since_sequence_and_window() {
         proto::RecordedEvent {
             sequence: 2,
             window_handle: Some(index_to_handle(first_window)),
-            result: proto::RecordedEventResult::Ignored.into(),
+            result: proto::RecordedEventResult::Rejected.into(),
             ..Default::default()
         },
     ]);
@@ -1099,10 +1377,13 @@ fn test_pointer_event_button_mapping_preserves_extended_buttons() {
 }
 
 #[test]
-fn test_accessibility_role_mapping_complete() {
+fn test_accessibility_enum_mapping_complete() {
     macro_rules! test_accessibility_enum_mapping_inner {
         (AccessibleRole, $($Value:ident,)*) => {
             $(assert!(convert_to_proto_accessible_role(i_slint_core::items::AccessibleRole::$Value).is_some());)*
+        };
+        (AccessibleLiveness, $($Value:ident,)*) => {
+            $(assert!(convert_to_proto_accessible_liveness(i_slint_core::items::AccessibleLiveness::$Value).is_some());)*
         };
         ($_:ident, $($Value:ident,)*) => {};
     }
@@ -1118,16 +1399,21 @@ fn test_accessibility_role_mapping_complete() {
 }
 
 // `WindowEventDispatchResult` honesty for pointer events: verify that
-// `Window::try_dispatch_event` reports `Accepted` only when an item consumed the
-// event, and `Ignored` otherwise. Tests install the window-event hook directly
-// since that's the consumer the public contract is for.
+// `Window::dispatch_event_with_result` reports `Accepted` only when an item consumed the
+// event, and `Rejected` otherwise. Tests install the window-event hook directly
+// since that's the consumer the public contract is for. The same goes for the events the
+// backends deliver in the internal representation: they're reported as the public event they
+// correspond to, or not at all when there is none.
 
 #[cfg(test)]
 mod dispatch_result_tests {
     use i_slint_core::api::LogicalPosition;
-    use i_slint_core::context::WindowEventDispatchResult;
+    use i_slint_core::input::{
+        BackendMouseEvent, InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase,
+    };
     use i_slint_core::items::PointerEventButton;
-    use i_slint_core::platform::WindowEvent;
+    use i_slint_core::lengths::LogicalPoint;
+    use i_slint_core::platform::{InternalEvent, WindowEvent, WindowEventDispatchResult};
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -1171,6 +1457,18 @@ mod dispatch_result_tests {
         assert_eq!(captured[0].1, expected);
     }
 
+    /// Dispatch `event` to `window` with a recording hook installed and return what the hook
+    /// observed.
+    fn record_dispatch(
+        window: &i_slint_core::api::Window,
+        event: WindowEvent,
+    ) -> Vec<(WindowEvent, WindowEventDispatchResult)> {
+        let (_guard, captured) = capture_hook();
+        window.dispatch_event(event);
+        let recorded = captured.borrow().clone();
+        recorded
+    }
+
     #[test]
     fn pointer_pressed_over_touch_area_is_accepted() {
         crate::init_no_event_loop();
@@ -1193,7 +1491,7 @@ mod dispatch_result_tests {
     }
 
     #[test]
-    fn pointer_pressed_with_no_handler_is_ignored() {
+    fn pointer_pressed_with_no_handler_is_rejected() {
         crate::init_no_event_loop();
         slint::slint! {
             export component App inherits Window {
@@ -1209,7 +1507,7 @@ mod dispatch_result_tests {
                 position: LogicalPosition::new(50.0, 50.0),
                 button: PointerEventButton::Left,
             },
-            WindowEventDispatchResult::Ignored,
+            WindowEventDispatchResult::Rejected,
         );
     }
 
@@ -1222,8 +1520,8 @@ mod dispatch_result_tests {
                 height: 200px;
                 Flickable {
                     width: 100%; height: 100%;
-                    viewport-width: 400px;
-                    viewport-height: 400px;
+                    content-width: 400px;
+                    content-height: 400px;
                     Rectangle { background: #abc; }
                 }
             }
@@ -1251,8 +1549,8 @@ mod dispatch_result_tests {
                 width: 200px;
                 height: 200px;
                 Flickable {
-                    viewport-width: 400px;
-                    viewport-height: 400px;
+                    content-width: 400px;
+                    content-height: 400px;
                     Rectangle { background: #abc; }
                 }
             }
@@ -1288,7 +1586,132 @@ mod dispatch_result_tests {
     }
 
     #[test]
-    fn pointer_scrolled_over_empty_area_is_ignored() {
+    fn backend_pointer_event_is_recorded_as_public_event() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                TouchArea { width: 100%; height: 100%; }
+            }
+        }
+        let app = App::new().unwrap();
+        assert_eq!(
+            record_dispatch(
+                app.window(),
+                WindowEvent::internal(BackendMouseEvent::Pressed {
+                    position: LogicalPoint::new(50.0, 50.0),
+                    button: PointerEventButton::Left,
+                    click_count: 0,
+                    touch_finger_id: 0,
+                })
+            ),
+            vec![(
+                WindowEvent::PointerPressed {
+                    position: LogicalPosition::new(50.0, 50.0),
+                    button: PointerEventButton::Left,
+                },
+                WindowEventDispatchResult::Accepted
+            )]
+        );
+    }
+
+    #[test]
+    fn backend_pointer_exit_is_recorded_as_accepted() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+            }
+        }
+        let app = App::new().unwrap();
+        assert_eq!(
+            record_dispatch(app.window(), WindowEvent::internal(BackendMouseEvent::Exit)),
+            vec![(WindowEvent::PointerExited, WindowEventDispatchResult::Accepted)]
+        );
+    }
+
+    #[test]
+    fn backend_key_event_is_recorded_with_its_result() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+            }
+        }
+        let app = App::new().unwrap();
+        let text = slint::SharedString::from("x");
+        let mut key_event = KeyEvent::default();
+        key_event.text = text.clone();
+        key_event.repeat = true;
+        assert_eq!(
+            record_dispatch(
+                app.window(),
+                WindowEvent::internal(InternalKeyEvent {
+                    event_type: KeyEventType::KeyPressed,
+                    key_event,
+                    ..Default::default()
+                })
+            ),
+            vec![(WindowEvent::KeyPressRepeated { text }, WindowEventDispatchResult::Rejected)]
+        );
+    }
+
+    #[test]
+    fn composition_events_are_not_recorded() {
+        // The public API can't express input method composition, so there is nothing to report.
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+            }
+        }
+        let app = App::new().unwrap();
+        assert!(
+            record_dispatch(
+                app.window(),
+                WindowEvent::internal(InternalKeyEvent {
+                    event_type: KeyEventType::UpdateComposition,
+                    preedit_text: "abc".into(),
+                    ..Default::default()
+                })
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn touch_events_reach_the_scene_but_are_not_recorded() {
+        // Touch has no public representation either, but it must still be dispatched.
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                out property <bool> touched: touch-area.pressed;
+                touch-area := TouchArea { width: 100%; height: 100%; }
+            }
+        }
+        let app = App::new().unwrap();
+        assert!(
+            record_dispatch(
+                app.window(),
+                WindowEvent::internal(InternalEvent::Touch {
+                    id: 1,
+                    position: LogicalPoint::new(50.0, 50.0),
+                    phase: TouchPhase::Started,
+                })
+            )
+            .is_empty()
+        );
+        assert!(app.get_touched());
+    }
+
+    #[test]
+    fn pointer_scrolled_over_empty_area_is_rejected() {
         crate::init_no_event_loop();
         slint::slint! {
             export component App inherits Window {
@@ -1305,12 +1728,12 @@ mod dispatch_result_tests {
                 delta_x: 0.0,
                 delta_y: -30.0,
             },
-            WindowEventDispatchResult::Ignored,
+            WindowEventDispatchResult::Rejected,
         );
     }
 
     #[test]
-    fn pointer_moved_over_empty_area_is_ignored() {
+    fn pointer_moved_over_empty_area_is_rejected() {
         crate::init_no_event_loop();
         slint::slint! {
             export component App inherits Window {
@@ -1323,7 +1746,7 @@ mod dispatch_result_tests {
         assert_single_dispatch(
             app.window(),
             WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 50.0) },
-            WindowEventDispatchResult::Ignored,
+            WindowEventDispatchResult::Rejected,
         );
     }
 
@@ -1420,15 +1843,15 @@ mod dispatch_result_tests {
             .iter()
             .rev()
             .find(|(e, _)| matches!(e, WindowEvent::PointerReleased { .. }))
-            .map(|(_, r)| *r)
+            .map(|(_, r)| r.clone())
             .expect("PointerReleased recorded");
         assert_eq!(release, WindowEventDispatchResult::Accepted);
     }
 
     #[test]
-    fn pointer_released_at_end_of_drag_is_ignored_if_no_droparea_accepted() {
+    fn pointer_released_at_end_of_drag_is_rejected_if_no_droparea_accepted() {
         // Release is rewritten internally to `Exit` (no DropArea accepted the prior
-        // DragMove); the public PointerReleased reports Ignored.
+        // DragMove); the public PointerReleased reports Rejected.
         crate::init_no_event_loop();
         slint::slint! {
             export global Api {
@@ -1458,8 +1881,8 @@ mod dispatch_result_tests {
             .iter()
             .rev()
             .find(|(e, _)| matches!(e, WindowEvent::PointerReleased { .. }))
-            .map(|(_, r)| *r)
+            .map(|(_, r)| r.clone())
             .expect("PointerReleased recorded");
-        assert_eq!(release, WindowEventDispatchResult::Ignored);
+        assert_eq!(release, WindowEventDispatchResult::Rejected);
     }
 }

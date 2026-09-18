@@ -1,0 +1,257 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, Colors, Typography, ColorSliderStyle, ColorControlsStyle } from "../../style.slint";
+import { Api } from "../../api.slint";
+
+import { InspectorTextFieldBase } from "text-field-base.slint";
+
+component ColorSlider inherits Rectangle {
+    in property <ColorSliderStyle> style: Style.color-slider;
+    in property <float> position;
+    in property <bool> enabled;
+    in property <bool> dragging;
+    in property <color> thumb-shadow;
+    callback started();
+    callback moved(float);
+    callback finished();
+    callback canceled();
+
+    height: root.style.height;
+    Rectangle {
+        border-radius: root.style.radius;
+        clip: true;
+        @children
+    }
+    TouchArea {
+        enabled: root.enabled;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.started();
+                root.moved((self.mouse-x / max(1px, self.width)).clamp(0, 1));
+            } else if event.kind == PointerEventKind.move && root.dragging {
+                root.moved((self.mouse-x / max(1px, self.width)).clamp(0, 1));
+            } else if event.kind == PointerEventKind.up && root.dragging {
+                root.finished();
+            } else if event.kind == PointerEventKind.cancel {
+                root.canceled();
+            }
+        }
+    }
+    Rectangle {
+        x: root.position * parent.width - root.style.thumb-size / 2;
+        width: root.style.thumb-size;
+        height: root.style.thumb-size;
+        border-radius: root.style.thumb-size / 2;
+        border-width: Metrics.focus-width;
+        border-color: root.style.thumb-border;
+        drop-shadow-color: root.thumb-shadow;
+        drop-shadow-blur: root.style.shadow.blur;
+    }
+}
+
+export component InspectorColorControls inherits Rectangle {
+    in property <ColorControlsStyle> style: Style.color-controls;
+    in property <color> value;
+    in property <length> field-height: root.style.plane.height;
+    in property <bool> editable;
+    in property <string> session-key;
+    callback preview(color) -> bool;
+    private property <color> working-color: root.value;
+    private property <float> hue;
+    private property <float> saturation;
+    private property <float> brightness;
+    private property <int> alpha: 255;
+    private property <bool> dragging;
+    private property <color> gesture-color;
+    changed value => { root.update-color(root.value); }
+    changed session-key => { root.dragging = false; root.update-color(root.value); }
+    height: layout.preferred-height;
+    function color-at() -> color {
+        return hsv(root.hue, root.saturation, root.brightness, root.alpha / 255);
+    }
+
+    function update-color(c: color) {
+        // RGB cannot retain the selected hue at zero saturation or brightness.
+        if c != hsv(root.hue, root.saturation, root.brightness, root.alpha / 255) {
+            root.hue = c.to-hsv().hue;
+            root.saturation = c.to-hsv().saturation;
+            root.brightness = c.to-hsv().value;
+        }
+        root.working-color = c;
+        root.alpha = c.alpha;
+    }
+
+    init => { root.update-color(root.value); }
+
+    function cancel-gesture() {
+        if root.dragging {
+            root.dragging = false;
+            root.preview-color(root.gesture-color);
+        }
+    }
+
+    function preview-color(c: color) -> bool {
+        if !root.editable {
+            return false;
+        }
+        if root.preview(c) {
+            root.update-color(c);
+            return true;
+        }
+        return false;
+    }
+
+    function commit-text(text: string) -> bool {
+        return Api.string-is-color(text) && root.preview-color(Api.string-to-color(text));
+    }
+
+    function begin-gesture() {
+        if root.editable {
+            root.dragging = true;
+            root.gesture-color = root.working-color;
+        }
+    }
+
+    function finish-gesture() {
+        root.dragging = false;
+    }
+
+    function update-saturation-brightness(x: length, y: length, width: length, height: length) {
+        root.saturation = (x / max(1px, width)).clamp(0, 1);
+        root.brightness = (1 - y / max(1px, height)).clamp(0, 1);
+        root.preview-color(root.color-at());
+    }
+
+    layout := VerticalLayout {
+        spacing: root.style.gap;
+        alignment: start;
+        Rectangle {
+            height: root.field-height;
+            Rectangle {
+                border-radius: root.style.plane.radius;
+                clip: true;
+                background: hsv(root.hue, 1, 1);
+
+                Rectangle { background: @linear-gradient(90deg, white 0%, transparent 100%); }
+                Rectangle { background: @linear-gradient(0deg, black 0%, transparent 100%); }
+                Rectangle {
+                    border-radius: root.style.plane.radius;
+                    border-width: Metrics.border-width;
+                    border-color: root.style.plane.border;
+                }
+            }
+            TouchArea {
+                enabled: root.editable;
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                        root.begin-gesture();
+                        root.update-saturation-brightness(self.mouse-x, self.mouse-y, self.width, self.height);
+                    } else if event.kind == PointerEventKind.move && root.dragging {
+                        root.update-saturation-brightness(self.mouse-x, self.mouse-y, self.width, self.height);
+                    } else if event.kind == PointerEventKind.up && root.dragging {
+                        root.finish-gesture();
+                    } else if event.kind == PointerEventKind.cancel {
+                        root.cancel-gesture();
+                    }
+                }
+            }
+            Rectangle {
+                x: root.saturation * parent.width - root.style.plane.thumb-size / 2;
+                y: (1 - root.brightness) * parent.height - root.style.plane.thumb-size / 2;
+                width: root.style.plane.thumb-size;
+                height: root.style.plane.thumb-size;
+                border-radius: root.style.plane.radius;
+                border-width: Metrics.focus-width;
+                border-color: root.style.plane.thumb-border;
+                drop-shadow-color: root.style.plane.shadow.color;
+                drop-shadow-blur: root.style.plane.shadow.blur;
+            }
+        }
+
+        ColorSlider {
+            style: root.style.slider;
+            position: root.hue / 360;
+            enabled: root.editable;
+            dragging: root.dragging;
+            started => { root.begin-gesture(); }
+            moved(position) => {
+                root.hue = 360 * position;
+                root.preview-color(root.color-at());
+            }
+            finished => { root.finish-gesture(); }
+            canceled => { root.cancel-gesture(); }
+            Rectangle {
+                background: @linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+            }
+        }
+
+        ColorSlider {
+            style: root.style.slider;
+            position: root.alpha / 255;
+            enabled: root.editable;
+            dragging: root.dragging;
+            thumb-shadow: root.style.slider.shadow.color;
+            started => { root.begin-gesture(); }
+            moved(position) => {
+                root.alpha = (255 * position).round();
+                root.preview-color(root.color-at());
+            }
+            finished => { root.finish-gesture(); }
+            canceled => { root.cancel-gesture(); }
+            Rectangle {
+                for row in 2: Rectangle {
+                    y: row * Style.transparency-grid.cell-size;
+                    height: Style.transparency-grid.cell-size;
+                    for col in ceil(parent.width / Style.transparency-grid.cell-size): Rectangle {
+                        x: col * Style.transparency-grid.cell-size;
+                        width: Style.transparency-grid.cell-size;
+                        background: (row + col).mod(2) == 0 ? root.style.plane.checker-light : root.style.plane.checker-dark;
+                    }
+                }
+            }
+            Rectangle {
+                background: @linear-gradient(90deg, transparent, hsv(root.hue, root.saturation, root.brightness, 1));
+            }
+        }
+
+        HorizontalLayout {
+            height: root.style.row-height;
+            spacing: Metrics.space-regular;
+            InspectorTextFieldBase {
+                accessible-name: "Hex color";
+                live-edit: true;
+                enabled: root.editable;
+                value: Api.color-to-data(root.working-color).text;
+                commit-key: root.session-key;
+                accepted(text) => { return root.commit-text(text); }
+            }
+            HorizontalLayout {
+                width: root.style.hex.width;
+                spacing: Metrics.space-tight;
+                InspectorTextFieldBase {
+                    accessible-name: "Opacity percentage";
+                    live-edit: true;
+                    enabled: root.editable;
+                    width: root.style.hex.input-width;
+                    value: (root.alpha * 100 / 255).to-fixed(0);
+                    commit-key: root.session-key;
+                    accepted(text) => {
+                        if !text.is-float() || !root.editable {
+                            return false;
+                        }
+                        root.alpha = (text.to-float().clamp(0, 100) * 255 / 100).round();
+                        return root.preview-color(root.color-at());
+                    }
+                }
+                Text {
+                    text: "%";
+                    color: Colors.muted;
+                    font-size: Typography.caption.size;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+    }
+}

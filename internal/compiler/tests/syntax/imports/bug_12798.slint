@@ -1,0 +1,11 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A backslash is a directory separator, not an escape, so it stays in the path.
+// An absolute path with one cleans to a different string; the type loader must
+// not panic looking it up (#12798). A character that can't appear in a file name
+// is reported as missing rather than as a raw OS error.
+import { XX } from "/ddd\dd.slint";
+//                 >             <error{Cannot find requested import "/ddd\dd.slint" in the include search path}
+import { XX as Q } from "/foo\"bar.slint";
+//                      >               <error{Cannot find requested import "/foo\"bar.slint" in the include search path}

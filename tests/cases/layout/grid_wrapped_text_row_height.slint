@@ -1,0 +1,317 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A GridLayout row must be tall enough for the height its word-wrapped Text
+// needs at the column width the grid assigns — also when the cell is repeated.
+// A repeated instance cannot pull its own width the way a static cell does, so
+// the grid measures it at the width it hands out.
+//
+// Each block's magenta bar is the asserted extent: it sits right under the
+// text row, so its y is the sizer row plus that row's height. Every repeated
+// block must match the static reference at the top of its column.
+//
+// The two right-hand columns hold two text cells of different lengths, in grid
+// columns pinned to different widths by the sizer row. A repeated cell there
+// lands in a different column per instance, so measuring every instance at the
+// first one's width is not good enough.
+
+// The plain, fixed-width label column.
+component Label inherits Rectangle {
+    background: #dcdcdc;
+    border-width: 1px;
+    border-color: #a0a0a0;
+    width: 90px;
+    Text {
+        x: 0px;
+        width: 100%;
+        height: 100%;
+        text: "90px";
+        font-size: 9px;
+        color: #333333;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+// Pins a grid column to a minimum width and reports the width it ended up with.
+component ColumnSizer inherits Rectangle {
+    in property <length> pin;
+    min-width: pin;
+    height: 14px;
+    background: #dcdcdc;
+    border-width: 1px;
+    border-color: #a0a0a0;
+    Text {
+        x: 0px;
+        width: 100%;
+        height: 100%;
+        text: "w=\{round(root.width / 1px)}";
+        font-size: 9px;
+        color: #333333;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+// The cell under test is written out inline at every use on purpose. A
+// repeated element whose body is a user-defined component (`for t in m: Cell
+// { }`) is measured through a different, already-correct path, so factoring
+// this markup into a component silently stops the test exercising the bug.
+// The static reference cells are inlined the same way so both sides match.
+
+// The asserted extent: the top of this bar is the height under test.
+component Marker inherits Rectangle {
+    height: 14px;
+    background: #ffe6ff;
+    border-width: 1px;
+    border-color: #f0f;
+}
+
+export component TestCase inherits Window {
+    width: 1080px;
+    // Derived from the content so the blocks fit at any font size.
+    height: max(bare-block.y, max(cell-block.y, nested-block.y)) + block-height + 20px;
+
+    property <[int]> one: [1];
+    property <[string]> texts: [
+        "A long wrapped cell: the quick brown fox jumps over the lazy dog, twice over.",
+        "A shorter wrapped cell, still more than one line.",
+    ];
+    // The sizer row is the same in every block, so the marker positions are
+    // directly comparable.
+    property <length> sizer-height: 14px;
+    // Generous, so the last (stretching) row absorbs the slack and the marker
+    // bar sits right under the text row.
+    property <length> block-height: 30px + ref.height * 8;
+    property <length> top: legend.y + legend.height + 10px;
+
+    // Single-line reference for a font-independent line height.
+    ref := Text {
+        x: 1040px;
+        y: 2px;
+        text: "Word";
+        color: #555555;
+    }
+
+    legend := Text {
+        x: 4px;
+        y: 2px;
+        width: 1020px;
+        font-size: 11px;
+        color: #555555;
+        wrap: word-wrap;
+        text: "blue = the wrapped-text cell under test; gray = plain cells (the sizer row's label is the width its grid column ended up with)\nmagenta bar = the asserted extent, its top is the text row's height; the top block of each column is the static reference";
+    }
+
+    cap-static2 := Text { x: 4px; y: top; width: 340px; font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "static cell — row \{round((static2-marker.y - sizer-height) / 1px)}px"; }
+    static2-block := GridLayout {
+        x: 0; y: cap-static2.y + cap-static2.height + 4px;
+        width: 340px; height: block-height;
+        spacing: 0px; padding: 0px;
+        Row {
+            ColumnSizer { pin: 90px; }
+            ColumnSizer { pin: 245px; }
+        }
+        Row {
+            Label { }
+            Rectangle {
+                background: #cce6ff;
+                border-width: 1px;
+                border-color: #5b8db8;
+                VerticalLayout {
+                    padding: 0px;
+                    Text { text: texts[0]; wrap: word-wrap; color: #003366; }
+                }
+            }
+        }
+        Row { static2-marker := Marker { } }
+        Row { Rectangle { vertical-stretch: 1; } }
+    }
+
+    // The bare repeated element has no Row of its own; the sizer row is what
+    // establishes the two columns it addresses with `col`.
+    cap-bare := Text { x: 4px; y: static2-block.y + block-height + 8px; width: 340px;
+        font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "bare repeated element (col: 1) — row \{round((bare-marker.y - sizer-height) / 1px)}px"; }
+    bare-block := GridLayout {
+        x: 0; y: cap-bare.y + cap-bare.height + 4px;
+        width: 340px; height: block-height;
+        spacing: 0px; padding: 0px;
+        Row {
+            ColumnSizer { pin: 90px; }
+            ColumnSizer { pin: 245px; }
+        }
+        for x in one: Rectangle {
+            col: 1;
+            background: #cce6ff;
+            border-width: 1px;
+            border-color: #5b8db8;
+            VerticalLayout {
+                padding: 0px;
+                Text { text: texts[0]; wrap: word-wrap; color: #003366; }
+            }
+        }
+        Row { bare-marker := Marker { } }
+        Row { Rectangle { vertical-stretch: 1; } }
+    }
+
+    cap-static3 := Text { x: 364px; y: top; width: 340px; font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "two static cells — row \{round((static3-marker.y - sizer-height) / 1px)}px"; }
+    static3-block := GridLayout {
+        x: 360px; y: cap-static3.y + cap-static3.height + 4px;
+        width: 340px; height: block-height;
+        spacing: 0px; padding: 0px;
+        Row {
+            ColumnSizer { pin: 90px; }
+            sizer-a := ColumnSizer { pin: 100px; }
+            sizer-b := ColumnSizer { pin: 145px; }
+        }
+        Row {
+            Label { }
+            Rectangle {
+                background: #cce6ff;
+                border-width: 1px;
+                border-color: #5b8db8;
+                VerticalLayout {
+                    padding: 0px;
+                    Text { text: texts[0]; wrap: word-wrap; color: #003366; }
+                }
+            }
+            Rectangle {
+                background: #cce6ff;
+                border-width: 1px;
+                border-color: #5b8db8;
+                VerticalLayout {
+                    padding: 0px;
+                    Text { text: texts[1]; wrap: word-wrap; color: #003366; }
+                }
+            }
+        }
+        Row { static3-marker := Marker { } }
+        Row { Rectangle { vertical-stretch: 1; } }
+    }
+
+    cap-cell := Text { x: 364px; y: static3-block.y + block-height + 8px; width: 340px;
+        font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "repeated cells in a static Row — row \{round((rep-cell-marker.y - sizer-height) / 1px)}px"; }
+    cell-block := GridLayout {
+        x: 360px; y: cap-cell.y + cap-cell.height + 4px;
+        width: 340px; height: block-height;
+        spacing: 0px; padding: 0px;
+        Row {
+            ColumnSizer { pin: 90px; }
+            ColumnSizer { pin: 100px; }
+            ColumnSizer { pin: 145px; }
+        }
+        Row {
+            Label { }
+            for t in texts: Rectangle {
+                background: #cce6ff;
+                border-width: 1px;
+                border-color: #5b8db8;
+                VerticalLayout {
+                    padding: 0px;
+                    Text { text: t; wrap: word-wrap; color: #003366; }
+                }
+            }
+        }
+        Row { rep-cell-marker := Marker { } }
+        Row { Rectangle { vertical-stretch: 1; } }
+    }
+
+    cap-row := Text { x: 724px; y: top; width: 340px; font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "repeated Row, static cells — row \{round((rep-row-marker.y - sizer-height) / 1px)}px"; }
+    row-block := GridLayout {
+        x: 720px; y: cap-row.y + cap-row.height + 4px;
+        width: 340px; height: block-height;
+        spacing: 0px; padding: 0px;
+        Row {
+            ColumnSizer { pin: 90px; }
+            ColumnSizer { pin: 100px; }
+            ColumnSizer { pin: 145px; }
+        }
+        for x in one: Row {
+            Label { }
+            Rectangle {
+                background: #cce6ff;
+                border-width: 1px;
+                border-color: #5b8db8;
+                VerticalLayout {
+                    padding: 0px;
+                    Text { text: texts[0]; wrap: word-wrap; color: #003366; }
+                }
+            }
+            Rectangle {
+                background: #cce6ff;
+                border-width: 1px;
+                border-color: #5b8db8;
+                VerticalLayout {
+                    padding: 0px;
+                    Text { text: texts[1]; wrap: word-wrap; color: #003366; }
+                }
+            }
+        }
+        Row { rep-row-marker := Marker { } }
+        Row { Rectangle { vertical-stretch: 1; } }
+    }
+
+    cap-nested := Text { x: 724px; y: row-block.y + block-height + 8px; width: 340px;
+        font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "repeated cells in a repeated Row — row \{round((nested-marker.y - sizer-height) / 1px)}px"; }
+    nested-block := GridLayout {
+        x: 720px; y: cap-nested.y + cap-nested.height + 4px;
+        width: 340px; height: block-height;
+        spacing: 0px; padding: 0px;
+        Row {
+            ColumnSizer { pin: 90px; }
+            ColumnSizer { pin: 100px; }
+            ColumnSizer { pin: 145px; }
+        }
+        for x in one: Row {
+            Label { }
+            for t in texts: Rectangle {
+                background: #cce6ff;
+                border-width: 1px;
+                border-color: #5b8db8;
+                VerticalLayout {
+                    padding: 0px;
+                    Text { text: t; wrap: word-wrap; color: #003366; }
+                }
+            }
+        }
+        Row { nested-marker := Marker { } }
+        Row { Rectangle { vertical-stretch: 1; } }
+    }
+
+    // Sanity: the reference text really does wrap at the cell width.
+    out property <bool> test-wraps: static3-marker.y - sizer-height >= 2 * ref.height;
+    // Sanity: the two text columns really are different widths, so a repeated
+    // cell measured at the wrong instance's width comes out wrong.
+    out property <bool> test-columns-differ: abs(sizer-a.width - sizer-b.width) > 10px;
+    // Every repeated shape must match the static reference of its column.
+    out property <bool> test-bare: abs(bare-marker.y - static2-marker.y) < 1px;
+    out property <bool> test-rep-cell: abs(rep-cell-marker.y - static3-marker.y) < 1px;
+    out property <bool> test-rep-row: abs(rep-row-marker.y - static3-marker.y) < 1px;
+    out property <bool> test-nested: abs(nested-marker.y - static3-marker.y) < 1px;
+
+    out property <bool> test: test-wraps && test-columns-differ && test-bare && test-rep-cell
+        && test-rep-row && test-nested;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

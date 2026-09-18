@@ -18,8 +18,7 @@ use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::item_tree::ItemTreeWeak;
-use i_slint_core::items::{ItemRc, TextWrap};
-use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx};
+use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{DrawOutcome, RendererSealed};
 use i_slint_core::textlayout::sharedparley;
@@ -39,13 +38,33 @@ mod images;
 mod itemrenderer;
 #[cfg(feature = "opengl")]
 pub mod opengl;
-#[cfg(feature = "wgpu-29")]
+#[cfg(feature = "wgpu-30")]
 pub mod wgpu;
-#[cfg(feature = "wgpu-29")]
+#[cfg(feature = "wgpu-30")]
 pub use wgpu::FemtoVGWGPURenderer;
 
 pub trait WindowSurface<R: femtovg::Renderer> {
     fn render_output(&self) -> impl Into<R::RenderOutput>;
+    /// Return [`femtovg::RenderTarget::Image`] to redirect the frame when
+    /// [`Self::render_output`] cannot select an offscreen target, as for OpenGL, which
+    /// renders into whatever framebuffer is bound.
+    fn initial_render_target(&self) -> femtovg::RenderTarget {
+        femtovg::RenderTarget::Screen
+    }
+}
+
+/// Call after every [`femtovg::Canvas::set_size`], which queues a `SetRenderTarget(Screen)` of
+/// its own without updating the cached target. [`femtovg::Canvas::set_render_target`] does
+/// nothing when the target matches that cache, so switch through `Screen` to force the frame's
+/// target to be queued again.
+fn select_render_target<R: femtovg::Renderer>(
+    canvas: &mut femtovg::Canvas<R>,
+    target: femtovg::RenderTarget,
+) {
+    if target != femtovg::RenderTarget::Screen {
+        canvas.set_render_target(femtovg::RenderTarget::Screen);
+        canvas.set_render_target(target);
+    }
 }
 
 /// Result of [`GraphicsBackend::begin_surface_rendering`]. `Skipped` carries the reason,
@@ -83,9 +102,9 @@ pub trait GraphicsBackend {
         height: NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
-    /// Implement screenshot capture for this backend. The `canvas` is the FemtoVG canvas
-    /// (available for GL backends to call `canvas.screenshot()`). The `render` closure triggers
-    /// a full render pass, which WGPU-style implementations may redirect to an offscreen texture.
+    /// Redirect the full frame drawn by `render` offscreen and read back its pixels, using
+    /// `canvas` if this backend reads back through it. `width` and `height` are the window
+    /// size, guaranteed non-zero by the caller.
     /// Return `None` if this backend does not support `take_snapshot`.
     fn take_snapshot_pixels(
         &self,
@@ -108,6 +127,7 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
     graphics_cache: itemrenderer::ItemGraphicsCache<B::Renderer>,
     layer_cache: itemrenderer::LayerCache<B::Renderer>,
     texture_cache: RefCell<images::TextureCache<B::Renderer>>,
+    box_shadow_cache: itemrenderer::FemtovgBoxShadowCache<B::Renderer>,
     text_layout_cache: sharedparley::TextLayoutCache,
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
     rendering_first_time: Cell<bool>,
@@ -116,7 +136,7 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
 }
 
 impl<B: GraphicsBackend> FemtoVGRenderer<B> {
-    #[cfg(feature = "wgpu-29")]
+    #[cfg(feature = "wgpu-30")]
     pub(crate) fn new_internal(graphics_backend: B) -> Self {
         Self {
             maybe_window_adapter: Default::default(),
@@ -125,6 +145,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
             graphics_cache: Default::default(),
             layer_cache: Default::default(),
             texture_cache: Default::default(),
+            box_shadow_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
@@ -154,6 +175,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
             BeginRendering::Acquired(s) => s,
             BeginRendering::Skipped(outcome) => return Ok(outcome),
         };
+        let render_target = surface.initial_render_target();
 
         if self.rendering_first_time.take() {
             *self.rendering_metrics_collector.borrow_mut() = RenderingMetricsCollector::new(
@@ -200,6 +222,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     // dpi / device pixel ratio as the anti-alias of femtovg needs that to draw text clearly.
                     // We need to care about that `ceil()` when calculating metrics.
                     femtovg_canvas.set_size(surface_size.width, surface_size.height, scale);
+                    select_render_target(&mut femtovg_canvas, render_target);
 
                     // Clear with window background if it is a solid color otherwise it will drawn as gradient
                     if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
@@ -230,6 +253,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     self.graphics_backend.submit_commands(commands);
 
                     femtovg_canvas.set_size(width.get(), height.get(), scale);
+                    select_render_target(&mut femtovg_canvas, render_target);
                     drop(femtovg_canvas);
 
                     self.with_graphics_api(|api| {
@@ -239,17 +263,19 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
 
                 self.graphics_cache.clear_cache_if_scale_factor_changed(window);
                 self.layer_cache.clear_cache_if_scale_factor_changed(window);
-                self.text_layout_cache.clear_cache_if_scale_factor_changed(window);
+                self.box_shadow_cache.clear_cache_if_scale_factor_changed(window);
 
                 let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
                     &canvas,
                     &self.graphics_cache,
                     &self.layer_cache,
                     &self.texture_cache,
+                    &self.box_shadow_cache,
                     &self.text_layout_cache,
                     window,
                     width.get(),
                     height.get(),
+                    render_target,
                 );
 
                 if let Some(window_item_rc) = window_inner.window_item_rc() {
@@ -324,7 +350,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         })
     }
 
-    #[cfg(any(feature = "wgpu-29", feature = "opengl"))]
+    #[cfg(any(feature = "wgpu-30", feature = "opengl"))]
     pub(crate) fn reset_canvas(&self, canvas: CanvasRc<B::Renderer>) {
         *self.canvas.borrow_mut() = canvas.into();
         self.rendering_first_time.set(true);
@@ -333,86 +359,8 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
 
 #[doc(hidden)]
 impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
-    fn text_size(
-        &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
-        item_rc: &ItemRc,
-        max_width: Option<LogicalLength>,
-        text_wrap: TextWrap,
-    ) -> LogicalSize {
-        sharedparley::text_size(
-            self,
-            text_item,
-            item_rc,
-            max_width,
-            text_wrap,
-            Some(&self.text_layout_cache),
-        )
-        .unwrap_or_default()
-    }
-
-    fn char_size(
-        &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
-        item_rc: &i_slint_core::item_tree::ItemRc,
-        ch: char,
-    ) -> LogicalSize {
-        self.slint_context()
-            .and_then(|ctx| {
-                let mut font_ctx = ctx.font_context().borrow_mut();
-                sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch)
-            })
-            .unwrap_or_default()
-    }
-
-    fn font_metrics(
-        &self,
-        font_request: i_slint_core::graphics::FontRequest,
-    ) -> i_slint_core::items::FontMetrics {
-        self.slint_context()
-            .map(|ctx| {
-                let mut font_ctx = ctx.font_context().borrow_mut();
-                sharedparley::font_metrics(&mut font_ctx, font_request)
-            })
-            .unwrap_or_default()
-    }
-
-    fn text_input_byte_offset_for_position(
-        &self,
-        text_input: Pin<&i_slint_core::items::TextInput>,
-        item_rc: &i_slint_core::item_tree::ItemRc,
-        pos: LogicalPoint,
-    ) -> usize {
-        sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos)
-    }
-
-    fn text_input_cursor_rect_for_byte_offset(
-        &self,
-        text_input: Pin<&i_slint_core::items::TextInput>,
-        item_rc: &i_slint_core::item_tree::ItemRc,
-        byte_offset: usize,
-    ) -> LogicalRect {
-        sharedparley::text_input_cursor_rect_for_byte_offset(self, text_input, item_rc, byte_offset)
-    }
-
-    fn register_font_from_memory(
-        &self,
-        data: &'static [u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().register_static_font(data);
-        Ok(())
-    }
-
-    fn register_font_from_path(
-        &self,
-        path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
-        let contents = std::fs::read(requested_path)?;
-        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().collection.register_fonts(contents.into(), None);
-        Ok(())
+    fn text_layout_cache(&self) -> Option<&sharedparley::TextLayoutCache> {
+        Some(&self.text_layout_cache)
     }
 
     fn set_rendering_notifier(
@@ -450,6 +398,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
                 self.graphics_cache.clear_all();
                 self.layer_cache.clear_all();
                 self.texture_cache.borrow_mut().clear();
+                self.box_shadow_cache.clear();
             })
             .ok();
     }
@@ -468,7 +417,6 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         Ok(())
     }
 
-    /// Returns an image buffer of what was rendered last.
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         let size = self
             .maybe_window_adapter
@@ -477,6 +425,9 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             .and_then(|w| w.upgrade())
             .map(|a| a.size())
             .unwrap_or_default();
+        if size.width == 0 || size.height == 0 {
+            return Err("take_snapshot: window size is zero".into());
+        }
         let canvas = self.canvas.borrow().as_ref().cloned();
         self.graphics_backend
             .take_snapshot_pixels(canvas, size.width, size.height, &|| self.render())
@@ -533,6 +484,7 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
             graphics_cache: Default::default(),
             layer_cache: Default::default(),
             texture_cache: Default::default(),
+            box_shadow_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
@@ -557,6 +509,7 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
             self.graphics_cache.clear_all();
             self.layer_cache.clear_all();
             self.texture_cache.borrow_mut().clear();
+            self.box_shadow_cache.clear();
         })?;
 
         self.text_layout_cache.clear_all();

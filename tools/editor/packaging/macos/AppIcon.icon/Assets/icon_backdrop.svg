@@ -1,0 +1,33 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="87" y1="65" x2="434" y2="452" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#25C9EF"/>
+      <stop offset="0.48" stop-color="#168DF4"/>
+      <stop offset="1" stop-color="#1162EF"/>
+    </linearGradient>
+    <linearGradient id="gridFade" x1="256" y1="72" x2="256" y2="440" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="white" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="white" stop-opacity="0.13"/>
+    </linearGradient>
+    <filter id="shadow" x="34" y="42" width="444" height="444" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="20" stdDeviation="22" flood-color="#000000" flood-opacity="0.20"/>
+    </filter>
+    <clipPath id="clip">
+      <rect x="72" y="64" width="368" height="368" rx="78"/>
+    </clipPath>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <rect x="72" y="64" width="368" height="368" rx="78" fill="url(#bg)"/>
+    <g clip-path="url(#clip)" stroke="url(#gridFade)" stroke-width="2">
+      <path d="M146 64V432"/>
+      <path d="M218 64V432"/>
+      <path d="M290 64V432"/>
+      <path d="M362 64V432"/>
+      <path d="M72 144H440"/>
+      <path d="M72 216H440"/>
+      <path d="M72 288H440"/>
+      <path d="M72 360H440"/>
+    </g>
+  </g>
+</svg>

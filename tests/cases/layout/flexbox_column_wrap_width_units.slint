@@ -1,0 +1,94 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A column flex counts the columns that fit its height only for a height given
+// as a plain length (see flexbox_column_wrap_width.slint). Which units qualify
+// is documented on `FlexboxLayout`, so pin it: `cm`, `mm`, `in` and `pt` are
+// turned into a plain length while compiling and count, while `phx` and `rem`
+// are worked out while running, from the window's scale factor and the default
+// font size, and do not.
+//
+// All six heights below are 70px on screen. Only the ones that count report
+// the 80px of two columns; the rest report one column, 40px.
+
+component WrapCol inherits FlexboxLayout {
+    flex-direction: column;
+    flex-wrap: wrap;
+    spacing: 0px;
+    padding: 0px;
+    cross-axis-line-alignment: start;
+    Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+}
+
+export component TestCase inherits Window {
+    width: 620px;
+    height: 200px;
+
+    Text { x: 8px; y: 4px; width: 604px; font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "The same 70px height in six units. A blue bar marks the width each flex reports: after two columns for px, pt and cm, after one for phx and rem."; }
+
+    px-col := WrapCol { x: 10px; y: 60px; height: 70px; }
+    Rectangle { x: 10px + px-col.preferred-width; y: 60px; width: 5px; height: 70px; background: #5b8db8; }
+
+    pt-col := WrapCol { x: 110px; y: 60px; height: 52.5pt; }
+    Rectangle { x: 110px + pt-col.preferred-width; y: 60px; width: 5px; height: 70px; background: #5b8db8; }
+
+    cm-col := WrapCol { x: 210px; y: 60px; height: 1.8518518cm; }
+    Rectangle { x: 210px + cm-col.preferred-width; y: 60px; width: 5px; height: 70px; background: #5b8db8; }
+
+    mm-col := WrapCol { x: 310px; y: 60px; height: 18.518518mm; }
+    Rectangle { x: 310px + mm-col.preferred-width; y: 60px; width: 5px; height: 70px; background: #5b8db8; }
+
+    phx-col := WrapCol { x: 410px; y: 60px; height: 70phx; }
+    Rectangle { x: 410px + phx-col.preferred-width; y: 60px; width: 5px; height: 70px; background: #5b8db8; }
+
+    rem-col := WrapCol { x: 510px; y: 60px; height: 5rem; }
+    Rectangle { x: 510px + rem-col.preferred-width; y: 60px; width: 5px; height: 70px; background: #5b8db8; }
+
+    // Converted while compiling, so they count.
+    out property <bool> px-ok: px-col.preferred-width == 80px;
+    out property <bool> pt-ok: pt-col.preferred-width == 80px;
+    out property <bool> cm-ok: cm-col.preferred-width == 80px;
+    out property <bool> mm-ok: mm-col.preferred-width == 80px;
+    // Worked out while running, so they do not.
+    out property <bool> phx-ok: phx-col.preferred-width == 40px;
+    out property <bool> rem-ok: rem-col.preferred-width == 40px;
+
+    out property <bool> test: px-ok && pt-ok && cm-ok && mm-ok && phx-ok && rem-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_px_ok(), "px must count the columns");
+assert!(instance.get_pt_ok(), "pt must count the columns");
+assert!(instance.get_cm_ok(), "cm must count the columns");
+assert!(instance.get_mm_ok(), "mm must count the columns");
+assert!(instance.get_phx_ok(), "phx must measure as one column");
+assert!(instance.get_rem_ok(), "rem must measure as one column");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_px_ok());
+assert(instance.get_pt_ok());
+assert(instance.get_cm_ok());
+assert(instance.get_mm_ok());
+assert(instance.get_phx_ok());
+assert(instance.get_rem_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.px_ok);
+assert(instance.pt_ok);
+assert(instance.cm_ok);
+assert(instance.mm_ok);
+assert(instance.phx_ok);
+assert(instance.rem_ok);
+```
+*/

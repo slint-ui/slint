@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A binding loop through a shadowing member must name it by its source name in the diagnostic,
+// not by the mangled internal name it is stored under.
+
+component Base {
+    @shadowable in-out property <int> content-width: 1;
+}
+
+export component Derived inherits Base {
+    in-out property <int> content-width: root.other;
+//                        >           <warning{'content-width' shadows the inherited property of the same name}
+//                                       >         <^error{The binding for the property 'content-width' is part of a binding loop (root_window.content-width -> root_window.other -> root_window.content-width)}
+    in-out property <int> other: root.content-width;
+//                               >                 <error{The binding for the property 'other' is part of a binding loop (root_window.content-width -> root_window.other -> root_window.content-width)}
+}

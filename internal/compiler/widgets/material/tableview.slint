@@ -113,8 +113,8 @@ component TableViewRow inherits Rectangle {
 }
 
 export component StandardTableView {
-    private property <length> item-height: scroll-view.viewport-height / rows.length;
-    private property <length> current-item-y: scroll-view.viewport-y + current-row * item-height;
+    private property <length> item-height: scroll-view.content-height / rows.length;
+    private property <length> current-item-y: scroll-view.content-y + current-row * item-height;
     private property <length> min-header-height: 42px;
 
     in property <[[StandardListViewItem]]> rows;
@@ -125,10 +125,14 @@ export component StandardTableView {
     out property <length> visible-width <=> scroll-view.visible-width;
     out property <length> visible-height <=> scroll-view.visible-height;
     in-out property <bool> has-focus <=> scroll-view.has-focus;
-    in-out property <length> viewport-width <=> scroll-view.viewport-width;
-    in-out property <length> viewport-height <=> scroll-view.viewport-height;
-    in-out property <length> viewport-x <=> scroll-view.viewport-x;
-    in-out property <length> viewport-y <=> scroll-view.viewport-y;
+    in-out property <length> content-width <=> scroll-view.content-width;
+    in-out property <length> content-height <=> scroll-view.content-height;
+    in-out property <length> content-x <=> scroll-view.content-x;
+    in-out property <length> content-y <=> scroll-view.content-y;
+    @deprecated in-out property <length> viewport-width <=> content-width;
+    @deprecated in-out property <length> viewport-height <=> content-height;
+    @deprecated in-out property <length> viewport-x <=> content-x;
+    @deprecated in-out property <length> viewport-y <=> content-y;
     in property <ScrollBarPolicy> vertical-scrollbar-policy <=> scroll-view.vertical-scrollbar-policy;
     in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> scroll-view.horizontal-scrollbar-policy;
 
@@ -146,11 +150,11 @@ export component StandardTableView {
         current-row-changed(current-row);
 
         if(current-item-y < 0) {
-            scroll-view.viewport-y += 0 - current-item-y;
+            scroll-view.content-y += 0 - current-item-y;
         }
 
         if(current-item-y + item-height > scroll-view.visible-height) {
-            scroll-view.viewport-y -= current-item-y + item-height - scroll-view.visible-height;
+            scroll-view.content-y -= current-item-y + item-height - scroll-view.visible-height;
         }
     }
 

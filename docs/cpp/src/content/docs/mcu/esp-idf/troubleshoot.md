@@ -33,6 +33,13 @@ and your display expecting a different byte order. Typically, esp32 devices are 
 expect big-endian or `esp_lcd` configures them accordingly. Therefore, by default Slint converts pixels to big-endian.
 If your display controller expects little endian, set the `byte_swap` field in `SlintPlatformConfiguration` to `false`.
 
+## Black screen or crash when using double buffering
+
+Double buffering synchronizes rendering with the LCD peripheral, so Slint needs to know which peripheral
+drives the panel. On chips that support several, such as the ESP32-P4, Slint assumes MIPI-DSI.
+If your panel uses a different interface, set the `panel_type` field in `SlintPlatformConfiguration`,
+for example to `SlintDisplayPanelType::RgbLcd` for a parallel RGB panel.
+
 ## Errors about multiple symbol definitions when linking
 
 You see errors at application link time such as these:

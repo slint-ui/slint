@@ -1,0 +1,153 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A derived component may declare a member whose name already exists in its base, as long as the
+// base member is private (invisible here) or marked `@shadowable`. The base keeps using its own
+// member. https://github.com/slint-ui/slint/issues/12881 and https://github.com/slint-ui/slint/issues/1937
+
+component Base {
+    // Only visible within Base, so shadowing it needs no opt-in
+    private property <string> secret: "base-secret";
+    @shadowable in-out property <string> name: "Hello";
+    @shadowable pure callback describe() -> string;
+    describe => { self.name + "/" + self.secret }
+    @shadowable public pure function label() -> string { "base-label" }
+
+    out property <string> base-view: self.name + "/" + self.secret + "/" + self.describe() + "/" + self.label();
+}
+
+component Derived inherits Base {
+    property <string> secret: "derived-secret";
+    in-out property <string> name: "Hey";
+    // `name-1` happens to match the internal name the shadow of `name` is parked under. That name
+    // is private, so this declares an independent property that gets its own slot.
+    in-out property <int> name-1: 42;
+    pure callback describe() -> string;
+    describe => { "derived" }
+    public pure function label() -> string { "derived-label" }
+
+    out property <string> derived-view: self.name + "/" + self.secret + "/" + self.describe() + "/" + self.label();
+}
+
+// Shadowing a builtin member that a base component uses: `UsesFlickable` still reads the real
+// `content-width` of the Flickable it inherits from.
+component UsesFlickable inherits Flickable {
+    content-width: 34px;
+    out property <length> flickable-content-width: self.content-width;
+}
+
+component Wrapper inherits UsesFlickable {
+    in-out property <length> content-width: 7px;
+}
+
+// Shadowing on an element that also gets the compiler's own synthetic layout properties
+// (layout-info, layout-cache): the shadow is stored under an internal name that stays clear of
+// them, and an unrelated `-1` name coexists with it too.
+component LayoutBase inherits HorizontalLayout {
+    @shadowable in-out property <length> gap: 3px;
+    out property <length> base-gap: self.gap;
+}
+
+component GapBox inherits LayoutBase {
+    in-out property <length> gap: 9px;
+    in-out property <int> extra-1: 5;
+    Rectangle { min-width: 20px; }
+    Rectangle {}
+}
+
+export component TestCase inherits Window {
+    d := Derived {}
+
+    // Shadow the builtin Window `minimized`: the public accessor must be `minimized`, not `minimized-1`
+    in-out property <bool> minimized: true;
+
+    out property <string> base-view: d.base-view;
+    out property <string> derived-view: d.derived-view;
+    in-out property <string> name <=> d.name;
+    out property <int> derived-name-1: d.name-1;
+
+    w := Wrapper {
+        content-width: 12px;
+    }
+    out property <length> wrapper-flickable-content-width: w.flickable-content-width;
+    out property <length> wrapper-content-width: w.content-width;
+
+    l := GapBox {}
+    out property <length> box-gap: l.gap;
+    out property <length> box-base-gap: l.base-gap;
+    out property <int> box-extra: l.extra-1;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+// Base only ever sees its own members
+assert_eq!(instance.get_base_view(), "Hello/base-secret/Hello/base-secret/base-label");
+assert_eq!(instance.get_derived_view(), "Hey/derived-secret/derived/derived-label");
+// A property named like the shadow's internal name is independent of it
+assert_eq!(instance.get_derived_name_1(), 42);
+// The public API of the derived component exposes the shadowing declaration
+assert_eq!(instance.get_name(), "Hey");
+instance.set_name("Set".into());
+assert_eq!(instance.get_name(), "Set");
+assert_eq!(instance.get_base_view(), "Hello/base-secret/Hello/base-secret/base-label");
+// A shadowed builtin property keeps its source name in the public API
+assert!(instance.get_minimized());
+instance.set_minimized(false);
+assert!(!instance.get_minimized());
+
+assert_eq!(instance.get_wrapper_content_width(), 12.);
+assert_eq!(instance.get_wrapper_flickable_content_width(), 34.);
+
+assert_eq!(instance.get_box_gap(), 9.);
+assert_eq!(instance.get_box_base_gap(), 3.);
+assert_eq!(instance.get_box_extra(), 5);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_base_view(), "Hello/base-secret/Hello/base-secret/base-label");
+assert_eq(instance.get_derived_view(), "Hey/derived-secret/derived/derived-label");
+assert_eq(instance.get_derived_name_1(), 42);
+assert_eq(instance.get_name(), "Hey");
+instance.set_name("Set");
+assert_eq(instance.get_name(), "Set");
+assert_eq(instance.get_base_view(), "Hello/base-secret/Hello/base-secret/base-label");
+// A shadowed builtin property keeps its source name in the public API
+assert(instance.get_minimized());
+instance.set_minimized(false);
+assert(!instance.get_minimized());
+
+assert_eq(instance.get_wrapper_content_width(), 12.);
+assert_eq(instance.get_wrapper_flickable_content_width(), 34.);
+
+assert_eq(instance.get_box_gap(), 9.);
+assert_eq(instance.get_box_base_gap(), 3.);
+assert_eq(instance.get_box_extra(), 5);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.base_view, "Hello/base-secret/Hello/base-secret/base-label");
+assert.equal(instance.derived_view, "Hey/derived-secret/derived/derived-label");
+assert.equal(instance.derived_name_1, 42);
+assert.equal(instance.name, "Hey");
+instance.name = "Set";
+assert.equal(instance.name, "Set");
+assert.equal(instance.base_view, "Hello/base-secret/Hello/base-secret/base-label");
+// A shadowed builtin property keeps its source name in the public API
+assert(instance.minimized);
+instance.minimized = false;
+assert(!instance.minimized);
+
+assert.equal(instance.wrapper_content_width, 12);
+assert.equal(instance.wrapper_flickable_content_width, 34);
+
+assert.equal(instance.box_gap, 9);
+assert.equal(instance.box_base_gap, 3);
+assert.equal(instance.box_extra, 5);
+```
+
+*/

@@ -1,0 +1,194 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cspell:ignore tatbt tatbtr tatbtrt tatbtrtct tatbtrtctdt
+
+// `restart()` on a timer declared in a different component than the calling expression (#12602):
+// directly from conditional elements one and two levels below,
+// directly from a repeated element,
+// through a function inlined into the conditional,
+// and through a function of a child component inlined into the parent.
+// `Inner` is used twice so it stays a real sub-component;
+// only i1's timer must be restarted.
+
+component Inner {
+    out property <string> result;
+
+    t := Timer {
+        interval: 100ms;
+        triggered => {
+            root.result += "t";
+            self.stop();
+        }
+    }
+
+    public function restart-it() {
+        t.restart();
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    out property <string> result;
+    in-out property <bool> cond: true;
+
+    t := Timer {
+        interval: 100ms;
+        triggered => {
+            root.result += "t";
+            self.stop();
+        }
+    }
+
+    function resume() {
+        result += "r";
+        t.restart();
+    }
+
+    i1 := Inner { }
+    i2 := Inner { }
+    out property <string> inner-result: i1.result + "/" + i2.result;
+
+    public function restart-first-inner() {
+        i1.restart-it();
+    }
+
+    if cond: Rectangle {
+        // Direct restart, one level below the timer's component.
+        TouchArea {
+            x: 0;
+            y: 0;
+            width: 50px;
+            height: 50px;
+            clicked => {
+                root.result += "a";
+                t.restart();
+            }
+        }
+
+        // Direct restart, two levels below.
+        if true: TouchArea {
+            x: 50px;
+            y: 0;
+            width: 50px;
+            height: 50px;
+            clicked => {
+                root.result += "b";
+                t.restart();
+            }
+        }
+
+        // The single call site of `resume`, whose inlined body restarts the timer.
+        TouchArea {
+            x: 0;
+            y: 50px;
+            width: 50px;
+            height: 50px;
+            clicked => {
+                root.resume();
+            }
+        }
+    }
+
+    // Direct restart from repeated elements.
+    for i in 2: TouchArea {
+        x: 50px;
+        y: 50px + i * 25px;
+        width: 50px;
+        height: 25px;
+        clicked => {
+            root.result += i == 0 ? "c" : "d";
+            t.restart();
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_result(), "t");
+assert_eq!(instance.get_inner_result(), "t/t");
+// Direct restart from one level below.
+slint_testing::send_mouse_click(&instance, 25., 25.);
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_result(), "tat");
+// Direct restart from two levels below.
+slint_testing::send_mouse_click(&instance, 75., 25.);
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_result(), "tatbt");
+// Through the function inlined into the conditional.
+slint_testing::send_mouse_click(&instance, 25., 75.);
+assert_eq!(instance.get_result(), "tatbtr");
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_result(), "tatbtrt");
+// Direct restart from each repeated element.
+slint_testing::send_mouse_click(&instance, 75., 62.);
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_result(), "tatbtrtct");
+slint_testing::send_mouse_click(&instance, 75., 87.);
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_result(), "tatbtrtctdt");
+// Through the child component's function inlined into the parent.
+instance.invoke_restart_first_inner();
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_inner_result(), "tt/t");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_result(), "t");
+assert_eq(instance.get_inner_result(), "t/t");
+slint_testing::send_mouse_click(&instance, 25., 25.);
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_result(), "tat");
+slint_testing::send_mouse_click(&instance, 75., 25.);
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_result(), "tatbt");
+slint_testing::send_mouse_click(&instance, 25., 75.);
+assert_eq(instance.get_result(), "tatbtr");
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_result(), "tatbtrt");
+slint_testing::send_mouse_click(&instance, 75., 62.);
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_result(), "tatbtrtct");
+slint_testing::send_mouse_click(&instance, 75., 87.);
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_result(), "tatbtrtctdt");
+instance.invoke_restart_first_inner();
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_inner_result(), "tt/t");
+```
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.result, "t");
+assert.equal(instance.inner_result, "t/t");
+slintlib.private_api.send_mouse_click(instance, 25., 25.);
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.result, "tat");
+slintlib.private_api.send_mouse_click(instance, 75., 25.);
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.result, "tatbt");
+slintlib.private_api.send_mouse_click(instance, 25., 75.);
+assert.equal(instance.result, "tatbtr");
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.result, "tatbtrt");
+slintlib.private_api.send_mouse_click(instance, 75., 62.);
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.result, "tatbtrtct");
+slintlib.private_api.send_mouse_click(instance, 75., 87.);
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.result, "tatbtrtctdt");
+instance.restart_first_inner();
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.inner_result, "tt/t");
+```
+*/

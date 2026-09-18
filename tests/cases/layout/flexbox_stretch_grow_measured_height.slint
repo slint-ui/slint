@@ -1,0 +1,69 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Under `alignment: stretch` the solve grows a cell along the main axis, which
+// changes a height-for-width cell's height (a wider wrapped Text needs fewer
+// lines). The container's reported height (the cross-axis layout info) must
+// apply the same growth: it receives the container's `alignment` for that.
+// Without it, the auto-sized flexbox below would reserve the taller height
+// that the text has at its preferred 100px width, before growing.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 600px;
+
+    property <string> long: "A fairly long sentence that has to word-wrap into several lines when the text is narrow";
+
+    // References: the same text wrapped at the grown (300px) and at the
+    // preferred (100px) width. Same font, so the checks are font-independent.
+    refWide := Text { x: -3000px; width: 300px; text: long; wrap: word-wrap; }
+    refNarrow := Text { x: -3000px; width: 100px; text: long; wrap: word-wrap; }
+
+    VerticalLayout {
+        alignment: start;
+        grown := FlexboxLayout {
+            alignment: stretch;
+            t1 := Text {
+                text: long;
+                wrap: word-wrap;
+                horizontal-alignment: left;
+                preferred-width: 100px;
+                horizontal-stretch: 1;
+            }
+        }
+        not_grown := FlexboxLayout {
+            t2 := Text {
+                text: long;
+                wrap: word-wrap;
+                horizontal-alignment: left;
+                preferred-width: 100px;
+                horizontal-stretch: 1;
+            }
+        }
+    }
+
+    // The stretched text grows to the full 300px, so the flexbox gets the
+    // height of the text wrapped at 300px.
+    out property <bool> test_grown: t1.width == 300px && grown.height == refWide.height;
+    // Without `alignment: stretch` nothing grows: the text keeps its preferred
+    // 100px width and the flexbox is measured at that width.
+    out property <bool> test_not_grown: t2.width == 100px && not_grown.height == refNarrow.height;
+    out property <bool> test: test_grown && test_not_grown;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

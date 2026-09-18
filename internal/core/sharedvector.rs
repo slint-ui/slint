@@ -243,27 +243,34 @@ impl<T: Clone> SharedVector<T> {
         }
     }
 
-    /// Removes element at the given index from the array.
+    /// Removes the element at the given index from the array and returns it.
     /// If the array was shared, this will make a copy of the array.
-    pub fn remove(&mut self, row: usize) {
-        if row >= self.len() {
-            return;
+    ///
+    /// Panics if `row` is out of bounds.
+    pub fn remove(&mut self, row: usize) -> T {
+        let len = self.len();
+        if row >= len {
+            panic!("removal index (is {row}) should be < len (is {len})");
         }
-        self.detach(self.len());
+        self.detach(len);
         unsafe {
             let data = data_ptr(self.inner);
-            core::ptr::drop_in_place(data.add(row));
+            let value = core::ptr::read(data.add(row));
             let size = (*self.inner.as_ptr()).header.size;
             core::ptr::copy(data.add(row + 1), data.add(row), size - 1 - row);
             (*self.inner.as_ptr()).header.size = size - 1;
+            value
         }
     }
 
-    /// Inserts element at the given index in the array.
+    /// Inserts the element at the given index in the array, shifting the following elements.
     /// If the array was shared, this will make a copy of the array.
+    ///
+    /// Panics if `row > len`.
     pub fn insert(&mut self, row: usize, value: T) {
-        if row > self.len() {
-            return;
+        let len = self.len();
+        if row > len {
+            panic!("insertion index (is {row}) should be <= len (is {len})");
         }
         self.detach(capacity_for_grow(self.capacity(), self.len() + 1, core::mem::size_of::<T>()));
         unsafe {
@@ -652,14 +659,19 @@ fn push_test() {
 fn remove_test() {
     let mut x: SharedVector<i32> = SharedVector::from([1, 2, 3, 4, 5, 6]);
     let y = x.clone();
-    x.remove(0);
-    x.remove(1);
-    x.remove(3);
-    x.remove(4);
+    assert_eq!(x.remove(0), 1);
+    assert_eq!(x.remove(1), 3);
     x.push(42);
-    x.remove(2);
-    assert_eq!(x.as_slice(), &[2, 4, 42]);
+    assert_eq!(x.remove(2), 5);
+    assert_eq!(x.as_slice(), &[2, 4, 6, 42]);
     assert_eq!(y.as_slice(), &[1, 2, 3, 4, 5, 6]);
+}
+
+#[test]
+#[should_panic(expected = "removal index (is 3) should be < len (is 3)")]
+fn remove_out_of_bounds_test() {
+    let mut x: SharedVector<i32> = SharedVector::from([1, 2, 3]);
+    x.remove(3);
 }
 
 #[test]
@@ -669,9 +681,16 @@ fn insert_test() {
     x.insert(0, 42);
     assert_eq!(x.as_slice(), &[42, 1, 2, 3]);
     x.insert(2, 24);
-    x.insert(6, 84);
-    assert_eq!(x.as_slice(), &[42, 1, 24, 2, 3]);
+    x.insert(5, 84);
+    assert_eq!(x.as_slice(), &[42, 1, 24, 2, 3, 84]);
     assert_eq!(y.as_slice(), &[1, 2, 3]);
+}
+
+#[test]
+#[should_panic(expected = "insertion index (is 4) should be <= len (is 3)")]
+fn insert_out_of_bounds_test() {
+    let mut x: SharedVector<i32> = SharedVector::from([1, 2, 3]);
+    x.insert(4, 42);
 }
 
 #[test]

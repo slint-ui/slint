@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// What a component inherits is part of its own API: the exported component is
+// inlined into one element, and its base's declarations have to survive that
+// as its properties and its callbacks.
+component Base inherits Window {
+    callback acknowledged;
+    in-out property <color> tint: #802020;
+    background: #202020;
+}
+
+export component TestCase inherits Base {
+    Rectangle {
+        x: 8px;
+        y: 8px;
+        width: 48px;
+        height: 24px;
+        background: root.tint;
+        TouchArea {
+            clicked => { root.acknowledged(); }
+        }
+    }
+}
+
+/*
+```rust
+struct Application {
+    acknowledged: u32,
+}
+impl TestCaseCallbacks for Application {
+    fn on_acknowledged(&mut self, component: &mut TestCase) {
+        self.acknowledged += 1;
+        component.set_tint(slint_sc::Color::from_rgb_u8(0x20, 0x80, 0x20));
+    }
+}
+
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+let mut application = Application { acknowledged: 0 };
+assert_eq!(x.get_tint(), slint_sc::Color::from_argb_encoded(0xff802020));
+screenshot!(x);
+
+let at = slint_sc::Point::new(20, 16);
+x.dispatch_touch_event(slint_sc::TouchEvent::pressed(at), &mut application);
+x.dispatch_touch_event(slint_sc::TouchEvent::released(at), &mut application);
+assert_eq!(application.acknowledged, 1);
+screenshot!(x, after_click);
+```
+*/

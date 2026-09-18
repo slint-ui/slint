@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Companion to box_layout_repeated_global_no_wrap for the GridLayout repeated-row
+// path: a repeated `Row` sized from a global property, with a non-wrapping Text,
+// must generate valid global access in the row's cross-axis measurement code.
+//
+// The repeated grid-row path used to build its own evaluation context so that
+// global access resolved through `_self.globals()`; that access is now correct
+// in the shared context and reused directly, so keep exercising it here.
+
+global Metrics {
+    in-out property <length> item-height: 40px;
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 300px;
+    callback set-h(length);
+    set-h(h) => { Metrics.item-height = h; }
+    GridLayout {
+        for i in 2: Row {
+            Rectangle {
+                height: Metrics.item-height;
+                Text { text: "hi"; wrap: no-wrap; color: black; }
+            }
+        }
+        Row { marker := Rectangle { height: 10px; } }
+    }
+    out property <bool> test: marker.y == 2 * 40px;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_set_h(50.0);
+assert!(!instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.invoke_set_h(50.0);
+assert(!instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+instance.set_h(50);
+assert(!instance.test);
+```
+
+*/

@@ -669,7 +669,7 @@ test("custom model capturing instance does not prevent GC", async () => {
         const instance = new demo.App();
 
         class CapturingModel extends ArrayModel<string> {
-            rowData(row: number): string | undefined {
+            rowData(row: number): string {
                 void instance.label;
                 return super.rowData(row);
             }
