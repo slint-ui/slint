@@ -80,10 +80,6 @@ def test_hover_links_canvas_and_outline(
                     row_background(window, other) == backgrounds[other] or None
                 )
             )
-            Image.open(BytesIO(window.grab_window_as_png())).save(
-                fixture_project.parent
-                / ("linked-hover-" + origin + "-" + kind + ".png")
-            )
         window.dispatch_event(slint_testing.PointerMoveEvent(away))
         wait_until(
             lambda: not elements_with_label(window.root_element, "Hovered Text") or None

@@ -442,6 +442,7 @@ export component CanvasInteractionLayer inherits TouchArea {
         transform-rotation: geometry.angle;
         visible: !root.hover-selection-active;
         accessible-role: AccessibleRole.region;
+        // HoverCanvasFrame labels canvas hover; tree hover uses only this passive outline.
         accessible-label: Hover.tree-source-uri != "" ? "Hovered " + Hover.tree-type-name : "";
         Rectangle {
             x: -Style.selection-frame.hover-width;
