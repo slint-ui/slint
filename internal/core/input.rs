@@ -207,7 +207,7 @@ impl MouseEvent {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TouchHistory {
     pub event_pos: Option<LogicalPoint>,
-    /// - Duration to the event ponint this history relates
+    /// - Duration to the event point this history relates
     /// - If event_pos is not None, the history points are absolute values
     /// otherwise they are deltas to the next event point
     pub history: Vec<(LogicalPoint, Duration)>,
