@@ -98,12 +98,27 @@ ELEMENT_ROWS = {
 }
 
 
+def outline_row(window: slint_testing.Window, label: str) -> slint_testing.Element:
+    return window_element_with_label(
+        window, label, slint_testing.AccessibleRole.ListItem
+    )
+
+
+def outline_rows(window: slint_testing.Window) -> list[slint_testing.Element]:
+    tree = window_element_with_label(
+        window, "Current file outline", slint_testing.AccessibleRole.List
+    )
+    return (
+        tree.query_descendants()
+        .match_accessible_role(slint_testing.AccessibleRole.ListItem)
+        .find_all()
+    )
+
+
 def select_outline_row(
     window: slint_testing.Window, row_label: str
 ) -> slint_testing.Element:
-    row = window_element_with_label(
-        window, row_label, slint_testing.AccessibleRole.ListItem
-    )
+    row = outline_row(window, row_label)
     row.invoke_accessible_default_action()
     return wait_until(lambda: row if row.accessible_item_selected else None)
 

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Metrics, Colors, Typography, TreeStyle } from "../style.slint";
-import { Api, DropLocation, EditorSurfaceMode, OutlineTreeNode } from "../api.slint";
+import { Api, Hover, DropLocation, EditorSurfaceMode, OutlineTreeNode } from "../api.slint";
 import { DragPreview } from "drag-preview.slint";
 import { EditorTreeView } from "editor-tree-view.slint";
 
@@ -172,6 +172,13 @@ export component OutlinePane inherits Rectangle {
                     current-offset: Api.current-element.offset;
                     max-gutter-columns: 12;
                     content-has-hover: tree-hover-touch.has-hover;
+                    hovered-source-uri: Hover.element.valid ? Hover.element.source-uri : "";
+                    hovered-offset: Hover.element.element-offset;
+                    row-hovered(uri, offset, type-name) => {
+                        Hover.tree-source-uri = uri;
+                        Hover.tree-offset = offset;
+                        Hover.tree-type-name = type-name;
+                    }
                     make-row-drag-data(uri, offset) => {
                         return Api.move-element-instance-data(uri, offset);
                     }
@@ -191,6 +198,7 @@ export component OutlinePane inherits Rectangle {
                         Api.outline-set-expanded(row-index, expanded);
                     }
                     drag-started => {
+                        Hover.tree-source-uri = "";
                         root.drag-started();
                     }
                 }

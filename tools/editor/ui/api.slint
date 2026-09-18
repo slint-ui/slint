@@ -147,6 +147,7 @@ export struct HoveredElement {
     is-selected: bool,
     is-over-selected-element: bool,
     element-path: string,
+    source-uri: string,
     element-offset: int,
     type-name: string,
     geometry: [SelectionRectangle],
@@ -155,6 +156,11 @@ export struct HoveredElement {
 export global Hover {
     in-out property <HoveredElement> element;
     in property <int> preview-generation;
+    in-out property <string> tree-source-uri;
+    in-out property <int> tree-offset: -1;
+    in-out property <string> tree-type-name;
+    out property <[SelectionRectangle]> geometry: tree-source-uri != ""
+        ? Api.highlight-positions(tree-source-uri, tree-offset) : element.geometry;
     pure callback element-at(x: length, y: length, enter-component: bool) -> HoveredElement;
 }
 

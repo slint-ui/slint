@@ -433,14 +433,17 @@ export component CanvasInteractionLayer inherits TouchArea {
         }
     }
 
-    for geometry in Hover.element.geometry: Rectangle {
+    for geometry in Hover.geometry: Rectangle {
         x: geometry.x;
         y: geometry.y;
         width: geometry.width;
         height: geometry.height;
         transform-origin: { x: self.width / 2, y: self.height / 2 };
         transform-rotation: geometry.angle;
-        visible: Hover.element.valid && !root.hover-selection-active;
+        visible: !root.hover-selection-active;
+        accessible-role: AccessibleRole.region;
+        // HoverCanvasFrame labels canvas hover; tree hover uses only this passive outline.
+        accessible-label: Hover.tree-source-uri != "" ? "Hovered " + Hover.tree-type-name : "";
         Rectangle {
             x: -Style.selection-frame.hover-width;
             y: -Style.selection-frame.hover-width;

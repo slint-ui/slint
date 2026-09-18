@@ -19,6 +19,8 @@ component EditorTreeRow {
     in property <bool> tree-has-hover: false;
     in property <int> row-index: -1;
     in property <bool> focused: false;
+    in property <string> hovered-source-uri;
+    in property <int> hovered-offset: -1;
 
     pure callback make-drag-data(string, int) -> data-transfer;
     callback can-drop(DropEvent, string, int, DropLocation) -> DragAction;
@@ -128,6 +130,7 @@ component EditorTreeRow {
                         && root.active-drop-location == DropLocation.onto
                         ? root.style.drop-background
                         : root.row-has-hover
+                            || (root.node.uri == root.hovered-source-uri && root.node.offset == root.hovered-offset)
                         ? root.style.row.hover-background
                         : transparent;
                 }
@@ -311,6 +314,9 @@ export component EditorTreeView inherits FocusScope {
     in property <int> max-gutter-columns: 12;
     in property <bool> show-hierarchy-guides: false;
     in property <bool> content-has-hover: false;
+    in property <string> hovered-source-uri;
+    in property <int> hovered-offset: -1;
+    callback row-hovered(string, int, string);
     private property <int> hovered-row-index: -1;
     private property <bool> tree-has-hover: content-has-hover || hovered-row-index >= 0;
     private property <int> focused-row-index: 0;
@@ -362,6 +368,8 @@ export component EditorTreeView inherits FocusScope {
             width: tree.visible-width;
             node <=> row;
             row-index: i;
+            hovered-source-uri: root.hovered-source-uri;
+            hovered-offset: root.hovered-offset;
             focused: root.has-focus && root.focused-row-index == i;
             current-source-uri: root.current-source-uri;
             current-offset: root.current-offset;
@@ -388,8 +396,10 @@ export component EditorTreeView inherits FocusScope {
             row-hover-changed(row-index, has-hover) => {
                 if has-hover {
                     root.hovered-row-index = row-index;
+                    root.row-hovered(row.uri, row.offset, row.element-type);
                 } else if root.hovered-row-index == row-index {
                     root.hovered-row-index = -1;
+                    root.row-hovered("", -1, "");
                 }
             }
             expanded-changed(row-index, expanded) => {

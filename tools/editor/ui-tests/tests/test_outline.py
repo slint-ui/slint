@@ -13,6 +13,8 @@ from ui_driver import (
     elements_with_label,
     first_window,
     launch_editor,
+    outline_row,
+    outline_rows,
     press_key,
     press_shortcut,
     select_outline_row,
@@ -21,23 +23,6 @@ from ui_driver import (
 )
 
 GOLDENS = Path(__file__).resolve().parents[1] / "goldens"
-
-
-def outline_row(window: slint_testing.Window, label: str) -> slint_testing.Element:
-    return window_element_with_label(
-        window, label, slint_testing.AccessibleRole.ListItem
-    )
-
-
-def outline_rows(window: slint_testing.Window) -> list[slint_testing.Element]:
-    tree = window_element_with_label(
-        window, "Current file outline", slint_testing.AccessibleRole.List
-    )
-    return (
-        tree.query_descendants()
-        .match_accessible_role(slint_testing.AccessibleRole.ListItem)
-        .find_all()
-    )
 
 
 def known_outline_state(
