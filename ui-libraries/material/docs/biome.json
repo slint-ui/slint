@@ -61,11 +61,6 @@
             "attributePosition": "auto"
         }
     },
-    "css": {
-        "parser": {
-            "tailwindDirectives": true
-        }
-    },
     "overrides": [
         {
             "includes": ["**/*.astro"],

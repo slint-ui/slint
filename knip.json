@@ -53,10 +53,7 @@
       "ignoreBinaries": ["biome"]
     },
     "ui-libraries/material/docs": {
-      "entry": [],
-      "ignoreDependencies": [
-        "@types/mdx"
-      ]
+      "entry": []
     },
     "demos/printerdemo/node": { "ignoreBinaries": ["compile"] },
     "demos/energy-monitor": { "ignoreBinaries": ["compile"] },
@@ -108,20 +105,6 @@
     "tools/figma-inspector/backend/utils/property-parsing.ts": ["exports"],
     "tools/figma-inspector/src/utils/bolt-utils.ts": ["exports"],
     "tools/figma-inspector/figma.config.ts": ["exports"],
-    "ui-libraries/material/docs/src/utils/images.ts": ["exports"],
-    "ui-libraries/material/docs/src/utils/permalinks.ts": ["exports"],
-    "ui-libraries/material/docs/src/components/common/Metadata.astro": ["types"],
-    "ui-libraries/material/docs/src/components/common/ToggleMenu.astro": ["types"],
-    "ui-libraries/material/docs/src/components/common/ToggleTheme.astro": ["types"],
-    "ui-libraries/material/docs/src/components/ui/Background.astro": ["types"],
-    "ui-libraries/material/docs/src/components/ui/WidgetWrapper.astro": ["types"],
-    "ui-libraries/material/docs/src/components/widgets/Footer.astro": ["types"],
-    "ui-libraries/material/docs/src/components/widgets/Header.astro": ["types"],
-    "ui-libraries/material/docs/src/layouts/LandingLayout.astro": ["types"],
-    "ui-libraries/material/docs/src/layouts/Layout.astro": ["types"],
-    "ui-libraries/material/docs/src/layouts/PageLayout.astro": ["types"],
-    "ui-libraries/material/docs/src/utils/images-optimization.ts": ["exports", "types"],
-    "ui-libraries/material/docs/vendor/integration/utils/configBuilder.ts": ["types"],
     "docs/common/src/utils/site-config.ts": ["exports"],
     "docs/common/src/utils/utils.ts": ["exports", "types"],
     "docs/common/src/utils/generated-reference-markdown.ts": ["exports"]

@@ -113,6 +113,13 @@ test("smoke test", async ({ page }) => {
     await expect(page.getByRole("main")).toContainText(
         "Material 3 Design System",
     );
+    const base = new URL("../", page.url());
+    await expect(
+        page.getByRole("link", {
+            name: "material component source",
+            exact: true,
+        }),
+    ).toHaveAttribute("href", `${base.pathname}zip/material-1.0.1.zip`);
     await page
         .getByLabel("Main")
         .getByRole("link", { name: "FilledButton" })
@@ -120,4 +127,33 @@ test("smoke test", async ({ page }) => {
     await expect(page).toHaveURL(/filled_button/);
     await expect(page.locator('[id="_top"]')).toContainText("FilledButton");
     await expect(page.getByRole("main")).toContainText("Properties");
+});
+
+test("search opens the generated reference", async ({ page }) => {
+    await page.goto("./");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Search", exact: true });
+    await dialog
+        .getByRole("textbox", { name: "Search", exact: true })
+        .fill("FilledButton");
+    await dialog
+        .getByRole("link", { name: "FilledButton", exact: true })
+        .first()
+        .click();
+    await expect(page).toHaveURL(/components\/buttons\/filled_button\//);
+    await expect(page.locator('[id="_top"]')).toContainText("FilledButton");
+});
+
+test("component cross-links use the deployment base", async ({ page }) => {
+    await page.goto("./components/checkboxes/check_box_tile/");
+    const base = new URL("../../../", page.url());
+    const main = page.getByRole("main");
+    await expect(
+        main.getByRole("link", { name: "ListTile", exact: true }),
+    ).toHaveAttribute("href", `${base.pathname}components/list_tile/`);
+    await main.getByRole("link", { name: "CheckBox", exact: true }).click();
+    await expect(page).toHaveURL(
+        new URL("components/checkboxes/check_box/", base).href,
+    );
+    await expect(page.locator('[id="_top"]')).toContainText("CheckBox");
 });

@@ -18,20 +18,18 @@
         "test:ui": "playwright test --ui"
     },
     "dependencies": {
-        "@astrojs/check": "catalog:",
         "@astrojs/starlight": "catalog:",
-        "@types/node": "catalog:",
-        "astro": "catalog:",
-        "sharp": "catalog:"
+        "@slint/common-files": "workspace:*",
+        "astro": "catalog:"
     },
     "devDependencies": {
+        "@astrojs/check": "catalog:",
         "@astrojs/markdown-remark": "7.3.1",
         "@biomejs/biome": "catalog:",
         "@playwright/test": "catalog:",
-        "playwright-ctrf-json-reporter": "catalog:",
-        "@slint/common-files": "workspace:*",
-        "@types/mdx": "2.0.14",
+        "@types/node": "catalog:",
         "cspell": "catalog:",
+        "playwright-ctrf-json-reporter": "catalog:",
         "typescript": "catalog:"
     }
 }

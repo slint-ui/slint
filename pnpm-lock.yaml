@@ -645,22 +645,19 @@ importers:
 
   ui-libraries/material/docs:
     dependencies:
-      '@astrojs/check':
-        specifier: 'catalog:'
-        version: 0.9.10(prettier@3.9.6)(typescript@6.0.3)
       '@astrojs/starlight':
         specifier: 'catalog:'
         version: 0.42.0(@astrojs/markdown-remark@7.3.1)(astro@7.3.2(@astrojs/markdown-remark@7.3.1)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(typescript@6.0.3)
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.12.0
+      '@slint/common-files':
+        specifier: workspace:*
+        version: link:../../../docs/common
       astro:
         specifier: 'catalog:'
         version: 7.3.2(@astrojs/markdown-remark@7.3.1)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
-      sharp:
-        specifier: 'catalog:'
-        version: 0.35.4(@types/node@24.12.0)
     devDependencies:
+      '@astrojs/check':
+        specifier: 'catalog:'
+        version: 0.9.10(prettier@3.9.6)(typescript@6.0.3)
       '@astrojs/markdown-remark':
         specifier: 7.3.1
         version: 7.3.1(supports-color@10.2.2)
@@ -670,12 +667,9 @@ importers:
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.63.0
-      '@slint/common-files':
-        specifier: workspace:*
-        version: link:../../../docs/common
-      '@types/mdx':
-        specifier: 2.0.14
-        version: 2.0.14
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.12.0
       cspell:
         specifier: 'catalog:'
         version: 10.3.0
