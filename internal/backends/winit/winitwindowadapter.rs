@@ -41,6 +41,7 @@ use corelib::items::{BuiltInMouseCursor, ColorScheme, PointerEventButton};
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
 
+use crate::drag_and_drop::{self, PendingNativeDrag};
 use crate::{EventResult, SharedBackendData};
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
@@ -187,44 +188,6 @@ fn icon_to_winit(
         .ok()?
         .into(),
     )
-}
-
-/// The image of an outgoing drag, rendered to RGBA pixels ready for PNG encoding.
-/// Not available on wasm, where winit has no drag-and-drop and the PNG encoder
-/// would only grow the binary.
-#[cfg(not(target_arch = "wasm32"))]
-fn drag_image_payload(
-    request: &DragRequest,
-) -> Option<corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>> {
-    request.data().image().ok()?.to_rgba8()
-}
-#[cfg(target_arch = "wasm32")]
-fn drag_image_payload(
-    _request: &DragRequest,
-) -> Option<corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>> {
-    None
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn encode_png(
-    pixel_buffer: &corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>,
-) -> Option<Vec<u8>> {
-    let mut png = Vec::new();
-    image::ImageEncoder::write_image(
-        image::codecs::png::PngEncoder::new(&mut png),
-        pixel_buffer.as_bytes(),
-        pixel_buffer.width(),
-        pixel_buffer.height(),
-        image::ExtendedColorType::Rgba8,
-    )
-    .ok()?;
-    Some(png)
-}
-#[cfg(target_arch = "wasm32")]
-fn encode_png(
-    _pixel_buffer: &corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>,
-) -> Option<Vec<u8>> {
-    None
 }
 
 fn window_is_resizable(
@@ -1614,7 +1577,7 @@ impl WinitWindowAdapter {
             // A native drag we started has finished. The core knows which drag is in flight, so
             // we only report the negotiated action (`None` for a cancel).
             WinitWindowEvent::OutgoingDragDropped { action, .. } => {
-                runtime_window.report_drag_finished(crate::event_loop::dnd_action_to_slint(action));
+                runtime_window.report_drag_finished(drag_and_drop::dnd_action_to_slint(action));
             }
             WinitWindowEvent::OutgoingDragCanceled { .. } => {
                 runtime_window.report_drag_finished(corelib::items::DragAction::None);
@@ -1641,12 +1604,12 @@ impl WinitWindowAdapter {
                 self.cursor_pos.set(euclid::point2(pos.x, pos.y));
                 // Only evaluate once the payload has arrived, so `can-drop` sees the data.
                 if self.has_incoming_data(id) {
-                    let proposed = crate::event_loop::proposed_action_or_copy(proposed_action);
+                    let proposed = drag_and_drop::proposed_action_or_copy(proposed_action);
                     self.dispatch_and_report_incoming(event_loop, runtime_window, id, proposed);
                 }
             }
             WinitWindowEvent::DragDropped { id, proposed_action } => {
-                let proposed = crate::event_loop::proposed_action_or_copy(proposed_action);
+                let proposed = drag_and_drop::proposed_action_or_copy(proposed_action);
                 self.dispatch_incoming_drag(runtime_window, id, proposed, true);
                 self.shared_backend_data.incoming_transfers.borrow_mut().remove(&id);
             }
@@ -1677,7 +1640,7 @@ impl WinitWindowAdapter {
                     }
                     Some(winit::data_transfer::TypeHint::Image { extension_hint }) => {
                         match value.try_as_bytes().ok().and_then(|bytes| {
-                            crate::event_loop::decode_dropped_image(&bytes, extension_hint)
+                            drag_and_drop::decode_dropped_image(&bytes, extension_hint)
                         }) {
                             Some(image) => {
                                 self.shared_backend_data
@@ -1781,7 +1744,7 @@ impl WinitWindowAdapter {
     ) {
         let action = self.dispatch_incoming_drag(runtime_window, id, proposed, false);
         let _ = event_loop
-            .set_valid_dnd_actions(id, crate::event_loop::slint_action_to_dnd(action).as_slice());
+            .set_valid_dnd_actions(id, drag_and_drop::slint_action_to_dnd(action).as_slice());
     }
 
     /// Whether the payload of the incoming drag `id` has arrived (via `DataTransferReceived`).
@@ -2228,7 +2191,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         // Plain text and images are sent natively for now; without either, fall back
         // to the in-window drag.
         let text = request.data().plain_text().ok().filter(|t| !t.is_empty()).map(String::from);
-        let image = drag_image_payload(request);
+        let image = drag_and_drop::drag_image_payload(request);
         if text.is_none() && image.is_none() {
             return false;
         }
@@ -2241,7 +2204,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         if let Some(image) = image {
             builder.add_type(
                 winit::data_transfer::TypeHint::Image { extension_hint: Some("png") },
-                move |_, _| encode_png(&image),
+                move |_, _| drag_and_drop::encode_png(&image),
             );
         }
         let data = builder.build();
@@ -2270,7 +2233,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             offset_y: -request.drag_image_offset().y,
         });
         *self.shared_backend_data.pending_drag.borrow_mut() =
-            Some(crate::PendingNativeDrag { window_id: winit_window.id(), data, actions, icon });
+            Some(PendingNativeDrag { window_id: winit_window.id(), data, actions, icon });
         true
     }
 

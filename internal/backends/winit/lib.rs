@@ -28,8 +28,10 @@ use winit::event_loop::{ActiveEventLoop, EventLoopBuilder};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod clipboard;
+mod drag_and_drop;
 mod drag_resize_window;
 mod winitwindowadapter;
+use drag_and_drop::PendingNativeDrag;
 use winitwindowadapter::*;
 pub(crate) mod event_loop;
 mod frame_throttle;
@@ -424,17 +426,6 @@ fn dispatch_mouse_move(window: &Weak<WinitWindowAdapter>, position: LogicalPoint
             i_slint_core::input::BackendMouseEvent::Moved { position, touch_finger_id: 0 },
         ));
     }
-}
-
-/// A native drag built by [`WinitWindowAdapter::start_drag`], ready for the event loop to hand
-/// to `ActiveEventLoop::start_drag` (which is only reachable from inside the event handler).
-pub(crate) struct PendingNativeDrag {
-    pub(crate) window_id: winit::window::WindowId,
-    pub(crate) data: Box<dyn winit::data_transfer::DataTransferSend>,
-    /// Allowed actions, ordered by preference, as Wayland and macOS expect.
-    pub(crate) actions: Vec<winit::event_loop::DndAction>,
-    /// The image shown under the cursor while dragging, if any.
-    pub(crate) icon: Option<winit::event_loop::DragIcon>,
 }
 
 pub(crate) struct SharedBackendData {

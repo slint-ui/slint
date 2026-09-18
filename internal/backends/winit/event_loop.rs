@@ -106,65 +106,6 @@ impl EventLoopState {
     }
 }
 
-/// Decode the encoded image bytes of an incoming drag, without going through the
-/// image cache.
-pub(crate) fn decode_dropped_image(
-    bytes: &[u8],
-    extension_hint: Option<&str>,
-) -> Option<corelib::graphics::Image> {
-    corelib::graphics::load_image_from_dynamic_data(
-        bytes.into(),
-        extension_hint.unwrap_or_default().as_bytes().into(),
-    )
-}
-
-/// Map a winit drag action to Slint's `DragAction`. A `None` (e.g. unknown) action becomes
-/// `DragAction::None`.
-pub(crate) fn dnd_action_to_slint(
-    action: Option<winit::event_loop::DndAction>,
-) -> corelib::items::DragAction {
-    use corelib::items::DragAction;
-    use winit::event_loop::DndAction;
-    match action {
-        Some(DndAction::Move) => DragAction::Move,
-        Some(DndAction::Copy) => DragAction::Copy,
-        Some(DndAction::Link) => DragAction::Link,
-        Some(DndAction::Ask) | Some(DndAction::Private) | None => DragAction::None,
-    }
-}
-
-/// The action proposed by the OS for an incoming drag, defaulting to `Copy` when the platform
-/// did not supply one (some platforms, such as X11, only report the action when the drop
-/// completes).
-pub(crate) fn proposed_action_or_copy(
-    action: Option<winit::event_loop::DndAction>,
-) -> corelib::items::DragAction {
-    let action = dnd_action_to_slint(action);
-    if action == corelib::items::DragAction::None {
-        corelib::items::DragAction::Copy
-    } else {
-        action
-    }
-}
-
-/// Map a `DropArea`'s chosen action to the single valid winit drag action to report to the OS,
-/// or `None` to reject the drag. Returned as an `Option` so the per-event report on the drag
-/// hot path needs no allocation.
-pub(crate) fn slint_action_to_dnd(
-    action: corelib::items::DragAction,
-) -> Option<winit::event_loop::DndAction> {
-    use corelib::items::DragAction;
-    match action {
-        DragAction::Move => Some(winit::event_loop::DndAction::Move),
-        DragAction::Copy => Some(winit::event_loop::DndAction::Copy),
-        DragAction::Link => Some(winit::event_loop::DndAction::Link),
-        DragAction::None => None,
-        // `DragAction` is `#[non_exhaustive]`, so a catch-all is still required.
-        #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
-        _ => None,
-    }
-}
-
 impl winit::application::ApplicationHandler for EventLoopState {
     fn resumed(&mut self, event_loop: &dyn ActiveEventLoop) {
         if let Some(handler) = self.custom_application_handler.as_mut() {
