@@ -10,11 +10,12 @@ import slint_testing
 from canvas_interactions import center
 from editor_sync import wait_for_source
 from PIL import Image
-from test_outline import outline_row, outline_rows
 from ui_driver import (
     elements_with_label,
     first_window,
     launch_editor,
+    outline_row,
+    outline_rows,
     wait_until,
     window_element_with_label,
 )
