@@ -48,6 +48,8 @@ cd api/node && pnpm install && pnpm build
 
 Don't run `cargo build` before `cargo test` — `cargo test` compiles what it needs.
 
+For Visual Editor tests, read [Test Best Practices](tools/editor/TESTING.md).
+
 ### Test Drivers
 The integration tests live in the `tests/` workspace, so pass
 `--manifest-path tests/Cargo.toml`:
