@@ -55,8 +55,7 @@
     "ui-libraries/material/docs": {
       "entry": [],
       "ignoreDependencies": [
-        "@types/mdx",
-        "astrowind"
+        "@types/mdx"
       ]
     },
     "demos/printerdemo/node": { "ignoreBinaries": ["compile"] },

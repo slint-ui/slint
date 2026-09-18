@@ -56,7 +56,7 @@ test.describe("homepage", () => {
         );
         await main
             .getByRole("link", { name: "Get Started", exact: true })
-            .click();
+            .press("Enter");
         await expect(page).toHaveURL(new URL("getting-started/", base).href);
         await expect(page.locator('[id="_top"]')).toContainText(
             "Getting Started",
@@ -64,8 +64,51 @@ test.describe("homepage", () => {
     });
 });
 
+test("public assets and sitemap use the deployment base", async ({
+    page,
+    request,
+}) => {
+    await page.goto("./");
+    const base = new URL(page.url());
+    const robots = await request.get(new URL("robots.txt", base).href);
+    expect(robots.ok()).toBeTruthy();
+    expect(await robots.text()).toContain(
+        `Sitemap: https://material.slint.dev${base.pathname}sitemap-index.xml`,
+    );
+    const sitemap = await request.get(new URL("sitemap-index.xml", base).href);
+    expect(sitemap.ok()).toBeTruthy();
+    expect(await sitemap.text()).toContain(
+        `https://material.slint.dev${base.pathname}sitemap-0.xml`,
+    );
+    const favicon = page.locator('link[rel="icon"][sizes="32x32"]');
+    await expect(favicon).toHaveAttribute(
+        "href",
+        `${base.pathname}favicon-32x32.png`,
+    );
+    expect(
+        (await request.get(new URL("favicon-32x32.png", base).href)).ok(),
+    ).toBeTruthy();
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+        "content",
+        new RegExp(`^https://material\\.slint\\.dev${base.pathname}_astro/`),
+    );
+});
+
+test("theme selection persists from the homepage to documentation", async ({
+    page,
+}) => {
+    await page.goto("./");
+    const html = page.locator("html");
+    const initial = await html.getAttribute("data-theme");
+    await page.locator("theme-switcher").click();
+    const selected = initial === "light" ? "dark" : "light";
+    await expect(html).toHaveAttribute("data-theme", selected);
+    await page.getByRole("link", { name: "Get Started", exact: true }).click();
+    await expect(html).toHaveAttribute("data-theme", selected);
+});
+
 test("smoke test", async ({ page }) => {
-    await page.goto("/getting-started/");
+    await page.goto("./getting-started/");
     await expect(page.locator('[id="_top"]')).toContainText("Getting Started");
     await expect(page.getByRole("main")).toContainText(
         "Material 3 Design System",

@@ -648,9 +648,6 @@ importers:
       '@astrojs/check':
         specifier: 'catalog:'
         version: 0.9.10(prettier@3.9.6)(typescript@6.0.3)
-      '@astrojs/sitemap':
-        specifier: 3.7.4
-        version: 3.7.4
       '@astrojs/starlight':
         specifier: 'catalog:'
         version: 0.42.0(@astrojs/markdown-remark@7.3.1)(astro@7.3.2(@astrojs/markdown-remark@7.3.1)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(typescript@6.0.3)
@@ -660,9 +657,6 @@ importers:
       astro:
         specifier: 'catalog:'
         version: 7.3.2(@astrojs/markdown-remark@7.3.1)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
-      lodash.merge:
-        specifier: 4.6.2
-        version: 4.6.2
       sharp:
         specifier: 'catalog:'
         version: 0.35.4(@types/node@24.12.0)
@@ -670,12 +664,6 @@ importers:
       '@astrojs/markdown-remark':
         specifier: 7.3.1
         version: 7.3.1(supports-color@10.2.2)
-      '@astrojs/mdx':
-        specifier: 8.0.1
-        version: 8.0.1(@astrojs/markdown-remark@7.3.1)(@astrojs/markdown-satteri@0.4.1)(astro@7.3.2(@astrojs/markdown-remark@7.3.1)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
-      '@astrojs/partytown':
-        specifier: 2.1.7
-        version: 2.1.7
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.5.13
@@ -685,9 +673,6 @@ importers:
       '@slint/common-files':
         specifier: workspace:*
         version: link:../../../docs/common
-      '@types/lodash.merge':
-        specifier: 4.6.9
-        version: 4.6.9
       '@types/mdx':
         specifier: 2.0.14
         version: 2.0.14
@@ -697,9 +682,6 @@ importers:
       cspell:
         specifier: 'catalog:'
         version: 10.3.0
-      js-yaml:
-        specifier: 5.4.2
-        version: 5.4.2
       mdast-util-to-string:
         specifier: 4.0.0
         version: 4.0.0
@@ -858,9 +840,6 @@ packages:
     peerDependenciesMeta:
       '@astrojs/markdown-remark':
         optional: true
-
-  '@astrojs/partytown@2.1.7':
-    resolution: {integrity: sha512-dbffmNmJ+sAJ0/aXSaLX4aI04EZS/2C6Mm/+fmd4ikqWO7hV6nIi0sug8Z3c+yqedJNi1swFvpwluWmGjLHNzw==}
 
   '@astrojs/prism@4.0.2':
     resolution: {integrity: sha512-KTivpmnz6lDsC6o9H4+DNm2SrE/GHzw8cNAvEJwAvUT+eoaEnn/4NtbDNfRRaxaJHdp15gf+tfHAWiXR4wB3BA==}
@@ -2781,11 +2760,6 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
-  '@qwik.dev/partytown@0.13.2':
-    resolution: {integrity: sha512-Umls4bSkuzqLVcGvf8OgwIn/OldproSAbaQ/iYGe8VPYBpl2CaOSxabWwkeC72LDFqxVL0b0q8XlI8MuChDyzg==}
-    engines: {node: '>=18.0.0'}
-    hasBin: true
-
   '@radix-ui/number@1.1.0':
     resolution: {integrity: sha512-V3gRzhVNU1ldS5XhAPTom1fOIo4ccrjjJgmE+LI2h/WaFpHmx0MQApT+KZHnx8abG6Avtfcz4WoEciMnpFT3HQ==}
 
@@ -3814,12 +3788,6 @@ packages:
   '@types/jszip@3.4.1':
     resolution: {integrity: sha512-TezXjmf3lj+zQ651r6hPqvSScqBLvyPI9FxdXBqpEwBijNGQ2NXpaFW/7joGzveYkKQUil7iiDHLo6LV71Pc0A==}
     deprecated: This is a stub types definition. jszip provides its own type definitions, so you do not need this installed.
-
-  '@types/lodash.merge@4.6.9':
-    resolution: {integrity: sha512-23sHDPmzd59kUgWyKGiOMO2Qb9YtqRO/x4IhkgNUiPQ1+5MUVqi6bCZeq9nBJ17msjIMbEIO5u+XW4Kz6aGUhQ==}
-
-  '@types/lodash@4.17.25':
-    resolution: {integrity: sha512-+K1NIO8I+F9/wNulfVvu23QYd0Pe9/OCqRrim4NoYIf1VoEDL90Ve4ClzpyqBLc7NpGGWRvYNCKZ1BE/Jpf8dQ==}
 
   '@types/mdast@4.0.4':
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
@@ -4995,10 +4963,6 @@ packages:
   dot-case@3.0.4:
     resolution: {integrity: sha512-Kv5nKlh6yRrdrGvxeJ2e5y2eRUpkUosIW4A2AS38zwSz27zu7ufDwQPi5Jhs3XAlGNetl3bmnGhQsMtkKJnj3w==}
 
-  dotenv@16.6.1:
-    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
-    engines: {node: '>=12'}
-
   dset@3.1.4:
     resolution: {integrity: sha512-2QF/g9/zTaPDc3BjNcVTGoBbXBgYfMTTceLaYcFJ/W9kggFUkhxD/hMEeuLKbugyef9SqAx8cpgwlIP/jinUTA==}
     engines: {node: '>=4'}
@@ -6013,9 +5977,6 @@ packages:
 
   lodash.isstring@4.0.1:
     resolution: {integrity: sha512-0wJxfxH1wgO3GrbuP+dTTk7op+6L41QCXbGINEmD+ny/G/eCqGzxyCsh7159S+mgDDcoarnBw6PC1PS5+wUGgw==}
-
-  lodash.merge@4.6.2:
-    resolution: {integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==}
 
   lodash.once@4.1.1:
     resolution: {integrity: sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg==}
@@ -8430,11 +8391,6 @@ snapshots:
     optionalDependencies:
       '@astrojs/markdown-remark': 7.3.1(supports-color@10.2.2)
 
-  '@astrojs/partytown@2.1.7':
-    dependencies:
-      '@qwik.dev/partytown': 0.13.2
-      mrmime: 2.0.1
-
   '@astrojs/prism@4.0.2':
     dependencies:
       prismjs: 1.30.0
@@ -10240,10 +10196,6 @@ snapshots:
     dependencies:
       playwright: 1.63.0
 
-  '@qwik.dev/partytown@0.13.2':
-    dependencies:
-      dotenv: 16.6.1
-
   '@radix-ui/number@1.1.0': {}
 
   '@radix-ui/number@1.1.3': {}
@@ -11195,12 +11147,6 @@ snapshots:
   '@types/jszip@3.4.1':
     dependencies:
       jszip: 3.10.2
-
-  '@types/lodash.merge@4.6.9':
-    dependencies:
-      '@types/lodash': 4.17.25
-
-  '@types/lodash@4.17.25': {}
 
   '@types/mdast@4.0.4':
     dependencies:
@@ -12908,8 +12854,6 @@ snapshots:
       no-case: 3.0.4
       tslib: 2.8.1
 
-  dotenv@16.6.1: {}
-
   dset@3.1.4: {}
 
   dunder-proto@1.0.1:
@@ -14134,8 +14078,6 @@ snapshots:
   lodash.isplainobject@4.0.6: {}
 
   lodash.isstring@4.0.1: {}
-
-  lodash.merge@4.6.2: {}
 
   lodash.once@4.1.1: {}
 
