@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MIT
 import { Image, getImage } from "astro:assets";
 import { Icon } from "@astrojs/starlight/components";
-import ThemeProvider from "@astrojs/starlight/components/ThemeProvider.astro";
 import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
 import SlintLogo from "../assets/slint-logo-small-light.svg";
 import heroImage from "../assets/images/material-tablet.webp";
@@ -176,7 +175,11 @@ const components = [
     <meta name="twitter:site" content="@slint_ui" />
     <meta name="twitter:creator" content="@slint_ui" />
     {faviconHead.map(({ attrs }) => <link {...attrs} />)}
-    <ThemeProvider />
+    <script is:inline>
+      const storedTheme = localStorage.getItem("starlight-theme");
+      const theme = storedTheme || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      document.documentElement.dataset.theme = theme === "light" ? "light" : "dark";
+    </script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>

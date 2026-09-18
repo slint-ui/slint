@@ -7,7 +7,6 @@
     "formatter": {
         "includes": [
             "**",
-            "!**/archive/**",
             "!**/.astro",
             "!**/dist",
             "!**/codemirror.js",
@@ -24,7 +23,6 @@
     "linter": {
         "includes": [
             "**",
-            "!**/archive/**",
             "!**/.astro",
             "!**/dist",
             "!**/codemirror.js",

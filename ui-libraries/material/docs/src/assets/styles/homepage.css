@@ -262,7 +262,6 @@ strong {
     max-height: 36rem;
     aspect-ratio: 16 / 9;
     object-fit: cover;
-    object-position: center;
     margin: auto;
     border-radius: 0.375rem;
 }
@@ -552,9 +551,6 @@ footer {
     .material-hero {
         padding-left: 1rem;
         padding-right: 1rem;
-    }
-    .hero-copy > p {
-        max-width: 48rem;
     }
     .intro {
         display: none;
