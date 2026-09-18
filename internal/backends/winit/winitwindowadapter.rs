@@ -388,6 +388,10 @@ pub struct WinitWindowAdapter {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
     fullscreen: Cell<bool>,
+    /// Mirrors the transparency the live window was given, so that a property update only
+    /// reaches the NSWindow when the value actually changes.
+    #[cfg(target_os = "macos")]
+    transparent: Cell<bool>,
 
     pub(crate) renderer: Box<dyn WinitCompatibleRenderer>,
     /// We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
@@ -456,9 +460,8 @@ pub struct WinitWindowAdapter {
     /// separately via `process_touch_input` and does not affect this flag.
     pressed: Cell<bool>,
     current_resize_direction: Cell<Option<ResizeDirection>>,
-    /// Allocates small i32 finger ids for iOS's pointer-valued touch ids.
-    #[cfg(target_os = "ios")]
-    touch_finger_ids: RefCell<crate::ios::TouchFingerIdAllocator>,
+    /// Allocates small i32 finger ids for winit's per-device u64 touch ids.
+    touch_finger_ids: RefCell<crate::touch_finger_id::TouchFingerIdAllocator>,
 }
 
 impl WinitWindowAdapter {
@@ -481,6 +484,8 @@ impl WinitWindowAdapter {
             maximized: Cell::default(),
             minimized: Cell::default(),
             fullscreen: Cell::default(),
+            #[cfg(target_os = "macos")]
+            transparent: Cell::default(),
             winit_window_or_none: RefCell::new(WinitWindowOrNone::None(window_attributes.into())),
             window_existence_wakers: RefCell::new(Vec::default()),
             size: Cell::default(),
@@ -510,7 +515,6 @@ impl WinitWindowAdapter {
             cursor_pos: Default::default(),
             pressed: Default::default(),
             current_resize_direction: Default::default(),
-            #[cfg(target_os = "ios")]
             touch_finger_ids: Default::default(),
         });
 
@@ -551,6 +555,16 @@ impl WinitWindowAdapter {
         let height = round_up_logical(layout_info_v.preferred_bounded() as f64, scale_factor);
         let size = winit::dpi::LogicalSize::new(width as Coord, height as Coord);
         (size.width > 0 as Coord && size.height > 0 as Coord).then_some(size)
+    }
+
+    /// winit asks for a transparent window with `backgroundColor = clear`, and AppKit then
+    /// leaves the whole window frame unpainted, the native title bar included. So ask for
+    /// transparency only where it buys something: a translucent background has to blend with
+    /// what's behind the window, and a frameless one needs it so the rounded corners aren't
+    /// filled in.
+    #[cfg(target_os = "macos")]
+    fn wants_transparent(window_item: core::pin::Pin<&corelib::items::WindowItem>) -> bool {
+        !window_item.background().is_opaque() || window_item.no_frame()
     }
 
     pub fn ensure_window(
@@ -598,6 +612,13 @@ impl WinitWindowAdapter {
         #[cfg(all(muda, target_os = "windows"))]
         if self.menubar().is_some() {
             window_attributes = window_attributes.with_transparent(false);
+        }
+
+        #[cfg(target_os = "macos")]
+        if let Some(window_item) = WindowInner::from_pub(self.window()).window_item() {
+            let transparent = Self::wants_transparent(window_item.as_pin_ref());
+            window_attributes = window_attributes.with_transparent(transparent);
+            self.transparent.set(transparent);
         }
 
         // Create the window at its preferred size: the renderer's surface is created together
@@ -648,19 +669,11 @@ impl WinitWindowAdapter {
             .dispatch_event_with_result(WindowEvent::ScaleFactorChanged { scale_factor })?;
 
         #[cfg(target_os = "ios")]
-        let (content_view, keyboard_curve_self) = {
-            use objc2::Message as _;
-            use raw_window_handle::HasWindowHandle as _;
+        let (content_view, keyboard_curve_self) =
+            (crate::ios::content_view(&winit_window), self.self_weak.clone());
 
-            let raw_window_handle::RawWindowHandle::UiKit(window_handle) =
-                winit_window.window_handle().unwrap().as_raw()
-            else {
-                panic!()
-            };
-            let view = unsafe { &*(window_handle.ui_view.as_ptr() as *const objc2_ui_kit::UIView) }
-                .retain();
-            (view, self.self_weak.clone())
-        };
+        #[cfg(target_os = "ios")]
+        crate::ios::attach_window_to_scene(&content_view);
 
         // winit doesn't surface iOS appearance, so query the view's trait
         // collection directly; the matching live observers are installed below as
@@ -1511,20 +1524,12 @@ impl WinitWindowAdapter {
             WinitWindowEvent::Touch(touch) => {
                 let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
                 let position = euclid::point2(location.x, location.y);
-                // winit types the touch id as u64, but on all platforms except
-                // iOS it is in fact a small integer that fits in i32. Only iOS
-                // stores a UITouch pointer address in it, which
-                // TouchFingerIdAllocator maps to a small id instead.
-                #[cfg(not(target_os = "ios"))]
-                let finger_id =
-                    Some(i32::try_from(touch.id).expect("winit touch id out of i32 range"));
-                #[cfg(target_os = "ios")]
                 let finger_id = match touch.phase {
                     winit::event::TouchPhase::Started | winit::event::TouchPhase::Moved => {
-                        self.touch_finger_ids.borrow_mut().id_for(touch.id)
+                        Some(self.touch_finger_ids.borrow_mut().id_for((touch.device_id, touch.id)))
                     }
                     winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
-                        self.touch_finger_ids.borrow_mut().take(touch.id)
+                        self.touch_finger_ids.borrow_mut().take((touch.device_id, touch.id))
                     }
                 };
                 if let Some(finger_id) = finger_id {
@@ -1868,6 +1873,19 @@ impl WindowAdapter for WinitWindowAdapter {
         winit_window_or_none.set_decorations(
             !window_item.no_frame() || winit_window_or_none.fullscreen().is_some(),
         );
+
+        // Follow a background brush that changes while the window is up. The renderer has to
+        // come along: its surface keeps or discards the scene's alpha to match the window.
+        #[cfg(target_os = "macos")]
+        if let WinitWindowOrNone::HasWindow { window, .. } = &*winit_window_or_none {
+            let transparent = Self::wants_transparent(window_item);
+            if self.transparent.replace(transparent) != transparent {
+                window.set_transparent(transparent);
+                if let Err(err) = self.renderer.set_transparent(transparent) {
+                    i_slint_core::debug_log!("Error adjusting the surface transparency: {err}");
+                }
+            }
+        }
 
         let new_window_level = if window_item.always_on_top() {
             winit::window::WindowLevel::AlwaysOnTop

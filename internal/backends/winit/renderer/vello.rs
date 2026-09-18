@@ -53,6 +53,12 @@ impl WinitCompatibleRenderer for WinitVelloRenderer {
         Ok(())
     }
 
+    #[cfg(target_os = "macos")]
+    fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
+        self.renderer.set_transparent(transparent);
+        Ok(())
+    }
+
     fn resume(
         &self,
         active_event_loop: &ActiveEventLoop,

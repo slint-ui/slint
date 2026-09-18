@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// The coverage of a state: its name, the `when` of its condition, the
+// decisions the condition and the values are written with, and the value it
+// gives each property. `alarm` or `quiet` is always the state selected, so
+// `spare` is never entered and its condition never evaluated, and `tint` is
+// read only while `alarm` is active.
+
+export component TestCase inherits Window {
+//#c                               ^-
+    in property <int> level;
+    in property <bool> muted;
+    // Raises the level at which the alarm is given.
+    in property <bool> tested;
+
+    out property <int> severity: 0;
+//#c                             ^+
+    in-out property <color> tint: #202020;
+//#c                              ^+
+
+    states [
+        alarm when level > (tested ? 100 : 10) && !muted: {
+//#c    ^+    ^+                   ^++         ^++
+            severity: tested ? 3 : 2;
+//#c        ^+               ^++
+            tint: #a02020;
+//#c        ^+
+        }
+        quiet when level < 0 || muted: {
+//#c    ^+    ^+             ^++
+            severity: 1;
+//#c        ^+
+            tint: #204020;
+//#c        ^-
+        }
+        spare when tested: {
+//#c    ^-    ^-
+            severity: 9;
+//#c        ^-
+        }
+    ]
+}
+
+/*
+```rust
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+
+// `alarm` holds: its `?:` gives the level it is given, `&&` reaches its right
+// operand, and the value of `severity` takes the second arm of its own `?:`.
+x.set_level(12);
+assert_eq!(x.get_severity(), 2);
+
+// The first arm of both `?:`. `spare` holds from here on, and is still never
+// selected: `alarm` or `quiet` always comes first.
+x.set_tested(true);
+x.set_level(120);
+assert_eq!(x.get_severity(), 3);
+
+// The only read of `tint` while `alarm` is active, so the only value of it
+// any state ever gives.
+assert_eq!(x.get_tint(), slint_sc::Color::from_rgb_u8(0xa0, 0x20, 0x20));
+
+// `!muted` no longer holds, so `alarm` doesn't either, and `level < 0`
+// doesn't either, so `||` reaches its right operand: `quiet` holds.
+x.set_muted(true);
+assert_eq!(x.get_severity(), 1);
+
+// `level > 100` no longer holds, so `&&` doesn't reach its right operand, and
+// `level < 0` does, so `||` short-circuits.
+x.set_level(-1);
+assert_eq!(x.get_severity(), 1);
+```
+*/

@@ -39,6 +39,7 @@ mod frame_throttle;
 mod ios;
 #[cfg(target_os = "macos")]
 mod macos;
+mod touch_finger_id;
 
 /// Re-export of the winit crate.
 pub use winit;
@@ -83,6 +84,13 @@ mod renderer {
         fn occluded(&self, _: bool) {}
 
         fn suspend(&self) -> Result<(), PlatformError>;
+
+        // The window's transparency changed after the window was created. Renderers that pick
+        // their surface's alpha mode up front have to reconfigure it to match.
+        #[cfg(target_os = "macos")]
+        fn set_transparent(&self, _transparent: bool) -> Result<(), PlatformError> {
+            Ok(())
+        }
 
         // Got winit::Event::Resumed
         fn resume(
@@ -453,6 +461,9 @@ pub(crate) struct SharedBackendData {
     #[cfg(target_os = "ios")]
     #[allow(unused)]
     keyboard_notifications: ios::KeyboardNotifications,
+    #[cfg(target_os = "ios")]
+    #[allow(unused)]
+    scene_lifecycle: ios::SceneLifecycle,
 }
 
 impl SharedBackendData {
@@ -524,6 +535,9 @@ impl SharedBackendData {
         let keyboard_notifications =
             ios::register_keyboard_notifications(Rc::downgrade(&active_windows));
 
+        #[cfg(target_os = "ios")]
+        let scene_lifecycle = ios::install_scene_lifecycle(Rc::downgrade(&active_windows));
+
         let event_loop_proxy = event_loop.create_proxy();
         #[cfg(not(target_arch = "wasm32"))]
         let clipboard = crate::clipboard::create_clipboard(
@@ -551,6 +565,8 @@ impl SharedBackendData {
             desktop_settings: xdg_desktop_settings::DesktopSettings::new(),
             #[cfg(target_os = "ios")]
             keyboard_notifications,
+            #[cfg(target_os = "ios")]
+            scene_lifecycle,
         })
     }
 

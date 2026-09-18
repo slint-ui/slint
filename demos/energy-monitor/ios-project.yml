@@ -15,6 +15,12 @@ targets:
       properties:
         UILaunchScreen:
           - ImageRespectSafeAreaInsets: false
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Slint
+                UISceneDelegateClassName: SlintWindowSceneDelegate
     sources: []
     postCompileScripts:
       - script: |

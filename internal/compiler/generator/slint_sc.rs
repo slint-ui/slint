@@ -7,7 +7,8 @@ use crate::CompilerConfiguration;
 use crate::diagnostics::{ByteFormat, SourceLocation, Spanned};
 use crate::embedded_resources::{EmbeddedResources, EmbeddedResourcesIdx, EmbeddedResourcesKind};
 use crate::expression_tree::{
-    BindingExpression, BuiltinFunction, Callable, Expression, ImageReference, Unit,
+    BindingExpression, BuiltinFunction, Callable, ConditionLocation, Expression, ImageReference,
+    Unit,
 };
 use crate::generator::accessor_names::{AccessorKind, rust_accessor_ident};
 use crate::langtype::{EnumerationValue, PropertyLookupMode, StructName, Type};
@@ -194,6 +195,14 @@ fn point_span(id: usize) -> Span {
 /// The point a span names, if any.
 fn point_id(span: Span) -> Option<usize> {
     span.source_text()?.strip_prefix('p')?.parse().ok()
+}
+
+/// The tokens as the range of the point, when they are one. See `stamped`.
+fn stamped_at(point: Option<Span>, tokens: TokenStream) -> TokenStream {
+    match point {
+        Some(span) => stamped(span, tokens),
+        None => tokens,
+    }
 }
 
 /// The tokens as a point's range: a group without delimiters, which prints
@@ -820,7 +829,8 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
             let condition = compile_expression(condition, ctx);
             let true_expr = compile_expression(true_expr, ctx);
             let false_expr = compile_expression(false_expr, ctx);
-            compile_decision(condition, true_expr, false_expr, outcomes(source_location, "?", ctx))
+            let (evaluated, arms) = conditional(source_location, ctx);
+            compile_decision(stamped_at(evaluated, condition), true_expr, false_expr, arms)
         }
         // A property read that appears more than once is hoisted into a local
         // variable, so a code block evaluates it once and reads it back.
@@ -841,10 +851,7 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
         Expression::FunctionCall { function: Callable::Callback(nr), source_location, .. } => {
             let call = compile_callback_call(nr, ctx);
             let name = source_name(&nr.element().borrow(), nr.name());
-            match ctx.coverage.point("call", &name, source_location) {
-                Some(span) => stamped(span, call),
-                None => call,
-            }
+            stamped_at(ctx.coverage.point("call", &name, source_location), call)
         }
         // Everything else was rejected by the compiler
         _ => unreachable!(),
@@ -860,21 +867,50 @@ fn compile_binding(
     ctx: &Ctx,
 ) -> TokenStream {
     let expression = compile_expression(&binding.expression, ctx);
-    match ctx.coverage.binding_point(elem, name, binding) {
-        Some(span) => stamped(span, expression),
-        None => expression,
+    stamped_at(ctx.coverage.binding_point(elem, name, binding), expression)
+}
+
+/// The coverage points of a conditional: the point of its condition, and the
+/// spans naming the points of its two arms. See `ConditionLocation` for what
+/// the source writes at each location.
+fn conditional(location: &Option<ConditionLocation>, ctx: &Ctx) -> (Option<Span>, (Span, Span)) {
+    let nowhere = (Span::call_site(), Span::call_site());
+    let named = |kind, name: &str, at: &SourceLocation| {
+        ctx.coverage.point(kind, name, at).unwrap_or_else(Span::call_site)
+    };
+    match location {
+        None => (None, nowhere),
+        Some(ConditionLocation::Question(operator)) => (None, outcomes(operator, "?", ctx)),
+        Some(ConditionLocation::StateChange(property)) => {
+            let Some(property_name) = point_name(property) else { return (None, nowhere) };
+            (None, (named("binding", &property_name, property), Span::call_site()))
+        }
+        Some(ConditionLocation::StateSelection { name, when }) => {
+            let Some(state) = point_name(name) else { return (None, nowhere) };
+            let evaluated = ctx.coverage.point("condition", &state, when);
+            (evaluated, (named("state", &state, name), Span::call_site()))
+        }
     }
 }
 
 /// The spans naming the two outcomes of a decision, by its operator's
 /// location; spans naming nothing for a decision a compiler pass synthesized.
-fn outcomes(operator: &Option<SourceLocation>, op: &str, ctx: &Ctx) -> (Span, Span) {
+fn outcomes(operator: &dyn Spanned, op: &str, ctx: &Ctx) -> (Span, Span) {
     let point = |arm| {
         ctx.coverage
             .point("branch", &format!("{op} {arm}"), operator)
             .unwrap_or_else(Span::call_site)
     };
     (point("true"), point("false"))
+}
+
+/// The text a location spans, without the whitespace within it, so that a
+/// property written as `dot . height` is one word, as a point's name has to be.
+fn point_name(location: &SourceLocation) -> Option<String> {
+    let span = location.span();
+    let source = location.source_file()?.source()?;
+    let text = source.get(span.offset..span.offset + span.length)?;
+    Some(text.split_whitespace().collect())
 }
 
 /// Compile a decision as an `if`, its arms the blocks of the two outcomes.

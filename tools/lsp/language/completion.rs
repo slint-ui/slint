@@ -1463,6 +1463,29 @@ mod tests {
         completion_at(&mut dc, token, offset, Some(&caps))
     }
 
+    #[test]
+    fn completion_in_document_with_unknown_element() {
+        // The unknown element leaves the document in error, so the compiler skipped the passes
+        // and 'x' has no type. Completion resolves the surrounding expressions to know what is
+        // expected at the cursor, which must not panic on the untyped element.
+        for source in [
+            r#"export component Foo {
+                x := Blah { }
+                for a in x.some-model: Text { text: 🔺 }
+            }"#,
+            r#"export component Foo {
+                x := Blah { }
+                if x.some-condition: Text { text: 🔺 }
+            }"#,
+            r#"export component Foo {
+                x := Blah { }
+                Text { text: x.some-property == 🔺 }
+            }"#,
+        ] {
+            assert!(get_completions(source).is_some_and(|c| !c.is_empty()), "{source}");
+        }
+    }
+
     fn assert_completions_found(
         expected: impl IntoIterator<Item = CompletionItem>,
         results: &[CompletionItem],

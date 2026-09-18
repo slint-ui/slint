@@ -213,6 +213,7 @@ pub fn initialize_editor(
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
+    api.on_override_element_text(super::override_element_text);
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
@@ -241,6 +242,7 @@ pub fn initialize_editor(
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
     api.on_set_element_id(super::set_element_id);
+    api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));
     api.on_property_declaration_ranges(super::property_declaration_ranges);
     let property_api_weak = api_weak.clone();
     api.on_current_property_value_data(move |property_name| {
@@ -1730,7 +1732,7 @@ mod tests {
         for (width, anchor, paired) in
             [(1360., 1200., false), (1360., 1200., true), (1040., 330., true), (540., 330., true)]
         {
-            editor.global::<super::EditorMetrics>().set_window_width(width);
+            editor.global::<super::EditorWindow>().set_width(width);
             session.invoke_begin(super::FillSessionRequest {
                 target: super::FillSessionTarget {
                     session_key: ":0:0:0:".into(),
@@ -2019,6 +2021,39 @@ mod tests {
             }),
             1
         );
+    }
+
+    #[test]
+    fn title_area_double_click_toggles_maximized() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor.show().unwrap();
+
+        let title_touch_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
+            &editor,
+            "EditorUi::title-touch-area",
+        )
+        .next()
+        .expect("the title touch area must be inside the window move area");
+
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert!(editor.window().is_maximized());
+
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert!(!editor.window().is_maximized());
+
+        let native_zoom_count = std::rc::Rc::new(std::cell::Cell::new(0));
+        let count = native_zoom_count.clone();
+        editor.on_perform_native_window_zoom(move || {
+            count.set(count.get() + 1);
+            true
+        });
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert_eq!(native_zoom_count.get(), 1);
+        assert!(!editor.window().is_maximized());
     }
 
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {

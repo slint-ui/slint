@@ -86,6 +86,12 @@ impl<'a> SkiaItemRenderer<'a> {
         }
     }
 
+    /// Skia leaves anti-aliasing off by default, which keeps an upright rectangle's edges crisp.
+    /// A transform that tilts the rectangle turns those edges into stair steps instead.
+    fn needs_anti_alias(&self) -> bool {
+        !self.canvas.local_to_device_as_3x3().preserves_axis_alignment()
+    }
+
     fn render_drop_shadow_image(
         canvas: &skia_safe::Canvas,
         shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
@@ -529,7 +535,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             return;
         }
 
-        let paint = match self.brush_to_paint(
+        let mut paint = match self.brush_to_paint(
             rect.background(),
             geometry.width_length(),
             geometry.height_length(),
@@ -537,6 +543,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             Some(paint) => paint,
             None => return,
         };
+        paint.set_anti_alias(self.needs_anti_alias());
         self.canvas.draw_rect(to_skia_rect(&geometry), &paint);
     }
 
@@ -558,7 +565,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         {
             let background_rect = to_skia_rrect(&layout.background_rect, &layout.background_radius);
             fill_paint.set_style(skia_safe::PaintStyle::Fill);
-            if !background_rect.is_rect() {
+            if !background_rect.is_rect() || self.needs_anti_alias() {
                 fill_paint.set_anti_alias(true);
             }
             self.canvas.draw_rrect(background_rect, &fill_paint);
@@ -571,7 +578,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             let border_rect = to_skia_rrect(&layout.border_rect, &layout.border_radius);
             border_paint.set_style(skia_safe::PaintStyle::Stroke);
             border_paint.set_stroke_width(layout.border_width.get());
-            if !border_rect.is_rect() {
+            if !border_rect.is_rect() || self.needs_anti_alias() {
                 border_paint.set_anti_alias(true);
             }
             self.canvas.draw_rrect(border_rect, &border_paint);

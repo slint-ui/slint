@@ -6,8 +6,11 @@
 // action. Rust owns the airlock state machine and the countdown; see src/lib.rs.
 //
 // The subset shapes how the scene is written: it has no 'visible', so an
-// element hides by selecting an empty source, and no 'enabled', so a TouchArea
-// leaves the screen when its action is unavailable.
+// element hides by selecting an empty source, and no 'enabled', so an action's
+// TouchArea sits off-screen until the state whose action it is brings it on.
+//
+// Every element is written as the view it is quietest in, and the 'states'
+// block says how each other view differs from it.
 
 import { DoorState, DoorImage } from "components.slint";
 import { ProgressText } from "progress-text.slint";
@@ -31,101 +34,81 @@ export component MainWindow inherits Window {
     callback fault-requested;
     callback reset-requested;
 
-    private property <bool> waiting: root.view == TransitView.securing || root.view == TransitView.equalizing;
-    private property <bool> equalizing: root.view == TransitView.equalizing;
-
     background: #000000;
 
-    Image {
+    backdrop := Image {
         x: 0px;
         y: 0px;
-        source: root.view == TransitView.fault
-            ? @image-url("assets/background-fault.png") : @image-url("assets/background-normal.png");
+        source: @image-url("assets/background-normal.png");
     }
 
     // The inner door, to the platform the occupant came from.
-    DoorImage {
+    inner := DoorImage {
         x: 9px;
         y: 34px;
-        state: root.view == TransitView.ready ? DoorState.sealed
-            : root.view == TransitView.securing ? DoorState.locking
-            : root.view == TransitView.complete ? DoorState.released
-            : DoorState.locked;
+        state: DoorState.sealed;
     }
 
     // The outer door, to the vehicle.
-    DoorImage {
+    outer := DoorImage {
         x: 225px;
         y: 34px;
-        state: root.view == TransitView.ready ? DoorState.sealed
-            : root.view == TransitView.securing ? DoorState.locking
-            : root.view == TransitView.ready-to-open ? DoorState.ready
-            : DoorState.locked;
+        state: DoorState.sealed;
     }
 
     chamber := Image {
         x: 110px;
         y: 11px;
-        source: root.view == TransitView.complete
-            ? @image-url("assets/chamber-empty.png") : @image-url("assets/chamber-occupied.png");
+        source: @image-url("assets/chamber-occupied.png");
     }
 
     // The pressure indicator, which the equalization ring replaces while it runs.
-    Image {
+    pressure := Image {
         x: 135px;
         y: 115px;
-        source: root.view == TransitView.ready ? @image-url("assets/pressure-gauge.png")
-            : root.view == TransitView.securing ? @image-url("assets/pressure-locked.png")
-            : root.equalizing || root.view == TransitView.fault ? @image-url("")
-            : @image-url("assets/pressure-equal.png");
+        source: @image-url("assets/pressure-gauge.png");
     }
 
-    SegmentedProgress {
+    ring := SegmentedProgress {
         x: 105px;
         y: 115px;
         percent: root.progress-percent;
-        active: root.equalizing;
+        active: false;
     }
 
     // The action panel: what the occupant can do, or what to wait for.
     action := Image {
         x: 158px;
         y: 199px;
-        source: root.view == TransitView.ready ? @image-url("assets/action-enter.png")
-            : root.view == TransitView.securing ? @image-url("assets/action-wait-orange.png")
-            : root.view == TransitView.equalizing ? @image-url("assets/action-wait-blue.png")
-            : root.view == TransitView.ready-to-open ? @image-url("assets/action-exit-outer.png")
-            : root.view == TransitView.complete ? @image-url("assets/action-exit-inner.png")
-            : @image-url("");
+        source: @image-url("assets/action-enter.png");
     }
 
     // The countdown of the running phase, over the action panel.
-    ProgressText {
+    countdown := ProgressText {
         x: 267px;
         y: 202px;
-        value: root.waiting ? root.seconds-remaining : -1;
+        value: -1;
     }
 
-    // One TouchArea per action, over the action panel. The subset has no
-    // 'enabled', so the two that don't apply to the current view sit off-screen.
-    TouchArea {
-        x: root.view == TransitView.ready ? action.x : -action.width;
+    // One TouchArea per action, over the action panel.
+    enter-area := TouchArea {
+        x: -action.width;
         y: action.y;
         width: action.width;
         height: action.height;
         clicked => { root.enter-requested(); }
     }
 
-    TouchArea {
-        x: root.view == TransitView.ready-to-open ? action.x : -action.width;
+    exit-outer-area := TouchArea {
+        x: -action.width;
         y: action.y;
         width: action.width;
         height: action.height;
         clicked => { root.exit-outer-requested(); }
     }
 
-    TouchArea {
-        x: root.view == TransitView.complete ? action.x : -action.width;
+    exit-inner-area := TouchArea {
+        x: -action.width;
         y: action.y;
         width: action.width;
         height: action.height;
@@ -134,19 +117,64 @@ export component MainWindow inherits Window {
 
     // Demo gestures: the occupant chamber injects a fault, and the emergency
     // banner of the fault screen clears it.
-    TouchArea {
-        x: root.view == TransitView.fault ? -chamber.width : chamber.x;
+    fault-area := TouchArea {
+        x: chamber.x;
         y: chamber.y;
         width: chamber.width;
         height: chamber.height;
         clicked => { root.fault-requested(); }
     }
 
-    TouchArea {
-        x: root.view == TransitView.fault ? 7px : -308px;
+    reset-area := TouchArea {
+        x: -308px;
         y: 181px;
         width: 308px;
         height: 56px;
         clicked => { root.reset-requested(); }
     }
+
+    states [
+        ready when root.view == TransitView.ready: {
+            enter-area.x: action.x;
+        }
+        securing when root.view == TransitView.securing: {
+            inner.state: DoorState.locking;
+            outer.state: DoorState.locking;
+            pressure.source: @image-url("assets/pressure-locked.png");
+            action.source: @image-url("assets/action-wait-orange.png");
+            countdown.value: root.seconds-remaining;
+        }
+        equalizing when root.view == TransitView.equalizing: {
+            inner.state: DoorState.locked;
+            outer.state: DoorState.locked;
+            pressure.source: @image-url("");
+            action.source: @image-url("assets/action-wait-blue.png");
+            countdown.value: root.seconds-remaining;
+            ring.active: true;
+        }
+        ready-to-open when root.view == TransitView.ready-to-open: {
+            inner.state: DoorState.locked;
+            outer.state: DoorState.ready;
+            pressure.source: @image-url("assets/pressure-equal.png");
+            action.source: @image-url("assets/action-exit-outer.png");
+            exit-outer-area.x: action.x;
+        }
+        complete when root.view == TransitView.complete: {
+            inner.state: DoorState.released;
+            outer.state: DoorState.locked;
+            chamber.source: @image-url("assets/chamber-empty.png");
+            pressure.source: @image-url("assets/pressure-equal.png");
+            action.source: @image-url("assets/action-exit-inner.png");
+            exit-inner-area.x: action.x;
+        }
+        fault when root.view == TransitView.fault: {
+            backdrop.source: @image-url("assets/background-fault.png");
+            inner.state: DoorState.locked;
+            outer.state: DoorState.locked;
+            pressure.source: @image-url("");
+            action.source: @image-url("");
+            fault-area.x: -chamber.width;
+            reset-area.x: 7px;
+        }
+    ]
 }

@@ -175,6 +175,8 @@ fn parse_record(record: &str) -> Option<Point> {
         "binding" => (Kind::Binding, rest),
         "handler" => (Kind::Handler, rest),
         "call" => (Kind::Call, rest),
+        "state" => (Kind::State, rest),
+        "condition" => (Kind::Condition, rest),
         "branch" => {
             let (outcome, rest) = rest.split_once(' ')?;
             (Kind::Branch { outcome: outcome == "true" }, rest)

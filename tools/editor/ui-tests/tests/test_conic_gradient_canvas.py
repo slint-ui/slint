@@ -409,9 +409,11 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
         assert field.accessible_value == "#264052"
         click(window, "Gradient stop 1")
-        assert field.accessible_value == "#7e3b66"
+        wait_until(lambda: field if field.accessible_value == "#7e3b66" else None)
         click(window, "Gradient stop 2")
+        wait_until(lambda: field if field.accessible_value == "#264052" else None)
         field.accessible_value = "#abcdef80"
+        wait_until(lambda: field if field.accessible_value == "#abcdef80" else None)
         click(window, "Close Stop color")
         control(
             window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
