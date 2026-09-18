@@ -356,7 +356,7 @@ pub fn apply(editor: &ui::EditorUi, event: Event) {
 /// for it rather than reaching for a handle that is not there yet.
 fn capture_window(editor: slint::Weak<ui::EditorUi>, updater: Arc<Updater>) {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-    use slint::winit_030::WinitWindowAccessor;
+    use slint::winit_031::WinitWindowAccessor;
 
     slint::spawn_local(async move {
         let editor = editor.upgrade()?;
