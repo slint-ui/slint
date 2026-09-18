@@ -11,7 +11,8 @@
             "!**/.astro",
             "!**/dist",
             "!**/codemirror.js",
-            "!**/playwright-report/**"
+            "!**/playwright-report/**",
+            "!**/test-results/**"
         ],
         "enabled": true,
         "formatWithErrors": false,
@@ -27,7 +28,8 @@
             "!**/.astro",
             "!**/dist",
             "!**/codemirror.js",
-            "!**/playwright-report/**"
+            "!**/playwright-report/**",
+            "!**/test-results/**"
         ],
         "rules": {
             "preset": "none",

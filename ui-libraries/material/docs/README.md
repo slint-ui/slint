@@ -4,7 +4,7 @@
 # Slint Material Component Documentation
 
 The site uses Astro 7.3 and Starlight, with the shared Slint documentation header, footer, styles, and content components.
-The homepage uses Starlight's splash layout.
+The homepage uses a plain Astro page and local CSS to preserve its original design.
 Site configuration is in `astro.config.ts` and the documentation collection is in `src/content.config.ts`.
 
 Documentation pages live in `src/content/docs/`.

@@ -33,6 +33,16 @@ test.describe("homepage", () => {
             name: "Material Components Hero Image",
         });
         await expect(image).toBeVisible();
+        const heading = await main
+            .getByRole("heading", {
+                name: "Slint + Material Design",
+                exact: true,
+            })
+            .boundingBox();
+        const hero = await image.boundingBox();
+        expect(heading).not.toBeNull();
+        expect(hero).not.toBeNull();
+        expect(hero!.y).toBeGreaterThan(heading!.y + heading!.height);
         await expect
             .poll(() =>
                 image.evaluate((img: HTMLImageElement) => img.naturalWidth),
@@ -47,9 +57,15 @@ test.describe("homepage", () => {
         await expect(
             main.getByRole("link", { name: "Web Gallery", exact: true }),
         ).toHaveAttribute("href", "https://material.slint.dev/wasm/");
+        const menu = page.getByRole("button", {
+            name: "Toggle Menu",
+            exact: true,
+        });
+        await menu.click();
         await expect(
-            main.getByRole("link", { name: "Demo", exact: true }),
+            page.getByRole("link", { name: "Demo", exact: true }),
         ).toHaveAttribute("href", new URL("wasm/index.html", base).pathname);
+        await menu.click();
         await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
             "href",
             `https://material.slint.dev${new URL(base).pathname}`,
@@ -100,7 +116,9 @@ test("theme selection persists from the homepage to documentation", async ({
     await page.goto("./");
     const html = page.locator("html");
     const initial = await html.getAttribute("data-theme");
-    await page.locator("theme-switcher").click();
+    await page
+        .getByRole("button", { name: "Toggle color theme", exact: true })
+        .click();
     const selected = initial === "light" ? "dark" : "light";
     await expect(html).toHaveAttribute("data-theme", selected);
     await page.getByRole("link", { name: "Get Started", exact: true }).click();
@@ -130,7 +148,7 @@ test("smoke test", async ({ page }) => {
 });
 
 test("search opens the generated reference", async ({ page }) => {
-    await page.goto("./");
+    await page.goto("./getting-started/");
     await page.getByRole("button", { name: "Search", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Search", exact: true });
     await dialog
@@ -156,4 +174,27 @@ test("component cross-links use the deployment base", async ({ page }) => {
         new URL("components/checkboxes/check_box/", base).href,
     );
     await expect(page.locator('[id="_top"]')).toContainText("CheckBox");
+});
+
+test("homepage retains the original desktop layout", async ({ page }) => {
+    await page.goto("./");
+    await expect(
+        page.getByRole("navigation", { name: "Main navigation", exact: true }),
+    ).toBeVisible();
+    const heading = await page
+        .getByRole("heading", { name: "Slint + Material Design", exact: true })
+        .boundingBox();
+    const image = await page
+        .getByRole("img", {
+            name: "Material Components Hero Image",
+            exact: true,
+        })
+        .boundingBox();
+    expect(heading).not.toBeNull();
+    expect(image).not.toBeNull();
+    expect(image!.y).toBeGreaterThan(heading!.y + heading!.height);
+    expect(image!.width).toBeGreaterThanOrEqual(1000);
+    await expect(
+        page.getByRole("link", { name: "Get Started", exact: true }),
+    ).toBeVisible();
 });
