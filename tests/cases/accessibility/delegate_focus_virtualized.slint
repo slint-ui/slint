@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//ignore: cpp-live-preview
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 100px;
+    in-out property <int> focus-index: 52;
+
+    ListView {
+        accessible-label: "virtualized list";
+        accessible-delegate-focus: root.focus-index;
+        content-y: -1040px;
+
+        for _[index] in 100: Rectangle {
+            height: 20px;
+            accessible-role: list-item;
+            accessible-label: "item " + index;
+            accessible-item-index: index;
+        }
+    }
+
+    Rectangle {
+        accessible-role: list;
+        accessible-label: "positional list";
+        accessible-delegate-focus: 1;
+
+        Rectangle { accessible-role: list-item; }
+        Rectangle { accessible-role: list-item; }
+    }
+}
+
+/*
+```rust
+use slint::ComponentHandle;
+use i_slint_core::accessibility::{
+    AccessibleStringProperty, accessible_descendents, accessible_focus_delegate_position,
+};
+use i_slint_core::items::ItemRc;
+use i_slint_core::window::WindowInner;
+
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+slint_testing::send_mouse_click(&instance, 1., 1.);
+
+let root = ItemRc::new_root(WindowInner::from_pub(instance.window()).component());
+let list = accessible_descendents(&root)
+    .find(|item| {
+        item.accessible_string_property(AccessibleStringProperty::Label)
+            .is_some_and(|label| label == "virtualized list")
+    })
+    .expect("accessible list");
+let materialized_indices = accessible_descendents(&list)
+    .filter_map(|item| {
+        item.accessible_string_property(AccessibleStringProperty::ItemIndex)
+            .and_then(|index| index.parse::<usize>().ok())
+    })
+    .collect::<Vec<_>>();
+
+assert!(materialized_indices.len() < 100);
+assert!(!materialized_indices.contains(&0));
+let delegate_position = accessible_focus_delegate_position(&list).expect("focus delegate");
+let delegate = accessible_descendents(&list).nth(delegate_position).expect("delegate item");
+assert_eq!(
+    delegate.accessible_string_property(AccessibleStringProperty::ItemIndex).as_deref(),
+    Some("52")
+);
+
+instance.set_focus_index(0);
+// Position zero is materialized, but logical item zero is not.
+assert_eq!(accessible_focus_delegate_position(&list), None);
+
+let legacy = accessible_descendents(&root)
+    .find(|item| {
+        item.accessible_string_property(AccessibleStringProperty::Label)
+            .is_some_and(|label| label == "positional list")
+    })
+    .expect("positional list");
+assert_eq!(accessible_focus_delegate_position(&legacy), Some(1));
+```
+*/
