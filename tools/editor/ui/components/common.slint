@@ -12,6 +12,11 @@ export global EditorIcons {
 }
 
 export global EditorCursors {
+    out property <MouseCursor> corner-radius: MouseCursor.custom(
+        @image-url("../assets/cursors/corner-radius.png"),
+        14,
+        14,
+    );
     pure callback rotation-image(angle) -> image;
     out property <MouseCursor> canvas-default: MouseCursor.custom(
         @image-url("../assets/cursors/default-32.png"),

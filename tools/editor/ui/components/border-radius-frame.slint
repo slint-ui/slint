@@ -3,6 +3,7 @@
 
 import { Style, Metrics, Colors, RadiusHandleStyle } from "../style.slint";
 import { CanvasCorner } from "../api.slint";
+import { EditorCursors } from "common.slint";
 
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
@@ -83,7 +84,7 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
         border-color: Colors.focus;
 
         if root.enable-border-radius-edits: TouchArea {
-            mouse-cursor: pointer;
+            mouse-cursor: EditorCursors.corner-radius;
             accessible-role: AccessibleRole.button;
             accessible-label: root.accessible-prefix + " radius " + root.corner-name(corner);
             private property <bool> event-shift-pressed;
