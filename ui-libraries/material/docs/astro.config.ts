@@ -11,13 +11,7 @@ import {
 import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
 import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 
-import compress from "astro-compress";
-
-import {
-    readingTimeRemarkPlugin,
-    responsiveTablesRehypePlugin,
-    lazyImagesRehypePlugin,
-} from "./src/utils/frontmatter";
+import { unified } from "@astrojs/markdown-remark";
 
 const base = process.env.MATERIAL_DOCS_BASE_PATH || "/";
 
@@ -27,12 +21,7 @@ export default defineConfig({
     base,
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
     markdown: {
-        remarkPlugins: [readingTimeRemarkPlugin],
-        rehypePlugins: [
-            responsiveTablesRehypePlugin,
-            lazyImagesRehypePlugin,
-            rehypeExternalLinksSlint,
-        ],
+        processor: unified({ rehypePlugins: [rehypeExternalLinksSlint] }),
     },
     integrations: [
         starlight({
@@ -65,22 +54,5 @@ export default defineConfig({
             favicon: "favicon.svg",
             head: slintStarlightFaviconHead((filename) => `${base}${filename}`),
         }),
-        compress({
-            CSS: true,
-            HTML: {
-                "html-minifier-terser": {
-                    removeAttributeQuotes: false,
-                },
-            },
-            Image: false,
-            JavaScript: true,
-            SVG: false,
-            Logger: 1,
-        }),
     ],
-    vite: {
-        build: {
-            cssMinify: false,
-        },
-    },
 });

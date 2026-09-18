@@ -31,11 +31,7 @@
         "playwright-ctrf-json-reporter": "catalog:",
         "@slint/common-files": "workspace:*",
         "@types/mdx": "2.0.14",
-        "astro-compress": "2.4.3",
         "cspell": "catalog:",
-        "mdast-util-to-string": "4.0.0",
-        "reading-time": "1.5.0",
-        "typescript": "catalog:",
-        "unist-util-visit": "5.1.0"
+        "typescript": "catalog:"
     }
 }
