@@ -185,13 +185,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         window_attributes: winit::window::WindowAttributes,
         _window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
-        let winit_window =
-            active_event_loop.create_window(window_attributes).map_err(|winit_os_error| {
-                PlatformError::from(format!(
-                    "Error creating native window for software rendering: {winit_os_error}"
-                ))
-            })?;
-        let winit_window: Arc<dyn winit::window::Window> = winit_window.into();
+        let winit_window = super::create_window(active_event_loop, window_attributes, "software")?;
 
         let context = softbuffer::Context::new(winit_window.clone())
             .map_err(|e| format!("Error creating softbuffer context: {e}"))?;

@@ -33,7 +33,7 @@ use crate::muda::MudaType;
 use crate::renderer::WinitCompatibleRenderer;
 
 use corelib::SharedString;
-use corelib::input::{BackendMouseEvent, InternalKeyEvent, KeyEvent, KeyEventType};
+use corelib::input::{BackendMouseEvent, InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase};
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
 use corelib::item_tree::{ItemTreeRef, ItemTreeRefPin};
@@ -58,9 +58,9 @@ use winit::window::{ResizeDirection, WindowAttributes, WindowButtons};
 fn winit_touch_phase(phase: winit::event::TouchPhase) -> corelib::input::TouchPhase {
     match phase {
         winit::event::TouchPhase::Started => corelib::input::TouchPhase::Started,
-        winit::event::TouchPhase::Moved => corelib::input::TouchPhase::Moved,
+        winit::event::TouchPhase::Moved => TouchPhase::Moved,
         winit::event::TouchPhase::Ended => corelib::input::TouchPhase::Ended,
-        winit::event::TouchPhase::Cancelled => corelib::input::TouchPhase::Cancelled,
+        winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
     }
 }
 
@@ -88,6 +88,14 @@ fn window_size_to_winit(size: &corelib::api::WindowSize) -> winit::dpi::Size {
 
 pub fn physical_size_to_slint(size: &winit::dpi::PhysicalSize<u32>) -> corelib::api::PhysicalSize {
     corelib::api::PhysicalSize::new(size.width, size.height)
+}
+
+fn physical_position_to_slint(
+    position: winit::dpi::PhysicalPosition<f64>,
+    scale_factor: f32,
+) -> LogicalPoint {
+    let position = position.to_logical(scale_factor as f64);
+    euclid::point2(position.x, position.y)
 }
 
 fn logical_size_to_winit(s: i_slint_core::api::LogicalSize) -> winit::dpi::LogicalSize<f64> {
@@ -1396,8 +1404,7 @@ impl WinitWindowAdapter {
                 self.dispatch_internal_event(event);
             }
             WinitWindowEvent::PointerMoved { device_id, position, source, primary, .. } => {
-                let logical = position.to_logical(runtime_window.scale_factor() as f64);
-                let logical = euclid::point2(logical.x, logical.y);
+                let logical = physical_position_to_slint(position, runtime_window.scale_factor());
 
                 if primary {
                     self.cursor_pos.set(logical);
@@ -1412,23 +1419,17 @@ impl WinitWindowAdapter {
                 }
 
                 if let winit::event::PointerSource::Touch { finger_id, .. } = source {
-                    self.dispatch_touch_event(
-                        (device_id, finger_id),
-                        logical,
-                        corelib::input::TouchPhase::Moved,
-                    );
-                } else if self.pressed.get() {
-                    // A held-button move may cross a DragArea's threshold and start a native
-                    // drag. That must happen while the platform's pointer grab is still active,
-                    // so dispatch it now instead of buffering (a deferred start gets cancelled).
-                    self.shared_backend_data.discard_pending_mouse_move(&self.self_weak);
-                    self.dispatch_internal_event(BackendMouseEvent::Moved {
-                        position: logical,
-                        touch_finger_id: 0,
-                    });
+                    self.dispatch_touch_event((device_id, finger_id), logical, TouchPhase::Moved);
                 } else {
                     // winit sends this event at a very high frequency, so coalesce the moves.
                     self.shared_backend_data.buffer_mouse_move(&self.self_weak, logical);
+                    if self.pressed.get() {
+                        // A held-button move may cross a DragArea's threshold and start a
+                        // native drag. That must happen while the platform's pointer grab is
+                        // still active, so flush it right away instead of leaving it buffered
+                        // (a deferred start gets cancelled).
+                        self.shared_backend_data.flush_pending_mouse_move();
+                    }
                 }
             }
             WinitWindowEvent::PointerLeft { device_id, kind, primary, .. } => {
@@ -1436,14 +1437,12 @@ impl WinitWindowAdapter {
                     self.dispatch_touch_event(
                         (device_id, finger_id),
                         self.cursor_pos.get(),
-                        corelib::input::TouchPhase::Cancelled,
+                        TouchPhase::Cancelled,
                     );
-                } else if primary {
+                } else if primary && (cfg!(target_arch = "wasm32") || !self.pressed.get()) {
                     // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
-                    if cfg!(target_arch = "wasm32") || !self.pressed.get() {
-                        self.pressed.set(false);
-                        self.dispatch_internal_event(BackendMouseEvent::Exit);
-                    }
+                    self.pressed.set(false);
+                    self.dispatch_internal_event(BackendMouseEvent::Exit);
                 }
             }
             WinitWindowEvent::MouseWheel { delta, phase, .. } => {
@@ -1465,8 +1464,7 @@ impl WinitWindowAdapter {
             WinitWindowEvent::PointerButton { device_id, state, position, button, .. } => {
                 use winit::event::{ButtonSource as S, MouseButton as B};
 
-                let logical = position.to_logical(runtime_window.scale_factor() as f64);
-                let logical = euclid::point2(logical.x, logical.y);
+                let logical = physical_position_to_slint(position, runtime_window.scale_factor());
 
                 let button = match button {
                     S::Mouse(B::Left) => PointerEventButton::Left,
@@ -1477,12 +1475,8 @@ impl WinitWindowAdapter {
                     S::Mouse(_) => PointerEventButton::Other,
                     S::Touch { finger_id, .. } => {
                         let phase = match state {
-                            winit::event::ElementState::Pressed => {
-                                corelib::input::TouchPhase::Started
-                            }
-                            winit::event::ElementState::Released => {
-                                corelib::input::TouchPhase::Ended
-                            }
+                            winit::event::ElementState::Pressed => TouchPhase::Started,
+                            winit::event::ElementState::Released => TouchPhase::Ended,
                         };
                         self.dispatch_touch_event((device_id, finger_id), logical, phase);
                         return Ok(());
@@ -1491,6 +1485,7 @@ impl WinitWindowAdapter {
                     S::Unknown(_) => PointerEventButton::Other,
                 };
 
+                // For the events that carry no position of their own.
                 self.cursor_pos.set(logical);
 
                 let ev = match state {
@@ -1504,7 +1499,7 @@ impl WinitWindowAdapter {
 
                         self.pressed.set(true);
                         BackendMouseEvent::Pressed {
-                            position: self.cursor_pos.get(),
+                            position: logical,
                             button,
                             click_count: 0,
                             touch_finger_id: 0,
@@ -1513,7 +1508,7 @@ impl WinitWindowAdapter {
                     winit::event::ElementState::Released => {
                         self.pressed.set(false);
                         BackendMouseEvent::Released {
-                            position: self.cursor_pos.get(),
+                            position: logical,
                             button,
                             click_count: 0,
                             touch_finger_id: 0,
@@ -1595,13 +1590,13 @@ impl WinitWindowAdapter {
                     &winit::data_transfer::TypeHint::Image { extension_hint: None },
                 );
                 if let Some(position) = position {
-                    let pos = position.to_logical(runtime_window.scale_factor() as f64);
-                    self.cursor_pos.set(euclid::point2(pos.x, pos.y));
+                    self.cursor_pos
+                        .set(physical_position_to_slint(position, runtime_window.scale_factor()));
                 }
             }
             WinitWindowEvent::DragPosition { id, position, proposed_action } => {
-                let pos = position.to_logical(runtime_window.scale_factor() as f64);
-                self.cursor_pos.set(euclid::point2(pos.x, pos.y));
+                self.cursor_pos
+                    .set(physical_position_to_slint(position, runtime_window.scale_factor()));
                 // Only evaluate once the payload has arrived, so `can-drop` sees the data.
                 if self.has_incoming_data(id) {
                     let proposed = drag_and_drop::proposed_action_or_copy(proposed_action);
@@ -1623,38 +1618,26 @@ impl WinitWindowAdapter {
                 // representations delivers them all. Dispatch on the value's type rather
                 // than probing each `try_as_*` accessor: those don't all check the type,
                 // e.g. on X11 `try_as_string` on a URI list returns the raw `file://` lines.
-                let received = match value.type_().hint() {
-                    Some(winit::data_transfer::TypeHint::Plaintext) => {
-                        match value.try_as_string() {
-                            Ok(text) => {
-                                self.shared_backend_data
-                                    .incoming_transfers
-                                    .borrow_mut()
-                                    .entry(id)
-                                    .or_default()
-                                    .set_plain_text(text.into());
-                                true
-                            }
-                            Err(_) => false,
+                // The entry is only created once something decoded, so that a transfer
+                // carrying nothing stays absent.
+                let received = {
+                    let mut transfers = self.shared_backend_data.incoming_transfers.borrow_mut();
+                    match value.type_().hint() {
+                        Some(winit::data_transfer::TypeHint::Plaintext) => {
+                            value.try_as_string().ok().map(|text| {
+                                transfers.entry(id).or_default().set_plain_text(text.into())
+                            })
                         }
+                        Some(winit::data_transfer::TypeHint::Image { extension_hint }) => value
+                            .try_as_bytes()
+                            .ok()
+                            .and_then(|bytes| {
+                                drag_and_drop::decode_dropped_image(&bytes, extension_hint)
+                            })
+                            .map(|image| transfers.entry(id).or_default().set_image(image)),
+                        _ => None,
                     }
-                    Some(winit::data_transfer::TypeHint::Image { extension_hint }) => {
-                        match value.try_as_bytes().ok().and_then(|bytes| {
-                            drag_and_drop::decode_dropped_image(&bytes, extension_hint)
-                        }) {
-                            Some(image) => {
-                                self.shared_backend_data
-                                    .incoming_transfers
-                                    .borrow_mut()
-                                    .entry(id)
-                                    .or_default()
-                                    .set_image(image);
-                                true
-                            }
-                            None => false,
-                        }
-                    }
-                    _ => false,
+                    .is_some()
                 };
                 if received {
                     // The payload is now available: evaluate the DropAreas at the current
@@ -1679,17 +1662,14 @@ impl WinitWindowAdapter {
         &self,
         touch: crate::touch_finger_id::TouchId,
         position: LogicalPoint,
-        phase: corelib::input::TouchPhase,
+        phase: TouchPhase,
     ) {
-        let id = {
-            let mut ids = self.touch_finger_ids.borrow_mut();
-            match phase {
-                corelib::input::TouchPhase::Started | corelib::input::TouchPhase::Moved => {
-                    Some(ids.id_for(touch))
-                }
-                corelib::input::TouchPhase::Ended | corelib::input::TouchPhase::Cancelled => {
-                    ids.take(touch)
-                }
+        let id = match phase {
+            TouchPhase::Started | TouchPhase::Moved => {
+                Some(self.touch_finger_ids.borrow_mut().id_for(touch))
+            }
+            TouchPhase::Ended | TouchPhase::Cancelled => {
+                self.touch_finger_ids.borrow_mut().take(touch)
             }
         };
         if let Some(id) = id {

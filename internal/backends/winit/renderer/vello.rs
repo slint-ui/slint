@@ -67,19 +67,11 @@ impl WinitCompatibleRenderer for WinitVelloRenderer {
     ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
         let transparent = window_attributes.transparent;
 
-        let winit_window: Arc<dyn winit::window::Window> = active_event_loop
-            .create_window(window_attributes)
-            .map_err(|winit_os_error| {
-                PlatformError::from(format!(
-                    "Error creating native window for vello rendering: {winit_os_error}"
-                ))
-            })?
-            .into();
+        let winit_window = super::create_window(active_event_loop, window_attributes, "vello")?;
 
         let size = winit_window.surface_size();
         self.renderer.resume_window(
-            // winit 0.31 hands out an `Arc<dyn Window>`; wrap it so the renderer gets a sized
-            // handle it can keep.
+            // The renderer keeps a sized handle, so wrap the unsized one.
             Arc::new(winit_window.clone()),
             size.width.max(1),
             size.height.max(1),

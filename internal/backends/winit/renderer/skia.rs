@@ -178,17 +178,11 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
         _window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
         let transparent = window_attributes.transparent;
-        let winit_window =
-            active_event_loop.create_window(window_attributes).map_err(|winit_os_error| {
-                PlatformError::from(format!(
-                    "Error creating native window for Skia rendering: {}",
-                    winit_os_error
-                ))
-            })?;
-        let winit_window: Arc<dyn winit::window::Window> = winit_window.into();
+        let winit_window = super::create_window(active_event_loop, window_attributes, "Skia")?;
 
         let size = winit_window.surface_size();
 
+        // The renderer keeps a sized handle, so wrap the unsized one.
         let arc_of_arc = Arc::new(winit_window.clone());
 
         self.renderer.set_window_handle(

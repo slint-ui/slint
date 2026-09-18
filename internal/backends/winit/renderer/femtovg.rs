@@ -245,14 +245,7 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
         window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
         let transparent = window_attributes.transparent;
-        let winit_window: Arc<dyn winit::window::Window> = active_event_loop
-            .create_window(window_attributes)
-            .map_err(|winit_os_error| {
-                PlatformError::from(format!(
-                    "Error creating native window for FemtoVG rendering: {winit_os_error}"
-                ))
-            })?
-            .into();
+        let winit_window = super::create_window(active_event_loop, window_attributes, "FemtoVG")?;
 
         let requested_graphics_api = self.requested_graphics_api.clone();
         let window_handle = Box::new(winit_window.clone())

@@ -88,6 +88,23 @@ mod renderer {
         ) -> Result<Arc<dyn winit::window::Window>, PlatformError>;
     }
 
+    /// Create the window a renderer renders into, naming it in the error.
+    #[allow(dead_code, reason = "No renderer module is compiled in a FemtoVG only build")]
+    pub(crate) fn create_window(
+        active_event_loop: &dyn ActiveEventLoop,
+        window_attributes: winit::window::WindowAttributes,
+        renderer_name: &str,
+    ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
+        Ok(active_event_loop
+            .create_window(window_attributes)
+            .map_err(|winit_os_error| {
+                PlatformError::from(format!(
+                    "Error creating native window for {renderer_name} rendering: {winit_os_error}"
+                ))
+            })?
+            .into())
+    }
+
     #[cfg(enable_femtovg_renderer)]
     pub(crate) mod femtovg;
     #[cfg(enable_skia_renderer)]
@@ -139,12 +156,13 @@ fn default_renderer_factory(
         } else if #[cfg(feature = "renderer-software")] {
             renderer::sw::WinitSoftwareRenderer::new_suspended(shared_backend_data)
         } else if #[cfg(feature = "renderer-vello")] {
-            // Last in the chain: vello is opt-in and only becomes the default
-            // when it is the only renderer built in.
+            // vello is opt-in and only becomes the default when it is the only renderer
+            // built in.
             renderer::vello::WinitVelloRenderer::new_suspended(shared_backend_data)
         } else if #[cfg(any(doc, feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu"))] {
-            // FemtoVG renderer temporarily disabled during winit 0.31 port
-            Err("No renderer configured".into())
+            let _ = shared_backend_data;
+            Err("The FemtoVG renderer is not available while the winit 0.31 port is in progress"
+                .into())
         } else {
             compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software` or `renderer-vello`");
         }
@@ -683,16 +701,6 @@ impl SharedBackendData {
         }
     }
 
-    /// Drop the mouse move buffered for `window`, dispatching one buffered for another window
-    /// first. Used when a move is dispatched right away instead of being coalesced.
-    pub(crate) fn discard_pending_mouse_move(&self, window: &Weak<WinitWindowAdapter>) {
-        if let Some((pending_window, pending_position)) = self.pending_mouse_move.take()
-            && !Weak::ptr_eq(&pending_window, window)
-        {
-            dispatch_mouse_move(&pending_window, pending_position);
-        }
-    }
-
     /// Dispatch the buffered mouse move event, if any.
     pub(crate) fn flush_pending_mouse_move(&self) {
         if let Some((window, position)) = self.pending_mouse_move.take() {
@@ -801,7 +809,8 @@ static GLOBAL_PROXY: std::sync::Mutex<Option<GlobalProxy>> = std::sync::Mutex::n
 /// windows.
 ///
 /// This function can be called from any thread. It returns an error if the winit backend hasn't
-/// been installed yet, or if the event loop has terminated.
+/// been installed yet. The callback is queued for the next turn of the event loop, so one posted
+/// while the loop isn't running waits for it to start rather than being reported as an error.
 pub fn invoke_from_active_event_loop(
     func: impl FnOnce(&dyn ActiveEventLoop) + Send + 'static,
 ) -> Result<(), EventLoopError> {
