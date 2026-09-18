@@ -54,9 +54,6 @@
     },
     "ui-libraries/material/docs": {
       "entry": [],
-      "ignoreFiles": [
-        "src/assets/styles/starlight-material-supplement.css"
-      ],
       "ignoreDependencies": [
         "@types/mdx",
         "astrowind"

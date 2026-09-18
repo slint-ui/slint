@@ -4,5 +4,3 @@
 /// <reference path="../.astro/types.d.ts" />
 /// <reference types="astro/client" />
 /// <reference types="../vendor/integration/types.d.ts" />
-
-declare module "@fontsource-variable/inter";
