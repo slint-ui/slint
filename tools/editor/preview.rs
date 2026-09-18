@@ -2467,10 +2467,16 @@ fn set_preview_factory(
             });
         })));
 
+    let editor_ui_weak = editor_ui.as_weak();
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();
 
         callback(instance.clone_strong());
+
+        if let Some(editor_ui) = editor_ui_weak.upgrade() {
+            let hover = editor_ui.global::<ui::Hover>();
+            hover.set_preview_generation(hover.get_preview_generation() + 1);
+        }
 
         Some(instance)
     });
