@@ -190,7 +190,7 @@ impl Tree for OutlineModel {
                         }
                         let base = elem
                             .QualifiedName()
-                            .map(|x| x.text().to_shared_string())
+                            .map(|x| SharedString::from(x.text().to_string().trim()))
                             .unwrap_or_default();
                         let id = se
                             .child_text(parser::SyntaxKind::Identifier)
