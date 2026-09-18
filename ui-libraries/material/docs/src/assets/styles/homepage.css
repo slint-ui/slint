@@ -210,6 +210,8 @@ h1 {
     vertical-align: -0.09em;
 }
 .gradient-title {
+    display: inline;
+    padding-block: 0.15em;
     background: linear-gradient(to right, #3b82f6, #a855f7, #ec4899);
     color: transparent;
     background-clip: text;
