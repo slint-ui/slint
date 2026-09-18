@@ -304,11 +304,8 @@ export component CanvasInteractionLayer inherits Rectangle {
     private property <Size> text-edit-size;
     private property <float> text-edit-scale-x: 1;
     private property <float> text-edit-scale-y: 1;
-    // Guard on highlight-index >= 0: after Api.unselect(), the backend still populates
-    // current-element with the component root. Its frame would intercept future selections.
-    private property <[SelectionRectangle]> selections: Api.selection.highlight-index >= 0
-        ? Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset)
-        : [];
+    private property <[SelectionRectangle]> selections:
+        Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset);
 
     private property <Point> canvas-origin: root.absolute-position;
     private property <Size> canvas-size: { width: root.width, height: root.height };
