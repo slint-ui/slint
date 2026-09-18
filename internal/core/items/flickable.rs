@@ -635,6 +635,7 @@ impl FlickableDataInner {
                 crate::animations::current_tick() - start < SCROLL_FILTER_DURATION
             })
         {
+            self.capture_momentum();
             self.capture_events = Some(CaptureEvents::MouseWheel);
         }
 
@@ -657,9 +658,6 @@ impl FlickableDataInner {
             }
         }
 
-        if phase == TouchPhase::Started {
-            self.capture_momentum();
-        }
         if phase != TouchPhase::Ended {
             content_x.remove_binding();
             content_y.remove_binding();
