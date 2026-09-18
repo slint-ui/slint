@@ -62,6 +62,10 @@ trait VelocityEstimator {
     fn estimate_velocity_internal(&self) -> Option<VelocityEstimate>;
 }
 
+// VelocityEstimator stays module-private on purpose: it seals VelocityTracker so only the
+// trackers defined in this module can implement it, while estimate_velocity()'s timeout check
+// below remains the only entry point external callers get.
+#[allow(private_bounds)]
 pub(crate) trait VelocityTracker: VelocityEstimator {
     fn push(&mut self, time: Instant, position_delta: LogicalVector);
     fn last_time(&self) -> Option<Instant>;

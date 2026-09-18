@@ -53,7 +53,6 @@ use euclid::num::Zero;
 use i_slint_core_macros::*;
 #[allow(unused)]
 use num_traits::Float;
-use std::println;
 mod animation;
 mod velocity_tracker;
 use animation::{FlickAnimation, FlickAnimationParameter};
@@ -487,15 +486,10 @@ struct FlickableDataInner {
 impl FlickableDataInner {
     /// Lose momentum if certain conditions are not fulfilled
     fn maybe_lose_momentum(&mut self, tick: &Instant) {
-        if self.last_scroll_event.is_none() {
-            println!("Lose momentum, because last_scroll_event is None");
-        }
-        if self.last_scroll_event.is_none_or(|(time, _)| {
-            if tick.duration_since(time) > MOMENTUM_RETAIN_TIMEOUT {
-                println!("Lose momentum: {:?}", tick.duration_since(time));
-            }
-            tick.duration_since(time) > MOMENTUM_RETAIN_TIMEOUT
-        }) {
+        if self
+            .last_scroll_event
+            .is_none_or(|(time, _)| tick.duration_since(time) > MOMENTUM_RETAIN_TIMEOUT)
+        {
             self.retained_velocity = Default::default();
         }
     }
@@ -798,7 +792,6 @@ impl FlickableDataInner {
                 )
             })
             .unwrap_or_default();
-        println!("Capture momentum. Retain Velocity: {:?}", self.retained_velocity);
     }
 
     fn flick_limits(
@@ -855,51 +848,50 @@ impl FlickableDataInner {
             let velocity_estimation = self.velocity_rb.estimate_velocity();
             let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
 
-            // let x_simulation = if inside_bounds_x {
-            //     match velocity_estimation.as_ref() {
-            //         Some(velocity_estimation) => {
-            //             let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
-            //             let carried_velocity_x = FlickAnimation::carried_momentum(
-            //                 velocity_estimation.velocity.x,
-            //                 self.retained_velocity.x,
-            //                 flick.carry_momentum(),
-            //             );
-            //             let limit_x = Self::flick_limits(
-            //                 flick_rc,
-            //                 velocity_estimation.velocity.x,
-            //                 Dimension::X,
-            //             );
-            //             let x_simulation =
-            //                 Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
-            //                     let curr_val = content_x.get().0;
-            //                     content_x.set_physic_animation_value(weak.clone());
-            //                     RefCell::new(FlickAnimation::create_animation(
-            //                         FlickAnimationParameter::Velocity {
-            //                             velocity: velocity_estimation.velocity.x
-            //                                 + carried_velocity_x,
-            //                         },
-            //                         effective_bounce(flick, &geo, Dimension::X),
-            //                         curr_val,
-            //                         limit_x,
-            //                     ))
-            //                 });
-            //             Some(x_simulation as Rc<RefCell<dyn PositionSimulation>>)
-            //         }
-            //         _ => None,
-            //     }
-            // } else {
-            //     let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
-            //     let curr_val = content_x.get().0;
-            //     // Spring back to whichever edge we're already past, not
-            //     // wherever the release velocity happens to point.
-            //     let limit_x = Self::flick_limits(flick_rc, curr_val, Dimension::X);
-            //     let x_simulation = Rc::new_cyclic(|weak: &Weak<RefCell<SpringSimulation>>| {
-            //         content_x.set_physic_animation_value(weak.clone());
-            //         RefCell::new(FlickAnimation::create_spring_animation(curr_val, limit_x))
-            //     });
-            //     Some(x_simulation as Rc<RefCell<dyn PositionSimulation>>)
-            // };
-            let x_simulation = None;
+            let x_simulation = if inside_bounds_x {
+                match velocity_estimation.as_ref() {
+                    Some(velocity_estimation) => {
+                        let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
+                        let carried_velocity_x = FlickAnimation::carried_momentum(
+                            velocity_estimation.velocity.x,
+                            self.retained_velocity.x,
+                            flick.carry_momentum(),
+                        );
+                        let limit_x = Self::flick_limits(
+                            flick_rc,
+                            velocity_estimation.velocity.x,
+                            Dimension::X,
+                        );
+                        let x_simulation =
+                            Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
+                                let curr_val = content_x.get().0;
+                                content_x.set_physic_animation_value(weak.clone());
+                                RefCell::new(FlickAnimation::create_animation(
+                                    FlickAnimationParameter::Velocity {
+                                        velocity: velocity_estimation.velocity.x
+                                            + carried_velocity_x,
+                                    },
+                                    effective_bounce(flick, &geo, Dimension::X),
+                                    curr_val,
+                                    limit_x,
+                                ))
+                            });
+                        Some(x_simulation as Rc<RefCell<dyn PositionSimulation>>)
+                    }
+                    _ => None,
+                }
+            } else {
+                let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
+                let curr_val = content_x.get().0;
+                // Spring back to whichever edge we're already past, not
+                // wherever the release velocity happens to point.
+                let limit_x = Self::flick_limits(flick_rc, curr_val, Dimension::X);
+                let x_simulation = Rc::new_cyclic(|weak: &Weak<RefCell<SpringSimulation>>| {
+                    content_x.set_physic_animation_value(weak.clone());
+                    RefCell::new(FlickAnimation::create_spring_animation(curr_val, limit_x))
+                });
+                Some(x_simulation as Rc<RefCell<dyn PositionSimulation>>)
+            };
 
             let y_simulation = if inside_bounds_y {
                 match velocity_estimation.as_ref() {
@@ -919,14 +911,6 @@ impl FlickableDataInner {
                             Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
                                 let curr_val = content_y.get().0;
                                 content_y.set_physic_animation_value(weak.clone());
-                                if velocity_estimation.velocity.y > 0. {
-                                    println!("RB: {:?}", self.velocity_rb);
-                                }
-                                println!(
-                                    "Create new simulation. Velocity: {:?}, carried velocity: {:?}",
-                                    velocity_estimation.velocity.y + carried_velocity_y,
-                                    carried_velocity_y
-                                );
                                 RefCell::new(FlickAnimation::create_animation(
                                     FlickAnimationParameter::Velocity {
                                         velocity: velocity_estimation.velocity.y
@@ -1020,10 +1004,8 @@ impl FlickableData {
                 content_y.remove_binding(); // Stop animation by removing the binding
 
                 if inner.capture_events.is_some() {
-                    println!("Mouse filter pressed, Intercept");
                     InputEventFilterResult::Intercept
                 } else {
-                    println!("Mouse filter pressed, delay forward");
                     InputEventFilterResult::DelayForwarding(FORWARD_DELAY.as_millis() as _)
                 }
             }
@@ -1046,13 +1028,10 @@ impl FlickableData {
                         },
                     );
                 if do_intercept {
-                    println!("Mouse filter moved. Intercept: {do_intercept}");
                     InputEventFilterResult::Intercept
                 } else if inner.pressed_mouse_state.is_some() {
-                    println!("Mouse filter moved. ForwardAndInterceptGrab");
                     InputEventFilterResult::ForwardAndInterceptGrab
                 } else {
-                    println!("Mouse filter moved. Intercept: {do_intercept}");
                     InputEventFilterResult::ForwardEvent
                 }
             }
@@ -1178,7 +1157,6 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { .. } => {
-                println!("Handle mouse Press");
                 inner.capture_events = Some(CaptureEvents::MouseOrTouchScreen);
                 inner.capture_momentum();
                 inner.last_scroll_event =
@@ -1221,7 +1199,6 @@ impl FlickableData {
                     if is_capturing
                         || self.should_capture_mouse_direction(mouse_delta, flick, flick_rc)
                     {
-                        println!("Handle mouse Move");
                         // The drag event is meant to move the content, set it to the new position
                         // and start capturing mouse events.
                         let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
@@ -1267,7 +1244,6 @@ impl FlickableData {
                         // drag in a unsupported direction gives up the grab
                         InputEventResult::EventIgnored
                     } else {
-                        println!("Handle mouse No Move yet, still wait");
                         // the mouse was moved, but not enough to start the drag, we still want to accept further events
                         // so that we may pass the threshold at some point
                         InputEventResult::EventAccepted

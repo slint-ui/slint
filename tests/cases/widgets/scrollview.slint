@@ -97,14 +97,14 @@ assert_eq!(instance.get_content_x(), 0.);
 assert_eq!(instance.get_content_y(), 0.);
 
 // Drag the content with a finger
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(50.0, 50.0), phase: TouchPhase::Started }));
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(50.0, 50.0), phase: TouchPhase::Moved }));
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(20.0, 30.0), phase: TouchPhase::Moved }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(50.0, 50.0), phase: TouchPhase::Started, history: Default::default() }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(50.0, 50.0), phase: TouchPhase::Moved, history: Default::default() }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(20.0, 30.0), phase: TouchPhase::Moved, history: Default::default() }));
 assert_eq!(instance.get_content_x(), -30.);
 assert_eq!(instance.get_content_y(), -20.);
 // Release long after the last move so no fling animation starts
 slint_testing::mock_elapsed_time(1000);
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(20.0, 30.0), phase: TouchPhase::Ended }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(20.0, 30.0), phase: TouchPhase::Ended, history: Default::default() }));
 slint_testing::mock_elapsed_time(1000);
 assert_eq!(instance.get_content_x(), -30.);
 assert_eq!(instance.get_content_y(), -20.);

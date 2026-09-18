@@ -8,7 +8,6 @@
 use alloc::boxed::Box;
 use core::pin::Pin;
 use core::time::Duration;
-use std::println;
 
 use crate::Property;
 use crate::animations::Instant;
@@ -192,17 +191,6 @@ impl FlickAnimation {
 
         if is_velocity_not_substantially_less_than_carried_momentum && same_direction {
             return carried_velocity;
-        } else {
-            if !same_direction {
-                println!("Carried momentum. same direction: FALSE");
-            }
-            if !is_velocity_not_substantially_less_than_carried_momentum {
-                println!(
-                    "Carried momentum. Velocities different: {:?} vs. {:?}",
-                    new_estimated_velocity.abs(),
-                    carried_velocity.abs()
-                );
-            }
         }
         0.
     }
@@ -238,9 +226,6 @@ impl FlickAnimation {
         } else {
             let params = match animation_parameter {
                 FlickAnimationParameter::Velocity { velocity } => {
-                    println!(
-                        "New android simulation. Start value: {start_value:?}, Limit: {limit_value:?}, Velocity: {velocity:?}"
-                    );
                     AndroidFlickParameters::new_with_default_friction(velocity)
                 }
                 FlickAnimationParameter::Distance { delta, duration } => {
