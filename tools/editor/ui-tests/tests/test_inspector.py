@@ -7,7 +7,7 @@ import pytest
 import slint_testing
 from inspector_interactions import FIELDS, edit_field, inspector_field, wait_for_field
 from slint_testing import keys
-from source_snapshot import SourceSnapshot
+from source_snapshot import SourceSnapshot, replace_once
 from ui_driver import (
     first_window,
     launch_editor,
@@ -23,11 +23,6 @@ ELEMENT_ROWS = {
     "Text": "inspect-text",
     "Image": "inspect-image",
 }
-
-
-def replace_once(source: bytes, old: bytes, new: bytes) -> bytes:
-    assert source.count(old) == 1
-    return source.replace(old, new, 1)
 
 
 def select_element(window: slint_testing.Window, kind: str) -> None:

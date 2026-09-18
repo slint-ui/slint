@@ -3,15 +3,18 @@
 
 import pytest
 import slint_testing
-from slint_testing import keys
-from source_snapshot import SourceSnapshot
-from test_gradient_geometry import (
-    click_picker_button,
+from gradient_interactions import (
+    center,
+    control,
+    gesture,
     gradient_document,
     open_gradient,
     picker_field,
+    shifted,
 )
-from test_linear_gradient_canvas import center, control, gesture, shifted
+from gradient_interactions import click as click_picker_button
+from slint_testing import keys
+from source_snapshot import SourceSnapshot
 from ui_driver import (
     elements_with_label,
     first_window,

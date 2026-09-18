@@ -205,14 +205,13 @@ export component InspectorPane inherits Rectangle {
         ) {
             return false;
         }
-        Api.set-code-binding(
+        return Api.set-code-binding(
             root.element-information.source-uri,
             root.element-information.source-version,
             root.element-information.offset,
             property-name,
             value,
         );
-        return true;
     }
 
     function commit-px-code(property-name: string, value: string) -> bool {

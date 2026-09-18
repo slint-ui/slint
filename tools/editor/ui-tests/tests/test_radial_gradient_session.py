@@ -5,10 +5,9 @@ import math
 
 import pytest
 import slint_testing
+from gradient_interactions import center, click, control, gesture, open_radial, shifted
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
-from test_linear_gradient_canvas import center, click, control, gesture, shifted
-from test_radial_gradient_canvas import open_radial
 from ui_driver import (
     elements_with_label,
     first_window,

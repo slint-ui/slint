@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from gradient_interactions import center, click, control, gesture, shifted
 from slint_testing import keys
-from source_snapshot import SourceSnapshot
+from source_snapshot import SourceSnapshot, wait_for_source_change
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -16,7 +17,6 @@ from ui_driver import (
     press_shortcut,
     select_outline_row,
     wait_until,
-    window_element_with_label,
 )
 
 
@@ -34,38 +34,6 @@ def scene(tmp_path):
 }
 """)
     return path
-
-
-def control(window, label, role=slint_testing.AccessibleRole.Button):
-    return window_element_with_label(window, label, role)
-
-
-def click(window, label):
-    control(window, label).invoke_accessible_default_action()
-
-
-def center(element, rotation=0):
-    angle = math.radians(rotation)
-    return slint_testing.LogicalPosition(
-        x=element.absolute_position.x
-        + element.size.width / 2 * math.cos(angle)
-        - element.size.height / 2 * math.sin(angle),
-        y=element.absolute_position.y
-        + element.size.width / 2 * math.sin(angle)
-        + element.size.height / 2 * math.cos(angle),
-    )
-
-
-def shifted(point, x=0, y=0):
-    return slint_testing.LogicalPosition(x=point.x + x, y=point.y + y)
-
-
-def gesture(window, start, end):
-    button = slint_testing.PointerEventButton.Left
-    window.dispatch_event(slint_testing.PointerMoveEvent(start))
-    window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-    window.dispatch_event(slint_testing.PointerMoveEvent(end))
-    window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
 
 
 def open_linear(window):
@@ -194,13 +162,7 @@ def test_linear_endpoint_drag_and_session_history(
         control(window, "Add gradient stop")
         original.assert_unchanged_now()
         click(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                scene.read_bytes()
-                if scene.read_bytes() != original.sources[Path(scene.name)]
-                else None
-            )
-        )
+        saved = wait_for_source_change(scene, original.sources[Path(scene.name)])
         original.wait_for_applied(saved, scene.name)
         assert b"20%" in saved
         press_shortcut(window, keys.Control, "z")
@@ -301,6 +263,7 @@ def test_linear_layout_size_and_keyboard(
     }
 }
 """)
+    baseline = scene.read_bytes()
     with launch_editor(editor_binary, editor_environment, scene) as editor:
         window = first_window(editor)
         open_linear(window)
@@ -318,14 +281,11 @@ def test_linear_layout_size_and_keyboard(
         click(window, "Gradient stop 1")
         press_key(window, keys.RightArrow)
         click(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                scene.read_bytes() if b"red, blue" not in scene.read_bytes() else None
-            )
-        )
+        saved = wait_for_source_change(scene, baseline)
         from editor_sync import wait_for_source
 
         wait_for_source(scene, saved)
+        assert b"red, blue" not in saved
         assert b"width: 200px" not in saved
 
 
@@ -353,10 +313,9 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
             )
         )
         gesture(window, center(other), center(other))
-        saved = wait_until(
-            lambda: scene.read_bytes() if b"#123456" in scene.read_bytes() else None
-        )
+        saved = wait_for_source_change(scene, original.sources[Path(scene.name)])
         original.wait_for_applied(saved, scene.name)
+        assert b"#123456" in saved
         assert b"background: yellow" in saved
         assert not elements_with_label(window.root_element, "Gradient start")
         assert not elements_with_label(window.root_element, "Close Custom")
@@ -403,13 +362,7 @@ def test_linear_extended_axis_round_trip(
         end = center(control(window, "Gradient end"))
         gesture(window, end, shifted(end, x=50))
         click(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                scene.read_bytes()
-                if scene.read_bytes() != original.sources[Path(scene.name)]
-                else None
-            )
-        )
+        saved = wait_for_source_change(scene, original.sources[Path(scene.name)])
         original.wait_for_applied(saved, scene.name)
         assert b"0% - 25%" in saved
         assert b"125%" in saved

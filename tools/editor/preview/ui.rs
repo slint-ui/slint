@@ -240,7 +240,9 @@ pub fn initialize_editor(
     });
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
-    api.on_set_code_bindings(super::set_code_bindings);
+    api.on_set_code_bindings(|url, version, offset, bindings| {
+        super::set_code_bindings(url, version, offset, bindings.iter())
+    });
     api.on_set_color_binding(super::set_color_binding);
     api.on_set_element_id(super::set_element_id);
     api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));

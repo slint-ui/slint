@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from gradient_interactions import around, center, click, control, gesture, shifted
 from slint_testing import keys
-from source_snapshot import SourceSnapshot
-from test_linear_gradient_canvas import center, click, control, gesture, shifted
+from source_snapshot import SourceSnapshot, wait_for_source_change
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -44,11 +44,6 @@ def open_conic(window):
     assert not elements_with_label(window.root_element, "Gradient angle degrees")
     assert not elements_with_label(window.root_element, "Gradient center")
     control(window, "Add gradient stop")
-
-
-def around(c, radius, degrees):
-    angle = math.radians(degrees - 90)
-    return shifted(c, x=radius * math.cos(angle), y=radius * math.sin(angle))
 
 
 def stop_center(window, index, position, start=220, rotation=0):
@@ -216,12 +211,8 @@ def test_conic_rotation_crosses_the_seam(
         )
         original.assert_unchanged_now()
         click(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                conic_scene.read_bytes()
-                if conic_scene.read_bytes() != original.sources[Path(conic_scene.name)]
-                else None
-            )
+        saved = wait_for_source_change(
+            conic_scene, original.sources[Path(conic_scene.name)]
         )
         original.wait_for_applied(saved, conic_scene.name)
         angle = re.search(rb"from ([0-9.]+)deg", saved)
