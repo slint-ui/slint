@@ -25,6 +25,8 @@ export component InspectorPane inherits Rectangle {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <ElementInformation> element-information;
 
+    out property <bool> palette-drag-in-outline: outline-pane.palette-drag-in-outline;
+
     callback outline-drag-started();
     callback outline-pane-resized(length);
     callback outline-pane-reset();
@@ -951,7 +953,7 @@ export component InspectorPane inherits Rectangle {
         }
     }
 
-    OutlinePane {
+    outline-pane := OutlinePane {
         x: root.content-x;
         y: root.inspector-height + root.split-height;
         width: root.width - root.content-x;

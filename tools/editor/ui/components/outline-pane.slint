@@ -3,14 +3,22 @@
 
 import { Style, Metrics, Colors, Typography, TreeStyle } from "../style.slint";
 import { Api, DropLocation, EditorSurfaceMode, OutlineTreeNode } from "../api.slint";
+import { DragPreview } from "drag-preview.slint";
 import { EditorTreeView } from "editor-tree-view.slint";
 
-import { AppState, SectionTitle } from "common.slint";
+import { AppState, ElementKind, SectionTitle } from "common.slint";
 
 export component OutlinePane inherits Rectangle {
     in property <TreeStyle> style: Style.tree;
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
     property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
+    private property <Point> palette-pointer: AppState.palette-drag-pointer-position();
+    out property <bool> palette-drag-in-outline: !root.image-mode && root.outline-data.length > 0
+        && AppState.palette-drag-kind != ElementKind.none
+        && root.palette-pointer.x >= root.absolute-position.x
+        && root.palette-pointer.x < root.absolute-position.x + root.width
+        && root.palette-pointer.y >= root.absolute-position.y
+        && root.palette-pointer.y < root.absolute-position.y + root.height;
     callback drag-started();
 
     // background: root.style.row.hover-background;
@@ -53,7 +61,7 @@ export component OutlinePane inherits Rectangle {
                 width: parent.width;
                 height: parent.height;
                 can-drop(event) => {
-                    if AppState.outline-drag-cancelled {
+                    if AppState.drag-cancelled() {
                         return DragAction.none;
                     }
                     AppState.update-outline-drag-position({
@@ -63,7 +71,7 @@ export component OutlinePane inherits Rectangle {
                     return DragAction.none;
                 }
                 dropped(event) => {
-                    if AppState.outline-drag-cancelled {
+                    if AppState.drag-cancelled() {
                         AppState.finish-outline-drag();
                         return DragAction.none;
                     }
@@ -102,7 +110,7 @@ export component OutlinePane inherits Rectangle {
                         width: parent.width;
                         height: parent.height;
                         can-drop(event) => {
-                            if AppState.outline-drag-cancelled {
+                            if AppState.drag-cancelled() {
                                 root-drop-target.drop-allowed = false;
                                 return DragAction.none;
                             }
@@ -117,11 +125,11 @@ export component OutlinePane inherits Rectangle {
                                 DropLocation.onto,
                             );
                             return root-drop-target.drop-allowed
-                                ? DragAction.move
+                                ? event.proposed-action
                                 : DragAction.none;
                         }
                         dropped(event) => {
-                            if AppState.outline-drag-cancelled {
+                            if AppState.drag-cancelled() {
                                 root-drop-target.drop-allowed = false;
                                 AppState.finish-outline-drag();
                                 return DragAction.none;
@@ -138,7 +146,7 @@ export component OutlinePane inherits Rectangle {
                                 DropLocation.onto,
                             );
                             AppState.finish-outline-drag();
-                            return DragAction.move;
+                            return event.proposed-action;
                         }
                     }
 
@@ -169,12 +177,12 @@ export component OutlinePane inherits Rectangle {
                     }
                     row-can-drop(event, uri, offset, location) => {
                         return Api.outline-can-drop(event.data, uri, offset, location)
-                            ? DragAction.move
+                            ? event.proposed-action
                             : DragAction.none;
                     }
                     row-dropped(event, uri, offset, location) => {
                         Api.outline-drop(event.data, uri, offset, location);
-                        return DragAction.move;
+                        return event.proposed-action;
                     }
                     row-current-requested(uri, offset) => {
                         Api.outline-select-element(uri, offset, true);
@@ -187,6 +195,21 @@ export component OutlinePane inherits Rectangle {
                     }
                 }
             }
+        }
+    }
+
+    Rectangle {
+        width: root.width;
+        height: root.height;
+        clip: true;
+
+        DragPreview {
+            parent-origin: parent.absolute-position;
+            palette-outline-preview: true;
+            visible: root.palette-drag-in-outline;
+            width: min(AppState.outline-drag-preview-size.width, parent.width - 2 * Metrics.space-medium);
+            x: min(max(Metrics.space-medium, root.palette-pointer.x - root.absolute-position.x + Metrics.radius-medium), parent.width - self.width - Metrics.space-medium);
+            y: min(max(0px, root.palette-pointer.y - root.absolute-position.y + Metrics.radius-medium), parent.height - self.height);
         }
     }
 }

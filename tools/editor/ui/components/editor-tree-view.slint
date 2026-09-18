@@ -156,7 +156,7 @@ component EditorTreeRow {
                         width: parent.width;
                         height: parent.height;
                         can-drop(event) => {
-                            if AppState.outline-drag-cancelled {
+                            if AppState.drag-cancelled() {
                                 root.drop-allowed = false;
                                 return DragAction.none;
                             }
@@ -176,7 +176,7 @@ component EditorTreeRow {
                             return action;
                         }
                         dropped(event) => {
-                            if AppState.outline-drag-cancelled {
+                            if AppState.drag-cancelled() {
                                 root.drop-allowed = false;
                                 AppState.finish-outline-drag();
                                 return DragAction.none;

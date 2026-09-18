@@ -409,7 +409,22 @@ export global AppState {
         return Metrics.radius-medium;
     }
 
+    public pure function palette-drag-pointer-position() -> Point {
+        return {
+            x: self.palette-drag-preview-position.x + self.palette-drag-size.width / 2,
+            y: self.palette-drag-preview-position.y + self.palette-drag-size.height / 2,
+        };
+    }
+
+    public pure function drag-cancelled() -> bool {
+        return self.palette-drag-cancelled
+            || (self.palette-drag-kind == ElementKind.none && self.outline-drag-cancelled);
+    }
+
     public function update-outline-drag-position(window-position: Point) {
+        if self.palette-drag-kind != ElementKind.none {
+            self.update-palette-drag(self.palette-drag-kind, window-position);
+        }
         self.outline-drag-position = {
             x: window-position.x + self.outline-drag-pointer-gap(),
             y: window-position.y + self.outline-drag-pointer-gap(),
