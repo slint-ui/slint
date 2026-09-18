@@ -5,6 +5,7 @@ import { Style, Metrics, TreeStyle } from "../style.slint";
 import { DropLocation, OutlineTreeNode } from "../api.slint";
 import { AppState } from "common.slint";
 import { ElementVisuals } from "element-presentation.slint";
+import { OutlineDragRow } from "drag-preview.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
 
 import { ListView } from "std-widgets.slint";
@@ -17,9 +18,19 @@ component EditorTreeRow {
     in property <int> max-gutter-columns;
     in property <bool> show-hierarchy-guides: false;
     in property <bool> tree-has-hover: false;
+    in property <bool> content-has-hover;
+    in property <Point> tree-pointer;
     in property <int> row-index: -1;
     in property <string> hovered-source-uri;
     in property <int> hovered-offset: -1;
+
+    in property <bool> hide-drag-source;
+    in property <bool> gap-before;
+    in property <bool> gap-after;
+    in property <OutlineTreeNode> gap-target;
+    in property <int> gap-target-index;
+    in property <DropLocation> gap-location;
+    callback drop-target-changed(int, DropLocation, bool);
 
     pure callback make-drag-data(string, int) -> data-transfer;
     callback can-drop(DropEvent, string, int, DropLocation) -> DragAction;
@@ -32,13 +43,21 @@ component EditorTreeRow {
     property <bool> current: node.uri == current-source-uri && node.offset == current-offset;
     property <int> level-safe: max(1, node.indent-level + 1);
     property <int> gutter-segments: max(0, level-safe - 1);
-    property <bool> row-has-hover: row-touch.has-hover || disclosure-touch.has-hover;
+    property <bool> row-has-hover: !AppState.has-active-drag() && root.content-has-hover
+        && root.tree-pointer.x >= root.absolute-position.x
+        && root.tree-pointer.x < root.absolute-position.x + root.width
+        && root.tree-pointer.y >= root.absolute-position.y + root.content-y
+        && root.tree-pointer.y < root.absolute-position.y + root.content-y + root.style.row.height - 4px;
     property <string> row-label: node.element-id != "" ? node.element-id : node.element-type;
     property <DropLocation> active-drop-location: DropLocation.onto;
-    property <Point> grab-offset;
     property <bool> drop-allowed: false;
+    property <Point> grab-offset;
+    property <bool> pointer-in-gap: false;
+    property <length> gap-height: root.gap-before || root.gap-after ? root.style.row.height : 0px;
+    property <length> content-y: root.gap-before ? root.gap-height : 0px;
     property <image> row-icon: ElementVisuals.for-kind(node.icon-kind).icon;
 
+    height: root.style.row.height + root.gap-height;
     vertical-stretch: 0;
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.list-item;
@@ -58,6 +77,12 @@ component EditorTreeRow {
         root.row-hover-changed(root.row-index, root.row-has-hover);
     }
 
+    changed node => {
+        if root.row-has-hover {
+            root.row-hover-changed(root.row-index, true);
+        }
+    }
+
     function select() {
         root.current-requested(root.node.uri, root.node.offset);
     }
@@ -69,13 +94,25 @@ component EditorTreeRow {
     }
 
     function drop-location-for-y(y: length) -> DropLocation {
-        if y < root.style.row.height / 3 {
+        if root.gap-before && y < root.gap-height {
+            return y > root.style.row.height * 2 / 3 ? DropLocation.after : root.gap-location;
+        }
+        if root.gap-after && y >= root.style.row.height - 4px {
+            return root.gap-location;
+        }
+        let content-y = y - root.content-y;
+        if content-y < root.style.row.height / 3 {
             return DropLocation.before;
         }
-        if y > root.style.row.height * 2 / 3 {
+        if content-y > root.style.row.height * 2 / 3 {
             return DropLocation.after;
         }
         return DropLocation.onto;
+    }
+
+    function in-gap(y: length) -> bool {
+        return (root.gap-before && y < root.gap-height)
+            || (root.gap-after && y >= root.style.row.height - 4px);
     }
 
     function can-use-drop-location(location: DropLocation) -> bool {
@@ -101,22 +138,26 @@ component EditorTreeRow {
         horizontal-stretch: 1;
 
         Rectangle {
+            height: root.height;
             vertical-stretch: 0;
             horizontal-stretch: 1;
 
             row-chrome := Rectangle {
+                opacity: root.hide-drag-source && row-drag.dragging ? 0 : 1;
                 horizontal-stretch: 1;
-                height: root.style.row.height - 4px;
+                height: root.style.row.height - 4px + root.gap-height;
                 background: transparent;
 
                 row-highlight := Rectangle {
                     x: root.style.row.hit-size;
                     width: parent.width - self.x;
-                    height: parent.height;
+                    y: root.content-y;
+                    height: root.style.row.height - 4px;
                     border-radius: root.style.row.radius;
                     border-width: row-drop.has-drag
                         && root.drop-allowed
                         && root.active-drop-location == DropLocation.onto
+                        && !root.pointer-in-gap
                         ? root.style.drop-border-width
                         : 0px;
                     border-color: root.style.row.accent;
@@ -125,6 +166,7 @@ component EditorTreeRow {
                         : row-drop.has-drag
                         && root.drop-allowed
                         && root.active-drop-location == DropLocation.onto
+                        && !root.pointer-in-gap
                         ? root.style.drop-background
                         : root.row-has-hover
                             || (root.node.uri == root.hovered-source-uri && root.node.offset == root.hovered-offset)
@@ -160,23 +202,30 @@ component EditorTreeRow {
                         width: parent.width;
                         height: parent.height;
                         can-drop(event) => {
-                            if AppState.drag-cancelled() {
+                            if AppState.drag-cancelled() || row-drag.dragging {
                                 root.drop-allowed = false;
+                                root.drop-target-changed(root.row-index, root.active-drop-location, false);
                                 return DragAction.none;
                             }
                             AppState.update-outline-drag-position(root.drop-event-window-position(event));
+                            let gap = root.in-gap(event.position.y);
+                            root.pointer-in-gap = gap;
+                            let target = gap ? root.gap-target : root.node;
+                            let target-index = gap ? root.gap-target-index : root.row-index;
                             root.active-drop-location = root.drop-location-for-y(event.position.y);
                             if !root.can-use-drop-location(root.active-drop-location) {
                                 root.drop-allowed = false;
+                                root.drop-target-changed(root.row-index, root.active-drop-location, false);
                                 return DragAction.none;
                             }
                             let action = root.can-drop(
                                 event,
-                                root.node.uri,
-                                root.node.offset,
+                                target.uri,
+                                target.offset,
                                 root.active-drop-location,
                             );
                             root.drop-allowed = action != DragAction.none;
+                            root.drop-target-changed(target-index, root.active-drop-location, root.drop-allowed);
                             return action;
                         }
                         dropped(event) => {
@@ -186,17 +235,21 @@ component EditorTreeRow {
                                 return DragAction.none;
                             }
                             AppState.update-outline-drag-position(root.drop-event-window-position(event));
+                            let gap = root.in-gap(event.position.y);
+                            root.pointer-in-gap = gap;
+                            let target = gap ? root.gap-target : root.node;
                             root.active-drop-location = root.drop-location-for-y(event.position.y);
                             if !root.can-use-drop-location(root.active-drop-location) {
                                 root.drop-allowed = false;
+                                root.drop-target-changed(root.row-index, root.active-drop-location, false);
                                 return DragAction.none;
                             }
                             root.drop-allowed = false;
                             AppState.finish-outline-drag();
                             return root.dropped(
                                 event,
-                                root.node.uri,
-                                root.node.offset,
+                                target.uri,
+                                target.offset,
                                 root.active-drop-location,
                             );
                         }
@@ -204,7 +257,8 @@ component EditorTreeRow {
 
                     row-touch := TouchArea {
                         width: parent.width;
-                        height: parent.height;
+                        y: root.content-y;
+                        height: root.style.row.height - 4px;
                         mouse-cursor: pointer;
                         pointer-event(event) => {
                             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
@@ -222,6 +276,10 @@ component EditorTreeRow {
                     }
 
                     HorizontalLayout {
+                        x: 0px;
+                        y: root.content-y;
+                        width: parent.width;
+                        height: root.style.row.height - 4px;
                         alignment: start;
                         cross-axis-alignment: center;
                         padding-left: root.style.row.padding-inline;
@@ -299,16 +357,17 @@ component EditorTreeRow {
                         }
                     }
 
-                    if row-drop.has-drag && root.drop-allowed && root.active-drop-location != DropLocation.onto: Rectangle {
-                        x: root.style.row.padding-inline
-                            + root.gutter-segments * (root.style.row.toggle-width + root.style.row.gap)
-                            + root.style.row.hit-size
-                            + root.style.row.gap;
-                        y: root.active-drop-location == DropLocation.before ? 0px : parent.height - self.height;
-                        width: parent.width - self.x - root.style.row.padding-inline;
-                        height: root.style.drop-line-height;
-                        border-radius: root.style.drop-line-height / 2;
-                        background: root.style.row.accent;
+                    if root.gap-before || root.gap-after: OutlineDragRow {
+                        style: root.style.row;
+                        row-background: root.style.row.hover-background;
+                        y: root.gap-before ? 0px : root.style.row.height - 4px;
+                        width: parent.width;
+                        height: root.gap-height;
+                        content-inset: root.style.row.padding-inline
+                            + (root.gap-target.indent-level + (root.gap-location == DropLocation.onto ? 1 : 0)) * root.style.row.toggle-width
+                            + root.style.row.hit-size;
+                        accessible-role: AccessibleRole.region;
+                        accessible-label: "Outline insertion preview";
                     }
                 }
             }
@@ -325,11 +384,20 @@ export component EditorTreeView inherits FocusScope {
     in property <int> max-gutter-columns: 12;
     in property <bool> show-hierarchy-guides: false;
     in property <bool> content-has-hover: false;
+    in property <Point> pointer-position;
     in property <string> hovered-source-uri;
     in property <int> hovered-offset: -1;
     callback row-hovered(string, int, string);
+    private property <int> drop-row: -1;
+    private property <DropLocation> drop-location: DropLocation.onto;
+    private property <Point> drag-pointer: AppState.outline-drag-pointer-position;
+    private property <bool> show-gap: AppState.outline-drag-active
+        && !AppState.outline-drag-cancelled && root.drop-row >= 0
+        && root.drag-pointer.x >= tree.absolute-position.x
+        && root.drag-pointer.x < tree.absolute-position.x + tree.width
+        && root.drag-pointer.y >= tree.absolute-position.y
+        && root.drag-pointer.y < tree.absolute-position.y + tree.height;
     private property <int> hovered-row-index: -1;
-    private property <bool> tree-has-hover: content-has-hover || hovered-row-index >= 0;
     private property <int> focused-row-index: 0;
 
     pure callback make-row-drag-data(string, int) -> data-transfer;
@@ -344,6 +412,16 @@ export component EditorTreeView inherits FocusScope {
     accessible-label: root.accessible-name;
     accessible-delegate-focus: root.focused-row-index;
     accessible-item-count: root.rows.length;
+
+    changed show-gap => {
+        if !root.show-gap {
+            root.drop-row = -1;
+        }
+    }
+
+    public function clear-drop-target() {
+        root.drop-row = -1;
+    }
 
     function focus-row(index: int) {
         root.focused-row-index = index;
@@ -381,11 +459,31 @@ export component EditorTreeView inherits FocusScope {
             row-index: i;
             hovered-source-uri: root.hovered-source-uri;
             hovered-offset: root.hovered-offset;
+            hide-drag-source: root.show-gap;
+            gap-before: root.show-gap && root.drop-location == DropLocation.before && i == root.drop-row;
+            gap-after: root.show-gap
+                && root.drop-location != DropLocation.before
+                && i >= root.drop-row
+                && (i == root.drop-row || row.indent-level > root.rows[root.drop-row].indent-level)
+                && (i + 1 == root.rows.length || root.rows[i + 1].indent-level <= root.rows[root.drop-row].indent-level);
+            gap-target: root.drop-row >= 0 ? root.rows[root.drop-row] : row;
+            gap-target-index: root.drop-row;
+            gap-location: root.drop-location;
+            drop-target-changed(index, location, allowed) => {
+                if allowed {
+                    root.drop-row = index;
+                    root.drop-location = location;
+                } else {
+                    root.drop-row = -1;
+                }
+            }
             current-source-uri: root.current-source-uri;
             current-offset: root.current-offset;
             max-gutter-columns: root.max-gutter-columns;
             show-hierarchy-guides: root.show-hierarchy-guides;
-            tree-has-hover: root.tree-has-hover;
+            tree-has-hover: root.content-has-hover;
+            content-has-hover: root.content-has-hover;
+            tree-pointer: root.pointer-position;
             make-drag-data(uri, offset) => {
                 return root.make-row-drag-data(uri, offset);
             }

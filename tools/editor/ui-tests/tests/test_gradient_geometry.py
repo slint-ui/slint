@@ -19,7 +19,7 @@ from gradient_interactions import (
 )
 from gradient_interactions import click as click_picker_button
 from slint_testing import keys
-from source_snapshot import SourceSnapshot, wait_for_source_change
+from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_driver import (
     first_window,
     launch_editor,
@@ -135,14 +135,23 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
             set_picker_mode(window, "Gradient radius mode", "Custom")
             picker_field(window, "Gradient radius").accessible_value = "95"
         click_picker_button(window, "Close Custom")
-        saved = wait_for_source_change(file, original.sources[Path(file.name)])
+        geometry = {
+            "linear": "36deg",
+            "radial": "circle 95px at 37px 61px",
+            "conic": "from 36deg at 37px 61px",
+        }[kind]
+        saved_stops = (
+            "#ff0000 0deg, #0000ff 360deg"
+            if kind == "conic"
+            else "#ff0000 0%, #0000ff 100%"
+        )
+        property_name = "color" if target == "text" else "background"
+        saved = replace_once(
+            original.sources[Path(file.name)],
+            f"{property_name}: @{kind}-gradient({prefix}, {stops});".encode(),
+            f"{property_name}: @{kind}-gradient({geometry}, {saved_stops});".encode(),
+        )
         original.wait_for_applied(saved, file.name)
-        if kind != "radial":
-            assert b"36deg" in saved
-        if kind != "linear":
-            assert b"at 37px 61px" in saved
-        if kind == "radial":
-            assert b"circle 95px" in saved
         click_picker_button(window, picker)
         click_picker_button(window, "Add gradient stop")
         press_key(window, keys.Escape)
