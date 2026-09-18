@@ -54,6 +54,7 @@ targets:
     info:
         path: Info.plist
         properties:
+            CADisableMinimumFrameDurationOnPhone: true
             UILaunchScreen:
                 - ImageRespectSafeAreaInsets: false
             UIApplicationSceneManifest:
@@ -73,6 +74,12 @@ targets:
 Adjust the name, bundle id, and other fields as needed.
 
 This configuration file delegates the build process to cargo through a shell script.
+
+The `CADisableMinimumFrameDurationOnPhone` entry lets animations run at the screen's
+full refresh rate.
+Without it, iOS limits an iPhone app to 60 frames per second,
+even on a ProMotion display that supports 120.
+iPad isn't affected.
 
 The `UIApplicationSceneManifest` entry opts the app into UIKit's scene lifecycle,
 which iOS 27 requires: an app without it fails to launch.
