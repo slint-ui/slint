@@ -125,6 +125,12 @@ def test_conic_keyboard_and_seam_neighbor(
         p = stop_center(window, 1, 0, start=211)
         gesture(window, p, p)
         press_key(window, keys.Delete)
+        wait_until(
+            lambda: (
+                not elements_with_label(window.root_element, "Gradient stop 3") or None
+            )
+        )
+        control(window, "Gradient stop 2")
         press_key(window, keys.LeftArrow)
         assert float(
             control(
