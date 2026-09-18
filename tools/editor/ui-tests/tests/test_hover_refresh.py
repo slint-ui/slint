@@ -175,7 +175,7 @@ def test_pointer_motion_clears_hover_after_removal(
         wait_for_no_rectangle_hover(window)
 
 
-def test_preview_reload_retargets_hover_without_pointer_motion(
+def test_preview_reload_updates_hover_target_without_pointer_motion(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
