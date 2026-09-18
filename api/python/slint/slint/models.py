@@ -124,7 +124,7 @@ class ListModel[T](Model[T]):
 
     def set_row_data(self, row: int, value: T) -> None:
         self.list[row] = value
-        super().notify_row_changed(row)
+        super().notify_row_changed(row if row >= 0 else row + len(self.list))
 
     def remove_row(self, row: int) -> None:
         if row < 0 or row >= len(self.list):
