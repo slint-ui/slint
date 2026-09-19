@@ -18,6 +18,13 @@ publish = false
 path = "main.rs"
 name = "test-driver-rust"
 
+# cSpell: ignore libtest
+# The qt widget tests need the main thread, so they use their own harness
+# (see write_main_thread_harness in build.rs).
+[[test]]
+name = "widgets-qt"
+harness = false
+
 [features]
 default = ["backend-qt"]
 
@@ -35,6 +42,9 @@ spin_on = { workspace = true }
 
 [target.'cfg(not(target_os = "wasm"))'.dependencies]
 i-slint-backend-qt = { workspace = true }
+
+[dev-dependencies]
+libtest-mimic = "0.8"
 
 [build-dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "bundle-translations"], optional = true }
