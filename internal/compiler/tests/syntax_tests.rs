@@ -67,6 +67,11 @@ fn syntax_tests() -> std::io::Result<()> {
             if path.file_name().is_some_and(|n| n == "slint-sc") {
                 continue;
             }
+            // Skip the tests that need the software renderer when the feature is not enabled
+            #[cfg(not(feature = "renderer-software"))]
+            if path.file_name().is_some_and(|n| n == "renderer-software") {
+                continue;
+            }
             for test_entry in path.read_dir()? {
                 let test_entry = test_entry?;
                 let path = test_entry.path();
@@ -501,6 +506,11 @@ fn process_file_source(
     .into_iter()
     .collect();
     compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources;
+    // The `renderer-software` tests diagnose the glyph embedding, which the other tests skip.
+    #[cfg(feature = "renderer-software")]
+    if path.parent().and_then(|p| p.file_name()).is_some_and(|n| n == "renderer-software") {
+        compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::EmbedTextures;
+    }
     compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".into());
     compiler_config.components_to_generate =
