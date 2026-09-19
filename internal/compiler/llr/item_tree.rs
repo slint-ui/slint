@@ -366,6 +366,10 @@ pub struct ElementProperty {
     pub name: SmolStr,
     pub ty: Type,
     pub prop: MemberReference,
+    /// Declared `@testable`: [`count_property_use`](super::optim_passes::count_property_use)
+    /// treats this entry as a real read, so the property and its binding survive even
+    /// when nothing else in the component reads it.
+    pub pinned: bool,
 }
 
 #[derive(Debug, Default, Clone)]
