@@ -306,11 +306,7 @@ fn update_visible_instances(
 
     let mut changed = false;
     let model_row = |physical_row: usize| {
-        if reverse {
-            row_count - 1 - physical_row
-        } else {
-            physical_row
-        }
+        if reverse { row_count - 1 - physical_row } else { physical_row }
     };
 
     // Estimate element height from cached value or by measuring existing instances.
@@ -377,9 +373,8 @@ fn update_visible_instances(
         if reverse && state.reverse_initialized {
             // Start from exactly enough physical rows to fill the viewport.
             // The final physical row is row_count - 1, which maps to model 0.
-            let visible_rows = ((listview_height / element_height).ceil() as usize)
-                .max(1)
-                .min(row_count);
+            let visible_rows =
+                ((listview_height / element_height).ceil() as usize).max(1).min(row_count);
 
             state.offset = row_count - visible_rows;
 
@@ -596,11 +591,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         let mut inner = self.inner.borrow_mut();
         let inner = &mut *inner;
         let row = if inner.layout_state.reverse {
-            self.model
-                .get_internal()
-                .row_count()
-                .saturating_sub(1)
-                .saturating_sub(row)
+            self.model.get_internal().row_count().saturating_sub(1).saturating_sub(row)
         } else {
             row
         };

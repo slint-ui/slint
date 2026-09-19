@@ -520,9 +520,7 @@ impl Instance {
             let reverse = {
                 let ctx = crate::eval::EvalContext::new(sub.clone());
 
-                crate::eval::load_property(&ctx, &lv.reverse)
-                    .try_into()
-                    .unwrap_or(false)
+                crate::eval::load_property(&ctx, &lv.reverse).try_into().unwrap_or(false)
             };
             // If layout hasn't propagated a real visible height yet (eager
             // hit-test before show()), bail out instead of running the
