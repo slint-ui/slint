@@ -1,0 +1,77 @@
+[
+  {
+    "PushClipLayer": {
+      "clip": "M0,0 L166.25,0 L166.25,166.25 L0,166.25 Z M0,150 L150,150 L150,0 L0,0 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        10.0,
+        10.0
+      ]
+    }
+  },
+  {
+    "BoxShadow": {
+      "brush": {
+        "components": [
+          1.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "radius": 0.0,
+      "rect": {
+        "x0": 10.0,
+        "x1": 160.0,
+        "y0": 10.0,
+        "y1": 160.0
+      },
+      "std_dev": 2.5,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        10.0,
+        10.0
+      ]
+    }
+  },
+  "PopLayer",
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.502,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M5,5 L145,5 L145,145 L5,145 Z",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [],
+        "end_cap": "Round",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Round",
+        "width": 10.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        10.0,
+        10.0
+      ]
+    }
+  }
+]
