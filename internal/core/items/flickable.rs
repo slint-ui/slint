@@ -144,7 +144,7 @@ impl Item for Flickable {
                 viewport_height,
                 content_height,
                 content_y_reversed,
-             )| {
+            )| {
                 let Some(flick_rc) = self_weak.upgrade() else { return };
                 let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
                 let flick = flick.as_pin_ref();

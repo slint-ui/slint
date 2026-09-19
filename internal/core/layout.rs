@@ -1322,11 +1322,7 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
     // Preserve declaration/model identity and only reverse the solved main-axis
     // physical placement. No scale/rotation is involved.
     let physical_pos = |pos: Coord, size: Coord| {
-        if data.reverse {
-            data.size - pos - size
-        } else {
-            pos
-        }
+        if data.reverse { data.size - pos - size } else { pos }
     };
 
     let mut generator = LayoutCacheGenerator::new(&repeater_indices, &mut result);
