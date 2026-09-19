@@ -17,6 +17,7 @@ from canvas_interactions import (
     rotated_handle_center,
     rotation_delta,
 )
+from editor_sync import wait_for_source
 from inspector_interactions import FIELDS, edit_field, wait_for_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
@@ -127,7 +128,10 @@ def edit(
     if case.startswith("inspector-"):
         name, value = next(iter(changes.items()))
         edit_field(
-            window, FIELDS[name], str(value), slint_testing.AccessibleRole.TextInput
+            window,
+            "All corner radii" if name == "radius" else FIELDS[name],
+            str(value),
+            slint_testing.AccessibleRole.TextInput,
         )
         return
     if case == "handle-radius":
@@ -149,24 +153,10 @@ def edit(
     )
 
 
-SKIPS = {
-    "handle-radius": "Requires a Rust corner-radius persistence fix",
-    "inspector-rotation": "No Rectangle rotation property editor is available",
-    "inspector-radius": "No Rectangle corner-radius property editor is available",
-}
-
-
 @pytest.mark.parametrize(
     "case,changes",
-    [
-        pytest.param(
-            case,
-            changes,
-            id=case,
-            marks=pytest.mark.skip(reason=SKIPS[case]) if case in SKIPS else (),
-        )
-        for case, changes in CASES
-    ],
+    CASES,
+    ids=[case for case, _ in CASES],
 )
 def test_rectangle_undo_redo(
     editor_binary: Path,
@@ -179,9 +169,21 @@ def test_rectangle_undo_redo(
     baseline = source.read_bytes()
     expected = baseline
     for name, value in changes.items():
+        if name == "radius":
+            expected = expected.replace(
+                b"        transform-rotation: 0deg;",
+                f"        border-bottom-left-radius: {value}px;\n"
+                f"        border-bottom-right-radius: {value}px;\n"
+                "        transform-rotation: 0deg;".encode(),
+            ).replace(
+                b"        border-radius: 12px;",
+                "        border-radius: 12px;\n"
+                f"        border-top-left-radius: {value}px;\n"
+                f"        border-top-right-radius: {value}px;".encode(),
+            )
+            continue
         prop, unit = {
             "rotation": ("transform-rotation", "deg"),
-            "radius": ("border-radius", "px"),
         }.get(name, (name, "px"))
         old = f"        {prop}: {INITIAL[name]}{unit};".encode()
         assert expected.count(old) == 1
@@ -189,6 +191,7 @@ def test_rectangle_undo_redo(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source) as editor:
         window = first_window(editor)
+        wait_for_source(source, baseline)
         with replay_stage("initial"):
             select_fixture_element(window, "Rectangle")
             cx, cy, *_ = wait_until(

@@ -1,20 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorTokens } from "tokens.slint";
+import { Style, PaintStyle, Metrics, ButtonStyle } from "../../style.slint";
 
 export component InspectorIconButton inherits Rectangle {
+    in property <ButtonStyle> style: Style.inspector-icon-button;
     in property <string> kind;
     in property <string> label: root.kind;
     in property <bool> selected: false;
     callback clicked;
+    private property <PaintStyle> paint: root.selected ? root.style.appearance.pressed
+        : touch.has-hover || button-focus.has-focus ? root.style.appearance.hover : root.style.appearance.normal;
 
-    width: 18px;
-    height: 18px;
-    border-radius: 3.5px;
-    background: selected ? InspectorTokens.accent.with-alpha(0.12) : touch.has-hover || button-focus.has-focus ? InspectorTokens.field-bg : transparent;
-    border-width: button-focus.has-focus ? 1px : 0px;
-    border-color: InspectorTokens.accent;
+    width: root.style.height;
+    height: root.style.height;
+    border-radius: root.style.radius;
+    background: root.paint.background;
+    border-width: button-focus.has-focus ? root.style.border-width : 0px;
+    border-color: button-focus.has-focus ? root.style.appearance.focus-border : root.paint.border;
     accessible-role: button;
     accessible-label: root.label;
     accessible-checked: root.selected;
@@ -37,15 +40,15 @@ export component InspectorIconButton inherits Rectangle {
         y: 5.5px;
         width: 11px;
         height: 7px;
-        border-width: 1px;
-        border-color: root.selected ? InspectorTokens.accent : InspectorTokens.text;
+        border-width: Metrics.border-width;
+        border-color: root.paint.foreground;
         border-radius: 5.5px;
 
         Rectangle {
             width: 3px;
             height: 3px;
             border-radius: 1.5px;
-            background: root.selected ? InspectorTokens.accent : InspectorTokens.text;
+            background: root.paint.foreground;
         }
     }
 
@@ -54,9 +57,9 @@ export component InspectorIconButton inherits Rectangle {
         y: 3px;
         width: 6px;
         height: 11px;
-        border-width: 1px;
-        border-color: root.selected ? InspectorTokens.accent : InspectorTokens.text;
-        border-radius: 4px;
+        border-width: Metrics.border-width;
+        border-color: root.paint.foreground;
+        border-radius: Metrics.radius-small;
         transform-rotation: 28deg;
     }
 
@@ -68,8 +71,8 @@ export component InspectorIconButton inherits Rectangle {
                 width: 3px;
                 height: 3px;
                 border-radius: 1.5px;
-                border-width: 1px;
-                border-color: InspectorTokens.text;
+                border-width: Metrics.border-width;
+                border-color: root.style.appearance.normal.foreground;
             }
         }
     }
@@ -80,12 +83,12 @@ export component InspectorIconButton inherits Rectangle {
             y: 4px;
             width: 1px;
             height: 10px;
-            background: InspectorTokens.text;
+            background: root.style.appearance.normal.foreground;
             border-radius: 1px;
         }
-        Rectangle { x: 2.5px; y: 6.5px; width: 4px; height: 1px; background: InspectorTokens.text; }
-        Rectangle { x: 7px; y: 10.5px; width: 4px; height: 1px; background: InspectorTokens.text; }
-        Rectangle { x: 11.5px; y: 5px; width: 4px; height: 1px; background: InspectorTokens.text; }
+        Rectangle { x: 2.5px; y: 6.5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
+        Rectangle { x: 7px; y: 10.5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
+        Rectangle { x: 11.5px; y: 5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
     }
 
     touch := TouchArea {

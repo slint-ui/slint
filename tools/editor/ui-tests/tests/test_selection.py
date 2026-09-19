@@ -146,12 +146,7 @@ def test_clear_canvas_selection_does_not_edit_source(
                     .match_accessible_role(slint_testing.AccessibleRole.ListItem)
                     .find_all()
                 )
-                and rows[0].accessible_item_selected
-                and not window_element_with_label(
-                    window,
-                    "root-rectangle",
-                    slint_testing.AccessibleRole.ListItem,
-                ).accessible_item_selected
+                and not any(row.accessible_item_selected for row in rows)
                 else None
             )
         )

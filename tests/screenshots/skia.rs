@@ -125,3 +125,83 @@ fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
         std::task::Poll::Pending => None,
     }
 }
+
+// Compare renders within one run so font rasterization differences between platforms don't need golden images.
+#[test]
+fn text_alignment_anchor_stays_fixed() {
+    init_skia();
+    for (horizontal, x_fraction) in [("left", 0.0), ("center", 0.5), ("right", 1.0)] {
+        for (vertical, y_fraction) in [("top", 0.0), ("center", 0.5), ("bottom", 1.0)] {
+            for input in [false, true] {
+                let item_type = if input { "TextInput" } else { "Text" };
+                let selection = if input {
+                    "selection-background-color: blue; selection-foreground-color: white;"
+                } else {
+                    ""
+                };
+                let prepare = if input {
+                    "field.focus(); field.set-selection-offsets(1, 3);"
+                } else {
+                    ""
+                };
+                let source = format!(
+                    r#"
+                    export component TestCase inherits Window {{
+                        width: 180px;
+                        height: 140px;
+                        background: white;
+                        in property <length> box-width: 80px;
+                        in property <length> box-height: 40px;
+                        callback prepare();
+                        prepare => {{ {prepare} }}
+                        field := {item_type} {{
+                            x: 80.2px - {x_fraction} * root.box-width;
+                            y: 60.2px - {y_fraction} * root.box-height;
+                            width: root.box-width;
+                            height: root.box-height;
+                            text: "Hello";
+                            font-size: 14px;
+                            color: black;
+                            horizontal-alignment: {horizontal};
+                            vertical-alignment: {vertical};
+                            {selection}
+                        }}
+                    }}
+                    "#
+                );
+                let mut compiler = slint_interpreter::Compiler::default();
+                compiler.set_style("fluent".into());
+                let result = poll_once(compiler.build_from_source(source, Default::default())).unwrap();
+                assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+                let definition = result.components().last().unwrap();
+                for scale_factor in [1.0, 1.25, 1.5, 2.0] {
+                    let component = definition.create().unwrap();
+                    component.window().dispatch_event(
+                        i_slint_core::platform::WindowEvent::ScaleFactorChanged { scale_factor },
+                    );
+                    component.show().unwrap();
+                    component.invoke("prepare", &[]).unwrap();
+                    let reference = component.window().take_snapshot().unwrap();
+                    assert!(reference.as_slice().iter().any(|p| p.r < 128));
+                    if input {
+                        assert!(reference.as_slice().iter().any(|p| p.b > 200 && p.r < 50));
+                    }
+                    for delta in [0.25, 0.5, 0.75, 1.0] {
+                        component.set_property("box-width", (80.0 + delta).into()).unwrap();
+                        component.set_property("box-height", (40.0 + delta).into()).unwrap();
+                        let actual = component.window().take_snapshot().unwrap();
+                        let max_difference = actual.as_bytes().iter().zip(reference.as_bytes())
+                            .map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+                        // Selection clips can change coverage by a few color levels as the box resizes.
+                        let tolerance = if input { 4 } else { 0 };
+                        assert!(
+                            max_difference <= tolerance,
+                            "{item_type} {horizontal}/{vertical}, scale {scale_factor}, delta {delta}: difference {max_difference}"
+                        );
+                    }
+                    component.hide().unwrap();
+                }
+            }
+        }
+    }
+}

@@ -8,7 +8,7 @@ use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{self, TextSize, syntax_nodes};
 use i_slint_core::DataTransfer;
 use lsp_types::Url;
-use slint::{Model, ModelRc, SharedString, ToSharedString as _};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, ToSharedString as _};
 use std::rc::Rc;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -190,7 +190,7 @@ impl Tree for OutlineModel {
                         }
                         let base = elem
                             .QualifiedName()
-                            .map(|x| x.text().to_shared_string())
+                            .map(|x| SharedString::from(x.text().to_string().trim()))
                             .unwrap_or_default();
                         let id = se
                             .child_text(parser::SyntaxKind::Identifier)
@@ -296,10 +296,18 @@ pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
         model.set_row_data(row, node);
     });
     api.on_outline_drop(|data, target_uri, target_offset, location| {
-        if let Ok(drag_item) = data.try_into()
-            && let Some(edit) = drop_edit(drag_item, target_uri, target_offset, location)
+        let Ok(drag_item) = DragItem::try_from(data) else { return };
+        let is_new = matches!(drag_item, DragItem::NewComponent { .. });
+        if let Some((edit, drop_data)) = drop_edit(drag_item, target_uri, target_offset, location)
+            && preview::send_workspace_edit("Drop element".to_string(), edit, true)
+            && is_new
         {
-            preview::send_workspace_edit("Drop element".to_string(), edit, true);
+            super::element_selection::select_element_at_source_code_position(
+                drop_data.path,
+                drop_data.selection_offset,
+                None,
+                preview::SelectionNotification::AfterUpdate,
+            );
         }
     });
     api.on_outline_can_drop(|data, target_uri, target_offset, location| {
@@ -312,7 +320,7 @@ fn drop_edit(
     target_uri: SharedString,
     target_offset: i32,
     location: ui::DropLocation,
-) -> Option<lsp_types::WorkspaceEdit> {
+) -> Option<(lsp_types::WorkspaceEdit, preview::drop_location::DropData)> {
     let document_cache = super::document_cache()?;
     let url = Url::parse(target_uri.as_str()).ok()?;
     let target_elem =
@@ -363,8 +371,13 @@ fn drop_edit(
             }
             let moving_element =
                 document_cache.element_at_offset(&url, TextSize::new(item_offset))?;
-            if moving_element == drop_info.target_element_node {
-                return None;
+            moving_element.parent()?;
+            let mut ancestor = Some(drop_info.target_element_node.clone());
+            while let Some(element) = ancestor {
+                if moving_element == element {
+                    return None;
+                }
+                ancestor = element.parent();
             }
             preview::drop_location::create_swap_element_workspace_edit(
                 &drop_info,
@@ -375,15 +388,42 @@ fn drop_edit(
         }
         DragItem::NewComponent { kind } => {
             let component = super::palette_component(kind)?;
-            preview::drop_location::create_drop_element_workspace_edit(
+            let size = super::PREVIEW_STATE.with_borrow(|state| {
+                state
+                    .editor_ui
+                    .as_ref()
+                    .map(|ui| ui.global::<ui::ElementVisuals>().invoke_for_kind(kind).preview_size)
+            })?;
+            let mut properties = Vec::new();
+            if !i_slint_compiler::layout::is_layout(
+                &drop_info.target_element_node.as_element().borrow().base_type,
+            ) {
+                properties.extend([
+                    i_slint_editor_preview::editing::PropertyChange::new(
+                        "width",
+                        format!("{}px", size.width),
+                    ),
+                    i_slint_editor_preview::editing::PropertyChange::new(
+                        "height",
+                        format!("{}px", size.height),
+                    ),
+                ]);
+            }
+            preview::drop_location::extend_with_new_properties(
+                &mut properties,
+                &component.default_properties,
+                preview::drop_location::visual_properties_for_drop(&component),
+            );
+            preview::drop_location::create_drop_element_workspace_edit_with_properties(
                 &document_cache,
                 &component,
                 &drop_info,
+                &properties,
             )?
         }
     };
 
-    Some(workspace_edit.0)
+    Some(workspace_edit)
 }
 
 fn can_drop(
@@ -397,35 +437,27 @@ fn can_drop(
     };
 
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
-    enum CachedDropLocation {
-        Onto,
-        Before,
-        After,
-    }
-
-    let cached_location = if location == ui::DropLocation::Onto {
-        CachedDropLocation::Onto
-    } else if location == ui::DropLocation::Before {
-        CachedDropLocation::Before
-    } else {
-        CachedDropLocation::After
-    };
-
-    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     struct CacheEntry {
         data: DragItem,
         target_uri: SharedString,
         target_offset: i32,
-        location: CachedDropLocation,
+        location: core::mem::Discriminant<ui::DropLocation>,
+        revision: u64,
     }
     thread_local!(static CACHE: RefCell<clru::CLruCache<CacheEntry, bool>> = RefCell::new(clru::CLruCache::new(NonZeroUsize::new(10).unwrap())));
-    let cache_entry = CacheEntry { data, target_uri, target_offset, location: cached_location };
     let Some(document_cache) = super::document_cache() else { return false };
+    let cache_entry = CacheEntry {
+        data,
+        target_uri,
+        target_offset,
+        location: core::mem::discriminant(&location),
+        revision: document_cache.revision(),
+    };
     CACHE.with_borrow_mut(|cache| {
         if let Some(does_compile) = cache.get(&cache_entry) {
             *does_compile
         } else {
-            let does_compile = if let Some(edit) = drop_edit(
+            let does_compile = if let Some((edit, _)) = drop_edit(
                 cache_entry.data.clone(),
                 cache_entry.target_uri.clone(),
                 target_offset,

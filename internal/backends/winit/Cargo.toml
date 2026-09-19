@@ -42,7 +42,12 @@ x11 = [
   "softbuffer?/x11",
   "softbuffer?/x11-dlopen",
 ]
-renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "dep:glutin", "dep:glutin-winit"]
+renderer-femtovg = [
+  "i-slint-renderer-femtovg/opengl",
+  "dep:glutin",
+  "dep:glutin-winit",
+  "windows/Win32_Graphics_OpenGL",
+]
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-30"]
 renderer-skia = ["i-slint-renderer-skia"]
 renderer-vello = ["dep:i-slint-renderer-anyrender", "i-slint-renderer-anyrender/vello", "unstable-wgpu-29"]
@@ -140,7 +145,7 @@ i-slint-renderer-skia = { workspace = true, features = ["default"] }
 objc2 = { workspace = true }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSOperation", "NSGeometry", "NSRunLoop", "objc2-core-foundation"] }
 objc2-ui-kit = { version = "0.3.2", default-features = false, features = ["UIApplication", "UIScene", "UISceneOptions", "UISceneSession", "UIScreen", "UIWindow", "UIWindowScene", "UIView", "UIViewAnimating", "UIViewPropertyAnimator", "UIResponder", "UIInterface", "UIPasteboard", "UITrait", "UITraitCollection", "UIFont", "UIFontDescriptor", "objc2-core-foundation", "objc2-quartz-core", "block2"] }
-objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CADisplayLink", "CATransaction"] }
+objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CADisplayLink", "CATransaction", "CAFrameRateRange"] }
 # Match version in objc2
 block2 = "0.6.2"
 

@@ -64,9 +64,8 @@ export component TextEditBase inherits Rectangle {
     ContextMenuArea {
         enabled: root.enabled;
         Menu {
-            MenuItem {
+            if !root.read-only: MenuItem {
                 title: @tr("Cut");
-                enabled: !root.read-only && root.enabled;
                 activated => {
                     text-input.cut();
                 }
@@ -80,8 +79,7 @@ export component TextEditBase inherits Rectangle {
                 }
             }
 
-            MenuItem {
-                enabled: !root.read-only && root.enabled;
+            if !root.read-only: MenuItem {
                 title: @tr("Paste");
                 activated => {
                     text-input.paste();

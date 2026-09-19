@@ -6,7 +6,20 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from editor_sync import wait_for_source
+from gradient_interactions import (
+    around,
+    center,
+    control,
+    gesture,
+    gradient_document,
+    open_gradient,
+    picker_field,
+    shifted,
+)
+from gradient_interactions import click as click_picker_button
 from slint_testing import keys
+from source_snapshot import SourceSnapshot, wait_for_source_change
 from ui_driver import (
     first_window,
     launch_editor,
@@ -41,6 +54,7 @@ def test_custom_gradient_geometry_uses_layout_size(
 """
     source_file.write_text(source)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         rectangle = wait_until(
@@ -72,8 +86,6 @@ def test_custom_gradient_geometry_uses_layout_size(
 def test_non_canvas_gradient_keeps_numeric_geometry(
     editor_binary, editor_environment, tmp_path, kind, target
 ):
-    from editor_sync import wait_for_source
-    from source_snapshot import SourceSnapshot
     from ui_driver import elements_with_label, press_key
 
     prefix = {"linear": "0deg", "radial": "circle", "conic": "from 0deg"}[kind]
@@ -98,13 +110,13 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         if target == "text":
             select_outline_row(window, "label")
         else:
-            from test_linear_gradient_canvas import gesture, shifted
-
-            artboard = window_element_with_label(
-                window, "Artboard", slint_testing.AccessibleRole.Region
+            outline = window_element_with_label(window, "Current file outline")
+            root_row = (
+                outline.query_descendants()
+                .match_accessible_role(slint_testing.AccessibleRole.ListItem)
+                .find_all()[0]
             )
-            point = shifted(artboard.absolute_position, x=390, y=390)
-            gesture(window, point, point)
+            root_row.invoke_accessible_default_action()
         picker = (
             "Text color color picker"
             if target == "text"
@@ -123,13 +135,7 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
             set_picker_mode(window, "Gradient radius mode", "Custom")
             picker_field(window, "Gradient radius").accessible_value = "95"
         click_picker_button(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                file.read_bytes()
-                if file.read_bytes() != original.sources[Path(file.name)]
-                else None
-            )
-        )
+        saved = wait_for_source_change(file, original.sources[Path(file.name)])
         original.wait_for_applied(saved, file.name)
         if kind != "radial":
             assert b"36deg" in saved
@@ -143,33 +149,10 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         assert file.read_bytes() == saved
 
 
-def picker_field(window, label, role=slint_testing.AccessibleRole.TextInput):
-    return window_element_with_label(window, label, role)
-
-
 def set_picker_mode(window, label, value):
     picker_field(
         window, label, slint_testing.AccessibleRole.Combobox
     ).accessible_value = value
-
-
-def open_gradient(window):
-    picker_field(
-        window, "Rectangle background color picker", slint_testing.AccessibleRole.Button
-    ).invoke_accessible_default_action()
-
-
-def gradient_document(directory, expression):
-    file = directory / "Gradient.slint"
-    file.write_text(f"""export component Gradient inherits Window {{
-    width: 400px;
-    height: 400px;
-    VerticalLayout {{
-        fill := Rectangle {{ background: {expression}; }}
-    }}
-}}
-""")
-    return file
 
 
 @pytest.mark.parametrize("kind", ["radial", "conic"])
@@ -183,6 +166,7 @@ def test_picker_uses_live_preview_stop_markers(
     )
     file = gradient_document(tmp_path, expression)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
@@ -198,7 +182,6 @@ def test_picker_uses_live_preview_stop_markers(
 def test_custom_geometry_survives_mode_changes(
     editor_binary, editor_environment, tmp_path, loaded_custom
 ):
-    from source_snapshot import SourceSnapshot
     from ui_driver import press_key
 
     expression = (
@@ -209,6 +192,7 @@ def test_custom_geometry_survives_mode_changes(
     file = gradient_document(tmp_path, expression)
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
@@ -228,7 +212,6 @@ def test_custom_geometry_survives_mode_changes(
 def test_stop_precision_survives_save_and_reopen(
     editor_binary, editor_environment, tmp_path, kind
 ):
-    from source_snapshot import SourceSnapshot
 
     prefix = {"linear": "90deg", "radial": "circle", "conic": "from 0deg"}[kind]
     unit = "deg" if kind == "conic" else "%"
@@ -236,6 +219,7 @@ def test_stop_precision_survives_save_and_reopen(
     file = gradient_document(tmp_path, expression)
     snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
 
@@ -243,13 +227,7 @@ def test_stop_precision_survives_save_and_reopen(
             picker_field(
                 window, "Close Custom", slint_testing.AccessibleRole.Button
             ).invoke_accessible_default_action()
-            content = wait_until(
-                lambda: (
-                    file.read_bytes()
-                    if file.read_bytes() != snapshot.sources[Path(file.name)]
-                    else None
-                )
-            )
+            content = wait_for_source_change(file, snapshot.sources[Path(file.name)])
             snapshot.wait_for_applied(content, file.name)
             return content
 
@@ -282,9 +260,7 @@ def test_stop_precision_survives_save_and_reopen(
         picker_field(
             window, "Close Custom", slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
-        second = wait_until(
-            lambda: file.read_bytes() if file.read_bytes() != first else None
-        )
+        second = wait_for_source_change(file, first)
         snapshot.wait_for_applied(second, file.name)
         if kind == "linear":
             import re
@@ -294,18 +270,10 @@ def test_stop_precision_survives_save_and_reopen(
             assert first.split(b",", 1)[1] == second.split(b",", 1)[1]
 
 
-def click_picker_button(window, label):
-    picker_field(
-        window, label, slint_testing.AccessibleRole.Button
-    ).invoke_accessible_default_action()
-
-
 @pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
 def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
     editor_binary, editor_environment, tmp_path, kind
 ):
-    from source_snapshot import SourceSnapshot
-    from test_linear_gradient_canvas import center, control, shifted
     from ui_driver import press_key
 
     units = 360 if kind == "conic" else 100
@@ -317,6 +285,7 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
@@ -356,14 +325,13 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
 def test_picker_pointer_cancel_restores_stops(
     editor_binary, editor_environment, tmp_path, insert
 ):
-    from source_snapshot import SourceSnapshot
-    from test_linear_gradient_canvas import center, control, shifted
 
     file = gradient_document(
         tmp_path, "@linear-gradient(90deg, red 0%, blue 50%, white 100%)"
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
@@ -390,8 +358,6 @@ def test_picker_pointer_cancel_restores_stops(
 def test_stop_interactions_preserve_color_identity(
     editor_binary, editor_environment, tmp_path
 ):
-    from source_snapshot import SourceSnapshot
-    from test_linear_gradient_canvas import center, control, gesture, shifted
     from ui_driver import press_key
 
     file = gradient_document(
@@ -399,6 +365,7 @@ def test_stop_interactions_preserve_color_identity(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
@@ -424,13 +391,7 @@ def test_stop_interactions_preserve_color_identity(
         press_key(window, keys.Delete)
         original.assert_unchanged_now()
         click_picker_button(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                file.read_bytes()
-                if file.read_bytes() != original.sources[Path(file.name)]
-                else None
-            )
-        )
+        saved = wait_for_source_change(file, original.sources[Path(file.name)])
         original.wait_for_applied(saved, file.name)
         assert b"#0000ff80 50%, #00ff00b0 75%" in saved
         select_outline_row(window, "fill")
@@ -442,7 +403,6 @@ def test_stop_interactions_preserve_color_identity(
 def test_gradient_session_cancel_undo_redo_and_reopen(
     editor_binary, editor_environment, tmp_path
 ):
-    from source_snapshot import SourceSnapshot
     from ui_driver import press_key, press_shortcut
 
     file = gradient_document(tmp_path, "root.paint")
@@ -453,6 +413,7 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
     file.write_text(source)
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         for cancel in [True, False]:
@@ -476,9 +437,7 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
                 original.assert_unchanged()
             else:
                 click_picker_button(window, "Close Custom")
-        saved = wait_until(
-            lambda: file.read_bytes() if file.read_text() != source else None
-        )
+        saved = wait_for_source_change(file, source.encode())
         original.wait_for_applied(saved, file.name)
         assert b"#12345680 50%" in saved
         press_shortcut(window, keys.Control, "z")
@@ -495,23 +454,17 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
 def test_recent_gradient_resets_custom_geometry_initialization(
     editor_binary, editor_environment, tmp_path
 ):
-    from source_snapshot import SourceSnapshot
 
     file = gradient_document(tmp_path, "@radial-gradient(circle, red 0%, blue 100%)")
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
         click_picker_button(window, "Add gradient stop")
         click_picker_button(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                file.read_bytes()
-                if file.read_bytes() != original.sources[Path(file.name)]
-                else None
-            )
-        )
+        saved = wait_for_source_change(file, original.sources[Path(file.name)])
         original.wait_for_applied(saved, file.name)
         select_outline_row(window, "fill")
         open_gradient(window)
@@ -531,7 +484,6 @@ def test_recent_gradient_resets_custom_geometry_initialization(
 
 
 def radial_geometry(window, element_id="Gradient::fill"):
-    from test_linear_gradient_canvas import center, control
 
     rectangle = wait_until(
         lambda: next(iter(window.find_elements_by_id(element_id)), None)
@@ -546,7 +498,6 @@ def radial_geometry(window, element_id="Gradient::fill"):
 
 
 def conic_geometry(window, angle=0, element_id="Gradient::fill"):
-    from test_linear_gradient_canvas import center, control
 
     rectangle = wait_until(
         lambda: next(iter(window.find_elements_by_id(element_id)), None)
@@ -561,7 +512,6 @@ def conic_geometry(window, angle=0, element_id="Gradient::fill"):
 
 
 def set_conic_center(window, x, y, angle=0):
-    from test_linear_gradient_canvas import center, control, gesture, shifted
 
     old_x, old_y, _ = conic_geometry(window, angle)
     c = center(control(window, "Gradient center handle"), angle - 90)
@@ -569,8 +519,6 @@ def set_conic_center(window, x, y, angle=0):
 
 
 def rotate_conic(window, previous, next_angle):
-    from test_conic_gradient_canvas import around
-    from test_linear_gradient_canvas import center, control, gesture
 
     c = center(control(window, "Gradient center handle"), previous - 90)
     r = center(control(window, "Gradient rotation handle"), previous - 90)
@@ -578,7 +526,6 @@ def rotate_conic(window, previous, next_angle):
 
 
 def set_radial_geometry(window, x, y, radius):
-    from test_linear_gradient_canvas import center, control, gesture, shifted
 
     old_x, old_y, _ = radial_geometry(window)
     c = center(control(window, "Gradient center handle"), 35)

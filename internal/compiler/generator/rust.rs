@@ -5414,40 +5414,19 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ArrayAny => {
-            let arr_expression = compile_expression_to_value(&arguments[0], ctx);
-            let Expression::Closure { arg_name, expression } = &arguments[1] else {
-                panic!("internal error: ArrayAny expects a closure as second argument")
-            };
-            let arg_name = ident(arg_name);
-            let closure_expression = compile_expression(expression, ctx);
-            quote!({
-                let arr = #arr_expression;
-                sp::model_any(&arr, |#arg_name| -> bool { #closure_expression })
-            })
+            let model = a.next().unwrap();
+            let predicate = a.next().unwrap();
+            quote!(sp::model_any(&#model, #predicate))
         }
         BuiltinFunction::ArrayAll => {
-            let arr_expression = compile_expression_to_value(&arguments[0], ctx);
-            let Expression::Closure { arg_name, expression } = &arguments[1] else {
-                panic!("internal error: ArrayAll expects a closure as second argument")
-            };
-            let arg_name = ident(arg_name);
-            let closure_expression = compile_expression(expression, ctx);
-            quote!({
-                let arr = #arr_expression;
-                sp::model_all(&arr, |#arg_name| -> bool { #closure_expression })
-            })
+            let model = a.next().unwrap();
+            let predicate = a.next().unwrap();
+            quote!(sp::model_all(&#model, #predicate))
         }
         BuiltinFunction::ArrayFindIndex => {
-            let arr_expression = compile_expression_to_value(&arguments[0], ctx);
-            let Expression::Closure { arg_name, expression } = &arguments[1] else {
-                panic!("internal error: ArrayFindIndex expects a closure as second argument")
-            };
-            let arg_name = ident(arg_name);
-            let closure_expression = compile_expression(expression, ctx);
-            quote!({
-                let arr = #arr_expression;
-                sp::model_find_index(&arr, |#arg_name| -> bool { #closure_expression })
-            })
+            let model = a.next().unwrap();
+            let predicate = a.next().unwrap();
+            quote!(sp::model_find_index(&#model, #predicate))
         }
     }
 }
