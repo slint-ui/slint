@@ -257,7 +257,7 @@ impl SlintAccessibleItemData {
         let p = self.project_ref();
         p.focus_delegation_tracker.evaluate_as_dependency_root(move || {
             if let Some(item_rc) = item.upgrade() {
-                i_slint_core::accessibility::accessible_focus_delegate_position(&item_rc);
+                item_rc.accessible_string_property(AccessibleStringProperty::DelegateFocus);
             }
         });
     }
