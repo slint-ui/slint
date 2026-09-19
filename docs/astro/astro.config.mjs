@@ -317,6 +317,10 @@ export default defineSlintDocsConfig({
                                                   slug: "guide/experimental/shadowable",
                                               },
                                               {
+                                                  label: "Testable Properties",
+                                                  slug: "guide/experimental/testable",
+                                              },
+                                              {
                                                   label: "Custom Mouse Cursor",
                                                   slug: "guide/experimental/custom-mouse-cursor",
                                               },
