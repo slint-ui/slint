@@ -271,6 +271,7 @@ fn analyze_element(
             }
             process_property(&lv.listview_height.clone().into(), P, context, reverse_aliases, diag);
             process_property(&lv.listview_width.clone().into(), P, context, reverse_aliases, diag);
+            process_property(&lv.reverse.clone().into(), P, context, reverse_aliases, diag);
         }
     }
     // `layout_info_h_at_own_height` is deliberately not analyzed here. It exists

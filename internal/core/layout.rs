@@ -1136,6 +1136,8 @@ pub struct BoxLayoutData<'a> {
     pub spacing: Coord,
     pub padding: Padding,
     pub alignment: LayoutAlignment,
+    /// Reverse placement along the main axis without transforming item rendering.
+    pub reverse: bool,
     pub cells: Slice<'a, LayoutItemInfo>,
 }
 
@@ -1317,16 +1319,22 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
         }
     }
 
+    // Preserve declaration/model identity and only reverse the solved main-axis
+    // physical placement. No scale/rotation is involved.
+    let physical_pos = |pos: Coord, size: Coord| {
+        if data.reverse { data.size - pos - size } else { pos }
+    };
+
     let mut generator = LayoutCacheGenerator::new(&repeater_indices, &mut result);
     if order_map.is_empty() {
         for layout in layout_data.iter() {
-            generator.add(layout.pos, layout.size);
+            generator.add(physical_pos(layout.pos, layout.size), layout.size);
         }
     } else {
         let mut geom = alloc::vec![(0 as Coord, 0 as Coord); layout_data.len()];
         for (sorted_idx, &declared_idx) in order_map.iter().enumerate() {
             let layout = &layout_data[sorted_idx];
-            geom[declared_idx] = (layout.pos, layout.size);
+            geom[declared_idx] = (physical_pos(layout.pos, layout.size), layout.size);
         }
         for (pos, size) in geom {
             generator.add(pos, size);

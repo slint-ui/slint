@@ -1550,6 +1550,7 @@ fn lower_box_layout(
         orientation,
         elems: Default::default(),
         geometry: LayoutGeometry::new(layout_element),
+        reverse: binding_reference(layout_element, "reverse"),
         cross_alignment: binding_reference(layout_element, "cross-axis-alignment"),
     };
 

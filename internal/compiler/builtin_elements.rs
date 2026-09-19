@@ -1515,6 +1515,10 @@ fn build(l: &mut Loader) {
         @deprecated in property <length> viewport-height <=> content-height;
         @deprecated in-out property <length> viewport-x <=> content-x;
         @deprecated in-out property <length> viewport-y <=> content-y;
+        /// Internal compiler-generated hint that reversed horizontal content starts at the right.
+        in property <bool> content-x-reversed;
+        /// Internal compiler-generated hint that reversed vertical content starts at the bottom.
+        in property <bool> content-y-reversed;
         /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
         callback flicked;
     } }
@@ -2623,6 +2627,9 @@ fn build(l: &mut Loader) {
             //! ## Spacing Properties
             /// The distance between the elements in the layout.
             in property <length> spacing;
+            /// Reverse child placement along this layout's main axis.
+            /// This changes layout positions only; child rendering is not transformed.
+            in property <bool> reverse: false;
             //! ## Padding Properties
             //! ### padding
             //! <SlintProperty propName="padding" typeName="length">
@@ -2712,6 +2719,9 @@ fn build(l: &mut Loader) {
             //! ## Spacing Properties
             /// The distance between the elements in the layout.
             in property <length> spacing;
+            /// Reverse child placement along this layout's main axis.
+            /// This changes layout positions only; child rendering is not transformed.
+            in property <bool> reverse: false;
             //! ## Padding Properties
             //!
             //! ### padding

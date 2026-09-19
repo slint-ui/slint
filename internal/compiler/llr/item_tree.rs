@@ -391,6 +391,7 @@ pub struct Function {
 /// repeated's component context
 pub struct ListViewInfo {
     pub content_y: MemberReference,
+    pub reverse: MemberReference,
     /// `None` when the user explicitly sets `content-height` on the ListView;
     /// `Some` when the ListView computes it from the content.
     pub content_height: Option<MemberReference>,
