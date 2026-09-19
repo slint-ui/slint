@@ -4,6 +4,9 @@
 import { ListItem, ScrollView } from "std-widgets-impl.slint";
 
 export component ListView inherits ScrollView {
+    /// Lay out repeated rows in reverse model order while keeping model indices unchanged.
+    in property <bool> reverse: false;
+
     @children
     accessible-role: list;
     accessible-orientation: Orientation.vertical;

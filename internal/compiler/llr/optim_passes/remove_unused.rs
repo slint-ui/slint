@@ -383,6 +383,7 @@ mod visitor {
                 }
                 visit_member_reference(&mut listview.listview_width, &scope, state, visitor);
                 visit_member_reference(&mut listview.listview_height, &scope, state, visitor);
+                visit_member_reference(&mut listview.reverse, &scope, state, visitor);
 
                 visit_member_reference(&mut listview.prop_y, &inner_scope, state, visitor);
                 visit_member_reference(&mut listview.prop_height, &inner_scope, state, visitor);

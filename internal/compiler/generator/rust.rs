@@ -1455,6 +1455,7 @@ fn generate_sub_component(
                 let content_y = access_member(&listview.content_y, &ctx).unwrap();
                 let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
                 let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
+                let reverse = access_member(&listview.reverse, &ctx).unwrap();
                 let content_w = listview.content_width.as_ref().map_or_else(
                     || quote!(None),
                     |w| {
@@ -1473,7 +1474,7 @@ fn generate_sub_component(
                 repeated_visit_branch.push(quote!(
                     #idx => {
                         #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_changes_listview(
-                            #content_w, #content_h, #content_y, #lv_w.get(), #lv_h
+                            #content_w, #content_h, #content_y, #lv_w.get(), #lv_h, #reverse.get()
                         );
                         #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
                     }
@@ -1481,7 +1482,7 @@ fn generate_sub_component(
                 ensure_instantiated_stmts.push(quote!({
                     _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
                         || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
-                        #content_w, #content_h, #content_y, #lv_w.get(), #lv_h
+                        #content_w, #content_h, #content_y, #lv_w.get(), #lv_h, #reverse.get()
                     );
                 }));
             } else {
