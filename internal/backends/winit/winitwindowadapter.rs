@@ -1271,6 +1271,12 @@ impl WinitWindowAdapter {
             }
         }
 
+        // A hook that ran before may have hidden the window, and then the event is about a
+        // window this adapter let go of.
+        if self.winit_window().is_none() {
+            return Ok(());
+        }
+
         #[cfg(enable_accesskit)]
         self.accesskit_adapter()
             .expect("internal error: accesskit adapter must exist when window exists")
