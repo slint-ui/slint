@@ -141,9 +141,11 @@ module.exports = grammar({
 
     shadowable: (_) => "@shadowable",
 
-    // `@deprecated` / `@shadowable` prefixing a member declaration, in any order
+    testable: (_) => "@testable",
+
+    // `@deprecated` / `@shadowable` / `@testable` prefixing a member declaration, in any order
     _member_attributes: ($) =>
-      repeat1(choice($.property_deprecation, $.shadowable)),
+      repeat1(choice($.property_deprecation, $.shadowable, $.testable)),
 
     property: ($) =>
       seq(
