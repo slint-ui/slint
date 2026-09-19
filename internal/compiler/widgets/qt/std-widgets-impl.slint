@@ -11,6 +11,7 @@ export { LineEdit } from "lineedit.slint";
 export component ListItem inherits NativeStandardListViewItem {
     accessible-role: list-item;
     accessible-label: root.item.text;
+    accessible-item-index: root.index;
 }
 
 export { TabWidgetImpl, TabImpl, TabBarHorizontalImpl, TabBarVerticalImpl } from "tabwidget.slint";
