@@ -152,9 +152,7 @@ fn process_case(
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
     let ignored = if testcase.is_ignored("rust") {
         "#[ignore = \"testcase ignored for rust\"]"
-    } else if (cfg!(not(feature = "build-time")) || live_preview)
-        && source.contains("//bundle-translations")
-    {
+    } else if cfg!(not(feature = "build-time")) && source.contains("//bundle-translations") {
         "#[ignore = \"translation bundle not working with the macro\"]"
     } else if live_preview && testcase.is_ignored("js") {
         "#[ignore = \"Ignored JS testcases ignored in live-preview mode\"]"
