@@ -80,6 +80,7 @@ pub(crate) fn dnd_action_to_slint(
         Some(DndAction::Copy) => DragAction::Copy,
         Some(DndAction::Link) => DragAction::Link,
         Some(DndAction::Ask) | Some(DndAction::Private) | None => DragAction::None,
+        Some(_) => DragAction::None,
     }
 }
 
