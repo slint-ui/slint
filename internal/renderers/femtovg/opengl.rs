@@ -1,7 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{cell::RefCell, num::NonZeroU32, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    num::NonZeroU32,
+    rc::Rc,
+};
 
 use i_slint_core::api::PlatformError;
 
@@ -99,8 +103,39 @@ impl Drop for SnapshotTargetGuard<'_> {
     }
 }
 
+/// A query the driver rejects reads back as zero, which stands for "no limit" here.
+fn to_max_texture_size(queried: i32) -> u32 {
+    u32::try_from(queried).ok().filter(|size| *size > 0).unwrap_or(u32::MAX)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn query_max_texture_size(opengl_context: &dyn OpenGLInterface) -> u32 {
+    let gl = unsafe {
+        glow::Context::from_loader_function_cstr(|name| opengl_context.get_proc_address(name))
+    };
+    to_max_texture_size(unsafe { glow::HasContext::get_parameter_i32(&gl, glow::MAX_TEXTURE_SIZE) })
+}
+
+#[cfg(target_arch = "wasm32")]
+fn query_max_texture_size(html_canvas: &web_sys::HtmlCanvasElement) -> u32 {
+    use wasm_bindgen::JsCast;
+    to_max_texture_size(
+        html_canvas
+            .get_context("webgl2")
+            .ok()
+            .flatten()
+            .and_then(|context| context.dyn_into::<web_sys::WebGl2RenderingContext>().ok())
+            .and_then(|context| {
+                context.get_parameter(web_sys::WebGl2RenderingContext::MAX_TEXTURE_SIZE).ok()
+            })
+            .and_then(|value| value.as_f64())
+            .unwrap_or_default() as i32,
+    )
+}
+
 pub struct OpenGLBackend {
     opengl_context: RefCell<Box<dyn OpenGLInterface>>,
+    max_texture_size: Cell<u32>,
     snapshot_target: RefCell<Option<femtovg::ImageId>>,
     #[cfg(target_family = "wasm")]
     html_canvas: RefCell<Option<web_sys::HtmlCanvasElement>>,
@@ -153,6 +188,13 @@ impl OpenGLBackend {
             crate::font_cache::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
         )
         .unwrap();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        self.max_texture_size.set(query_max_texture_size(opengl_context.as_ref()));
+        // Asking the canvas for its context any earlier would fix the attributes for the
+        // lifetime of the canvas, and femtovg needs a stencil buffer.
+        #[cfg(target_arch = "wasm32")]
+        self.max_texture_size.set(query_max_texture_size(&html_canvas));
 
         *self.opengl_context.borrow_mut() = opengl_context;
         #[cfg(target_family = "wasm")]
@@ -241,6 +283,7 @@ impl GraphicsBackend for OpenGLBackend {
     fn new_suspended() -> Self {
         Self {
             opengl_context: RefCell::new(Box::new(SuspendedRenderer {})),
+            max_texture_size: Cell::new(u32::MAX),
             snapshot_target: RefCell::new(None),
             #[cfg(target_family = "wasm")]
             html_canvas: RefCell::new(None),
@@ -249,6 +292,11 @@ impl GraphicsBackend for OpenGLBackend {
 
     fn clear_graphics_context(&self) {
         *self.opengl_context.borrow_mut() = Box::new(SuspendedRenderer {});
+        self.max_texture_size.set(u32::MAX);
+    }
+
+    fn max_texture_size(&self) -> u32 {
+        self.max_texture_size.get()
     }
 
     /// Ensures that the OpenGL context is current when returning from this function.

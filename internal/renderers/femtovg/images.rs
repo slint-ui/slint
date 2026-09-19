@@ -7,7 +7,7 @@ use std::rc::Rc;
 #[cfg(not(target_arch = "wasm32"))]
 use i_slint_core::graphics::BorrowedOpenGLTexture;
 use i_slint_core::graphics::euclid;
-use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer};
+use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::items::ImageTiling;
 use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::{ImageInner, items::ImageRendering};
@@ -134,6 +134,7 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
         target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
         scaling: ImageRendering,
         tiling: (ImageTiling, ImageTiling),
+        max_texture_size: u32,
     ) -> Option<Rc<Self>> {
         let image_flags = base_image_flags(scaling, tiling);
 
@@ -209,9 +210,15 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     .unwrap()
             }
             _ => {
-                let buffer = image.render_to_buffer(target_size_for_scalable_source)?;
+                // Ask a scalable source to rasterize no larger than the GPU can hold.
+                let target_size_for_scalable_source = target_size_for_scalable_source
+                    .map(|size| fit_size_to_max_texture_size(size, max_texture_size));
+                let buffer = fit_to_max_texture_size(
+                    image.render_to_buffer(target_size_for_scalable_source)?,
+                    max_texture_size,
+                );
                 let (image_source, flags) = image_buffer_to_image_source(&buffer);
-                canvas.borrow_mut().create_image(image_source, image_flags | flags).unwrap()
+                canvas.borrow_mut().create_image(image_source, image_flags | flags).ok()?
             }
         };
 
@@ -251,13 +258,16 @@ impl TextureCacheKey {
 
 // Cache used to avoid repeatedly decoding images from disk. Entries with a count
 // of 1 are drained after flushing the renderer commands to the screen.
-pub struct TextureCache<R: femtovg::Renderer + TextureImporter>(
-    HashMap<TextureCacheKey, Rc<Texture<R>>>,
-);
+pub struct TextureCache<R: femtovg::Renderer + TextureImporter> {
+    textures: HashMap<TextureCacheKey, Rc<Texture<R>>>,
+    /// Every texture in here was uploaded against this limit: it only changes along with the
+    /// graphics context, which clears the cache. See [`crate::GraphicsBackend::max_texture_size`].
+    pub(crate) max_texture_size: u32,
+}
 
 impl<R: femtovg::Renderer + TextureImporter> Default for TextureCache<R> {
     fn default() -> Self {
-        Self(Default::default())
+        Self { textures: Default::default(), max_texture_size: u32::MAX }
     }
 }
 
@@ -269,7 +279,7 @@ impl<R: femtovg::Renderer + TextureImporter> TextureCache<R> {
         cache_key: TextureCacheKey,
         image_create_fn: impl Fn() -> Option<Rc<Texture<R>>>,
     ) -> Option<Rc<Texture<R>>> {
-        Some(match self.0.entry(cache_key) {
+        Some(match self.textures.entry(cache_key) {
             std::collections::hash_map::Entry::Occupied(existing_entry) => {
                 existing_entry.get().clone()
             }
@@ -282,7 +292,7 @@ impl<R: femtovg::Renderer + TextureImporter> TextureCache<R> {
     }
 
     pub(crate) fn drain(&mut self) {
-        self.0.retain(|_, cached_image| {
+        self.textures.retain(|_, cached_image| {
             // * Retain images that are used by elements, so that they can be effectively
             // shared (one image element refers to foo.png, another element is created
             // and refers to the same -> share).
@@ -296,7 +306,7 @@ impl<R: femtovg::Renderer + TextureImporter> TextureCache<R> {
     }
 
     pub(crate) fn clear(&mut self) {
-        self.0.clear();
+        self.textures.clear();
     }
 }
 
@@ -342,4 +352,132 @@ pub fn base_image_flags(
         ImageTiling::Repeat | ImageTiling::Round => femtovg::ImageFlags::REPEAT_Y,
         ImageTiling::None | _ => femtovg::ImageFlags::empty(),
     })
+}
+
+fn fit_size_to_max_texture_size<U>(
+    size: euclid::Size2D<u32, U>,
+    max_texture_size: u32,
+) -> euclid::Size2D<u32, U> {
+    let longest_side = size.width.max(size.height);
+    if longest_side <= max_texture_size {
+        return size;
+    }
+    (size.to_f64() * (max_texture_size as f64 / longest_side as f64))
+        .to_u32()
+        .max(euclid::size2(1, 1))
+}
+
+/// A texture bigger than the graphics API's limit fails to allocate, and sampling the incomplete
+/// texture that's left over returns opaque black (#11785).
+fn fit_to_max_texture_size(buffer: SharedImageBuffer, max_texture_size: u32) -> SharedImageBuffer {
+    let size = fit_size_to_max_texture_size(buffer.size(), max_texture_size);
+    if size == buffer.size() {
+        return buffer;
+    }
+
+    // An image whose source changes every frame is uploaded again on every frame.
+    static REPORTED: std::sync::Once = std::sync::Once::new();
+    REPORTED.call_once(|| {
+        i_slint_core::debug_log!(
+            "Slint: image of {}x{} pixels exceeds the maximum texture size of {max_texture_size}, scaling it down to {}x{}",
+            buffer.width(),
+            buffer.height(),
+            size.width,
+            size.height
+        );
+    });
+
+    match buffer {
+        SharedImageBuffer::RGB8(buffer) => {
+            SharedImageBuffer::RGB8(downscale::<image::Rgb<u8>, _>(&buffer, size))
+        }
+        // Averaging straight alpha lets the color of a transparent pixel bleed into its
+        // neighbors, so scale the premultiplied form and hand that back.
+        SharedImageBuffer::RGBA8(buffer) => {
+            let premultiplied = i_slint_core::graphics::Image::from_rgba8(buffer)
+                .to_rgba8_premultiplied()
+                .expect("internal error: an image built from a pixel buffer has pixels");
+            SharedImageBuffer::RGBA8Premultiplied(downscale::<image::Rgba<u8>, _>(
+                &premultiplied,
+                size,
+            ))
+        }
+        SharedImageBuffer::RGBA8Premultiplied(buffer) => {
+            SharedImageBuffer::RGBA8Premultiplied(downscale::<image::Rgba<u8>, _>(&buffer, size))
+        }
+    }
+}
+
+fn downscale<P, Pixel>(source: &SharedPixelBuffer<Pixel>, size: IntSize) -> SharedPixelBuffer<Pixel>
+where
+    P: image::Pixel<Subpixel = u8> + 'static,
+    Pixel: Clone + rgb::Pod,
+    [Pixel]: rgb::ComponentBytes<u8>,
+    [u8]: rgb::AsPixels<Pixel>,
+{
+    let view =
+        image::ImageBuffer::<P, _>::from_raw(source.width(), source.height(), source.as_bytes())
+            .expect("internal error: pixel buffer does not match its own dimensions");
+    let scaled = image::imageops::thumbnail(&view, size.width, size.height);
+    SharedPixelBuffer::clone_from_slice(scaled.as_raw(), size.width, size.height)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use i_slint_core::graphics::{Rgb8Pixel, Rgba8Pixel};
+
+    #[test]
+    fn fits_within_the_limit_untouched() {
+        let buffer = SharedImageBuffer::RGB8(SharedPixelBuffer::new(8, 4));
+        assert_eq!(fit_to_max_texture_size(buffer, 8).size(), IntSize::new(8, 4));
+    }
+
+    #[test]
+    fn keeps_the_aspect_ratio_when_fitting_a_size() {
+        let fit = |width, height| {
+            fit_size_to_max_texture_size(euclid::Size2D::<u32, ()>::new(width, height), 100)
+        };
+        assert_eq!(fit(80, 40), euclid::size2(80, 40));
+        assert_eq!(fit(400, 200), euclid::size2(100, 50));
+        // A side that rounds down to nothing still has to be uploadable.
+        assert_eq!(fit(100000, 1), euclid::size2(100, 1));
+    }
+
+    #[test]
+    fn averages_the_colors_it_merges() {
+        let mut source = SharedPixelBuffer::<Rgb8Pixel>::new(4, 2);
+        // Left half is black and white, right half is a uniform gray.
+        for (i, pixel) in source.make_mut_slice().iter_mut().enumerate() {
+            let value = match i % 4 {
+                0 => 0,
+                1 => 100,
+                _ => 60,
+            };
+            *pixel = Rgb8Pixel { r: value, g: value, b: value };
+        }
+
+        let scaled = fit_to_max_texture_size(SharedImageBuffer::RGB8(source), 2);
+        assert_eq!(scaled.size(), IntSize::new(2, 1));
+        let SharedImageBuffer::RGB8(scaled) = scaled else { panic!("format changed") };
+        assert_eq!(scaled.as_slice()[0].r, 50);
+        assert_eq!(scaled.as_slice()[1].r, 60);
+    }
+
+    #[test]
+    fn ignores_the_color_of_fully_transparent_pixels() {
+        let mut source = SharedPixelBuffer::<Rgba8Pixel>::new(2, 1);
+        source.make_mut_slice().copy_from_slice(&[
+            Rgba8Pixel { r: 200, g: 200, b: 200, a: 255 },
+            Rgba8Pixel { r: 10, g: 10, b: 10, a: 0 },
+        ]);
+
+        let scaled = fit_to_max_texture_size(SharedImageBuffer::RGBA8(source), 1);
+        let SharedImageBuffer::RGBA8Premultiplied(scaled) = scaled else {
+            panic!("scaling straight alpha has to produce premultiplied pixels")
+        };
+        // Half of the opaque white pixel, and none of the transparent one.
+        let pixel = scaled.as_slice()[0];
+        assert_eq!((pixel.r, pixel.a), (100, 128));
+    }
 }

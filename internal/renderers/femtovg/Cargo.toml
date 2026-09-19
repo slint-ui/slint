@@ -36,6 +36,7 @@ lyon_path = { workspace = true }
 pin-weak = "1"
 femtovg = { version = "0.27", default-features = false, features = ["swash"] }
 imgref = { version = "1.6.1" }
+image = { workspace = true, default-features = false }
 rgb = { version = "0.8.27" }
 
 glow = { workspace = true }
@@ -43,7 +44,7 @@ glow = { workspace = true }
 wgpu-30 = { workspace = true, optional = true, default-features = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
+web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "WebGl2RenderingContext", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
 wasm-bindgen = { version = "0.2" }
 # Enable wgpu-core's WebGL2 backend so the wgpu init helper can fall back to
 # it transparently when no BROWSER_WEBGPU adapter is available (e.g. in

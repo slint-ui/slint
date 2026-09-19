@@ -717,6 +717,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let image_inner: &ImageInner = (&image).into();
 
         let target_size_for_scalable_source = image_inner.is_svg().then(|| target_size.cast());
+        let max_texture_size = self.texture_cache.borrow().max_texture_size;
 
         let Some(cached_image) = TextureCacheKey::new(
             image_inner,
@@ -732,6 +733,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                     target_size_for_scalable_source,
                     Default::default(),
                     Default::default(),
+                    max_texture_size,
                 )
             })
         })
@@ -742,6 +744,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 target_size_for_scalable_source,
                 Default::default(),
                 Default::default(),
+                max_texture_size,
             )
         }) else {
             return;
@@ -1228,6 +1231,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             return;
         }
 
+        let max_texture_size = self.texture_cache.borrow().max_texture_size;
+
         let cached_image = loop {
             let image_cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
                 let image = item.source();
@@ -1264,6 +1269,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                                 target_size_for_scalable_source,
                                 image_rendering,
                                 tiling,
+                                max_texture_size,
                             )
                         },
                     )
@@ -1275,6 +1281,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                         target_size_for_scalable_source,
                         image_rendering,
                         tiling,
+                        max_texture_size,
                     )
                 })
                 .map(ItemGraphicsCacheEntry::Texture)
