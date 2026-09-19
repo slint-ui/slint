@@ -1,10 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorTokens } from "tokens.slint";
+import { Style, Colors, Typography, Metrics, EffectSliderStyle } from "../../style.slint";
+
 import { InspectorValueField } from "value-field.slint";
 
 export component InspectorEffectSlider inherits Rectangle {
+    in property <EffectSliderStyle> style: Style.effect-slider;
     in property <string> accessible-name: "";
     in property <string> label;
     in property <float> value;
@@ -17,8 +19,8 @@ export component InspectorEffectSlider inherits Rectangle {
     property <bool> dragging: false;
     property <float> drag-value: 0;
 
-    width: InspectorTokens.wide-width;
-    height: 34px;
+    width: Style.inspector-layout.content-width;
+    height: root.style.height;
     accessible-role: AccessibleRole.slider;
     accessible-label: root.accessible-name;
     accessible-value: "\{root.visual-value()}";
@@ -54,23 +56,23 @@ export component InspectorEffectSlider inherits Rectangle {
     Text {
         x: 0px;
         y: 0px;
-        width: 48px;
-        height: InspectorTokens.field-height;
+        width: root.style.label-width;
+        height: root.style.control-height;
         text: root.label;
-        color: InspectorTokens.text;
-        font-size: 11px;
+        color: root.style.foreground;
+        font-size: Typography.caption.size;
         font-weight: FontWeight.semi-bold;
         vertical-alignment: center;
         overflow: elide;
     }
 
     track := Rectangle {
-        x: 54px;
-        y: 11px;
-        width: 62px;
-        height: 3px;
-        border-radius: 1.5px;
-        background: InspectorTokens.field-bg;
+        x: root.style.label-width + Metrics.space-compact;
+        y: (root.style.control-height - self.height) / 2;
+        width: root.style.track-width;
+        height: root.style.track-height;
+        border-radius: self.height / 2;
+        background: root.style.track;
     }
 
     Rectangle {
@@ -79,28 +81,28 @@ export component InspectorEffectSlider inherits Rectangle {
         width: max(0px, track.width * root.progress());
         height: track.height;
         border-radius: track.border-radius;
-        background: InspectorTokens.accent;
+        background: root.style.fill;
     }
 
     Rectangle {
-        x: track.x + track.width * root.progress() - 5px;
-        y: track.y - 4px;
-        width: 11px;
-        height: 11px;
-        border-radius: 5.5px;
-        border-width: 1px;
-        border-color: InspectorTokens.panel-bg;
-        background: slider-touch.pressed ? InspectorTokens.accent.with-alpha(0.88) : InspectorTokens.accent;
-        drop-shadow-blur: 6px;
-        drop-shadow-offset-y: 2px;
-        drop-shadow-color: #00000028;
+        x: track.x + track.width * root.progress() - self.width / 2;
+        y: track.y + (track.height - self.height) / 2;
+        width: root.style.thumb-size;
+        height: self.width;
+        border-radius: self.width / 2;
+        border-width: Metrics.border-width;
+        border-color: root.style.border;
+        background: slider-touch.pressed ? root.style.pressed-thumb : root.style.thumb;
+        drop-shadow-blur: root.style.shadow.blur;
+        drop-shadow-offset-y: root.style.shadow.offset-y;
+        drop-shadow-color: root.style.shadow.color;
     }
 
     slider-touch := TouchArea {
-        x: track.x - 8px;
+        x: track.x - Metrics.space-regular;
         y: 0px;
-        width: track.width + 16px;
-        height: InspectorTokens.field-height;
+        width: track.width + 2 * Metrics.space-regular;
+        height: root.style.control-height;
         mouse-cursor: pointer;
 
         pointer-event(event) => {
@@ -124,12 +126,12 @@ export component InspectorEffectSlider inherits Rectangle {
     }
 
     InspectorValueField {
-        x: parent.width - self.width - (root.suffix != "" ? 14px : 0px);
+        x: parent.width - self.width - (root.suffix != "" ? root.style.suffix-width + Metrics.space-tight : 0px);
         accessible-name: root.accessible-name + " value";
         prefix: "";
         value: "\{root.visual-value().round()}";
         commit-key: root.commit-key;
-        width: root.suffix != "" ? 44px : 52px;
+        width: root.suffix != "" ? root.style.value-width : root.style.plain-value-width;
         accepted(text) => {
             if !text.is-float() {
                 return false;
@@ -139,13 +141,13 @@ export component InspectorEffectSlider inherits Rectangle {
     }
 
     Text {
-        x: parent.width - 12px;
+        x: parent.width - self.width;
         y: 0px;
-        width: 12px;
-        height: InspectorTokens.field-height;
+        width: root.style.suffix-width;
+        height: root.style.control-height;
         text: root.suffix;
-        color: InspectorTokens.muted;
-        font-size: 9px;
+        color: Colors.muted;
+        font-size: root.style.suffix-text.size;
         vertical-alignment: center;
         horizontal-alignment: right;
     }

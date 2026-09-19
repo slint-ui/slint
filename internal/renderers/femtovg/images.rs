@@ -7,7 +7,7 @@ use std::rc::Rc;
 #[cfg(not(target_arch = "wasm32"))]
 use i_slint_core::graphics::BorrowedOpenGLTexture;
 use i_slint_core::graphics::euclid;
-use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer};
+use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::items::ImageTiling;
 use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::{ImageInner, items::ImageRendering};
@@ -303,28 +303,26 @@ impl<R: femtovg::Renderer + TextureImporter> TextureCache<R> {
 fn image_buffer_to_image_source(
     buffer: &SharedImageBuffer,
 ) -> (femtovg::ImageSource<'_>, femtovg::ImageFlags) {
+    fn image_source<Pixel: Clone>(buffer: &SharedPixelBuffer<Pixel>) -> imgref::ImgRef<'_, Pixel> {
+        let pixels = buffer.as_slice();
+        let read = buffer.width() as u64 * buffer.height() as u64;
+        // `femtovg::Canvas::create_image` is unsound: it is safe to call, yet it hands the driver
+        // the buffer's pointer along with the pixel count from `ImageSource::dimensions()`, so an
+        // `ImgRef` that overstates its buffer reads out of bounds.
+        assert!(pixels.len() as u64 >= read);
+        imgref::ImgRef::new(&pixels[..read as usize], buffer.width() as _, buffer.height() as _)
+    }
+
     match buffer {
-        SharedImageBuffer::RGB8(buffer) => (
-            {
-                imgref::ImgRef::new(buffer.as_slice(), buffer.width() as _, buffer.height() as _)
-                    .into()
-            },
-            femtovg::ImageFlags::empty(),
-        ),
-        SharedImageBuffer::RGBA8(buffer) => (
-            {
-                imgref::ImgRef::new(buffer.as_slice(), buffer.width() as _, buffer.height() as _)
-                    .into()
-            },
-            femtovg::ImageFlags::empty(),
-        ),
-        SharedImageBuffer::RGBA8Premultiplied(buffer) => (
-            {
-                imgref::ImgRef::new(buffer.as_slice(), buffer.width() as _, buffer.height() as _)
-                    .into()
-            },
-            femtovg::ImageFlags::PREMULTIPLIED,
-        ),
+        SharedImageBuffer::RGB8(buffer) => {
+            (image_source(buffer).into(), femtovg::ImageFlags::empty())
+        }
+        SharedImageBuffer::RGBA8(buffer) => {
+            (image_source(buffer).into(), femtovg::ImageFlags::empty())
+        }
+        SharedImageBuffer::RGBA8Premultiplied(buffer) => {
+            (image_source(buffer).into(), femtovg::ImageFlags::PREMULTIPLIED)
+        }
     }
 }
 

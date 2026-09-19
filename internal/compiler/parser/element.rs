@@ -125,7 +125,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 _ if p.peek().as_str() == "if" => {
                     parse_if_element(&mut *p);
                 }
-                SyntaxKind::Identifier | SyntaxKind::LParent if p.peek().as_str() == "match" => {
+                _ if p.peek().as_str() == "match" => {
                     let mut i = 2;
                     loop {
                         match p.nth(i).kind() {
@@ -362,6 +362,8 @@ fn parse_if_element(p: &mut impl Parser) {
 /// match (foo) { one_case: Elem { } }
 /// match foo { one_case: Elem { } another_case: Elem { } }
 /// match (foo) { one_case: Elem { } another_case: Elem { } *: Elem { } }
+/// match 1 { 1: Elem { } *: Elem { } }
+/// match -1 { -1: Elem { } *: Elem { } }
 /// ```
 fn parse_match_element(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "match");

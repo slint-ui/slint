@@ -3,15 +3,19 @@
 
 import pytest
 import slint_testing
-from slint_testing import keys
-from source_snapshot import SourceSnapshot
-from test_gradient_geometry import (
-    click_picker_button,
+from editor_sync import wait_for_source
+from gradient_interactions import (
+    center,
+    control,
+    gesture,
     gradient_document,
     open_gradient,
     picker_field,
+    shifted,
 )
-from test_linear_gradient_canvas import center, control, gesture, shifted
+from gradient_interactions import click as click_picker_button
+from slint_testing import keys
+from source_snapshot import SourceSnapshot
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -32,6 +36,7 @@ def test_fixed_picker_controls_keep_their_width(
     file = gradient_document(tmp_path, f"@{kind}-gradient({prefix}, {stops})")
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
@@ -61,6 +66,7 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
     file = gradient_document(tmp_path, f"@{kind}-gradient({prefix}, {stops})")
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)

@@ -300,8 +300,7 @@ impl GraphicsBackend for OpenGLBackend {
     ) -> Result<R, i_slint_core::platform::PlatformError> {
         use i_slint_core::api::GraphicsAPI;
 
-        let id =
-            self.html_canvas.borrow().as_ref().map_or_else(|| String::new(), |canvas| canvas.id());
+        let id = self.html_canvas.borrow().as_ref().map_or_else(String::new, |canvas| canvas.id());
 
         let api = GraphicsAPI::WebGL { canvas_element_id: &id, context_type: "webgl2" };
         Ok(callback(Some(api)))

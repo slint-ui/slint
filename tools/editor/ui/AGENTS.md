@@ -2,6 +2,9 @@
 
 ## Runtime
 
+For automated tests, follow [Test Best Practices](../TESTING.md); local runs default to headless Skia.
+The following instructions apply to manual, visible-window verification.
+
 Use the real `slint-editor` with winit and Skia to exercise the embedded editor/LSP plumbing.
 Do not substitute `slint-viewer`, a headless run, or the software renderer.
 From the repository root:

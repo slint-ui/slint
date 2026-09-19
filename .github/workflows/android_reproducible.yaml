@@ -66,17 +66,22 @@ jobs:
                   git -C $home_vagrant/gradlew-fdroid pull
                   mkdir -p $home_vagrant/{logs,tmp,unsigned,build,metadata,.android,.gradle}
                   git config --global --add safe.directory '*'
+                  # The recipe names the last release; this checkout may be a later
+                  # version, whose codes gradle derives the same way.
+                  version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml)
+                  code=$(echo $version | awk -F. '{print $1 * 10000 + $2 * 100 + $3}')
                   sed -e "s|^    commit: .*|    commit: $(git rev-parse HEAD)|" -e '/^    binary: /d' \
+                      -e "s|^  - versionName: .*|  - versionName: $version|" \
+                      -e "s|^    versionCode: \([0-9]*\)\([0-9]\)|    versionCode: $code\2|" \
                       tools/viewer/android/fdroid/dev.slint.viewer.yml > $home_vagrant/metadata/dev.slint.viewer.yml
                   git clone . $home_vagrant/build/dev.slint.viewer
                   git -C $home_vagrant/build/dev.slint.viewer remote set-url origin https://github.com/slint-ui/slint.git
                   chown -R vagrant $home_vagrant/{logs,tmp,unsigned,build,metadata,.android,.gradle}
-                  code=$(sed -n 's/^    versionCode: //p' tools/viewer/android/fdroid/dev.slint.viewer.yml | tail -1)
                   cd $home_vagrant
                   sudo --preserve-env --user vagrant \
                       env PATH=$fdroidserver:$PATH PYTHONPATH=$fdroidserver:$fdroidserver/examples \
                       PYTHONUNBUFFERED=true HOME=$home_vagrant GRADLE_USER_HOME=$home_vagrant/.gradle \
-                      fdroid build --verbose --test --on-server --no-tarball dev.slint.viewer:$code
+                      fdroid build --verbose --test --on-server --no-tarball dev.slint.viewer:${code}3
             - uses: actions/upload-artifact@v7
               with:
                   name: apk-fdroid

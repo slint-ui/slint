@@ -59,8 +59,9 @@ component CalendarDelegate {
     accessible-role: button;
     accessible-checkable: true;
     accessible-checked: root.selected;
+    accessible-enabled: root.enabled;
     accessible-label: root.text;
-    accessible-action-default => { touch-area.clicked(); }
+    accessible-action-default => { if (root.enabled) { touch-area.clicked(); } }
 
     touch-area := TouchArea {
         enabled: root.enabled;

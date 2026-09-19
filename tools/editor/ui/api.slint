@@ -1,6 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+export struct CodeBinding {
+    name: string,
+    value: string,
+}
+
 export enum CanvasCorner {
     top-left,
     top-right,
@@ -142,6 +147,7 @@ export struct HoveredElement {
     is-selected: bool,
     is-over-selected-element: bool,
     element-path: string,
+    source-uri: string,
     element-offset: int,
     type-name: string,
     geometry: [SelectionRectangle],
@@ -149,6 +155,12 @@ export struct HoveredElement {
 
 export global Hover {
     in-out property <HoveredElement> element;
+    in property <int> preview-generation;
+    in-out property <string> tree-source-uri;
+    in-out property <int> tree-offset: -1;
+    in-out property <string> tree-type-name;
+    out property <[SelectionRectangle]> geometry: tree-source-uri != ""
+        ? Api.highlight-positions(tree-source-uri, tree-offset) : element.geometry;
     pure callback element-at(x: length, y: length, enter-component: bool) -> HoveredElement;
 }
 
@@ -745,6 +757,7 @@ export global Api {
     // ## Property Editor
     pure callback test-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
     pure callback set-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
+    pure callback set-code-bindings(element-url: string, element-version: int, element-offset: int, bindings: [CodeBinding]) -> bool;
     pure callback set-color-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: color);
     callback set-element-id(element-url: string, element-version: int, element-offset: int, new-id: string);
 

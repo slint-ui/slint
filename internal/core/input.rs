@@ -1495,8 +1495,7 @@ fn offer_native_drag(
     state: &mut MouseInputState,
 ) {
     let data = drag_area.data();
-    // A native drag only carries serializable data, so offer it only when there's some.
-    if data.has_plain_text() || data.has_image() {
+    if data.has_native_data() {
         let request = crate::window::DragRequest {
             data: data.clone(),
             allowed: drag_area.allowed_actions(),

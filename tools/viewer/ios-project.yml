@@ -28,6 +28,7 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
+        CADisableMinimumFrameDurationOnPhone: true
         # Must be a dictionary (an empty one yields the default launch screen);
         # iPad multitasking requires a valid UILaunchScreen.
         UILaunchScreen: {}

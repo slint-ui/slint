@@ -881,8 +881,9 @@ impl CompilationUnit {
                 visitor(&t.triggered, ctx);
             }
             if let EvaluationScope::SubComponent(idx, _) = ctx.current_scope {
-                // A parent-less context, matching how `count_property_use` counts
-                // function bodies, so both passes rewrite the same references.
+                // A parent-less context, so the inliner only rewrites the
+                // `parent_level == 0` references of a body. It may then leave a use
+                // count higher than needed, which only keeps a property alive.
                 let fn_ctx = EvaluationContext::new_sub_component(self, idx, (), None);
                 visit_function_bodies(&sc.functions, &fn_ctx, visitor);
             }

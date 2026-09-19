@@ -7,7 +7,7 @@
 
 use crate::llr::{
     Animation, BindingExpression, CompilationUnit, EvaluationContext, Expression,
-    LocalMemberReference, MemberReference, ParentScope,
+    LocalMemberReference, MemberReference, ParentScope, PopupMenu,
 };
 
 pub fn count_property_use(root: &CompilationUnit) {
@@ -176,11 +176,12 @@ pub fn count_property_use(root: &CompilationUnit) {
         }
     }
 
-    if let Some(p) = &root.popup_menu {
-        let ctx = EvaluationContext::new_sub_component(root, p.item_tree.root, (), None);
-        visit_property(&p.entries, &ctx);
-        visit_property(&p.sub_menu, &ctx);
-        visit_property(&p.activated, &ctx);
+    if let Some(PopupMenu { item_tree, entries, sub_menu, activated, close }) = &root.popup_menu {
+        let ctx = EvaluationContext::new_sub_component(root, item_tree.root, (), None);
+        visit_property(entries, &ctx);
+        visit_property(sub_menu, &ctx);
+        visit_property(activated, &ctx);
+        visit_property(close, &ctx);
     }
 
     // The z-order expressions are evaluated on every children visit
