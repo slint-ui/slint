@@ -54,11 +54,7 @@ i-slint-backend-winit = { version = "=1.18.1", path = "../internal/backends/wini
 i-slint-compiler = { version = "=1.18.1", path = "../internal/compiler", default-features = false }
 i-slint-core = { version = "=1.18.1", path = "../internal/core", default-features = false }
 i-slint-renderer-anyrender = { version = "=1.18.1", path = "../internal/renderers/anyrender", default-features = false }
-# Keep the default `softbuffer` backend enabled: in the monolithic workspace
-# `--all-features` enabled a skia backend (skia was a member), but here skia is
-# only a dependency, so without a backend `skia_windowed` is unset and the
-# renderer fails to compile.
-i-slint-renderer-skia = { version = "=1.18.1", path = "../internal/renderers/skia" }
+i-slint-renderer-skia = { version = "=1.18.1", path = "../internal/renderers/skia", default-features = false }
 
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 itertools = { version = "0.15" }
