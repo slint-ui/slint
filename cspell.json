@@ -141,6 +141,7 @@
     "embedders",
     "emsdk", // the Emscripten SDK, one of Skia's DEPS entries
     "espflash",
+    "farlane", // McFarlane looks pascal case to cspell
     "Femto",
     "femtovg",
     "flexboxlayout",
@@ -170,6 +171,8 @@
     "listview",
     "lucide",
     "lvalue",
+    "mc",
+    "mcfarlane",
     "mdns",
     "microcontroller",
     "microcontrollers",
