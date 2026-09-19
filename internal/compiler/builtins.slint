@@ -210,12 +210,17 @@ component BorderRectangle inherits BasicBorderRectangle {
     in property <length> border-bottom-right-radius;
     //! ## Drop Shadows
     //!
-    //! To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
-    //! an element, it's possible to set the following `drop-shadow` properties:
+    //! Use the `drop-shadow-*` properties to draw a box shadow around a rectangle.
     //!
     //! The CSS equivalent is `box-shadow`: `box-shadow: 2px 2px 4px 1px black` translates to
     //! `drop-shadow-offset-x: 2px; drop-shadow-offset-y: 2px; drop-shadow-blur: 4px;
     //! drop-shadow-spread: 1px; drop-shadow-color: black;`.
+    //!
+    //! The whole rectangle casts the shadow as if its fill and border were opaque.
+    //! The rectangle's original shape, including rounded corners, is excluded from the shadow.
+    //! This keeps a transparent interior clear and prevents the shadow from darkening a partially transparent fill.
+    //! The fill and border transparency do not affect the shadow's shape or strength.
+    //! CSS `filter: drop-shadow()` instead derives its shadow from the painted content's alpha.
     //!
     //! ### drop-shadow-blur
     //! <SlintProperty propName="drop-shadow-blur" typeName="length"/>
