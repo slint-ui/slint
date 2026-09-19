@@ -367,6 +367,144 @@ def test_outline_ghost_follows_pointer_in_tree(
         snapshot.assert_unchanged()
 
 
+@pytest.mark.parametrize("location", ["before", "onto", "after"])
+def test_outline_gap_matches_drop_destination(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    tmp_path: Path,
+    location: str,
+) -> None:
+    source = fixture_project / "OutlineCases.slint"
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        wait_for_source(source, source.read_bytes())
+        source_row = outline_row(window, "sibling-b")
+        window.dispatch_event(slint_testing.PointerMoveEvent(center(source_row)))
+        original = outline_image(window, source_row)
+        start = slint_testing.LogicalPosition(
+            x=source_row.absolute_position.x + source_row.size.width - 8,
+            y=center(source_row).y,
+        )
+        window.dispatch_event(
+            slint_testing.PointerMoveEvent(center(outline_row(window, "sibling-a")))
+        )
+        hover = outline_image(window, outline_row(window, "sibling-a"))
+        sample = (original.width - 40, original.height // 2)
+        hover_background = hover.getpixel(sample)
+        blank = outline_image(window, source_row).getpixel(sample)
+        assert isinstance(hover_background, tuple)
+        assert isinstance(blank, tuple)
+        assert hover_background != blank
+        target = outline_row(window, "container")
+        target_y = target.absolute_position.y
+        last_child_y = outline_row(window, "child-b").absolute_position.y
+        end = drop_position(window, "container", location)
+        end = slint_testing.LogicalPosition(x=target.absolute_position.x + 24, y=end.y)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(
+            slint_testing.PointerMoveEvent(
+                slint_testing.LogicalPosition(x=start.x + 10, y=start.y)
+            )
+        )
+        assert not elements_with_label(window.root_element, "Outline insertion preview")
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        gap = window_element_with_label(window, "Outline insertion preview")
+        if location == "before":
+            assert target_y <= gap.absolute_position.y < target_y + gap.size.height
+            assert outline_row(window, "container").size.height > gap.size.height
+        else:
+            assert gap.absolute_position.y > last_child_y
+            assert (
+                gap.absolute_position.y
+                < outline_row(window, "sibling-a").absolute_position.y
+            )
+        assert gap.size.width == pytest.approx(target.size.width)
+        position = slint_testing.LogicalPosition(
+            x=gap.absolute_position.x + 24, y=center(gap).y
+        )
+        window.dispatch_event(slint_testing.PointerMoveEvent(position))
+        gap = window_element_with_label(window, "Outline insertion preview")
+        stable = gap.absolute_position
+        window.dispatch_event(slint_testing.PointerMoveEvent(position))
+        gap = window_element_with_label(window, "Outline insertion preview")
+        assert gap.absolute_position.y == pytest.approx(stable.y)
+        hidden = outline_image(window, outline_row(window, "sibling-b"))
+        assert hidden.crop(
+            (24, 6, hidden.width - 8, hidden.height - 8)
+        ).getextrema() == tuple((channel, channel) for channel in blank)
+        destination = outline_image(window, gap)
+        expected_background = tuple(
+            round((a + b) / 2) for a, b in zip(hover_background, blank)
+        )
+        assert destination.getpixel(sample) == pytest.approx(expected_background, abs=2)
+        # Both icon and text shift by the destination's extra hierarchy column.
+        shift = 16 if location == "onto" else 0
+        content = (40, 6, original.width - 40, original.height - 6)
+        expected_content = Image.blend(
+            original, Image.new("RGB", original.size, blank), 0.5
+        ).crop(content)
+        actual_content = destination.crop(
+            (content[0] + shift, content[1], content[2] + shift, content[3])
+        )
+        difference = ImageChops.difference(actual_content, expected_content)
+        assert difference.point(lambda value: 255 if value > 3 else 0).getbbox() is None
+        (tmp_path / f"outline-gap-{location}.png").write_bytes(
+            window.grab_window_as_png()
+        )
+        snapshot.assert_unchanged()
+        window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
+        expected = {
+            "before": ["sibling-b", "container", "child-a", "child-b", "sibling-a"],
+            "onto": ["container", "child-a", "child-b", "sibling-b", "sibling-a"],
+            "after": ["container", "child-a", "child-b", "sibling-b", "sibling-a"],
+        }[location]
+        wait_until(
+            lambda: (
+                True
+                if [label for label, _, _ in known_outline_state(window)] == expected
+                else None
+            )
+        )
+        moved = outline_row(window, "sibling-b")
+        assert moved.accessible_description == (
+            "Hierarchy level 3" if location == "onto" else "Hierarchy level 2"
+        )
+        assert not elements_with_label(window.root_element, "Outline insertion preview")
+        assert moved.is_valid
+        assert outline_image(window, moved).getpixel(sample) == hover_background
+        assert (
+            moved.absolute_position.y
+            <= position.y
+            < moved.absolute_position.y + moved.size.height
+        )
+        frame = window_element_with_label(window, "Hovered Image")
+        assert frame.is_valid
+        image = wait_until(
+            lambda: next(
+                iter(window.find_elements_by_id("OutlineCases::sibling-b")), None
+            )
+        )
+        assert image.is_valid
+        assert frame.absolute_position.x == pytest.approx(image.absolute_position.x)
+        assert frame.absolute_position.y == pytest.approx(image.absolute_position.y)
+        assert frame.size.width == pytest.approx(image.size.width)
+        assert frame.size.height == pytest.approx(image.size.height)
+        (tmp_path / f"outline-hover-after-drop-{location}.png").write_bytes(
+            window.grab_window_as_png()
+        )
+        window.dispatch_event(
+            slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(x=1, y=1))
+        )
+        wait_until(
+            lambda: (
+                not elements_with_label(window.root_element, "Hovered Image") or None
+            )
+        )
+
+
 def outline_image(
     window: slint_testing.Window,
     row: slint_testing.Element,
