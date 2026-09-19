@@ -187,6 +187,10 @@ export default defineConfig({
                                                 label: "Structs and Enums",
                                                 slug: "guide/language/coding/structs-and-enums",
                                             },
+                                            {
+                                                label: "Mocking Data",
+                                                slug: "guide/language/coding/mocking",
+                                            },
                                         ],
                                     },
                                 ],

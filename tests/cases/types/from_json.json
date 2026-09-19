@@ -1,0 +1,41 @@
+{
+  "int_property": 5,
+  "flat_value": 10,
+  "a_float": 3.5,
+  "a_string": "hello",
+  "a_bool": true,
+  "a_percent": 42,
+  "a_length": 10,
+  "a_duration": 250,
+  "a_angle": 90,
+  "a_color": "#ff0000",
+  "a_named_color": "red",
+  "a_direction": "right",
+  "a_direction_prefixed": "Direction.down",
+  "an_array": [1, 2, 3],
+  "a_point": { "x": 1, "y": 2 },
+  "a_partial_point": { "x": 9 },
+  "a_nested": { "point": { "x": 3, "y": 4 }, "label": "hi" },
+  "an_array_of_points": [ { "x": 1, "y": 1 }, { "x": 2, "y": 2 } ],
+
+  "element": {
+    "sub_element": {
+      "nested_value": 7,
+      "complex_nested": {
+        "value": "complex_nested_value",
+        "array": [13, 14, 16],
+        "nested": [
+            {
+              "point": { "x": 7, "y": 8 },
+              "label": "first"
+            },
+            {
+              "point": { "x": 9, "y": 10 },
+              "label": "second"
+            }
+
+        ]
+      }
+    }
+  }
+}
