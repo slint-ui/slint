@@ -7,8 +7,8 @@ use crate::expression_tree::TwoWayBinding;
 use crate::object_tree::{Component, Document};
 use std::collections::HashSet;
 
-pub fn remove_unused_properties(doc: &Document) {
-    fn recurse_remove_unused_properties(component: &Component) {
+pub fn remove_unused_properties(doc: &Document, debug_info: bool) {
+    fn recurse_remove_unused_properties(component: &Component, debug_info: bool) {
         crate::object_tree::recurse_elem_including_sub_components_no_borrow(
             component,
             &(),
@@ -28,6 +28,9 @@ pub fn remove_unused_properties(doc: &Document) {
                                 .iter()
                                 .any(|t| matches!(t, TwoWayBinding::ModelData { .. }))
                         })
+                        // A `@testable` property must survive into the declared-property
+                        // introspection table, but only when that table is generated at all.
+                        && !(debug_info && decl.testable)
                     {
                         to_remove.insert(prop.to_owned());
                     }
@@ -46,5 +49,7 @@ pub fn remove_unused_properties(doc: &Document) {
             },
         );
     }
-    doc.visit_all_used_components(|component| recurse_remove_unused_properties(component))
+    doc.visit_all_used_components(|component| {
+        recurse_remove_unused_properties(component, debug_info)
+    })
 }

@@ -28,6 +28,12 @@ pub fn count_property_use(root: &CompilationUnit) {
     }
 
     root.for_each_sub_components(&mut |_, sc, ctx| {
+        // 1.5. `@testable` element properties: pin each as a real read, so the
+        // property and its binding survive even when nothing else reads it.
+        for prop in sc.element_properties.values().flatten().filter(|p| p.pinned) {
+            visit_property(&prop.prop, ctx);
+        }
+
         // 2. the native items and bindings of properties
         for (_, expr) in &sc.property_init {
             let c = expr.use_count.get();
