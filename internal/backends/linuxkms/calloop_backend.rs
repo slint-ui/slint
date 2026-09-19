@@ -1,13 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore CLOEXEC GETFL NOCTTY NONBLOCK
+// cSpell: ignore CLOEXEC GETFL NOCTTY NONBLOCK dlm dlmclient
 use std::cell::RefCell;
 #[cfg(not(feature = "libseat"))]
 use std::fs::OpenOptions;
-use std::os::fd::OwnedFd;
+use std::os::fd::{AsFd, OwnedFd};
 #[cfg(feature = "libseat")]
-use std::os::fd::{AsFd, AsRawFd, FromRawFd};
+use std::os::fd::{AsRawFd, FromRawFd};
 #[cfg(not(feature = "libseat"))]
 use std::os::unix::fs::OpenOptionsExt;
 use std::rc::Rc;
@@ -85,6 +85,88 @@ pub struct Backend {
     clipboard: RefCell<Option<String>>,
     #[cfg(feature = "libinput")]
     libinput_event_hook: Option<Box<dyn Fn(&::input::Event) -> bool>>,
+    drm_lease_fd: Option<Rc<OwnedFd>>,
+}
+
+// Pick the lease fd: builder, then SLINT_DRM_LEASE_FD, then SLINT_DRM_LEASE_NAME.
+// A variable that is set but unusable is an error.
+fn resolve_drm_lease_fd(builder_fd: Option<OwnedFd>) -> Result<Option<Rc<OwnedFd>>, String> {
+    let fd = match builder_fd {
+        Some(fd) => fd,
+        None => match drm_lease_fd_from_env()? {
+            Some(fd) => fd,
+            None => match drm_lease_fd_from_manager()? {
+                Some(fd) => fd,
+                None => return Ok(None),
+            },
+        },
+    };
+    // Page flip polling needs a blocking fd.
+    let flags = nix::fcntl::fcntl(fd.as_fd(), nix::fcntl::FcntlArg::F_GETFL)
+        .map_err(|e| format!("Error getting DRM lease fd flags: {e}"))?;
+    let mut flags = nix::fcntl::OFlag::from_bits_retain(flags);
+    flags.remove(nix::fcntl::OFlag::O_NONBLOCK);
+    nix::fcntl::fcntl(fd.as_fd(), nix::fcntl::FcntlArg::F_SETFL(flags))
+        .map_err(|e| format!("Error making DRM lease fd blocking: {e}"))?;
+    Ok(Some(Rc::new(fd)))
+}
+
+// Lease fd inherited from a launcher. Ok(None) when the variable is unset.
+fn drm_lease_fd_from_env() -> Result<Option<OwnedFd>, String> {
+    use std::os::fd::FromRawFd;
+    let Ok(value) = std::env::var("SLINT_DRM_LEASE_FD") else { return Ok(None) };
+    match value.trim().parse::<std::os::fd::RawFd>() {
+        // Safety: the launcher promises an open fd that we now own.
+        Ok(raw) if raw >= 0 => Ok(Some(unsafe { OwnedFd::from_raw_fd(raw) })),
+        _ => Err(format!("SLINT_DRM_LEASE_FD {value:?} is not a file descriptor number")),
+    }
+}
+
+// Ask the AGL drm-lease-manager for the lease named by SLINT_DRM_LEASE_NAME.
+// Ok(None) when the variable is unset.
+#[cfg(have_libdlmclient)]
+fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
+    use std::os::fd::FromRawFd;
+
+    #[repr(C)]
+    struct DlmLease {
+        _opaque: [u8; 0],
+    }
+    // From dlmclient.h
+    unsafe extern "C" {
+        fn dlm_get_lease(name: *const std::os::raw::c_char) -> *mut DlmLease;
+        fn dlm_lease_fd(lease: *mut DlmLease) -> std::os::raw::c_int;
+    }
+
+    let Ok(name) = std::env::var("SLINT_DRM_LEASE_NAME") else { return Ok(None) };
+    let c_name = std::ffi::CString::new(name.as_str())
+        .map_err(|_| format!("SLINT_DRM_LEASE_NAME {name:?} contains a NUL byte"))?;
+
+    // Safety: plain C calls; c_name outlives them.
+    let lease = unsafe { dlm_get_lease(c_name.as_ptr()) };
+    if lease.is_null() {
+        return Err(format!(
+            "drm-lease-manager did not grant the lease {name:?}: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    let raw = unsafe { dlm_lease_fd(lease) };
+    if raw < 0 {
+        return Err(format!("drm-lease-manager returned no file descriptor for lease {name:?}"));
+    }
+    // dlm_release_lease() closes the fd, so the lease is kept for the whole process.
+    // Safety: the fd stays open because the lease is never released.
+    Ok(Some(unsafe { OwnedFd::from_raw_fd(raw) }))
+}
+
+#[cfg(not(have_libdlmclient))]
+fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
+    match std::env::var("SLINT_DRM_LEASE_NAME") {
+        Ok(name) => Err(format!(
+            "SLINT_DRM_LEASE_NAME is set to {name:?} but this build has no drm-lease-manager support: enable the backend-linuxkms-libdlmclient feature and have libdlmclient installed when building"
+        )),
+        Err(_) => Ok(None),
+    }
 }
 
 impl Backend {
@@ -146,6 +228,8 @@ impl Backend {
             }
         }
 
+        let drm_lease_fd = resolve_drm_lease_fd(builder.drm_lease_fd)?;
+
         Ok(Backend {
             context: Default::default(),
             #[cfg(feature = "libseat")]
@@ -159,6 +243,7 @@ impl Backend {
             clipboard: Default::default(),
             #[cfg(feature = "libinput")]
             libinput_event_hook: builder.libinput_event_hook,
+            drm_lease_fd,
         })
     }
 }
@@ -214,8 +299,10 @@ impl i_slint_core::platform::Platform for Backend {
                     .map_err(|e| format!("Failed to parse SLINT_KMS_ROTATION: {e}"))
             })?;
 
+        let device_opener = crate::DeviceOpener::new(device_accessor, self.drm_lease_fd.clone());
+
         let renderer =
-            (self.renderer_factory)(&device_accessor, self.requested_graphics_api.as_ref())?;
+            (self.renderer_factory)(&device_opener, self.requested_graphics_api.as_ref())?;
         let adapter = FullscreenWindowAdapter::new(renderer, rotation)?;
 
         *self.window.borrow_mut() = Some(adapter.clone());

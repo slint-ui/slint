@@ -236,6 +236,10 @@ backend-linuxkms-libinput = ["i-slint-backend-selector/backend-linuxkms-libinput
 ## but no libseat.
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
+## Add libdlmclient to the LinuxKMS backend, to obtain a DRM lease by name from the AGL
+## drm-lease-manager. Enables the backend on its own.
+backend-linuxkms-libdlmclient = ["i-slint-backend-selector/backend-linuxkms-libdlmclient", "std"]
+
 ## Use the backend based on the [android-activity](https://docs.rs/android-activity) crate. (Using it's native activity feature)
 backend-android-activity-06 = [
   "i-slint-backend-android-activity/native-activity",

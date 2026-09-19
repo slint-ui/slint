@@ -39,6 +39,9 @@ libseat = ["dep:libseat"]
 ## backend renders but receives no input events (and libinput, libudev and
 ## libxkbcommon are not needed at build or run time).
 libinput = ["dep:input", "dep:xkbcommon"]
+## Obtain a DRM lease by name from the AGL drm-lease-manager, linking its client
+## library libdlmclient (found with pkg-config).
+libdlmclient = []
 
 default = []
 
@@ -70,6 +73,7 @@ memmap2 = { version = "0.9.4", optional = true }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }
+pkg-config = "0.3"
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
