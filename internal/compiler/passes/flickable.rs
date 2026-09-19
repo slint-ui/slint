@@ -45,6 +45,37 @@ pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
 
 fn create_content_element(flickable: &ElementRc, native_empty: &Arc<NativeClass>) {
     let children = std::mem::take(&mut flickable.borrow_mut().children);
+
+    // A reversed HorizontalLayout keeps normal physical input direction, but
+    // its logical start edge is at the right. Forward that semantic to Flickable.
+    if let Some(reverse) = children.iter().find_map(|child| {
+        matches!(
+            &child.borrow().base_type,
+            ElementType::Builtin(base) if base.name == "HorizontalLayout"
+        )
+        .then(|| NamedReference::new(child, SmolStr::new_static("reverse")))
+    }) {
+        flickable.borrow_mut().set_binding(
+            SmolStr::new_static("content-x-reversed"),
+            Expression::PropertyReference(reverse).into(),
+        );
+    }
+
+    // A reversed VerticalLayout keeps normal physical input direction, but its
+    // logical start edge is at the bottom. Forward that semantic to Flickable.
+    if let Some(reverse) = children.iter().find_map(|child| {
+        matches!(
+            &child.borrow().base_type,
+            ElementType::Builtin(base) if base.name == "VerticalLayout"
+        )
+        .then(|| NamedReference::new(child, SmolStr::new_static("reverse")))
+    }) {
+        flickable.borrow_mut().set_binding(
+            SmolStr::new_static("content-y-reversed"),
+            Expression::PropertyReference(reverse).into(),
+        );
+    }
+
     let is_listview = children
         .iter()
         .find_map(|c| c.borrow().repeated.as_ref().and_then(|r| r.is_listview.clone()));
@@ -90,6 +121,12 @@ fn create_content_element(flickable: &ElementRc, native_empty: &Arc<NativeClass>
     });
     let element_type = flickable.borrow().base_type.clone();
     for prop in element_type.as_builtin().properties.keys() {
+        // These are hints for Flickable itself, not geometry of the hidden
+        // content element. Do not turn them into fake `x-reversed` /
+        // `y-reversed` properties.
+        if matches!(prop.as_str(), "content-x-reversed" | "content-y-reversed") {
+            continue;
+        }
         // bind the content's property to the flickable property, such as:  `width <=> parent.content-width`
         if let Some(content_prop) = prop.strip_prefix("content-") {
             if is_listview.is_some() && matches!(content_prop, "y" | "height") {

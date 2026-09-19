@@ -66,6 +66,12 @@ pub struct Flickable {
 
     pub interactive: Property<bool>,
     pub mouse_drag_pan_enabled: Property<bool>,
+    /// Compiler-generated reverse-layout hint. This changes only the initial
+    /// X anchor; wheel, trackpad, drag, and fling directions remain unchanged.
+    pub content_x_reversed: Property<bool>,
+    /// Compiler-generated reverse-layout hint. This changes only the initial
+    /// Y anchor; wheel, trackpad, drag, and fling directions remain unchanged.
+    pub content_y_reversed: Property<bool>,
 
     pub flicked: Callback<VoidArg>,
 
@@ -82,10 +88,28 @@ impl Item for Flickable {
             // Binding that returns if the Flickable is out of bounds:
             |self_weak| {
                 let Some(flick_rc) = self_weak.upgrade() else {
-                    return (false, false);
+                    return (
+                        false,
+                        false,
+                        LogicalLength::zero(),
+                        LogicalLength::zero(),
+                        false,
+                        LogicalLength::zero(),
+                        LogicalLength::zero(),
+                        false,
+                    );
                 };
                 let Some(flick) = flick_rc.downcast::<Flickable>() else {
-                    return (false, false);
+                    return (
+                        false,
+                        false,
+                        LogicalLength::zero(),
+                        LogicalLength::zero(),
+                        false,
+                        LogicalLength::zero(),
+                        LogicalLength::zero(),
+                        false,
+                    );
                 };
                 let flick = flick.as_pin_ref();
                 let geo = Self::geometry_without_virtual_keyboard(&flick_rc);
@@ -98,10 +122,29 @@ impl Item for Flickable {
                 let y_out_of_bounds =
                     vpy > zero || vpy < (geo.height_length() - flick.content_height()).min(zero);
 
-                (x_out_of_bounds, y_out_of_bounds)
+                (
+                    x_out_of_bounds,
+                    y_out_of_bounds,
+                    geo.width_length(),
+                    flick.content_width(),
+                    flick.content_x_reversed(),
+                    geo.height_length(),
+                    flick.content_height(),
+                    flick.content_y_reversed(),
+                )
             },
             // Change event handler that puts the Flickable in bounds if it's not already
-            |self_weak, (x_out_of_bounds, y_out_of_bounds)| {
+            |self_weak,
+             (
+                x_out_of_bounds,
+                y_out_of_bounds,
+                viewport_width,
+                content_width,
+                content_x_reversed,
+                viewport_height,
+                content_height,
+                content_y_reversed,
+             )| {
                 let Some(flick_rc) = self_weak.upgrade() else { return };
                 let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
                 let flick = flick.as_pin_ref();
@@ -117,6 +160,38 @@ impl Item for Flickable {
                 let y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
                 if *y_out_of_bounds && !y.has_binding() {
                     y.set(p.y_length());
+                }
+
+                let mut inner = flick.data.inner.borrow_mut();
+
+                if inner.last_content_x_reversed != *content_x_reversed {
+                    inner.last_content_x_reversed = *content_x_reversed;
+                    inner.reverse_x_start_initialized = !*content_x_reversed;
+                }
+
+                if *content_x_reversed
+                    && !inner.reverse_x_start_initialized
+                    && *content_width > *viewport_width
+                {
+                    // ScrollView normally has a two-way binding on content-x, so this
+                    // intentionally isn't gated by `!x.has_binding()`.
+                    x.set((*viewport_width - *content_width).min(LogicalLength::zero()));
+                    inner.reverse_x_start_initialized = true;
+                }
+
+                if inner.last_content_y_reversed != *content_y_reversed {
+                    inner.last_content_y_reversed = *content_y_reversed;
+                    inner.reverse_y_start_initialized = !*content_y_reversed;
+                }
+
+                if *content_y_reversed
+                    && !inner.reverse_y_start_initialized
+                    && *content_height > *viewport_height
+                {
+                    // ScrollView normally has a two-way binding on content-y, so this
+                    // intentionally isn't gated by `!y.has_binding()`.
+                    y.set((*viewport_height - *content_height).min(LogicalLength::zero()));
+                    inner.reverse_y_start_initialized = true;
                 }
             },
         );
@@ -433,6 +508,16 @@ struct FlickableDataInner {
     /// This allows us to add the missing delta of the animation to the next scroll event if the user scrolls again
     /// before the animation is finished.
     running_animation: Option<(Instant, [Option<ConstantDecelerationParameters>; 2])>,
+
+    /// Whether reversed horizontal content has already been placed at its logical
+    /// start edge. This avoids snapping back to the right after the user scrolls.
+    reverse_x_start_initialized: bool,
+    last_content_x_reversed: bool,
+
+    /// Whether a reversed vertical content has already been placed at its logical
+    /// start edge. This avoids snapping back to the bottom after the user scrolls.
+    reverse_y_start_initialized: bool,
+    last_content_y_reversed: bool,
 }
 
 impl FlickableDataInner {
