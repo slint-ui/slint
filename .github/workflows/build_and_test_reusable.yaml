@@ -119,7 +119,7 @@ jobs:
               run: sudo timeout 600 apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
             - name: Setup headless display
               if: runner.os != 'macOS'
-              uses: pyvista/setup-headless-display-action@v4
+              uses: pyvista/setup-headless-display-action@v5
             # Skia is built from source here, and ninja resolves cl.exe's relative
             # includes with the ANSI GetFullPathNameA, so the paths have to stay
             # below MAX_PATH; the default target directory is one character too
