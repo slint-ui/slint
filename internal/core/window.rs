@@ -13,7 +13,7 @@ use crate::cursor::MouseCursorInner;
 use crate::input::{
     BackendDragEvent, ClickState, DragData, FocusEvent, FocusReason, InternalKeyEvent,
     KeyEventResult, KeyEventType, Keys, MouseEvent, MouseInputState, PointerEventButton,
-    TextCursorBlinker, TouchPhase, TouchState, key_codes,
+    TextCursorBlinker, TouchHistory, TouchPhase, TouchState, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
@@ -1218,8 +1218,9 @@ impl WindowInner {
         id: i32,
         position: LogicalPoint,
         phase: TouchPhase,
+        history: TouchHistory,
     ) -> Option<MouseDispatchResult> {
-        let events = self.touch_state.borrow_mut().process(id, position, phase);
+        let events = self.touch_state.borrow_mut().process(id, position, phase, history);
         let mut aggregate: Option<MouseDispatchResult> = None;
         for event in events.into_iter() {
             if let Some(r) = self.process_mouse_input(event) {
@@ -1286,6 +1287,7 @@ impl WindowInner {
                 self.process_mouse_input(MouseEvent::Moved {
                     position: crate::lengths::logical_point_from_api(pos),
                     touch_finger_id: 0,
+                    history: Default::default(),
                 });
             }
         }

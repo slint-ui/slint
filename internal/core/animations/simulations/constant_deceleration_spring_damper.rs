@@ -125,23 +125,23 @@ impl ConstantDecelerationSpringDamper {
             }
         } else if start_value < limit_value.as_ref().get() {
             data.deceleration = f32::abs(data.deceleration);
-            assert!(initial_velocity >= 0.); // Makes no sense yet that the velocity goes into the other direction
+            debug_assert!(initial_velocity >= 0.); // Makes no sense yet that the velocity goes into the other direction
             initial_velocity = f32::abs(initial_velocity);
             Direction::Increasing
         } else {
             data.deceleration = -f32::abs(data.deceleration);
             initial_velocity = -f32::abs(initial_velocity);
-            assert!(initial_velocity <= 0.);
+            debug_assert!(initial_velocity <= 0.);
             Direction::Decreasing
         };
 
-        assert!(data.mass > 0.);
-        assert!(data.spring_constant >= 0.);
+        debug_assert!(data.mass > 0.);
+        debug_assert!(data.spring_constant >= 0.);
 
         let c_cr = 2. * f32::sqrt(data.mass * data.spring_constant); // Critical damping coefficient
         let damping_ratio = data.damping_coefficient / c_cr;
-        assert!(damping_ratio > 0.);
-        assert!(damping_ratio < 1.); // Currently we support only the underdamped motion, because we wanna return to the `limit_value`
+        debug_assert!(damping_ratio > 0.);
+        debug_assert!(damping_ratio < 1.); // Currently we support only the underdamped motion, because we wanna return to the `limit_value`
 
         let w_n = c_cr / (2. * data.mass);
         let w_d = w_n * f32::sqrt(1. - damping_ratio.powi(2));

@@ -250,7 +250,7 @@ cpp! {{
                 return;
             rust!(Slint_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
-                rust_window.mouse_event(BackendMouseEvent::Moved{position, touch_finger_id: 0})
+                rust_window.mouse_event(BackendMouseEvent::Moved{position, touch_finger_id: 0, history: Default::default()})
             });
         }
         void wheelEvent(QWheelEvent *event) override {

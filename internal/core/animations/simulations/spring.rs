@@ -59,6 +59,10 @@ impl SpringPhysicalParameters {
     pub fn new(mass: f32, stiffness: f32, damping: f32) -> Self {
         Self { mass, stiffness, damping }
     }
+
+    pub fn new_with_damping_ratio(mass: f32, stiffness: f32, damping_ratio: f32) -> Self {
+        Self { mass, stiffness, damping: damping_ratio * 2. * f32::sqrt(mass * stiffness) }
+    }
 }
 
 impl SpringParameters for SpringPhysicalParameters {
@@ -92,6 +96,13 @@ impl SpringRegime {
     const CRITICAL_ZETA_EPSILON: f32 = 1e-3;
 
     pub(crate) fn new(x0: f32, v0: f32, w_n: f32, zeta: f32) -> Self {
+        // Every closed form above is a bounded (oscillating or polynomial) factor
+        // times a decaying exponential, which vanishes as `t -> infinity`: `x_rel`
+        // always settles back on `target`, i.e. `0`. Precalculating this here,
+        // rather than evaluating at some large `t` in `remaining_distance`, avoids
+        // relying on a numeric stand-in for infinity, which would break the
+        // underdamped case (`sin`/`cos` don't converge, so a huge `t` doesn't
+        // approximate the limit).
         if (zeta - 1.).abs() < Self::CRITICAL_ZETA_EPSILON {
             Self::Critical { w_n, c1: x0, c2: v0 + w_n * x0 }
         } else if zeta < 1. {
@@ -120,7 +131,7 @@ impl SpringRegime {
     /// Evaluates the closed form at elapsed time `t`, returning `(x_rel, vel)`.
     pub(crate) fn evaluate(&self, t: f32) -> (f32, f32) {
         match *self {
-            Self::Underdamped { w_n, zeta, w_d, c1, c2 } => {
+            Self::Underdamped { w_n, zeta, w_d, c1, c2, .. } => {
                 let decay = f32::exp(-zeta * w_n * t);
                 let (s, c) = f32::sin_cos(w_d * t);
                 let pos = decay * (c1 * c + c2 * s);
@@ -128,18 +139,26 @@ impl SpringRegime {
                     decay * ((-zeta * w_n * c1 + w_d * c2) * c + (-zeta * w_n * c2 - w_d * c1) * s);
                 (pos, vel)
             }
-            Self::Critical { w_n, c1, c2 } => {
+            Self::Critical { w_n, c1, c2, .. } => {
                 let decay = f32::exp(-w_n * t);
                 let pos = decay * (c1 + c2 * t);
                 let vel = decay * (c2 - w_n * (c1 + c2 * t));
                 (pos, vel)
             }
-            Self::Overdamped { r1, r2, c1, c2 } => {
+            Self::Overdamped { r1, r2, c1, c2, .. } => {
                 let pos = c1 * f32::exp(r1 * t) + c2 * f32::exp(r2 * t);
                 let vel = c1 * r1 * f32::exp(r1 * t) + c2 * r2 * f32::exp(r2 * t);
                 (pos, vel)
             }
         }
+    }
+
+    pub(crate) fn current_position(&self, t: f32) -> f32 {
+        self.evaluate(t).0
+    }
+
+    pub(crate) fn current_velocity(&self, t: f32) -> f32 {
+        self.evaluate(t).1
     }
 }
 
