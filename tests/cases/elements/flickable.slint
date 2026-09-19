@@ -235,6 +235,62 @@ assert!((instance.get_offset_y() - 55.).abs() < 5.);
 ```
 
 ```rust
+// Test 1b
+// Same idea as Test 1's pan, but the pan threshold is crossed by a *gradual* drag
+// (a small move under the 8px threshold, then a bigger one) instead of a single big jump,
+// and entirely within the 100ms DelayForwarding window (no mock_elapsed_time before the pan
+// is detected). A gradual real-world drag routinely produces small moves before crossing the
+// threshold, unlike a single scripted jump. https://github.com/slint-ui/slint/issues/5262
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
+assert!(instance.get_inner_ta_has_hover());
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(175.0, 175.0), button: PointerEventButton::Left });
+assert!(instance.get_inner_ta_has_hover());
+
+// Small move, still under the 8px pan threshold: forwarded to inner_ta (hover tracking runs),
+// while the press itself is still held back by the Flickable's DelayForwarding.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(178.0, 176.0) });
+assert!(instance.get_inner_ta_has_hover());
+
+// Now cross the pan threshold, all still within the 100ms delay: the Flickable intercepts
+// and pans directly, without ever forwarding this event to inner_ta.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) });
+assert!(!instance.get_inner_ta_pressed());
+assert!(!instance.get_inner_ta_has_hover(), "inner_ta should no longer be hovered once the Flickable took over the pan");
+```
+
+```rust
+// Test 1c
+// Bounding case for Test 1b: same gradual drag, but the 100ms delay is allowed to resolve
+// (delivering a real Pressed to inner_ta) *before* the drag crosses the pan threshold, matching
+// Test 1's ordering. This was already correct before the Test 1b fix, since the delayed press
+// is no longer pending by the time the Flickable claims the pan, so the ordinary (non-delayed)
+// exit-event path in `send_exit_events` already applies.
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
+assert!(instance.get_inner_ta_has_hover());
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(175.0, 175.0), button: PointerEventButton::Left });
+assert!(instance.get_inner_ta_has_hover());
+
+slint_testing::mock_elapsed_time(150);
+assert!(instance.get_inner_ta_pressed()); // the delayed press has resolved for real
+assert!(instance.get_inner_ta_has_hover());
+
+// Small move, still under the 8px pan threshold.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(178.0, 176.0) });
+assert!(instance.get_inner_ta_has_hover());
+
+// Cross the pan threshold: the Flickable intercepts and pans.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) });
+assert!(!instance.get_inner_ta_pressed());
+assert!(!instance.get_inner_ta_has_hover());
+```
+
+```rust
 // Test 2
 // Test high-level wheel events stay synchronous
 use slint::{LogicalPosition, platform::{WindowEvent, Key} };
