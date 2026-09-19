@@ -172,7 +172,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 }
             },
             SyntaxKind::At => {
-                if matches!(p.nth(1).as_str(), "deprecated" | "shadowable") {
+                if matches!(p.nth(1).as_str(), "deprecated" | "shadowable" | "testable") {
                     let checkpoint = p.checkpoint();
                     let attribute = parse_member_attributes(&mut *p);
                     // skip the visibility/purity keywords to reach the member keyword
@@ -644,17 +644,18 @@ fn parse_callback_declaration<P: Parser>(p: &mut P, checkpoint: Option<P::Checkp
 /// @deprecated("")
 /// @deprecated("Some message")
 /// @shadowable
+/// @testable
 /// ```
 fn parse_member_attributes(p: &mut impl Parser) -> Option<&'static str> {
     let mut seen: Vec<&'static str> = Vec::new();
     while p.nth(0).kind() == SyntaxKind::At
-        && matches!(p.nth(1).as_str(), "deprecated" | "shadowable")
+        && matches!(p.nth(1).as_str(), "deprecated" | "shadowable" | "testable")
     {
         let is_deprecated = p.nth(1).as_str() == "deprecated";
-        let (name, kind) = if is_deprecated {
-            ("deprecated", SyntaxKind::PropertyDeprecation)
-        } else {
-            ("shadowable", SyntaxKind::ShadowableAttribute)
+        let (name, kind) = match p.nth(1).as_str() {
+            "deprecated" => ("deprecated", SyntaxKind::PropertyDeprecation),
+            "shadowable" => ("shadowable", SyntaxKind::ShadowableAttribute),
+            _ => ("testable", SyntaxKind::TestableAttribute),
         };
         let duplicated = seen.contains(&name);
         seen.push(name);
