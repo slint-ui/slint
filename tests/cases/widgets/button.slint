@@ -26,6 +26,7 @@ export component TestCase inherits Window {
 
         b := Button {
             text: "Bbb";
+            icon: @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
             accessible-description: "Normal Button";
             clicked => {clicked += "b"; }
         }
@@ -218,6 +219,13 @@ assert_eq(instance.get_d_checked(), true);
 assert_eq(ddd.accessible_checked().value(), true);
 
 
+```
+
+```a11y-tree
+window
+  button "Aaa" description="Checkable Button" checkable
+  button "Bbb" description="Normal Button"
+  button "Ccc"
 ```
 
 */
