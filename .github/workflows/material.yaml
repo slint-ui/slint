@@ -105,8 +105,10 @@ jobs:
           MATERIAL_DOCS_BASE_PATH: ${{ github.event_name == 'pull_request' && '/material/' || '' }}
         run: pnpm build
       - name: Install Playwright
+        working-directory: ui-libraries/material/docs
         run: pnpm exec playwright install --with-deps
       - name: Run Playwright tests
+        working-directory: ui-libraries/material/docs
         env:
           MATERIAL_DOCS_BASE_PATH: ${{ github.event_name == 'pull_request' && '/material/' || '' }}
         run: pnpm exec playwright test
