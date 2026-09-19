@@ -144,7 +144,13 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             return;
         }
 
-        if let Err(err) = window.dispatch_winit_window_event(event_loop, &winit_window, &event) {
+        let result = window.dispatch_winit_window_event(event_loop, &winit_window, &event);
+
+        // A window hidden during the dispatch looks kept alive until this reference is gone.
+        drop(winit_window);
+        self.shared_backend_data.warn_about_windows_kept_alive();
+
+        if let Err(err) = result {
             self.loop_error = Some(err);
             event_loop.exit();
         }
@@ -221,6 +227,8 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         self.shared_backend_data.flush_pending_mouse_move();
+        // For the windows hidden outside of a window event, from a timer for example.
+        self.shared_backend_data.warn_about_windows_kept_alive();
 
         if matches!(
             self.custom_application_handler
