@@ -1,0 +1,82 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The qt style draws both scrollbars inside a single NativeScrollView item,
+// so it has no per-bar element to carry the role.
+//ignore: style-qt
+
+import { ScrollView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+
+    in-out property <length> content-y <=> sv.content-y;
+    out property <length> v-max: sv.content-height - sv.visible-height;
+    out property <length> h-max: sv.content-width - sv.visible-width;
+
+    sv := ScrollView {
+        content-width: 1000phx;
+        content-height: 1000phx;
+
+        Rectangle {
+            width: 1000phx;
+            height: 1000phx;
+        }
+    }
+}
+
+/*
+
+```rust
+use i_slint_backend_testing::AccessibleRole;
+use slint::SharedString;
+use slint::language::Orientation;
+
+let instance = TestCase::new().unwrap();
+
+let v = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Vertical scrollbar").next().unwrap();
+let h = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Horizontal scrollbar").next().unwrap();
+
+assert_eq!(v.accessible_role(), Some(AccessibleRole::Scrollbar));
+assert_eq!(h.accessible_role(), Some(AccessibleRole::Scrollbar));
+assert_eq!(v.accessible_orientation(), Some(Orientation::Vertical));
+assert_eq!(h.accessible_orientation(), Some(Orientation::Horizontal));
+
+// The reported value is the scroll offset, counting up from 0 at the start of
+// the content, while `content-y` counts down from 0.
+let v_max = instance.get_v_max();
+assert!(v_max > 0.);
+assert_eq!(v.accessible_value_minimum(), Some(0.));
+assert_eq!(v.accessible_value_maximum(), Some(v_max));
+assert_eq!(v.accessible_value_step(), Some(10.));
+assert_eq!(v.accessible_value(), Some(SharedString::from("0")));
+
+assert_eq!(h.accessible_value_maximum(), Some(instance.get_h_max()));
+
+// Increment scrolls towards the end of the content.
+v.invoke_accessible_increment_action();
+assert_eq!(instance.get_content_y(), -10.);
+assert_eq!(v.accessible_value(), Some(SharedString::from("10")));
+
+v.invoke_accessible_decrement_action();
+assert_eq!(instance.get_content_y(), 0.);
+assert_eq!(v.accessible_value(), Some(SharedString::from("0")));
+
+// Decrementing at the start of the content keeps the minimum.
+v.invoke_accessible_decrement_action();
+assert_eq!(instance.get_content_y(), 0.);
+assert_eq!(v.accessible_value(), Some(SharedString::from("0")));
+
+// Incrementing at the end of the content keeps the maximum.
+instance.set_content_y(-v_max);
+assert_eq!(v.accessible_value(), Some(SharedString::from(format!("{v_max}"))));
+v.invoke_accessible_increment_action();
+assert_eq!(instance.get_content_y(), -v_max);
+
+// The horizontal bar scrolls its own axis only.
+h.invoke_accessible_increment_action();
+assert_eq!(instance.get_content_y(), -v_max);
+```
+
+*/

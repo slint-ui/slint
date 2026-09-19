@@ -12,6 +12,17 @@ export component ScrollBar inherits Rectangle {
     in-out property <length> value;
     in property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
 
+    accessible-label: root.horizontal ? @tr("Horizontal scrollbar") : @tr("Vertical scrollbar");
+    accessible-role: scrollbar;
+    accessible-value: abs(root.value) / 1px;
+    accessible-value-minimum: 0.0;
+    accessible-value-maximum: root.maximum / 1px;
+    accessible-value-step: root.step-size / 1px;
+    accessible-orientation: root.horizontal ? Orientation.horizontal : Orientation.vertical;
+    accessible-action-increment => { root.value = max(-root.maximum, root.value - root.step-size); }
+    accessible-action-decrement => { root.value = min(0px, root.value + root.step-size); }
+    accessible-action-set-value(v) => { if v.is-float() { root.value = -clamp(v.to-float() * 1px, 0px, root.maximum); } }
+
     callback scrolled();
 
     property <length> track-size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;

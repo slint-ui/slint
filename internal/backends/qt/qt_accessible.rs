@@ -347,6 +347,7 @@ cpp! {{
                     i_slint_core::items::AccessibleRole::Navigation => QAccessible_Role_Grouping,
                     i_slint_core::items::AccessibleRole::Region => QAccessible_Role_Section,
                     i_slint_core::items::AccessibleRole::Search => QAccessible_Role_Grouping,
+                    i_slint_core::items::AccessibleRole::Scrollbar => QAccessible_Role_ScrollBar,
                     _ => QAccessible_Role_NoRole,
                 }
             });

@@ -821,6 +821,7 @@ pub(crate) fn convert_to_proto_accessible_role(
         i_slint_core::items::AccessibleRole::Navigation => proto::AccessibleRole::Navigation,
         i_slint_core::items::AccessibleRole::Region => proto::AccessibleRole::Region,
         i_slint_core::items::AccessibleRole::Search => proto::AccessibleRole::Search,
+        i_slint_core::items::AccessibleRole::Scrollbar => proto::AccessibleRole::Scrollbar,
         _ => return None,
     })
 }
@@ -874,6 +875,7 @@ pub(crate) fn convert_from_proto_accessible_role(
         proto::AccessibleRole::Navigation => i_slint_core::items::AccessibleRole::Navigation,
         proto::AccessibleRole::Region => i_slint_core::items::AccessibleRole::Region,
         proto::AccessibleRole::Search => i_slint_core::items::AccessibleRole::Search,
+        proto::AccessibleRole::Scrollbar => i_slint_core::items::AccessibleRole::Scrollbar,
     })
 }
 
