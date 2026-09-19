@@ -1057,10 +1057,10 @@ fn collect_element_properties(
     use crate::object_tree::{PropertyDeclaration, PropertyVisibility};
     fn readable(decl: &PropertyDeclaration) -> bool {
         decl.property_type.is_property_type()
-            && matches!(
+            && (matches!(
                 decl.visibility,
                 PropertyVisibility::Input | PropertyVisibility::Output | PropertyVisibility::InOut
-            )
+            ) || decl.testable)
     }
 
     let mut seen = std::collections::HashSet::new();
@@ -1086,6 +1086,7 @@ fn collect_element_properties(
                 ty: decl.property_type.clone(),
                 prop: mapping
                     .map_property_reference(&NamedReference::new(element, key.clone()), state),
+                pinned: decl.testable,
             });
         }
     }
@@ -1105,6 +1106,7 @@ fn collect_element_properties(
                     &NamedReference::new(&component.root_element, root_key.clone()),
                     state,
                 ),
+                pinned: decl.testable,
             });
         }
     }
@@ -1130,6 +1132,7 @@ fn collect_element_properties(
                     ty: decl.property_type.clone(),
                     prop: mapping
                         .map_property_reference(&NamedReference::new(element, key.clone()), state),
+                    pinned: decl.testable,
                 });
             }
         }
@@ -1774,5 +1777,148 @@ export component TestCase inherits Window {
             }
         }
         assert!(checked > 0, "no Derived/TestCase entry listed 'name'");
+    }
+
+    fn compile_for_test(
+        source: &str,
+        debug_info: bool,
+    ) -> (crate::object_tree::Document, crate::CompilerConfiguration) {
+        let mut config =
+            crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.style = Some("fluent".into());
+        config.debug_info = debug_info;
+        config.enable_experimental = true;
+        let mut diags = crate::diagnostics::BuildDiagnostics::default();
+        let doc_node = crate::parser::parse(
+            source.into(),
+            Some(std::path::Path::new("testable.slint")),
+            &mut diags,
+        );
+        let (doc, diag, _) =
+            spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
+        assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());
+        (doc, config)
+    }
+
+    /// `@testable` guarantees the listing regardless of visibility; an unmarked private
+    /// property that nothing else reads stays unlisted (it never survives to the LLR).
+    #[test]
+    fn testable_property_listed_regardless_of_visibility() {
+        let source = r#"
+export component TestCase inherits Window {
+    @testable property <int> secret: 42;
+    property <int> other: 1;
+}
+"#;
+        let (doc, config) = compile_for_test(source, true);
+        let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
+        let names: Vec<_> = unit
+            .sub_components
+            .iter()
+            .flat_map(|sc| sc.element_properties.values())
+            .flatten()
+            .map(|p| p.name.clone())
+            .collect();
+        assert!(names.iter().any(|n| n == "secret"), "'secret' not listed: {names:?}");
+        assert!(!names.iter().any(|n| n == "other"), "'other' unexpectedly listed: {names:?}");
+    }
+
+    /// `visit_property` pins a `@testable` property's own `use_count`, which is what
+    /// `remove_unused` requires to keep the property, its `property_init` entry, and its
+    /// `element_properties` entry (see `testable_property_listed_regardless_of_visibility`
+    /// and the no-pin baseline: removing the pin drops the property everywhere). This test
+    /// pins the companion invariant: the surviving `property_init` entry still carries the
+    /// bound expression rather than a blanked-out placeholder.
+    ///
+    /// `lower_to_item_tree` already runs the full optimization pipeline (including
+    /// `count_property_use`) internally, so this inspects its output directly rather than
+    /// re-running the pass, which would just observe an already-settled result.
+    #[test]
+    fn testable_property_keeps_its_bound_value() {
+        let source = r#"
+export component TestCase inherits Window {
+    @testable property <int> secret: 42;
+}
+"#;
+        let (doc, config) = compile_for_test(source, true);
+        let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
+        let (sub_component, prop) = unit
+            .sub_components
+            .iter_enumerated()
+            .find_map(|(idx, sc)| {
+                sc.element_properties
+                    .values()
+                    .flatten()
+                    .find(|p| p.name == "secret")
+                    .map(|p| (idx, p))
+            })
+            .expect("no 'secret' entry in element_properties");
+        let ctx = crate::llr::EvaluationContext::new_sub_component(&unit, sub_component, (), None);
+        let binding =
+            ctx.property_info(&prop.prop).binding.map(|(b, _)| b).expect("no binding for 'secret'");
+        assert!(
+            !matches!(
+                &*binding.expression.borrow(),
+                crate::llr::Expression::CodeBlock(v) if v.is_empty()
+            ),
+            "the binding was blanked out despite the pin"
+        );
+    }
+
+    /// The retention gate in `remove_unused_properties` only applies when the declared-property
+    /// table is actually generated: without debug info, an unused `@testable` property is
+    /// removed like any other unused property, keeping ordinary release builds unaffected.
+    #[test]
+    fn testable_property_removed_without_debug_info() {
+        let source = r#"
+export component TestCase inherits Window {
+    @testable property <int> secret: 42;
+}
+"#;
+        let (doc, _config) = compile_for_test(source, false);
+        let test_case = doc
+            .inner_components
+            .iter()
+            .find(|c| c.id == "TestCase")
+            .expect("no TestCase component");
+        assert!(
+            !test_case.root_element.borrow().property_declarations.contains_key("secret"),
+            "the unused '@testable' property survived without debug info"
+        );
+    }
+
+    /// A private `@testable` base declaration hidden by a derived same-name declaration must
+    /// not create a second table entry: the existing shadow ranking still decides which
+    /// declaration the table exposes.
+    #[test]
+    fn testable_attribute_on_shadowed_base_does_not_leak() {
+        let source = r#"
+component Base inherits Rectangle {
+    @shadowable @testable private property <string> secret: "base";
+}
+component Derived inherits Base {
+    in-out property <int> secret: 42;
+    changed secret => { }
+}
+export component TestCase inherits Window {
+    d := Derived { }
+}
+"#;
+        let (doc, config) = compile_for_test(source, true);
+        let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
+        let mut checked = 0;
+        for sc in unit.sub_components.iter() {
+            for props in sc.element_properties.values() {
+                for p in props.iter().filter(|p| p.name == "secret") {
+                    if sc.name.contains("TestCase") || sc.name.contains("Derived") {
+                        // A leaked entry from the hidden base would carry its String type
+                        // instead of the shadowing declaration's Int32.
+                        assert_eq!(p.ty, crate::langtype::Type::Int32, "in {}", sc.name);
+                        checked += 1;
+                    }
+                }
+            }
+        }
+        assert!(checked > 0, "no Derived/TestCase entry listed 'secret'");
     }
 }
