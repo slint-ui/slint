@@ -213,6 +213,30 @@ fn property_defaults(
 
 // Reserved geometry properties (x, y, width, height) are not in property_list()
 // because they are injected by the type system.
+/// Whether a state in a base component changes `property_name` on that component's root.
+///
+/// `lower_states` binds the property there later, but a hook on the instance is made now and
+/// would hold the value the property has before that, which the state can no longer reach.
+fn base_state_binds(element: &ElementRc, property_name: &str) -> bool {
+    let mut base_type = element.borrow().base_type.clone();
+    while let crate::langtype::ElementType::Component(component) = base_type {
+        let root = component.root_element.clone();
+        let mut found = false;
+        object_tree::recurse_elem(&root, &(), &mut |elem, _| {
+            found |= elem.borrow().states.iter().any(|state| {
+                state.property_changes.iter().any(|(property, ..)| {
+                    property.name() == property_name && Rc::ptr_eq(&property.element(), &root)
+                })
+            });
+        });
+        if found {
+            return true;
+        }
+        base_type = root.borrow().base_type.clone();
+    }
+    false
+}
+
 // We exclude "z" to avoid spurious property materialization in materialize_fake_properties.
 // TODO: Add appropriate debug hook.
 fn geometry_properties()
@@ -293,6 +317,7 @@ fn add_hooks_for_non_existent_bindings(
             // Filter invalid reserved properties (e.g. x/y on a Timer, etc.)
             && elem.lookup_property(name, PropertyLookupMode::InternalName).property_type != crate::langtype::Type::Invalid
             && !elem.is_property_target_of_two_way_binding(name)
+            && !base_state_binds(element, name)
     });
 
     for (name, default_expression, synthetic) in unbound_properties {
@@ -798,5 +823,77 @@ mod tests {
                 "img.{property} hook should not be synthetic after default_geometry, got {expression:?}"
             );
         }
+    }
+
+    #[test]
+    fn inlined_root_state_binding_keeps_its_default_with_debug_hooks() {
+        // Inlining merges the component root's binding into the use site, where a synthetic hook
+        // already stands for "nothing binds this" (#8852).
+        let doc = compile(
+            r#"
+            component Faded inherits Text {
+                opacity: 0.9;
+                in property <bool> alt;
+                states [ a when alt : { height: 80px; } ]
+            }
+            export component Foo inherits Window {
+                f := Faded { text: "hello"; }
+            }
+            "#,
+        );
+        let foo = component(&doc, "Foo");
+        let f = child(&foo.root_element, "f");
+
+        assert!(
+            f.borrow().is_binding_from_state("height"),
+            "the mark must survive the merge into the use site"
+        );
+        let binding = f
+            .borrow()
+            .binding_cell_including_synthetic("height")
+            .map(|b| b.borrow().clone())
+            .expect("the state leaves a height binding behind");
+        let fallback = binding
+            .clone()
+            .state_fallback_mut()
+            .cloned()
+            .expect("the merged binding keeps the state's condition chain");
+        assert!(
+            !matches!(fallback, Expression::NumberLiteral(v, _) if v == 0.),
+            "the height outside of the states is the implicit height, not zero: {fallback:?}"
+        );
+    }
+
+    #[test]
+    fn state_set_geometry_keeps_its_default_with_debug_hooks() {
+        // A hook wrapper sits outside the condition chain a state leaves behind (#8852).
+        let doc = compile(
+            r#"
+            export component Foo inherits Window {
+                in property <bool> alt;
+                txt := Text {
+                    text: "hello";
+                    states [ a when alt : { height: 80px; } ]
+                }
+            }
+            "#,
+        );
+        let foo = component(&doc, "Foo");
+        let txt = child(&foo.root_element, "txt");
+
+        let mut binding = txt
+            .borrow()
+            .binding_cell_including_synthetic("height")
+            .map(|b| b.borrow().clone())
+            .expect("the state leaves a height binding behind");
+        assert!(binding.from_state, "the binding must be marked as coming from a state");
+
+        let fallback = binding
+            .state_fallback_mut()
+            .expect("the hook wrapper must not hide the state's condition chain");
+        assert!(
+            !matches!(fallback, Expression::NumberLiteral(v, _) if *v == 0.),
+            "the height outside of the states is still the type default: {fallback:?}"
+        );
     }
 }
