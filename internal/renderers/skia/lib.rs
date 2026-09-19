@@ -512,6 +512,7 @@ impl SkiaRenderer {
     }
 
     /// Creates a new renderer is associated with the provided window adapter.
+    #[cfg(skia_windowed)]
     pub fn new(
         context: &SkiaSharedContext,
         window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
