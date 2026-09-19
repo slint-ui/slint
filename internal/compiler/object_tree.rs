@@ -797,6 +797,10 @@ pub struct PropertyDeclaration {
     pub shadowed_name: Option<SmolStr>,
     /// Declared `@shadowable`, so an inheriting component may shadow it.
     pub shadowable: bool,
+    /// Declared `@testable`: the property is guaranteed to appear in the declared-property
+    /// introspection channel (see [`crate::llr::ElementProperty`]), regardless of its
+    /// visibility or whether the document reads it.
+    pub testable: bool,
     /// The name the declaration had on the element it was moved from, when the
     /// move_declarations pass hoisted it onto the root element from another
     /// element of the component, under a name of its own making. What the
@@ -845,6 +849,15 @@ fn shadowable_attribute(
     diag: &mut BuildDiagnostics,
 ) -> bool {
     node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@shadowable", &node))
+}
+
+/// Whether the declaration is marked `@testable` (an experimental feature).
+fn testable_attribute(
+    node: Option<syntax_nodes::TestableAttribute>,
+    tr: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) -> bool {
+    node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@testable", &node))
 }
 
 /// The message from a `@deprecated` attribute on a member, empty when the declaration gives no
