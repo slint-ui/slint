@@ -167,7 +167,8 @@ Most take element/window handles returned by `list_windows`/the tree calls.
   it lists an element's `in`/`out`/`in-out` properties with typed current
   values, which beats diffing screenshots.
   Properties the compiler optimized out (constant, or never read) are not
-  listed.
+  listed, unless declared with the experimental `@testable` attribute, which
+  lists and keeps a property alive regardless of visibility.
 - Drive a flow (`click_element`, `dispatch_key_event`), then `take_screenshot`
   to verify the result.
 - Claude Code reads a project-level `.mcp.json`; declaring the server there
