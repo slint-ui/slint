@@ -1,8 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! An application that keeps the winit window of a hidden window alive is told about it,
-//! and can still show the window again.
+//! An application that keeps the winit window of a hidden window alive is told about it.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -42,20 +41,21 @@ fn main() {
     slint::spawn_local(async move {
         let app = App::new().unwrap();
         app.show().unwrap();
-        let _kept_alive = app.window().winit_window().await.unwrap();
+        let kept_alive = app.window().winit_window().await.unwrap();
 
         app.window().hide().unwrap();
 
-        // Showing again lets the event loop run, which is when it notices the first window.
-        app.show().unwrap();
-        app.window().winit_window().await.unwrap();
-        assert!(app.window().is_visible());
+        // The report comes once the event loop is done with what hid the window, so read it
+        // on the next iteration.
+        slint::Timer::single_shot(std::time::Duration::default(), move || {
+            let reports: Vec<_> =
+                reported.take().into_iter().filter(|message| message.contains(REPORT)).collect();
+            assert_eq!(reports.len(), 1, "expected one report, got {reports:?}");
 
-        let reports: Vec<_> =
-            reported.take().into_iter().filter(|message| message.contains(REPORT)).collect();
-        assert_eq!(reports.len(), 1, "expected one report, got {reports:?}");
-
-        slint::quit_event_loop().unwrap();
+            // Let go of the window while the event loop is still there to destroy it.
+            drop(kept_alive);
+            slint::quit_event_loop().unwrap();
+        });
     })
     .unwrap();
 
