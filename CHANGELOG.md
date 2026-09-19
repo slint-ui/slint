@@ -78,6 +78,8 @@ All notable changes to this project are documented in this file.
  - Software renderer: Fixed a click into text mapping to the wrong character on lines that mix
    multiple scripts.
  - Software renderer: Fixed the rendering of rotated non-square `Path` elements. (#13136)
+ - Software renderer: Fixed the dirty region bounding box including rectangles that were entirely
+   clipped out by the screen bounds. (#12656)
  - FemtoVG: Fixed blurry images, most visibly rasterized SVG icons, at fractional device-pixel positions. (#6455)
  - wasm: Fixed keyboard modifiers being reset when the focus moves between elements. (#7347, #8606)
  - wasm: The system accent color is now picked up.
@@ -245,6 +247,8 @@ All notable changes to this project are documented in this file.
  - Fixed the WGPU-based Skia renderers never firing `RenderingState::RenderingSetup` and
    `RenderingState::RenderingTeardown`.
  - slint-build: Changing a bundled translation now triggers a rebuild. (#13329)
+ - Software renderer: Added `SoftwareRenderer::set_dirty_region_alignment()` to align dirty regions to
+   a physical pixel grid, for display controllers that require aligned address windows. (#12656)
 
 ### C++
 
@@ -267,6 +271,7 @@ All notable changes to this project are documented in this file.
  - Added the `SLINT_FEATURE_SYSTEM_TRAY` CMake option. (#13237)
  - live-preview: The generated C++ no longer triggers clang's `-Wunused-private-field` warning for a
    global that isn't exported. (#13400)
+ - Software renderer: Added `SoftwareRenderer::set_dirty_region_alignment()`. (#12656)
 
 ### JavaScript
 
