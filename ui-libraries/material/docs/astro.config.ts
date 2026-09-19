@@ -7,10 +7,9 @@ import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlig
 import {
     SLINT_STARLIGHT_TRAILING_SLASH,
     slintStarlightLinksValidatorPlugin,
+    slintStarlightMarkdownRehypeExternalLinksOnly,
 } from "@slint/common-files/src/utils/starlight-site-defaults";
-import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
 import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
-
 import { unified } from "@astrojs/markdown-remark";
 
 const base = process.env.MATERIAL_DOCS_BASE_PATH || "/";
@@ -21,7 +20,7 @@ export default defineConfig({
     base,
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
     markdown: {
-        processor: unified({ rehypePlugins: [rehypeExternalLinksSlint] }),
+        processor: unified(slintStarlightMarkdownRehypeExternalLinksOnly()),
     },
     integrations: [
         starlight({

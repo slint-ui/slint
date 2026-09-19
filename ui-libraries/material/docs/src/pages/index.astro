@@ -4,6 +4,7 @@
 import { Image, getImage } from "astro:assets";
 import { Icon } from "@astrojs/starlight/components";
 import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
+import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import SlintLogo from "../assets/slint-logo-small-light.svg";
 import heroImage from "../assets/images/material-tablet.webp";
 import buttonsIcon from "../assets/images/icons/hand-click.svg?url";
@@ -30,34 +31,28 @@ const navigation = [
     { text: "Demo", href: base + "wasm/index.html" },
     { text: "Slint Home", href: "https://slint.dev" },
 ];
-const social = [
-    {
-        label: "Github",
-        icon: "github",
-        href: "https://github.com/slint-ui/slint/tree/master/ui-libraries/material",
-    },
-    { label: "X", icon: "x.com", href: "https://x.com/slint_ui" },
-    {
-        label: "Bluesky",
-        icon: "blueSky",
-        href: "https://bsky.app/profile/slint.dev",
-    },
-    {
-        label: "Mastodon",
-        icon: "mastodon",
-        href: "https://fosstodon.org/@slint",
-    },
-    {
-        label: "LinkedIn",
-        icon: "linkedin",
-        href: "https://www.linkedin.com/company/slint-ui",
-    },
-    {
-        label: "YouTube",
-        icon: "youtube",
-        href: "https://www.youtube.com/@slint-ui",
-    },
-] as const;
+const homepageSocialOrder = [
+    "github",
+    "x.com",
+    "blueSky",
+    "mastodon",
+    "linkedin",
+    "youtube",
+];
+const social = homepageSocialOrder.flatMap((icon) => {
+    const link = slintStarlightSocial.find(
+        (candidate) => candidate.icon === icon,
+    );
+    if (!link) return [];
+    return [
+        link.icon === "github"
+            ? {
+                  ...link,
+                  href: "https://github.com/slint-ui/slint/tree/master/ui-libraries/material",
+              }
+            : link,
+    ];
+});
 const features = [
     {
         title: "Make your product shine",
