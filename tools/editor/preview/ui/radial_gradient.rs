@@ -11,7 +11,7 @@ pub fn editing_axis(fill: FillData, size: LogicalSize, direction: f32) -> Linear
         return Default::default();
     };
     let (x, y) = brush.center_or_default(size.width, size.height);
-    let radius = brush.radius_or_default(size.width, size.height);
+    let radius = brush.radius_x_or_default(size.width, size.height);
     let direction = direction.to_radians();
     LinearGradientAxis {
         start: Point::new(x, y),
