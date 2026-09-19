@@ -40,6 +40,12 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush>;
 
+    /// Snaps a selection edge for both its highlight and glyph clip.
+    /// The input and result are physical x coordinates relative to the item.
+    fn snap_selection_x(&self, x: f32) -> f32 {
+        x.round()
+    }
+
     /// Draws the glyphs provided by glyphs_it with the specified font, font_size, and brush at the
     /// given y offset. The `normalized_coords` are F2Dot14 values in fvar axis order for variable
     /// font rendering. The `synthesis` contains design-space variation settings and faux
