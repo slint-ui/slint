@@ -26,3 +26,44 @@
     mask-size: cover;
     /* The mask-image will be set inline for each icon */
 }
+
+/* Keep the recommended Material release distinct from the archive. */
+.release-picker {
+    margin-block: 1.5rem 2rem;
+    overflow: hidden;
+    border: 1px solid var(--sl-color-gray-5);
+    border-inline-start: 0.25rem solid var(--sl-color-accent);
+    border-radius: 0.75rem;
+    background: var(--sl-color-gray-7);
+}
+
+.release-picker__latest {
+    padding: 1.5rem clamp(1.25rem, 4vw, 2rem);
+    background: color-mix(
+        in srgb,
+        var(--sl-color-accent-low) 55%,
+        var(--sl-color-gray-7)
+    );
+}
+
+.release-picker__latest h3 {
+    margin-block: 0;
+    font-size: var(--sl-text-h3);
+}
+
+.release-picker__latest > p {
+    margin-block: 0.75rem 0;
+    color: var(--sl-color-gray-2);
+}
+
+.release-picker__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+    margin-top: 1rem;
+}
+
+.release-picker__actions a {
+    font-weight: 600;
+}

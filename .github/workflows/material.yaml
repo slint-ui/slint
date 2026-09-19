@@ -31,7 +31,7 @@ permissions:
   contents: read
 
 env:
-  MATERIAL_ZIP_VERSION: "1.0.1"
+  MATERIAL_ZIP_VERSION: "1.1.0"
 
 jobs:
   material_wasm_demo:
@@ -69,7 +69,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [material_wasm_demo, material_apk_demo]
+    needs: [material_wasm_demo, material_apk_demo, material_tests]
     permissions:
       contents: read
       deployments: write
@@ -84,7 +84,7 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo timeout 600 apt-get update
-          sudo timeout 600 apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev
+          sudo timeout 600 apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev zip unzip
         shell: bash
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -122,13 +122,14 @@ jobs:
       - name: Zip material library
         working-directory: ui-libraries/material
         run: |
-            cp -a src material-${MATERIAL_ZIP_VERSION}
-            mkdir -p docs/dist/zip
-            curl -fsSL -o docs/dist/zip/material-1.0.zip https://releases.slint.dev/material-1.0/material-1.0.zip
-            zip -r docs/dist/zip/material-${MATERIAL_ZIP_VERSION}.zip material-${MATERIAL_ZIP_VERSION}
-            rm -rf material-${MATERIAL_ZIP_VERSION}
+          mkdir -p docs/dist/zip
+          while read -r version; do
+            curl -fsSL -o "docs/dist/zip/material-${version}.zip" \
+              "https://material.slint.dev/zip/material-${version}.zip"
+          done < release/released-versions.txt
+          scripts/package-release.sh "$MATERIAL_ZIP_VERSION" docs/dist/zip
       - name: Deploy to materialui (Pages)
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_production == 'true'
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_production == 'true' && github.ref == 'refs/heads/master'
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
