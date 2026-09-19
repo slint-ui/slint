@@ -1631,19 +1631,22 @@ thread_local! {
 }
 
 fn shared_image_buffer_to_pixmap(buffer: &SharedImageBuffer) -> Option<qttypes::QPixmap> {
-    let (format, bytes_per_line, buffer_ptr) = match buffer {
+    let (format, bytes_per_line, bytes) = match buffer {
         SharedImageBuffer::RGBA8(img) => {
-            (qttypes::ImageFormat::RGBA8888, img.width() * 4, img.as_bytes().as_ptr())
+            (qttypes::ImageFormat::RGBA8888, img.width() * 4, img.as_bytes())
         }
         SharedImageBuffer::RGBA8Premultiplied(img) => {
-            (qttypes::ImageFormat::RGBA8888_Premultiplied, img.width() * 4, img.as_bytes().as_ptr())
+            (qttypes::ImageFormat::RGBA8888_Premultiplied, img.width() * 4, img.as_bytes())
         }
         SharedImageBuffer::RGB8(img) => {
-            (qttypes::ImageFormat::RGB888, img.width() * 3, img.as_bytes().as_ptr())
+            (qttypes::ImageFormat::RGB888, img.width() * 3, img.as_bytes())
         }
     };
     let width: i32 = buffer.width() as _;
     let height: i32 = buffer.height() as _;
+    // QImage reads height * bytes_per_line through this pointer whatever the buffer holds (#13491).
+    assert!(bytes.len() as u64 >= buffer.height() as u64 * bytes_per_line as u64);
+    let buffer_ptr = bytes.as_ptr();
     let pixmap = cpp! { unsafe [format as "QImage::Format", width as "int", height as "int", bytes_per_line as "uint32_t", buffer_ptr as "const uchar *"] -> qttypes::QPixmap as "QPixmap" {
         QImage img(buffer_ptr, width, height, bytes_per_line, format);
         return QPixmap::fromImage(img);

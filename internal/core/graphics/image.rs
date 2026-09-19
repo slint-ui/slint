@@ -133,6 +133,11 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
     /// Creates a new SharedPixelBuffer by cloning and converting pixels from an existing
     /// slice. This function is useful when another crate was used to allocate an image
     /// and you would like to convert it for use in Slint.
+    ///
+    /// The slice must hold exactly `width * height * bytes_per_pixel` bytes,
+    /// where `bytes_per_pixel` is the size of the target pixel type: 4 for [`Rgba8Pixel`], 3 for [`Rgb8Pixel`].
+    /// This panics otherwise.
+    #[track_caller]
     pub fn clone_from_slice<SourcePixelType>(
         pixel_slice: &[SourcePixelType],
         width: u32,
@@ -142,7 +147,13 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
         [SourcePixelType]: rgb::AsPixels<Pixel>,
     {
         use rgb::AsPixels;
-        Self { width, height, data: pixel_slice.as_pixels().into() }
+        let data: SharedVector<Pixel> = pixel_slice.as_pixels().into();
+        assert_eq!(
+            data.len() as u64,
+            width as u64 * height as u64,
+            "SharedPixelBuffer::clone_from_slice: the slice does not cover the requested {width}x{height} pixels",
+        );
+        Self { width, height, data }
     }
 }
 
@@ -1795,9 +1806,26 @@ pub struct BorrowedOpenGLTexture {
 
 #[cfg(test)]
 mod tests {
-    use crate::graphics::Rgba8Pixel;
+    use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 
     use super::Image;
+
+    #[test]
+    #[should_panic(expected = "the requested 8x8 pixels")]
+    fn clone_from_slice_rejects_a_short_slice() {
+        // One byte per pixel read as four: what an 8 bit grayscale buffer handed to
+        // `Image::from_rgba8` looks like (#13491).
+        let gray = [0u8; 8 * 8];
+        SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(&gray, 8, 8);
+    }
+
+    #[test]
+    #[should_panic(expected = "the requested 8x8 pixels")]
+    fn clone_from_slice_rejects_a_long_slice() {
+        // Four bytes per pixel read as three, the same mistake the other way around.
+        let rgba = [0u8; 8 * 8 * 4];
+        SharedPixelBuffer::<crate::graphics::Rgb8Pixel>::clone_from_slice(&rgba, 8, 8);
+    }
 
     #[test]
     fn test_premultiplied_to_rgb_zero_alpha() {
