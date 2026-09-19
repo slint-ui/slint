@@ -59,6 +59,9 @@ numbers for both `get_element_properties` and `get_element_tree`.
 The table exists only when the application was compiled with debug info, and an item tree
 whose generator does not implement the entries (generated C++ today) reports "unsupported",
 which surfaces as a `note` instead of an empty list.
+A property normally needs `in`/`out`/`in-out` visibility and a live binding to appear here;
+the experimental `@testable` attribute (`docs/astro/.../guide/experimental/testable.mdx`)
+overrides both, so a `private` or otherwise-unread property can still be listed and read.
 
 ### IntrospectionState
 

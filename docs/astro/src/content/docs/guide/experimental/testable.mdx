@@ -1,0 +1,46 @@
+---
+title: Testable Properties
+description: Experimental @testable annotation that guarantees a property appears in the declared-property introspection channel.
+---
+
+Tools that drive a running UI for testing read a component's properties back through a debug-info table the compiler emits per element.
+That's the `slint-testing` crate's `ElementHandle` and the [MCP server for AI coding assistants](../../tooling/ai-coding-assistants/).
+The table only lists a property when it's `in`, `out` or `in-out`, and only when it survives the compiler's dead-code elimination.
+A `private` property, or one nothing else in the document reads, is normally optimized away before the table is built.
+
+The `@testable` annotation opts a single property into that table regardless of its visibility.
+It also keeps the property and its binding alive even when nothing else reads it.
+
+> **Note**: `@testable` is experimental and subject to change.
+
+## Syntax
+
+Prefix a property declaration with `@testable`:
+
+```slint
+component Gauge {
+    // Only ever read by a test, never by this document itself.
+    @testable private property <float> internal-load: 0.0;
+}
+```
+
+## Semantics
+
+- `@testable` doesn't change the property's visibility or its public API.
+  A `private` property marked `@testable` stays invisible to Slint code in other components, but appears in the declared-property table.
+- It guarantees *listing and a live binding*, not a readable value for every type.
+  A `@testable` struct property is listed with a `None`/`nullopt` value, the same as any other struct-typed declared property.
+- It has no effect on a property that would already be listed, such as an `in` property that's otherwise used.
+- The table itself only exists when the application is compiled with debug info
+  (`SLINT_EMIT_DEBUG_INFO=1`, `slint_build`'s `with_debug_info`, or `debug_info` in `CompilerConfiguration`).
+  Without debug info, `@testable` has no runtime cost: an otherwise-unused `@testable` property is optimized away exactly like an unmarked one.
+
+## Rules
+
+- `@testable` can only be applied to property declarations, not to callbacks or functions, which have no value to read.
+- It's rejected on global and interface property declarations.
+  Globals have no per-element property table to list in, and interfaces have no runtime element of their own.
+  To make a property backing an interface member testable, mark the *implementing* component's property instead.
+- It may be combined with [`@shadowable`](../shadowable/) and [`@deprecated`](../deprecated/) in any order, but each annotation only once.
+- A declaration hidden by a [shadowing](../shadowable/) declaration of the same name doesn't create a second table entry.
+  The existing shadow-resolution rules still decide which declaration the table exposes.
