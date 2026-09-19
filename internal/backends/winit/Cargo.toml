@@ -122,6 +122,8 @@ accesskit_winit = { version = "0.33", optional = true, default-features = false,
 i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
 # For encoding drag-and-drop image payloads
 image = { workspace = true }
+# For the file URIs of drag-and-drop file payloads
+url = "2"
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")))'.dependencies]
 winit-wayland = { version = "0.31.0-beta.3", optional = true }

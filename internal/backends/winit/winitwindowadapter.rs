@@ -1586,12 +1586,13 @@ impl WinitWindowAdapter {
             WinitWindowEvent::DragEntered { id, position } => {
                 // Fetch the payload. We can only tell whether a DropArea accepts it, and report
                 // the valid actions to the OS, once it arrives (in `DataTransferReceived` below).
-                let _ =
-                    event_loop.fetch_data_transfer(id, &winit::data_transfer::TypeHint::Plaintext);
-                let _ = event_loop.fetch_data_transfer(
-                    id,
-                    &winit::data_transfer::TypeHint::Image { extension_hint: None },
-                );
+                for hint in [
+                    winit::data_transfer::TypeHint::Plaintext,
+                    winit::data_transfer::TypeHint::Image { extension_hint: None },
+                    winit::data_transfer::TypeHint::UriList,
+                ] {
+                    let _ = event_loop.fetch_data_transfer(id, &hint);
+                }
                 if let Some(position) = position {
                     self.cursor_pos
                         .set(physical_position_to_slint(position, runtime_window.scale_factor()));
@@ -1639,6 +1640,11 @@ impl WinitWindowAdapter {
                                 drag_and_drop::decode_dropped_image(&bytes, extension_hint)
                             })
                             .map(|image| transfers.entry(id).or_default().set_image(image)),
+                        Some(winit::data_transfer::TypeHint::UriList) => value
+                            .try_as_uris()
+                            .ok()
+                            .and_then(|uris| drag_and_drop::dropped_file_paths(&uris))
+                            .map(|paths| transfers.entry(id).or_default().set_file_paths(paths)),
                         _ => None,
                     }
                     .is_some()
@@ -2172,11 +2178,11 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         let Some(winit_window) = self.winit_window() else {
             return false;
         };
-        // Plain text and images are sent natively for now; without either, fall back
-        // to the in-window drag.
+        // Without a payload another application could receive, fall back to the in-window drag.
         let text = request.data().plain_text().ok().filter(|t| !t.is_empty()).map(String::from);
         let image = drag_and_drop::drag_image_payload(request);
-        if text.is_none() && image.is_none() {
+        let uris = request.data().file_paths().ok().and_then(drag_and_drop::file_paths_to_uris);
+        if text.is_none() && image.is_none() && uris.is_none() {
             return false;
         }
         let mut builder = winit::data_transfer::DataTransferSendBuilder::new(());
@@ -2190,6 +2196,10 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 winit::data_transfer::TypeHint::Image { extension_hint: Some("png") },
                 move |_, _| drag_and_drop::encode_png(&image),
             );
+        }
+        if let Some(uris) = uris {
+            builder
+                .add_type(winit::data_transfer::TypeHint::UriList, move |_, _| Some(uris.clone()));
         }
         let data = builder.build();
         let allowed = request.allowed_actions();
