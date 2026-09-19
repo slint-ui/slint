@@ -166,3 +166,12 @@ rustdoc-args = ["--generate-link-to-definition"]
 [[test]]
 name = "menubar_borrow"
 harness = false
+
+# These create a window and run the event loop, so they need the main thread.
+[[test]]
+name = "hide_from_window_event"
+harness = false
+
+[[test]]
+name = "hide_with_external_reference"
+harness = false
