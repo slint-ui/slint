@@ -172,6 +172,10 @@ pub fn default_geometry(
                         maybe_center_in_parent(elem, parent, "y", "height");
                     }
                 }
+            } else if matches!(builtin_type.default_size_binding, DefaultSizeBinding::ImplicitSize)
+            {
+                fill_implicit_state_fallback(elem, "width");
+                fill_implicit_state_fallback(elem, "height");
             }
 
             Some(elem.clone())
@@ -506,6 +510,16 @@ fn bind_size_to_source_image(elem: &ElementRc) {
     }
 }
 
+/// Fills the value a state-set size falls back to with the implicit size.
+///
+/// A component's root has no parent here, and a binding at the use site would shadow the
+/// state (#8852).
+fn fill_implicit_state_fallback(elem: &ElementRc, property: &str) {
+    if elem.borrow().is_binding_from_state(property) {
+        make_default_implicit(elem, property);
+    }
+}
+
 fn make_default_implicit(elem: &ElementRc, property: &str) {
     let e = crate::builtin_macros::min_max_expression(
         Expression::PropertyReference(NamedReference::new(
@@ -607,7 +621,7 @@ fn maybe_center_in_parent(
     pos_prop: &'static str,
     size_prop: &'static str,
 ) {
-    if elem.borrow().is_binding_set(pos_prop, false) {
+    if elem.borrow().is_binding_set_outside_states(pos_prop) {
         return;
     }
 

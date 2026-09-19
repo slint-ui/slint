@@ -3669,6 +3669,17 @@ impl Element {
         self.bindings.0.get(property_name)
     }
 
+    /// Whether a state is what binds `property_name`.
+    pub fn is_binding_from_state(&self, property_name: &str) -> bool {
+        self.binding_cell_including_synthetic(property_name)
+            .is_some_and(|cell| cell.borrow().from_state)
+    }
+
+    /// Like [`Self::is_binding_set`], except a binding a state created doesn't count.
+    pub fn is_binding_set_outside_states(&self, property_name: &str) -> bool {
+        self.is_binding_set(property_name, false) && !self.is_binding_from_state(property_name)
+    }
+
     /// Set the property `property_name` of this Element only if it was not set.
     /// the `expression_fn` will only be called if it isn't set.
     ///
@@ -3682,6 +3693,18 @@ impl Element {
         property_name: SmolStr,
         expression_fn: impl FnOnce() -> Expression,
     ) -> bool {
+        // A state leaves a binding behind whose value while no state applies is the type
+        // default, so put the default there instead of skipping the property (#8852).
+        if let Some(cell) = self.binding_cell_including_synthetic(&property_name) {
+            let cell = cell.borrow_mut();
+            if let Ok(mut fallback) =
+                RefMut::filter_map(cell, BindingExpression::state_fallback_mut)
+            {
+                *fallback = expression_fn();
+                return true;
+            }
+        }
+
         if self.is_binding_set(&property_name, false) {
             return false;
         }
