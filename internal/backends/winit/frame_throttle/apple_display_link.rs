@@ -110,12 +110,14 @@ fn request_screen_frame_rate(
 
     // Ask on every redraw rather than once at creation, so that a window moving to
     // a screen with a different rate picks the new one up.
-    let Some(millihertz) =
-        winit_window.current_monitor().and_then(|monitor| monitor.refresh_rate_millihertz())
+    let Some(millihertz) = winit_window
+        .current_monitor()
+        .and_then(|monitor| monitor.current_video_mode())
+        .and_then(|mode| mode.refresh_rate_millihertz())
     else {
         return;
     };
-    let max = millihertz as f32 / 1000.;
+    let max = millihertz.get() as f32 / 1000.;
     // A 60Hz screen has nothing to unlock, and asking would only widen the range
     // downwards, leaving the system free to settle at 30.
     if max <= 60. {
