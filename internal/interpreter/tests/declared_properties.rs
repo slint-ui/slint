@@ -5,12 +5,21 @@
 //! The same source and expectations run against generated Rust code in
 //! `tests/cases/testing/declared_properties.slint`, keeping the two runtimes'
 //! encodings identical.
+//!
+//! `SOURCE` uses `@testable` (experimental), so `compile` enables experimental
+//! features for the whole process before building: every test in this file shares
+//! `SOURCE`, and none of them exercises the "experimental disabled" rejection path.
 
 use i_slint_backend_testing::ElementHandle;
 use slint_interpreter::{Compiler, ComponentInstance, Value};
 
 fn compile(code: &str) -> ComponentInstance {
     i_slint_backend_testing::init_no_event_loop();
+    // SAFETY: set once, before any component is compiled; no test in this file
+    // reads or relies on a concurrently different value.
+    unsafe {
+        std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1");
+    }
     let result =
         spin_on::spin_on(Compiler::default().build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
@@ -41,6 +50,8 @@ const SOURCE: &str = r#"
         in property <Mood> mood: Mood.grumpy;
         in property <{a: int, b: string}> record: { a: 1, b: "x" };
         in property <int> gone-unread: 4;
+        @testable property <int> testable-unread: 55;
+        @testable property <{a: int, b: string}> testable-struct: { a: 3, b: "s" };
         in-out property <string> aliased <=> inner.text;
         inner := Text { text: "hello"; }
         Rectangle {
@@ -111,11 +122,14 @@ fn declared_properties_are_listed_with_types() {
             ("ratio", "float"),
             ("record", "{ a: int,b: string,}"),
             ("solid", "brush"),
+            ("testable-struct", "{ a: int,b: string,}"),
+            ("testable-unread", "int"),
             ("tint", "color"),
         ]
     );
     // Not listed: private declarations (base-private, use-site-private) and
-    // properties the optimizer removed (gone-unread).
+    // properties the optimizer removed (gone-unread). `@testable` overrides both
+    // (testable-unread, testable-struct).
 }
 
 #[test]
@@ -140,6 +154,9 @@ fn declared_property_values_encode_per_type() {
     assert_eq!(value("aliased").as_deref(), Some("hello"));
     // A struct value has no string encoding; the property is only listed.
     assert_eq!(value("record"), None);
+    assert_eq!(value("testable-struct"), None);
+    // `@testable` guarantees listing regardless of visibility, and pins the binding.
+    assert_eq!(value("testable-unread").as_deref(), Some("55"));
     // Unknown or optimized-out names read as None.
     assert_eq!(value("gone-unread"), None);
     assert_eq!(value("no-such-property"), None);
