@@ -2411,6 +2411,14 @@ mod tests {
     }
 
     #[test]
+    fn interfaces() {
+        assert_formatting(
+            "interface   A   {}  export interface  B  inherits  A {  }",
+            "interface A { }\n\nexport interface B inherits A { }\n",
+        );
+    }
+
+    #[test]
     fn with_comments() {
         assert_formatting(
             r#"component /* */ Foo // aaa
