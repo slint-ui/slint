@@ -21,6 +21,7 @@ use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
 use crate::typeregister::TypeRegister;
 use crate::{parser, reject_experimental_feature};
+use interfaces::ImplementedInterface;
 use itertools::Either;
 use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 use std::cell::{Cell, OnceCell, Ref, RefCell, RefMut};
@@ -1607,6 +1608,377 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
+        let Some((r, implemented_interfaces, child_implements)) =
+            Self::element_without_children(&node, id, parent_type, is_legacy_syntax, diag, tr)
+        else {
+            return ElementRc::default();
+        };
+
+        for se in node.children() {
+            if se.kind() != SyntaxKind::SlotForwarding {
+                continue;
+            }
+            if !Self::assert_experimental_slots(diag, &se, "slot forwarding") {
+                continue;
+            }
+
+            let target_node = se.child_node(SyntaxKind::DeclaredIdentifier).unwrap();
+            let target = parser::identifier_text(&target_node.clone()).unwrap_or_default();
+
+            if target == "children" {
+                diag.push_error(
+                    format!(
+                        "The name '{target}' is reserved for the default slot. Use @children instead"
+                    ),
+                    &target_node,
+                );
+                continue;
+            }
+
+            if r.borrow().forwarded_slots.iter().any(|f| f.target == target) {
+                diag.push_error(format!("Duplicate assignment to slot '{target}'"), &target_node);
+                continue;
+            }
+
+            match &r.borrow().base_type {
+                ElementType::Component(component)
+                    if !component
+                        .declared_slots
+                        .borrow()
+                        .iter()
+                        .any(|slot| slot.name == target) =>
+                {
+                    diag.push_error(
+                        format!("Unknown slot '{target}' in '{}'", component.id),
+                        &target_node,
+                    );
+                    continue;
+                }
+                ElementType::Component(_) => {}
+                _ => {
+                    diag.push_error("Slot forwarding can only be used on components".into(), &se);
+                    continue;
+                }
+            }
+
+            let Some(expression_node) = se.child_node(SyntaxKind::Expression) else {
+                diag.push_error(
+                    "Slot forwarding requires a slot identifier on the right-hand side".into(),
+                    &se,
+                );
+                continue;
+            };
+            let Some(source) = Self::slot_forwarding_expr_identifier(&expression_node) else {
+                diag.push_error(
+                    "Slot forwarding requires a slot identifier on the right-hand side".into(),
+                    &expression_node,
+                );
+                continue;
+            };
+
+            if source == "children" {
+                diag.push_error(
+                    format!(
+                        "The name '{source}' is reserved for the default slot. Use @children instead"
+                    ),
+                    &expression_node,
+                );
+                continue;
+            }
+
+            r.borrow_mut().forwarded_slots.push(SlotForwarding {
+                target,
+                source,
+                expression_node: expression_node.into(),
+            });
+        }
+
+        for forwarding in r.borrow().forwarded_slots.clone() {
+            let source = forwarding.source.clone();
+            if let Some(existing_cip) = component_child_insertion_points.get(source.as_str()) {
+                if matches!(existing_cip.node, ChildInsertionPointNode::SlotPlaceholder(_)) {
+                    diag.push_error(
+                        format!(
+                            "The slot '{source}' cannot be forwarded and used as a placeholder in the same component"
+                        ),
+                        &forwarding.expression_node,
+                    );
+                } else {
+                    diag.push_error(
+                        format!(
+                            "{} can only appear once in an element",
+                            slot_error_subject(&source)
+                        ),
+                        &forwarding.expression_node,
+                    );
+                }
+                continue;
+            }
+            component_child_insertion_points.insert(
+                source.to_string(),
+                ChildrenInsertionPoint {
+                    parent: r.clone(),
+                    insertion_index: 0,
+                    node: ChildInsertionPointNode::SlotForwarding(forwarding.expression_node),
+                },
+            );
+        }
+
+        let mut assigned_slots = HashSet::new();
+
+        for se in node.children() {
+            if se.kind() == SyntaxKind::SubElement {
+                if let Some(slot_name) =
+                    Self::sub_element_slot_placeholder_name(&se, declared_slots)
+                {
+                    Self::register_slot_placeholder(
+                        &se,
+                        slot_name,
+                        &r,
+                        component_child_insertion_points,
+                        diag,
+                        tr,
+                    );
+                    continue;
+                }
+                let parent_type = r.borrow().base_type.clone();
+                r.borrow_mut().children.push(Element::from_sub_element_node(
+                    se.into(),
+                    parent_type,
+                    component_child_insertion_points,
+                    declared_slots,
+                    is_legacy_syntax,
+                    diag,
+                    tr,
+                ));
+            } else if se.kind() == SyntaxKind::RepeatedElement {
+                let mut sub_child_insertion_points = BTreeMap::new();
+                let rep = Element::from_repeated_node(
+                    se.into(),
+                    &r,
+                    &mut sub_child_insertion_points,
+                    declared_slots,
+                    is_legacy_syntax,
+                    diag,
+                    tr,
+                );
+                Self::reject_slot_placeholders(
+                    diag,
+                    declared_slots,
+                    sub_child_insertion_points,
+                    "a repeated element",
+                );
+                r.borrow_mut().children.push(rep);
+            } else if se.kind() == SyntaxKind::ConditionalElement {
+                let mut sub_child_insertion_points = BTreeMap::new();
+                let rep = Element::from_conditional_node(
+                    se.into(),
+                    r.borrow().base_type.clone(),
+                    &mut sub_child_insertion_points,
+                    declared_slots,
+                    is_legacy_syntax,
+                    diag,
+                    tr,
+                );
+                Self::reject_slot_placeholders(
+                    diag,
+                    declared_slots,
+                    sub_child_insertion_points,
+                    "a conditional element",
+                );
+                r.borrow_mut().children.push(rep);
+            } else if se.kind() == SyntaxKind::MatchElement {
+                let mut sub_child_insertion_points = BTreeMap::new();
+                let match_element = Element::from_match_node(
+                    se.into(),
+                    r.borrow().base_type.clone(),
+                    &mut sub_child_insertion_points,
+                    declared_slots,
+                    is_legacy_syntax,
+                    diag,
+                    tr,
+                );
+                Self::reject_slot_placeholders(
+                    diag,
+                    declared_slots,
+                    sub_child_insertion_points,
+                    "a match element",
+                );
+                let mut r = r.borrow_mut();
+                r.children.extend(match_element.elements());
+                r.match_elements.push(match_element);
+            } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
+                #[cfg(feature = "slint-sc")]
+                diag.slint_sc_error("The @children placeholder is", &se);
+                if component_child_insertion_points.contains_key(DEFAULT_SLOT_NAME) {
+                    diag.push_error(
+                        format!(
+                            "{} can only appear once in an element",
+                            slot_error_subject(DEFAULT_SLOT_NAME)
+                        ),
+                        &se,
+                    );
+                } else {
+                    component_child_insertion_points.insert(
+                        DEFAULT_SLOT_NAME.into(),
+                        ChildrenInsertionPoint {
+                            parent: r.clone(),
+                            insertion_index: r.borrow().children.len(),
+                            node: ChildInsertionPointNode::ChildrenPlaceHolder(se.into()),
+                        },
+                    );
+                }
+            } else if se.kind() == SyntaxKind::SlotDeclaration {
+                Self::assert_experimental_slots(diag, &se, "named slots");
+                let decl: syntax_nodes::SlotDeclaration = se.into();
+                let name_node = decl.DeclaredIdentifier();
+                let name = parser::identifier_text(&name_node).unwrap_or_default();
+                declared_slots.push(DeclaredSlot {
+                    name,
+                    name_node,
+                    has_rejected_placeholder: false,
+                });
+            } else if se.kind() == SyntaxKind::SlotAssignment {
+                if !Self::assert_experimental_slots(diag, &se, "named slots") {
+                    continue;
+                }
+                let name_node = se.child_node(SyntaxKind::DeclaredIdentifier).unwrap();
+                let name = parser::identifier_text(&name_node).unwrap_or_default();
+                if name == "children" {
+                    diag.push_error(
+                        format!(
+                            "The name '{name}' is reserved for the default slot. Use @children instead"
+                        ),
+                        &name_node,
+                    );
+                }
+                if !assigned_slots.insert(name.clone()) {
+                    diag.push_error(format!("Duplicate assignment to slot '{name}'"), &name_node);
+                }
+                if r.borrow().forwarded_slots.iter().any(|f| f.target == name) {
+                    diag.push_error(format!("Duplicate assignment to slot '{name}'"), &name_node);
+                }
+                let sub_element_node = se.child_node(SyntaxKind::SubElement).unwrap();
+                let parent_type = r.borrow().base_type.clone();
+                match &parent_type {
+                    ElementType::Component(component)
+                        if !component
+                            .declared_slots
+                            .borrow()
+                            .iter()
+                            .any(|slot| slot.name == name) =>
+                    {
+                        diag.push_error(
+                            format!("Unknown slot '{name}' in '{}'", component.id),
+                            &name_node,
+                        );
+                    }
+                    ElementType::Component(_) => {}
+                    _ => {
+                        diag.push_error(
+                            "Slot assignments can only be used on components".to_string(),
+                            &se,
+                        );
+                    }
+                }
+                let element = Element::from_sub_element_node(
+                    sub_element_node.into(),
+                    parent_type,
+                    component_child_insertion_points,
+                    declared_slots,
+                    is_legacy_syntax,
+                    diag,
+                    tr,
+                );
+                element.borrow_mut().slot_target = Some(name);
+                r.borrow_mut().children.push(element);
+            }
+        }
+
+        for state in node.States().flat_map(|s| s.State()) {
+            let condition = state.Expression();
+            // `when` is a contextual keyword, so it is the state's only
+            // `Identifier` token: its name is a `DeclaredIdentifier`.
+            let when = state.child_token(SyntaxKind::Identifier).filter(|t| t.text() == "when");
+            // Without a condition a state is never selected, so its property
+            // changes are code that can't run.
+            #[cfg(feature = "slint-sc")]
+            if condition.is_none() {
+                diag.slint_sc_error(
+                    "A state without a 'when' condition is",
+                    &state.DeclaredIdentifier(),
+                );
+            }
+            let s = State {
+                id: parser::identifier_text(&state.DeclaredIdentifier()).unwrap_or_default(),
+                condition: condition.map(|e| Expression::Uncompiled(e.into())),
+                property_changes: state
+                    .StatePropertyChange()
+                    .filter_map(|s| {
+                        lookup_property_from_qualified_name_for_state(s.QualifiedName(), &r, diag)
+                            .map(|(ne, _)| {
+                                (ne, Expression::Uncompiled(s.BindingExpression().into()), s)
+                            })
+                    })
+                    .collect(),
+                selection: when.map(|when| ConditionLocation::StateSelection {
+                    name: state.DeclaredIdentifier().to_source_location(),
+                    when: when.to_source_location(),
+                }),
+            };
+            for trs in state.Transition() {
+                #[cfg(feature = "slint-sc")]
+                diag.slint_sc_error("Transitions are", &trs);
+                let mut t = Transition::from_node(trs, &r, tr, diag);
+                t.state_id.clone_from(&s.id);
+                r.borrow_mut().transitions.push(t);
+            }
+            r.borrow_mut().states.push(s);
+        }
+
+        for ts in node.Transitions() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Transitions are", &ts);
+            if !is_legacy_syntax {
+                diag.push_error("'transitions' block are no longer supported. Use 'in {...}' and 'out {...}' directly in the state definition".into(), &ts);
+            }
+            for trs in ts.Transition() {
+                let trans = Transition::from_node(trs, &r, tr, diag);
+                r.borrow_mut().transitions.push(trans);
+            }
+        }
+
+        if r.borrow().base_type.to_smolstr() == "ListView" {
+            let mut seen_for = false;
+            for se in node.children() {
+                if se.kind() == SyntaxKind::RepeatedElement && !seen_for {
+                    seen_for = true;
+                } else if matches!(
+                    se.kind(),
+                    SyntaxKind::SubElement
+                        | SyntaxKind::ConditionalElement
+                        | SyntaxKind::RepeatedElement
+                        | SyntaxKind::ChildrenPlaceholder
+                ) {
+                    diag.push_error("A ListView can just have a single 'for' as children. Anything else is not supported".into(), &se)
+                }
+            }
+        }
+
+        interfaces::validate_self_implement_statements(&r.borrow(), &implemented_interfaces, diag);
+        interfaces::apply_child_implement_statements(&r, child_implements, diag);
+
+        r
+    }
+
+    fn element_without_children(
+        node: &syntax_nodes::Element,
+        id: SmolStr,
+        parent_type: ElementType,
+        is_legacy_syntax: bool,
+        diag: &mut BuildDiagnostics,
+        tr: &TypeRegister,
+    ) -> Option<(ElementRc, Vec<ImplementedInterface>, Vec<ImplementedInterface>)> {
         // A child element's parent_type is the type of its parent; the root
         // gets a sentinel from Component::from_node
         #[cfg(feature = "slint-sc")]
@@ -1690,7 +2062,7 @@ impl Element {
         } else if parent_type != ElementType::Error {
             // This should normally never happen because the parser does not allow for this
             assert!(diag.has_errors());
-            return ElementRc::default();
+            return None;
         } else {
             tr.empty_type()
         };
@@ -1861,9 +2233,9 @@ impl Element {
                 // Already rejected above with a more specific diagnostic.
                 (Vec::new(), Vec::new())
             } else if r.id == "root" {
-                interfaces::get_implemented_interfaces(&r, &node, tr, diag)
+                interfaces::get_implemented_interfaces(&r, node, tr, diag)
             } else {
-                interfaces::disallow_implement_in_non_root(&node, tr, diag);
+                interfaces::disallow_implement_in_non_root(node, tr, diag);
                 (Vec::new(), Vec::new())
             };
 
@@ -2381,363 +2753,7 @@ impl Element {
             }
         }
 
-        let r = r.make_rc();
-
-        for se in node.children() {
-            if se.kind() != SyntaxKind::SlotForwarding {
-                continue;
-            }
-            if !Self::assert_experimental_slots(diag, &se, "slot forwarding") {
-                continue;
-            }
-
-            let target_node = se.child_node(SyntaxKind::DeclaredIdentifier).unwrap();
-            let target = parser::identifier_text(&target_node.clone()).unwrap_or_default();
-
-            if target == "children" {
-                diag.push_error(
-                    format!(
-                        "The name '{target}' is reserved for the default slot. Use @children instead"
-                    ),
-                    &target_node,
-                );
-                continue;
-            }
-
-            if r.borrow().forwarded_slots.iter().any(|f| f.target == target) {
-                diag.push_error(format!("Duplicate assignment to slot '{target}'"), &target_node);
-                continue;
-            }
-
-            match &r.borrow().base_type {
-                ElementType::Component(component)
-                    if !component
-                        .declared_slots
-                        .borrow()
-                        .iter()
-                        .any(|slot| slot.name == target) =>
-                {
-                    diag.push_error(
-                        format!("Unknown slot '{target}' in '{}'", component.id),
-                        &target_node,
-                    );
-                    continue;
-                }
-                ElementType::Component(_) => {}
-                _ => {
-                    diag.push_error("Slot forwarding can only be used on components".into(), &se);
-                    continue;
-                }
-            }
-
-            let Some(expression_node) = se.child_node(SyntaxKind::Expression) else {
-                diag.push_error(
-                    "Slot forwarding requires a slot identifier on the right-hand side".into(),
-                    &se,
-                );
-                continue;
-            };
-            let Some(source) = Self::slot_forwarding_expr_identifier(&expression_node) else {
-                diag.push_error(
-                    "Slot forwarding requires a slot identifier on the right-hand side".into(),
-                    &expression_node,
-                );
-                continue;
-            };
-
-            if source == "children" {
-                diag.push_error(
-                    format!(
-                        "The name '{source}' is reserved for the default slot. Use @children instead"
-                    ),
-                    &expression_node,
-                );
-                continue;
-            }
-
-            r.borrow_mut().forwarded_slots.push(SlotForwarding {
-                target,
-                source,
-                expression_node: expression_node.into(),
-            });
-        }
-
-        for forwarding in r.borrow().forwarded_slots.clone() {
-            let source = forwarding.source.clone();
-            if let Some(existing_cip) = component_child_insertion_points.get(source.as_str()) {
-                if matches!(existing_cip.node, ChildInsertionPointNode::SlotPlaceholder(_)) {
-                    diag.push_error(
-                        format!(
-                            "The slot '{source}' cannot be forwarded and used as a placeholder in the same component"
-                        ),
-                        &forwarding.expression_node,
-                    );
-                } else {
-                    diag.push_error(
-                        format!(
-                            "{} can only appear once in an element",
-                            slot_error_subject(&source)
-                        ),
-                        &forwarding.expression_node,
-                    );
-                }
-                continue;
-            }
-            component_child_insertion_points.insert(
-                source.to_string(),
-                ChildrenInsertionPoint {
-                    parent: r.clone(),
-                    insertion_index: 0,
-                    node: ChildInsertionPointNode::SlotForwarding(forwarding.expression_node),
-                },
-            );
-        }
-
-        let mut assigned_slots = HashSet::new();
-
-        for se in node.children() {
-            if se.kind() == SyntaxKind::SubElement {
-                if let Some(slot_name) =
-                    Self::sub_element_slot_placeholder_name(&se, declared_slots)
-                {
-                    Self::register_slot_placeholder(
-                        &se,
-                        slot_name,
-                        &r,
-                        component_child_insertion_points,
-                        diag,
-                        tr,
-                    );
-                    continue;
-                }
-                let parent_type = r.borrow().base_type.clone();
-                r.borrow_mut().children.push(Element::from_sub_element_node(
-                    se.into(),
-                    parent_type,
-                    component_child_insertion_points,
-                    declared_slots,
-                    is_legacy_syntax,
-                    diag,
-                    tr,
-                ));
-            } else if se.kind() == SyntaxKind::RepeatedElement {
-                let mut sub_child_insertion_points = BTreeMap::new();
-                let rep = Element::from_repeated_node(
-                    se.into(),
-                    &r,
-                    &mut sub_child_insertion_points,
-                    declared_slots,
-                    is_legacy_syntax,
-                    diag,
-                    tr,
-                );
-                Self::reject_slot_placeholders(
-                    diag,
-                    declared_slots,
-                    sub_child_insertion_points,
-                    "a repeated element",
-                );
-                r.borrow_mut().children.push(rep);
-            } else if se.kind() == SyntaxKind::ConditionalElement {
-                let mut sub_child_insertion_points = BTreeMap::new();
-                let rep = Element::from_conditional_node(
-                    se.into(),
-                    r.borrow().base_type.clone(),
-                    &mut sub_child_insertion_points,
-                    declared_slots,
-                    is_legacy_syntax,
-                    diag,
-                    tr,
-                );
-                Self::reject_slot_placeholders(
-                    diag,
-                    declared_slots,
-                    sub_child_insertion_points,
-                    "a conditional element",
-                );
-                r.borrow_mut().children.push(rep);
-            } else if se.kind() == SyntaxKind::MatchElement {
-                let mut sub_child_insertion_points = BTreeMap::new();
-                let match_element = Element::from_match_node(
-                    se.into(),
-                    r.borrow().base_type.clone(),
-                    &mut sub_child_insertion_points,
-                    declared_slots,
-                    is_legacy_syntax,
-                    diag,
-                    tr,
-                );
-                Self::reject_slot_placeholders(
-                    diag,
-                    declared_slots,
-                    sub_child_insertion_points,
-                    "a match element",
-                );
-                let mut r = r.borrow_mut();
-                r.children.extend(match_element.elements());
-                r.match_elements.push(match_element);
-            } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
-                #[cfg(feature = "slint-sc")]
-                diag.slint_sc_error("The @children placeholder is", &se);
-                if component_child_insertion_points.contains_key(DEFAULT_SLOT_NAME) {
-                    diag.push_error(
-                        format!(
-                            "{} can only appear once in an element",
-                            slot_error_subject(DEFAULT_SLOT_NAME)
-                        ),
-                        &se,
-                    );
-                } else {
-                    component_child_insertion_points.insert(
-                        DEFAULT_SLOT_NAME.into(),
-                        ChildrenInsertionPoint {
-                            parent: r.clone(),
-                            insertion_index: r.borrow().children.len(),
-                            node: ChildInsertionPointNode::ChildrenPlaceHolder(se.into()),
-                        },
-                    );
-                }
-            } else if se.kind() == SyntaxKind::SlotDeclaration {
-                Self::assert_experimental_slots(diag, &se, "named slots");
-                let decl: syntax_nodes::SlotDeclaration = se.into();
-                let name_node = decl.DeclaredIdentifier();
-                let name = parser::identifier_text(&name_node).unwrap_or_default();
-                declared_slots.push(DeclaredSlot {
-                    name,
-                    name_node,
-                    has_rejected_placeholder: false,
-                });
-            } else if se.kind() == SyntaxKind::SlotAssignment {
-                if !Self::assert_experimental_slots(diag, &se, "named slots") {
-                    continue;
-                }
-                let name_node = se.child_node(SyntaxKind::DeclaredIdentifier).unwrap();
-                let name = parser::identifier_text(&name_node).unwrap_or_default();
-                if name == "children" {
-                    diag.push_error(
-                        format!(
-                            "The name '{name}' is reserved for the default slot. Use @children instead"
-                        ),
-                        &name_node,
-                    );
-                }
-                if !assigned_slots.insert(name.clone()) {
-                    diag.push_error(format!("Duplicate assignment to slot '{name}'"), &name_node);
-                }
-                if r.borrow().forwarded_slots.iter().any(|f| f.target == name) {
-                    diag.push_error(format!("Duplicate assignment to slot '{name}'"), &name_node);
-                }
-                let sub_element_node = se.child_node(SyntaxKind::SubElement).unwrap();
-                let parent_type = r.borrow().base_type.clone();
-                match &parent_type {
-                    ElementType::Component(component)
-                        if !component
-                            .declared_slots
-                            .borrow()
-                            .iter()
-                            .any(|slot| slot.name == name) =>
-                    {
-                        diag.push_error(
-                            format!("Unknown slot '{name}' in '{}'", component.id),
-                            &name_node,
-                        );
-                    }
-                    ElementType::Component(_) => {}
-                    _ => {
-                        diag.push_error(
-                            "Slot assignments can only be used on components".to_string(),
-                            &se,
-                        );
-                    }
-                }
-                let element = Element::from_sub_element_node(
-                    sub_element_node.into(),
-                    parent_type,
-                    component_child_insertion_points,
-                    declared_slots,
-                    is_legacy_syntax,
-                    diag,
-                    tr,
-                );
-                element.borrow_mut().slot_target = Some(name);
-                r.borrow_mut().children.push(element);
-            }
-        }
-
-        for state in node.States().flat_map(|s| s.State()) {
-            let condition = state.Expression();
-            // `when` is a contextual keyword, so it is the state's only
-            // `Identifier` token: its name is a `DeclaredIdentifier`.
-            let when = state.child_token(SyntaxKind::Identifier).filter(|t| t.text() == "when");
-            // Without a condition a state is never selected, so its property
-            // changes are code that can't run.
-            #[cfg(feature = "slint-sc")]
-            if condition.is_none() {
-                diag.slint_sc_error(
-                    "A state without a 'when' condition is",
-                    &state.DeclaredIdentifier(),
-                );
-            }
-            let s = State {
-                id: parser::identifier_text(&state.DeclaredIdentifier()).unwrap_or_default(),
-                condition: condition.map(|e| Expression::Uncompiled(e.into())),
-                property_changes: state
-                    .StatePropertyChange()
-                    .filter_map(|s| {
-                        lookup_property_from_qualified_name_for_state(s.QualifiedName(), &r, diag)
-                            .map(|(ne, _)| {
-                                (ne, Expression::Uncompiled(s.BindingExpression().into()), s)
-                            })
-                    })
-                    .collect(),
-                selection: when.map(|when| ConditionLocation::StateSelection {
-                    name: state.DeclaredIdentifier().to_source_location(),
-                    when: when.to_source_location(),
-                }),
-            };
-            for trs in state.Transition() {
-                #[cfg(feature = "slint-sc")]
-                diag.slint_sc_error("Transitions are", &trs);
-                let mut t = Transition::from_node(trs, &r, tr, diag);
-                t.state_id.clone_from(&s.id);
-                r.borrow_mut().transitions.push(t);
-            }
-            r.borrow_mut().states.push(s);
-        }
-
-        for ts in node.Transitions() {
-            #[cfg(feature = "slint-sc")]
-            diag.slint_sc_error("Transitions are", &ts);
-            if !is_legacy_syntax {
-                diag.push_error("'transitions' block are no longer supported. Use 'in {...}' and 'out {...}' directly in the state definition".into(), &ts);
-            }
-            for trs in ts.Transition() {
-                let trans = Transition::from_node(trs, &r, tr, diag);
-                r.borrow_mut().transitions.push(trans);
-            }
-        }
-
-        if r.borrow().base_type.to_smolstr() == "ListView" {
-            let mut seen_for = false;
-            for se in node.children() {
-                if se.kind() == SyntaxKind::RepeatedElement && !seen_for {
-                    seen_for = true;
-                } else if matches!(
-                    se.kind(),
-                    SyntaxKind::SubElement
-                        | SyntaxKind::ConditionalElement
-                        | SyntaxKind::RepeatedElement
-                        | SyntaxKind::ChildrenPlaceholder
-                ) {
-                    diag.push_error("A ListView can just have a single 'for' as children. Anything else is not supported".into(), &se)
-                }
-            }
-        }
-
-        interfaces::validate_self_implement_statements(&r.borrow(), &implemented_interfaces, diag);
-        interfaces::apply_child_implement_statements(&r, child_implements, diag);
-
-        r
+        Some((r.make_rc(), implemented_interfaces, child_implements))
     }
 
     fn from_sub_element_node(
