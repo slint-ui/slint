@@ -8,6 +8,10 @@
 // The same source and expectations run under the interpreter in
 // internal/interpreter/tests/declared_properties.rs, keeping the
 // generated-code and interpreter encodings identical.
+//
+// `@testable` (experimental) is exercised by testable-unread (private, unread,
+// listed with its value) and testable-struct (private, unread struct, listed
+// with value None like any other struct property).
 
 enum Mood { happy, grumpy }
 
@@ -32,6 +36,8 @@ component Widget inherits Base {
     in property <Mood> mood: Mood.grumpy;
     in property <{a: int, b: string}> record: { a: 1, b: "x" };
     in property <int> gone-unread: 4;
+    @testable property <int> testable-unread: 55;
+    @testable property <{a: int, b: string}> testable-struct: { a: 3, b: "s" };
     in-out property <string> aliased <=> inner.text;
     inner := Text { text: "hello"; }
     Rectangle {
@@ -98,6 +104,8 @@ assert_eq!(props, [
     ("ratio", "float"),
     ("record", "{ a: int,b: string,}"),
     ("solid", "brush"),
+    ("testable-struct", "{ a: int,b: string,}"),
+    ("testable-unread", "int"),
     ("tint", "color"),
 ]);
 
@@ -117,6 +125,9 @@ assert_eq!(value("base-text").as_deref(), Some("from-base"));
 assert_eq!(value("aliased").as_deref(), Some("hello"));
 // A struct value has no string encoding; the property is only listed.
 assert_eq!(value("record"), None);
+assert_eq!(value("testable-struct"), None);
+// `@testable` guarantees listing regardless of visibility, and pins the binding.
+assert_eq!(value("testable-unread").as_deref(), Some("55"));
 // Unknown or optimized-out names read as None; private declarations are not listed.
 assert_eq!(value("gone-unread"), None);
 assert_eq!(value("use-site-private"), None);
@@ -141,10 +152,11 @@ auto widget_search = slint::testing::ElementHandle::find_by_element_id(handle, "
 assert_eq(widget_search.size(), 1);
 auto widget = widget_search[0];
 
-// Flattened (name, type) pairs; 14 readable properties. Private declarations
-// (base-private, use-site-private) and optimized-out ones (gone-unread) are not listed.
+// Flattened (name, type) pairs; 16 readable properties. Private declarations
+// (base-private, use-site-private) and optimized-out ones (gone-unread) are not
+// listed, unless marked `@testable` (testable-unread, testable-struct).
 auto props = widget.declared_properties().value();
-assert_eq(props.size(), 28);
+assert_eq(props.size(), 32);
 auto has_prop = [&](const char *name, const char *type) {
     for (std::size_t i = 0; i + 1 < props.size(); i += 2) {
         if (props[i] == name)
@@ -160,6 +172,8 @@ assert(has_prop("extra", "int"));
 assert(has_prop("base-text", "string"));
 assert(has_prop("aliased", "string"));
 assert(has_prop("record", "{ a: int,b: string,}"));
+assert(has_prop("testable-unread", "int"));
+assert(has_prop("testable-struct", "{ a: int,b: string,}"));
 
 auto value = [&](const char *name) { return widget.declared_property_value(name); };
 assert_eq(value("flag").value(), "true");
@@ -177,6 +191,9 @@ assert_eq(value("base-text").value(), "from-base");
 assert_eq(value("aliased").value(), "hello");
 // A struct value has no string encoding; the property is only listed.
 assert(!value("record").has_value());
+assert(!value("testable-struct").has_value());
+// `@testable` guarantees listing regardless of visibility, and pins the binding.
+assert_eq(value("testable-unread").value(), "55");
 // Unknown or optimized-out names read as nullopt; private declarations are not listed.
 assert(!value("gone-unread").has_value());
 assert(!value("use-site-private").has_value());
