@@ -1247,6 +1247,7 @@ impl WinitWindowAdapter {
             self.shared_backend_data.flush_pending_mouse_move();
         }
 
+        #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
         match event {
             WinitWindowEvent::RedrawRequested => self.draw()?,
             WinitWindowEvent::SurfaceResized(size) => {
@@ -1452,6 +1453,7 @@ impl WinitWindowAdapter {
                         let d = d.to_logical(runtime_window.scale_factor() as f64);
                         (d.x, d.y)
                     }
+                    _ => return Ok(()),
                 };
                 let phase = winit_touch_phase(phase);
                 self.dispatch_internal_event(BackendMouseEvent::Wheel {
@@ -1483,6 +1485,7 @@ impl WinitWindowAdapter {
                     }
                     S::TabletTool { .. } => PointerEventButton::Other,
                     S::Unknown(_) => PointerEventButton::Other,
+                    _ => PointerEventButton::Other,
                 };
 
                 // For the events that carry no position of their own.
@@ -1620,6 +1623,7 @@ impl WinitWindowAdapter {
                 // e.g. on X11 `try_as_string` on a URI list returns the raw `file://` lines.
                 // The entry is only created once something decoded, so that a transfer
                 // carrying nothing stays absent.
+                #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
                 let received = {
                     let mut transfers = self.shared_backend_data.incoming_transfers.borrow_mut();
                     match value.type_().hint() {
