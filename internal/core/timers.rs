@@ -347,7 +347,13 @@ impl TimerList {
             return false;
         }
 
-        assert!(timers.borrow().callback_active.is_none(), "Recursion in timer code");
+        // A timer callback may re-enter here: a custom event loop that calls
+        // `update_timers_and_animations()` from its `request_redraw()` does exactly that.
+        // Activating the same expired timers again would fire them twice and clobber the
+        // state the outer call is still walking, so the nested call does nothing.
+        if timers.borrow().callback_active.is_some() {
+            return false;
+        }
 
         // Re-register all timers that expired but are repeating, as well as all that haven't expired yet. This is
         // done in one shot to ensure a consistent state by the time the callbacks are invoked.
@@ -967,6 +973,30 @@ assert_eq!(state.borrow().variable2, 2);
  */
 #[cfg(doctest)]
 const _BUG3019: () = ();
+
+/**
+ * Test that re-entering the timer machinery from a timer callback is ignored rather than fatal.
+```rust
+// A custom event loop may call update_timers_and_animations() from its request_redraw()
+// implementation, which re-enters while a timer callback is running.
+i_slint_backend_testing::init_no_event_loop();
+use slint::{Timer, TimerMode};
+use std::{rc::Rc, cell::RefCell, time::Duration};
+let called = Rc::new(RefCell::new(0));
+let called_ = called.clone();
+let timer = Timer::default();
+// A single shot timer isn't re-registered, so the list is empty while the callback runs
+// and the nested call gets past the "any timer worth activating" shortcut.
+timer.start(TimerMode::SingleShot, Duration::from_millis(100), move || {
+    *called_.borrow_mut() += 1;
+    slint::platform::update_timers_and_animations();
+});
+i_slint_backend_testing::mock_elapsed_time(150);
+assert_eq!(*called.borrow(), 1);
+```
+ */
+#[cfg(doctest)]
+const _RECURSIVE_UPDATE_TIMERS: () = ();
 
 /**
  * Test that starting a singleshot timer works
