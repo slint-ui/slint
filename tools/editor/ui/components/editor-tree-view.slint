@@ -18,7 +18,6 @@ component EditorTreeRow {
     in property <bool> show-hierarchy-guides: false;
     in property <bool> tree-has-hover: false;
     in property <int> row-index: -1;
-    in property <bool> focused: false;
     in property <string> hovered-source-uri;
     in property <int> hovered-offset: -1;
 
@@ -35,8 +34,8 @@ component EditorTreeRow {
     property <int> gutter-segments: max(0, level-safe - 1);
     property <bool> row-has-hover: row-touch.has-hover || disclosure-touch.has-hover;
     property <string> row-label: node.element-id != "" ? node.element-id : node.element-type;
-    property <length> row-chrome-inset: root.style.row.hit-size;
     property <DropLocation> active-drop-location: DropLocation.onto;
+    property <Point> grab-offset;
     property <bool> drop-allowed: false;
     property <image> row-icon: ElementVisuals.for-kind(node.icon-kind).icon;
 
@@ -111,7 +110,7 @@ component EditorTreeRow {
                 background: transparent;
 
                 row-highlight := Rectangle {
-                    x: root.row-chrome-inset;
+                    x: root.style.row.hit-size;
                     width: parent.width - self.x;
                     height: parent.height;
                     border-radius: root.style.row.radius;
@@ -119,8 +118,6 @@ component EditorTreeRow {
                         && root.drop-allowed
                         && root.active-drop-location == DropLocation.onto
                         ? root.style.drop-border-width
-                        : root.focused
-                        ? root.style.row.focus-width
                         : 0px;
                     border-color: root.style.row.accent;
                     background: root.current
@@ -144,7 +141,11 @@ component EditorTreeRow {
 
                     changed dragging => {
                         if self.dragging {
+                            AppState.outline-drag-icon-opacity = root.current ? 1 : root.style.row.icon-opacity;
                             root.drag-started();
+                            AppState.outline-drag-grab-offset = root.grab-offset;
+                            AppState.outline-drag-preview-size = { width: root.width, height: root.style.row.height };
+                            AppState.outline-drag-content-inset = row-content.absolute-position.x - root.absolute-position.x;
                             AppState.start-outline-drag(
                                 root.row-label,
                                 root.row-icon,
@@ -205,6 +206,16 @@ component EditorTreeRow {
                         width: parent.width;
                         height: parent.height;
                         mouse-cursor: pointer;
+                        pointer-event(event) => {
+                            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                                AppState.outline-drag-background = row-highlight.background;
+                                let position = root.pointer-window-position();
+                                root.grab-offset = {
+                                    x: position.x - root.absolute-position.x,
+                                    y: position.y - root.absolute-position.y,
+                                };
+                            }
+                        }
                         clicked => {
                             root.select();
                         }
@@ -260,7 +271,7 @@ component EditorTreeRow {
                             }
                         }
 
-                        HorizontalLayout {
+                        row-content := HorizontalLayout {
                             spacing: root.style.row.gap;
                             alignment: start;
                             cross-axis-alignment: center;
@@ -370,7 +381,6 @@ export component EditorTreeView inherits FocusScope {
             row-index: i;
             hovered-source-uri: root.hovered-source-uri;
             hovered-offset: root.hovered-offset;
-            focused: root.has-focus && root.focused-row-index == i;
             current-source-uri: root.current-source-uri;
             current-offset: root.current-offset;
             max-gutter-columns: root.max-gutter-columns;

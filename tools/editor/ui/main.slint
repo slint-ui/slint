@@ -355,7 +355,8 @@ export component EditorUi inherits Window {
 
                             DragPreview {
                                 parent-origin: parent.absolute-position;
-                                visible: (AppState.outline-drag-active || AppState.palette-drag-kind != ElementKind.none)
+                                show-outline: false;
+                                visible: AppState.palette-drag-kind != ElementKind.none
                                     && !(Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed && root.palette-drag-in-outline);
                             }
                         }
@@ -418,6 +419,8 @@ export component EditorUi inherits Window {
                     }
                 }
             }
+
+            DragPreview { parent-origin: parent.absolute-position; show-palette: false; }
 
             fill-layer := TouchArea {
                 visible: FillSession.open;

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import math
+import re
 from pathlib import Path
 
 import pytest
@@ -289,8 +290,16 @@ def test_linear_layout_size_and_keyboard(
         click(window, "Gradient stop 1")
         press_key(window, keys.RightArrow)
         click(window, "Close Custom")
-        saved = wait_for_source_change(scene, baseline)
+        pattern = re.escape(baseline).replace(
+            re.escape(b"@linear-gradient(90deg, red, blue)"),
+            rb"@linear-gradient\([^()\n]+\)",
+        )
 
+        def complete_source() -> bytes | None:
+            saved = scene.read_bytes()
+            return saved if saved != baseline and re.fullmatch(pattern, saved) else None
+
+        saved = wait_until(complete_source)
         wait_for_source(scene, saved)
         assert b"red, blue" not in saved
         assert b"width: 200px" not in saved
