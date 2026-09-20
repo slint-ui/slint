@@ -281,6 +281,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             id: slot,
                             position: logical_point_from_api(pos),
                             phase: i_slint_core::input::TouchPhase::Started,
+                            history: Default::default(),
                         }));
                     }
                     input::event::TouchEvent::Up(touch_up_event) => {
@@ -290,6 +291,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             id: slot,
                             position: logical_point_from_api(pos),
                             phase: i_slint_core::input::TouchPhase::Ended,
+                            history: Default::default(),
                         }));
                     }
                     input::event::TouchEvent::Motion(touch_motion_event) => {
@@ -303,6 +305,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             id: slot,
                             position: logical_point_from_api(pos),
                             phase: i_slint_core::input::TouchPhase::Moved,
+                            history: Default::default(),
                         }));
                     }
                     input::event::TouchEvent::Cancel(touch_cancel_event) => {
@@ -312,6 +315,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             id: slot,
                             position: logical_point_from_api(pos),
                             phase: i_slint_core::input::TouchPhase::Cancelled,
+                            history: Default::default(),
                         }));
                     }
                     _ => {}

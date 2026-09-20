@@ -13,22 +13,23 @@
 //! blend of the last 3 point-to-point velocities, rather than a fit through
 //! many samples. The two trackers differ only in their blend weights.
 
+use super::Velocity;
 use super::ring_buffer::VelocityRingBuffer;
-use crate::Coord;
 use crate::animations::Instant;
-use crate::lengths::LogicalVector;
+use crate::lengths::LogicalPx;
+use euclid::Vector2D;
 
-pub(super) type BlendWeights = [Coord; 3];
+pub(super) type BlendWeights = [f32; 3];
 
 fn segment_velocity(
-    sample: Option<&(Instant, LogicalVector)>,
-    previous: Option<&(Instant, LogicalVector)>,
-) -> LogicalVector {
+    sample: Option<&(Instant, Vector2D<f32, LogicalPx>)>,
+    previous: Option<&(Instant, Vector2D<f32, LogicalPx>)>,
+) -> Velocity {
     let (Some(sample), Some(previous)) = (sample, previous) else {
-        return LogicalVector::default();
+        return Velocity::default();
     };
-    let dt = sample.0.duration_since(previous.0).as_millis() as Coord;
-    if dt > 0.0 { sample.1 * (1000.0 / dt) } else { LogicalVector::default() }
+    let dt = sample.0.duration_since(previous.0).as_millis() as f32;
+    if dt > 0.0 { sample.1 * (1000.0 / dt) } else { Velocity::default() }
 }
 
 /// Blends the velocities of the last 3 recorded segments in `buffer` using
@@ -36,7 +37,7 @@ fn segment_velocity(
 pub(super) fn weighted_recent_velocity<const N: usize>(
     buffer: &VelocityRingBuffer<N>,
     weights: BlendWeights,
-) -> LogicalVector {
+) -> Velocity {
     let mut recent = buffer.iter().rev();
     let newest = recent.next();
     let middle = recent.next();

@@ -17,6 +17,7 @@ pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, PointerEventBut
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Coord, Property, SharedString};
+use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
@@ -61,7 +62,7 @@ pub enum MouseEvent {
         /// The touch ID if the event originated from touch input.
         touch_finger_id: i32,
         /// When the event happened; see [`BackendMouseEvent::Moved`].
-        history: TouchHistory,
+        history: EventTouchHistory,
     },
     /// Wheel was operated.
     Wheel {
@@ -213,6 +214,29 @@ pub struct TouchHistory {
     pub history: Vec<(LogicalPoint, Duration)>,
 }
 
+/// The [`TouchHistory`] of a move event.
+///
+/// cbindgen can't express `TouchHistory` (it contains a `Vec`) nor `Option<Box<_>>` in C++, so
+/// this newtype is left out of the generated headers and replaced there by a pointer-sized
+/// struct, declared by hand in `api/cpp/cbindgen.rs`. C++ never records a history.
+#[repr(transparent)]
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct EventTouchHistory(Option<Box<TouchHistory>>);
+
+impl EventTouchHistory {
+    /// The recorded history, if there is one.
+    pub fn get(&self) -> Option<&TouchHistory> {
+        self.0.as_deref()
+    }
+}
+
+impl From<TouchHistory> for EventTouchHistory {
+    /// Events without a recorded history don't allocate.
+    fn from(history: TouchHistory) -> Self {
+        Self(if history == TouchHistory::default() { None } else { Some(Box::new(history)) })
+    }
+}
+
 /// The mouse events a backend can deliver to the runtime.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -233,7 +257,7 @@ pub enum BackendMouseEvent {
         touch_finger_id: i32,
     },
     /// The position of the pointer has changed.
-    Moved { position: LogicalPoint, touch_finger_id: i32, history: TouchHistory },
+    Moved { position: LogicalPoint, touch_finger_id: i32, history: EventTouchHistory },
     /// Wheel was operated.
     Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord, phase: TouchPhase },
     /// A platform-recognized pinch gesture (macOS/iOS trackpad, Qt).
@@ -2324,7 +2348,11 @@ impl TouchState {
         match self.gesture_state {
             GestureRecognitionState::Idle => {
                 if self.primary_touch_id == Some(id) {
-                    events.push(MouseEvent::Moved { position, touch_finger_id: id + 1, history });
+                    events.push(MouseEvent::Moved {
+                        position,
+                        touch_finger_id: id + 1,
+                        history: history.into(),
+                    });
                 }
             }
             GestureRecognitionState::TwoFingersDown {

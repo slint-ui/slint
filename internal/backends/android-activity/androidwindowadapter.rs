@@ -389,7 +389,6 @@ impl AndroidWindowAdapter {
                             drop(lp);
 
                             // Get high frequency move samples
-                            let now_slint_tick = i_slint_core::animations::current_tick();
                             let now_event_time = motion_event.event_time();
                             for p in motion_event.pointers() {
                                 let id = p.pointer_id();

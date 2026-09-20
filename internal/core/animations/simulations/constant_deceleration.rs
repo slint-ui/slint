@@ -7,7 +7,7 @@
 use crate::animations::simulations::{Direction, Parameter, PositionSimulation, Simulation};
 #[cfg(test)]
 use crate::{Coord, animations::Instant};
-#[cfg(not(feature = "std"))]
+#[cfg(all(test, not(feature = "std")))]
 use num_traits::Float;
 
 #[cfg(test)]

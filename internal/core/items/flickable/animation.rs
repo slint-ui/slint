@@ -17,6 +17,8 @@ use crate::animations::simulations::scroll_spring::SpringSimulation;
 use crate::animations::simulations::{Parameter, PositionSimulation, Simulation};
 use crate::items::AutoBool;
 use crate::lengths::{LogicalPoint, LogicalVector, RectLengths};
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 /// `BouncingScrollPhysics.frictionFactor`'s base factor for
 /// `ScrollDecelerationRate.normal`, used on iOS.
@@ -148,10 +150,10 @@ impl FlickAnimation {
         flick_rc: &crate::item_tree::ItemRc,
     ) -> LogicalVector {
         let geo = crate::items::Flickable::geometry_without_virtual_keyboard(flick_rc);
-        let width = geo.width_length().get();
-        let height = geo.height_length().get();
-        let min_x = width - flick.content_width().get();
-        let min_y = height - flick.content_height().get();
+        let width = geo.width_length().get() as f32;
+        let height = geo.height_length().get() as f32;
+        let min_x = width - flick.content_width().get() as f32;
+        let min_y = height - flick.content_height().get() as f32;
         LogicalVector::new(
             apply_friction_axis(current_pos.x as f32, offset.x as f32, min_x, width) as _,
             apply_friction_axis(current_pos.y as f32, offset.y as f32, min_y, height) as _,

@@ -32,7 +32,7 @@ use crate::items::flickable::velocity_tracker::GeneralVelocityTracker;
 use crate::items::flickable::velocity_tracker::IOsVelocityTracker;
 #[cfg(target_os = "macos")]
 use crate::items::flickable::velocity_tracker::MacOsVelocityTracker;
-use crate::items::flickable::velocity_tracker::VelocityTracker as _;
+use crate::items::flickable::velocity_tracker::{Velocity, VelocityTracker as _};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -485,7 +485,7 @@ struct FlickableDataInner {
     /// before the animation is finished.
     running_animation: Option<RunningSimulation>,
 
-    retained_velocity: LogicalVector,
+    retained_velocity: Velocity,
 }
 
 impl FlickableDataInner {
@@ -643,10 +643,10 @@ impl FlickableDataInner {
             let animation_duration = crate::animations::current_tick().duration_since(*start_time);
 
             if let Some(x_simulation) = x_simulation {
-                delta.x += x_simulation.borrow().remaining_distance(animation_duration);
+                delta.x += x_simulation.borrow().remaining_distance(animation_duration) as Coord;
             }
             if let Some(y_simulation) = y_simulation {
-                delta.y += y_simulation.borrow().remaining_distance(animation_duration);
+                delta.y += y_simulation.borrow().remaining_distance(animation_duration) as Coord;
             }
         }
 
@@ -702,15 +702,15 @@ impl FlickableDataInner {
                     // estimate.
                     //
                     // At the time of writing, in practice this means we must use a physics animation.
-                    let limit_x = Self::flick_limits(flick_rc, delta.x, Dimension::X);
-                    let limit_y = Self::flick_limits(flick_rc, delta.y, Dimension::Y);
+                    let limit_x = Self::flick_limits(flick_rc, delta.x as f32, Dimension::X);
+                    let limit_y = Self::flick_limits(flick_rc, delta.y as f32, Dimension::Y);
                     let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
 
                     let x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> = (delta.x
                         != Coord::default())
                     .then(|| {
                         let simulation = Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
-                            let curr_val = content_x.get().0;
+                            let curr_val = content_x.get().0 as f32;
                             content_x.set_physic_animation_value(weak.clone());
                             RefCell::new(FlickAnimation::create_animation(
                                 FlickAnimationParameter::Distance {
@@ -729,7 +729,7 @@ impl FlickableDataInner {
                         != Coord::default())
                     .then(|| {
                         let simulation = Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
-                            let curr_val = content_y.get().0;
+                            let curr_val = content_y.get().0 as f32;
                             content_y.set_physic_animation_value(weak.clone());
                             RefCell::new(FlickAnimation::create_animation(
                                 FlickAnimationParameter::Distance {
@@ -793,7 +793,7 @@ impl FlickableDataInner {
             .as_ref()
             .map(|sim| {
                 let dt = crate::animations::current_tick().duration_since(sim.start_time);
-                LogicalVector::new(
+                Velocity::new(
                     sim.x_simulation
                         .as_ref()
                         .map(|sim| sim.borrow().remaining_velocity(dt))
@@ -832,7 +832,7 @@ impl FlickableDataInner {
                 })
         };
 
-        if flick_velocity < 0 as Coord {
+        if flick_velocity < 0. {
             let property = Box::pin(Property::new(0.0));
             property.set_binding({
                 let calculate_limits = calculate_limits.clone();
@@ -877,7 +877,7 @@ impl FlickableDataInner {
                         );
                         let x_simulation =
                             Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
-                                let curr_val = content_x.get().0;
+                                let curr_val = content_x.get().0 as f32;
                                 content_x.set_physic_animation_value(weak.clone());
                                 RefCell::new(FlickAnimation::create_animation(
                                     FlickAnimationParameter::Velocity {
@@ -895,7 +895,7 @@ impl FlickableDataInner {
                 }
             } else {
                 let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
-                let curr_val = content_x.get().0;
+                let curr_val = content_x.get().0 as f32;
                 // Spring back to whichever edge we're already past, not
                 // wherever the release velocity happens to point.
                 let limit_x = Self::flick_limits(flick_rc, curr_val, Dimension::X);
@@ -922,7 +922,7 @@ impl FlickableDataInner {
                         );
                         let y_simulation =
                             Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
-                                let curr_val = content_y.get().0;
+                                let curr_val = content_y.get().0 as f32;
                                 content_y.set_physic_animation_value(weak.clone());
                                 RefCell::new(FlickAnimation::create_animation(
                                     FlickAnimationParameter::Velocity {
@@ -940,7 +940,7 @@ impl FlickableDataInner {
                 }
             } else {
                 let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
-                let curr_val = content_y.get().0;
+                let curr_val = content_y.get().0 as f32;
                 // Spring back to whichever edge we're already past, not
                 // wherever the release velocity happens to point.
                 let limit_y = Self::flick_limits(flick_rc, curr_val, Dimension::Y);
@@ -1225,7 +1225,7 @@ impl FlickableData {
                             flick_rc,
                             *position,
                             mouse_delta,
-                            history,
+                            history.get().unwrap_or(&TouchHistory::default()),
                             &content_x,
                             &content_y,
                         );
@@ -1324,8 +1324,8 @@ fn inside_bounds(flick: Pin<&Flickable>, p: LogicalPoint, flick_rc: &ItemRc) -> 
     let cw = flick.content_width();
     let ch = flick.content_height();
 
-    let inside_bounds_x = p.x >= (w - cw).get() && p.x <= 0.;
-    let inside_bounds_y = p.y >= (h - ch).get() && p.y <= 0.;
+    let inside_bounds_x = p.x >= (w - cw).get() && p.x <= 0 as Coord;
+    let inside_bounds_y = p.y >= (h - ch).get() && p.y <= 0 as Coord;
 
     (inside_bounds_x, inside_bounds_y)
 }

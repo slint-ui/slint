@@ -10,9 +10,8 @@
 use super::least_square::LeastSquaresSolver;
 use super::ring_buffer::{VelocityRingBuffer, VelocityRingBufferIterator};
 use super::{ASSUME_POINTER_MOVE_STOPPED, VelocityEstimate, VelocityEstimator, VelocityTracker};
-use crate::Coord;
 use crate::animations::Instant;
-use crate::lengths::LogicalVector;
+use crate::lengths::{LogicalPx, LogicalVector};
 use alloc::vec::Vec;
 use core::time::Duration;
 use euclid::Vector2D;
@@ -37,7 +36,7 @@ impl<const N: usize> VelocityEstimator for GeneralVelocityTracker<N> {
 
         let mut previous: Option<<VelocityRingBufferIterator<'_, N> as Iterator>::Item> = None;
         let mut iter = self.buffer.iter().rev(); // from newest to oldest
-        let mut position = LogicalVector::default(); // The entries are delta so we have to subtract
+        let mut position = Vector2D::<f32, LogicalPx>::default(); // The entries are delta so we have to subtract
         while let Some(e) = iter.next() {
             let delta = previous
                 .map(|p| {
@@ -50,7 +49,7 @@ impl<const N: usize> VelocityEstimator for GeneralVelocityTracker<N> {
                 break;
             }
 
-            time.push(-(age.as_millis() as Coord));
+            time.push(-(age.as_millis() as f32));
             x.push(position.x);
             y.push(position.y);
 
@@ -99,7 +98,7 @@ mod tests_general_velocity_tracker {
     use crate::animations::Instant;
     use core::time::Duration;
 
-    const EPSILON: Coord = 1e-2 as Coord;
+    const EPSILON: f32 = 1e-2;
 
     macro_rules! values_equal {
         ($v1: expr, $exp: expr, $epsilon: expr) => {

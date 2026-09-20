@@ -49,6 +49,7 @@ impl VelocityEstimator for IOsVelocityTracker {
 
 #[cfg(test)]
 mod tests_ios_velocity_tracker {
+    use super::super::Velocity;
     use super::*;
     use core::time::Duration;
 
@@ -65,7 +66,7 @@ mod tests_ios_velocity_tracker {
         tracker.push(Instant::default(), LogicalVector::new(5.0, 5.0));
 
         let estimate = tracker.estimate_velocity().unwrap();
-        assert_eq!(estimate.velocity, LogicalVector::default());
+        assert_eq!(estimate.velocity, Velocity::default());
         assert_eq!(estimate.confidence, 1.0);
     }
 

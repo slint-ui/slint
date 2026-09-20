@@ -3,7 +3,6 @@
 
 //! A fixed-capacity ring buffer of time-stamped position deltas
 
-use crate::Coord;
 use crate::animations::Instant;
 use crate::lengths::{LogicalPx, LogicalVector};
 use euclid::Vector2D;
@@ -14,7 +13,7 @@ pub(crate) struct VelocityRingBuffer<const N: usize> {
     curr_index: usize,
     /// Indicates if the buffer is full
     full: bool,
-    values: [(Instant, Vector2D<Coord, LogicalPx>); N],
+    values: [(Instant, Vector2D<f32, LogicalPx>); N],
 }
 
 impl<const N: usize> Default for VelocityRingBuffer<N> {
@@ -52,7 +51,7 @@ impl<'a, const N: usize> VelocityRingBuffer<N> {
     /// Add a new element to the ringbuffer
     pub fn push(&mut self, time: Instant, position_delta: LogicalVector) {
         if self.curr_index < self.values.len() {
-            self.values[self.curr_index] = (time, position_delta);
+            self.values[self.curr_index] = (time, position_delta.cast());
         }
         self.curr_index += 1;
         if self.curr_index >= N {

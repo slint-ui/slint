@@ -14,8 +14,6 @@ use crate::animations::simulations::spring::{
     SpringParameters, SpringPhysicalParameters, SpringRegime,
 };
 use crate::animations::simulations::{PositionSimulation, Simulation};
-#[cfg(not(feature = "std"))]
-use num_traits::Float;
 
 const DEFAULT_MASS: f32 = 0.5;
 const DEFAULT_STIFFNESS: f32 = 100.;
