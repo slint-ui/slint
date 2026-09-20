@@ -113,7 +113,10 @@ fn default(ty: &Type, text: &str) -> Option<ConstantExpression> {
             }
         }
         value if value.starts_with(|c: char| c.is_ascii_alphabetic()) => {
-            let (qualifier, value) = value.split_once('.').unwrap();
+            // Handling enums
+            let (qualifier, value) = value.split_once('.').expect(&format!(
+                "enums values must contain also the qualifier in the format `qualifier.value`: {value}"
+            ));
             let Type::Enumeration(enumeration) = ty else {
                 panic!("enum default `{qualifier}.{value}` on a property of type {ty}")
             };
@@ -1503,6 +1506,14 @@ fn build(l: &mut Loader) {
         /// When true, the content can be scrolled by clicking on it and dragging it with the cursor.
         /// Panning with a touch screen is only affected by `interactive`.
         in property <bool> mouse-drag-pan-enabled: true;
+        /// Enable scrolling beyond the content limits and bouncing back, on whichever axis
+        /// actually has content to overflow into.
+        /// When auto it imitates platform behavior. On iOs it is on and on all other platforms Off
+        in property <AutoBool> bounce: AutoBool.auto;
+        /// Carry the momentum of the previous scroll action to the next scroll action.
+        /// When auto it uses the platform behavior. iOs On and for all other platforms Off.
+        in property <AutoBool> carry-momentum: AutoBool.auto;
+
         /// The total width of the scrollable content.
         @shadowable in property <length> content-width;
         /// The total height of the scrollable content.
@@ -1511,6 +1522,7 @@ fn build(l: &mut Loader) {
         @shadowable in-out property <length> content-x;
         /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
         @shadowable in-out property <length> content-y;
+
         @deprecated in property <length> viewport-width <=> content-width;
         @deprecated in property <length> viewport-height <=> content-height;
         @deprecated in-out property <length> viewport-x <=> content-x;

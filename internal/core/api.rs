@@ -695,6 +695,7 @@ impl Window {
                 .process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
                     touch_finger_id: 0,
+                    history: Default::default(),
                 })
                 .into(),
             crate::platform::WindowEvent::PointerScrolled { position, delta_x, delta_y } => self
@@ -774,8 +775,8 @@ impl Window {
                 crate::platform::InternalEvent::Key(event) => {
                     self.0.process_key_input(event).into()
                 }
-                crate::platform::InternalEvent::Touch { id, position, phase } => {
-                    self.0.process_touch_input(id, position, phase).into()
+                crate::platform::InternalEvent::Touch { id, position, phase, history } => {
+                    self.0.process_touch_input(id, position, phase, history).into()
                 }
             },
         };

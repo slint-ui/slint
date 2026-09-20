@@ -23,6 +23,7 @@ export component TestCase inherits Window {
     }
   }
 
+  // Flickable side by side to the first one
   Flickable {
     x: 250phx;
     width: 250phx;
@@ -58,6 +59,12 @@ export component TestCase inherits Window {
 
 /*
 ```rust
+
+// Center of T1
+const LOCATION_T1: LogicalPosition = LogicalPosition::new(25.0, 25.0);
+// Center of T2
+const LOCATION_T2: LogicalPosition = LogicalPosition::new(275.0, 25.0);
+
 // Test that mouse exit events are dispatched while scrolling
 use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
 let instance = TestCase::new().unwrap();
@@ -65,17 +72,17 @@ let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_t1_has_hover(), false);
 assert_eq!(instance.get_t1sec_has_hover(), false);
 assert_eq!(instance.get_t2_has_hover(), false);
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(25.0, 25.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LOCATION_T1 });
 assert_eq!(instance.get_t1_has_hover(), true);
 assert_eq!(instance.get_t1sec_has_hover(), false);
 assert_eq!(instance.get_t2_has_hover(), false);
-instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(25.0, 25.0), delta_x: 0.0, delta_y: -30.0 });
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LOCATION_T1, delta_x: 0.0, delta_y: -30.0 });
 assert_eq!(instance.get_t1_has_hover(), false);
-assert_eq!(instance.get_t1sec_has_hover(), true);
+assert_eq!(instance.get_t1sec_has_hover(), true, "Scrolled vertically so now t1 is active (25 + 30 = 55) (center of t1sec)");
 assert_eq!(instance.get_t2_has_hover(), false);
 assert_eq!(instance.get_f1_pos(), -30.0);
 
-instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(25.0, 25.0), delta_x: 0.0, delta_y: -30.0 });
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LOCATION_T1, delta_x: 0.0, delta_y: -30.0 });
 assert_eq!(instance.get_t1_has_hover(), false);
 assert_eq!(instance.get_t1sec_has_hover(), false);
 assert_eq!(instance.get_t2_has_hover(), false);
@@ -85,10 +92,10 @@ assert_eq!(instance.get_f1_pos(), -60.0);
 // Horizontal
 assert_eq!(instance.get_t2_has_hover(), false);
 assert_eq!(instance.get_t1_has_hover(), false);
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(275.0, 25.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LOCATION_T2 });
 assert_eq!(instance.get_t2_has_hover(), true);
 assert_eq!(instance.get_t1_has_hover(), false);
-instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(275.0, 25.0), delta_x: -30.0, delta_y: 0.0 });
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LOCATION_T2, delta_x: -30.0, delta_y: 0.0 });
 assert_eq!(instance.get_t2_has_hover(), false);
 assert_eq!(instance.get_t1_has_hover(), false);
 
