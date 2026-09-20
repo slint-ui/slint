@@ -5,10 +5,85 @@ import { expect, test } from "vitest";
 import { page, server } from "vitest/browser";
 import JSZip from "jszip";
 import { convertCapture } from "../src/preview/convert-capture";
+import { packPreviewAssets } from "../src/asset-transport";
 import { mountPreview, readFixture } from "./browser-harness";
 import type { Diagnostic } from "../src/plugin/snapshot";
 
 const buttonSource = await readFixture("fixtures/button.slint");
+
+test("packed image assets compile through preview object URLs", async () => {
+    const p = await mountPreview();
+    const image = await server.commands.readFile(
+        "fixtures/authored/square.png",
+        "base64",
+    );
+    const largeSvg = btoa(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="blue"/><!--${"x".repeat(140 * 1024)}--></svg>`,
+    );
+    const source = `export component MainWindow inherits Window {
+        width: 64px;
+        height: 32px;
+        HorizontalLayout {
+            Image { source: @image-url("data:image/png;base64,${image}"); }
+            Image { source: @image-url("data:image/svg+xml;base64,${largeSvg}"); }
+        }
+    }`;
+    const packed = packPreviewAssets(source);
+    expect(packed.assets).toHaveLength(2);
+
+    const exportSource = source
+        .replace(`data:image/png;base64,${image}`, "assets/square.png")
+        .replace(`data:image/svg+xml;base64,${largeSvg}`, "assets/large.svg");
+    p.send({
+        type: "preview-source",
+        revision: 1,
+        source: packed,
+        exportPackage: {
+            source: exportSource,
+            files: [
+                {
+                    path: "assets/square.png",
+                    data: image,
+                    encoding: "base64",
+                },
+                {
+                    path: "assets/large.svg",
+                    data: largeSvg,
+                    encoding: "base64",
+                },
+            ],
+        },
+    });
+
+    await p.ready(1);
+    await expect
+        .poll(() => p.element("#source-view").textContent)
+        .toBe(exportSource);
+});
+
+test("oversized export validation cannot block the specialized preview", async () => {
+    const p = await mountPreview();
+    p.send({
+        type: "preview-source",
+        revision: 1,
+        source: buttonSource,
+        exportPackage: {
+            source: `${buttonSource}\n// @image-url("assets/large.png")`,
+            files: [
+                {
+                    path: "assets/large.png",
+                    data: "A".repeat(1024 * 1024),
+                    encoding: "base64",
+                },
+            ],
+        },
+    });
+
+    await p.ready(1);
+    expect(p.element("#diagnostics").textContent).toContain(
+        "EXPORT_VALIDATION_SKIPPED",
+    );
+});
 
 test.each([true, false])(
     "diagnostics groups warnings across nodes (production=%s)",
@@ -258,6 +333,42 @@ test("native variant failure blanks the previous preview and disables all output
             .element("#preview-canvas")
             .checkVisibility({ visibilityProperty: true }),
     ).toBe(false);
+});
+
+test("an asynchronous WASM failure ends the current preview instead of spinning forever", async () => {
+    const p = await mountPreview();
+    const realm = p.win as Window & typeof globalThis;
+    p.send({
+        type: "preview-source",
+        revision: 1,
+        source: buttonSource,
+        exportPackage: { source: buttonSource, files: [] },
+    });
+    await expect
+        .poll(() => [
+            p.element("#status").dataset.state,
+            p.element("#status").dataset.revision,
+        ])
+        .toEqual([expect.stringMatching(/initializing|compiling/), "1"]);
+    const runtimeError = new realm.ErrorEvent("error", {
+        message: "Maximum call stack size exceeded",
+        filename: "wasm://wasm/preview",
+        error: new realm.WebAssembly.RuntimeError(
+            "Maximum call stack size exceeded",
+        ),
+        cancelable: true,
+    });
+    expect(p.win.dispatchEvent(runtimeError)).toBe(false);
+
+    await expect.poll(() => p.element("#status").dataset.state).toBe("error");
+    expect(p.element("#diagnostics").textContent).toContain(
+        "Preview runtime failed",
+    );
+    expect(p.element("#diagnostics").textContent).toContain(
+        "Maximum call stack size exceeded",
+    );
+    expect(p.element("#preview-busy").hidden).toBe(true);
+    expect(p.element(".preview-shell").getAttribute("aria-busy")).toBe("false");
 });
 
 test("highlighted source keeps long lines and the last line reachable", async () => {

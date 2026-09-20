@@ -7,6 +7,7 @@ import { readFile } from "node:fs/promises";
 import {
     CaptureAssetReceiver,
     CaptureAssetSender,
+    materializePreviewAssets,
     unpackCaptureAssets,
 } from "../src/asset-transport";
 import { isPluginToUiMessage } from "../src/protocol";
@@ -313,6 +314,32 @@ describe("preview-assets", () => {
                 source,
             });
         }
+    });
+
+    test("materializes deduplicated image data as disposable object URLs", async () => {
+        const data = Buffer.from("asset bytes".repeat(100)).toString("base64");
+        const source = `Image { source: @image-url("data:image/png;base64,${data}"); }\nImage { source: @image-url("data:image/png;base64,${data}"); }`;
+        const created: Blob[] = [];
+        const revoked: string[] = [];
+        const preview = materializePreviewAssets(packPreviewAssets(source), {
+            createObjectUrl: (blob) => {
+                created.push(blob);
+                return `blob:test-${created.length}`;
+            },
+            revokeObjectUrl: (url) => revoked.push(url),
+        });
+
+        expect(preview.source).toBe(
+            'Image { source: @image-url("blob:test-1"); }\nImage { source: @image-url("blob:test-1"); }',
+        );
+        expect(created).toHaveLength(1);
+        expect(created[0].type).toBe("image/png");
+        expect(Buffer.from(await created[0].arrayBuffer()).toString()).toBe(
+            "asset bytes".repeat(100),
+        );
+        preview.dispose();
+        preview.dispose();
+        expect(revoked).toEqual(["blob:test-1"]);
     });
 
     test("rejects malformed asset tables and references", () => {

@@ -277,6 +277,66 @@ export function unpackPreviewAssets(value: unknown): {
     };
 }
 
+export function materializePreviewAssets(
+    value: unknown,
+    options: {
+        createObjectUrl?: (blob: Blob) => string;
+        revokeObjectUrl?: (url: string) => void;
+    } = {},
+): { source: string; dispose: () => void } {
+    if (!isAssetPreview(value)) throw Error("Invalid asset preview");
+    const packed = value;
+    const createObjectUrl =
+        options.createObjectUrl ?? ((blob: Blob) => URL.createObjectURL(blob));
+    const revokeObjectUrl =
+        options.revokeObjectUrl ?? ((url: string) => URL.revokeObjectURL(url));
+    const urls = new Map<string, string>();
+    const created: string[] = [];
+    const output: string[] = [];
+    const prefix = /data:(image\/(?:png|jpeg|gif|svg\+xml));base64,$/u;
+    try {
+        for (const part of packed.source) {
+            if (typeof part === "string") {
+                output.push(part);
+                continue;
+            }
+            const preceding = output.at(-1) ?? "";
+            const match = preceding.match(prefix);
+            if (!match)
+                throw Error("Preview asset reference has no image data prefix");
+            output[output.length - 1] = preceding.slice(
+                0,
+                preceding.length - match[0].length,
+            );
+            const key = `${part}:${match[1]}`;
+            let url = urls.get(key);
+            if (url === undefined) {
+                const binary = atob(packed.assets[part]);
+                const bytes = new Uint8Array(binary.length);
+                for (let index = 0; index < binary.length; index++)
+                    bytes[index] = binary.charCodeAt(index);
+                const blob = new Blob([bytes], { type: match[1] });
+                url = createObjectUrl(blob);
+                urls.set(key, url);
+                created.push(url);
+            }
+            output.push(url);
+        }
+    } catch (error) {
+        for (const url of created) revokeObjectUrl(url);
+        throw error;
+    }
+    let disposed = false;
+    return {
+        source: output.join(""),
+        dispose: () => {
+            if (disposed) return;
+            disposed = true;
+            for (const url of created) revokeObjectUrl(url);
+        },
+    };
+}
+
 export function isAssetPreview(value: unknown): value is AssetPreview {
     if (!value || typeof value !== "object") return false;
     const packed = value as AssetPreview;

@@ -20,7 +20,10 @@ import {
     type PreviewTrigger,
     isPluginToUiMessage,
 } from "../protocol";
-import { unpackPreviewAssets } from "../asset-transport";
+import {
+    materializePreviewAssets,
+    packPreviewAssets,
+} from "../asset-transport";
 import { PreviewController } from "../preview/controller";
 import { mountWorkspace, mountDialogFrame } from "./workspace";
 import { SourcePanelController } from "./source-panel";
@@ -136,6 +139,11 @@ const pendingOutputs = new Map<
         exportPackage: ExportPackage;
     }
 >();
+const previewAssetDisposers = new Map<number, () => void>();
+function disposePreviewAssets(revision: number): void {
+    previewAssetDisposers.get(revision)?.();
+    previewAssetDisposers.delete(revision);
+}
 let latestInputRevision = 0;
 const previewBusy = document.querySelector<HTMLElement>("#preview-busy");
 function setPreviewBusy(busy: boolean): void {
@@ -146,6 +154,7 @@ function setPreviewBusy(busy: boolean): void {
 }
 
 function updateOutputProvenance(trace: TimingTrace): void {
+    disposePreviewAssets(trace.revision);
     const completedOutput = pendingOutputs.get(trace.revision);
     // Retire payloads even when a newer revision owns the visible preview.
     for (const revision of pendingOutputs.keys())
@@ -192,6 +201,7 @@ let generatedSourceMetrics:
     | { readonly revision: number; readonly lineCount: number }
     | undefined;
 let renderingSource = false;
+let activeRenderTrace: TimingTrace | undefined;
 let latestTrace: TimingTrace | undefined;
 let displayedTraceRevision = 0;
 const traceHistory: TimingTrace[] = [];
@@ -234,7 +244,11 @@ darkModeQuery?.addEventListener("change", ({ matches }) => {
     sourceTheme = matches ? "dark-slint" : "light-slint";
     sourcePanel.setTheme(sourceTheme);
 });
-window.addEventListener("pagehide", () => sourcePanel.dispose());
+window.addEventListener("pagehide", () => {
+    sourcePanel.dispose();
+    for (const dispose of previewAssetDisposers.values()) dispose();
+    previewAssetDisposers.clear();
+});
 
 function renderPinState(): void {
     const pinned = pinState.pinned && pinState.pinnedRoot !== undefined;
@@ -259,6 +273,8 @@ function renderPinState(): void {
 }
 
 function showTrace(trace: TimingTrace, acknowledge = true): void {
+    if (activeRenderTrace?.revision === trace.revision)
+        activeRenderTrace = undefined;
     updateOutputProvenance(trace);
     const readonlyTrace = freezeTrace(trace);
     if (acknowledge && isFigmaUi) {
@@ -442,6 +458,7 @@ const isPreviewTrigger = (value: string): value is PreviewTrigger =>
     value === "pin-change" ||
     value === "density-change";
 let interpreterInitialization: Promise<void> | undefined;
+const MAX_LIVE_EXPORT_VALIDATION_LENGTH = 1024 * 1024;
 
 function receivedTrace(
     trace: TimingTrace | undefined,
@@ -504,14 +521,45 @@ function acceptSource(
         revision,
         traceId: String(revision),
     };
-    const validationSource = exportValidationSource(exportPackage);
+    activeRenderTrace = withRevision;
+    const expandedValidation = exportValidationSource(exportPackage);
+    const validation =
+        expandedValidation.length <= MAX_LIVE_EXPORT_VALIDATION_LENGTH
+            ? materializePreviewAssets(packPreviewAssets(expandedValidation))
+            : undefined;
+    if (
+        revision <= controller.currentRevision ||
+        revision < latestInputRevision
+    ) {
+        validation?.dispose();
+        disposePreviewAssets(revision);
+        return;
+    }
+    const disposeSource = previewAssetDisposers.get(revision);
+    previewAssetDisposers.set(revision, () => {
+        disposeSource?.();
+        validation?.dispose();
+    });
+    const renderWarnings =
+        validation === undefined
+            ? [
+                  ...warnings,
+                  {
+                      severity: "warning" as const,
+                      code: "EXPORT_VALIDATION_SKIPPED",
+                      category: "omission" as const,
+                      message:
+                          "Live export validation was skipped because the expanded export exceeds the browser compiler safety limit",
+                  },
+              ]
+            : warnings;
     if (interpreterInitialization === undefined) {
         interpreterInitialization = controller.initialize(
             source,
             revision,
             withRevision,
-            warnings,
-            validationSource,
+            renderWarnings,
+            validation?.source,
         );
         void interpreterInitialization.catch(() => {
             interpreterInitialization = undefined;
@@ -521,11 +569,26 @@ function acceptSource(
             source,
             revision,
             withRevision,
-            warnings,
-            validationSource,
+            renderWarnings,
+            validation?.source,
         );
     }
 }
+
+window.addEventListener("error", (event) => {
+    if (
+        !event.filename.startsWith("wasm:") &&
+        !(event.error instanceof WebAssembly.RuntimeError)
+    )
+        return;
+    event.preventDefault();
+    const stage = controller.currentCompileStage;
+    controller.failCurrentRender(
+        `Preview runtime failed${stage ? ` during ${stage}` : ""}: ${event.message || String(event.error)}`,
+        latestInputRevision,
+        activeRenderTrace,
+    );
+});
 
 function acceptSelection(
     info: { nodeId: string; nodeName: string } | undefined,
@@ -732,21 +795,44 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
                     : "initial",
             );
             const started = defaultClock.monotonicNow();
-            const decoded =
-                typeof message.source === "string"
-                    ? { source: message.source }
-                    : unpackPreviewAssets(message.source);
-            if (typeof message.source !== "string")
-                trace.phases.assetUnpacking =
-                    defaultClock.monotonicNow() - started;
-            acceptSelection(message.selection);
-            acceptSource(
-                decoded.source,
-                message.revision,
-                message.exportPackage,
-                trace,
-                message.warnings ?? [],
-            );
+            try {
+                const decoded =
+                    typeof message.source === "string"
+                        ? { source: message.source, dispose: undefined }
+                        : materializePreviewAssets(message.source);
+                if (decoded.dispose)
+                    previewAssetDisposers.set(
+                        message.revision,
+                        decoded.dispose,
+                    );
+                if (typeof message.source !== "string")
+                    trace.phases.assetUnpacking =
+                        defaultClock.monotonicNow() - started;
+                acceptSelection(message.selection);
+                acceptSource(
+                    decoded.source,
+                    message.revision,
+                    message.exportPackage,
+                    trace,
+                    message.warnings ?? [],
+                );
+            } catch (error) {
+                disposePreviewAssets(message.revision);
+                acceptSelection(message.selection);
+                acceptDiagnostics(
+                    [
+                        {
+                            code: "PREVIEW_ASSET_PREPARATION_FAILED",
+                            message:
+                                error instanceof Error
+                                    ? error.message
+                                    : String(error),
+                        },
+                    ],
+                    message.revision,
+                    trace,
+                );
+            }
         } else if (message.type === "preview-diagnostics") {
             acceptSelection(message.selection);
             acceptDiagnostics(
