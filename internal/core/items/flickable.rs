@@ -888,12 +888,33 @@ impl FlickableData {
                         let current_content_position =
                             LogicalPoint::from_lengths(content_x.get(), content_y.get());
 
+                        // A touch drag starts without the dead zone, so the content trails the
+                        // finger by that distance instead of jumping to catch up.
+                        // UIScrollView and RecyclerView treat their touch slop the same way.
+                        // A mouse drag keeps the content anchored under the cursor.
+                        let applied_delta = if !is_capturing && event.is_from_touch() {
+                            let without_dead_zone = |delta: Coord| {
+                                let threshold = DISTANCE_THRESHOLD.get();
+                                if delta.abs() > threshold {
+                                    delta - threshold * delta.signum()
+                                } else {
+                                    0 as Coord
+                                }
+                            };
+                            LogicalVector::new(
+                                without_dead_zone(mouse_delta.x),
+                                without_dead_zone(mouse_delta.y),
+                            )
+                        } else {
+                            mouse_delta
+                        };
+
                         // We calculate the new content position by adding the mouse delta in the flickable
                         // coordinate system to the current content position.
                         // Do not rely on the existing content position to be stable, as e.g. the
                         // ListView will continuously update it.
                         // So we cannot calculate the delta in content coordinates.
-                        let new_content_position = current_content_position + mouse_delta;
+                        let new_content_position = current_content_position + applied_delta;
                         let new_content_position =
                             ensure_in_bound(flick, new_content_position, flick_rc);
 
@@ -905,7 +926,7 @@ impl FlickableData {
 
                         // Only update the mouse position if we are actually applying the delta.
                         // When the drag starts, there is a short dead zone that is determined by the
-                        // DISTANCE_THRESHOLD. We want to apply that threshold to the
+                        // DISTANCE_THRESHOLD. With a mouse, we want to apply that threshold to the
                         // delta once we've overcome it, so we need to update the position that we
                         // calculate the delta from only after we've cleared the dead zone and are
                         // actually moving.

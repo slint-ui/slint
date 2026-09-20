@@ -59,15 +59,16 @@ instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id
 assert_eq!(instance.get_content_x(), 0.);
 assert_eq!(instance.get_content_y(), 0.);
 instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Moved }));
-assert_eq!(instance.get_content_x(), -100.);
-assert_eq!(instance.get_content_y(), -50.);
+// The content trails the finger by the 8px dead zone that started the drag
+assert_eq!(instance.get_content_x(), -92.);
+assert_eq!(instance.get_content_y(), -42.);
 assert!(instance.get_flicked_count() > 0);
 // Release long after the last move so no fling animation starts
 slint_testing::mock_elapsed_time(1000);
 instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Ended }));
 slint_testing::mock_elapsed_time(1000);
-assert_eq!(instance.get_content_x(), -100.);
-assert_eq!(instance.get_content_y(), -50.);
+assert_eq!(instance.get_content_x(), -92.);
+assert_eq!(instance.get_content_y(), -42.);
 instance.set_content_x(0.);
 instance.set_content_y(0.);
 instance.set_flicked_count(0);
