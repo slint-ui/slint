@@ -5,7 +5,7 @@ import { codegenAliases, type CodegenVariable } from "./codegen-variables";
 import type { VariableLibrary, VariableValue } from "./variable-library";
 import type { ComponentLibrary } from "./components";
 import { planReachableVariants } from "./components";
-import type { CaptureCache } from "./capture-work";
+import type { CaptureCache, CaptureScheduler } from "./capture-work";
 import {
     CaptureCancelled,
     captureBusyTime,
@@ -43,6 +43,7 @@ export type {
 // Running host exports cannot be aborted. Keep their slots occupied across
 // interactive revisions so superseded captures cannot multiply host work.
 const selectionExportScheduler = captureScheduler(4);
+export type CaptureScope = "tree" | "flattened" | "root-only";
 
 /** Watch off-page component definitions without loading or observing every page. */
 export function observeComponentDependencies(
@@ -354,7 +355,7 @@ export async function captureSource(
     cache?: CaptureCache,
     schedule = captureScheduler(concurrency),
     planMaskExports = true,
-    scope: "tree" | "root-only" = "tree",
+    scope: CaptureScope = "tree",
 ): Promise<{
     source: SourceCapture<Uint8Array>;
     durationMs: number;
@@ -401,6 +402,7 @@ export async function captureSource(
         });
     const source: SourceCapture<Bytes> = {
         sourceVersion: 1,
+        ...(scope === "flattened" ? { flattened: true } : {}),
         root: undefined as unknown as SourceNode<Bytes>,
         images: {},
         exportScale,
@@ -921,7 +923,7 @@ export async function captureSource(
         }
         if (cancelled?.()) return result;
         if ("children" in node) result.children = [];
-        if (scope === "tree" && "children" in node) {
+        if (scope !== "root-only" && "children" in node) {
             let children: readonly SceneNode[] = [];
             try {
                 children = node.children;
@@ -938,6 +940,7 @@ export async function captureSource(
                     child.visible !== false
                 )
                     return true;
+                if (scope === "flattened") return false;
                 // A hidden child can still be part of the public boolean
                 // contract. Keep it so native export can evaluate the
                 // binding even though the preview omits its pixels.
@@ -1454,6 +1457,8 @@ export async function captureSelectionSource(
     cancelled?: () => boolean,
     cache?: CaptureCache,
     selectionNodeIds?: readonly string[],
+    scope: CaptureScope = "tree",
+    schedule: CaptureScheduler = selectionExportScheduler,
 ): Promise<SourceCaptureResult> {
     const captureMetrics = {
         durationMs: 0,
@@ -1492,7 +1497,9 @@ export async function captureSelectionSource(
             cancelled,
             4,
             cache,
-            selectionExportScheduler,
+            schedule,
+            scope !== "flattened",
+            scope,
         );
         return {
             ok: true,

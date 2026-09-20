@@ -8,6 +8,7 @@ import {
     captureBusyTime,
     captureScheduler,
     mapCaptureChildren,
+    withCaptureTimeoutFallback,
 } from "../src/plugin/capture-work";
 
 describe("capture-cache", () => {
@@ -187,6 +188,44 @@ describe("capture-cache", () => {
 });
 
 describe("capture-scheduler", () => {
+    test("timeout cancels primary work and ignores its late completion", async () => {
+        let finishPrimary: (value: string) => void = () => {};
+        let primaryCancelled = () => false;
+        let timeoutNotices = 0;
+        const result = await withCaptureTimeoutFallback(
+            0,
+            (cancelled) => {
+                primaryCancelled = cancelled;
+                return new Promise<string>((resolve) => {
+                    finishPrimary = resolve;
+                });
+            },
+            async () => "flattened",
+            () => timeoutNotices++,
+        );
+        expect(result).toEqual({ value: "flattened", fellBack: true });
+        expect(primaryCancelled()).toBe(true);
+        expect(timeoutNotices).toBe(1);
+        finishPrimary("too late");
+        await Promise.resolve();
+        expect(result.value).toBe("flattened");
+    });
+
+    test("capture finishing before the deadline does not run fallback", async () => {
+        let fallbackRuns = 0;
+        const result = await withCaptureTimeoutFallback(
+            100,
+            async () => "complete",
+            async () => {
+                fallbackRuns++;
+                return "flattened";
+            },
+            () => {},
+        );
+        expect(result).toEqual({ value: "complete", fellBack: false });
+        expect(fallbackRuns).toBe(0);
+    });
+
     test("capture scheduler bounds overlapping exports and releases failures", async () => {
         const schedule = captureScheduler(2);
         const releases: (() => void)[] = [];

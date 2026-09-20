@@ -92,6 +92,7 @@ export type MaterializedNode = {
 export type NormalizationContext = {
     readonly assets: NormalizationAssets;
     readonly target: GenerationTarget;
+    readonly nativeTextOnly?: boolean;
     readonly metrics: {
         durationMs: number;
         requests: number;

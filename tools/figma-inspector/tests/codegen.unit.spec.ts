@@ -7,6 +7,7 @@ import { captureSource } from "../src/plugin/capture";
 import { normalizeSource } from "../src/plugin/normalize";
 import { generateCodegen } from "../src/plugin/codegen";
 import { convertSnapshot } from "../src/preview/converter";
+import { decodeValue } from "../src/plugin/source";
 
 test("root-only conversion ignores even malformed descendants without mutating the input", async () => {
     const snapshot = JSON.parse(
@@ -111,6 +112,75 @@ test.each(["FRAME", "COMPONENT", "COMPONENT_SET", "INSTANCE", "GROUP"])(
         expect(result[0]).toMatchObject({ language: "CSS" });
     },
 );
+
+test("flattened capture keeps visible descendants without component or text export work", async () => {
+    const fixture = JSON.parse(
+        await readFile("fixtures/source/export-fonts.json", "utf8"),
+    );
+    const sourceText = fixture.root.children[0];
+    const text = {
+        ...decodeValue(sourceText.properties),
+        id: "flattened:text",
+        name: "Native fallback text",
+        type: "TEXT",
+        visible: true,
+        hasMissingFont: false,
+        getStyledTextSegments: () => [],
+    };
+    const hidden = { ...text, id: "flattened:hidden", visible: false };
+    const root = {
+        ...decodeValue(fixture.root.properties),
+        id: "flattened:root",
+        name: "Flattened instance",
+        type: "INSTANCE",
+        visible: true,
+        children: [text, hidden],
+        getMainComponentAsync() {
+            throw Error("Component library traversal is forbidden");
+        },
+    } as unknown as SceneNode;
+    let visualExports = 0;
+    const forbiddenExport = async (): Promise<never> => {
+        visualExports++;
+        throw Error("Text rasterization is forbidden");
+    };
+    const captured = await captureSource(
+        root,
+        Symbol(),
+        forbiddenExport,
+        undefined,
+        forbiddenExport,
+        1,
+        false,
+        undefined,
+        undefined,
+        4,
+        undefined,
+        undefined,
+        false,
+        "flattened",
+    );
+    expect(captured.source.flattened).toBe(true);
+    expect(captured.source.components).toBeUndefined();
+    expect(captured.source.root.children?.map((child) => child.id)).toEqual([
+        text.id,
+    ]);
+    expect(captured.source.root.children?.[0].exports).toBeUndefined();
+    expect(captured.work).toMatchObject({
+        capturedNodes: 2,
+        componentFamilies: 0,
+        componentVariants: 0,
+        pngExports: 0,
+        svgExports: 0,
+    });
+    expect(visualExports).toBe(0);
+    const normalized = await normalizeSource(captured.source);
+    expect(normalized.ok).toBe(true);
+    if (!normalized.ok || normalized.empty) return;
+    const converted = convertSnapshot(normalized.snapshot);
+    expect(converted.ok).toBe(true);
+    if (converted.ok) expect(converted.source).toContain("Text {");
+});
 
 test("codegen returns standalone root code and recovers after an invalid request", async () => {
     const fixture = JSON.parse(

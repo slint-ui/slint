@@ -51,6 +51,8 @@ export type SourceNode<Bytes extends SourceBytes = number[]> = {
 };
 export type SourceCapture<Bytes extends SourceBytes = number[]> = {
     sourceVersion: 1;
+    /** A visible-tree fallback without reusable component metadata or text rasters. */
+    flattened?: true;
     components?: ComponentLibrary<SourceNode<Bytes>>;
     variables?: VariableLibrary;
     root: SourceNode<Bytes>;
@@ -136,6 +138,7 @@ export function validateSource(value: SourceCapture<SourceBytes>): void {
         !Number.isFinite(value.exportScale) ||
         value.exportScale <= 0 ||
         typeof value.pngEnabled !== "boolean" ||
+        (value.flattened !== undefined && value.flattened !== true) ||
         !value.images
     )
         throw new Error("Invalid source capture contract");

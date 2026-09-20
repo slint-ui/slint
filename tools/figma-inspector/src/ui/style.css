@@ -651,6 +651,17 @@ body {
     pointer-events: none;
     background: #ffffff55;
     border-radius: 12px;
+    grid-template-rows: auto auto;
+    align-content: center;
+    gap: 20px;
+    padding: 24px;
+    text-align: center;
+    color: var(--figma-color-text, #334155);
+    font-size: 12px;
+    line-height: 1.4;
+}
+#preview-busy-message {
+    max-width: 420px;
 }
 .preview-spinner {
     width: 28px;

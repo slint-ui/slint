@@ -26,8 +26,9 @@ function events() {
         has: (name) => listeners.has(name),
     };
 }
-function boot() {
+function boot({ forceFallback = false } = {}) {
     const messages = [],
+        notifications = [],
         global = events(),
         first = events(),
         second = events();
@@ -38,6 +39,23 @@ function boot() {
         type: "RECTANGLE",
         removed: false,
     };
+    if (forceFallback)
+        Object.assign(node, {
+            type: "TEXT",
+            characters: "cloud_upload",
+            fontName: {
+                family: "Material Symbols Outlined",
+                style: "Regular",
+            },
+            fontSize: 24,
+            fontWeight: 400,
+            textAlignHorizontal: "CENTER",
+            textAlignVertical: "CENTER",
+            textAutoResize: "NONE",
+            hasMissingFont: false,
+            getStyledTextSegments: () => [],
+            exportAsync: () => new Promise(() => {}),
+        });
     const other = { ...node, id: "authored:other", name: "Other" };
     Object.assign(first, { id: "page:1", type: "PAGE", selection: [node] });
     Object.assign(second, { id: "page:2", type: "PAGE", selection: [other] });
@@ -53,7 +71,7 @@ function boot() {
             setAsync: async () => {},
         },
         showUI() {},
-        notify() {},
+        notify: (message, options) => notifications.push({ message, options }),
         ui: {
             onmessage: undefined,
             resize() {},
@@ -67,17 +85,30 @@ function boot() {
         '$& throw Error("Preview attempted sandbox conversion");',
     );
     assert.notEqual(previewCode, code);
+    const sandboxSetTimeout = forceFallback
+        ? (callback, delay, ...args) =>
+              setTimeout(callback, delay === 20_000 ? 0 : delay, ...args)
+        : setTimeout;
     vm.runInNewContext(previewCode, {
         figma,
         __html__: "",
         console,
-        setTimeout,
+        setTimeout: sandboxSetTimeout,
         clearTimeout,
         Uint8Array,
         TextEncoder,
         TextDecoder,
     });
-    return { figma, messages, global, first, second, node, other };
+    return {
+        figma,
+        messages,
+        notifications,
+        global,
+        first,
+        second,
+        node,
+        other,
+    };
 }
 async function until(predicate) {
     const deadline = Date.now() + 3000;
@@ -153,6 +184,25 @@ assert.equal(
     restarted.messages.find((m) => m.type === "pin-state").pinned,
     false,
 );
+const slow = boot({ forceFallback: true });
+slow.figma.ui.onmessage({ type: "ui-ready", devicePixelRatio: 1 });
+await until(() =>
+    slow.messages.some((message) => message.type === "preview-capture"),
+);
+const slowCapture = slow.messages.find(
+    (message) => message.type === "preview-capture",
+);
+const slowBusy = slow.messages.filter(
+    (message) => message.type === "preview-busy",
+);
+assert.equal(slowBusy.length, 2);
+assert.match(slowBusy[1].message, /too complex/i);
+assert.equal(JSON.parse(slowCapture.captureJson).flattened, true);
+assert.equal(JSON.parse(slowCapture.captureJson).components, undefined);
+assert.equal(JSON.parse(slowCapture.captureJson).root.exports, undefined);
+assert.equal(slowCapture.warnings[0].code, "SIMPLIFIED_CAPTURE");
+assert.equal(slow.notifications.length, 1);
+assert.match(slow.notifications[0].message, /too complex/i);
 // Pinning retains a selection independently of how the converter renders it.
 for (const type of [
     "TABLE",

@@ -146,8 +146,18 @@ function disposePreviewAssets(revision: number): void {
 }
 let latestInputRevision = 0;
 const previewBusy = document.querySelector<HTMLElement>("#preview-busy");
-function setPreviewBusy(busy: boolean): void {
-    if (previewBusy) previewBusy.hidden = !busy;
+const previewBusyMessage = document.querySelector<HTMLElement>(
+    "#preview-busy-message",
+);
+function setPreviewBusy(busy: boolean, message?: string): void {
+    if (previewBusy) {
+        previewBusy.hidden = !busy;
+        previewBusy.setAttribute("aria-label", message ?? "Rendering preview");
+    }
+    if (previewBusyMessage) {
+        previewBusyMessage.hidden = !busy || message === undefined;
+        previewBusyMessage.textContent = message ?? "";
+    }
     document
         .querySelector(".preview-shell")
         ?.setAttribute("aria-busy", String(busy));
@@ -759,8 +769,10 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
             : undefined;
     if (isPluginToUiMessage(message)) {
         if (message.type === "preview-busy") {
-            if (message.revision <= latestInputRevision) return;
-            beginPreview(message.revision);
+            if (message.revision < latestInputRevision) return;
+            if (message.revision > latestInputRevision)
+                beginPreview(message.revision);
+            setPreviewBusy(true, message.message);
             return;
         }
         if (message.type === "pin-state") {

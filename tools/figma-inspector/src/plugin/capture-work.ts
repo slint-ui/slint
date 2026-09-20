@@ -7,6 +7,32 @@ export class CaptureCancelled extends Error {
     }
 }
 
+export type CaptureScheduler = <T>(operation: () => Promise<T>) => Promise<T>;
+
+export async function withCaptureTimeoutFallback<T>(
+    timeoutMs: number,
+    primary: (cancelled: () => boolean) => Promise<T>,
+    fallback: () => Promise<T>,
+    onTimeout: () => void,
+): Promise<{ value: T; fellBack: boolean }> {
+    let timedOut = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const primaryOutcome = primary(() => timedOut).then(
+        (value) => ({ kind: "value" as const, value }),
+        (error) => ({ kind: "error" as const, error }),
+    );
+    const timeout = new Promise<{ kind: "timeout" }>((resolve) => {
+        timer = setTimeout(() => resolve({ kind: "timeout" }), timeoutMs);
+    });
+    const first = await Promise.race([primaryOutcome, timeout]);
+    if (timer !== undefined) clearTimeout(timer);
+    if (first.kind === "value") return { value: first.value, fellBack: false };
+    if (first.kind === "error") throw first.error;
+    timedOut = true;
+    onTimeout();
+    return { value: await fallback(), fellBack: true };
+}
+
 /** Session-only, bounded cache. Rejections and results from invalidated runs are not retained. */
 export class CaptureCache {
     private entries = new Map<string, { value: unknown; size: number }>();
@@ -111,7 +137,7 @@ export class CaptureCache {
 }
 
 /** Limits host API work without changing the order of captured children. */
-export function captureScheduler(limit: number) {
+export function captureScheduler(limit: number): CaptureScheduler {
     let active = 0;
     const pending: (() => void)[] = [];
     return async <T>(operation: () => Promise<T>): Promise<T> => {

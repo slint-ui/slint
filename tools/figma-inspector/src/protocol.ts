@@ -40,13 +40,18 @@ export type UiToPluginMessage =
       };
 
 export type PluginToUiMessage =
-    | { readonly type: "preview-busy"; readonly revision: number }
+    | {
+          readonly type: "preview-busy";
+          readonly revision: number;
+          readonly message?: string;
+      }
     | {
           readonly type: "preview-capture";
           readonly revision: number;
           readonly captureJson: string;
           readonly captureAssetVersion?: 2;
           readonly captureAssets?: readonly (Uint8Array | number)[];
+          readonly warnings?: readonly Diagnostic[];
           readonly selection?: { nodeId: string; nodeName: string };
           readonly trigger?: PreviewTrigger;
           readonly trace?: TimingTrace;
@@ -170,7 +175,10 @@ export function isPluginToUiMessage(
         return (
             "revision" in value &&
             Number.isSafeInteger(value.revision) &&
-            (value.revision as number) > 0
+            (value.revision as number) > 0 &&
+            (!("message" in value) ||
+                value.message === undefined ||
+                typeof value.message === "string")
         );
     if (value.type === "preview-source" || value.type === "preview-capture") {
         return (

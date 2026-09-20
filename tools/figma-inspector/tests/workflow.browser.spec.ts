@@ -8,6 +8,7 @@ import { convertCapture } from "../src/preview/convert-capture";
 import { packPreviewAssets } from "../src/asset-transport";
 import { mountPreview, readFixture } from "./browser-harness";
 import type { Diagnostic } from "../src/plugin/snapshot";
+import type { SourceCapture, SourceNode } from "../src/plugin/source";
 
 const buttonSource = await readFixture("fixtures/button.slint");
 
@@ -83,6 +84,59 @@ test("oversized export validation cannot block the specialized preview", async (
     expect(p.element("#diagnostics").textContent).toContain(
         "EXPORT_VALIDATION_SKIPPED",
     );
+});
+
+test("flattened native-text capture compiles and retains its fidelity warning", async () => {
+    const capture = JSON.parse(
+        await readFixture("fixtures/source/export-fonts.json"),
+    ) as SourceCapture;
+    capture.flattened = true;
+    delete capture.components;
+    const stripTextExports = (node: SourceNode): void => {
+        if (node.type === "TEXT") delete node.exports;
+        node.children?.forEach(stripTextExports);
+    };
+    stripTextExports(capture.root);
+    const warning: Diagnostic = {
+        severity: "warning",
+        code: "SIMPLIFIED_CAPTURE",
+        category: "omission",
+        message: "This is a simplified flattened export",
+    };
+    const converted = await convertCapture({
+        type: "preview-capture",
+        revision: 1,
+        captureJson: JSON.stringify(capture),
+        warnings: [warning],
+    });
+    expect(converted.type).toBe("preview-source");
+    if (converted.type !== "preview-source") return;
+    expect(converted.warnings).toContainEqual(warning);
+
+    const p = await mountPreview();
+    p.send(converted);
+    await p.ready(1);
+    expect(p.element("#diagnostics").textContent).toContain(
+        "SIMPLIFIED_CAPTURE",
+    );
+    await expect
+        .poll(() => p.element("#source-view").textContent)
+        .toContain("Text {");
+});
+
+test("capture timeout status replaces the spinner-only state", async () => {
+    const p = await mountPreview();
+    p.send({ type: "preview-busy", revision: 1 });
+    expect(p.element("#preview-busy-message").hidden).toBe(true);
+    p.send({
+        type: "preview-busy",
+        revision: 1,
+        message: "Showing a simplified flattened version",
+    });
+    await expect
+        .poll(() => p.element("#preview-busy-message").textContent)
+        .toBe("Showing a simplified flattened version");
+    expect(p.element("#preview-busy-message").hidden).toBe(false);
 });
 
 test.each([true, false])(

@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 import { WindowPreferences } from "./window-preferences";
-import { CaptureCache } from "./capture-work";
+import {
+    CaptureCache,
+    captureScheduler,
+    withCaptureTimeoutFallback,
+} from "./capture-work";
 import { CaptureAssetSender } from "../asset-transport";
 import {
     type TimingTrace,
@@ -15,12 +19,22 @@ import {
     collectSelectionNodeIds,
     observeComponentDependencies,
 } from "./capture";
+import type { Diagnostic } from "./snapshot";
 import {
     type PluginToUiMessage,
     type PreviewTrigger,
     type UiToPluginMessage,
     isUiToPluginMessage,
 } from "../protocol";
+
+const FULL_CAPTURE_TIMEOUT_MS = 20_000;
+const SIMPLIFIED_CAPTURE_WARNING: Diagnostic = {
+    severity: "warning",
+    code: "SIMPLIFIED_CAPTURE",
+    category: "omission",
+    message:
+        "This selection is too complex for a full component export. The preview and export use a simplified flattened tree without reusable component definitions or exact unsupported-font rendering.",
+};
 
 export function startPreview(): void {
     const windowPreferences = new WindowPreferences(figma.clientStorage);
@@ -150,20 +164,51 @@ export function startPreview(): void {
             measureFontToImageConversion: (operation) =>
                 trace.measureFontToImageConversion(operation),
         };
-        const result = await trace.measureAsync("figmaCapture", () =>
-            captureSelectionSource(
-                selection,
-                figma.mixed,
-                undefined,
-                undefined,
-                captureInstrumentation,
-                undefined,
-                captureScale,
-                () => currentRevision !== revision,
-                captureCache,
-                nodeIds,
+        const capture = await trace.measureAsync("figmaCapture", () =>
+            withCaptureTimeoutFallback(
+                FULL_CAPTURE_TIMEOUT_MS,
+                (timedOut) =>
+                    captureSelectionSource(
+                        selection,
+                        figma.mixed,
+                        undefined,
+                        undefined,
+                        captureInstrumentation,
+                        undefined,
+                        captureScale,
+                        () => timedOut() || currentRevision !== revision,
+                        captureCache,
+                        nodeIds,
+                    ),
+                () =>
+                    captureSelectionSource(
+                        selection,
+                        figma.mixed,
+                        undefined,
+                        undefined,
+                        captureInstrumentation,
+                        undefined,
+                        captureScale,
+                        () => currentRevision !== revision,
+                        captureCache,
+                        nodeIds,
+                        "flattened",
+                        captureScheduler(4),
+                    ),
+                () => {
+                    captureCache.clear();
+                    figma.ui.postMessage({
+                        type: "preview-busy",
+                        revision: currentRevision,
+                        message: SIMPLIFIED_CAPTURE_WARNING.message,
+                    });
+                    figma.notify(SIMPLIFIED_CAPTURE_WARNING.message, {
+                        timeout: 5000,
+                    });
+                },
             ),
         );
+        const result = capture.value;
         trace.setCaptureMetrics(result.captureMetrics);
         if (currentRevision !== revision) {
             console.info(
@@ -230,6 +275,9 @@ export function startPreview(): void {
                     type: "preview-capture",
                     revision: currentRevision,
                     ...captured,
+                    ...(capture.fellBack
+                        ? { warnings: [SIMPLIFIED_CAPTURE_WARNING] }
+                        : {}),
                     selection: {
                         nodeId: result.source.root.id,
                         nodeName: result.source.root.name,

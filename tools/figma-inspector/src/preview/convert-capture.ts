@@ -140,6 +140,7 @@ export async function convertCapture(
                         ...normalized.warnings,
                         ...render.warnings,
                         ...exported.warnings,
+                        ...(request.warnings ?? []),
                     ].map((warning) => [JSON.stringify(warning), warning]),
                 ).values(),
             ],

@@ -7,6 +7,23 @@ import { isPluginToUiMessage, isUiToPluginMessage } from "../src/protocol";
 import { isSnapshotRequest, isSnapshotReply } from "../src/protocol";
 
 describe("protocol-validation", () => {
+    test("preview busy accepts only an optional string status", () => {
+        expect(
+            isPluginToUiMessage({
+                type: "preview-busy",
+                revision: 1,
+                message: "Preparing a simplified preview",
+            }),
+        ).toBe(true);
+        expect(
+            isPluginToUiMessage({
+                type: "preview-busy",
+                revision: 1,
+                message: 20,
+            }),
+        ).toBe(false);
+    });
+
     test("diagnostics reject malformed elements and revisions", () => {
         for (const revision of [0, -1, 1.5, Infinity, NaN])
             expect(
