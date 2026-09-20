@@ -1,0 +1,44 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+name: NativeSlintScroll
+targets:
+  NativeSlintScroll:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.6"
+    sources: []
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.slint.native-scroll-prototype
+        PRODUCT_NAME: NativeSlintScroll
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_FILE: Info.plist
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    postCompileScripts:
+      - name: Build Slint with Cargo
+        script: |
+          export SLINT_STYLE=material
+          bash "$SRCROOT/../../../scripts/build_for_ios_with_cargo.bash" native-slint-scroll
+  NativeSlintScrollUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "16.6"
+    sources: [UITests]
+    dependencies:
+      - target: NativeSlintScroll
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.slint.native-scroll-prototype.tests
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_OBJC_BRIDGING_HEADER: UITests/QuiescenceControl.h
+schemes:
+  NativeSlintScroll:
+    build:
+      targets:
+        NativeSlintScroll: all
+        NativeSlintScrollUITests: [test]
+    test:
+      targets: [NativeSlintScrollUITests]
