@@ -8,6 +8,83 @@ import { convertSnapshot } from "../src/preview/converter";
 import type { SourceCapture } from "../src/plugin/source";
 import { requireValue } from "../src/preview/slint-ir";
 
+test("nested HUG containers use resolved preview geometry", async () => {
+    let referencePixels: Awaited<ReturnType<typeof canvasPixels>> | undefined;
+    for (const specialize of [false, true]) {
+        const capture: SourceCapture = JSON.parse(
+            await readFixture("fixtures/source/conditional-root.json"),
+        );
+        const definition = requireValue(capture.components).definitions[0];
+        delete definition.contract;
+        for (const variant of definition.variants) {
+            const fixed = requireValue(variant.root.children)[0];
+            Object.assign(fixed.properties, {
+                width: 95,
+                height: 84,
+                layoutSizingHorizontal: "FIXED",
+                layoutSizingVertical: "FIXED",
+            });
+            const inner = {
+                ...structuredClone(variant.root),
+                id: `${variant.id}:inner`,
+                name: "Inner HUG container",
+                type: "FRAME",
+                properties: {
+                    ...variant.root.properties,
+                    width: 95,
+                    height: 84,
+                    fills: [],
+                    layoutMode: "VERTICAL",
+                    layoutSizingHorizontal: "HUG",
+                    layoutSizingVertical: "HUG",
+                    paddingLeft: 0,
+                    paddingRight: 0,
+                    paddingTop: 0,
+                    paddingBottom: 0,
+                    itemSpacing: 0,
+                },
+                children: [fixed],
+            };
+            Object.assign(variant.root.properties, {
+                width: 95,
+                height: 84,
+                layoutMode: "VERTICAL",
+                layoutSizingHorizontal: "HUG",
+                layoutSizingVertical: "HUG",
+                paddingLeft: 0,
+                paddingRight: 0,
+                paddingTop: 0,
+                paddingBottom: 0,
+                itemSpacing: 0,
+            });
+            variant.root.children = [inner];
+        }
+        const instance = requireValue(capture.root.children)[0];
+        const id = instance.id;
+        Object.assign(instance, structuredClone(definition.variants[0].root), {
+            id,
+            type: "INSTANCE",
+        });
+        const normalized = await normalizeSource(capture, "preview");
+        if (!normalized.ok || normalized.empty)
+            throw Error("Expected nested HUG containers");
+        const result = convertSnapshot(normalized.snapshot, { specialize });
+        if (!result.ok) throw Error(JSON.stringify(result.diagnostics));
+        expect(result.source).toContain("height: 84px;");
+        const p = await mountPreview();
+        p.send({
+            type: "preview-source",
+            revision: 1,
+            source: result.source,
+            exportPackage: { source: result.source, files: [] },
+        });
+        await p.ready(1);
+        const pixels = await canvasPixels(p);
+        if (referencePixels) expect(pixels.data).toEqual(referencePixels.data);
+        else referencePixels = pixels;
+    }
+});
+
 for (const specialize of [false, true]) {
     test(`nested HUG image layouts render (${specialize ? "specialized" : "reusable"})`, async () => {
         const capture: SourceCapture = JSON.parse(

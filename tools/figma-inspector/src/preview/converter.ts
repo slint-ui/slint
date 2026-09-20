@@ -144,8 +144,39 @@ function sizingConstraints(
             axis === "horizontal"
                 ? node.layoutSizingVertical
                 : node.layoutSizingHorizontal;
-        // Nested HUG layouts measure image heights through layout-assigned
-        // widths. Keep the captured preview width to break that dependency.
+        const intrinsicContainer =
+            node.kind === "frame" ||
+            node.kind === "component" ||
+            node.kind === "instance" ||
+            node.kind === "component-set" ||
+            node.kind === "section" ||
+            node.kind === "container";
+        const nestedHugContainer =
+            "children" in node &&
+            node.children.some(
+                (child) =>
+                    (child.kind === "frame" ||
+                        child.kind === "component" ||
+                        child.kind === "instance" ||
+                        child.kind === "component-set" ||
+                        child.kind === "section" ||
+                        child.kind === "container") &&
+                    (axis === "horizontal"
+                        ? child.layoutSizingHorizontal
+                        : child.layoutSizingVertical) === "hug",
+            );
+        // The live preview represents Figma's resolved snapshot. Preserve HUG
+        // container dimensions, and the width of images that HUG both axes,
+        // instead of asking nested Slint layouts to measure one another.
+        if (
+            preview &&
+            sizing === "hug" &&
+            intrinsicContainer &&
+            nestedHugContainer
+        ) {
+            lines.push(property(dimension, resolved, depth));
+            return;
+        }
         if (
             preview &&
             node.kind === "svg" &&
@@ -154,7 +185,7 @@ function sizingConstraints(
             otherSizing === "hug"
         ) {
             lines.push(
-                property("width", resolved, depth),
+                property(dimension, resolved, depth),
                 property(stretch, 0, depth),
             );
             return;
@@ -175,13 +206,6 @@ function sizingConstraints(
         }
         if (sizing === "hug") {
             const intrinsicText = node.kind === "text";
-            const intrinsicContainer =
-                node.kind === "frame" ||
-                node.kind === "component" ||
-                node.kind === "instance" ||
-                node.kind === "component-set" ||
-                node.kind === "section" ||
-                node.kind === "container";
             // A HUG container whose size is inferred from a FILL child creates
             // a Slint layout-info cycle: the child asks for the parent's size
             // while the parent asks the child for its intrinsic size. The
