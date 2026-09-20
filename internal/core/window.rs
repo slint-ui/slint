@@ -1083,7 +1083,7 @@ impl WindowInner {
         };
 
         let hover_position_after_drop =
-            if matches!(event, MouseEvent::Drop { .. }) { event.position() } else { None };
+            matches!(event, MouseEvent::Drop { .. }).then(|| event.position()).flatten();
         let accepted = dispatch_accepted | grab_accepted;
 
         if last_top_item != mouse_input_state.top_item_including_delayed() {

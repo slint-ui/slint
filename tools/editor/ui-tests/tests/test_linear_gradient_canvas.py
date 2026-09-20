@@ -10,7 +10,7 @@ import slint_testing
 from editor_sync import wait_for_source
 from gradient_interactions import center, click, control, gesture, shifted
 from slint_testing import keys
-from source_snapshot import SourceSnapshot, wait_for_source_change
+from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -167,9 +167,12 @@ def test_linear_endpoint_drag_and_session_history(
         control(window, "Add gradient stop")
         original.assert_unchanged_now()
         click(window, "Close Custom")
-        saved = wait_for_source_change(scene, original.sources[Path(scene.name)])
+        saved = replace_once(
+            original.sources[Path(scene.name)],
+            b"@linear-gradient(90deg, #568fb8 0%, #264052 55%, #7e3b66 100%)",
+            b"@linear-gradient(90deg, #568fb8 20%, #264052 64%, #7e3b66 100%)",
+        )
         original.wait_for_applied(saved, scene.name)
-        assert b"20%" in saved
         press_shortcut(window, keys.Control, "z")
         original.wait_for_applied(original.sources[Path(scene.name)], scene.name)
         press_shortcut(window, keys.Control, keys.Shift, "z")
