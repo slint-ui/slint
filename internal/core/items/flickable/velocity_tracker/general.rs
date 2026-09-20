@@ -156,7 +156,7 @@ mod tests_general_velocity_tracker {
             ),
             (
                 // (x(t) = t^2 -> tau = t - 3 (age from newest) -> x(tau) = (tau + 3)^2 = tau ^2 + 6tau + 9
-                // dx(tau)/dtau = 2 * tau + 6, at tau = 0 (newest point) -> dx(tau)/dtau = 6
+                // dx(tau)/d tau = 2 * tau + 6, at tau = 0 (newest point) -> dx(tau)/d tau = 6
                 //
                 // y(t) = 4*t^2 -> dy(t)/dt = 8 * t, at t = 3 (tau = 0): 24
                 "square x and y",
