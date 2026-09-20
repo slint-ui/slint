@@ -749,6 +749,23 @@ fn gen_corelib(
                 using LogicalRect = Rect;
                 using LogicalPoint = Point2D<float>;
                 using LogicalLength = float;
+                // Rust's TouchHistory owns a Vec, which cbindgen can't lay out in C++, so
+                // MouseEvent::Moved carries it as this instead: an EventTouchHistory, whose
+                // only field is the same size/null-ness as the `Option<Box<TouchHistory>>`
+                // it wraps on the Rust side. C++ never constructs one with an actual history
+                // (only ever `nullptr`, meaning \"none recorded\"); it exists so recorded
+                // events can be moved and compared without Rust needing to hand the history's
+                // contents across the FFI boundary. Equality here is therefore by identity,
+                // not content, unlike the `Option<Box<_>>` it wraps on the Rust side; every
+                // instance C++ can itself construct is `nullptr`, for which the two coincide.
+                struct EventTouchHistory {
+                    const void *opaque_history = nullptr;
+
+                    bool operator==(const EventTouchHistory &o) const {
+                        return opaque_history == o.opaque_history;
+                    }
+                    bool operator!=(const EventTouchHistory &o) const { return !(*this == o); }
+                };
             }",
         ),
         (
@@ -822,6 +839,7 @@ fn gen_corelib(
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",
             "PHYSICAL_REGION_MAX_SIZE",
+            "EventTouchHistory",
         ]
         .into_iter()
         .chain(config.export.exclude.iter().map(|s| s.as_str()))
