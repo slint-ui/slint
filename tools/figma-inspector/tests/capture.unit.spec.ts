@@ -707,6 +707,13 @@ function componentLikeNode(
         strokeAlign: "INSIDE",
         cornerRadius: 14,
         children,
+        ...(type === "COMPONENT"
+            ? {
+                  parent: null,
+                  componentPropertyDefinitions: {},
+                  variantProperties: null,
+              }
+            : {}),
         ...(type === "INSTANCE" ? { scaleFactor: 1 } : {}),
         ...updates,
     }) as unknown as SceneNode;
@@ -745,7 +752,7 @@ function malformedComponentFamily(
     })) as unknown as ComponentNode[];
     let definitionReads = 0;
     let defaultReads = 0;
-    const owner = {
+    const ownerTarget = {
         type: "COMPONENT_SET",
         id: "malformed:set",
         name: "Malformed family",
@@ -768,6 +775,13 @@ function malformedComponentFamily(
         clipsContent: false,
         children: variants,
     } as unknown as ComponentSetNode;
+    const owner = new Proxy(ownerTarget, {
+        has(target, property) {
+            if (property === "componentPropertyDefinitions")
+                throw new Error("Component set has existing errors");
+            return Reflect.has(target, property);
+        },
+    });
     Object.defineProperty(owner, "componentPropertyDefinitions", {
         get() {
             definitionReads++;
@@ -864,7 +878,12 @@ test("recovers only the referenced nested variant from a malformed family", asyn
         componentProperties: {},
         getMainComponentAsync: async () => family.variants[0],
     });
-    const { captured } = await convertCaptured(instance);
+    Object.defineProperty(instance, "componentProperties", {
+        get() {
+            throw new Error("Component set for node has existing errors");
+        },
+    });
+    const { captured, normalized } = await convertCaptured(instance);
     expect(captured.source.components?.definitions[0]).toMatchObject({
         scope: "private",
         axes: {
@@ -872,6 +891,23 @@ test("recovers only the referenced nested variant from a malformed family", asyn
         },
         variants: [{ id: "malformed:0" }],
     });
+    expect(
+        captured.source.components?.references["malformed:instance"],
+    ).toEqual({
+        definitionId: "malformed:set",
+        variantId: "malformed:0",
+    });
+    expect(normalized.warnings).toContainEqual(
+        expect.objectContaining({
+            code: "PROPERTY_READ_FAILED",
+            propertyPath: "componentProperties",
+        }),
+    );
+    expect(
+        normalized.warnings.filter(
+            (warning) => warning.propertyPath === "componentProperties",
+        ),
+    ).toHaveLength(1);
 });
 
 test("keeps malformed standalone components and inconsistent families static", async () => {
@@ -1300,6 +1336,8 @@ test("captures nested Instances and reports stable component diagnostics", async
         clipsContent: false,
         children: variants,
     });
+    for (const variant of variants)
+        Object.defineProperty(variant, "parent", { value: componentSet });
     expect(
         await normalizeSource(
             (

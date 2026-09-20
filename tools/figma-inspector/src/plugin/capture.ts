@@ -227,7 +227,6 @@ const sourceProperties = [
     "boundVariables",
     "resolvedVariableModes",
     "componentPropertyReferences",
-    "componentProperties",
     "clipsContent",
     "columnIndex",
     "cornerRadius",
@@ -562,17 +561,13 @@ export async function captureSource(
         captured: SourceNode<Bytes>,
     ): Promise<void> {
         let main: ComponentNode | null = null;
-        if (
-            node.type === "COMPONENT_SET" &&
-            "componentPropertyDefinitions" in node
-        ) {
+        if (node.type === "COMPONENT_SET") {
             reportComponentMetadata(node, captured);
             if (node === root) requireCompleteOwner(node);
             else componentOwners.set(node.id, node);
             return;
         }
-        if (node.type === "COMPONENT" && "componentPropertyDefinitions" in node)
-            main = node;
+        if (node.type === "COMPONENT") main = node;
         else if (
             node.type === "INSTANCE" &&
             "getMainComponentAsync" in node &&
@@ -596,18 +591,25 @@ export async function captureSource(
             requireCompleteOwner(owner);
         else if (hasInstanceSwapContract) requireCompleteOwner(owner);
         else requireVariant(owner, main.id);
+        let properties: Record<string, string | boolean> | undefined;
+        if (node.type === "INSTANCE")
+            try {
+                properties = Object.fromEntries(
+                    Object.entries(node.componentProperties).map(
+                        ([key, property]) => [key, property.value],
+                    ),
+                );
+            } catch (error) {
+                recordReadFailure(
+                    captured,
+                    "componentProperties",
+                    `${errorMessage(error)}; instance overrides are unavailable but the captured appearance is retained`,
+                );
+            }
         references[node.id] = {
             definitionId: owner.id,
             variantId: main.id,
-            ...(node.type === "INSTANCE" && "componentProperties" in node
-                ? {
-                      properties: Object.fromEntries(
-                          Object.entries(node.componentProperties).map(
-                              ([key, property]) => [key, property.value],
-                          ),
-                      ),
-                  }
-                : {}),
+            ...(properties ? { properties } : {}),
         };
     }
     async function visit(
