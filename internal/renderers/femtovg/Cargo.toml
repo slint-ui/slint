@@ -18,12 +18,14 @@ path = "lib.rs"
 [features]
 default = []
 opengl = []
+# enable wgpu and forward vulkan feature from core. is equivalent to just "wgpu" if on linux. see core feature
+vulkan = ["i-slint-core/vulkan", "wgpu", "wgpu-30/vulkan", "wgpu-30/vulkan-portability"]
+
 # wgpu-30 enables the wgpu backend for internal use (e.g. linuxkms DRM rendering).
 # unstable-wgpu-30 additionally exposes public API integration (GraphicsAPI, texture import).
 wgpu = ["wgpu-30"]
 wgpu-30 = ["dep:wgpu-30", "femtovg/wgpu", "i-slint-core/wgpu-30"]
 unstable-wgpu-30 = ["wgpu-30", "i-slint-core/unstable-wgpu-30"]
-
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique", "shared-parley"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
