@@ -2,6 +2,38 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.18.1] - 2026-09-21
+
+ - Fixed a compiler panic when a nested repeater calls a function that reads a property of the
+   enclosing component.
+ - `FlexboxLayout`: Fixed a panic when a cell sizes one axis from its own other axis.
+ - `Flickable`: Nested `Flickable`s can be scrolled with a touch pad again. (#13453)
+ - Fixed a drag carrying only file paths not reaching other applications. (#13501)
+ - `SharedPixelBuffer::clone_from_slice` now panics on a slice that doesn't match the given width
+   and height, instead of reading out of bounds. (#13491)
+ - Interpreter: Fixed two-way bindings when several properties link to the same one. (#13446)
+ - Widgets: Fixed the minimum width of `ComboBox` and the Qt `LineEdit`. (#13447)
+ - `Button`: Added the missing `accessible-enabled` property. (#13451)
+ - `TextEdit`: Added `accessible-action-set-value`, like `LineEdit`. (#13414)
+ - Qt: Fixed `accessible-label` changing the widget's text. (#13455)
+ - Qt: A disabled `CheckBox` no longer reacts to key input. (#13457)
+ - Qt: The mouse wheel no longer changes the value of a disabled `SpinBox`. (#13449)
+ - Skia: Fixed anti-aliasing of transformed rectangles.
+ - winit: Fixed the window staying blank at startup with software rendering. (#13500)
+ - winit: Fixed a spurious warning that hiding the window failed when closing it. (#13507)
+ - Windows: Fall back to another renderer when the OpenGL driver doesn't support OpenGL 2.0. (#12706)
+ - LinuxKMS: Fixed sheared rendering on panels whose DRM buffer pitch exceeds the visible row. (#13516)
+ - iOS: Fixed applications rendering in software instead of on the GPU via Metal.
+ - iOS: Animations now run at the display's full refresh rate, such as 120Hz on ProMotion devices.
+ - iOS: Fixed applications intermittently starting up with a black screen.
+ - Rust: Fixed the generated code not compiling for `options[options.find-index(...)]`. (#13471)
+ - C++: Fixed MSVC warnings from the public headers. (#13234)
+ - Python: Fixed `del model[-1]` raising an error, and `del` with a step leaving stale rows. (#13468)
+ - Python: Fixed `model[-1] = value` raising an error and leaving a stale value in the UI.
+ - Python: Generated iOS projects adopt the UIScene lifecycle, which iOS 27 requires to launch.
+ - LSP: Fixed a panic when completing in a document with an unknown element. (#13445)
+ - Syntax highlighting: Added the `@keys` and `@markdown` macros. (#13443)
+
 ## [1.18.0] - 2026-09-16
 
 ### General
