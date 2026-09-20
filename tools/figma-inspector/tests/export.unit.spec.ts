@@ -6,7 +6,6 @@ import { readFile } from "node:fs/promises";
 import { expect, test } from "vitest";
 import JSZip from "jszip";
 import { convertCapture } from "../src/preview/convert-capture";
-import { unpackPreviewAssets } from "../src/asset-transport";
 import { exportZip } from "../src/ui/export-download";
 import {
     externalizeImages,
@@ -14,6 +13,7 @@ import {
 } from "../src/export/generate";
 import { isExportPackage } from "../src/protocol";
 import { isPluginToUiMessage } from "../src/protocol";
+import { previewAssetSource } from "./preview-asset-source";
 
 async function result(captureJson?: string) {
     const json =
@@ -79,7 +79,7 @@ test.each(["HUG", "FILL"])(
         const preview =
             typeof output.source === "string"
                 ? output.source
-                : unpackPreviewAssets(output.source).source;
+                : previewAssetSource(output.source);
         expect(preview).toContain("preferred-width: 70px;");
         expect(preview).not.toMatch(/(?<!preferred-)\bwidth: 70px;/);
         expect(preview).toContain(
@@ -104,7 +104,7 @@ test("one capture produces preview images and native export text with font impor
     const preview =
         typeof output.source === "string"
             ? output.source
-            : unpackPreviewAssets(output.source).source;
+            : previewAssetSource(output.source);
     expect(preview).not.toContain('text: "Native export text"');
     expect(preview).toContain("data:image/png;base64,");
     expect(output.exportPackage.source).toContain('text: "Native export text"');

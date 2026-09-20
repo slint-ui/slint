@@ -12,7 +12,8 @@ import {
 } from "../src/asset-transport";
 import { isPluginToUiMessage } from "../src/protocol";
 import { convertCapture } from "../src/preview/convert-capture";
-import { packPreviewAssets, unpackPreviewAssets } from "../src/asset-transport";
+import { packPreviewAssets } from "../src/asset-transport";
+import { previewAssetSource } from "./preview-asset-source";
 
 describe("capture-assets", () => {
     test("binary capture transport preserves fixtures and conversion without mutating capture", async () => {
@@ -293,10 +294,8 @@ describe("preview-assets", () => {
         const source = `Image { source: @image-url("data:image/png;base64,${data}"); }\nImage { source: @image-url("data:image/png;base64,${data}"); }`;
         const packed = packPreviewAssets(source);
         expect(packed.assets).toEqual([data]);
-        expect(unpackPreviewAssets(JSON.parse(JSON.stringify(packed)))).toEqual(
-            {
-                source,
-            },
+        expect(previewAssetSource(JSON.parse(JSON.stringify(packed)))).toBe(
+            source,
         );
         expect(
             packPreviewAssets(source.replaceAll(data, "A".repeat(128))).assets,
@@ -310,9 +309,7 @@ describe("preview-assets", () => {
             '"data":"hello"',
             'text: "雪\\n";',
         ]) {
-            expect(unpackPreviewAssets(packPreviewAssets(source))).toEqual({
-                source,
-            });
+            expect(previewAssetSource(packPreviewAssets(source))).toBe(source);
         }
     });
 
@@ -367,7 +364,7 @@ describe("preview-assets", () => {
                 snapshotJson: [],
             })),
         ]) {
-            expect(() => unpackPreviewAssets(value)).toThrow();
+            expect(() => materializePreviewAssets(value)).toThrow();
         }
     });
 });

@@ -59,6 +59,17 @@ export type ConversionResult =
 
 const property = binding;
 
+function isContainerNode(node: SnapshotNode): node is SnapshotFrameLikeNode {
+    return (
+        node.kind === "frame" ||
+        node.kind === "component" ||
+        node.kind === "instance" ||
+        node.kind === "component-set" ||
+        node.kind === "section" ||
+        node.kind === "container"
+    );
+}
+
 function geometry(
     node: SnapshotNode,
     depth: number,
@@ -144,27 +155,19 @@ function sizingConstraints(
             axis === "horizontal"
                 ? node.layoutSizingVertical
                 : node.layoutSizingHorizontal;
-        const intrinsicContainer =
-            node.kind === "frame" ||
-            node.kind === "component" ||
-            node.kind === "instance" ||
-            node.kind === "component-set" ||
-            node.kind === "section" ||
-            node.kind === "container";
-        const nestedHugContainer =
+        const intrinsicContainer = isContainerNode(node);
+        const resolvedContainerCycle =
             "children" in node &&
-            node.children.some(
-                (child) =>
-                    (child.kind === "frame" ||
-                        child.kind === "component" ||
-                        child.kind === "instance" ||
-                        child.kind === "component-set" ||
-                        child.kind === "section" ||
-                        child.kind === "container") &&
-                    (axis === "horizontal"
+            node.children.some((child) => {
+                const childSizing =
+                    axis === "horizontal"
                         ? child.layoutSizingHorizontal
-                        : child.layoutSizingVertical) === "hug",
-            );
+                        : child.layoutSizingVertical;
+                return (
+                    childSizing === "fill" ||
+                    (childSizing === "hug" && isContainerNode(child))
+                );
+            });
         // The live preview represents Figma's resolved snapshot. Preserve HUG
         // container dimensions, and the width of images that HUG both axes,
         // instead of asking nested Slint layouts to measure one another.
@@ -172,7 +175,7 @@ function sizingConstraints(
             preview &&
             sizing === "hug" &&
             intrinsicContainer &&
-            nestedHugContainer
+            resolvedContainerCycle
         ) {
             lines.push(property(dimension, resolved, depth));
             return;
@@ -212,20 +215,10 @@ function sizingConstraints(
             // snapshot already contains Figma's resolved dimensions, so use
             // those dimensions for the static preview. Text and leaf visuals
             // retain their intrinsic sizing behavior.
-            const fillCycle =
-                "children" in node &&
-                node.children.some(
-                    (child) =>
-                        (axis === "horizontal"
-                            ? child.layoutSizingHorizontal
-                            : child.layoutSizingVertical) === "fill",
-                );
             if (
                 !intrinsicText &&
                 intrinsicContainer &&
-                (!intrinsic ||
-                    fillCycle ||
-                    !("autoLayout" in node && node.autoLayout))
+                (!intrinsic || !("autoLayout" in node && node.autoLayout))
             ) {
                 lines.push(property(dimension, resolved, depth));
                 return;
@@ -454,13 +447,7 @@ function nodeSource(
             closeElement(depth),
         ];
     }
-    const rootFrameLike =
-        node.kind === "frame" ||
-        node.kind === "component" ||
-        node.kind === "instance" ||
-        node.kind === "component-set" ||
-        node.kind === "section" ||
-        node.kind === "container";
+    const rootFrameLike = isContainerNode(node);
     const collapseRoot =
         !definitionRoot &&
         normalizePosition &&
@@ -533,25 +520,11 @@ function nodeSource(
                 parent: node,
             }))
                 lines.push(line);
-    } else if (
-        node.kind === "frame" ||
-        node.kind === "component" ||
-        node.kind === "instance" ||
-        node.kind === "component-set" ||
-        node.kind === "section" ||
-        node.kind === "container" ||
-        node.kind === "rectangle"
-    ) {
+    } else if (isContainerNode(node) || node.kind === "rectangle") {
         const externalStroke =
             node.strokes[0]?.align === "center" ||
             node.strokes[0]?.align === "outside";
-        const container =
-            node.kind === "frame" ||
-            node.kind === "component" ||
-            node.kind === "instance" ||
-            node.kind === "component-set" ||
-            node.kind === "section" ||
-            node.kind === "container";
+        const container = isContainerNode(node);
         const clipExternalContent =
             externalStroke && node.clipsContent && container;
         const spreadShadows = node.shadows.filter(

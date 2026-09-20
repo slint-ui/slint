@@ -59,7 +59,6 @@ export class PreviewController {
     private readonly freedInstances = new WeakSet<object>();
     /** True after Slint has acquired the preview canvas's WebGL context. */
     private canvasHasSlintContext = false;
-    private compileStage: "export validation" | "preview" | undefined;
 
     public constructor(
         private readonly canvas: HTMLCanvasElement,
@@ -77,10 +76,6 @@ export class PreviewController {
 
     public get currentRevision(): number {
         return this.nextRevision;
-    }
-
-    public get currentCompileStage(): string | undefined {
-        return this.compileStage;
     }
 
     /** Prevent an older in-flight render from presenting while conversion runs. */
@@ -182,19 +177,6 @@ export class PreviewController {
             exactOutcome,
             acceptedAtMonotonicMs,
         );
-    }
-
-    /** End an asynchronous runtime failure for the revision already being rendered. */
-    public failCurrentRender(
-        message: string,
-        revision: number,
-        trace?: TimingTrace,
-    ): void {
-        if (!this.isCurrentRevision(revision)) return;
-        this.pendingRender = undefined;
-        this.showError(message, revision, trace, "compilation-error");
-        // Any in-flight promise for this revision is stale after the error.
-        this.minimumRevision = revision + 1;
     }
 
     public clearPreview(revision: number, trace?: TimingTrace): void {
@@ -437,7 +419,6 @@ export class PreviewController {
         ) {
             this.setState("compiling", revision);
             const validationStart = defaultClock.monotonicNow();
-            this.compileStage = "export validation";
             const validation = await compile_from_string(
                 validationSource,
                 "",
@@ -456,7 +437,6 @@ export class PreviewController {
                 this.validatedSource = validationSource;
             } finally {
                 validation.free();
-                this.compileStage = undefined;
                 if (workingTrace)
                     workingTrace.phases.slintCompilation =
                         (workingTrace.phases.slintCompilation ?? 0) +
@@ -498,7 +478,6 @@ export class PreviewController {
         }
         this.setState("compiling", revision);
         const compilationStart = defaultClock.monotonicNow();
-        this.compileStage = "preview";
         const result = await compile_from_string(source, "", undefined);
         if (workingTrace !== undefined) {
             workingTrace.phases.slintCompilation =
@@ -628,7 +607,6 @@ export class PreviewController {
             }
         } finally {
             result.free();
-            this.compileStage = undefined;
         }
     }
 

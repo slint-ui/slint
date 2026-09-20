@@ -214,7 +214,6 @@ let generatedSourceMetrics:
     | { readonly revision: number; readonly lineCount: number }
     | undefined;
 let renderingSource = false;
-let activeRenderTrace: TimingTrace | undefined;
 let latestTrace: TimingTrace | undefined;
 let displayedTraceRevision = 0;
 const traceHistory: TimingTrace[] = [];
@@ -286,8 +285,6 @@ function renderPinState(): void {
 }
 
 function showTrace(trace: TimingTrace, acknowledge = true): void {
-    if (activeRenderTrace?.revision === trace.revision)
-        activeRenderTrace = undefined;
     updateOutputProvenance(trace);
     const readonlyTrace = freezeTrace(trace);
     if (acknowledge && isFigmaUi) {
@@ -534,20 +531,11 @@ function acceptSource(
         revision,
         traceId: String(revision),
     };
-    activeRenderTrace = withRevision;
     const expandedValidation = exportValidationSource(exportPackage);
     const validation =
         expandedValidation.length <= MAX_LIVE_EXPORT_VALIDATION_LENGTH
             ? materializePreviewAssets(packPreviewAssets(expandedValidation))
             : undefined;
-    if (
-        revision <= controller.currentRevision ||
-        revision < latestInputRevision
-    ) {
-        validation?.dispose();
-        disposePreviewAssets(revision);
-        return;
-    }
     const disposeSource = previewAssetDisposers.get(revision);
     previewAssetDisposers.set(revision, () => {
         disposeSource?.();
@@ -587,21 +575,6 @@ function acceptSource(
         );
     }
 }
-
-window.addEventListener("error", (event) => {
-    if (
-        !event.filename.startsWith("wasm:") &&
-        !(event.error instanceof WebAssembly.RuntimeError)
-    )
-        return;
-    event.preventDefault();
-    const stage = controller.currentCompileStage;
-    controller.failCurrentRender(
-        `Preview runtime failed${stage ? ` during ${stage}` : ""}: ${event.message || String(event.error)}`,
-        latestInputRevision,
-        activeRenderTrace,
-    );
-});
 
 function acceptSelection(
     info: { nodeId: string; nodeName: string } | undefined,

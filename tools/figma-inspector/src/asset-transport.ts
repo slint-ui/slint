@@ -252,31 +252,6 @@ export function packPreviewAssets(source: string): AssetPreview {
     };
 }
 
-export function unpackPreviewAssets(value: unknown): {
-    source: string;
-} {
-    if (!isAssetPreview(value)) throw Error("Invalid asset preview");
-    const packed = value;
-    function join(parts: Parts): string {
-        if (!Array.isArray(parts)) throw Error("Invalid asset preview parts");
-        return parts
-            .map((part) => {
-                if (typeof part === "string") return part;
-                if (
-                    !Number.isSafeInteger(part) ||
-                    part < 0 ||
-                    part >= packed.assets.length
-                )
-                    throw Error("Invalid asset preview reference");
-                return packed.assets[part];
-            })
-            .join("");
-    }
-    return {
-        source: join(packed.source),
-    };
-}
-
 export function materializePreviewAssets(
     value: unknown,
     options: {

@@ -393,42 +393,6 @@ test("native variant failure blanks the previous preview and disables all output
     ).toBe(false);
 });
 
-test("an asynchronous WASM failure ends the current preview instead of spinning forever", async () => {
-    const p = await mountPreview();
-    const realm = p.win as Window & typeof globalThis;
-    p.send({
-        type: "preview-source",
-        revision: 1,
-        source: buttonSource,
-        exportPackage: { source: buttonSource, files: [] },
-    });
-    await expect
-        .poll(() => [
-            p.element("#status").dataset.state,
-            p.element("#status").dataset.revision,
-        ])
-        .toEqual([expect.stringMatching(/initializing|compiling/), "1"]);
-    const runtimeError = new realm.ErrorEvent("error", {
-        message: "Maximum call stack size exceeded",
-        filename: "wasm://wasm/preview",
-        error: new realm.WebAssembly.RuntimeError(
-            "Maximum call stack size exceeded",
-        ),
-        cancelable: true,
-    });
-    expect(p.win.dispatchEvent(runtimeError)).toBe(false);
-
-    await expect.poll(() => p.element("#status").dataset.state).toBe("error");
-    expect(p.element("#diagnostics").textContent).toContain(
-        "Preview runtime failed",
-    );
-    expect(p.element("#diagnostics").textContent).toContain(
-        "Maximum call stack size exceeded",
-    );
-    expect(p.element("#preview-busy").hidden).toBe(true);
-    expect(p.element(".preview-shell").getAttribute("aria-busy")).toBe("false");
-});
-
 test("highlighted source keeps long lines and the last line reachable", async () => {
     const p = await mountPreview();
     const source =

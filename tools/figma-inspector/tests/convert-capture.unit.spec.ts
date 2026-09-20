@@ -10,9 +10,9 @@ import {
 } from "../src/preview/convert-capture";
 import { normalizeSource } from "../src/plugin/normalize";
 import { convertSnapshot } from "../src/preview/converter";
-import { unpackPreviewAssets } from "../src/asset-transport";
 import { TimingTraceBuilder } from "../src/performance/timing";
 import { generateExport } from "../src/export/generate";
+import { previewAssetSource } from "./preview-asset-source";
 
 test("worker pipeline preserves source, snapshots, warnings and correlated timings", async () => {
     for (const file of [
@@ -59,7 +59,7 @@ test("worker pipeline preserves source, snapshots, warnings and correlated timin
         const decoded =
             typeof result.source === "string"
                 ? result
-                : unpackPreviewAssets(result.source);
+                : { source: previewAssetSource(result.source) };
         expect(decoded.source).toBe(expected.source);
         expect(result.trace?.phases.jsonSerialization).toBeNull();
         expect(captureSnapshotJson(state)).toBe(
