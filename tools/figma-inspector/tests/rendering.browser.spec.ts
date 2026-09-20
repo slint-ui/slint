@@ -156,6 +156,30 @@ test("styled component families compile through the built interpreter", async ()
     await p.ready(1);
 });
 
+test("component families without property contracts compile for preview and export", async () => {
+    const capture = JSON.parse(
+        await readFixture("fixtures/source/component-variants.json"),
+    ) as SourceCapture;
+    for (const definition of capture.components?.definitions ?? [])
+        delete definition.contract;
+    const p = await mountPreview();
+    let revision = 0;
+    for (const target of ["preview", "export"] as const) {
+        const normalized = await normalizeSource(capture, target);
+        if (!normalized.ok || normalized.empty)
+            throw Error(`Cannot normalize contract-free ${target} family`);
+        const result = convertSnapshot(normalized.snapshot, { target });
+        if (!result.ok) throw Error(JSON.stringify(result.diagnostics));
+        p.send({
+            type: "preview-source",
+            revision: ++revision,
+            source: result.source,
+            exportPackage: { source: result.source, files: [] },
+        });
+        await p.ready(revision);
+    }
+});
+
 test("root-only snippets compile with native text and appearance helpers without font files", async () => {
     const p = await mountPreview();
     let revision = 0;

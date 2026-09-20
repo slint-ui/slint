@@ -729,6 +729,200 @@ function componentText(
     });
 }
 
+function malformedComponentFamily(
+    values: readonly Record<string, string>[] = [
+        { State: "Enabled" },
+        { State: "Disabled" },
+    ],
+    defaultVariantFails = false,
+) {
+    const variants = values.map((variantProperties, index) => ({
+        ...componentLikeNode("COMPONENT", `malformed:${index}`, [], {
+            name: `Variant ${index}`,
+            componentPropertyDefinitions: {},
+            variantProperties,
+        }),
+    })) as unknown as ComponentNode[];
+    let definitionReads = 0;
+    let defaultReads = 0;
+    const owner = {
+        type: "COMPONENT_SET",
+        id: "malformed:set",
+        name: "Malformed family",
+        x: 0,
+        y: 0,
+        width: 480,
+        height: 72,
+        opacity: 1,
+        visible: true,
+        rotation: 0,
+        layoutPositioning: "AUTO",
+        layoutSizingHorizontal: "FIXED",
+        layoutSizingVertical: "FIXED",
+        layoutMode: "NONE",
+        fills: [],
+        strokes: [],
+        strokeWeight: 0,
+        strokeAlign: "INSIDE",
+        cornerRadius: 0,
+        clipsContent: false,
+        children: variants,
+    } as unknown as ComponentSetNode;
+    Object.defineProperty(owner, "componentPropertyDefinitions", {
+        get() {
+            definitionReads++;
+            throw new Error("Component set has existing errors");
+        },
+    });
+    Object.defineProperty(owner, "defaultVariant", {
+        get() {
+            defaultReads++;
+            if (defaultVariantFails)
+                throw new Error("Default variant is unavailable");
+            return variants[1];
+        },
+    });
+    for (const variant of variants)
+        Object.defineProperty(variant, "parent", { value: owner });
+    return {
+        owner,
+        variants,
+        reads: () => ({ definitionReads, defaultReads }),
+    };
+}
+
+async function convertCaptured(node: SceneNode) {
+    const captured = await captureSource(node, Symbol("mixed"));
+    const preview = await normalizeSource(captured.source);
+    if (!preview.ok || preview.empty) throw Error(JSON.stringify(preview));
+    const previewConversion = convertSnapshot(preview.snapshot);
+    if (!previewConversion.ok) throw Error(JSON.stringify(previewConversion));
+    const normalized = await normalizeSource(captured.source, "export");
+    if (!normalized.ok || normalized.empty)
+        throw Error(JSON.stringify(normalized));
+    const converted = convertSnapshot(normalized.snapshot, {
+        target: "export",
+    });
+    if (!converted.ok) throw Error(JSON.stringify(converted));
+    return { captured, normalized, converted, previewConversion };
+}
+
+test("recovers a component set whose property definitions throw", async () => {
+    const family = malformedComponentFamily();
+    const { captured, normalized, converted } = await convertCaptured(
+        family.owner as unknown as SceneNode,
+    );
+    expect(family.reads()).toEqual({ definitionReads: 1, defaultReads: 1 });
+    expect(captured.source.components?.definitions[0]).toMatchObject({
+        id: "malformed:set",
+        scope: "complete",
+        axes: {
+            State: {
+                defaultValue: "Disabled",
+                options: ["Disabled", "Enabled"],
+            },
+        },
+        variants: [
+            { id: "malformed:0", values: { State: "Enabled" } },
+            { id: "malformed:1", values: { State: "Disabled" } },
+        ],
+    });
+    expect(captured.source.components?.definitions[0].contract).toBeUndefined();
+    expect(normalized.warnings).toContainEqual(
+        expect.objectContaining({
+            code: "PROPERTY_READ_FAILED",
+            propertyPath: "componentPropertyDefinitions",
+        }),
+    );
+    expect(
+        normalized.warnings.filter(
+            (warning) =>
+                warning.propertyPath === "componentPropertyDefinitions",
+        ),
+    ).toHaveLength(1);
+    expect(converted.source).toContain("export enum MalformedFamilyState");
+});
+
+test("recovers a selected component variant from a malformed family", async () => {
+    const family = malformedComponentFamily();
+    const { captured } = await convertCaptured(
+        family.variants[0] as unknown as SceneNode,
+    );
+    expect(captured.source.components?.definitions[0]).toMatchObject({
+        scope: "complete",
+        variants: [{ id: "malformed:0" }, { id: "malformed:1" }],
+    });
+    expect(captured.source.components?.references["malformed:0"]).toEqual({
+        definitionId: "malformed:set",
+        variantId: "malformed:0",
+    });
+});
+
+test("recovers only the referenced nested variant from a malformed family", async () => {
+    const family = malformedComponentFamily();
+    const instance = componentLikeNode("INSTANCE", "malformed:instance", [], {
+        componentProperties: {},
+        getMainComponentAsync: async () => family.variants[0],
+    });
+    const { captured } = await convertCaptured(instance);
+    expect(captured.source.components?.definitions[0]).toMatchObject({
+        scope: "private",
+        axes: {
+            State: { defaultValue: "Enabled", options: ["Enabled"] },
+        },
+        variants: [{ id: "malformed:0" }],
+    });
+});
+
+test("keeps malformed standalone components and inconsistent families static", async () => {
+    const standalone = componentLikeNode("COMPONENT", "standalone", [], {
+        parent: null,
+        variantProperties: null,
+    }) as unknown as ComponentNode;
+    Object.defineProperty(standalone, "componentPropertyDefinitions", {
+        get() {
+            throw new Error("Definitions unavailable");
+        },
+    });
+    const standaloneResult = await convertCaptured(
+        standalone as unknown as SceneNode,
+    );
+    expect(
+        standaloneResult.captured.source.components?.definitions[0],
+    ).toMatchObject({ axes: {}, variants: [{ id: "standalone", values: {} }] });
+
+    const inconsistent = malformedComponentFamily([
+        { State: "Enabled" },
+        { Size: "Large" },
+    ]);
+    const staticResult = await convertCaptured(
+        inconsistent.owner as unknown as SceneNode,
+    );
+    expect(staticResult.captured.source.components).toBeUndefined();
+    expect(staticResult.normalized.warnings).toContainEqual(
+        expect.objectContaining({
+            code: "PROPERTY_READ_FAILED",
+            propertyPath: "variantProperties",
+        }),
+    );
+});
+
+test("uses a deterministic default when malformed family defaults throw", async () => {
+    const family = malformedComponentFamily(undefined, true);
+    const { captured, normalized } = await convertCaptured(
+        family.owner as unknown as SceneNode,
+    );
+    expect(
+        captured.source.components?.definitions[0].axes.State.defaultValue,
+    ).toBe("Disabled");
+    expect(normalized.warnings).toContainEqual(
+        expect.objectContaining({
+            code: "PROPERTY_READ_FAILED",
+            propertyPath: "defaultVariant",
+        }),
+    );
+});
+
 test("captures Components and resolved Instance children as styled containers", async () => {
     const componentChild = componentText("4:2", "Component");
     const component = componentLikeNode("COMPONENT", "4:1", [componentChild]);

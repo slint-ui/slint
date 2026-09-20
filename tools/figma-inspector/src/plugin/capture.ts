@@ -449,6 +449,89 @@ export async function captureSource(
     const componentOwners = new Map<string, ComponentNode | ComponentSetNode>();
     const capturedNodes = new Map<string, SourceNode<Bytes>>();
     const references: ComponentLibrary<SourceNode<Bytes>>["references"] = {};
+    type ComponentPropertyDefinitions =
+        ComponentNode["componentPropertyDefinitions"];
+    type ComponentMetadata = {
+        definitions?: ComponentPropertyDefinitions;
+        definitionError?: string;
+        defaultValues?: Record<string, string>;
+        defaultError?: string;
+    };
+    const componentMetadata = new Map<string, ComponentMetadata>();
+    const variantValues = new Map<
+        string,
+        { values?: Record<string, string>; error?: string }
+    >();
+    const errorMessage = (error: unknown) =>
+        String(error instanceof Error ? error.message : error);
+    const readComponentMetadata = (
+        owner: ComponentNode | ComponentSetNode,
+    ): ComponentMetadata => {
+        const cached = componentMetadata.get(owner.id);
+        if (cached) return cached;
+        const metadata: ComponentMetadata = {};
+        try {
+            metadata.definitions = owner.componentPropertyDefinitions ?? {};
+        } catch (error) {
+            metadata.definitionError = errorMessage(error);
+        }
+        if (metadata.definitionError && owner.type === "COMPONENT_SET")
+            try {
+                metadata.defaultValues =
+                    owner.defaultVariant.variantProperties ?? {};
+            } catch (error) {
+                metadata.defaultError = errorMessage(error);
+            }
+        componentMetadata.set(owner.id, metadata);
+        return metadata;
+    };
+    const readVariantValues = (variant: ComponentNode) => {
+        const cached = variantValues.get(variant.id);
+        if (cached) return cached;
+        let result: { values?: Record<string, string>; error?: string };
+        try {
+            result = { values: variant.variantProperties ?? {} };
+        } catch (error) {
+            result = { error: errorMessage(error) };
+        }
+        variantValues.set(variant.id, result);
+        return result;
+    };
+    const recordReadFailure = (
+        node: SourceNode<Bytes>,
+        property: string,
+        message: string,
+    ) => {
+        if (
+            !node.errors.some(
+                (error) =>
+                    error.property === property && error.message === message,
+            )
+        )
+            node.errors.push({ property, message });
+    };
+    const reportedComponentMetadata = new Set<string>();
+    const reportComponentMetadata = (
+        owner: ComponentNode | ComponentSetNode,
+        node: SourceNode<Bytes>,
+    ) => {
+        const metadata = readComponentMetadata(owner);
+        if (reportedComponentMetadata.has(owner.id)) return metadata;
+        reportedComponentMetadata.add(owner.id);
+        if (metadata.definitionError)
+            recordReadFailure(
+                node,
+                "componentPropertyDefinitions",
+                `${metadata.definitionError}; component properties are unavailable but the visual variants are retained`,
+            );
+        if (metadata.defaultError)
+            recordReadFailure(
+                node,
+                "defaultVariant",
+                `${metadata.defaultError}; the first captured option is used as the variant default`,
+            );
+        return metadata;
+    };
     const requiredVariants = new Map<string, Set<string>>();
     const completeOwners = new Set<string>();
     const requireVariant = (
@@ -474,12 +557,16 @@ export async function captureSource(
         requiredVariants.set(owner.id, required);
     };
     const mainComponents = new Map<string, Promise<ComponentNode | null>>();
-    async function readComponent(node: SceneNode): Promise<void> {
+    async function readComponent(
+        node: SceneNode,
+        captured: SourceNode<Bytes>,
+    ): Promise<void> {
         let main: ComponentNode | null = null;
         if (
             node.type === "COMPONENT_SET" &&
             "componentPropertyDefinitions" in node
         ) {
+            reportComponentMetadata(node, captured);
             if (node === root) requireCompleteOwner(node);
             else componentOwners.set(node.id, node);
             return;
@@ -501,8 +588,9 @@ export async function captureSource(
         if (!main) return;
         const owner =
             main.parent?.type === "COMPONENT_SET" ? main.parent : main;
+        const metadata = reportComponentMetadata(owner, captured);
         const hasInstanceSwapContract = Object.values(
-            owner.componentPropertyDefinitions ?? {},
+            metadata.definitions ?? {},
         ).some((property) => property.type === "INSTANCE_SWAP");
         if (node === root && node.type === "COMPONENT")
             requireCompleteOwner(owner);
@@ -551,7 +639,7 @@ export async function captureSource(
             scope === "tree" &&
             ["COMPONENT", "COMPONENT_SET", "INSTANCE"].includes(node.type)
         )
-            await readComponent(node);
+            await readComponent(node, result);
         const invisible =
             hidden || ("visible" in node && node.visible === false);
         const captureMaskRaster = async () => {
@@ -962,20 +1050,97 @@ export async function captureSource(
     )) {
         const processed = processedVariants.get(owner.id);
         if (!processed?.size) continue;
+        const metadata = readComponentMetadata(owner);
+        const retainedVariants = (
+            owner.type === "COMPONENT_SET"
+                ? owner.children.filter(
+                      (node): node is ComponentNode =>
+                          node.type === "COMPONENT",
+                  )
+                : [owner]
+        )
+            .filter((candidate) => processed.has(candidate.id))
+            .sort((a, b) => (a.id < b.id ? -1 : 1));
+        const retainedValues = retainedVariants.map((variant) => ({
+            variant,
+            ...readVariantValues(variant),
+        }));
+        const invalidValues = retainedValues.find((item) => item.error);
+        if (invalidValues) {
+            recordReadFailure(
+                source.root,
+                "variantProperties",
+                `${invalidValues.error}; ${owner.name} is retained as static visual content`,
+            );
+            for (const [id, reference] of Object.entries(references))
+                if (reference.definitionId === owner.id) delete references[id];
+            continue;
+        }
         const axes: ComponentLibrary<
             SourceNode<Bytes>
         >["definitions"][number]["axes"] = {};
-        for (const [key, property] of Object.entries(
-            owner.componentPropertyDefinitions ?? {},
-        )) {
-            if (
-                property.type === "VARIANT" &&
-                typeof property.defaultValue === "string"
-            )
-                axes[key] = {
-                    defaultValue: property.defaultValue,
-                    options: [...(property.variantOptions ?? [])],
-                };
+        if (metadata.definitions) {
+            for (const [key, property] of Object.entries(
+                metadata.definitions,
+            )) {
+                if (
+                    property.type === "VARIANT" &&
+                    typeof property.defaultValue === "string"
+                )
+                    axes[key] = {
+                        defaultValue: property.defaultValue,
+                        options: [...(property.variantOptions ?? [])],
+                    };
+            }
+        } else {
+            const keys = Object.keys(retainedValues[0]?.values ?? {}).sort();
+            const tuples = new Set<string>();
+            let valid = retainedValues.length === 1 || keys.length > 0;
+            for (const { values = {} } of retainedValues) {
+                const valueKeys = Object.keys(values).sort();
+                if (
+                    valueKeys.length !== keys.length ||
+                    valueKeys.some((key, index) => key !== keys[index])
+                ) {
+                    valid = false;
+                    break;
+                }
+                const tuple = JSON.stringify(keys.map((key) => values[key]));
+                if (tuples.has(tuple)) {
+                    valid = false;
+                    break;
+                }
+                tuples.add(tuple);
+            }
+            if (valid)
+                for (const key of keys) {
+                    const options = [
+                        ...new Set(
+                            retainedValues.map(
+                                ({ values = {} }) => values[key],
+                            ),
+                        ),
+                    ].sort();
+                    axes[key] = {
+                        defaultValue:
+                            metadata.defaultValues?.[key] !== undefined &&
+                            options.includes(metadata.defaultValues[key])
+                                ? metadata.defaultValues[key]
+                                : options[0],
+                        options,
+                    };
+                }
+            else {
+                recordReadFailure(
+                    source.root,
+                    "variantProperties",
+                    `${owner.name} has inconsistent variant values; the family is retained as static visual content`,
+                );
+                for (const [id, reference] of Object.entries(references))
+                    if (reference.definitionId === owner.id)
+                        delete references[id];
+                continue;
+            }
         }
         const contract: NonNullable<
             ComponentLibrary<
@@ -983,7 +1148,7 @@ export async function captureSource(
             >["definitions"][number]["contract"]
         > = { version: 1, properties: {}, bindings: {} };
         for (const [key, property] of Object.entries(
-            owner.componentPropertyDefinitions ?? {},
+            metadata.definitions ?? {},
         )) {
             if (
                 property.type === "TEXT" ||
@@ -1011,20 +1176,13 @@ export async function captureSource(
             for (const child of node.children ?? []) collectBindings(child);
         };
         const variants = [];
-        for (const variant of (owner.type === "COMPONENT_SET"
-            ? owner.children.filter(
-                  (n): n is ComponentNode => n.type === "COMPONENT",
-              )
-            : [owner]
-        )
-            .filter((candidate) => processed.has(candidate.id))
-            .sort((a, b) => (a.id < b.id ? -1 : 1))) {
+        for (const variant of retainedVariants) {
             const captured = capturedNodes.get(variant.id);
             if (!captured) continue;
             collectBindings(captured);
             variants.push({
                 id: variant.id,
-                values: variant.variantProperties ?? {},
+                values: readVariantValues(variant).values ?? {},
                 root: captured,
             });
         }
@@ -1034,7 +1192,7 @@ export async function captureSource(
                 name: owner.name,
                 scope: completeOwners.has(owner.id) ? "complete" : "private",
                 axes,
-                contract,
+                ...(metadata.definitions ? { contract } : {}),
                 variants,
             });
     }
