@@ -13,7 +13,6 @@ export async function withCaptureTimeoutFallback<T>(
     timeoutMs: number,
     primary: (cancelled: () => boolean) => Promise<T>,
     fallback: () => Promise<T>,
-    onTimeout: () => void,
 ): Promise<{ value: T; fellBack: boolean }> {
     let timedOut = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -29,7 +28,6 @@ export async function withCaptureTimeoutFallback<T>(
     if (first.kind === "value") return { value: first.value, fellBack: false };
     if (first.kind === "error") throw first.error;
     timedOut = true;
-    onTimeout();
     return { value: await fallback(), fellBack: true };
 }
 

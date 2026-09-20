@@ -17,6 +17,9 @@ const fixture = JSON.parse(
         "utf8",
     ),
 );
+const squarePng = new Uint8Array(
+    await readFile(new URL("../fixtures/authored/square.png", import.meta.url)),
+);
 function events() {
     const listeners = new Map();
     return {
@@ -26,9 +29,8 @@ function events() {
         has: (name) => listeners.has(name),
     };
 }
-function boot({ forceFallback = false } = {}) {
+function boot({ forceFallback = false, forceRasterFallback = false } = {}) {
     const messages = [],
-        notifications = [],
         global = events(),
         first = events(),
         second = events();
@@ -56,6 +58,20 @@ function boot({ forceFallback = false } = {}) {
             getStyledTextSegments: () => [],
             exportAsync: () => new Promise(() => {}),
         });
+    if (forceRasterFallback)
+        Object.assign(node, {
+            fills: [
+                {
+                    type: "IMAGE",
+                    visible: true,
+                    opacity: 1,
+                    blendMode: "NORMAL",
+                    imageHash: "slow-image",
+                    scaleMode: "FILL",
+                },
+            ],
+            exportAsync: async () => squarePng,
+        });
     const other = { ...node, id: "authored:other", name: "Other" };
     Object.assign(first, { id: "page:1", type: "PAGE", selection: [node] });
     Object.assign(second, { id: "page:2", type: "PAGE", selection: [other] });
@@ -71,13 +87,16 @@ function boot({ forceFallback = false } = {}) {
             setAsync: async () => {},
         },
         showUI() {},
-        notify: (message, options) => notifications.push({ message, options }),
         ui: {
             onmessage: undefined,
             resize() {},
             postMessage: (message) => messages.push(message),
         },
         getNodeByIdAsync: async (id) => (id === node.id ? node : null),
+        getImageByHash: () => ({
+            getBytesAsync: () => new Promise(() => {}),
+            getSizeAsync: async () => ({ width: 32, height: 32 }),
+        }),
     };
     // Conversion is bundled for native codegen but must never run in preview mode.
     const previewCode = code.replace(
@@ -85,10 +104,11 @@ function boot({ forceFallback = false } = {}) {
         '$& throw Error("Preview attempted sandbox conversion");',
     );
     assert.notEqual(previewCode, code);
-    const sandboxSetTimeout = forceFallback
-        ? (callback, delay, ...args) =>
-              setTimeout(callback, delay === 20_000 ? 0 : delay, ...args)
-        : setTimeout;
+    const sandboxSetTimeout =
+        forceFallback || forceRasterFallback
+            ? (callback, delay, ...args) =>
+                  setTimeout(callback, delay === 20_000 ? 0 : delay, ...args)
+            : setTimeout;
     vm.runInNewContext(previewCode, {
         figma,
         __html__: "",
@@ -102,7 +122,6 @@ function boot({ forceFallback = false } = {}) {
     return {
         figma,
         messages,
-        notifications,
         global,
         first,
         second,
@@ -196,13 +215,28 @@ const slowBusy = slow.messages.filter(
     (message) => message.type === "preview-busy",
 );
 assert.equal(slowBusy.length, 2);
-assert.match(slowBusy[1].message, /too complex/i);
+assert.equal(
+    slowBusy[1].message,
+    "This selection is large. Trying a simpler export.",
+);
 assert.equal(JSON.parse(slowCapture.captureJson).flattened, true);
 assert.equal(JSON.parse(slowCapture.captureJson).components, undefined);
 assert.equal(JSON.parse(slowCapture.captureJson).root.exports, undefined);
 assert.equal(slowCapture.warnings[0].code, "SIMPLIFIED_CAPTURE");
-assert.equal(slow.notifications.length, 1);
-assert.match(slow.notifications[0].message, /too complex/i);
+const raster = boot({ forceRasterFallback: true });
+raster.figma.ui.onmessage({ type: "ui-ready", devicePixelRatio: 1 });
+await until(() =>
+    raster.messages.some((message) => message.type === "preview-capture"),
+);
+const rasterCapture = raster.messages.find(
+    (message) => message.type === "preview-capture",
+);
+const rasterSource = JSON.parse(rasterCapture.captureJson);
+assert.equal(rasterSource.flattened, undefined);
+assert.equal(rasterSource.root.type, "VECTOR");
+assert.equal(rasterSource.root.children, undefined);
+assert.notEqual(rasterSource.root.exports.png.value, undefined);
+assert.equal(rasterCapture.warnings[0].code, "SIMPLIFIED_CAPTURE");
 // Pinning retains a selection independently of how the converter renders it.
 for (const type of [
     "TABLE",

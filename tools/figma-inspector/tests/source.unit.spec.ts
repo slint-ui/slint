@@ -437,7 +437,7 @@ describe("source", () => {
                 4,
                 undefined,
                 undefined,
-                planned,
+                planned ? "tree" : "flattened",
             );
             return { calls, source: result.source };
         };

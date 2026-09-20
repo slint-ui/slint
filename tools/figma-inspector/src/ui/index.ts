@@ -146,17 +146,20 @@ function disposePreviewAssets(revision: number): void {
 }
 let latestInputRevision = 0;
 const previewBusy = document.querySelector<HTMLElement>("#preview-busy");
-const previewBusyMessage = document.querySelector<HTMLElement>(
-    "#preview-busy-message",
+const simplifiedDialog =
+    document.querySelector<HTMLDialogElement>("#simplified-dialog");
+const simplifiedDialogMessage = document.querySelector<HTMLElement>(
+    "#simplified-dialog-message",
 );
-function setPreviewBusy(busy: boolean, message?: string): void {
+function showSimplifiedDialog(message: string): void {
+    if (!simplifiedDialog || !simplifiedDialogMessage) return;
+    simplifiedDialogMessage.textContent = message;
+    if (!simplifiedDialog.open) simplifiedDialog.showModal();
+}
+function setPreviewBusy(busy: boolean): void {
     if (previewBusy) {
         previewBusy.hidden = !busy;
-        previewBusy.setAttribute("aria-label", message ?? "Rendering preview");
-    }
-    if (previewBusyMessage) {
-        previewBusyMessage.hidden = !busy || message === undefined;
-        previewBusyMessage.textContent = message ?? "";
+        previewBusy.setAttribute("aria-label", "Rendering preview");
     }
     document
         .querySelector(".preview-shell")
@@ -772,7 +775,8 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
             if (message.revision < latestInputRevision) return;
             if (message.revision > latestInputRevision)
                 beginPreview(message.revision);
-            setPreviewBusy(true, message.message);
+            if (message.message) showSimplifiedDialog(message.message);
+            setPreviewBusy(true);
             return;
         }
         if (message.type === "pin-state") {

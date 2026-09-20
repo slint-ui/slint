@@ -124,19 +124,23 @@ test("flattened native-text capture compiles and retains its fidelity warning", 
         .toContain("Text {");
 });
 
-test("capture timeout status replaces the spinner-only state", async () => {
+test("capture timeout opens a concise dialog while the spinner continues", async () => {
     const p = await mountPreview();
     p.send({ type: "preview-busy", revision: 1 });
-    expect(p.element("#preview-busy-message").hidden).toBe(true);
+    const dialog = p.element<HTMLDialogElement>("#simplified-dialog");
+    expect(dialog.open).toBe(false);
     p.send({
         type: "preview-busy",
         revision: 1,
-        message: "Showing a simplified flattened version",
+        message: "This selection is large. Trying a simpler export.",
     });
-    await expect
-        .poll(() => p.element("#preview-busy-message").textContent)
-        .toBe("Showing a simplified flattened version");
-    expect(p.element("#preview-busy-message").hidden).toBe(false);
+    await expect.poll(() => dialog.open).toBe(true);
+    expect(p.element("#simplified-dialog-message").textContent).toBe(
+        "This selection is large. Trying a simpler export.",
+    );
+    expect(p.element("#preview-busy").hidden).toBe(false);
+    p.element<HTMLButtonElement>("#simplified-dialog-ok").click();
+    await expect.poll(() => dialog.open).toBe(false);
 });
 
 test.each([true, false])(

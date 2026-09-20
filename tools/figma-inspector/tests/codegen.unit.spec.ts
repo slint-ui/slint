@@ -95,7 +95,6 @@ test.each(["FRAME", "COMPONENT", "COMPONENT_SET", "INSTANCE", "GROUP"])(
             4,
             undefined,
             undefined,
-            false,
             "root-only",
         );
         expect(captured.work).toMatchObject({
@@ -157,7 +156,6 @@ test("flattened capture keeps visible descendants without component or text expo
         4,
         undefined,
         undefined,
-        false,
         "flattened",
     );
     expect(captured.source.flattened).toBe(true);
@@ -180,6 +178,63 @@ test("flattened capture keeps visible descendants without component or text expo
     const converted = convertSnapshot(normalized.snapshot);
     expect(converted.ok).toBe(true);
     if (converted.ok) expect(converted.source).toContain("Text {");
+});
+
+test("raster fallback exports only the selected root as one image", async () => {
+    const fixture = JSON.parse(
+        await readFile("fixtures/source/basic.json", "utf8"),
+    );
+    const root = {
+        ...decodeValue(fixture.root.properties),
+        id: "raster:root",
+        name: "Raster fallback",
+        type: "FRAME",
+        visible: true,
+        get children() {
+            throw Error("Raster fallback traversed descendants");
+        },
+    } as unknown as SceneNode;
+    const png = new Uint8Array(await readFile("fixtures/authored/square.png"));
+    let pngExports = 0;
+    const captured = await captureSource(
+        root,
+        Symbol(),
+        async () => {
+            throw Error("Raster fallback requested SVG");
+        },
+        undefined,
+        async () => {
+            pngExports++;
+            return png;
+        },
+        1,
+        false,
+        undefined,
+        undefined,
+        4,
+        undefined,
+        undefined,
+        "raster",
+    );
+    expect(pngExports).toBe(1);
+    expect(captured.source.flattened).toBeUndefined();
+    expect(captured.source.components).toBeUndefined();
+    expect(captured.source.root.type).toBe("VECTOR");
+    expect(captured.source.root.children).toEqual([]);
+    expect(captured.source.root.exports?.png?.value).toEqual(png);
+    expect(captured.work).toMatchObject({
+        capturedNodes: 1,
+        componentFamilies: 0,
+        componentVariants: 0,
+        pngExports: 1,
+        svgExports: 0,
+    });
+    const normalized = await normalizeSource(captured.source);
+    expect(normalized.ok).toBe(true);
+    if (!normalized.ok || normalized.empty) return;
+    const converted = convertSnapshot(normalized.snapshot);
+    expect(converted.ok).toBe(true);
+    if (converted.ok) expect(converted.source).toContain("Image {");
 });
 
 test("codegen returns standalone root code and recovers after an invalid request", async () => {
@@ -264,7 +319,6 @@ test("unknown container types cannot export their descendants", async () => {
         4,
         undefined,
         undefined,
-        false,
         "root-only",
     );
     expect(exports).toBe(0);

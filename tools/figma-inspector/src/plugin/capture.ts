@@ -43,7 +43,7 @@ export type {
 // Running host exports cannot be aborted. Keep their slots occupied across
 // interactive revisions so superseded captures cannot multiply host work.
 const selectionExportScheduler = captureScheduler(4);
-export type CaptureScope = "tree" | "flattened" | "root-only";
+export type CaptureScope = "tree" | "flattened" | "raster" | "root-only";
 
 /** Watch off-page component definitions without loading or observing every page. */
 export function observeComponentDependencies(
@@ -354,7 +354,6 @@ export async function captureSource(
     concurrency = 4,
     cache?: CaptureCache,
     schedule = captureScheduler(concurrency),
-    planMaskExports = true,
     scope: CaptureScope = "tree",
 ): Promise<{
     source: SourceCapture<Uint8Array>;
@@ -452,52 +451,12 @@ export async function captureSource(
     const references: ComponentLibrary<SourceNode<Bytes>>["references"] = {};
     type ComponentPropertyDefinitions =
         ComponentNode["componentPropertyDefinitions"];
-    type ComponentMetadata = {
-        definitions?: ComponentPropertyDefinitions;
-        definitionError?: string;
-        defaultValues?: Record<string, string>;
-        defaultError?: string;
-    };
-    const componentMetadata = new Map<string, ComponentMetadata>();
-    const variantValues = new Map<
+    const componentDefinitions = new Map<
         string,
-        { values?: Record<string, string>; error?: string }
+        ComponentPropertyDefinitions | null
     >();
     const errorMessage = (error: unknown) =>
         String(error instanceof Error ? error.message : error);
-    const readComponentMetadata = (
-        owner: ComponentNode | ComponentSetNode,
-    ): ComponentMetadata => {
-        const cached = componentMetadata.get(owner.id);
-        if (cached) return cached;
-        const metadata: ComponentMetadata = {};
-        try {
-            metadata.definitions = owner.componentPropertyDefinitions ?? {};
-        } catch (error) {
-            metadata.definitionError = errorMessage(error);
-        }
-        if (metadata.definitionError && owner.type === "COMPONENT_SET")
-            try {
-                metadata.defaultValues =
-                    owner.defaultVariant.variantProperties ?? {};
-            } catch (error) {
-                metadata.defaultError = errorMessage(error);
-            }
-        componentMetadata.set(owner.id, metadata);
-        return metadata;
-    };
-    const readVariantValues = (variant: ComponentNode) => {
-        const cached = variantValues.get(variant.id);
-        if (cached) return cached;
-        let result: { values?: Record<string, string>; error?: string };
-        try {
-            result = { values: variant.variantProperties ?? {} };
-        } catch (error) {
-            result = { error: errorMessage(error) };
-        }
-        variantValues.set(variant.id, result);
-        return result;
-    };
     const recordReadFailure = (
         node: SourceNode<Bytes>,
         property: string,
@@ -511,27 +470,25 @@ export async function captureSource(
         )
             node.errors.push({ property, message });
     };
-    const reportedComponentMetadata = new Set<string>();
-    const reportComponentMetadata = (
+    const readComponentDefinitions = (
         owner: ComponentNode | ComponentSetNode,
         node: SourceNode<Bytes>,
-    ) => {
-        const metadata = readComponentMetadata(owner);
-        if (reportedComponentMetadata.has(owner.id)) return metadata;
-        reportedComponentMetadata.add(owner.id);
-        if (metadata.definitionError)
+    ): ComponentPropertyDefinitions | undefined => {
+        const cached = componentDefinitions.get(owner.id);
+        if (cached !== undefined) return cached ?? undefined;
+        try {
+            const definitions = owner.componentPropertyDefinitions ?? {};
+            componentDefinitions.set(owner.id, definitions);
+            return definitions;
+        } catch (error) {
+            componentDefinitions.set(owner.id, null);
             recordReadFailure(
                 node,
                 "componentPropertyDefinitions",
-                `${metadata.definitionError}; component properties are unavailable but the visual variants are retained`,
+                `${errorMessage(error)}; reusable component metadata is omitted but the captured appearance is retained`,
             );
-        if (metadata.defaultError)
-            recordReadFailure(
-                node,
-                "defaultVariant",
-                `${metadata.defaultError}; the first captured option is used as the variant default`,
-            );
-        return metadata;
+            return undefined;
+        }
     };
     const requiredVariants = new Map<string, Set<string>>();
     const completeOwners = new Set<string>();
@@ -564,7 +521,7 @@ export async function captureSource(
     ): Promise<void> {
         let main: ComponentNode | null = null;
         if (node.type === "COMPONENT_SET") {
-            reportComponentMetadata(node, captured);
+            if (!readComponentDefinitions(node, captured)) return;
             if (node === root) requireCompleteOwner(node);
             else componentOwners.set(node.id, node);
             return;
@@ -585,10 +542,11 @@ export async function captureSource(
         if (!main) return;
         const owner =
             main.parent?.type === "COMPONENT_SET" ? main.parent : main;
-        const metadata = reportComponentMetadata(owner, captured);
-        const hasInstanceSwapContract = Object.values(
-            metadata.definitions ?? {},
-        ).some((property) => property.type === "INSTANCE_SWAP");
+        const definitions = readComponentDefinitions(owner, captured);
+        if (!definitions) return;
+        const hasInstanceSwapContract = Object.values(definitions).some(
+            (property) => property.type === "INSTANCE_SWAP",
+        );
         if (node === root && node.type === "COMPONENT")
             requireCompleteOwner(owner);
         else if (hasInstanceSwapContract) requireCompleteOwner(owner);
@@ -757,24 +715,36 @@ export async function captureSource(
             (!suppressed || requiredByProperty) &&
             !cancelled?.()
         ) {
-            await readImages(result.properties);
-            if (result.segments?.value) await readImages(result.segments.value);
+            if (scope !== "raster") {
+                await readImages(result.properties);
+                if (result.segments?.value)
+                    await readImages(result.segments.value);
+            }
             if (cancelled?.()) return result;
             // Root snippets use native text. Container exports would bake in
             // descendants; boolean operands instead define the selected shape.
+            const rasterFallback = scope === "raster" && node === root;
             if (
-                (scope === "tree" ||
+                rasterFallback ||
+                ((scope === "tree" ||
                     (node.type !== "TEXT" &&
                         (!("children" in node) ||
                             node.type === "BOOLEAN_OPERATION"))) &&
-                requiresVisualExport(
-                    { ...decodeValue(result.properties), type: result.type },
-                    result.segments?.error
-                        ? { error: result.segments.error }
-                        : result.segments
-                          ? { segments: decodeValue(result.segments.value) }
-                          : undefined,
-                )
+                    requiresVisualExport(
+                        {
+                            ...decodeValue(result.properties),
+                            type: result.type,
+                        },
+                        result.segments?.error
+                            ? { error: result.segments.error }
+                            : result.segments
+                              ? {
+                                    segments: decodeValue(
+                                        result.segments.value,
+                                    ),
+                                }
+                              : undefined,
+                    ))
             ) {
                 async function attempt<T>(
                     operation: () => Promise<T>,
@@ -791,6 +761,7 @@ export async function captureSource(
                     }
                 }
                 const rasterKey =
+                    !rasterFallback &&
                     cache &&
                     rasterContextSafe &&
                     (node.type === "TEXT" ||
@@ -837,7 +808,7 @@ export async function captureSource(
                               }
                           })()
                         : undefined;
-                if (node.type === "TEXT") {
+                if (!rasterFallback && node.type === "TEXT") {
                     fontMetrics.requests++;
                     fontMetrics.exports++;
                 }
@@ -888,6 +859,17 @@ export async function captureSource(
                                   return bytes;
                               })
                             : undefined;
+                    if (rasterFallback) {
+                        const raster = await readPng();
+                        result.exports = {
+                            svg: {},
+                            svgOmitted: "png",
+                            png: raster ?? {
+                                error: "PNG exporter is unavailable",
+                            },
+                        };
+                        return;
+                    }
                     if (png === undefined) {
                         const [svg, raster] = await Promise.all([
                             readSvg(),
@@ -923,7 +905,7 @@ export async function captureSource(
         }
         if (cancelled?.()) return result;
         if ("children" in node) result.children = [];
-        if (scope !== "root-only" && "children" in node) {
+        if (scope !== "root-only" && scope !== "raster" && "children" in node) {
             let children: readonly SceneNode[] = [];
             try {
                 children = node.children;
@@ -955,6 +937,7 @@ export async function captureSource(
                     typeof (refs as { visible?: unknown }).visible === "string"
                 );
             });
+            const planMaskExports = scope === "tree";
             const masks =
                 planMaskExports && !includeHidden && !invisible && !suppressed
                     ? captureMaskSummary<Bytes>(visibleChildren, mixed)
@@ -1001,6 +984,7 @@ export async function captureSource(
         return result;
     }
     source.root = await visit(root, false);
+    if (scope === "raster") source.root.type = "VECTOR";
     const definitions: ComponentLibrary<SourceNode<Bytes>>["definitions"] = [];
     const processedVariants = new Map<string, Set<string>>();
     // Visit only variants required by the selected tree. Each visit can
@@ -1055,7 +1039,8 @@ export async function captureSource(
     )) {
         const processed = processedVariants.get(owner.id);
         if (!processed?.size) continue;
-        const metadata = readComponentMetadata(owner);
+        const metadata = componentDefinitions.get(owner.id);
+        if (!metadata) continue;
         const retainedVariants = (
             owner.type === "COMPONENT_SET"
                 ? owner.children.filter(
@@ -1066,16 +1051,20 @@ export async function captureSource(
         )
             .filter((candidate) => processed.has(candidate.id))
             .sort((a, b) => (a.id < b.id ? -1 : 1));
-        const retainedValues = retainedVariants.map((variant) => ({
-            variant,
-            ...readVariantValues(variant),
-        }));
-        const invalidValues = retainedValues.find((item) => item.error);
+        const retainedValues = new Map<ComponentNode, Record<string, string>>();
+        let invalidValues: string | undefined;
+        for (const variant of retainedVariants)
+            try {
+                retainedValues.set(variant, variant.variantProperties ?? {});
+            } catch (error) {
+                invalidValues = errorMessage(error);
+                break;
+            }
         if (invalidValues) {
             recordReadFailure(
                 source.root,
                 "variantProperties",
-                `${invalidValues.error}; ${owner.name} is retained as static visual content`,
+                `${invalidValues}; ${owner.name} is retained as static visual content`,
             );
             for (const [id, reference] of Object.entries(references))
                 if (reference.definitionId === owner.id) delete references[id];
@@ -1084,77 +1073,22 @@ export async function captureSource(
         const axes: ComponentLibrary<
             SourceNode<Bytes>
         >["definitions"][number]["axes"] = {};
-        if (metadata.definitions) {
-            for (const [key, property] of Object.entries(
-                metadata.definitions,
-            )) {
-                if (
-                    property.type === "VARIANT" &&
-                    typeof property.defaultValue === "string"
-                )
-                    axes[key] = {
-                        defaultValue: property.defaultValue,
-                        options: [...(property.variantOptions ?? [])],
-                    };
-            }
-        } else {
-            const keys = Object.keys(retainedValues[0]?.values ?? {}).sort();
-            const tuples = new Set<string>();
-            let valid = retainedValues.length === 1 || keys.length > 0;
-            for (const { values = {} } of retainedValues) {
-                const valueKeys = Object.keys(values).sort();
-                if (
-                    valueKeys.length !== keys.length ||
-                    valueKeys.some((key, index) => key !== keys[index])
-                ) {
-                    valid = false;
-                    break;
-                }
-                const tuple = JSON.stringify(keys.map((key) => values[key]));
-                if (tuples.has(tuple)) {
-                    valid = false;
-                    break;
-                }
-                tuples.add(tuple);
-            }
-            if (valid)
-                for (const key of keys) {
-                    const options = [
-                        ...new Set(
-                            retainedValues.map(
-                                ({ values = {} }) => values[key],
-                            ),
-                        ),
-                    ].sort();
-                    axes[key] = {
-                        defaultValue:
-                            metadata.defaultValues?.[key] !== undefined &&
-                            options.includes(metadata.defaultValues[key])
-                                ? metadata.defaultValues[key]
-                                : options[0],
-                        options,
-                    };
-                }
-            else {
-                recordReadFailure(
-                    source.root,
-                    "variantProperties",
-                    `${owner.name} has inconsistent variant values; the family is retained as static visual content`,
-                );
-                for (const [id, reference] of Object.entries(references))
-                    if (reference.definitionId === owner.id)
-                        delete references[id];
-                continue;
-            }
+        for (const [key, property] of Object.entries(metadata)) {
+            if (
+                property.type === "VARIANT" &&
+                typeof property.defaultValue === "string"
+            )
+                axes[key] = {
+                    defaultValue: property.defaultValue,
+                    options: [...(property.variantOptions ?? [])],
+                };
         }
         const contract: NonNullable<
             ComponentLibrary<
                 SourceNode<Bytes>
             >["definitions"][number]["contract"]
         > = { version: 1, properties: {}, bindings: {} };
-        for (const [key, property] of Object.entries(
-            metadata.definitions ?? {},
-        )) {
+        for (const [key, property] of Object.entries(metadata)) {
             if (
                 property.type === "TEXT" ||
                 property.type === "BOOLEAN" ||
@@ -1187,7 +1121,7 @@ export async function captureSource(
             collectBindings(captured);
             variants.push({
                 id: variant.id,
-                values: readVariantValues(variant).values ?? {},
+                values: retainedValues.get(variant) ?? {},
                 root: captured,
             });
         }
@@ -1197,7 +1131,7 @@ export async function captureSource(
                 name: owner.name,
                 scope: completeOwners.has(owner.id) ? "complete" : "private",
                 axes,
-                ...(metadata.definitions ? { contract } : {}),
+                contract,
                 variants,
             });
     }
@@ -1498,7 +1432,6 @@ export async function captureSelectionSource(
             4,
             cache,
             schedule,
-            scope !== "flattened",
             scope,
         );
         return {

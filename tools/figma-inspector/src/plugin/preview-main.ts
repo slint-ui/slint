@@ -28,13 +28,15 @@ import {
 } from "../protocol";
 
 const FULL_CAPTURE_TIMEOUT_MS = 20_000;
+const SIMPLIFIED_CAPTURE_TIMEOUT_MS = 20_000;
 const SIMPLIFIED_CAPTURE_WARNING: Diagnostic = {
     severity: "warning",
     code: "SIMPLIFIED_CAPTURE",
     category: "omission",
-    message:
-        "This selection is too complex for a full component export. The preview and export use a simplified flattened tree without reusable component definitions or exact unsupported-font rendering.",
+    message: "This selection was simplified to finish exporting.",
 };
+const SIMPLIFIED_CAPTURE_NOTICE =
+    "This selection is large. Trying a simpler export.";
 
 export function startPreview(): void {
     const windowPreferences = new WindowPreferences(figma.clientStorage);
@@ -180,31 +182,49 @@ export function startPreview(): void {
                         captureCache,
                         nodeIds,
                     ),
-                () =>
-                    captureSelectionSource(
-                        selection,
-                        figma.mixed,
-                        undefined,
-                        undefined,
-                        captureInstrumentation,
-                        undefined,
-                        captureScale,
-                        () => currentRevision !== revision,
-                        captureCache,
-                        nodeIds,
-                        "flattened",
-                        captureScheduler(4),
-                    ),
                 () => {
                     captureCache.clear();
                     figma.ui.postMessage({
                         type: "preview-busy",
                         revision: currentRevision,
-                        message: SIMPLIFIED_CAPTURE_WARNING.message,
+                        message: SIMPLIFIED_CAPTURE_NOTICE,
                     });
-                    figma.notify(SIMPLIFIED_CAPTURE_WARNING.message, {
-                        timeout: 5000,
-                    });
+                    return withCaptureTimeoutFallback(
+                        SIMPLIFIED_CAPTURE_TIMEOUT_MS,
+                        (timedOut) =>
+                            captureSelectionSource(
+                                selection,
+                                figma.mixed,
+                                undefined,
+                                undefined,
+                                captureInstrumentation,
+                                undefined,
+                                captureScale,
+                                () =>
+                                    timedOut() || currentRevision !== revision,
+                                captureCache,
+                                nodeIds,
+                                "flattened",
+                                captureScheduler(4),
+                            ),
+                        () => {
+                            captureCache.clear();
+                            return captureSelectionSource(
+                                selection,
+                                figma.mixed,
+                                undefined,
+                                undefined,
+                                captureInstrumentation,
+                                undefined,
+                                captureScale,
+                                () => currentRevision !== revision,
+                                captureCache,
+                                nodeIds,
+                                "raster",
+                                captureScheduler(4),
+                            );
+                        },
+                    ).then(({ value }) => value);
                 },
             ),
         );

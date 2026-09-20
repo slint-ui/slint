@@ -39,7 +39,6 @@ export async function generateCodegen(
             4,
             undefined,
             undefined,
-            false,
             "root-only",
         );
         const normalized = await normalizeSource(captured.source, "export");

@@ -651,17 +651,38 @@ body {
     pointer-events: none;
     background: #ffffff55;
     border-radius: 12px;
-    grid-template-rows: auto auto;
-    align-content: center;
-    gap: 20px;
-    padding: 24px;
-    text-align: center;
-    color: var(--figma-color-text, #334155);
-    font-size: 12px;
+}
+#simplified-dialog {
+    width: min(320px, calc(100% - 48px));
+    padding: 20px;
+    border: 0;
+    border-radius: 8px;
+    color: var(--figma-color-text, #1e293b);
+    background: var(--figma-color-bg, #fff);
+    box-shadow: 0 8px 24px #0003;
+}
+#simplified-dialog::backdrop {
+    background: #0004;
+}
+#simplified-dialog p {
+    margin: 0 0 20px;
+    font-size: 13px;
     line-height: 1.4;
 }
-#preview-busy-message {
-    max-width: 420px;
+#simplified-dialog form {
+    display: flex;
+    justify-content: flex-end;
+}
+#simplified-dialog button {
+    min-width: 64px;
+    padding: 8px 14px;
+    border: 0;
+    border-radius: 6px;
+    color: var(--figma-color-text-onbrand, #fff);
+    background: var(--figma-color-bg-brand, #0d99ff);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
 }
 .preview-spinner {
     width: 28px;

@@ -191,7 +191,6 @@ describe("capture-scheduler", () => {
     test("timeout cancels primary work and ignores its late completion", async () => {
         let finishPrimary: (value: string) => void = () => {};
         let primaryCancelled = () => false;
-        let timeoutNotices = 0;
         const result = await withCaptureTimeoutFallback(
             0,
             (cancelled) => {
@@ -201,11 +200,9 @@ describe("capture-scheduler", () => {
                 });
             },
             async () => "flattened",
-            () => timeoutNotices++,
         );
         expect(result).toEqual({ value: "flattened", fellBack: true });
         expect(primaryCancelled()).toBe(true);
-        expect(timeoutNotices).toBe(1);
         finishPrimary("too late");
         await Promise.resolve();
         expect(result.value).toBe("flattened");
@@ -220,7 +217,6 @@ describe("capture-scheduler", () => {
                 fallbackRuns++;
                 return "flattened";
             },
-            () => {},
         );
         expect(result).toEqual({ value: "complete", fellBack: false });
         expect(fallbackRuns).toBe(0);
