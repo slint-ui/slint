@@ -610,7 +610,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.ui$", LicenseLocation::NoLicense),
             ("\\.webp$", LicenseLocation::NoLicense),
             ("\\.wgsl$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
-            ("\\.woff$", LicenseLocation::NoLicense),
+            ("\\.woff2?$", LicenseLocation::NoLicense),
             ("\\.xml$", LicenseLocation::NoLicense),
             ("\\.xml\\.in$", LicenseLocation::NoLicense),
             ("\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),

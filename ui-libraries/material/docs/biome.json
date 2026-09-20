@@ -7,11 +7,11 @@
     "formatter": {
         "includes": [
             "**",
-            "!**/archive/**",
             "!**/.astro",
             "!**/dist",
             "!**/codemirror.js",
-            "!**/playwright-report/**"
+            "!**/playwright-report/**",
+            "!**/test-results/**"
         ],
         "enabled": true,
         "formatWithErrors": false,
@@ -23,11 +23,11 @@
     "linter": {
         "includes": [
             "**",
-            "!**/archive/**",
             "!**/.astro",
             "!**/dist",
             "!**/codemirror.js",
-            "!**/playwright-report/**"
+            "!**/playwright-report/**",
+            "!**/test-results/**"
         ],
         "rules": {
             "preset": "none",
@@ -59,11 +59,6 @@
             "bracketSameLine": false,
             "quoteStyle": "double",
             "attributePosition": "auto"
-        }
-    },
-    "css": {
-        "parser": {
-            "tailwindDirectives": true
         }
     },
     "overrides": [
