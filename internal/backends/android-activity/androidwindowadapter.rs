@@ -6,7 +6,8 @@
 use super::*;
 use crate::javahelper::{JavaHelper, print_jni_error};
 use android_activity::input::{
-    ButtonState, InputEvent, KeyAction, Keycode, MotionAction, MotionEvent,
+    ButtonState, InputEvent, KeyAction, KeyCharacterMap, KeyMapChar, Keycode, MotionAction,
+    MotionEvent,
 };
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::SharedString;
@@ -23,6 +24,7 @@ use i_slint_core::timers::{Timer, TimerMode};
 use i_slint_core::window::{InputMethodRequest, WindowInner};
 use i_slint_renderer_skia::{SkiaRenderer, SkiaSharedContext};
 use std::cell::Cell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -49,6 +51,12 @@ pub struct AndroidWindowAdapter {
 
     long_press: RefCell<Option<LongPressDetection>>,
     last_pressed_state: Cell<ButtonState>,
+
+    /// Per-input-device `KeyCharacterMap` cache: `AndroidApp::device_key_character_map`
+    /// is a JNI round trip (it walks `InputDevice.getDevice()` +
+    /// `getKeyCharacterMap()`), so avoid repeating it on every keystroke from
+    /// the same keyboard.
+    key_char_maps: RefCell<HashMap<i32, KeyCharacterMap>>,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -194,7 +202,45 @@ impl AndroidWindowAdapter {
             show_cursor_handles: Cell::new(false),
             long_press: RefCell::default(),
             last_pressed_state: Cell::new(ButtonState(0)),
+            key_char_maps: RefCell::default(),
         })
+    }
+
+    /// Resolve a key event's text through the device's `KeyCharacterMap`
+    /// (honors Shift/AltGr/meta state) before falling back to the static
+    /// [`map_key_code`] table. The pure fallback decision lives in
+    /// [`key_text_from_unicode`] so it stays unit-testable; this method does
+    /// only the JNI plumbing (the cached `KeyCharacterMap` lookup and the
+    /// `KeyMapChar` -> `Option<char>` normalization) around it.
+    fn resolve_key_text(
+        &self,
+        key_event: &android_activity::input::KeyEvent,
+    ) -> Option<SharedString> {
+        let unicode = self
+            .key_char_map(key_event.device_id())
+            .and_then(|kcm| kcm.get(key_event.key_code(), key_event.meta_state()).ok())
+            .and_then(|kmc| match kmc {
+                KeyMapChar::Unicode(c) => Some(c),
+                KeyMapChar::CombiningAccent(_) | KeyMapChar::None => None,
+            });
+        match key_text_from_unicode(unicode) {
+            Some(c) => Some(SharedString::from(c)),
+            None => map_key_code(key_event.key_code()),
+        }
+    }
+
+    /// Per-device-id `KeyCharacterMap` cache backing [`Self::resolve_key_text`].
+    /// A device id the platform cannot map (an `Err` from
+    /// `AndroidApp::device_key_character_map`) is simply never cached, and
+    /// every event from it falls back to the static keycode table, same as
+    /// before this method existed.
+    fn key_char_map(&self, device_id: i32) -> Option<KeyCharacterMap> {
+        if let Some(map) = self.key_char_maps.borrow().get(&device_id) {
+            return Some(map.clone());
+        }
+        let map = self.app.device_key_character_map(device_id).ok()?;
+        self.key_char_maps.borrow_mut().insert(device_id, map.clone());
+        Some(map)
     }
 
     pub fn process_event(&self, event: &PollEvent<'_>) -> Result<ControlFlow<()>, PlatformError> {
@@ -282,7 +328,10 @@ impl AndroidWindowAdapter {
         loop {
             let mut result = Ok(());
             let read_input = iter.next(|event| match event {
-                InputEvent::KeyEvent(key_event) => match map_key_event(key_event) {
+                InputEvent::KeyEvent(key_event) => match self
+                    .resolve_key_text(key_event)
+                    .and_then(|text| map_key_event(text, key_event))
+                {
                     Some(ev) => match self.window.dispatch_event_with_result(ev) {
                         Ok(WindowEventDispatchResult::Accepted) => InputStatus::Handled,
                         Ok(_) => InputStatus::Unhandled,
@@ -689,8 +738,14 @@ fn button_for_event(
     return PointerEventButton::Other;
 }
 
-fn map_key_event(key_event: &android_activity::input::KeyEvent) -> Option<WindowEvent> {
-    let text = map_key_code(key_event.key_code())?;
+/// `text` is resolved by the caller ([`AndroidWindowAdapter::resolve_key_text`],
+/// via the device's `KeyCharacterMap`, falling back to [`map_key_code`])
+/// rather than looked up here directly from the static table; the
+/// Down/Up/Repeat action logic below is unchanged.
+fn map_key_event(
+    text: SharedString,
+    key_event: &android_activity::input::KeyEvent,
+) -> Option<WindowEvent> {
     let repeat = key_event.repeat_count() > 0;
     match key_event.action() {
         KeyAction::Down if repeat => Some(WindowEvent::KeyPressRepeated { text }),
@@ -699,6 +754,73 @@ fn map_key_event(key_event: &android_activity::input::KeyEvent) -> Option<Window
         KeyAction::Multiple if repeat => Some(WindowEvent::KeyPressRepeated { text }),
         KeyAction::Multiple => Some(WindowEvent::KeyPressed { text }),
         _ => None,
+    }
+}
+
+/// Decide whether a `KeyCharacterMap::get()` result should be used as a key
+/// event's text, or whether the caller should fall back to the static
+/// [`map_key_code`] table instead.
+///
+/// `unicode` is `Some(c)` for `KeyMapChar::Unicode(c)` -- a real printable
+/// character for this key + meta-state combination (e.g. `Shift+;` ->
+/// `Some(':')`). It is `None` for `KeyMapChar::None` (no Unicode mapping,
+/// most special keys), `KeyMapChar::CombiningAccent(_)` (a dead key, not
+/// resolved into text until combined with the next keystroke), or a
+/// failed/absent `KeyCharacterMap` lookup.
+///
+/// Returns `Some(c)` when `c` should be used verbatim as the key's text.
+/// Returns `None` when the caller must fall back to the static keycode
+/// table -- this is also the safety net for a device whose
+/// `KeyCharacterMap` maps a non-printable key (Enter, say) to a control
+/// character rather than `KeyMapChar::None`: routing Back/arrows/Enter/
+/// Delete/etc. through the KCM result would bypass the `Key::…` mapping for
+/// them, so any resolved character that is a control character is treated
+/// the same as no mapping.
+fn key_text_from_unicode(unicode: Option<char>) -> Option<char> {
+    match unicode {
+        Some(c) if !c.is_control() => Some(c),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod key_text_from_unicode_tests {
+    // This module compiles only on `target_os = "android"` (the whole crate
+    // is gated on it), so `key_text_from_unicode`'s logic cannot currently
+    // run under a plain host `cargo test`; kept here, next to
+    // `map_key_code`, since the crate has no other test module to follow
+    // the style of.
+    use super::*;
+
+    #[test]
+    fn unicode_char_wins_over_the_static_fallback_table() {
+        // Shift+Semicolon on a US layout: KeyCharacterMap.get() returns ':',
+        // which must win over map_key_code(Keycode::Semicolon) == ";".
+        assert_eq!(key_text_from_unicode(Some(':')), Some(':'));
+    }
+
+    #[test]
+    fn uppercase_letter_is_preserved_verbatim() {
+        // Shift+A: KeyCharacterMap.get() returns 'A' (not lowercased).
+        assert_eq!(key_text_from_unicode(Some('A')), Some('A'));
+    }
+
+    #[test]
+    fn control_character_falls_back_to_the_static_table() {
+        // Enter's KeyCharacterMap mapping is commonly '\r'/'\n' (control
+        // characters) -- must fall back so the caller still gets Key::Return
+        // rather than a literal CR/LF character in the text field.
+        assert_eq!(key_text_from_unicode(Some('\r')), None);
+        assert_eq!(key_text_from_unicode(Some('\n')), None);
+        assert_eq!(key_text_from_unicode(Some('\u{7f}')), None); // Delete/Backspace-shaped
+    }
+
+    #[test]
+    fn no_mapping_falls_back_to_the_static_table() {
+        // KeyMapChar::None / KeyMapChar::CombiningAccent / a failed lookup
+        // are all normalized to `None` by the call site before reaching
+        // here -- confirm the fallback decision for that case.
+        assert_eq!(key_text_from_unicode(None), None);
     }
 }
 
