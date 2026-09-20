@@ -98,3 +98,31 @@ export function buttonFamily(seed: SourceCapture): SourceCapture {
                     }
     return capture;
 }
+
+export function styledTextFamily(seed: SourceCapture): SourceCapture {
+    const capture = structuredClone(seed);
+    function styleText(node: SourceNode) {
+        if (node.type === "TEXT") {
+            if (node.id === "layout:label")
+                node.properties.characters = "Button";
+            const characters = String(node.properties.characters);
+            node.segments = {
+                value: [
+                    {
+                        characters,
+                        start: 0,
+                        end: characters.length,
+                        fills: node.properties.fills,
+                        textDecoration: "UNDERLINE",
+                        fontWeight: 400,
+                    },
+                ],
+            };
+        }
+        node.children?.forEach(styleText);
+    }
+    styleText(capture.root);
+    for (const definition of capture.components?.definitions ?? [])
+        for (const variant of definition.variants) styleText(variant.root);
+    return capture;
+}

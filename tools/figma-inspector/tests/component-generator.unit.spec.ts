@@ -18,6 +18,7 @@ import {
     type SourceNode,
 } from "../src/plugin/source";
 import { convertSnapshot } from "../src/preview/converter";
+import { styledTextFamily } from "./button-family";
 
 describe("generator", () => {
     async function fixture() {
@@ -316,6 +317,12 @@ describe("generator", () => {
                 (w) => w.code === "COMPONENT_INSTANCE_SPECIALIZED",
             ),
         ).toBe(true);
+    });
+
+    test("styled text overrides do not bind styled-text to string properties", async () => {
+        const { result } = await convert(styledTextFamily(await fixture()));
+        expect(result.source).toContain("@markdown");
+        expect(result.source).not.toMatch(/label:\s*@markdown/);
     });
 
     test("component output has a bounded API and factors the gallery below flattened size", async () => {

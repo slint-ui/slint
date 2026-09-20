@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { binding as property, type SlintLine } from "./slint-ir";
+import { binding as property, raw, type SlintLine } from "./slint-ir";
 import {
     color,
     escaped,
@@ -59,7 +59,13 @@ function markdownRun(run: SnapshotTextNode["runs"][number]): string {
 
 function styledTextSource(node: SnapshotTextNode, depth: number): SlintLine[] {
     const markdown = node.runs.map(markdownRun).join("");
-    return [property("text", `@markdown("${escaped(markdown)}")`, depth)];
+    return [
+        property(
+            "text",
+            raw("styled-text", `@markdown("${escaped(markdown)}")`),
+            depth,
+        ),
+    ];
 }
 
 export function textRunNeedsStyled(text: SnapshotTextNode): boolean {

@@ -98,7 +98,7 @@ function applyContract(
                 b.name === "text" && refs?.characters
                     ? names.get(refs.characters)
                     : undefined;
-            return property && b.value.kind !== "raw"
+            return property && b.value.type === property.type
                 ? {
                       ...b,
                       value: reference(property.type, `root.${property.name}`),
@@ -413,7 +413,10 @@ export function generateComponents(
                         key
                 )
                     return tree.bindings.find(
-                        (b) => b.name === "text" && b.value.kind !== "raw",
+                        (b) =>
+                            b.name === "text" &&
+                            b.value.kind === "literal" &&
+                            b.value.type === p.type,
                     )?.value.code;
                 for (const child of tree.children) {
                     const value = findDefault(child);
@@ -969,13 +972,16 @@ export function generateComponents(
                     );
                 else if (p.type === "string") {
                     // Recover effective text overrides from the same declared property path.
-                    function find(a: Element, m: Element): string | undefined {
+                    function find(
+                        a: Element,
+                        m: Element,
+                    ): Binding["value"] | undefined {
                         if (
                             d.contract?.bindings[m.origin?.id ?? ""]
                                 ?.characters === key
                         )
                             return a.bindings.find((b) => b.name === "text")
-                                ?.value.code;
+                                ?.value;
                         for (let i = 0; i < m.children.length; i++)
                             if (
                                 a.children[i] &&
@@ -992,10 +998,12 @@ export function generateComponents(
                     const value = find(actual, original);
                     if (
                         value !== undefined &&
-                        value !== JSON.stringify(p.property.defaultValue)
+                        value.kind === "literal" &&
+                        value.type === p.type &&
+                        value.code !== JSON.stringify(p.property.defaultValue)
                     )
                         bindings.push(
-                            binding(p.name, literal(p.type, value), 0),
+                            binding(p.name, literal(p.type, value.code), 0),
                         );
                 }
             }

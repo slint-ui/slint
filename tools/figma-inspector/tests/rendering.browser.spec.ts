@@ -6,6 +6,7 @@ import { convertSnapshotJson, convertSnapshot } from "../src/preview/converter";
 import { normalizeSource } from "../src/plugin/normalize";
 import { mountPreview, readFixture, canvasPixels } from "./browser-harness";
 import type { SourceCapture } from "../src/plugin/source";
+import { styledTextFamily } from "./button-family";
 
 test.each([
     ["W", 24, false],
@@ -132,6 +133,27 @@ test("authored layouts, images and component families compile through the built 
         });
         await p.ready(revision);
     }
+});
+
+test("styled component families compile through the built interpreter", async () => {
+    const capture = styledTextFamily(
+        JSON.parse(
+            await readFixture("fixtures/source/component-variants.json"),
+        ) as SourceCapture,
+    );
+    const normalized = await normalizeSource(capture);
+    if (!normalized.ok || normalized.empty)
+        throw Error("Cannot normalize styled component family");
+    const result = convertSnapshot(normalized.snapshot);
+    if (!result.ok) throw Error(JSON.stringify(result.diagnostics));
+    const p = await mountPreview();
+    p.send({
+        type: "preview-source",
+        revision: 1,
+        source: result.source,
+        exportPackage: { source: result.source, files: [] },
+    });
+    await p.ready(1);
 });
 
 test("root-only snippets compile with native text and appearance helpers without font files", async () => {

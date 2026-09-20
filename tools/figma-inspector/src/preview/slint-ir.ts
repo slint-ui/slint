@@ -53,6 +53,11 @@ export const reference = (type: string, code: string): Expression => ({
     type,
     code,
 });
+export const raw = (type: string, code: string): Expression => ({
+    kind: "raw",
+    type,
+    code,
+});
 
 function propertyType(name: string): string {
     if (
