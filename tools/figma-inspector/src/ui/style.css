@@ -678,7 +678,7 @@ body {
     padding: 8px 14px;
     border: 0;
     border-radius: 6px;
-    color: var(--figma-color-text-onbrand, #fff);
+    color: #fff;
     background: var(--figma-color-bg-brand, #0d99ff);
     font: inherit;
     font-weight: 600;
