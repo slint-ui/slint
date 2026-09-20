@@ -25,6 +25,7 @@ use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
 use i_slint_core_macros::*;
+use std::println;
 use vtable::{VRcMapped, VWeakMapped};
 
 /// The implementation of the `TouchArea` element
@@ -78,6 +79,7 @@ impl Item for TouchArea {
         _self_rc: &ItemRc,
         cursor: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
+        println!("Input event");
         if !self.enabled() {
             self.has_hover.set(false);
             if self.grabbed.replace(false) {
