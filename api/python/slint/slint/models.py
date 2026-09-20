@@ -10,13 +10,6 @@ from typing import Any
 from ._native import native
 
 
-def _read_only_warning(method: str) -> None:
-    print(
-        f"{method} called on a model which does not re-implement this method. This happens when trying to modify a read-only model",
-        file=sys.stderr,
-    )
-
-
 class Model[T](native.PyModelBase, Iterable[T]):
     """Model is the base class for feeding dynamic data into Slint views.
 
@@ -46,7 +39,10 @@ class Model[T](native.PyModelBase, Iterable[T]):
         """Call this method on mutable models to change the data for the given row.
         The UI will also call this method when modifying a model's data.
         Re-implement this method in a sub-class to handle the change."""
-        _read_only_warning("set_row_data")
+        print(
+            "set_row_data called on a model which does not re-implement this method. This happens when trying to modify a read-only model",
+            file=sys.stderr,
+        )
 
     @abstractmethod
     def row_count(self) -> int:
@@ -60,20 +56,28 @@ class Model[T](native.PyModelBase, Iterable[T]):
         Re-implement this method in a sub-class to provide the data."""
         ...
 
-    def append(self, value: T) -> None:
+    def push_row(self, value: T) -> None:
         """Add a new row to the model with the provided value.
         The default implementation calls `insert_row` with the row count."""
         self.insert_row(self.row_count(), value)
 
     def remove_row(self, row: int) -> None:
         """Remove the row at the given index.
-        Re-implement this method in a sub-class to handle the change."""
-        _read_only_warning("remove_row")
+        Raises an exception when the model rejects the modification.
+        The default implementation raises NotImplementedError. A model that
+        supports removing rows should also call `notify_row_removed`."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support removing rows"
+        )
 
     def insert_row(self, row: int, value: T) -> None:
         """Insert a new row at the given index.
-        Re-implement this method in a sub-class to handle the change."""
-        _read_only_warning("insert_row")
+        Raises an exception when the model rejects the modification.
+        The default implementation raises NotImplementedError. A model that
+        supports inserting rows should also call `notify_row_added`."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support inserting rows"
+        )
 
     def notify_row_changed(self, row: int) -> None:
         """Call this method from a sub-class to notify the views that a row has changed."""
@@ -94,8 +98,8 @@ class ListModel[T](Model[T]):
     """ListModel is a `Model` that stores its data in a Python list.
 
     Construct a ListMode from an iterable (such as a list itself).
-    Use `ListModel.append()` to add items to the model, and use the
-    `del` statement to remove items.
+    Use `ListModel.push_row()`, or its `append` alias, to add items to the
+    model, and use the `del` statement to remove items.
 
     Any changes to the model are automatically reflected in the views
     in UI they're used with.
@@ -120,35 +124,50 @@ class ListModel[T](Model[T]):
 
     def set_row_data(self, row: int, value: T) -> None:
         self.list[row] = value
-        super().notify_row_changed(row)
+        super().notify_row_changed(row if row >= 0 else row + len(self.list))
 
     def remove_row(self, row: int) -> None:
         if row < 0 or row >= len(self.list):
-            return
+            raise IndexError("row index out of range")
         del self.list[row]
         super().notify_row_removed(row, 1)
 
     def insert_row(self, row: int, value: T) -> None:
-        # Validate index range to follow behavior from other languages implementations.
         if row < 0 or row > len(self.list):
-            return
+            raise IndexError("row index out of range")
         self.insert(row, value)
 
     def __delitem__(self, key: int | slice) -> None:
         if isinstance(key, slice):
-            start, stop, step = key.indices(len(self.list))
-            del self.list[key]
-            count = len(range(start, stop, step))
-            super().notify_row_removed(start, count)
+            rows = range(*key.indices(len(self.list)))
+            if not rows:
+                return
+            if abs(rows.step) == 1:
+                first = rows.start if rows.step > 0 else rows[-1]
+                del self.list[key]
+                super().notify_row_removed(first, len(rows))
+            else:
+                # notify_row_removed describes contiguous rows, so an extended
+                # slice needs one notification per row. Remove them highest
+                # index first, so the list matches every notification as it goes
+                # out and the lower indices stay valid.
+                for row in sorted(rows, reverse=True):
+                    del self.list[row]
+                    super().notify_row_removed(row, 1)
         else:
+            row = key if key >= 0 else key + len(self.list)
             del self.list[key]
-            super().notify_row_removed(key, 1)
+            super().notify_row_removed(row, 1)
 
-    def append(self, value: T) -> None:
+    def push_row(self, value: T) -> None:
         """Appends the value to the end of the list."""
         index = len(self.list)
         self.list.append(value)
         super().notify_row_added(index, 1)
+
+    def append(self, value: T) -> None:
+        """Appends the value to the end of the list, like `push_row`."""
+        self.push_row(value)
 
     def insert(self, index: int, value: T) -> None:
         """Inserts the value at the given index. Negative indices and indices

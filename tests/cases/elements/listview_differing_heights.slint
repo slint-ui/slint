@@ -42,7 +42,7 @@ export component Test inherits Window {
 
 ```rust
 use slint::{platform::PointerEventButton, platform::WindowEvent, LogicalPosition};
-use slint_testing::{LogicalPoint, MouseEvent, TouchPhase};
+use slint_testing::{LogicalPoint, BackendMouseEvent, TouchPhase};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ScrollDirection {
@@ -93,7 +93,7 @@ let send_moved_event = |x, y| {
 };
 
 let send_wheel_event = |delta_y, phase| {
-    send_event(WindowEvent::internal(MouseEvent::Wheel {
+    send_event(WindowEvent::internal(BackendMouseEvent::Wheel {
         position: scroll_position,
         delta_x: 0.0,
         delta_y,

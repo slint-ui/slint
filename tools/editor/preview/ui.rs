@@ -6,7 +6,6 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
-use super::user_settings::PreviewUserSettings;
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::{expression_tree, langtype};
 
@@ -63,68 +62,53 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
-mod file_tree;
+mod conic_gradient;
+mod linear_gradient;
+mod radial_gradient;
+pub(super) use brushes::{fill_brush, fill_expression};
+mod element_library;
+pub(super) mod file_tree;
 pub mod log_messages;
 pub mod palette;
 mod property_view;
-mod recent_colors;
+mod recent_fills;
 pub mod search_model;
 
 slint::include_modules!();
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
-pub fn preview_user_settings_from_values(
-    always_on_top: bool,
-    show_library: bool,
-    show_properties: bool,
-    show_outline: bool,
-    show_simulation_data: bool,
-    show_console: bool,
-) -> PreviewUserSettings {
-    PreviewUserSettings {
-        version: PreviewUserSettings::CURRENT_VERSION,
-        always_on_top,
-        show_library,
-        show_properties,
-        show_outline,
-        show_simulation_data,
-        show_console,
-    }
+pub fn create_ui() -> Result<EditorUi, PlatformError> {
+    let ui = EditorUi::new()?;
+    let cursors = std::cell::RefCell::new(HashMap::<i32, slint::Image>::new());
+    ui.global::<EditorCursors>().on_rotation_image(move |angle| {
+        let angle = angle.round().rem_euclid(360.0) as i32;
+        cursors
+            .borrow_mut()
+            .entry(angle)
+            .or_insert_with(|| {
+                let svg = include_str!("../ui/assets/cursors/rotate.svg")
+                    .replace("{angle}", &angle.to_string());
+                let image = slint::Image::load_from_svg_data(svg.as_bytes())
+                    .expect("valid rotation cursor SVG");
+                // Match the fixed-pixel canvas pointer; native SVG cursors scale with the display.
+                slint::Image::from_rgba8(image.to_rgba8().expect("rotation cursor pixels"))
+            })
+            .clone()
+    });
+    Ok(ui)
 }
 
-pub fn apply_preview_user_settings(editor_ui: &EditorUi, settings: &PreviewUserSettings) {
-    let api = editor_ui.global::<Api>();
-    api.set_always_on_top(settings.always_on_top);
-}
-
-pub fn setup_preview_user_settings(api: &Api<'_>) {
-    api.on_preview_user_settings_changed(
-        |always_on_top,
-         show_library,
-         show_properties,
-         show_outline,
-         show_simulation_data,
-         show_console| {
-            preview::update_user_settings_from_ui(preview_user_settings_from_values(
-                always_on_top,
-                show_library,
-                show_properties,
-                show_outline,
-                show_simulation_data,
-                show_console,
-            ));
-        },
-    );
-}
-
-pub fn create_ui(
+pub fn initialize_editor(
+    editor_ui: &EditorUi,
     to_lsp: &Rc<dyn i_slint_editor_preview::PreviewToLsp>,
     style: &str,
-) -> Result<EditorUi, PlatformError> {
-    let editor_ui = EditorUi::new()?;
+) {
     let api = editor_ui.global::<Api>();
     let api_weak = <Api as slint::Global<'_, EditorUi>>::as_weak(&api);
+    let hover = editor_ui.global::<Hover>();
+    let project = editor_ui.global::<Project>();
+    let project_weak = <Project as slint::Global<'_, EditorUi>>::as_weak(&project);
 
     // styles:
     let known_styles = once(&"native")
@@ -156,6 +140,7 @@ pub fn create_ui(
     api.set_known_styles(style_model.into());
     api.set_current_style_index(current_style_index);
 
+    element_library::setup(&api);
     api.on_add_new_component(super::add_new_component);
     api.on_rename_component(super::rename_component);
     api.on_style_changed(super::change_style);
@@ -173,6 +158,7 @@ pub fn create_ui(
     api.on_unselect(super::element_selection::unselect_element);
     api.on_reselect(super::element_selection::reselect_element);
     api.on_select_at(super::element_selection::select_element_at);
+    hover.on_element_at(super::element_selection::hovered_element_at);
     api.on_selection_stack_at(super::element_selection::selection_stack_at);
     api.on_filter_sort_selection_stack(super::element_selection::filter_sort_selection_stack);
     api.on_find_selected_selection_stack_frame(|stack| {
@@ -190,14 +176,7 @@ pub fn create_ui(
     api.on_highlight_positions(super::element_selection::highlight_positions);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
-    api.on_new_component_data_for_kind(|kind| -> DataTransfer {
-        let Some(kind) = super::PaletteComponent::from_ui(kind) else {
-            return Default::default();
-        };
-        let mut transfer = DataTransfer::default();
-        transfer.set_user_data(Rc::new(DragItem::NewComponent { kind }));
-        transfer
-    });
+    api.on_new_component_data_for_kind(super::new_component_data_for_kind);
     api.on_move_element_instance_data(|uri: SharedString, offset: i32| -> DataTransfer {
         let Ok(offset) = offset.try_into() else {
             return Default::default();
@@ -229,19 +208,44 @@ pub fn create_ui(
         },
     );
     api.on_selected_element_resize(super::resize_selected_element);
+    api.on_persist_selected_element_geometry(super::persist_selected_element_geometry);
     api.on_selected_element_rotate(super::rotate_selected_element);
-    api.on_selected_element_can_move_to(super::can_move_selected_element);
-    api.on_selected_element_move(super::move_selected_element);
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
+    api.on_override_element_text(super::override_element_text);
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
+    api.on_inspector_values(super::inspector::values);
+    api.on_inspector_preview(super::inspector::preview);
+    api.on_inspector_commit(super::inspector::commit);
+    api.on_inspector_cancel(super::inspector::cancel);
+    api.on_inspector_fill_preview(super::inspector::preview_fill);
+    api.on_inspector_fill_commit(super::inspector::commit_fill);
+    let editor_weak = editor_ui.as_weak();
+    api.on_dismiss_fill_picker(move |position, button| {
+        let Some(editor) = editor_weak.upgrade() else { return };
+        editor.global::<FillSession>().invoke_close_picker(true, false);
+        let editor_weak = editor.as_weak();
+        // Dispatch after the dismissing TouchArea releases its pointer grab.
+        slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+            if let Some(editor) = editor_weak.upgrade() {
+                editor.window().dispatch_event(slint::platform::WindowEvent::PointerPressed {
+                    position,
+                    button,
+                });
+            }
+        });
+    });
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
+    api.on_set_code_bindings(|url, version, offset, bindings| {
+        super::set_code_bindings(url, version, offset, bindings.iter())
+    });
     api.on_set_color_binding(super::set_color_binding);
     api.on_set_element_id(super::set_element_id);
+    api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));
     api.on_property_declaration_ranges(super::property_declaration_ranges);
     let property_api_weak = api_weak.clone();
     api.on_current_property_value_data(move |property_name| {
@@ -283,24 +287,11 @@ pub fn create_ui(
     brushes::setup(&api);
     log_messages::setup(&api);
     palette::setup(&api);
-    let open_startup_wizard_api_weak = api_weak.clone();
-    api.on_open_startup_wizard(move || {
-        if let Some(api) = open_startup_wizard_api_weak.upgrade() {
-            api.set_startup_wizard_visible(true);
-        }
-    });
-    let close_startup_wizard_api_weak = api_weak.clone();
-    api.on_close_startup_wizard(move || {
-        if let Some(api) = close_startup_wizard_api_weak.upgrade() {
-            api.set_startup_wizard_visible(false);
-        }
-    });
-    file_tree::setup(&api, api_weak.clone(), editor_ui.as_weak());
-    recent_colors::setup(&api, api_weak.clone());
+    let file_tree_controller = file_tree::setup(&api, api_weak.clone(), &project, project_weak);
+    preview::set_file_tree_controller(file_tree_controller);
+    recent_fills::setup(&api, api_weak.clone());
     super::outline::setup(&api, api_weak.clone());
     super::undo_redo::setup(&api);
-    setup_preview_user_settings(&api);
-    apply_preview_user_settings(&editor_ui, &PreviewUserSettings::default());
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
     super::remote::setup(&api, api_weak, to_lsp);
@@ -315,8 +306,6 @@ pub fn create_ui(
     {
         api.set_control_key_name("command".into());
     }
-
-    Ok(editor_ui)
 }
 
 fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, SharedString) {
@@ -545,7 +534,7 @@ fn unit_model(units: &[expression_tree::WrittenUnit]) -> ModelRc<SharedString> {
 }
 
 fn is_equal_value(c: &PropertyValue, n: &PropertyValue) -> bool {
-    c.code == n.code
+    c.code == n.code && c.value_resolved == n.value_resolved && c.value_brush == n.value_brush
 }
 
 fn is_equal_property(c: &PropertyInformation, n: &PropertyInformation) -> bool {
@@ -673,12 +662,14 @@ fn map_value_and_type(
         color: slint::Color,
         kind: PropertyValueKind,
         code: SharedString,
+        value_resolved: bool,
     ) {
         let color_string = brushes::color_to_string(color);
         mapping.headers.push(mapping.name_prefix.clone());
         mapping.current_values.push(PropertyValue {
             value_kind: kind,
             kind,
+            value_resolved,
             display_string: color_string.clone(),
             brush_kind: BrushKind::Solid,
             value_brush: slint::Brush::SolidColor(color),
@@ -858,20 +849,26 @@ fn map_value_and_type(
                 get_value::<slint::Color>(value),
                 PropertyValueKind::Color,
                 get_code(value),
+                value.is_some(),
             );
         }
         Type::Brush => {
             let brush = get_value::<slint::Brush>(value);
             match brush {
-                slint::Brush::SolidColor(c) => {
-                    map_color(mapping, c, PropertyValueKind::Brush, get_code(value))
-                }
+                slint::Brush::SolidColor(c) => map_color(
+                    mapping,
+                    c,
+                    PropertyValueKind::Brush,
+                    get_code(value),
+                    value.is_some(),
+                ),
                 slint::Brush::LinearGradient(lg) => {
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(PropertyValue {
                         display_string: SharedString::from("Linear Gradient"),
                         kind: PropertyValueKind::Brush,
                         value_kind: PropertyValueKind::Brush,
+                        value_resolved: value.is_some(),
                         brush_kind: BrushKind::Linear,
                         value_float: lg.angle(),
                         value_brush: slint::Brush::LinearGradient(lg.clone()),
@@ -892,6 +889,7 @@ fn map_value_and_type(
                         display_string: SharedString::from("Radial Gradient"),
                         kind: PropertyValueKind::Brush,
                         value_kind: PropertyValueKind::Brush,
+                        value_resolved: value.is_some(),
                         brush_kind: BrushKind::Radial,
                         value_brush: slint::Brush::RadialGradient(rg.clone()),
                         gradient_stops: Rc::new(VecModel::from(
@@ -911,6 +909,7 @@ fn map_value_and_type(
                         display_string: SharedString::from("Conic Gradient"),
                         kind: PropertyValueKind::Brush,
                         value_kind: PropertyValueKind::Brush,
+                        value_resolved: value.is_some(),
                         brush_kind: BrushKind::Conic,
                         value_brush: slint::Brush::ConicGradient(cg.clone()),
                         gradient_stops: Rc::new(VecModel::from(
@@ -930,6 +929,7 @@ fn map_value_and_type(
                         display_string: SharedString::from("Unknown Brush"),
                         kind: PropertyValueKind::Code,
                         value_kind: PropertyValueKind::Code,
+                        value_resolved: false,
                         value_string: SharedString::from("???"),
                         accessor_path: mapping.name_prefix.clone(),
                         code: get_code(value),
@@ -1203,8 +1203,13 @@ fn current_property_value_data(
     api: &Api<'_>,
     property_name: SharedString,
 ) -> Option<PropertyValue> {
-    for group in api.get_properties().iter() {
-        for property in group.properties.iter() {
+    let groups = api.get_properties();
+    groups.model_tracker().track_row_count_changes();
+    for (group_index, group) in groups.iter().enumerate() {
+        groups.model_tracker().track_row_data_changes(group_index);
+        group.properties.model_tracker().track_row_count_changes();
+        for (property_index, property) in group.properties.iter().enumerate() {
+            group.properties.model_tracker().track_row_data_changes(property_index);
             if property.name == property_name {
                 return Some(property.value);
             }
@@ -1620,9 +1625,510 @@ pub fn ui_set_properties(
 mod tests {
     use crate::preview::preview_data;
 
-    use slint::{Model, SharedString, ToSharedString, VecModel};
+    use slint::{
+        ComponentHandle, LogicalPosition, Model, SharedString, ToSharedString, VecModel,
+        platform::{PointerEventButton, WindowEvent},
+    };
 
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
+
+    #[test]
+    fn corner_radius_cursor_changes_on_hover_and_stays_during_drag() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                x: 40.,
+                y: 40.,
+                width: 180.,
+                height: 120.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        let radius_changed = std::rc::Rc::new(std::cell::Cell::new(false));
+        let changed = radius_changed.clone();
+        api.on_override_selected_element_border_radius(move |_, _, _| changed.set(true));
+        editor.show().unwrap();
+
+        let center = |label: &str| {
+            let element =
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, label)
+                    .next()
+                    .unwrap();
+            let position = element.absolute_position();
+            let size = element.size();
+            LogicalPosition::new(position.x + size.width / 2., position.y + size.height / 2.)
+        };
+        let cursor = || {
+            i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                window.mouse_cursor()
+            })
+        };
+        editor
+            .window()
+            .dispatch_event(WindowEvent::PointerMoved { position: center("Selected Rectangle") });
+        let canvas_cursor = cursor();
+        assert_eq!(canvas_cursor, editor.global::<super::EditorCursors>().get_canvas_default());
+
+        let start = center("Rectangle radius top-left");
+        editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+        let radius_cursor = cursor();
+        assert_ne!(radius_cursor, canvas_cursor);
+        assert_eq!(radius_cursor, editor.global::<super::EditorCursors>().get_corner_radius());
+        assert!(matches!(
+            radius_cursor,
+            i_slint_core::cursor::MouseCursorInner::CustomMouseCursor { .. }
+        ));
+
+        editor.window().dispatch_event(WindowEvent::PointerPressed {
+            position: start,
+            button: PointerEventButton::Left,
+        });
+        assert_eq!(cursor(), radius_cursor);
+        let end = LogicalPosition::new(start.x + 20., start.y + 20.);
+        editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
+        assert!(radius_changed.get());
+        assert_eq!(cursor(), radius_cursor);
+        editor.window().dispatch_event(WindowEvent::PointerReleased {
+            position: end,
+            button: PointerEventButton::Left,
+        });
+    }
+
+    #[test]
+    fn begin_fill_session_accepts_previous_target_before_replacing_it() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        super::brushes::setup(&api);
+        api.on_inspector_fill_preview(|_, _, _| true);
+        let commits = std::rc::Rc::new(std::cell::Cell::new(0));
+        let count = commits.clone();
+        api.on_inspector_fill_commit(move |key, property, _| {
+            assert_eq!(key, "first");
+            assert_eq!(property, "background");
+            count.set(count.get() + 1);
+            true
+        });
+        let session = editor.global::<super::FillSession>();
+        let mut request = super::FillSessionRequest {
+            target: super::FillSessionTarget {
+                key: "first".into(),
+                property_name: "background".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        session.invoke_begin(request.clone());
+        assert!(session.get_open());
+        assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(255, 0, 0)));
+        request.target.key = "second".into();
+        session.invoke_begin(request.clone());
+        assert_eq!(commits.get(), 1);
+        assert_eq!(session.get_request().target.key, "second");
+        assert_eq!(
+            api.invoke_fill_brush(session.get_working_fill()),
+            api.invoke_fill_brush(request.fill.clone())
+        );
+        session.invoke_close_picker(true, false);
+        session.invoke_begin(request);
+        session.invoke_close_picker(true, false);
+        assert_eq!(commits.get(), 1);
+    }
+
+    #[test]
+    fn fill_overlay_requires_an_editable_rectangle_session() {
+        i_slint_backend_testing::init_no_event_loop();
+        for kind in [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic] {
+            let editor = super::EditorUi::new().unwrap();
+            let api = editor.global::<super::Api>();
+            super::brushes::setup(&api);
+            api.on_inspector_fill_preview(|_, _, _| true);
+            let session = editor.global::<super::FillSession>();
+            let mut element = api.get_current_element();
+            element.type_name = "Rectangle".into();
+            api.set_current_element(element.clone());
+            let mut selection = api.get_selection();
+            selection.highlight_index = 0;
+            api.set_selection(selection);
+            let mut request = super::FillSessionRequest {
+                fill: super::FillData { kind, ..Default::default() },
+                target: super::FillSessionTarget { canvas: true, ..Default::default() },
+                ..Default::default()
+            };
+            assert!(!session.get_canvas_active());
+            session.invoke_begin(request.clone());
+            assert!(session.get_canvas_active());
+            assert_eq!(session.get_radial_active(), kind == super::BrushKind::Radial);
+            assert_eq!(session.get_conic_active(), kind == super::BrushKind::Conic);
+            api.set_inspector_fill_refresh_pending(true);
+            assert!(!session.get_canvas_active());
+            api.set_inspector_fill_refresh_pending(false);
+            element.type_name = "Text".into();
+            api.set_current_element(element.clone());
+            assert!(!session.get_canvas_active());
+            element.type_name = "Rectangle".into();
+            api.set_current_element(element);
+            assert!(session.get_canvas_active());
+            request.unsupported = true;
+            session.invoke_begin(request.clone());
+            assert!(!session.get_canvas_active());
+            request.unsupported = false;
+            request.target.canvas = false;
+            session.invoke_begin(request.clone());
+            assert!(!session.get_canvas_active());
+            request.target.canvas = true;
+            session.invoke_begin(request);
+            assert!(session.invoke_select_kind(super::BrushKind::Solid));
+            assert!(!session.get_canvas_active());
+            session.invoke_close_picker(false, false);
+            assert!(!session.get_open());
+        }
+    }
+
+    #[test]
+    fn fill_picker_fits_single_paired_and_stacked_panels() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        super::brushes::setup(&api);
+        let session = editor.global::<super::FillSession>();
+        editor.show().unwrap();
+        slint::platform::update_timers_and_animations();
+        for (width, anchor, paired) in
+            [(1360., 1200., false), (1360., 1200., true), (1040., 330., true), (540., 330., true)]
+        {
+            editor.global::<super::EditorWindow>().set_width(width);
+            session.invoke_begin(super::FillSessionRequest {
+                target: super::FillSessionTarget {
+                    session_key: ":0:0:0:".into(),
+                    ..Default::default()
+                },
+                anchor_width: 24.,
+                anchor_position: LogicalPosition::new(anchor, 100.),
+                ..Default::default()
+            });
+            session.set_stop_panel_open(paired);
+            slint::platform::update_timers_and_animations();
+            let panel = i_slint_backend_testing::ElementHandle::find_by_element_id(
+                &editor,
+                "InspectorFillPicker::picker-panel",
+            )
+            .next()
+            .unwrap();
+            let position = panel.absolute_position();
+            let size = panel.size();
+            assert!(position.x >= 8.);
+            assert!(position.x + size.width <= width - 8.);
+            assert_eq!(size.width, if paired && width > 540. { 528. } else { 260. });
+        }
+    }
+
+    #[test]
+    fn fill_session_invalidates_stale_targets_without_committing() {
+        i_slint_backend_testing::init_no_event_loop();
+        for change in 0..4 {
+            let editor = super::EditorUi::new().unwrap();
+            let api = editor.global::<super::Api>();
+            super::brushes::setup(&api);
+            api.on_inspector_fill_preview(|_, _, _| true);
+            api.on_inspector_fill_commit(|_, _, _| panic!("stale sessions must not commit"));
+            let canceled = std::rc::Rc::new(std::cell::Cell::new(0));
+            let count = canceled.clone();
+            api.on_inspector_cancel(move || count.set(count.get() + 1));
+            let session = editor.global::<super::FillSession>();
+            let mut element = api.get_current_element();
+            element.source_uri = "file:///scene.slint".into();
+            api.set_current_element(element.clone());
+            session.invoke_begin(super::FillSessionRequest {
+                target: super::FillSessionTarget {
+                    property_name: "background".into(),
+                    session_key: format!(
+                        "{}:{}:{}:{}:background",
+                        element.source_uri,
+                        element.offset,
+                        api.get_selection().highlight_index,
+                        api.get_inspector_fill_generation()
+                    )
+                    .into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+            slint::platform::update_timers_and_animations();
+            assert!(session.get_open());
+            assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(255, 0, 0)));
+            match change {
+                0 => {
+                    element.source_uri = "file:///replacement.slint".into();
+                    api.set_current_element(element);
+                }
+                1 => {
+                    element.offset += 1;
+                    api.set_current_element(element);
+                }
+                2 => api.set_inspector_fill_generation(api.get_inspector_fill_generation() + 1),
+                _ => api.set_current_element(Default::default()),
+            }
+            slint::platform::update_timers_and_animations();
+            assert!(!session.get_open());
+            assert_eq!(canceled.get(), 1);
+            assert_eq!(
+                api.invoke_fill_brush(session.get_working_fill()),
+                api.invoke_fill_brush(session.get_request().fill)
+            );
+        }
+    }
+
+    #[test]
+    fn gradient_switching_restores_geometry_and_carries_current_stops() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        super::brushes::setup(&api);
+        api.on_inspector_fill_preview(|_, _, _| true);
+        let session = editor.global::<super::FillSession>();
+        session.invoke_begin(Default::default());
+        let kinds = [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic];
+        for (index, kind) in kinds.into_iter().enumerate() {
+            assert!(session.invoke_select_kind(kind));
+            let fill = super::FillData {
+                angle: 25. + index as f32,
+                custom_center: true,
+                center_x: 37. + index as f32,
+                center_y: 61.,
+                custom_radius: true,
+                radius: 95.,
+                ..session.get_working_fill()
+            };
+            assert!(session.invoke_preview_fill(fill));
+        }
+        let color = slint::Color::from_rgb_u8(42, 84, 126);
+        assert!(session.invoke_preview_color(color));
+        let stops = session.get_working_fill().stops.iter().collect::<Vec<_>>();
+        for _ in 0..2 {
+            assert!(session.invoke_select_kind(super::BrushKind::Solid));
+            for (index, kind) in kinds.into_iter().enumerate() {
+                assert!(session.invoke_select_kind(kind));
+                let fill = session.get_working_fill();
+                assert_eq!(fill.angle, 25. + index as f32);
+                assert_eq!(fill.center_x, 37. + index as f32);
+                assert_eq!(fill.center_y, 61.);
+                assert_eq!(fill.radius, 95.);
+                assert!(fill.custom_center && fill.custom_radius);
+                assert_eq!(fill.stops.iter().collect::<Vec<_>>(), stops);
+            }
+        }
+        session.invoke_select_recent(super::FillData {
+            kind: super::BrushKind::Radial,
+            stops: session.get_working_fill().stops,
+            ..Default::default()
+        });
+        assert!(session.invoke_select_kind(super::BrushKind::Conic));
+        assert_eq!(session.get_working_fill().center_x, 39.);
+        assert!(session.invoke_select_kind(super::BrushKind::Radial));
+        assert!(!session.get_working_fill().custom_center);
+        assert!(!session.get_working_fill().custom_radius);
+    }
+
+    #[test]
+    fn fill_session_owns_its_initial_stop_snapshot() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        super::brushes::setup(&api);
+        let stops = std::rc::Rc::new(VecModel::from(vec![
+            super::GradientStop { position: 0., color: slint::Color::from_rgb_u8(255, 0, 0) },
+            super::GradientStop { position: 1., color: slint::Color::from_rgb_u8(0, 0, 255) },
+        ]));
+        let original = stops.iter().collect::<Vec<_>>();
+        let session = editor.global::<super::FillSession>();
+        session.invoke_begin(super::FillSessionRequest {
+            fill: super::FillData {
+                kind: super::BrushKind::Linear,
+                stops: stops.clone().into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        stops.set_row_data(0, super::GradientStop { position: 0.25, ..original[1] });
+        assert_eq!(session.get_request().fill.stops.iter().collect::<Vec<_>>(), original);
+        session.invoke_close_picker(false, false);
+        assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), original);
+    }
+
+    #[test]
+    fn stop_mutations_preserve_shared_gesture_snapshots() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        super::brushes::setup(&api);
+        api.on_inspector_fill_preview(|_, _, _| true);
+        let session = editor.global::<super::FillSession>();
+        session.invoke_begin(super::FillSessionRequest {
+            fill: super::FillData {
+                kind: super::BrushKind::Linear,
+                stops: std::rc::Rc::new(VecModel::from(vec![
+                    super::GradientStop {
+                        position: 0.,
+                        color: slint::Color::from_rgb_u8(255, 0, 0),
+                    },
+                    super::GradientStop {
+                        position: 0.5,
+                        color: slint::Color::from_rgb_u8(0, 255, 0),
+                    },
+                    super::GradientStop {
+                        position: 1.,
+                        color: slint::Color::from_rgb_u8(0, 0, 255),
+                    },
+                ]))
+                .into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        let snapshot = session.get_working_fill();
+        let stops = snapshot.stops.iter().collect::<Vec<_>>();
+        session.set_selected_stop(1);
+        assert!(session.invoke_move_stop_position(1.2));
+        assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(255, 255, 255)));
+        session.invoke_add_stop_position(0.25);
+        session.invoke_remove_stop(0);
+        assert_eq!(snapshot.stops.iter().collect::<Vec<_>>(), stops);
+        assert_eq!(session.get_request().fill.stops.iter().collect::<Vec<_>>(), stops);
+        assert!(session.invoke_preview_fill(snapshot));
+        assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), stops);
+        api.on_inspector_fill_preview(|_, _, _| false);
+        assert!(!session.invoke_move_stop_position(0.75));
+        assert!(!session.get_open());
+        assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), stops);
+    }
+
+    #[test]
+    fn fill_session_preserves_target_and_rolls_back_rejected_edits() {
+        i_slint_backend_testing::init_no_event_loop();
+        for reject_preview in [false, true] {
+            let editor = super::EditorUi::new().unwrap();
+            let api = editor.global::<super::Api>();
+            super::brushes::setup(&api);
+            let session = editor.global::<super::FillSession>();
+            let target = slint::SharedString::from("rectangle:background");
+            let original = super::FillData {
+                kind: super::BrushKind::Solid,
+                color: slint::Color::from_rgb_u8(255, 0, 0),
+                ..Default::default()
+            };
+            session.invoke_begin(super::FillSessionRequest {
+                fill: original.clone(),
+                target: super::FillSessionTarget {
+                    key: target.clone(),
+                    property_name: "background".into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+            let expected = target.clone();
+            api.on_inspector_fill_preview(move |key, property, _| {
+                assert_eq!(key, expected);
+                assert_eq!(property, "background");
+                true
+            });
+            let canceled = std::rc::Rc::new(std::cell::Cell::new(0));
+            let count = canceled.clone();
+            api.on_inspector_cancel(move || count.set(count.get() + 1));
+            assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(0, 0, 255)));
+            if reject_preview {
+                api.on_inspector_fill_preview(|_, _, _| false);
+                assert!(!session.invoke_preview_color(slint::Color::from_rgb_u8(0, 255, 0)));
+            } else {
+                let expected = target.clone();
+                api.on_inspector_fill_commit(move |key, property, _| {
+                    assert_eq!(key, expected);
+                    assert_eq!(property, "background");
+                    false
+                });
+                session.invoke_close_picker(true, true);
+                assert_eq!(session.get_focus_generation(), 1);
+            }
+            assert_eq!(canceled.get(), 1);
+            assert!(!session.get_open());
+            assert_eq!(session.get_request().target.key, target);
+            assert_eq!(session.get_working_fill().color, original.color);
+        }
+    }
+
+    #[test]
+    fn title_area_requests_window_move_on_first_drag() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor.show().unwrap();
+
+        let title_move_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
+            &editor,
+            "EditorUi::title-move-area",
+        )
+        .next()
+        .expect("the title move area must be inside EditorUi's FocusScope");
+        let position = title_move_area.absolute_position();
+        let size = title_move_area.size();
+        let start =
+            LogicalPosition::new(position.x + size.width / 2., position.y + size.height / 2.);
+        editor.window().dispatch_event(WindowEvent::PointerPressed {
+            position: start,
+            button: PointerEventButton::Left,
+        });
+        editor.window().dispatch_event(WindowEvent::PointerMoved {
+            position: LogicalPosition::new(start.x + 20., start.y),
+        });
+
+        assert_eq!(
+            i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                window.window_move_request_count()
+            }),
+            1
+        );
+    }
+
+    #[test]
+    fn title_area_double_click_toggles_maximized() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor.show().unwrap();
+
+        let title_touch_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
+            &editor,
+            "EditorUi::title-touch-area",
+        )
+        .next()
+        .expect("the title touch area must be inside the window move area");
+
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert!(editor.window().is_maximized());
+
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert!(!editor.window().is_maximized());
+
+        let native_zoom_count = std::rc::Rc::new(std::cell::Cell::new(0));
+        let count = native_zoom_count.clone();
+        editor.on_perform_native_window_zoom(move || {
+            count.set(count.get() + 1);
+            true
+        });
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert_eq!(native_zoom_count.get(), 1);
+        assert!(!editor.window().is_maximized());
+    }
 
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {
         PropertyInformation {
@@ -1680,22 +2186,6 @@ mod tests {
         assert_eq!(t.value.code.as_str(), "DDD");
 
         assert!(it.next().is_none());
-    }
-
-    #[test]
-    fn preview_user_settings_from_values_maps_all_toggles() {
-        assert_eq!(
-            super::preview_user_settings_from_values(true, false, true, false, true, false),
-            super::PreviewUserSettings {
-                version: super::PreviewUserSettings::CURRENT_VERSION,
-                always_on_top: true,
-                show_library: false,
-                show_properties: true,
-                show_outline: false,
-                show_simulation_data: true,
-                show_console: false,
-            }
-        );
     }
 
     fn generate_preview_data(

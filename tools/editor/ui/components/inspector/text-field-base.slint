@@ -1,30 +1,28 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorTokens } from "tokens.slint";
+import { Style, FieldStyle, PaintStyle } from "../../style.slint";
 
 export component InspectorTextFieldBase inherits Rectangle {
+    in property <FieldStyle> style: Style.inspector-field;
     in property <string> accessible-name: "";
     in property <string> value;
     in property <bool> enabled: true;
-    in property <length> field-padding-left: 8px;
-    in property <length> field-padding-right: 7px;
-    in property <length> content-spacing: 5px;
-    in property <length> input-font-size: 12px;
-    in property <color> input-color: root.enabled ? InspectorTokens.text : InspectorTokens.muted;
-    in property <string> tooltip-label: "";
-    in property <string> tooltip-key: tooltip-label;
+    in property <bool> live-edit: false;
+    private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
+        : input.has-focus ? root.style.appearance.focus
+        : touch.has-hover ? root.style.appearance.hover : root.style.appearance.normal;
+    out property <color> paint-foreground: root.paint.foreground;
     in property <string> commit-key: "";
     private property <string> active-commit-key: root.commit-key;
+    private property <bool> edited: false;
     callback accepted(string) -> bool;
-    callback tooltip-hovered(string, string, Point);
-    callback tooltip-hidden(string);
 
-    height: InspectorTokens.field-height;
-    border-radius: InspectorTokens.field-radius;
-    background: !enabled ? InspectorTokens.field-bg.with-alpha(0.65) : input.has-focus ? InspectorTokens.panel-bg : touch.has-hover ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
-    border-width: input.has-focus ? 1px : 0px;
-    border-color: InspectorTokens.accent;
+    height: root.style.height;
+    border-radius: root.style.radius;
+    background: root.paint.background;
+    border-width: input.has-focus ? root.style.border-width : 0px;
+    border-color: input.has-focus ? root.style.appearance.focus.border : root.paint.border;
     accessible-role: AccessibleRole.text-input;
     accessible-label: root.accessible-name;
     accessible-value: input.text;
@@ -41,12 +39,13 @@ export component InspectorTextFieldBase inherits Rectangle {
     }
 
     changed value => {
-        if !input.has-focus {
+        if !input.has-focus || !root.edited {
             input.text = root.value;
         }
     }
 
     changed commit-key => {
+        root.edited = false;
         input.text = root.value;
         root.active-commit-key = root.commit-key;
     }
@@ -60,55 +59,56 @@ export component InspectorTextFieldBase inherits Rectangle {
         return root.accepted(text);
     }
 
-    HorizontalLayout {
-        padding-left: root.field-padding-left;
-        padding-right: root.field-padding-right;
-        spacing: root.content-spacing;
-        cross-axis-alignment: center;
-
-        @children
-
-        input := TextInput {
-            horizontal-stretch: 1;
-            text: root.value;
-            enabled: root.enabled;
-            single-line: true;
-            wrap: no-wrap;
-            color: root.input-color;
-            font-size: root.input-font-size;
-            vertical-alignment: center;
-            selection-background-color: InspectorTokens.accent.with-alpha(0.28);
-            text-cursor-width: 1px;
-
-            accepted => {
-                if !root.accept-input(self.text) {
-                    self.text = root.value;
-                }
-            }
-
-            changed has-focus => {
-                if self.has-focus {
-                    root.active-commit-key = root.commit-key;
-                }
-                if !self.has-focus && self.text != root.value {
-                    if !root.accept-input(self.text) {
-                        self.text = root.value;
-                    }
-                }
-            }
-        }
-    }
-
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: text;
         clicked => { input.focus(); }
 
-        changed has-hover => {
-            if self.has-hover && root.tooltip-label != "" {
-                root.tooltip-hovered(root.tooltip-key, root.tooltip-label, root.absolute-position);
-            } else if root.tooltip-label != "" {
-                root.tooltip-hidden(root.tooltip-key);
+        HorizontalLayout {
+            padding-left: root.style.padding-inline;
+            padding-right: root.style.padding-inline;
+            spacing: root.style.gap;
+            cross-axis-alignment: center;
+
+            @children
+
+            input := TextInput {
+                // Disable TextInput's built-in accessibility support as the frame takes care of that.
+                accessible-role: none;
+                horizontal-stretch: 1;
+                text: root.value;
+                enabled: root.enabled;
+                single-line: true;
+                wrap: no-wrap;
+                color: root.paint.foreground;
+                font-size: root.style.text.size;
+                font-weight: root.style.text.weight;
+                vertical-alignment: center;
+                selection-background-color: root.style.appearance.selection;
+                text-cursor-width: root.style.border-width;
+
+                edited => {
+                    root.edited = true;
+                    if root.live-edit { root.accept-input(self.text); }
+                }
+
+                accepted => {
+                    if !root.accept-input(self.text) {
+                        self.text = root.value;
+                    }
+                }
+
+                changed has-focus => {
+                    if self.has-focus {
+                        root.active-commit-key = root.commit-key;
+                        self.select-all();
+                    }
+                    if !self.has-focus && self.text != root.value {
+                        if !root.accept-input(self.text) {
+                            self.text = root.value;
+                        }
+                    }
+                }
             }
         }
     }

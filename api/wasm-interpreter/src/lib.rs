@@ -318,6 +318,44 @@ impl WrappedInstance {
     }
 }
 
+/// Register a font for use by the `font-family` property.
+///
+/// `data` is the content of a TrueType or OpenType file.
+/// The families it declares become available to the components compiled afterwards,
+/// under the names the font itself carries,
+/// so a page that registers JetBrains Mono can then use `font-family: "JetBrains Mono"`.
+///
+/// The browser build has no system fonts to query,
+/// so this is the only way to draw a component in a font of the host page's choosing.
+/// A font the page loaded through `@font-face` doesn't count:
+/// the canvas renderer doesn't consult the CSS font database.
+///
+/// Text that was already laid out keeps the font it was shaped with,
+/// so register the font before compiling the component that uses it.
+///
+/// Throws if the platform isn't initialized yet, or if the data declares no font family.
+#[wasm_bindgen]
+pub fn register_font_from_memory(data: Vec<u8>) -> Result<(), JsValue> {
+    use i_slint_core::textlayout::sharedparley::fontique;
+
+    // The shared collection holds the bytes through its own `Arc`, so the font doesn't need the
+    // `&'static [u8]` that `Renderer::register_font_from_memory` asks for, and nothing is leaked.
+    // Taking the `Vec` by value hands over the copy wasm-bindgen already made.
+    let blob = fontique::Blob::new(std::sync::Arc::new(data));
+
+    let registered = i_slint_core::with_global_context(
+        || Err(i_slint_core::platform::PlatformError::NoPlatform),
+        |ctx| ctx.font_context().borrow_mut().collection.register_fonts(blob, None),
+    )?;
+
+    if registered.is_empty() {
+        return Err("the data declares no font family, \
+                    expected a TrueType or OpenType file"
+            .into());
+    }
+    Ok(())
+}
+
 /// Register DOM event handlers on all instance and set up the event loop for that.
 /// You can call this function only once. It will throw an exception but that is safe
 /// to ignore.

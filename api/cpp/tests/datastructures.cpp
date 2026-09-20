@@ -5,6 +5,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <set>
 #include <vector>
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch_all.hpp"
@@ -596,6 +597,35 @@ TEST_CASE("DataTransfer")
         REQUIRE(a.is_empty());
     }
 
+    SECTION("File paths accept arbitrary ranges")
+    {
+        DataTransfer a;
+
+        // A non-contiguous container, not expressible as a std::span.
+        std::set<std::filesystem::path> as_set = { "/tmp/a.txt", "/tmp/b.txt" };
+        a.set_file_paths(as_set);
+        auto from_set = a.file_paths();
+        REQUIRE(from_set.has_value());
+        REQUIRE(from_set->size() == 2);
+
+        // Elements merely convertible to std::filesystem::path.
+        std::vector<std::string> as_strings = { "/tmp/one.txt", "/tmp/two.txt" };
+        a.set_file_paths(as_strings);
+        auto from_strings = a.file_paths();
+        REQUIRE(from_strings.has_value());
+        REQUIRE(from_strings->size() == 2);
+        REQUIRE((*from_strings)[0] == std::filesystem::path("/tmp/one.txt"));
+
+        // A lazy view producing path temporaries on the fly.
+        a.set_file_paths(as_strings | std::views::transform([](const std::string &s) {
+                             return std::filesystem::path(s + ".bak");
+                         }));
+        auto from_view = a.file_paths();
+        REQUIRE(from_view.has_value());
+        REQUIRE(from_view->size() == 2);
+        REQUIRE((*from_view)[0] == std::filesystem::path("/tmp/one.txt.bak"));
+    }
+
 #ifdef _WIN32
     SECTION("File paths keep unpaired surrogates")
     {
@@ -728,5 +758,41 @@ TEST_CASE("DataTransfer")
         std::any v = a.user_data();
         REQUIRE(std::any_cast<int>(&v) != nullptr);
         REQUIRE(*std::any_cast<int>(&v) == 42);
+    }
+}
+
+TEST_CASE("Keys::from_parts accepts arbitrary ranges")
+{
+    using slint::Keys;
+
+    // Braced initializer list, handled by the initializer_list overload.
+    auto braced = Keys::from_parts({ "Control", "C" });
+    REQUIRE(braced.has_value());
+
+    SECTION("Ranges of different container and element types")
+    {
+        // A std::vector of std::string: not accepted by the former std::span
+        // overload without an explicit conversion to std::string_view.
+        std::vector<std::string> as_strings = { "Control", "C" };
+        auto from_strings = Keys::from_parts(as_strings);
+        REQUIRE(from_strings.has_value());
+        REQUIRE(*from_strings == *braced);
+
+        // A non-contiguous container.
+        std::set<std::string> as_set = { "Control", "C" };
+        auto from_set = Keys::from_parts(as_set);
+        REQUIRE(from_set.has_value());
+        REQUIRE(*from_set == *braced);
+
+        // A lazy view producing std::string temporaries on the fly.
+        auto from_view = Keys::from_parts(
+                as_strings | std::views::transform([](const std::string &s) { return s; }));
+        REQUIRE(from_view.has_value());
+        REQUIRE(*from_view == *braced);
+    }
+
+    SECTION("Parse failure still returns nullopt")
+    {
+        REQUIRE(!Keys::from_parts({ "NotARealKeyName" }).has_value());
     }
 }

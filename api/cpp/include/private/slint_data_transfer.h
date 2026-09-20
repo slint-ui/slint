@@ -8,8 +8,9 @@
 
 #ifndef SLINT_FEATURE_FREESTANDING
 #    include <any>
+#    include <concepts>
 #    include <filesystem>
-#    include <span>
+#    include <ranges>
 #    include <vector>
 #endif
 
@@ -106,19 +107,54 @@ public:
 #if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
     /// Sets the list of local file paths transferred by this `DataTransfer`,
     /// overwriting any previously set list. An empty list clears the file paths.
-    void set_file_paths(std::span<const std::filesystem::path> paths)
+    ///
+    /// \a paths may be any range whose elements are convertible to
+    /// `std::filesystem::path`, such as a `std::vector<std::filesystem::path>`.
+    template<std::ranges::input_range R = std::initializer_list<std::filesystem::path>>
+    // Defaulting R lets a braced call like set_file_paths({}) deduce to initializer_list.
+        requires std::convertible_to<std::ranges::range_reference_t<R>, std::filesystem::path>
+    void set_file_paths(R &&paths)
     {
-        // Each path crosses the FFI in its native representation, so that no
-        // path is mangled by an encoding conversion.
+        using Ref = std::ranges::range_reference_t<R>;
+        if constexpr (std::is_lvalue_reference_v<Ref>
+                      && std::is_same_v<std::remove_cvref_t<Ref>, std::filesystem::path>) {
+            // The paths already live in the caller's range: send them without
+            // copying each one into temporary storage.
+            send_file_paths(paths);
+        } else {
+            // Convertible or temporary elements: materialize once so each native()
+            // representation stays alive while its slice crosses the FFI.
+            std::vector<std::filesystem::path> owned;
+            if constexpr (std::ranges::sized_range<R>) {
+                owned.reserve(std::ranges::size(paths));
+            }
+            for (auto &&path : paths) {
+                owned.emplace_back(std::forward<decltype(path)>(path));
+            }
+            send_file_paths(owned);
+        }
+    }
+
+private:
+    /// Passes \a paths, a range of stored `std::filesystem::path` objects, to the FFI.
+    /// Each path crosses in its native representation, so no path is mangled by an
+    /// encoding conversion.
+    template<std::ranges::input_range R>
+    void send_file_paths(R &&paths)
+    {
         std::vector<cbindgen_private::Slice<cbindgen_private::types::PathValueType>> slices;
-        slices.reserve(paths.size());
-        for (const auto &path : paths) {
+        if constexpr (std::ranges::sized_range<R>) {
+            slices.reserve(std::ranges::size(paths));
+        }
+        for (const std::filesystem::path &path : paths) {
             const auto &native = path.native();
             slices.push_back(private_api::make_slice(native.data(), native.size()));
         }
         cbindgen_private::types::slint_data_transfer_set_file_paths(
                 this, private_api::make_slice(slices.data(), slices.size()));
     }
+
+public:
 #endif
 
     /// Returns `true` if this data transfer advertises a plain text representation.

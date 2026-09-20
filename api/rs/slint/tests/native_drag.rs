@@ -168,3 +168,48 @@ fn native_drag_falls_back_to_in_window() {
     assert!(ui.get_finished(), "drag-finished should fire when the in-window drag ends");
     assert_eq!(ui.get_finished_action(), DragAction::Copy);
 }
+
+// A transfer carrying only file paths is offered to the backend as well, not just one
+// carrying text or an image.
+#[test]
+fn native_drag_of_files() {
+    i_slint_backend_testing::init_no_event_loop();
+
+    let source = Source::new().unwrap();
+    source.on_to_transfer(|_| {
+        let mut transfer = slint::DataTransfer::default();
+        transfer.set_file_paths(["/tmp/dragged.txt"]);
+        transfer
+    });
+    access_testing_window(source.window(), |w| w.set_simulate_native_drag(true));
+
+    let target = Target::new().unwrap();
+    target.on_accept(|data| data.has_file_paths());
+    target.on_text_of(|data| {
+        data.file_paths()
+            .map(|paths| paths.map(|path| path.display().to_string()).collect::<Vec<_>>().join(","))
+            .unwrap_or_default()
+            .into()
+    });
+
+    // Press, then move past the drag threshold. Without the file paths counting as data
+    // worth handing over, this falls back to the in-window drag and the backend never sees it.
+    source.window().dispatch_event(WindowEvent::PointerPressed {
+        position: LogicalPosition::new(50.0, 50.0),
+        button: PointerEventButton::Left,
+    });
+    source
+        .window()
+        .dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 90.0) });
+
+    let hover = LogicalPosition::new(50.0, 50.0);
+    let action = access_testing_window(source.window(), |w| {
+        w.simulate_native_drag_move(target.window(), hover);
+        assert!(target.get_has_drag(), "the DropArea should report the hovering drag");
+        w.simulate_native_drop(target.window(), hover)
+    });
+
+    assert!(target.get_got_drop(), "the drop should have reached the target DropArea");
+    assert_eq!(target.get_dropped_text(), "/tmp/dragged.txt");
+    assert_eq!(action, DragAction::Copy);
+}

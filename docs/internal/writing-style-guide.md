@@ -33,18 +33,48 @@ Concretely:
    - Rationale: Use exclamation points sparingly and save them for when they really count; we already have the reader's attention.
 4. In Markdown and doc comments, put each sentence on its own line, or break after a comma when a line gets long.
    - Rationale: Just like a newline after `;` in code, this keeps diffs readable and avoids reflowing a whole paragraph for one edit.
+     It also makes an overlong sentence obvious: one that fills three lines on its own needs splitting, not rewrapping.
 5. Use American English spelling.
    - Rationale: Slint's API uses American spelling (such as `color`), so the rest of our writing matches.
+6. Keep sentences under about 25 words.
+   - Avoid: reaching for a third clause, a dash, or a parenthetical aside.
+   - Use: a split at the first "and" or ";".
+   - Rationale: A sentence the reader has to take twice costs more than the two sentences it replaces.
 
 ## Code Comments
 
 For comments in source code — both internal implementation notes and public API documentation comments:
 
-1. Describe what the code *is* and why, in the present tense.
+1. Where a comment earns its place (see rule 6), describe what the code *is*, in the present tense.
    - Rationale: The comment should make sense to whoever reads the code next; what changed belongs in the commit message, not the source.
-2. For public items, document the interface, not the implementation.
-   - A comment above a property, function, or type says what it does and why for the caller, not how it works inside.
+2. A public item's documentation is its contract, and the one exception to rule 6.
+   - It says what the item does and when to use it, not how it works inside.
+   - It may restate the signature,
+     because it's published apart from the code and callers read it instead of the body.
+   - "Public" means an item that appears in published API documentation, not merely one marked `pub`.
+     Everything else falls under rule 6, where a name and signature are the documentation.
    - Rationale: Callers shouldn't have to read the implementation, and implementation details in the comment go stale as the code evolves.
+3. Explain a thing once, then cross-reference it.
+   - Avoid: repeating the same rationale on the trait, on each implementation, and again at the call site.
+   - Use: the full explanation where the thing is defined, and "see `foo`" everywhere else.
+   - Rationale: One copy can't drift out of sync with the other three, and a reader who already knows the rationale skips a reference faster than a paragraph.
+4. Never write what the code used to be, or what a review said about it.
+   - Avoid: "the review found this wrong", "this used to be unrounded", "round 3", "see the commit message".
+   - Use: a bare issue reference such as `#6739` when the background is worth chasing.
+   - Exception: a regression test may state the old, wrong behavior, since pinning it is why the test exists.
+   - Rationale: The next reader needs the code's current contract, not the discussion that produced it; `git log` and `git blame` already keep the discussion.
+5. A comment shouldn't be longer than the item it describes, and rarely needs more than fifteen lines.
+   - Use: a page under `docs/development/` for anything longer, linked from the comment.
+   - Rationale: A comment that outgrows the code it describes stops being read.
+6. A comment must carry information that isn't in this repository.
+   - Avoid: restating a name, a signature, or the lines below it;
+     justifying why the code does what it plainly does.
+   - Use: an external constraint the code can't show, such as an editor's behavior,
+     a specification, or a platform quirk.
+     A bare issue reference such as `#6739` also qualifies.
+   - Test: if a reader could learn it by reading the code, delete the comment.
+   - Rationale: Anything the code already says will drift out of sync with it,
+     and costs a read either way.
 
 ## Diagnostics
 

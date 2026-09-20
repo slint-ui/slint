@@ -48,7 +48,7 @@ fn process_expression(
         Expression::CodeBlock(expr) => {
             process_codeblock(expr.into_iter().peekable(), toplevel, ty, ctx, symbol_counters)
         }
-        Expression::Condition { condition, true_expr, false_expr } => {
+        Expression::Condition { condition, true_expr, false_expr, .. } => {
             process_condition(condition, *true_expr, *false_expr, ctx, ty, symbol_counters)
         }
         Expression::Cast { from, to } => {
@@ -92,9 +92,13 @@ fn merge_condition_branches(
     symbol_counters: &SymbolCounters,
 ) -> ExpressionResult {
     match (te, fe) {
-        (ExpressionResult::Just(te), ExpressionResult::Just(fe)) => {
-            Expression::Condition { condition, true_expr: te.into(), false_expr: fe.into() }.into()
+        (ExpressionResult::Just(te), ExpressionResult::Just(fe)) => Expression::Condition {
+            condition,
+            true_expr: te.into(),
+            false_expr: fe.into(),
+            source_location: None,
         }
+        .into(),
         (ExpressionResult::Just(te), ExpressionResult::Return(fe)) => {
             ExpressionResult::MaybeReturn {
                 pre_statements: Vec::new(),
@@ -116,6 +120,7 @@ fn merge_condition_branches(
                 condition,
                 true_expr: te.unwrap_or(Expression::CodeBlock(Vec::new())).into(),
                 false_expr: fe.unwrap_or(Expression::CodeBlock(Vec::new())).into(),
+                source_location: None,
             }))
         }
         (te, fe) => {
@@ -130,6 +135,7 @@ fn merge_condition_branches(
                     condition,
                     true_expr: te.into(),
                     false_expr: fe.into(),
+                    source_location: None,
                 },
             }
         }
@@ -328,6 +334,7 @@ fn continue_codeblock(
         }))
         .into_return_object(ty, &ctx.ret_ty, symbol_counters)
         .into(),
+        source_location: None,
     });
     ExpressionResult::ReturnObject {
         value: Expression::CodeBlock(stmts),
@@ -388,6 +395,7 @@ impl ExpressionResult {
                     condition: condition.into(),
                     true_expr: actual_value.unwrap_or(Expression::CodeBlock(Vec::new())).into(),
                     false_expr: returned_value.unwrap_or(Expression::CodeBlock(Vec::new())).into(),
+                    source_location: None,
                 });
                 Expression::CodeBlock(pre_statements)
             }
@@ -421,6 +429,7 @@ impl ExpressionResult {
                             Expression::default_value_for_type(ty)
                         }
                         .into(),
+                        source_location: None,
                     },
                 ])
             }
@@ -504,6 +513,7 @@ impl ExpressionResult {
                     condition: condition.into(),
                     true_expr: true_expr.into(),
                     false_expr: false_expr.into(),
+                    source_location: None,
                 };
                 codeblock_with_expr(pre_statements, o)
             }

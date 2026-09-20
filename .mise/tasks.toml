@@ -39,20 +39,6 @@ wait_for = ["fix:toml:format"]
 run = "cargo metadata --locked --format-version=1 > /dev/null || (echo \"### Updating Tests Lockfile! ###\" && cargo update)"
 dir = "tests"
 
-# The workspaces share one target/ directory, which cargo only reuses while
-# their [profile.*] settings match. What this cannot fix, lint:rust:profiles reports.
-["fix:rust:profiles"]
-description = "Sync the workspace [profile.*] settings with the root workspace"
-run = "cargo xtask check_profiles --fix-it"
-depends = ["fix:rust:lockfile:root"]
-# Edits the same manifests as the formatters and the copyright task, so don't
-# run concurrently with them.
-wait_for = ["fix:toml:format", "fix:legal:copyright"]
-
-["lint:rust:profiles"]
-description = "Check that every workspace's [profile.*] matches the root workspace"
-run = "cargo xtask check_profiles"
-
 ["fix:legal:copyright"]
 description = "Run the check_license_headers --fix xtask"
 run = "cargo xtask check_license_headers --fix-it"
@@ -137,6 +123,17 @@ depends = ["prepare:pnpm-install"]
 
 ### Lints
 
+["lint:python"]
+description = "Run Ruff and ty on the standalone scripts"
+# scripts/ has no uv project of its own, so borrow the ruff and ty pinned in
+# api/python/slint's dev group, the versions the Python packages are linted with.
+# The packages themselves are checked from their own directories in the python
+# workflow, which ruff needs to resolve their first-party imports.
+run = """
+uv run --project api/python/slint --only-group dev ruff check scripts
+uv run --project api/python/slint --only-group dev ty check scripts
+"""
+
 ["lint:spell"]
 description = "Run cspell"
 run = "pnpm spellcheck"
@@ -196,7 +193,6 @@ depends = [
   "fix:legal:copyright",
   "fix:python:format",
   "fix:rust:format:all",
-  "fix:rust:profiles",
   "fix:text:trailing_spaces",
   "fix:toml:format",
   "fix:pnpm:lock",
@@ -211,4 +207,4 @@ depends = [
 
 ["ci:autofix:lint"]
 description = "CI autofix job -- lint steps"
-depends = ["lint:legal:reuse", "lint:rust:profiles", "lint:ts:typecheck", "lint:ts:knip"]
+depends = ["lint:legal:reuse", "lint:python", "lint:ts:typecheck", "lint:ts:knip"]

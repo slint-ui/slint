@@ -3,7 +3,7 @@
 
 [package]
 name = "home-automation"
-version = "1.18.0"
+version = "1.18.1"
 authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
 publish = false
@@ -19,10 +19,11 @@ path = "lib.rs"
 name = "home_automation_lib"
 
 [dependencies]
-slint = { path = "../../../api/rs/slint", features = ["backend-android-activity-06"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["compat-1-18", "std", "backend-android-activity-06"] }
 chrono = "0.4"
 
 [features]
+default = ["slint/default"]
 sw-renderer = []
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

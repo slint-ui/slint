@@ -78,8 +78,8 @@ canvas and direct context, resize, and report the bits per pixel and whether par
 available. `render()` returns a `DrawOutcome`, so a surface can say it was occluded or timed out
 instead of drawing. See `Surface` in `internal/renderers/skia/lib.rs`.
 
-Available surface implementations: `OpenGLSurface`, `MetalSurface`, `VulkanSurface`, `D3DSurface`,
-`SoftwareSurface`, and one `WGPUSurface` per supported wgpu version.
+Available surface implementations: `OpenGLSurface`, `SoftwareSurface`, and one `WGPUSurface`
+per supported wgpu version.
 
 ### Software Renderer Pattern: Scene Building
 
@@ -243,9 +243,6 @@ internal/renderers/
 │   ├── lib.rs           # SkiaRenderer, Surface trait
 │   ├── itemrenderer.rs  # SkiaItemRenderer (ItemRenderer impl)
 │   ├── opengl_surface.rs
-│   ├── metal_surface.rs
-│   ├── vulkan_surface.rs
-│   ├── d3d_surface.rs
 │   ├── software_surface.rs
 │   ├── wgpu_29_surface.rs / wgpu_30_surface.rs
 │   └── wgpu_renderer.rs

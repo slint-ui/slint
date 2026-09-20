@@ -14,7 +14,7 @@ use crate::expression_tree::{
 use crate::langtype::{ElementType, Enumeration, EnumerationValue, PropertyLookupMode, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{ElementRc, PropertyVisibility};
-use crate::parser::NodeOrToken;
+use crate::parser::{NodeOrToken, TextRange, TextSize};
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, format_smolstr};
@@ -61,6 +61,10 @@ pub struct LookupCtx<'a> {
 
     /// A stack of local variable scopes
     pub local_variables: Vec<Vec<(SmolStr, Type)>>,
+
+    /// LSP probe: while resolving, the `Type` is set to the `expected_type` at the innermost
+    /// node containing the offset. `None` during normal compilation.
+    pub expected_type_probe: Option<(TextSize, Type)>,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -82,6 +86,7 @@ impl<'a> LookupCtx<'a> {
             type_loader: None,
             current_token: None,
             local_variables: Default::default(),
+            expected_type_probe: None,
         }
     }
 
@@ -96,6 +101,31 @@ impl<'a> LookupCtx<'a> {
     /// or the builtin widget library, which may use them.
     fn experimental_lookup_enabled(&self) -> bool {
         self.diag.enable_experimental || self.type_register.expose_internal_types
+    }
+
+    /// Arm the LSP probe at `offset`, seeded with the current `expected_type` as fallback.
+    pub fn set_expected_type_probe(&mut self, offset: TextSize) {
+        self.expected_type_probe = Some((offset, self.expected_type.clone()));
+    }
+
+    /// The armed probe's offset, or `None` during normal compilation.
+    pub fn expected_type_probe_offset(&self) -> Option<TextSize> {
+        self.expected_type_probe.as_ref().map(|(offset, _)| *offset)
+    }
+
+    /// Disarm the probe and return the type recorded at its offset.
+    pub fn take_expected_type_probe(&mut self) -> Option<Type> {
+        self.expected_type_probe.take().map(|(_, ty)| ty)
+    }
+
+    /// Record `ty` on the probe when its offset is in `range` — for a slot with no expression
+    /// node (the empty element/argument left by a trailing comma).
+    pub fn record_expected_type_probe(&mut self, range: TextRange, ty: &Type) {
+        if let Some((offset, slot)) = &mut self.expected_type_probe
+            && range.contains_inclusive(*offset)
+        {
+            *slot = ty.clone();
+        }
     }
 
     /// Run `f` with `expected_type` temporarily set to `ty`, restoring it afterwards.
@@ -827,6 +857,7 @@ impl LookupObject for EasingSpecific {
         r.or_else(|| {
             f(&SmolStr::new_static("cubic-bezier"), BuiltinMacroFunction::CubicBezier.into())
         })
+        .or_else(|| f(&SmolStr::new_static("spring"), BuiltinMacroFunction::Spring.into()))
     }
 }
 
@@ -862,6 +893,13 @@ impl LookupObject for Arc<Enumeration> {
             return None;
         }
         for (value, name) in self.values.iter().enumerate() {
+            // Don't offer `auto` in completion for `cross-axis-alignment`, where setting it is an error; `lookup` stays unfiltered.
+            if name == "auto"
+                && Arc::ptr_eq(self, &crate::typeregister::BUILTIN.enums.CrossAxisAlignment)
+                && ctx.property_name == Some("cross-axis-alignment")
+            {
+                continue;
+            }
             if let Some(r) = f(
                 name,
                 Expression::EnumerationValue(EnumerationValue { value, enumeration: self.clone() })
@@ -871,6 +909,18 @@ impl LookupObject for Arc<Enumeration> {
             }
         }
         None
+    }
+
+    fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
+        // Builtin enums are not in the Slint SC subset.
+        if ctx.diag.is_slint_sc() && self.node.is_none() {
+            return None;
+        }
+        let value = self.values.iter().position(|v| v == name)?;
+        Some(
+            Expression::EnumerationValue(EnumerationValue { value, enumeration: self.clone() })
+                .into(),
+        )
     }
 }
 

@@ -29,6 +29,8 @@ pub enum CustomEvent {
     WakeEventLoopWorkaround,
     /// Slint internal: Invoke the
     UserEvent(Box<dyn FnOnce() + Send>),
+    /// Invoke the callback with the [`ActiveEventLoop`], for [`crate::invoke_from_active_event_loop`]
+    UserEventWithEventLoop(Box<dyn FnOnce(&ActiveEventLoop) + Send>),
     /// Emitted from quit_event_loop with the current event loop generation
     Exit(usize),
     #[cfg(enable_accesskit)]
@@ -43,6 +45,7 @@ impl std::fmt::Debug for CustomEvent {
             #[cfg(target_arch = "wasm32")]
             Self::WakeEventLoopWorkaround => write!(f, "WakeEventLoopWorkaround"),
             Self::UserEvent(_) => write!(f, "UserEvent"),
+            Self::UserEventWithEventLoop(_) => write!(f, "UserEventWithEventLoop"),
             Self::Exit(_) => write!(f, "Exit"),
             #[cfg(enable_accesskit)]
             Self::Accesskit(a) => write!(f, "AccessKit({a:?})"),
@@ -141,7 +144,13 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             return;
         }
 
-        if let Err(err) = window.dispatch_winit_window_event(event_loop, &winit_window, event) {
+        let result = window.dispatch_winit_window_event(event_loop, &winit_window, &event);
+
+        // A window hidden during the dispatch looks kept alive until this reference is gone.
+        drop(winit_window);
+        self.shared_backend_data.warn_about_windows_kept_alive();
+
+        if let Err(err) = result {
             self.loop_error = Some(err);
             event_loop.exit();
         }
@@ -150,6 +159,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SlintEvent) {
         match event.0 {
             CustomEvent::UserEvent(user_callback) => user_callback(),
+            CustomEvent::UserEventWithEventLoop(user_callback) => user_callback(event_loop),
             CustomEvent::Exit(generation) => {
                 if self
                     .shared_backend_data
@@ -217,6 +227,8 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         self.shared_backend_data.flush_pending_mouse_move();
+        // For the windows hidden outside of a window event, from a timer for example.
+        self.shared_backend_data.warn_about_windows_kept_alive();
 
         if matches!(
             self.custom_application_handler

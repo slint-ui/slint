@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use napi::Result;
+use napi::{Env, Result};
 use slint_interpreter::ComponentDefinition;
 
 use super::{JsComponentInstance, JsProperty};
@@ -68,7 +68,13 @@ impl JsComponentDefinition {
     }
 
     #[napi]
-    pub fn create(&self) -> Result<JsComponentInstance> {
+    pub fn create(&self, env: Env) -> Result<JsComponentInstance> {
+        // Install the log handler before the instantiation, so that `debug()` in an
+        // `init` callback is routed too.
+        i_slint_backend_selector::with_global_context(|ctx| {
+            crate::install_log_message_handler(&env, ctx)
+        })
+        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
         Ok(self.internal.create().map_err(|e| napi::Error::from_reason(e.to_string()))?.into())
     }
 

@@ -480,35 +480,51 @@ impl ItemRc {
             if stop_condition(&parent) {
                 break;
             }
-            if supports_transformations
-                && let Some(children_transform) = parent.children_transform()
-            {
-                transform = transform.then(&children_transform);
-            }
-            transform = transform.then_translate(parent.geometry().origin.to_vector().cast());
+            transform = transform.then(&parent.step_transform(supports_transformations));
             current = parent;
         }
         transform
     }
 
+    /// The transform from this item's children's coordinate space to its parent's:
+    /// the children transform (scale/rotate), then the translation to the item's origin.
+    fn step_transform(&self, supports_transformations: bool) -> ItemTransform {
+        let origin = self.geometry().origin.to_vector().cast();
+        let mut step = ItemTransform::translation(origin.x, origin.y);
+        if supports_transformations && let Some(children_transform) = self.children_transform() {
+            step = children_transform.then(&step);
+        }
+        step
+    }
+
     /// Returns the clip rect that applies to this item (in window coordinates) as well as the
     /// item's (unclipped) geometry (also in window coordinates).
     fn absolute_clip_rect_and_geometry(&self) -> (LogicalRect, LogicalRect) {
-        let geometry = self
-            .local_to_window_transform(|_| false)
-            .outer_transformed_rect(&self.geometry().cast())
-            .cast();
+        let supports_transformations = self
+            .window_adapter()
+            .is_none_or(|adapter| adapter.renderer().supports_transformations());
 
-        // Intersect the clip rects contributed by all clipping ancestors.
-        let mut clip = LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into());
+        let mut ancestors = Vec::new();
         let mut cur = self.parent_item(ParentItemTraversalMode::StopAtPopups);
-        while let Some(ref ancestor) = cur {
+        while let Some(ancestor) = cur {
+            cur = ancestor.parent_item(ParentItemTraversalMode::StopAtPopups);
+            ancestors.push(ancestor);
+        }
+
+        // `transform` maps the ancestor's parent's space to window coordinates; each step
+        // composes before the accumulated chain, like in `local_to_window_transform`.
+        let mut clip = LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into());
+        let mut transform = ItemTransform::identity();
+        for ancestor in ancestors.iter().rev() {
             if ancestor.borrow().as_ref().clips_children() {
-                let (_, ancestor_geom) = ancestor.absolute_clip_rect_and_geometry();
+                let ancestor_geom =
+                    transform.outer_transformed_rect(&ancestor.geometry().cast()).cast();
                 clip = ancestor_geom.intersection(&clip).unwrap_or_default();
             }
-            cur = ancestor.parent_item(ParentItemTraversalMode::StopAtPopups);
+            transform = ancestor.step_transform(supports_transformations).then(&transform);
         }
+
+        let geometry = transform.outer_transformed_rect(&self.geometry().cast()).cast();
 
         (clip, geometry)
     }
@@ -661,7 +677,16 @@ impl ItemRc {
         p: LogicalPoint,
         item_tree: &vtable::VRc<ItemTreeVTable>,
     ) -> LogicalPoint {
-        self.map_to_item_tree_impl(p, |current| current.is_root_item_of(item_tree))
+        self.transform_to_item_tree(item_tree).transform_point(p.cast()).cast()
+    }
+
+    /// Returns the transform mapping this item's coordinate system to the `ItemTree`'s
+    /// (does not add this item's x and y).
+    ///
+    /// Use this over repeated [`Self::map_to_item_tree`] calls when mapping more than one point:
+    /// each of those walks the ancestor chain to build this transform and then drops it.
+    pub fn transform_to_item_tree(&self, item_tree: &vtable::VRc<ItemTreeVTable>) -> ItemTransform {
+        self.transform_to_ancestor_impl(|current| current.is_root_item_of(item_tree))
     }
 
     /// Returns an absolute position of `p` in the `ancestor`'s coordinate system
@@ -676,10 +701,14 @@ impl ItemRc {
         p: LogicalPoint,
         stop_condition: impl Fn(&Self) -> bool,
     ) -> LogicalPoint {
+        self.transform_to_ancestor_impl(stop_condition).transform_point(p.cast()).cast()
+    }
+
+    fn transform_to_ancestor_impl(&self, stop_condition: impl Fn(&Self) -> bool) -> ItemTransform {
         if stop_condition(self) {
-            return p;
+            return ItemTransform::identity();
         }
-        self.local_to_window_transform(stop_condition).transform_point(p.cast()).cast()
+        self.local_to_window_transform(stop_condition)
     }
 
     /// Return the index of the item within the ItemTree
@@ -2978,6 +3007,32 @@ mod tests {
         let (clip_rect, leaf_geometry) = leaf.absolute_clip_rect_and_geometry();
         assert!(clip_rect.intersection(&leaf_geometry).is_some());
         assert!(!clip_rect.contains(hidden_point));
+    }
+
+    #[test]
+    fn test_absolute_clip_rect_and_geometry_under_transform() {
+        let (_window_adapter, item_tree) = create_transform_test_items();
+        let root = ItemRc::new_root(item_tree);
+        let transform = root.first_child().unwrap();
+        let clip = transform.first_child().unwrap();
+        let leaf = clip.first_child().unwrap();
+
+        let (clip_rect, leaf_geometry) = leaf.absolute_clip_rect_and_geometry();
+        // The clip item (5,6,20x20) scaled by (2,3) and offset by the transform
+        // item's position (10,20).
+        assert_point_approx_eq(clip_rect.origin, Point2D::new(20., 38.));
+        assert_point_approx_eq(
+            Point2D::new(clip_rect.width(), clip_rect.height()),
+            Point2D::new(40., 60.),
+        );
+        // The leaf (8,4,10x10) offset by the clip item's position (5,6), scaled by (2,3),
+        // and offset by the transform item's position (10,20). The scale must apply to the
+        // clip item's offset too: it lives in the transform item's coordinate space.
+        assert_point_approx_eq(leaf_geometry.origin, Point2D::new(36., 50.));
+        assert_point_approx_eq(
+            Point2D::new(leaf_geometry.width(), leaf_geometry.height()),
+            Point2D::new(20., 30.),
+        );
     }
 
     #[test]

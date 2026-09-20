@@ -116,6 +116,14 @@ export default defineConfig({
         domains: ["cdn.pixabay.com"],
     },
     vite: {
+        environments: {
+            prerender: {
+                resolve: {
+                    // Starlight requires js-yaml 4's default export during prerendering.
+                    noExternal: ["js-yaml"],
+                },
+            },
+        },
         build: {
             cssMinify: false,
         },

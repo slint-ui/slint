@@ -170,6 +170,7 @@ impl ChangeTracker {
                 mark_dirty: ChangeTracker::mark_dirty,
                 intercept_set: |_, _| false,
                 intercept_set_binding: |_, _| false,
+                velocity: |_| None,
             };
         }
         let holder = BindingHolder {
@@ -209,7 +210,7 @@ impl ChangeTracker {
     }
 
     /// Test helper: the number of dependency nodes the bound holder currently owns.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "ffi"))]
     pub(crate) fn test_dep_node_count(&self) -> usize {
         let inner = self.inner.get();
         if inner.is_null() {

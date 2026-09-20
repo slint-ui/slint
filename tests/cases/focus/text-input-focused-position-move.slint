@@ -1,0 +1,92 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+
+    callback set_focus();
+    set_focus => {
+        ti.focus();
+    }
+
+    callback move_textinput_x();
+    move_textinput_x => {
+        rect.x += 10px;
+    }
+
+    callback move_textinput_y();
+    move_textinput_y => {
+        rect.y += 10px;
+    }
+
+    VerticalLayout {
+        Rectangle {
+            background: blue;
+            TouchArea {
+                clicked => {
+                    move_textinput_x();
+                }
+            }
+        }
+        Rectangle {
+            background: green;
+            TouchArea {
+                clicked => {
+                    move_textinput_y();
+                }
+            }
+        }
+    }
+
+    rect:= Rectangle {
+        x: 0;
+        y: 0;
+        background: red;
+        width: ti.width;
+        height: ti.height;
+        ti:= TextInput {
+            width: 100px;
+            height: 100px;
+            text: "Empty";
+        }
+    }
+}
+
+/*
+```rust
+use slint::private_unstable_api::re_exports::InputMethodRequest;
+use slint::LogicalPosition;
+
+let instance = TestCase::new().unwrap();
+
+fn ime_requests(instance: &TestCase) -> Vec<InputMethodRequest> {
+    slint_testing::access_testing_window(instance.window(), |w| w.ime_requests())
+}
+
+assert!(ime_requests(&instance).is_empty(), "Ime requests not empty: {:?}", ime_requests(&instance));
+
+instance.invoke_set_focus();
+
+let requests = ime_requests(&instance);
+assert_eq!(requests.len(), 1, "Ime requests not empty: {:?}", requests);
+let relevant_request = &requests[0];
+if let InputMethodRequest::Enable(p) = relevant_request {
+    assert_eq!(p.cursor_rect_origin, LogicalPosition::new(0., 0.), "The Textinput must be at the top left corner of the window");
+} else {
+    assert!(false, "InputMethodRequest must be enable but it is: {:?}", relevant_request);
+}
+
+instance.invoke_move_textinput_x();
+slint_testing::mock_elapsed_time(0);
+
+let requests = ime_requests(&instance);
+assert_eq!(requests.len(), 2, "Ime requests: {:?}", requests);
+let relevant_request = &requests[1];
+if let InputMethodRequest::Update(p) = relevant_request {
+    assert_eq!(p.cursor_rect_origin, LogicalPosition::new(10., 0.), "The position of the textinput has changed so the cursor must change as well");
+} else {
+    assert!(false, "InputMethodRequest must be update but it is: {:?}", relevant_request);
+}
+```
+
+
+*/

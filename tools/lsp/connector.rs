@@ -13,6 +13,8 @@ pub use wasm::*;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
+pub use crate::editor_preview::child_process::ChildProcessLspToPreview;
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]

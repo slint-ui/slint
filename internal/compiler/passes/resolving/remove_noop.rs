@@ -39,7 +39,7 @@ pub fn remove_from_codeblock(
 /// contain side effects.
 fn without_side_effects(expression: &Expression) -> bool {
     match expression {
-        Expression::Condition { condition, true_expr, false_expr } => {
+        Expression::Condition { condition, true_expr, false_expr, .. } => {
             without_side_effects(condition)
                 && without_side_effects(true_expr)
                 && without_side_effects(false_expr)

@@ -1770,7 +1770,11 @@ impl TextInput {
         }
     }
 
-    fn update_ime(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+    pub(crate) fn update_ime(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
         if self.read_only() || !self.has_focus() {
             return;
         }

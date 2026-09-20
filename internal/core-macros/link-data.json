@@ -35,7 +35,7 @@
     "DragAndDrop": {
         "href": "guide/development/drag-and-drop/"
     },
-    "data_transfer": {
+    "data-transfer": {
         "href": "reference/property-types/other-types/#data-transfer"
     },
     "DragAction": {
@@ -68,7 +68,7 @@
     "Edges": {
         "href": "reference/property-types/builtin-structs/#edges"
     },
-    "EnumType": {
+    "enum": {
         "href": "reference/property-types/builtin-enums/"
     },
     "EventResult": {
@@ -110,11 +110,14 @@
     "Image": {
         "href": "reference/elements/image/"
     },
-    "ImageType": {
+    "image": {
         "href": "reference/property-types/images/#image"
     },
     "int": {
         "href": "reference/property-types/numeric-types/#int"
+    },
+    "iterations-and-directions": {
+        "href": "reference/language/animations/#iterations-and-directions"
     },
     "KeyEvent": {
         "href": "reference/keyboard-input/overview/"
@@ -173,7 +176,7 @@
     "percent": {
         "href": "reference/property-types/numeric-types/#percent"
     },
-    "physicalLength": {
+    "physical-length": {
         "href": "reference/property-types/numeric-types/#physical-length"
     },
     "PopupWindow": {
@@ -191,11 +194,14 @@
     "Rectangle": {
         "href": "reference/elements/rectangle/"
     },
-    "relativeFontSize": {
+    "relative-font-size": {
         "href": "reference/property-types/numeric-types/#relative-font-size"
     },
     "Size": {
         "href": "reference/property-types/builtin-structs/#size"
+    },
+    "Spring Animation": {
+        "href": "reference/language/animations/#spring-animations"
     },
     "slintFile": {
         "href": "guide/language/coding/file/"
@@ -209,7 +215,7 @@
     "SystemTrayIcon": {
         "href": "reference/window/systemtrayicon/"
     },
-    "styled_text": {
+    "styled-text": {
         "href": "reference/property-types/strings/#styled-text"
     },
     "callback": {
@@ -221,10 +227,10 @@
     "StandardButton": {
         "href": "reference/std-widgets/basic-widgets/standardbutton/"
     },
-    "StringType": {
+    "string": {
         "href": "reference/property-types/strings/#string"
     },
-    "StructType": {
+    "struct": {
         "href": "reference/property-types/builtin-structs/"
     },
     "StyleWidgets": {

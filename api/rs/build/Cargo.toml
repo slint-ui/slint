@@ -18,7 +18,7 @@ categories = ["gui", "rendering::engine", "development-tools::build-utils"]
 path = "lib.rs"
 
 [features]
-default = ["compat-1-18", "renderer-software", "image-default-formats"]
+default = ["compat-1-18", "renderer-software"]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 1.18.
@@ -31,6 +31,9 @@ default = ["compat-1-18", "renderer-software", "image-default-formats"]
 ## Enables the [`EmbedResourcesKind::EmbedForSoftwareRenderer`] variant.
 renderer-software = ["i-slint-compiler/renderer-software", "dep:fontique"]
 ## Support additional image formats when embedding images for the `renderer-software` feature.
+## Without this feature, only PNG and JPEG are supported. Not enabled by default: most projects
+## embed a `.slint` UI's own PNG/JPEG assets, and this feature's decoder dependencies are only
+## reachable when `CompilerConfiguration::embed_resources` is set to `EmbedForSoftwareRenderer`.
 image-default-formats = ["i-slint-compiler/image-default-formats"]
 ## Enable the [`CompilerConfiguration::with_sdf_fonts`] function that encodes the fonts embedded for
 ## the software renderer as scalable signed distance fields, to reduce their size.

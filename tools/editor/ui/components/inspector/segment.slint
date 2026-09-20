@@ -1,22 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style, Metrics, SegmentStyle } from "../../style.slint";
 import { InspectorSegmentIcon } from "segment-icon.slint";
-import { InspectorTokens } from "tokens.slint";
 
 export component InspectorSegment inherits Rectangle {
+    in property <SegmentStyle> style: Style.segment;
     in property <string> kind;
     in property <int> index;
     in property <bool> selected;
     in property <string> label: "\{root.kind} option \{root.index + 1}";
     callback clicked;
 
-    height: InspectorTokens.field-height;
+    height: root.style.height;
     horizontal-stretch: 1;
-    background: selected ? InspectorTokens.panel-bg : touch.has-hover || segment-focus.has-focus ? InspectorTokens.field-bg-hover : transparent;
-    border-radius: selected ? InspectorTokens.field-radius : 0px;
-    border-width: segment-focus.has-focus ? 2px : selected ? 1px : 0px;
-    border-color: segment-focus.has-focus ? InspectorTokens.accent : InspectorTokens.divider;
+    background: selected ? root.style.selected-surface : touch.has-hover || segment-focus.has-focus ? root.style.hover : transparent;
+    border-radius: selected ? root.style.radius : 0px;
+    border-width: segment-focus.has-focus ? Metrics.focus-width : selected ? Metrics.border-width : 0px;
+    border-color: segment-focus.has-focus ? root.style.focus-border : root.style.border;
     accessible-role: button;
     accessible-label: root.label;
     accessible-checked: root.selected;
@@ -34,7 +35,16 @@ export component InspectorSegment inherits Rectangle {
         }
     }
 
-    InspectorSegmentIcon {
+    if root.kind == "text": Text {
+        text: root.label;
+        color: root.style.foreground;
+        font-size: root.style.text.size;
+        font-weight: root.style.text.weight;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if root.kind != "text": InspectorSegmentIcon {
+        style: root.style;
         kind: root.kind;
         index: root.index;
         selected: root.selected;

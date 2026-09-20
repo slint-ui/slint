@@ -68,17 +68,20 @@ impl Item for NativeLineEdit {
 
         let paddings = Rc::pin(Property::default());
 
+        let widget = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
+
         paddings.as_ref().set_binding(move || {
-            cpp!(unsafe [] -> qttypes::QMargins as "QMargins" {
+            cpp!(unsafe [widget as "QWidget*"] -> qttypes::QMargins as "QMargins" {
                 ensure_initialized();
                 QStyleOptionFrame option;
                 option.state |= QStyle::State_Enabled;
-                option.lineWidth = 1;
+                option.lineWidth = qApp->style()->pixelMetric(
+                    QStyle::PM_DefaultFrameWidth, &option, widget);
                 option.midLineWidth = 0;
                 // Just some size big enough to be sure that the frame fits in it
                 option.rect = QRect(0, 0, 10000, 10000);
                 QRect contentsRect = qApp->style()->subElementRect(
-                    QStyle::SE_LineEditContents, &option);
+                    QStyle::SE_LineEditContents, &option, widget);
 
                 // ### remove extra margins
 
@@ -197,7 +200,8 @@ impl Item for NativeLineEdit {
             option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);
-            option.lineWidth = 1;
+            option.lineWidth = qApp->style()->pixelMetric(
+                QStyle::PM_DefaultFrameWidth, &option, widget);
             option.midLineWidth = 0;
             if (enabled) {
                 option.state |= QStyle::State_Enabled;

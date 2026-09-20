@@ -1,0 +1,78 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// When a function reads the same property twice, the compiler reads it once
+// into a local variable at the start of the function and uses that twice.
+// Each function below calls something that changes the property and then reads it twice.
+// The reads must see the new value, so the single read can't be moved above the call.
+// A read that already sits before the call must keep the old value.
+
+export component TestCase inherits Window {
+    in-out property <string> label: "a";
+
+    function set-label-to-hello() {
+        label = "hello";
+    }
+
+    // 5 + 5 = 10. A read moved above the call sees "a" and gives 1 + 1 = 2.
+    function label-length-after-call() -> int {
+        set-label-to-hello();
+        return label.character-count + label.character-count;
+    }
+
+    ti := TextInput { }
+
+    // Same with a built-in function: focus() sets ti.has-focus.
+    // 1 + 1 = 2. A read moved above the call sees false and gives 0.
+    function focus-count-after-call() -> int {
+        ti.focus();
+        return (ti.has-focus ? 1 : 0) + (ti.has-focus ? 1 : 0);
+    }
+
+    // 1 + 5 = 6. Merging the two reads gives 1 + 1 = 2, moving the first below the call 5 + 5 = 10.
+    function label-length-around-call() -> int {
+        let before = label.character-count;
+        set-label-to-hello();
+        return before + label.character-count;
+    }
+
+    out property <int> label-length;
+    out property <int> focus-count;
+    out property <int> label-length-around;
+
+    init => {
+        label-length = label-length-after-call();
+        focus-count = focus-count-after-call();
+        label = "a";
+        label-length-around = label-length-around-call();
+    }
+
+    out property <bool> test: label-length == 10 && focus-count == 2 && label-length-around == 6;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_label_length(), 10);
+assert_eq!(instance.get_focus_count(), 2);
+assert_eq!(instance.get_label_length_around(), 6);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_label_length(), 10);
+assert_eq(instance.get_focus_count(), 2);
+assert_eq(instance.get_label_length_around(), 6);
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert.equal(instance.label_length, 10);
+assert.equal(instance.focus_count, 2);
+assert.equal(instance.label_length_around, 6);
+assert(instance.test);
+```
+*/

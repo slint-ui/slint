@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore dontcrash
+// cSpell: ignore descendents dontcrash
 
 #[allow(unused_imports)]
 use i_slint_core::api::ComponentHandle;
@@ -120,6 +120,7 @@ fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInn
         code.into(),
         Default::default(),
         config,
+        crate::AnimationMode::Running,
     ));
     assert!(
         result
@@ -130,6 +131,109 @@ fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInn
         result.diagnostics
     );
     result.components.get(name).expect("component should compile").create()
+}
+
+#[cfg(feature = "internal")]
+fn compile_motion_test(code: &str, static_preview: bool) -> crate::ComponentInstance {
+    let compiler = crate::Compiler::default();
+    let result = if static_preview {
+        use i_slint_core::InternalToken;
+
+        spin_on::spin_on(compiler.build_static_from_source(
+            code.into(),
+            std::path::PathBuf::from("test.slint"),
+            InternalToken,
+        ))
+    } else {
+        spin_on::spin_on(
+            compiler.build_from_source(code.into(), std::path::PathBuf::from("test.slint")),
+        )
+    };
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    result.component("MotionTest").unwrap().create().unwrap()
+}
+
+#[cfg(feature = "internal")]
+#[test]
+fn static_preview_stops_runtime_motion() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Value;
+
+    let code = r#"
+        export component MotionTest {
+            out property <int> timer-count: 0;
+            out property <int> tick: animation-tick() / 1ms;
+            out property <bool> initialized: false;
+            in-out property <int> animated-value: 0;
+            in-out property <int> active-index: 0;
+            in-out property <int> transitioned-value: 5;
+
+            animate animated-value { duration: 1s; }
+
+            timer := Timer {
+                interval: 100ms;
+                running: true;
+                triggered => { root.timer-count += 1; }
+            }
+
+            states [
+                active when root.active-index == 1: {
+                    transitioned-value: 200;
+                    in {
+                        animate transitioned-value { duration: 1s; }
+                    }
+                }
+            ]
+
+            init => {
+                root.initialized = true;
+                root.animated-value = 100;
+                timer.restart();
+            }
+
+            public function update() {
+                root.animated-value = 200;
+                root.active-index = 1;
+                timer.stop();
+                timer.start();
+                timer.restart();
+            }
+        }
+    "#;
+
+    let static_instance = compile_motion_test(code, true);
+    assert_eq!(static_instance.get_property("initialized"), Ok(Value::Bool(true)));
+    assert_eq!(static_instance.get_property("animated-value"), Ok(Value::Number(100.)));
+    static_instance.invoke("update", &[]).unwrap();
+    for (property_name, expected_value) in
+        [("timer-count", 0.), ("tick", 0.), ("animated-value", 200.), ("transitioned-value", 200.)]
+    {
+        assert_eq!(static_instance.get_property(property_name), Ok(Value::Number(expected_value)));
+    }
+    i_slint_backend_testing::mock_elapsed_time(500);
+    assert_eq!(static_instance.get_property("timer-count"), Ok(Value::Number(0.)));
+    assert_eq!(static_instance.get_property("tick"), Ok(Value::Number(0.)));
+
+    let dynamic_instance = compile_motion_test(code, false);
+    let initial_tick = dynamic_instance.get_property("tick").unwrap();
+    assert_eq!(dynamic_instance.get_property("transitioned-value"), Ok(Value::Number(5.)));
+    dynamic_instance.invoke("update", &[]).unwrap();
+    assert_eq!(dynamic_instance.get_property("transitioned-value"), Ok(Value::Number(5.)));
+    i_slint_backend_testing::mock_elapsed_time(500);
+    let Value::Number(initial_tick) = initial_tick else { unreachable!() };
+    let Ok(Value::Number(dynamic_tick)) = dynamic_instance.get_property("tick") else {
+        unreachable!()
+    };
+    let Ok(Value::Number(timer_count)) = dynamic_instance.get_property("timer-count") else {
+        unreachable!()
+    };
+    let Ok(Value::Number(transitioned_value)) = dynamic_instance.get_property("transitioned-value")
+    else {
+        unreachable!()
+    };
+    assert!(dynamic_tick > initial_tick);
+    assert!(timer_count > 0.);
+    assert!(transitioned_value > 5. && transitioned_value < 200.);
 }
 
 /// Nested sub-component composition.
@@ -388,6 +492,7 @@ fn interpreter_path_elements() {
         code.into(),
         Default::default(),
         config,
+        crate::AnimationMode::Running,
     ));
     assert!(
         result
@@ -450,6 +555,95 @@ fn context_debug_handler_overrides_platform() {
         )
         .is_empty()
     );
+
+    set_global_log_message_handler(previous);
+}
+
+#[test]
+fn log_messages_carry_the_slint_source_location() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let captured = Rc::new(RefCell::new(Vec::new()));
+    let previous = set_global_log_message_handler(Some(Box::new({
+        let captured = captured.clone();
+        move |message: i_slint_core::debug_log::LogMessage<'_>| {
+            let location = message.location().map(|l| (l.path.to_string(), l.line, l.column));
+            captured.borrow_mut().push((message.message_arguments().to_string(), location));
+        }
+    })));
+
+    let code = r#"
+export component MainWindow inherits Window {
+    init => { debug("located"); }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(
+        compiler.build_from_source(code.into(), std::path::PathBuf::from("test.slint")),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("MainWindow").unwrap();
+    let _instance = definition.create().unwrap();
+
+    {
+        let captured = captured.borrow();
+        assert_eq!(captured.len(), 1, "unexpected messages: {captured:?}");
+        assert_eq!(captured[0].0, "located");
+        let location = captured[0].1.as_ref().expect("the message has a location");
+        assert_eq!(location.0, "test.slint");
+        assert_eq!(location.1, 3, "the debug() call is on line 3");
+    }
+
+    set_global_log_message_handler(previous);
+}
+
+#[test]
+fn rejected_model_modification_reports_the_source_location() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let captured = Rc::new(RefCell::new(Vec::new()));
+    let previous = set_global_log_message_handler(Some(Box::new({
+        let captured = captured.clone();
+        move |message: i_slint_core::debug_log::LogMessage<'_>| {
+            let location = message.location().map(|l| (l.path.to_string(), l.line));
+            captured.borrow_mut().push((message.message_arguments().to_string(), location));
+        }
+    })));
+
+    let code = r#"
+export component MainWindow inherits Window {
+    in-out property <[int]> ints: [1, 2, 3];
+    public function remove-one() { ints.remove(42); }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(
+        compiler.build_from_source(code.into(), std::path::PathBuf::from("test.slint")),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("MainWindow").unwrap();
+    let instance = definition.create().unwrap();
+    instance.invoke("remove-one", &[]).unwrap();
+
+    {
+        let captured = captured.borrow();
+        assert_eq!(captured.len(), 1, "unexpected messages: {captured:?}");
+        assert_eq!(
+            captured[0].0,
+            "array.remove(): the row index is out of bounds (the model has 3 rows)"
+        );
+        let location = captured[0].1.as_ref().expect("the message has a location");
+        assert_eq!(location.0, "test.slint");
+        assert_eq!(location.1, 4, "the remove call is on line 4");
+    }
 
     set_global_log_message_handler(previous);
 }
@@ -652,4 +846,57 @@ fn accent_color_reachable_from_global() {
     .unwrap();
     let after = instance.get_property("accent").unwrap();
     assert_ne!(before, after, "accent-background should follow the system accent color");
+}
+
+#[test]
+fn text_runs_belong_to_the_nearest_accessible_item() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, ComponentHandle};
+    use i_slint_core::accessibility::{
+        AccessibleStringProperty, accessible_descendents, find_exposed_text_input,
+        find_text_input_with_rc,
+    };
+    use i_slint_core::items::ItemRc;
+    use i_slint_core::window::WindowInner;
+
+    // `nested` leaves its TextInput accessible, `hidden` doesn't.
+    let code = r#"
+        export component App inherits Window {
+            HorizontalLayout {
+                nested := Rectangle {
+                    accessible-role: text-input;
+                    accessible-label: "nested";
+                    TextInput { text: "one"; }
+                }
+                hidden := Rectangle {
+                    accessible-role: text-input;
+                    accessible-label: "hidden";
+                    TextInput { text: "two"; accessible-role: none; }
+                }
+            }
+        }
+    "#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let instance = result.component("App").unwrap().create().unwrap();
+    instance.show().unwrap();
+
+    let root = ItemRc::new_root(WindowInner::from_pub(instance.window()).component());
+    let labeled = |label: &str| {
+        accessible_descendents(&root)
+            .find(|item| {
+                item.accessible_string_property(AccessibleStringProperty::Label)
+                    .is_some_and(|found| found == label)
+            })
+            .unwrap_or_else(|| panic!("no accessible item labeled {label}"))
+    };
+
+    for (label, wrapper_exposes) in [("nested", false), ("hidden", true)] {
+        let wrapper = labeled(label);
+        let (input, _) = find_text_input_with_rc(&wrapper).expect("input below the wrapper");
+        assert_eq!(find_exposed_text_input(&wrapper).is_some(), wrapper_exposes, "{label}");
+        assert_eq!(find_exposed_text_input(&input).is_some(), !wrapper_exposes, "{label}");
+    }
 }

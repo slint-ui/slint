@@ -103,14 +103,15 @@ impl SlintWindowRenderer for RecordingWindowRenderer {
         _surface_size: i_slint_core::api::PhysicalSize,
         base_color: peniko::color::AlphaColor<peniko::color::Srgb>,
         draw: F,
-    ) -> Result<(), PlatformError>
+    ) -> Result<i_slint_core::renderer::DrawOutcome, PlatformError>
     where
         F: FnOnce(&mut Self::ScenePainter<'_>) -> Result<(), PlatformError>,
     {
         // Reset so each frame's recording is independent of the previous one.
         self.scene = Scene::default();
         self.base_color = Some(base_color);
-        draw(&mut self.scene)
+        draw(&mut self.scene)?;
+        Ok(i_slint_core::renderer::DrawOutcome::Success)
     }
 
     fn slint_set_size(&mut self, width: u32, height: u32) -> Result<(), PlatformError> {
@@ -127,7 +128,8 @@ impl AnyrenderSlintRenderer<RecordingWindowRenderer> {
 
     /// Drive a single render pass and return the recorded scene.
     pub fn record(&self) -> Result<Scene, PlatformError> {
-        self.render()?;
+        // Recording has no surface to lose, so the frame is always produced.
+        let _ = self.render()?;
         Ok(self.window_renderer().take_scene())
     }
 }

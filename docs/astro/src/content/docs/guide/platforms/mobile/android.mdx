@@ -10,7 +10,7 @@ import { Image } from 'astro:assets';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 Slint supports building Android applications in both Rust and C++.
-Also see the <LangRefLink lang="rust-slint" relpath="android/">android module</LangRefLink> in the Rust API documentation.
+See also <LangRefLink lang="rust-slint" relpath="android/">android module</LangRefLink> in the Rust API documentation.
 
 ## Project Setup
 
@@ -18,7 +18,9 @@ Also see the <LangRefLink lang="rust-slint" relpath="android/">android module</L
 <TabItem label="Rust" icon="seti:rust">
 
 Slint uses the [android-activity crate](https://github.com/rust-mobile/android-activity) as the interface to
-the operating system, which is re-exported as `slint::android::android_activity`. To get started, follow these steps:
+the operating system, which is re-exported as `slint::android::android_activity`.
+
+To get started, follow these steps:
 
 First, your project needs to be a library crate. Add the following to your `Cargo.toml`:
 
@@ -27,16 +29,16 @@ First, your project needs to be a library crate. Add the following to your `Carg
 crate_type = ["cdylib"]
 ```
 
-You also need to select the version of android-activity you want to use:
+Select the version of android-activity you want to use:
 
 ```toml
 [dependencies]
 slint = { version = "1.18.0", features = ["backend-android-activity-06"] }
 ```
 
-This feature compiles with any target\_os and can safely be enabled anywhere.
+It is safe to enable this feature unconditionally.
 
-Second, in your `lib.rs`, add this function:
+Then, in your `lib.rs`, add this function:
 
 ```rs
 #[cfg(target_os = "android")]
@@ -52,8 +54,7 @@ You can also add an Android event
 ([`android_activity::PollEvent`](https://docs.rs/android-activity/latest/android_activity/enum.PollEvent.html))
 listener by replacing the call to `slint::android::init` with `slint::android::init_with_event_listener`.
 
-That's all of the necessary code changes. In the next section, we're going to set up the environment to
-build the project.
+Next, we're going to set up the environment to build the project.
 
 </TabItem>
 <TabItem label="C++" icon="seti:cpp">
@@ -157,12 +158,12 @@ Mismatches cause the app to crash on startup with `couldn't find "libapp.so"`.
 ## Android Setup
 
 The Android development workflow centers around the `adb` command line tool. Use it to connect to
-Android devices and emulators to upload and run applications (and do other things not relevant here).
+Android devices and emulators to upload and run applications.
 
 The easiest way to install the Android development environment is to download and install
 [Android Studio](https://developer.android.com/studio). In the settings pane, navigate to the Android
 SDK page and install all SDK versions you need. We recommend to use the latest version available,
-because it can be configured to be backwards-compatible with older versions of Android. This manager
+because it can be configured to be backwards-compatible with older versions of Android. The SDK Manager
 is available in the settings in "Languages & Frameworks" > "Android SDK".
 
 import androidSdkManager from '/src/assets/android/android_sdk_manager.png';
@@ -173,8 +174,8 @@ Also note the SDK location on top, this path might have to be used for the `ANDR
 variable if the build tools can't detect it automatically.
 
 In the SDK Manager, also install:
-- The Android NDK (under the "SDK Tools" tab).
-- Only when building C++ applications: CMake (under the "SDK Tools" tab).
+- The Android NDK (under the "SDK Tools" tab)
+- CMake (under the "SDK Tools" tab)
 
 Set up these environment variables so the build can find the NDK:
 
@@ -185,7 +186,7 @@ export ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/<version>
 
 ### Rust Toolchain
 
-Slint is written in Rust, so a Rust toolchain is needed to compile it for Android.
+Slint is written in Rust, so a Rust toolchain is needed to compile for Android.
 Install Rust via the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started), then add the Android target:
 
 ```sh
@@ -203,7 +204,7 @@ rustup target add i686-linux-android       # x86 (emulator)
 Add the `platform-tools` directory to your `PATH` so that the `adb` tool is available on the command
 line.
 
-To get the list of Android devices, simulators and emulators currently attached to your machine, run
+To get a list of Android devices, simulators and emulators currently attached to your machine, run
 
 ```sh
 adb devices
@@ -215,14 +216,13 @@ You can connect to a physical device on the network by using
 adb connect <host>
 ```
 
-The `host` is the IP address of the device. Note that it has to have development mode enabled for
-this.
+The `host` is the IP address of the device; it has to have development mode enabled.
 
 ### Virtual Device Setup
 
 We recommend developing using a virtual device first, because it speeds up the development cycle.
 However, eventually you have to also test on a device to make sure that the interface is usable on a
-touch screen and to check if all text is large enough, etc.
+touch screen and to verify the look and feel.
 
 To create and run a virtual device, use the Virtual Device Manager available in Android Studio. You
 can open it from its main screen under "More Actions":
@@ -244,16 +244,15 @@ Running virtual devices connect to `adb` automatically.
 
 #### Virtual Keyboard
 
-Note that depending on the device template you pick, the virtual devices created here might use a
-hardware keyboard by default, which is not helpful for testing your application. Unfortunately, we
-were unable to locate a way to disable it in the Virtual Device Manager directly.
+Depending on the device template you pick, the virtual devices created here might use a
+hardware keyboard by default, which is not helpful for testing your application.
 
 To fix this, click on the three vertical dots next to the device in the manager to open up the menu
-and select "Show on disk". In the directory that now opens, open the file `config.ini` in your
-favorite text editor. Navigate to the line `hw.keyboard=yes` and change it to `hw.keyboard=no`, then
+and select "Show on disk". In the directory displayed, open the file `config.ini` in a text editor.
+Navigate to the line `hw.keyboard=yes` and change it to `hw.keyboard=no`, then
 save the file.
 
-The next challenge is that there is still no keyboard:
+This brings us to choose a stylus:
 
 import virtualKeyboardStylus from '/src/assets/android/android_virtual_keyboard_stylus.png';
 

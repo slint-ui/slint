@@ -180,6 +180,13 @@ When this principle applies: any time you design syntax for a new visual or layo
   track how feedback was incorporated; squash them once the review is complete. See
   [`docs/development.md`](docs/development.md#commit-history--code-reviews) for the full
   fixup-then-squash workflow, and for `mise`-based environment setup.
+- Don't edit `CHANGELOG.md`; it's written later from the git log.
+  Add a `ChangeLog:` trailer to the commit message for a noteworthy change.
+  See [`docs/development.md`](docs/development.md#changelog).
+- When responding to review feedback, put the explanation in the commit message and the
+  review reply, not in a new code comment.
+  Add a comment only where the code itself is unclear to someone who never saw the review.
+  See Code Comments rule 4 of the [Writing Style Guide](docs/internal/writing-style-guide.md).
 
 ## Code Style
 

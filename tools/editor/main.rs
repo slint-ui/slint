@@ -6,6 +6,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
+    cell::Cell,
     path::{Path, PathBuf},
     pin::Pin,
     rc::Rc,
@@ -20,16 +21,33 @@ use i_slint_live_preview::protocol::{
     VersionedUrl,
 };
 use lsp_types::{MessageType, Url};
+use slint::ComponentHandle;
 
 #[cfg(target_os = "linux")]
 mod flatpak;
 mod preview;
 #[cfg(target_os = "macos")]
 mod sparkle;
+mod startup;
 #[cfg(target_os = "windows")]
 mod windows;
 
-fn main() -> std::result::Result<(), slint::PlatformError> {
+use preview::settings::{Project, TOOL_NAME};
+
+const PRIMARY_PREVIEW_INDEX: usize = 0;
+const RUN_PREVIEW_INDEX: usize = 1;
+
+enum EditorToSessionMessage {
+    RunPreview,
+}
+
+#[derive(Default)]
+struct RunPreviewState {
+    requested: bool,
+    highlight: Option<(Url, u32)>,
+}
+
+fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -39,19 +57,14 @@ fn main() -> std::result::Result<(), slint::PlatformError> {
 
     let cli = Cli::parse();
 
-    let (to_lsp, from_preview) = crossbeam_channel::unbounded();
-
-    let to_lsp = Rc::new(EmbeddedPreviewToLsp { sender: to_lsp })
-        as Rc<dyn editor_preview::PreviewToLsp + 'static>;
+    if cli.run_preview_child {
+        return editor_preview::child_process::run();
+    }
 
     // Set up the Slint backend (installing the macOS unified-title-bar hook)
-    // *before* spawning the LSP thread, so that no other thread can lazily
-    // initialize the default platform first and lose the hook.
     select_backend()?;
 
-    start_lsp_thread(from_preview, cli);
-
-    let editor_ui = preview::ui::create_ui(&to_lsp, "")?;
+    let editor_ui = preview::ui::create_ui()?;
 
     // The updater needs to stay in scope for as long as the window is up.
     #[cfg(target_os = "macos")]
@@ -61,7 +74,33 @@ fn main() -> std::result::Result<(), slint::PlatformError> {
     #[cfg(target_os = "windows")]
     let _updater = windows::connect(&editor_ui);
 
-    preview::run_with_ui(editor_ui, to_lsp, false)
+    let settings = startup::load_settings();
+    if let Some(file) = cli.file {
+        let project = Project::from_file(file, cli.component)?;
+        start_editor_session(&editor_ui, project, settings);
+    } else {
+        let session_started = Rc::new(Cell::new(false));
+        let editor_ui_weak = editor_ui.as_weak();
+        let session_settings = settings.clone();
+        startup::setup(
+            &editor_ui,
+            &settings,
+            Rc::new(move |project| {
+                if session_started.get() {
+                    return false;
+                }
+                let Some(editor_ui) = editor_ui_weak.upgrade() else {
+                    return false;
+                };
+                session_started.set(true);
+                start_editor_session(&editor_ui, project, session_settings.clone());
+                true
+            }),
+        );
+    }
+
+    editor_ui.run()?;
+    Ok(())
 }
 
 /// Set up the editor's macOS chrome: the unified title bar and the Sparkle
@@ -108,6 +147,8 @@ impl editor_preview::PreviewToLsp for EmbeddedPreviewToLsp {
 
 #[derive(clap::Parser)]
 struct Cli {
+    #[arg(long, hide = true)]
+    run_preview_child: bool,
     file: Option<String>,
     component: Option<String>,
 }
@@ -131,7 +172,34 @@ fn select_backend() -> std::result::Result<(), slint::PlatformError> {
     selector.select()
 }
 
-fn start_lsp_thread(from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>, cli: Cli) {
+fn start_editor_session(
+    editor_ui: &preview::ui::EditorUi,
+    project: Project,
+    settings: preview::settings::VisualEditorSettings,
+) {
+    let (to_lsp, from_preview) = crossbeam_channel::unbounded();
+    let (to_editor_session, from_editor_preview) = crossbeam_channel::unbounded();
+    let preview_global = editor_ui.global::<preview::ui::Preview>();
+    preview_global.on_run(move || {
+        to_editor_session.send(EditorToSessionMessage::RunPreview).ok();
+    });
+    let preview_global =
+        <preview::ui::Preview as slint::Global<'_, preview::ui::EditorUi>>::as_weak(
+            &preview_global,
+        );
+    let to_lsp = Rc::new(EmbeddedPreviewToLsp { sender: to_lsp })
+        as Rc<dyn editor_preview::PreviewToLsp + 'static>;
+    preview::ui::initialize_editor(editor_ui, &to_lsp, "");
+    preview::initialize(editor_ui, to_lsp, settings);
+    start_lsp_thread(vec![from_preview], from_editor_preview, project, preview_global);
+}
+
+fn start_lsp_thread(
+    from_previews: Vec<crossbeam_channel::Receiver<PreviewToLspMessage>>,
+    from_editor_preview: crossbeam_channel::Receiver<EditorToSessionMessage>,
+    project: Project,
+    preview_global: slint::Weak<preview::ui::Preview<'static>>,
+) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_io()
@@ -139,7 +207,9 @@ fn start_lsp_thread(from_preview: crossbeam_channel::Receiver<PreviewToLspMessag
             .build()
             .unwrap();
         let local_set = tokio::task::LocalSet::new();
-        if let Err(err) = local_set.block_on(&rt, lsp_main(from_preview, cli)) {
+        if let Err(err) = local_set
+            .block_on(&rt, lsp_main(from_previews, from_editor_preview, project, preview_global))
+        {
             tracing::error!("{err}");
             std::process::exit(1);
         }
@@ -147,28 +217,45 @@ fn start_lsp_thread(from_preview: crossbeam_channel::Receiver<PreviewToLspMessag
 }
 
 fn bridge_crossbeam_to_tokio(
-    from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
-) -> tokio::sync::mpsc::UnboundedReceiver<PreviewToLspMessage> {
-    let (from_preview_tx, from_preview_rx) =
-        tokio::sync::mpsc::unbounded_channel::<PreviewToLspMessage>();
+    from_previews: Vec<crossbeam_channel::Receiver<PreviewToLspMessage>>,
+) -> Vec<tokio::sync::mpsc::UnboundedReceiver<PreviewToLspMessage>> {
+    from_previews.into_iter().map(bridge_crossbeam_receiver).collect()
+}
+
+fn bridge_crossbeam_receiver<Message: Send + 'static>(
+    receiver: crossbeam_channel::Receiver<Message>,
+) -> tokio::sync::mpsc::UnboundedReceiver<Message> {
+    let (sender, tokio_receiver) = tokio::sync::mpsc::unbounded_channel();
     std::thread::spawn(move || {
-        while let Ok(msg) = from_preview.recv() {
-            if from_preview_tx.send(msg).is_err() {
+        while let Ok(message) = receiver.recv() {
+            if sender.send(message).is_err() {
                 break;
             }
         }
-        tracing::debug!("Preview->LSP crossbeam adapter thread exited");
     });
-    from_preview_rx
+    tokio_receiver
+}
+
+async fn receive_preview_message(
+    from_previews: &mut [tokio::sync::mpsc::UnboundedReceiver<PreviewToLspMessage>],
+) -> (usize, Option<PreviewToLspMessage>) {
+    let receives = from_previews.iter_mut().map(|from_preview| Box::pin(from_preview.recv()));
+    let (message, preview_index, _) = futures_util::future::select_all(receives).await;
+    (preview_index, message)
 }
 
 async fn lsp_main(
-    from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
-    cli: Cli,
+    from_previews: Vec<crossbeam_channel::Receiver<PreviewToLspMessage>>,
+    from_editor: crossbeam_channel::Receiver<EditorToSessionMessage>,
+    project: Project,
+    preview_global: slint::Weak<preview::ui::Preview<'static>>,
 ) -> Result<()> {
     use editor_preview::document_cache::CompilerConfiguration;
 
-    let mut from_preview_rx = bridge_crossbeam_to_tokio(from_preview);
+    let mut from_previews = bridge_crossbeam_to_tokio(from_previews);
+    let mut from_editor = bridge_crossbeam_receiver(from_editor);
+    let (from_run_preview_sender, from_run_preview) = tokio::sync::mpsc::unbounded_channel();
+    from_previews.push(from_run_preview);
     let (file_watcher_tx, mut file_watcher_rx) = tokio::sync::mpsc::unbounded_channel();
     let mut file_watcher = FileWatcher::start(
         move |event| {
@@ -179,24 +266,32 @@ async fn lsp_main(
         move |err| tracing::warn!("File watcher error: {err}"),
     )?;
 
-    // Wrap to_preview in Rc for sharing with the import callback and the session
-    let to_preview = LspToPreviews::with_one(EditorLspToPreview);
+    let to_previews = vec![
+        LspToPreviews::with_one(EditorLspToPreview),
+        LspToPreviews::with_one(editor_preview::child_process::ChildProcessLspToPreview::new(
+            std::env::current_exe()?,
+            vec![std::ffi::OsString::from("--run-preview-child")],
+            from_run_preview_sender,
+        )),
+    ];
 
     let open_import_callback = {
-        let to_preview = Rc::clone(&to_preview);
+        let to_previews = to_previews.clone();
         Rc::new(move |path: String| {
-            let to_preview = Rc::clone(&to_preview);
+            let to_previews = to_previews.clone();
             Box::pin(async move {
                 tracing::trace!("Importing file: {}", path);
                 let contents = std::fs::read(&path);
                 if let Ok(url) = Url::from_file_path(&path) {
-                    if let Ok(contents) = &contents {
-                        to_preview.send(&LspToPreviewMessage::SetContents {
-                            url: VersionedUrl::new(url, None),
-                            contents: contents.clone(),
-                        });
-                    } else {
-                        to_preview.send(&LspToPreviewMessage::ForgetFile { url });
+                    for to_preview in &to_previews {
+                        if let Ok(contents) = &contents {
+                            to_preview.send(&LspToPreviewMessage::SetContents {
+                                url: VersionedUrl::new(url.clone(), None),
+                                contents: contents.clone(),
+                            });
+                        } else {
+                            to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+                        }
                     }
                 }
                 Some(
@@ -219,48 +314,43 @@ async fn lsp_main(
 
     let mut session = editor_preview::EditorSession {
         document_cache: editor_preview::DocumentCache::new(compiler_config),
-        preview_config: Default::default(),
-        to_show: Default::default(),
+        preview_config: i_slint_live_preview::protocol::PreviewConfig {
+            style: "fluent".into(),
+            ..Default::default()
+        },
         open_urls: Default::default(),
-        to_preview,
+        previews: to_previews
+            .into_iter()
+            .map(|to_preview| editor_preview::PreviewConnection {
+                to_preview,
+                to_show: Default::default(),
+            })
+            .collect(),
         pending_recompile: Default::default(),
     };
 
+    assert_eq!(session.previews.len(), from_previews.len());
+
     let mut watch_paths_revision = None;
-    let mut project_root = None;
+    let project_root = project.root;
+    open_initial_preview(&mut session, &mut file_watcher, &project_root, project.preview).await?;
+    sync_file_watcher_if_needed(
+        &mut file_watcher,
+        &session,
+        &project_root,
+        &mut watch_paths_revision,
+    )?;
 
-    // Load the initial document through the compiler if the editor was launched
-    // with a file. Finder launches without a file stay on the startup wizard.
-    if let Some(file) = cli.file.as_ref() {
-        let full_path = std::fs::canonicalize(file)
-            .map_err(|err| format!("Failed to determine full path for {file}: {err}"))?;
-        let url = Url::from_file_path(full_path.clone())
-            .map_err(|_| format!("Failed to convert {file} to URL!"))?;
-        session.show_preview(PreviewComponent { url: url.clone(), component: cli.component });
-
-        // Make sure the document is loaded before we start processing messages from the preview, so
-        // we have the correct state already loaded.
-        // The editor has no LSP client to publish diagnostics to, so they are dropped here.
-        let _diagnostics = session
-            .reload_document(url)
-            .await
-            .map_err(|err| format!("Failed to load file: {file}: {err}"))?;
-        project_root = project_root_for_path(&full_path).map(Path::to_path_buf);
-        sync_file_watcher_if_needed(
-            &mut file_watcher,
-            &session,
-            project_root.as_deref().unwrap_or(&full_path),
-            &mut watch_paths_revision,
-        )?;
-    }
-
-    const RECOMPILE_IDLE_TIMEOUT: Duration = Duration::from_millis(50);
+    const RECOMPILE_DELAY: Duration = Duration::from_millis(50);
+    let mut recompile_deadline = None;
+    let mut run_preview_state = RunPreviewState::default();
     loop {
-        let recompile_idle_timeout = if session.pending_recompile.is_empty() {
-            Duration::MAX
+        if session.pending_recompile.is_empty() {
+            recompile_deadline = None;
         } else {
-            RECOMPILE_IDLE_TIMEOUT
-        };
+            // Preview messages must not postpone a pending source update.
+            recompile_deadline.get_or_insert_with(|| tokio::time::Instant::now() + RECOMPILE_DELAY);
+        }
         tokio::select! {
             watcher_event = file_watcher_rx.recv() => {
                 match watcher_event {
@@ -268,13 +358,18 @@ async fn lsp_main(
                     None => break Err("File watcher channel closed".into()),
                 }
             }
-            msg = from_preview_rx.recv() => {
-                match msg {
-                    Some(msg) => {
-                        if let Some(root) = handle_preview_message(msg, &mut session).await {
-                            project_root = Some(root);
-                            watch_paths_revision = None;
-                        }
+            preview_message = receive_preview_message(&mut from_previews) => {
+                let (preview_index, message) = preview_message;
+                match message {
+                    Some(message) => {
+                        handle_preview_message(
+                            message,
+                            preview_index,
+                            &mut session,
+                            &project_root,
+                            &mut run_preview_state,
+                            &preview_global
+                        ).await;
                     }
                     None => {
                         tracing::debug!("Preview->LSP channel closed, exiting");
@@ -282,7 +377,23 @@ async fn lsp_main(
                     }
                 }
             }
-            _ = tokio::time::sleep(recompile_idle_timeout) => {
+            editor_message = from_editor.recv() => {
+                match editor_message {
+                    Some(message) => handle_editor_message(
+                        message,
+                        &mut session,
+                        &mut run_preview_state,
+                    ),
+                    None => break Ok(()),
+                }
+            }
+            _ = async {
+                match recompile_deadline {
+                    Some(deadline) => tokio::time::sleep_until(deadline).await,
+                    None => std::future::pending().await,
+                }
+            } => {
+                recompile_deadline = None;
                 tracing::debug!("LSP recompiling");
                 let pending_recompile = std::mem::take(&mut session.pending_recompile);
 
@@ -294,14 +405,12 @@ async fn lsp_main(
             }
         }
 
-        if let Some(project_root) = project_root.as_deref() {
-            sync_file_watcher_if_needed(
-                &mut file_watcher,
-                &session,
-                project_root,
-                &mut watch_paths_revision,
-            )?;
-        }
+        sync_file_watcher_if_needed(
+            &mut file_watcher,
+            &session,
+            &project_root,
+            &mut watch_paths_revision,
+        )?;
     }
 }
 
@@ -330,66 +439,91 @@ fn sync_file_watcher_if_needed(
     }
 
     watcher.update_watched_paths(
-        std::iter::once(root_path.to_path_buf()).chain(
-            session
-                .document_cache
-                .all_urls_to_watch()
-                .into_iter()
-                // filter out builtins
-                .filter(|url| url.scheme() == "file")
-                .filter_map(|url| editor_preview::uri_to_file(&url)),
-        ),
+        std::iter::once(root_path.to_path_buf())
+            .chain(
+                session
+                    .document_cache
+                    .all_urls_to_watch()
+                    .into_iter()
+                    // filter out builtins
+                    .filter(|url| url.scheme() == "file")
+                    .filter_map(|url| editor_preview::uri_to_file(&url)),
+            )
+            .chain(session.previews.iter().filter_map(|preview| {
+                preview
+                    .to_show
+                    .as_ref()
+                    .and_then(|component| editor_preview::uri_to_file(&component.url))
+            })),
     )?;
     *watch_paths_revision = Some(current_revision);
     Ok(())
 }
 
 async fn handle_preview_message(
-    msg: PreviewToLspMessage,
+    message: PreviewToLspMessage,
+    preview_index: usize,
     session: &mut editor_preview::EditorSession,
-) -> Option<PathBuf> {
+    project_root: &Path,
+    run_preview_state: &mut RunPreviewState,
+    preview_global: &slint::Weak<preview::ui::Preview<'static>>,
+) {
     use PreviewToLspMessage::*;
-    match &msg {
+    if session.preview(preview_index).is_none() {
+        return;
+    }
+
+    // any message we receive from the preview that is not "Exited" means the preview is alive.
+    if preview_index == RUN_PREVIEW_INDEX {
+        let is_running = !matches!(&message, PreviewToLspMessage::Exited);
+        if let Err(error) = preview_global.upgrade_in_event_loop(move |preview_global| {
+            preview_global.set_is_running(is_running);
+        }) {
+            tracing::error!("Failed to update Run preview state: {error}");
+        }
+    }
+
+    match &message {
         RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
-            let requested_preview = requested_file_tree_preview(files);
-            let requested_project_root = requested_preview
-                .as_ref()
-                .and_then(editor_preview::uri_to_file)
-                .and_then(|path| project_root_for_path(&path).map(Path::to_path_buf));
-            let slint_files: Vec<_> =
-                files.iter().filter(|url| is_slint_url(url)).cloned().collect();
-            for url in slint_files {
-                if let Err(err) = session.reload_document(url.clone()).await {
-                    tracing::error!("Failed document reload requested by preview for {url}: {err}");
-                }
-            }
-            if let Some(url) = requested_preview {
-                session.to_show = Some(PreviewComponent { url, component: None });
-            }
             if files.is_empty() {
-                session.send_state_to_preview();
+                if let Ok(root) = Url::from_directory_path(project_root) {
+                    session
+                        .send_to_preview(preview_index, &LspToPreviewMessage::OpenProject { root });
+                }
+                session.send_state_to_preview(preview_index);
+                if preview_index == RUN_PREVIEW_INDEX {
+                    send_run_preview_highlight(session, run_preview_state);
+                }
             } else {
-                session.send_files_to_preview(files, |_| true);
+                session.send_files_to_preview(preview_index, files, |_| true);
             }
             for name in settings {
-                if let Some(contents) = i_slint_editor_preview::settings_store::load("editor", name)
+                if let Some(contents) =
+                    i_slint_editor_preview::settings_store::load(TOOL_NAME, name)
                 {
-                    session.to_preview.send(&LspToPreviewMessage::SetUserSettings {
-                        name: name.clone(),
-                        contents,
-                    });
+                    session.send_to_preview(
+                        preview_index,
+                        &LspToPreviewMessage::SetUserSettings { name: name.clone(), contents },
+                    );
                 }
             }
-            requested_project_root
+        }
+        RequestPreview { component } => {
+            let Some((component, path)) = canonical_preview_component(component) else {
+                tracing::warn!("Ignoring preview request with an invalid path: {}", component.url);
+                return;
+            };
+            if let Err(err) = open_preview(session, preview_index, component).await {
+                tracing::error!("Failed to open preview for {}: {err}", path.display());
+            }
         }
         UpdateUserSettings { name, contents } => {
             if let Err(error) =
-                i_slint_editor_preview::settings_store::save("editor", name, contents)
+                i_slint_editor_preview::settings_store::save(TOOL_NAME, name, contents)
             {
                 tracing::warn!("Failed to save preview user settings: {error}");
             }
-            None
         }
         SendShowMessage { message } => {
             match message.typ {
@@ -398,11 +532,28 @@ async fn handle_preview_message(
                 MessageType::LOG => tracing::debug!("Preview: {}", message.message),
                 _ => tracing::info!("Preview: {}", message.message),
             };
-            None
         }
         DebugMessage { location, message } => {
             eprintln!("{}", editor_preview::preview_log_message_to_string(location, message));
-            None
+        }
+        // If the editor preview requests to "showDocument" that should translate to a highlight in
+        // the run preview.
+        ShowDocument { file, selection, .. } if preview_index == PRIMARY_PREVIEW_INDEX => {
+            let Some(document) = session
+                .document_cache
+                .get_document(file)
+                .and_then(|document| document.node.as_ref())
+            else {
+                tracing::warn!("Cannot highlight a position in an unknown document: {file}");
+                return;
+            };
+            let offset = editor_preview::util::lsp_position_to_text_size(
+                &document.source_file,
+                selection.start,
+                session.document_cache.format,
+            );
+            run_preview_state.highlight = Some((file.clone(), offset.into()));
+            send_run_preview_highlight(session, run_preview_state);
         }
 
         Diagnostics { .. }
@@ -411,44 +562,119 @@ async fn handle_preview_message(
         | TelemetryEvent(..)
         | ConnectRemote { .. }
         | DisconnectRemote
-        | Pong => {
-            tracing::debug!("Ignoring message from preview: {msg:?}");
-            None
+        | SubmitPairingCode { .. }
+        | CancelPairing
+        | AcceptUnpairedConnection
+        | Pong
+        | PairingReady
+        | PairingRequired { .. }
+        | PairingTokenChallenge { .. }
+        | PairingConfirm { .. }
+        | PairingAccepted
+        | PairingRejected { .. }
+        | Exited => {
+            tracing::debug!("Ignoring message from preview: {message:?}");
         }
         SendWorkspaceEdit { label, edit } => {
-            handle_workspace_edit(&session.document_cache, label.as_deref(), edit);
-            None
+            let applied = handle_workspace_edit(&session.document_cache, label.as_deref(), edit);
+            preview::workspace_edit_finished(edit.clone(), applied);
         }
     }
 }
 
-fn project_root_for_path(path: &Path) -> Option<&Path> {
-    if path.is_dir() { Some(path) } else { path.parent() }
+async fn open_initial_preview(
+    session: &mut editor_preview::EditorSession,
+    watcher: &mut FileWatcher,
+    project_root: &Path,
+    component: PreviewComponent,
+) -> Result<()> {
+    watcher.update_watched_paths(
+        std::iter::once(project_root.to_path_buf())
+            .chain(editor_preview::uri_to_file(&component.url)),
+    )?;
+    open_project(session, PRIMARY_PREVIEW_INDEX, project_root)?;
+    open_preview(session, PRIMARY_PREVIEW_INDEX, component).await
 }
 
-fn requested_file_tree_preview(files: &[Url]) -> Option<Url> {
-    if files.len() == 1 && is_slint_url(&files[0]) { Some(files[0].clone()) } else { None }
+fn handle_editor_message(
+    message: EditorToSessionMessage,
+    session: &mut editor_preview::EditorSession,
+    run_preview_state: &mut RunPreviewState,
+) {
+    match message {
+        EditorToSessionMessage::RunPreview => {
+            let Some(component) = session.primary_preview().to_show.clone() else {
+                tracing::warn!("Cannot run a preview before a component is open");
+                return;
+            };
+            run_preview_state.requested = true;
+            session.show_preview(RUN_PREVIEW_INDEX, component);
+            send_run_preview_highlight(session, run_preview_state);
+        }
+    }
 }
 
-fn is_slint_url(url: &Url) -> bool {
-    editor_preview::uri_to_file(url).is_some_and(|path| {
-        path.extension()
-            .and_then(|extension| extension.to_str())
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
-    })
+fn send_run_preview_highlight(
+    session: &editor_preview::EditorSession,
+    run_preview_state: &RunPreviewState,
+) {
+    if !run_preview_state.requested {
+        return;
+    }
+    let Some((url, offset)) = &run_preview_state.highlight else { return };
+    session.send_to_preview(
+        RUN_PREVIEW_INDEX,
+        &LspToPreviewMessage::HighlightFromEditor { url: Some(url.clone()), offset: *offset },
+    );
+}
+
+async fn open_preview(
+    session: &mut editor_preview::EditorSession,
+    preview_index: usize,
+    component: PreviewComponent,
+) -> Result<()> {
+    let _diagnostics = session.reload_document(component.url.clone()).await?;
+    session.show_preview(preview_index, component);
+    Ok(())
+}
+
+fn open_project(
+    session: &editor_preview::EditorSession,
+    preview_index: usize,
+    root: &Path,
+) -> Result<()> {
+    let root = std::fs::canonicalize(root)?;
+    if !root.is_dir() {
+        return Err(format!("{} is not a directory", root.display()).into());
+    }
+    let url = Url::from_directory_path(&root)
+        .map_err(|_| format!("Failed to convert {} to URL", root.display()))?;
+    session.send_to_preview(preview_index, &LspToPreviewMessage::OpenProject { root: url });
+    Ok(())
+}
+
+fn canonical_preview_component(
+    component: &PreviewComponent,
+) -> Option<(PreviewComponent, PathBuf)> {
+    let path = editor_preview::uri_to_file(&component.url)?;
+    let path = std::fs::canonicalize(path).ok()?;
+    let url = Url::from_file_path(&path).ok()?;
+    Some((PreviewComponent { url, component: component.component.clone() }, path))
 }
 
 fn handle_workspace_edit(
     document_cache: &editor_preview::DocumentCache,
     label: Option<&str>,
     edit: &lsp_types::WorkspaceEdit,
-) {
+) -> bool {
     match editor_preview::editing::text_edit::apply_workspace_edit(document_cache, edit) {
         Ok(edited_texts) => {
+            let mut applied = true;
             for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
                 match editor_preview::uri_to_file(&url) {
                     Some(path) => {
                         if let Err(err) = std::fs::write(&path, &contents) {
+                            applied = false;
                             tracing::error!(
                                 "Failed to apply workspace edit '{}' to {}: {err}",
                                 label.unwrap_or("(unnamed)"),
@@ -457,16 +683,339 @@ fn handle_workspace_edit(
                         }
                     }
                     None => {
+                        applied = false;
                         tracing::warn!("Cannot apply workspace edit to non-file URL: {url}");
                     }
                 }
             }
+            applied
         }
         Err(err) => {
             tracing::error!(
                 "Failed to compute workspace edit '{}': {err}",
                 label.unwrap_or("(unnamed)")
             );
+            false
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn initial_source_repair_is_watched_before_preview_is_published() {
+        const REPAIRED: &str = "export component Initial inherits Window { width: 320px; }";
+        struct RepairOnPreview(PathBuf);
+        impl editor_preview::LspToPreview for RepairOnPreview {
+            fn send(&self, message: &LspToPreviewMessage) {
+                if matches!(message, LspToPreviewMessage::ShowPreview(_)) {
+                    std::fs::write(&self.0, REPAIRED).unwrap();
+                }
+            }
+            fn preview_target(&self) -> PreviewTarget {
+                PreviewTarget::Dummy
+            }
+        }
+
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().canonicalize().unwrap();
+        let source = root.join("Initial.slint");
+        std::fs::write(&source, "export component Initial inherits Window { broken }").unwrap();
+        let url = Url::from_file_path(&source).unwrap();
+        let mut session = editor_preview::EditorSession {
+            document_cache: editor_preview::DocumentCache::new(Default::default()),
+            preview_config: Default::default(),
+            open_urls: Default::default(),
+            previews: vec![editor_preview::PreviewConnection {
+                to_preview: LspToPreviews::with_one(RepairOnPreview(source.clone())),
+                to_show: None,
+            }],
+            pending_recompile: Default::default(),
+        };
+        let (tx, rx) = std::sync::mpsc::channel();
+        let (error_tx, error_rx) = std::sync::mpsc::channel();
+        let mut watcher = FileWatcher::start(
+            move |event| {
+                let _ = tx.send(event);
+            },
+            move |error| {
+                let _ = error_tx.send(error);
+            },
+        )
+        .unwrap();
+        spin_on::spin_on(open_initial_preview(
+            &mut session,
+            &mut watcher,
+            &root,
+            PreviewComponent { url: url.clone(), component: None },
+        ))
+        .unwrap();
+        sync_file_watcher_if_needed(&mut watcher, &session, &root, &mut None).unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        let mut seen = Vec::new();
+        loop {
+            let event = rx
+                .recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()))
+                .unwrap_or_else(|error| {
+                    let errors = error_rx.try_iter().collect::<Vec<_>>();
+                    panic!(
+                        "repair made while publishing the initial preview must produce a watch event for {url}: {error}; received {seen:?}; watcher errors {errors:?}"
+                    );
+                });
+            if Url::from_file_path(&event.path).ok().as_ref() == Some(&url) {
+                spin_on::spin_on(trigger_editor_file_watcher(&mut session, event)).unwrap();
+                break;
+            }
+            seen.push(event);
+        }
+        assert!(session.pending_recompile.remove(&url));
+        spin_on::spin_on(session.reload_document(url.clone())).unwrap();
+        let (_, node) =
+            session.document_cache.all_url_documents().find(|(u, _)| u == &url).unwrap();
+        assert_eq!(node.text().to_string(), REPAIRED);
+    }
+
+    fn session_with_recording_previews()
+    -> (editor_preview::EditorSession, [editor_preview::test::CapturedPreviewMessages; 2]) {
+        let captures = std::array::from_fn(|_| editor_preview::test::preview_capture());
+        let previews = captures
+            .iter()
+            .map(|(to_preview, _)| editor_preview::PreviewConnection {
+                to_preview: to_preview.clone(),
+                to_show: None,
+            })
+            .collect();
+        let messages = captures.map(|(_, messages)| messages);
+        let session = editor_preview::EditorSession {
+            document_cache: editor_preview::test::empty_document_cache(),
+            preview_config: Default::default(),
+            open_urls: Default::default(),
+            previews,
+            pending_recompile: Default::default(),
+        };
+        (session, messages)
+    }
+
+    fn clear_messages(messages: &[editor_preview::test::CapturedPreviewMessages]) {
+        for messages in messages {
+            messages.borrow_mut().clear();
+        }
+    }
+
+    fn component(file_name: &str, name: &str) -> PreviewComponent {
+        PreviewComponent {
+            url: Url::from_file_path(editor_preview::test::test_file_name(file_name)).unwrap(),
+            component: Some(name.into()),
+        }
+    }
+
+    #[test]
+    fn separate_preview_channels_report_the_ready_receiver() {
+        let (primary_sender, primary_receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (secondary_sender, secondary_receiver) = tokio::sync::mpsc::unbounded_channel();
+        let mut receivers = vec![primary_receiver, secondary_receiver];
+        secondary_sender.send(PreviewToLspMessage::Pong).unwrap();
+
+        let runtime = tokio::runtime::Builder::new_current_thread().build().unwrap();
+        let (preview_index, message) = runtime.block_on(receive_preview_message(&mut receivers));
+
+        assert_eq!(preview_index, 1);
+        assert!(matches!(message, Some(PreviewToLspMessage::Pong)));
+        drop(primary_sender);
+    }
+
+    #[test]
+    fn preview_requests_are_answered_through_the_originating_connection() {
+        let (mut session, messages) = session_with_recording_previews();
+        let mut run_preview_state = RunPreviewState::default();
+        let project = tempfile::tempdir().unwrap();
+        let path = project.path().join("secondary.slint");
+        std::fs::write(&path, "export component Secondary {}").unwrap();
+        let path = std::fs::canonicalize(path).unwrap();
+        let component = PreviewComponent {
+            url: Url::from_file_path(&path).unwrap(),
+            component: Some("Secondary".into()),
+        };
+
+        spin_on::spin_on(handle_preview_message(
+            PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() },
+            1,
+            &mut session,
+            project.path(),
+            &mut run_preview_state,
+            &Default::default(),
+        ));
+
+        assert!(messages[0].borrow().is_empty());
+        assert!(
+            messages[1]
+                .borrow()
+                .iter()
+                .any(|message| matches!(message, LspToPreviewMessage::OpenProject { .. }))
+        );
+
+        clear_messages(&messages);
+
+        spin_on::spin_on(handle_preview_message(
+            PreviewToLspMessage::RequestPreview { component: component.clone() },
+            1,
+            &mut session,
+            project.path(),
+            &mut run_preview_state,
+            &Default::default(),
+        ));
+
+        assert!(
+            !messages[0]
+                .borrow()
+                .iter()
+                .any(|message| matches!(message, LspToPreviewMessage::ShowPreview(_)))
+        );
+        assert!(messages[1].borrow().iter().any(|message| {
+            matches!(message, LspToPreviewMessage::ShowPreview(current) if current == &component)
+        }));
+        assert!(session.primary_preview().to_show.is_none());
+        assert_eq!(session.preview(1).unwrap().to_show, Some(component));
+    }
+
+    #[test]
+    fn run_preview_uses_the_primary_preview_target() {
+        let (mut session, messages) = session_with_recording_previews();
+        let primary_component = component("primary.slint", "Primary");
+        session.show_preview(PRIMARY_PREVIEW_INDEX, primary_component.clone());
+        clear_messages(&messages);
+
+        let mut run_preview_state = RunPreviewState::default();
+        handle_editor_message(
+            EditorToSessionMessage::RunPreview,
+            &mut session,
+            &mut run_preview_state,
+        );
+
+        assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
+        assert!(messages[RUN_PREVIEW_INDEX].borrow().iter().any(|message| {
+            matches!(message, LspToPreviewMessage::ShowPreview(component) if component == &primary_component)
+        }));
+        assert_eq!(session.preview(RUN_PREVIEW_INDEX).unwrap().to_show, Some(primary_component));
+    }
+
+    #[test]
+    fn run_preview_target_changes_only_when_run_is_requested() {
+        let (mut session, messages) = session_with_recording_previews();
+        let first_component = component("first.slint", "First");
+        let second_component = component("second.slint", "Second");
+        session.show_preview(PRIMARY_PREVIEW_INDEX, first_component.clone());
+        let mut run_preview_state = RunPreviewState::default();
+        handle_editor_message(
+            EditorToSessionMessage::RunPreview,
+            &mut session,
+            &mut run_preview_state,
+        );
+        clear_messages(&messages);
+
+        session.show_preview(PRIMARY_PREVIEW_INDEX, second_component.clone());
+
+        assert_eq!(session.preview(RUN_PREVIEW_INDEX).unwrap().to_show, Some(first_component));
+        assert!(messages[RUN_PREVIEW_INDEX].borrow().is_empty());
+
+        handle_editor_message(
+            EditorToSessionMessage::RunPreview,
+            &mut session,
+            &mut run_preview_state,
+        );
+        assert_eq!(session.preview(RUN_PREVIEW_INDEX).unwrap().to_show, Some(second_component));
+    }
+
+    #[test]
+    fn primary_show_document_highlights_the_run_preview() {
+        let (mut session, messages) = session_with_recording_previews();
+        let project = tempfile::tempdir().unwrap();
+        let path = project.path().join("main.slint");
+        let url = Url::from_file_path(&path).unwrap();
+        let source = "export component Main {\n    Text {}\n}";
+        spin_on::spin_on(session.load_document_impl(source.into(), url.clone(), None));
+        session.show_preview(
+            PRIMARY_PREVIEW_INDEX,
+            PreviewComponent { url: url.clone(), component: Some("Main".into()) },
+        );
+        let mut run_preview_state = RunPreviewState::default();
+        handle_editor_message(
+            EditorToSessionMessage::RunPreview,
+            &mut session,
+            &mut run_preview_state,
+        );
+        clear_messages(&messages);
+
+        let expected_offset = u32::try_from(source.find("Text").unwrap()).unwrap();
+        let document = session.document_cache.get_document(&url).unwrap().node.as_ref().unwrap();
+        let position = editor_preview::util::text_size_to_lsp_position(
+            &document.source_file,
+            expected_offset.into(),
+            session.document_cache.format,
+        );
+        spin_on::spin_on(handle_preview_message(
+            PreviewToLspMessage::ShowDocument {
+                file: url.clone(),
+                selection: lsp_types::Range::new(position, position),
+                take_focus: false,
+            },
+            PRIMARY_PREVIEW_INDEX,
+            &mut session,
+            project.path(),
+            &mut run_preview_state,
+            &Default::default(),
+        ));
+
+        assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
+        assert!(messages[RUN_PREVIEW_INDEX].borrow().iter().any(|message| {
+            matches!(message, LspToPreviewMessage::HighlightFromEditor { url: Some(current_url), offset }
+                if current_url == &url && *offset == expected_offset)
+        }));
+
+        clear_messages(&messages);
+        spin_on::spin_on(handle_preview_message(
+            PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() },
+            RUN_PREVIEW_INDEX,
+            &mut session,
+            project.path(),
+            &mut run_preview_state,
+            &Default::default(),
+        ));
+        let run_messages = messages[RUN_PREVIEW_INDEX].borrow();
+        let show_position = run_messages
+            .iter()
+            .position(|message| matches!(message, LspToPreviewMessage::ShowPreview(_)))
+            .unwrap();
+        let highlight_position = run_messages.iter().position(|message| {
+            matches!(message, LspToPreviewMessage::HighlightFromEditor { url: Some(current_url), offset }
+                if current_url == &url && *offset == expected_offset)
+        });
+        assert!(highlight_position.is_some_and(|position| position > show_position));
+    }
+
+    #[test]
+    fn show_document_from_the_run_preview_is_ignored() {
+        let (mut session, messages) = session_with_recording_previews();
+        let project = tempfile::tempdir().unwrap();
+        let mut run_preview_state = RunPreviewState { requested: true, highlight: None };
+
+        spin_on::spin_on(handle_preview_message(
+            PreviewToLspMessage::ShowDocument {
+                file: Url::from_file_path(editor_preview::test::test_file_name("run.slint"))
+                    .unwrap(),
+                selection: Default::default(),
+                take_focus: false,
+            },
+            RUN_PREVIEW_INDEX,
+            &mut session,
+            project.path(),
+            &mut run_preview_state,
+            &Default::default(),
+        ));
+
+        assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
+        assert!(run_preview_state.highlight.is_none());
     }
 }

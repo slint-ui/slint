@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A component that inherits `Path`, or has a `@children` inside a `Path`, without declaring
+// path elements itself, takes them from its instances.
+// Regression test for #13264 and #13265.
+
+component EmptyBase inherits Path {
+    width: 100px;
+    height: 100px;
+    fit: preserve;
+    stroke-width: 0px;
+}
+
+component EmptySlot {
+    width: 100px;
+    height: 100px;
+    path := Path {
+        width: 100px;
+        height: 100px;
+        fit: preserve;
+        stroke-width: 0px;
+        @children
+    }
+    out property <float> start_x: path.point-at(0).x / 1px;
+    out property <float> start_y: path.point-at(0).y / 1px;
+    out property <float> end_x: path.point-at(1).x / 1px;
+    out property <float> end_y: path.point-at(1).y / 1px;
+    out property <float> mid_x: path.point-at(0.5).x / 1px;
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    in-out property <float> slot_end: 90;
+
+    from-elements := EmptyBase {
+        MoveTo { x: 10; y: 20; }
+        LineTo { x: 90; y: 20; }
+    }
+    from-commands := EmptyBase {
+        commands: "M 10 30 L 90 30";
+    }
+    from-slot := EmptySlot {
+        MoveTo { x: 10; y: 50; }
+        LineTo { x: root.slot_end; y: 50; }
+        Close { }
+    }
+
+    out property <float> from_elements_start_x: from-elements.point-at(0).x / 1px;
+    out property <float> from_elements_start_y: from-elements.point-at(0).y / 1px;
+    out property <float> from_elements_end_x: from-elements.point-at(1).x / 1px;
+    out property <float> from_elements_end_y: from-elements.point-at(1).y / 1px;
+
+    out property <float> from_commands_start_x: from-commands.point-at(0).x / 1px;
+    out property <float> from_commands_start_y: from-commands.point-at(0).y / 1px;
+    out property <float> from_commands_end_x: from-commands.point-at(1).x / 1px;
+    out property <float> from_commands_end_y: from-commands.point-at(1).y / 1px;
+
+    out property <float> from_slot_start_x: from-slot.start_x;
+    out property <float> from_slot_start_y: from-slot.start_y;
+    // The path is closed, so it ends where it started and reaches `slot_end` halfway
+    out property <float> from_slot_end_x: from-slot.end_x;
+    out property <float> from_slot_end_y: from-slot.end_y;
+    out property <float> from_slot_mid_x: from-slot.mid_x;
+
+    out property <bool> test: from_elements_start_x == 10 && from_elements_start_y == 20
+        && from_elements_end_x == 90 && from_elements_end_y == 20
+        && from_commands_start_x == 10 && from_commands_start_y == 30
+        && from_commands_end_x == 90 && from_commands_end_y == 30
+        && from_slot_start_x == 10 && from_slot_start_y == 50
+        && from_slot_end_x == 10 && from_slot_end_y == 50
+        && from_slot_mid_x == slot_end;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

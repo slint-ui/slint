@@ -10,6 +10,7 @@
 use crate::Value;
 use crate::globals::{GlobalInstance, GlobalStorage};
 use crate::instance::SubComponentInstance;
+use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
 use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
@@ -802,8 +803,8 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             v
         }
-        Expression::BuiltinFunctionCall { function, arguments } => {
-            call_builtin_function(ctx, function.clone(), arguments)
+        Expression::BuiltinFunctionCall { function, arguments, source_location } => {
+            call_builtin_function(ctx, function.clone(), arguments, source_location)
         }
         Expression::CallBackCall { callback, arguments } => {
             let args: Vec<Value> = arguments.iter().map(|e| eval_expression(ctx, e)).collect();
@@ -882,7 +883,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             Value::Void
         }
-        Expression::BinaryExpression { lhs, rhs, op } => {
+        Expression::BinaryExpression { lhs, rhs, op, .. } => {
             let lhs = eval_expression(ctx, lhs);
             // `&&` and `||` must short-circuit, or else rhs side effects
             // would wrongly run.
@@ -914,7 +915,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             Value::Image(image)
         }
-        Expression::Condition { condition, true_expr, false_expr } => {
+        Expression::Condition { condition, true_expr, false_expr, .. } => {
             match eval_expression(ctx, condition) {
                 Value::Bool(true) => eval_expression(ctx, true_expr),
                 Value::Bool(false) => eval_expression(ctx, false_expr),
@@ -939,6 +940,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                 EC::EaseOutBounce => Core::EaseOutBounce,
                 EC::EaseInOutBounce => Core::EaseInOutBounce,
                 EC::CubicBezier(a, b, c, d) => Core::CubicBezier([*a, *b, *c, *d]),
+                EC::Spring(bounce) => Core::Spring(*bounce),
             })
         }
         Expression::MouseCursor(cursor) => {
@@ -1107,10 +1109,10 @@ fn with_layout_item_info(
     repeated_cross_size: Option<&Expression>,
     sub_expression: &Expression,
 ) -> Value {
-    // On a box layout's main-axis pass, re-measure each repeated cell at the
-    // layout's cross size so a height-for-width (resp. width-for-height)
-    // instance measures like an equivalent static cell. On a non-numeric
-    // value, fall back to the plain layout info rather than measuring at 0.
+    // On a vertical box layout's main-axis pass, re-measure each repeated
+    // cell at the layout's content width so a height-for-width instance
+    // measures like an equivalent static cell. On a non-numeric value, fall
+    // back to the plain layout info rather than measuring at 0.
     let cross_size: Option<f32> =
         repeated_cross_size.and_then(|e| eval_expression(ctx, e).try_into().ok());
     let mut cells: Vec<Value> = Vec::with_capacity(elements.len());
@@ -1177,11 +1179,11 @@ fn push_repeater_layout_items(
         struct_value.set_field("constraint".to_string(), info.constraint.into());
         // The cell's `cross-axis-self-alignment` in a box layout; `to_cells`
         // reads it back on the cross-axis solve, an absent field means `auto`.
-        if info.cross_axis_self_alignment != i_slint_core::items::CrossAxisSelfAlignment::Auto {
+        if info.cross_axis_self_alignment != i_slint_core::items::CrossAxisAlignment::Auto {
             struct_value.set_field(
                 "cross-axis-self-alignment".to_string(),
                 Value::EnumerationValue(
-                    "CrossAxisSelfAlignment".to_string(),
+                    "CrossAxisAlignment".to_string(),
                     info.cross_axis_self_alignment.to_string(),
                 ),
             );
@@ -1203,11 +1205,8 @@ fn push_repeater_layout_items(
                     (Some(cs), i_slint_core::items::Orientation::Vertical) => {
                         RepeatedItemTree::layout_item_info_at_cross_width(instance.as_pin_ref(), cs)
                     }
-                    (Some(cs), i_slint_core::items::Orientation::Horizontal) => {
-                        RepeatedItemTree::layout_item_info_at_cross_height(
-                            instance.as_pin_ref(),
-                            cs,
-                        )
+                    (Some(_), i_slint_core::items::Orientation::Horizontal) => {
+                        unreachable!("a horizontal main pass forwards no cross size")
                     }
                     // A grid re-measures each instance at its own solved
                     // column width instead of one size shared by all cells.
@@ -1426,7 +1425,7 @@ fn flex_props_to_value(props: i_slint_core::layout::FlexItemProps) -> Value {
     s.set_field(
         "cross-axis-self-alignment".to_string(),
         Value::EnumerationValue(
-            "CrossAxisSelfAlignment".to_string(),
+            "CrossAxisAlignment".to_string(),
             format!("{:?}", props.cross_axis_self_alignment).to_lowercase(),
         ),
     );
@@ -1868,10 +1867,27 @@ fn grid_repeater_cache_access(
 }
 
 /// Dispatch a `BuiltinFunction` call to the corresponding runtime helper.
+/// The location of a builtin function call in the .slint source, in the form
+/// attached to the log messages it emits.
+fn log_message_location(
+    source_location: &Option<SourceLocation>,
+) -> Option<i_slint_core::debug_log::LogMessageLocation<'_>> {
+    let location = source_location.as_ref()?;
+    let source_file = location.source_file.as_ref()?;
+    let (line, column) = source_file
+        .line_column(location.span.offset, i_slint_compiler::diagnostics::ByteFormat::Utf8);
+    Some(i_slint_core::debug_log::LogMessageLocation {
+        path: source_file.path().to_str()?,
+        line,
+        column,
+    })
+}
+
 fn call_builtin_function(
     ctx: &mut EvalContext,
     f: BuiltinFunction,
     arguments: &[Expression],
+    source_location: &Option<SourceLocation>,
 ) -> Value {
     let to_num = |ctx: &mut EvalContext, e: &Expression| -> f64 {
         eval_expression(ctx, e).try_into().unwrap_or_default()
@@ -1935,6 +1951,9 @@ fn call_builtin_function(
         BuiltinFunction::ToStringUnlocalized => {
             let n = to_num(ctx, &arguments[0]);
             Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
+        }
+        BuiltinFunction::DefaultWindowTitle => {
+            Value::String(i_slint_core::window::default_window_title())
         }
         BuiltinFunction::DecimalSeparator => Value::String(
             find_window_adapter(ctx)
@@ -2098,7 +2117,11 @@ fn call_builtin_function(
             };
             let value = eval_expression(ctx, &arguments[1]);
 
-            model.push_row(value);
+            i_slint_core::model::report_model_error(
+                "push",
+                log_message_location(source_location),
+                model.push_row(value),
+            );
 
             Value::Void
         }
@@ -2116,9 +2139,15 @@ fn call_builtin_function(
                 _ => panic!("Second argument not an integer: {:?}", arguments[1]),
             };
 
-            if let Ok(index) = usize::try_from(index as i64) {
-                model.remove_row(index);
-            }
+            let result = match usize::try_from(index as i64) {
+                Ok(index) => model.remove_row(index),
+                Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
+            };
+            i_slint_core::model::report_model_error(
+                "remove",
+                log_message_location(source_location),
+                result,
+            );
 
             Value::Void
         }
@@ -2138,9 +2167,15 @@ fn call_builtin_function(
             };
 
             let value = eval_expression(ctx, &arguments[2]);
-            if let Ok(index) = usize::try_from(index as i64) {
-                model.insert_row(index, value);
-            }
+            let result = match usize::try_from(index as i64) {
+                Ok(index) => model.insert_row(index, value),
+                Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
+            };
+            i_slint_core::model::report_model_error(
+                "insert",
+                log_message_location(source_location),
+                result,
+            );
 
             Value::Void
         }
@@ -2469,13 +2504,13 @@ fn call_builtin_function(
             if let Some(context) = root.as_ref().and_then(i_slint_core::window::context_for_root) {
                 context.dispatch_log_message(LogMessage::new(
                     LogMessageSource::SlintCode,
-                    None,
+                    log_message_location(source_location),
                     format_args!("{msg}"),
                 ));
             } else {
                 log_message(LogMessage::new(
                     LogMessageSource::SlintCode,
-                    None,
+                    log_message_location(source_location),
                     format_args!("{msg}"),
                 ));
             }

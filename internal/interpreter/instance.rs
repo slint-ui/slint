@@ -507,7 +507,7 @@ impl Instance {
                 // core calls `RepeatedItemTree::init` on each row, so the
                 // height/width/geometry bindings must be in place
                 // immediately; `init_code` stays deferred to `init()`.
-                install_bindings_for_repeated_row(&vrc);
+                init_items_and_bindings(&vrc);
             }
             vrc
         };
@@ -796,13 +796,9 @@ fn build_instance(
 /// instance, then run `init_code`.
 ///
 /// Idempotent: separate `OnceCell` flags guard the bindings install and
-/// the `init_code` step so each side can be called independently. The
-/// listview virtualization path uses
-/// [`install_bindings_for_repeated_row`] to install bindings before the
-/// first measurement and defers `init_code` to the core's
-/// `init_instances` callback (`<Instance as RepeatedItemTree>::init`).
+/// the `init_code` step so each side can be called independently.
 pub(crate) fn finalize_instance(vrc: &VRc<ItemTreeVTable, Instance>) {
-    install_bindings_for_repeated_row(vrc);
+    init_items_and_bindings(vrc);
     if vrc.init_code_run.get().is_some() {
         return;
     }
@@ -817,29 +813,22 @@ pub(crate) fn finalize_instance(vrc: &VRc<ItemTreeVTable, Instance>) {
     if vrc.public_component_index.is_some() && vrc.embedded_in.get().is_none() {
         vrc.attach_to_window();
     }
-    // Call Item::init() on every native item and register the item tree
-    // with the window adapter. Registration matters: the rendering backend
-    // keeps per-component caches (text shaping, bounding rects) released
-    // only by the matching `unregister_item_tree` on Drop, and skipping
-    // the pair leaks entries until the renderer serves stale data for
-    // reused item addresses.
-    {
-        let dyn_rc = vtable::VRc::into_dyn(vrc.self_weak.get().unwrap().upgrade().unwrap());
-        let adapter = vrc.window_adapter_or_default();
-        i_slint_core::item_tree::register_item_tree(&dyn_rc, adapter);
-    }
     crate::bindings::run_init_code_for_instance(vrc);
 }
 
-/// Install bindings, two-way links and timers on `vrc` without running
-/// `init_code`. Used by the listview row factory; safe to call from any
-/// other path that needs bindings in place but doesn't want to fire user
-/// init handlers yet.
-pub(crate) fn install_bindings_for_repeated_row(vrc: &VRc<ItemTreeVTable, Instance>) {
+/// Everything [`finalize_instance`] does except running `init_code`:
+/// `Item::init()`, bindings, two-way links and timers.
+pub(crate) fn init_items_and_bindings(vrc: &VRc<ItemTreeVTable, Instance>) {
     if vrc.bindings_installed.get().is_some() {
         return;
     }
     let _ = vrc.bindings_installed.set(());
+    // `register_item_tree` calls `Item::init()`, which `ItemVTable::init`
+    // requires to run before the bindings below.
+    i_slint_core::item_tree::register_item_tree(
+        &vtable::VRc::into_dyn(vrc.clone()),
+        vrc.window_adapter_or_default(),
+    );
     let is_root = vrc.parent_instance.upgrade().is_none();
     if is_root {
         crate::globals::install_global_bindings(&vrc.globals);
@@ -1071,7 +1060,7 @@ fn repeated_align_self(
     sc: &i_slint_compiler::llr::SubComponent,
     ctx: &mut crate::eval::EvalContext,
     orientation: i_slint_core::items::Orientation,
-) -> i_slint_core::items::CrossAxisSelfAlignment {
+) -> i_slint_core::items::CrossAxisAlignment {
     match &sc.cross_axis_self_alignment_for_repeated {
         Some((cross_o, expr)) if crate::eval::llr_to_core_orientation(*cross_o) == orientation => {
             crate::eval::eval_expression(ctx, &expr.borrow()).try_into().unwrap_or_default()
@@ -1221,21 +1210,38 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
         }
     }
 
+    /// Measure the instance at the width a box layout lays it out at.
+    /// For a flexbox cell the stored expression was built without re-applying
+    /// inherited constraints (see
+    /// `get_layout_info_v_at_cross_width_for_repeated`), so fall back to the
+    /// plain info like the generated Rust and C++ code do.
     fn layout_item_info_at_cross_width(
         self: Pin<&Self>,
         cross_width: f32,
     ) -> i_slint_core::layout::LayoutItemInfo {
-        self.box_layout_item_info_at_cross(i_slint_core::items::Orientation::Vertical, cross_width)
-    }
-
-    fn layout_item_info_at_cross_height(
-        self: Pin<&Self>,
-        cross_height: f32,
-    ) -> i_slint_core::layout::LayoutItemInfo {
-        self.box_layout_item_info_at_cross(
-            i_slint_core::items::Orientation::Horizontal,
-            cross_height,
-        )
+        use i_slint_compiler::llr::lower_layout_expression::CROSS_WIDTH_LOCAL;
+        let orientation = i_slint_core::items::Orientation::Vertical;
+        let cu = self.root_sub_component.compilation_unit.clone();
+        let sc = &cu.sub_components[self.root_sub_component.sub_component_idx];
+        let Some(expr) = sc
+            .layout_info_v_at_cross_width_for_repeated
+            .as_ref()
+            .filter(|_| sc.flexbox_layout_item_info_for_repeated.is_none())
+        else {
+            return self.layout_item_info(orientation, None);
+        };
+        let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
+        ctx.locals.insert(CROSS_WIDTH_LOCAL.into(), crate::Value::Number(cross_width as f64));
+        let constraint =
+            crate::eval::eval_expression(&mut ctx, &expr.borrow()).try_into().unwrap_or_default();
+        // The per-item fields are the same as in `layout_item_info`, which is
+        // not called here: it measures the constraint through `layout_info`,
+        // which is what this accessor exists to avoid.
+        i_slint_core::layout::LayoutItemInfo {
+            constraint,
+            cross_axis_self_alignment: repeated_align_self(sc, &mut ctx, orientation),
+            layout_order: repeated_layout_order(sc, &mut ctx, orientation),
+        }
     }
 
     fn flexbox_layout_item_info(
@@ -1269,19 +1275,6 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
                     .unwrap_or_default();
                 return info;
             }
-            // Mirror for the other axis: a width-for-height instance (e.g. a
-            // wrapping column FlexboxLayout) must not read self.height. Use the
-            // constrained horizontal info (computed at an unbounded height).
-            if matches!(orientation, i_slint_core::items::Orientation::Horizontal)
-                && child_index.is_none()
-                && let Some(h_expr) = &sc.layout_info_h_constrained_for_repeated
-            {
-                let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
-                info.constraint = crate::eval::eval_expression(&mut ctx, &h_expr.borrow())
-                    .try_into()
-                    .unwrap_or_default();
-                return info;
-            }
             // The expression leaves the constraint unset; fill it with the
             // layout item's real constraint.
             info.constraint = self.layout_item_info(orientation, child_index).constraint;
@@ -1293,53 +1286,6 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
 }
 
 impl Instance {
-    /// Shared body of the box-layout `layout_item_info_at_cross_width` /
-    /// `_at_cross_height` accessors: measure the instance at the cross size a
-    /// box layout lays it out at. The `cross-axis-self-alignment` only
-    /// matters on the cross-axis pass, so it stays `Auto` here.
-    /// For a flexbox cell the stored expression was built without re-applying
-    /// inherited constraints (see
-    /// `get_layout_info_v_at_cross_width_for_repeated`), so fall back to the
-    /// plain info like the generated Rust and C++ code do.
-    fn box_layout_item_info_at_cross(
-        self: Pin<&Self>,
-        orientation: i_slint_core::items::Orientation,
-        cross_size: f32,
-    ) -> i_slint_core::layout::LayoutItemInfo {
-        use i_slint_compiler::llr::lower_layout_expression::{
-            CROSS_HEIGHT_LOCAL, CROSS_WIDTH_LOCAL,
-        };
-        let cu = self.root_sub_component.compilation_unit.clone();
-        let sc = &cu.sub_components[self.root_sub_component.sub_component_idx];
-        let (expr, local) = match orientation {
-            i_slint_core::items::Orientation::Vertical => {
-                (sc.layout_info_v_at_cross_width_for_repeated.as_ref(), CROSS_WIDTH_LOCAL)
-            }
-            i_slint_core::items::Orientation::Horizontal => {
-                (sc.layout_info_h_at_cross_height_for_repeated.as_ref(), CROSS_HEIGHT_LOCAL)
-            }
-        };
-        let Some(expr) = expr.filter(|_| sc.flexbox_layout_item_info_for_repeated.is_none()) else {
-            return i_slint_core::model::RepeatedItemTree::layout_item_info(
-                self,
-                orientation,
-                None,
-            );
-        };
-        let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
-        ctx.locals.insert(local.into(), crate::Value::Number(cross_size as f64));
-        let constraint =
-            crate::eval::eval_expression(&mut ctx, &expr.borrow()).try_into().unwrap_or_default();
-        // The per-item fields are the same as in `layout_item_info`, which is
-        // not called here: it measures the constraint through `layout_info`,
-        // which is what this accessor exists to avoid.
-        i_slint_core::layout::LayoutItemInfo {
-            constraint,
-            cross_axis_self_alignment: repeated_align_self(sc, &mut ctx, orientation),
-            layout_order: repeated_layout_order(sc, &mut ctx, orientation),
-        }
-    }
-
     /// Vertical flexbox info for a repeated instance measured at the container
     /// cross width instead of its own preferred width, so a height-for-width
     /// cell wraps to the same height as an equivalent static cell.
@@ -1360,32 +1306,6 @@ impl Instance {
                 crate::Value::Number(cross_width as f64),
             );
             info.constraint = crate::eval::eval_expression(&mut ctx, &v_expr.borrow())
-                .try_into()
-                .unwrap_or_default();
-        }
-        info
-    }
-
-    /// Horizontal flexbox info for a repeated instance measured at the assigned
-    /// cross height, so a width-for-height cell resolves to the same width as
-    /// an equivalent static cell.
-    pub fn flexbox_layout_item_info_at_cross_height(
-        self: Pin<&Self>,
-        cross_height: f32,
-    ) -> i_slint_core::layout::FlexboxLayoutItemInfo {
-        use i_slint_core::items::Orientation;
-        use i_slint_core::model::RepeatedItemTree;
-        let mut info =
-            RepeatedItemTree::flexbox_layout_item_info(self, Orientation::Horizontal, None);
-        let cu = self.root_sub_component.compilation_unit.clone();
-        let sc = &cu.sub_components[self.root_sub_component.sub_component_idx];
-        if let Some(h_expr) = &sc.layout_info_h_at_cross_height_for_repeated {
-            let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
-            ctx.locals.insert(
-                i_slint_compiler::llr::lower_layout_expression::CROSS_HEIGHT_LOCAL.into(),
-                crate::Value::Number(cross_height as f64),
-            );
-            info.constraint = crate::eval::eval_expression(&mut ctx, &h_expr.borrow())
                 .try_into()
                 .unwrap_or_default();
         }

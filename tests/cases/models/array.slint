@@ -44,6 +44,7 @@ export component TestCase {
     public function push_one(val: int) { ints.push(val) }
     public function remove_one(index: int) { ints.remove(index) }
     public function insert_one(index: int, value: int) { ints.insert(index, value) }
+    public function set_one(index: int, value: int) { ints[index] = value }
 
     public function push_one_empty(val: int) { empty_ints.push(val) }
     public function remove_one_empty() { empty_ints.remove(0) }
@@ -186,6 +187,9 @@ instance.invoke_insert_one(1, 20);
 assert_eq!(model.row_count(), 4);
 assert_eq!(model.row_data(1).unwrap(), 20);
 
+// Out-of-bounds modifications are rejected and logged.
+slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+
 instance.invoke_remove_one(-1);
 assert_eq!(model.row_count(), 4);
 instance.invoke_remove_one(10);
@@ -195,6 +199,17 @@ instance.invoke_insert_one(-1, 30);
 assert_eq!(model.row_count(), 4);
 instance.invoke_insert_one(10, 30);
 assert_eq!(model.row_count(), 4);
+
+let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+assert_eq!(
+    logs,
+    [
+        "array.remove(): the row index is out of bounds (the model has 4 rows)",
+        "array.remove(): the row index is out of bounds (the model has 4 rows)",
+        "array.insert(): the row index is out of bounds (the model has 4 rows)",
+        "array.insert(): the row index is out of bounds (the model has 4 rows)",
+    ]
+);
 
 instance.invoke_remove_one(0);
 assert_eq!(model.row_count(), 3);
@@ -291,6 +306,31 @@ instance.remove_one_empty();
 assert.equal(model.rowCount(), 0);
 instance.insert_one_empty();
 assert.equal(model.rowCount(), 0);
+
+// A read-only model: it doesn't re-implement pushRow/insertRow/removeRow,
+// so mutating operations coming from .slint are rejected and logged.
+class ReadOnlyModel extends slintlib.Model {
+    rowCount() { return 3; }
+    rowData(row) { return [10, 20, 30][row]; }
+}
+instance.ints = new ReadOnlyModel();
+assert.equal(instance.num_ints, 3);
+assert.equal(instance.third_int, 30);
+
+const log = require("node:test").mock.method(console, "log", () => {});
+instance.push_one(40);
+instance.remove_one(0);
+instance.insert_one(1, 40);
+instance.set_one(0, 99);
+log.mock.restore();
+const logs = log.mock.calls.map((call) => call.arguments[0]);
+assert.equal(instance.num_ints, 3);
+assert.equal(instance.third_int, 30);
+assert.equal(logs.length, 4);
+assert.match(logs[0], /array\.slint:\d+:\d+: array\.push\(\): the model ReadOnlyModel does not support this modification$/);
+assert.match(logs[1], /array\.slint:\d+:\d+: array\.remove\(\): the model ReadOnlyModel does not support this modification$/);
+assert.match(logs[2], /array\.slint:\d+:\d+: array\.insert\(\): the model ReadOnlyModel does not support this modification$/);
+assert.equal(logs[3], "setRowData(): the model ReadOnlyModel does not support this modification");
 ```
 
 ////////// Test with read-only model and check for logs.
@@ -326,7 +366,7 @@ assert_eq(read_only->row_count(), 3);
 
 ```rust
 // A read-only model: it doesn't re-implement push_row/insert_row/remove_row,
-// so mutating operations coming from .slint are no-ops that only log a warning
+// so mutating operations coming from .slint are rejected and logged.
 struct ReadOnlyModel;
 impl slint::Model for ReadOnlyModel {
     type Data = i32;
@@ -351,24 +391,23 @@ slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
 instance.invoke_push_one(40);
 assert_eq!(instance.get_num_ints(), 3);
 let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
-assert_eq!(logs.len(), 1, "Expected one push_row log, got: {logs:?}");
-// The default push_row appends via insert_row, so the warning names insert_row.
-assert!(logs[0].contains("Model::insert_row called on a model of type"));
-assert!(logs[0].contains("which does not re-implement this method. This happens when trying to modify a read-only model"));
+assert_eq!(logs.len(), 1, "unexpected logs: {logs:?}");
+assert!(logs[0].starts_with("array.push(): the model "), "{}", logs[0]);
+assert!(logs[0].ends_with("ReadOnlyModel does not support this modification"), "{}", logs[0]);
 
 instance.invoke_remove_one(0);
 assert_eq!(instance.get_num_ints(), 3);
 let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
-assert_eq!(logs.len(), 1, "Expected one remove_row log, got: {logs:?}");
-assert!(logs[0].contains("Model::remove_row called on a model of type"));
-assert!(logs[0].contains("which does not re-implement this method. This happens when trying to modify a read-only model"));
+assert_eq!(logs.len(), 1, "unexpected logs: {logs:?}");
+assert!(logs[0].starts_with("array.remove(): the model "), "{}", logs[0]);
+assert!(logs[0].ends_with("ReadOnlyModel does not support this modification"), "{}", logs[0]);
 
 instance.invoke_insert_one(1, 40);
 assert_eq!(instance.get_num_ints(), 3);
 assert_eq!(instance.get_third_int(), 30);
 let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
-assert_eq!(logs.len(), 1, "Expected one insert_row log, got: {logs:?}");
-assert!(logs[0].contains("Model::insert_row called on a model of type"));
-assert!(logs[0].contains("which does not re-implement this method. This happens when trying to modify a read-only model"));
+assert_eq!(logs.len(), 1, "unexpected logs: {logs:?}");
+assert!(logs[0].starts_with("array.insert(): the model "), "{}", logs[0]);
+assert!(logs[0].ends_with("ReadOnlyModel does not support this modification"), "{}", logs[0]);
 ```
 */

@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A Flickable that cannot pan in either direction (its content fits within its own size) must not swallow
+// a press/release that no descendant claims: it should be forwarded to whatever is underneath,
+// the same way it already happens for wheel events.
+// See issue #8973.
+//
+// A Flickable that *can* pan must keep intercepting the event as before.
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 200px;
+
+    // Left half: non-scrollable Flickable on top of a TouchArea. The click must pass through.
+    TouchArea {
+        x: 0px;
+        width: 200px;
+        height: 200px;
+        clicked => { root.non-scrollable-clicked = true; }
+    }
+    Flickable {
+        x: 0px;
+        width: 200px;
+        height: 200px;
+        content-width: self.width;
+        content-height: self.height;
+    }
+
+    // Right half: scrollable Flickable on top of a TouchArea. The click must still be intercepted.
+    TouchArea {
+        x: 200px;
+        width: 200px;
+        height: 200px;
+        clicked => { root.scrollable-clicked = true; }
+    }
+    Flickable {
+        x: 200px;
+        width: 200px;
+        height: 200px;
+        content-width: self.width;
+        content-height: 400px;
+    }
+
+    out property <bool> non-scrollable-clicked: false;
+    out property <bool> scrollable-clicked: false;
+}
+
+// Reproduction from issue #8973: a non-scrollable Flickable nested inside a TouchArea,
+// with only non-interactive content inside the Flickable.
+// Clicking the Flickable's content must still reach the enclosing TouchArea,
+// since the Flickable can't pan in either direction.
+export component TestCaseWrapped inherits Window {
+    width: 100px;
+    height: 100px;
+
+    TouchArea {
+        clicked => { root.counter += 1; }
+
+        Flickable {
+            width: 50px;
+            height: 50px;
+            content-width: self.width;
+            content-height: self.height;
+
+            Rectangle {
+                background: gray;
+            }
+        }
+    }
+
+    out property <int> counter: 0;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+// Click into the non-scrollable Flickable: it can't pan, so the click reaches the TouchArea underneath.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_non_scrollable_clicked(), true);
+assert_eq!(instance.get_scrollable_clicked(), false);
+
+// Click into the scrollable Flickable: it can pan, so it keeps intercepting the click as before.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_scrollable_clicked(), false);
+```
+
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCaseWrapped::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 1);
+```
+*/

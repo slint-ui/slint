@@ -29,12 +29,12 @@ i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "s
 i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default", "shared-fontique"] }
 
-const-field-offset = { version = "0.2", path = "../../../helper_crates/const-field-offset" }
+const-field-offset = { version = "0.2.1", path = "../../../helper_crates/const-field-offset" }
 
 cfg-if = "1"
 lyon_path = { workspace = true }
 pin-weak = "1"
-femtovg = { version = "0.26", default-features = false, features = ["swash"] }
+femtovg = { version = "0.27", default-features = false, features = ["swash"] }
 imgref = { version = "1.6.1" }
 rgb = { version = "0.8.27" }
 

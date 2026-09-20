@@ -248,7 +248,7 @@ fn lower_binary_expression(
     // stack depth stays bounded no matter how long the chain is.
     let mut spine = Vec::new();
     let mut node = expression;
-    while let tree_Expression::BinaryExpression { lhs, rhs, op } = node {
+    while let tree_Expression::BinaryExpression { lhs, rhs, op, .. } = node {
         spine.push((rhs, *op));
         node = lhs;
     }
@@ -290,7 +290,7 @@ fn lower_function_call(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
 ) -> llr_Expression {
-    let tree_Expression::FunctionCall { function, arguments, .. } = expression else {
+    let tree_Expression::FunctionCall { function, arguments, source_location } = expression else {
         unreachable!()
     };
     match function {
@@ -320,7 +320,11 @@ fn lower_function_call(
             {
                 *output = llr_ArrayOutput::Slice;
             }
-            llr_Expression::BuiltinFunctionCall { function: f.clone(), arguments }
+            llr_Expression::BuiltinFunctionCall {
+                function: f.clone(),
+                arguments,
+                source_location: source_location.clone(),
+            }
         }
         Callable::Callback(nr) => {
             let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
@@ -347,7 +351,7 @@ fn lower_condition(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
 ) -> llr_Expression {
-    let tree_Expression::Condition { condition, true_expr, false_expr } = expression else {
+    let tree_Expression::Condition { condition, true_expr, false_expr, .. } = expression else {
         unreachable!()
     };
     let (true_ty, false_ty) = (true_expr.ty(), false_expr.ty());
@@ -545,6 +549,7 @@ fn lower_assignment(
                         .into(),
                         rhs: Box::new(rhs.clone()),
                         op,
+                        source_location: None,
                     }
                 };
                 values.insert(field.clone(), e);
@@ -638,6 +643,7 @@ fn lower_restart_timer(args: &[tree_Expression], ctx: &ExpressionLoweringCtx) ->
 
         llr_Expression::BuiltinFunctionCall {
             function: BuiltinFunction::RestartTimer,
+            source_location: None,
             arguments: vec![llr_Expression::PropertyReference(MemberReference::Relative {
                 parent_level,
                 local_reference: LocalMemberReference {
@@ -705,6 +711,7 @@ fn lower_show_popup_window(
         llr_Expression::BuiltinFunctionCall {
             function: BuiltinFunction::ShowPopupWindow,
             arguments,
+            source_location: None,
         }
     } else {
         panic!("invalid arguments to ShowPopupWindow");
@@ -720,6 +727,7 @@ fn lower_close_popup_window(
         llr_Expression::BuiltinFunctionCall {
             function: BuiltinFunction::ClosePopupWindow,
             arguments: vec![llr_Expression::NumberLiteral(popup_index as _), owner_ref],
+            source_location: None,
         }
     } else {
         panic!("invalid arguments to ClosePopupWindow");

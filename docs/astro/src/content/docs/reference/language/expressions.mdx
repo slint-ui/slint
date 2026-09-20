@@ -17,7 +17,7 @@ a property reference, or a field access. \{#sls.expr.forms}
 
 An expression produces a value.
 A literal is the simplest form: a number such as `42` or `3.14`, a number with a unit such as `100px` or `250ms`,
-the boolean `true` or `false`, a [string](../../property-types/builtin-types/) with `\{ }` interpolation,
+the boolean `true` or `false`, a [string](../../property-types/strings/#string) with `\{ }` interpolation,
 or a [color](#color-literals).
 The other forms are a [reference](#references), an [operator or conditional expression](../operators/),
 a [member access or index](../operators/#member-access-and-indexing), a function or callback call,
@@ -121,22 +121,6 @@ The `nine-slice` argument of full Slint is an
 error. \{#sls.expr.image.no-nine-slice}
 </OnlyInSC>
 
-<SC>
-## Image Dimensions
-
-Reading the field `width` or `height` of an expression of type `image`
-yields the dimensions of the image as an `int`: the number of pixels in each
-row, and the number of rows.
-Both are 0 for no image. \{#sls.expr.image.dimensions}
-
-```slint
-export component Example inherits Window {
-    in property <image> logo;
-    out property <int> logo-width: logo.width;
-}
-```
-</SC>
-
 ## References
 
 ```slint
@@ -165,8 +149,6 @@ When reading, a property reference evaluates to the value of the referenced prop
 and has that property's type. \{#sls.expr.ref.value}
 </SC>
 
-<NotInSC>
 Without an element reference, a name may also resolve to a local variable, a callback, or a function.
-</NotInSC>
 
-A reference may also name an [enumeration](../../property-types/) value or a [global](../globals/)'s property.
+A reference may also name an [enumeration](../structs-and-enums/#enums) value or a [global](../globals/)'s property.

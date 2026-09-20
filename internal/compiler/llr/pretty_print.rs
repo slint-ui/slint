@@ -499,7 +499,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::CodeBlock(v) => {
                 write!(f, "{{ {} }}", v.iter().map(e).join("; "))
             }
-            Expression::BuiltinFunctionCall { function, arguments } => {
+            Expression::BuiltinFunctionCall { function, arguments, .. } => {
                 write!(f, "{:?}({})", function, arguments.iter().map(e).join(", "))
             }
             Expression::CallBackCall { callback, arguments } => {

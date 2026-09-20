@@ -6,8 +6,9 @@
 #include "private/slint_sharedvector.h"
 #include "private/slint_string.h"
 
+#include <concepts>
 #include <optional>
-#include <span>
+#include <ranges>
 #include <string_view>
 #include <vector>
 
@@ -39,7 +40,7 @@ public:
     /// Move assignment operator
     slint::Keys &operator=(Keys &&) = default;
 
-    /// Create a `Keys` from a span of string parts, e.g. `{"Control", "Shift?", "Z"}`.
+    /// Create a `Keys` from a range of string parts, e.g. `{"Control", "Shift?", "Z"}`.
     ///
     /// Each element is either a modifier (`Control`, `Shift`, `Alt`, `Meta`, `Shift?`, `Alt?`)
     /// or a key name from the Key namespace (case-sensitive). If not found, it is treated as
@@ -51,12 +52,20 @@ public:
     /// `Control` modifier. Empty parts are skipped.
     ///
     /// Returns `std::nullopt` on parse failure.
-    static std::optional<Keys> from_parts(std::span<const std::string_view> parts)
+    ///
+    /// \a parts may be any range whose elements are convertible to `std::string_view`,
+    /// such as a `std::vector<std::string>`.
+    template<std::ranges::input_range R = std::initializer_list<std::string_view>>
+    // Defaulting R lets a braced call like from_parts({"Control", "C"}) deduce to initializer_list.
+        requires std::convertible_to<std::ranges::range_reference_t<R>, std::string_view>
+    static std::optional<Keys> from_parts(R &&parts)
     {
         std::vector<SharedString> converted;
-        converted.reserve(parts.size());
-        for (const auto &sv : parts) {
-            converted.emplace_back(sv);
+        if constexpr (std::ranges::sized_range<R>) {
+            converted.reserve(std::ranges::size(parts));
+        }
+        for (auto &&part : parts) {
+            converted.emplace_back(std::string_view(part));
         }
         Keys result;
         SharedString empty;
@@ -66,12 +75,6 @@ public:
             return result;
         }
         return std::nullopt;
-    }
-
-    /// \overload
-    static std::optional<Keys> from_parts(std::initializer_list<std::string_view> parts)
-    {
-        return from_parts(std::span<const std::string_view> { parts.begin(), parts.size() });
     }
 
     /// Decompose this `Keys` value into a list of string parts that `from_parts` accepts.

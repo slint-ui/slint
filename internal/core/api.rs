@@ -7,7 +7,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
-use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
+use crate::input::{BackendMouseEvent, InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use crate::platform::WindowEventDispatchResult;
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
@@ -763,13 +763,13 @@ impl Window {
                 WindowEventDispatchResult::Accepted
             }
             crate::platform::WindowEvent::Internal(event) => match event.into_inner() {
-                crate::platform::InternalEvent::Mouse(MouseEvent::Exit) => {
+                crate::platform::InternalEvent::Mouse(BackendMouseEvent::Exit) => {
                     // Teardown event, always accepted like `WindowEvent::PointerExited`.
                     self.0.process_mouse_input(MouseEvent::Exit);
                     WindowEventDispatchResult::Accepted
                 }
                 crate::platform::InternalEvent::Mouse(event) => {
-                    self.0.process_mouse_input(event).into()
+                    self.0.process_mouse_input(event.into()).into()
                 }
                 crate::platform::InternalEvent::Key(event) => {
                     self.0.process_key_input(event).into()
@@ -832,6 +832,9 @@ impl Window {
     /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
     ///
     /// Note that this function may be slow to call as it may need to re-render the scene.
+    ///
+    /// Only available with the `std` feature.
+    #[cfg(feature = "std")]
     pub fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         self.0.window_adapter().renderer().take_snapshot()
     }

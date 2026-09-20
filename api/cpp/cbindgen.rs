@@ -740,7 +740,7 @@ fn gen_corelib(
             }",
         ),
         (
-            vec!["MouseEvent", "TouchPhase"],
+            vec!["MouseEvent", "BackendMouseEvent", "TouchPhase"],
             "slint_events_internal.h",
             "#include \"private/slint_point.h\"
             #include \"private/slint_builtin_structs_internal.h\"
@@ -938,7 +938,7 @@ fn gen_corelib(
     );
     config.export.body.insert(
         "EasingCurve".to_owned(),
-        "    constexpr EasingCurve(EasingCurve::Tag tag = Tag::Linear, float a = 0, float b = 0, float c = 1, float d = 1) : tag(tag), cubic_bezier{{a,b,c,d}} {}".into()
+        "    constexpr EasingCurve(EasingCurve::Tag tag = Tag::Linear, float a = 0, float b = 0, float c = 1, float d = 1) : tag(tag), cubic_bezier{{a,b,c,d}} { if (tag == Tag::Spring) { spring._0 = a; } }".into()
     );
     config.export.body.insert(
         "LayoutInfo".to_owned(),
@@ -1056,6 +1056,7 @@ namespace slint {
         struct ItemVTable;
         using types::IntRect;
         using types::Size;
+        using types::BackendMouseEvent;
         using types::MouseEvent;
 
         template<typename T> struct Option;
@@ -1335,7 +1336,8 @@ declare_features! {
     backend_winit_x11
     backend_winit_wayland
     backend_linuxkms
-    backend_linuxkms_noseat
+    backend_linuxkms_libseat
+    backend_linuxkms_libinput
     renderer_femtovg
     renderer_skia
     renderer_skia_opengl

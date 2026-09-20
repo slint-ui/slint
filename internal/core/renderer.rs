@@ -6,6 +6,7 @@ use alloc::rc::Rc;
 use core::pin::Pin;
 
 use crate::api::PlatformError;
+#[cfg(feature = "std")]
 use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::item_tree::ItemTreeRef;
 use crate::items::{ItemRc, TextWrap};
@@ -106,7 +107,12 @@ pub trait RendererSealed {
     ) -> Option<ContentWidths> {
         #[cfg(feature = "shared-parley")]
         {
-            crate::textlayout::sharedparley::text_content_widths(self, text_item, item_rc)
+            crate::textlayout::sharedparley::text_content_widths(
+                self,
+                text_item,
+                item_rc,
+                self.text_layout_cache(),
+            )
         }
         #[cfg(not(feature = "shared-parley"))]
         {
@@ -367,6 +373,7 @@ pub trait RendererSealed {
 
     /// Re-implement this function to support Window::take_snapshot(), i.e. return
     /// the contents of the window in an image buffer.
+    #[cfg(feature = "std")]
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         Err("WindowAdapter::take_snapshot is not implemented by the platform".into())
     }

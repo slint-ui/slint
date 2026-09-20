@@ -1,11 +1,66 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore capfd
+
 import typing
 from pathlib import Path
 
+import pytest
+
 from slint import models
 from slint import slint as native
+
+
+def test_row_modification_rejection_raises() -> None:
+    model = models.ListModel([1, 2, 3])
+    with pytest.raises(IndexError):
+        model.remove_row(3)
+    with pytest.raises(IndexError):
+        model.insert_row(5, 4)
+
+    class ReadOnly(models.Model[int]):
+        def row_count(self) -> int:
+            return 1
+
+        def row_data(self, row: int) -> int | None:
+            return 42
+
+    with pytest.raises(NotImplementedError):
+        ReadOnly().push_row(1)
+
+
+def test_rejected_modification_logs_python_class_name(
+    capfd: pytest.CaptureFixture[str],
+) -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> ints;
+            public function push-one() { ints.push(4) }
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    class ReadOnly(models.Model[int]):
+        def row_count(self) -> int:
+            return 1
+
+        def row_data(self, row: int) -> int | None:
+            return 42
+
+    instance.set_property("ints", ReadOnly())
+    instance.invoke("push_one")
+
+    err = capfd.readouterr().err
+    assert (
+        "array.push(): the model ReadOnly does not support this modification" in err
+    ), err
 
 
 def test_model_notify() -> None:
@@ -48,7 +103,11 @@ def test_model_notify() -> None:
     assert instance.get_property("layout-height") == 100
     model.set_row_data(1, 50)
     assert instance.get_property("layout-height") == 150
-    model.append(75)
+    model[-1] = 25
+    assert instance.get_property("layout-height") == 125
+    model[-1] = 50
+    assert instance.get_property("layout-height") == 150
+    model.push_row(75)
     instance._process_pending_events()
     assert instance.get_property("layout-height") == 225
     del model[1:]
@@ -90,6 +149,8 @@ def test_python_model_sequence() -> None:
     assert list(model) == [1, 2, 3, 4, 5]
     model[0] = 100
     assert list(model) == [100, 2, 3, 4, 5]
+    model[-1] = 500
+    assert list(model) == [100, 2, 3, 4, 500]
     assert model[2] == 3
 
 
@@ -160,6 +221,70 @@ def test_list_model_insert_notifies() -> None:
     model.insert(len(model), 10)
     instance._process_pending_events()
     assert instance.get_property("layout-height") == 185
+
+
+def test_list_model_delete() -> None:
+    model = models.ListModel([1, 10, 100, 1000, 10000])
+    del model[-1]
+    assert list(model) == [1, 10, 100, 1000]
+    del model[::2]
+    assert list(model) == [10, 1000]
+    del model[::-1]
+    assert list(model) == []
+
+
+def test_list_model_delete_notifies() -> None:
+    compiler = native.Compiler()
+
+    compdef = compiler.build_from_source(
+        """
+  export component App {
+    width: 300px;
+    height: 300px;
+
+    out property<length> layout-height: layout.height;
+    in-out property<[length]> fixed-height-model;
+
+    VerticalLayout {
+      alignment: start;
+
+      layout := VerticalLayout {
+        for fixed-height in fixed-height-model: Rectangle {
+            background: blue;
+            height: fixed-height;
+        }
+      }
+    }
+  }
+    """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+
+    cases: list[tuple[int | slice, list[int]]] = [
+        (-1, [1, 10, 100, 1000]),
+        (3, [1, 10, 100, 10000]),
+        (slice(1, 3), [1, 1000, 10000]),
+        (slice(None, None, 2), [10, 1000]),
+        (slice(1, None, 2), [1, 100, 10000]),
+        (slice(None, None, -2), [10, 1000]),
+        (slice(3, None, -2), [1, 100, 10000]),
+        (slice(None, None, -1), []),
+    ]
+
+    for key, expected in cases:
+        instance = compdef.create()
+        assert instance is not None
+
+        model = models.ListModel([1, 10, 100, 1000, 10000])
+        instance.set_property("fixed-height-model", model)
+        instance._process_pending_events()
+        assert instance.get_property("layout-height") == 11111
+
+        del model[key]
+        instance._process_pending_events()
+        assert list(model) == expected
+        assert instance.get_property("layout-height") == sum(expected)
 
 
 def test_python_model_iterable() -> None:
@@ -290,3 +415,9 @@ def test_model_modifications() -> None:
     assert len(model) == 0
     instance.invoke("insert_one_empty")
     assert len(model) == 0
+
+
+def test_list_model_append_alias() -> None:
+    model = models.ListModel([1, 2])
+    model.append(3)
+    assert list(model) == [1, 2, 3]

@@ -72,6 +72,23 @@ pub enum LspToPreviewMessage {
     /// A protocol message because the LSP's browser-compatible WebSocket layer
     /// doesn't expose frame-level pings.
     Ping,
+    OpenProject {
+        root: Url,
+    },
+    /// Answer to [`super::PreviewToLspMessage::PairingReady`], and the first
+    /// thing a remote connection sends. `token` names the reconnect token
+    /// this editor holds from pairing with the viewer earlier in its run;
+    /// holding it is proven in the exchange that follows, never by sending it.
+    PairingHello {
+        token: Option<super::pairing::TokenId>,
+    },
+    /// The client's half of the SPAKE2 exchange, plus proof that it derived
+    /// the same key. Answers [`super::PreviewToLspMessage::PairingRequired`]
+    /// and [`super::PreviewToLspMessage::PairingTokenChallenge`].
+    PairingResponse {
+        element: super::pairing::Element,
+        confirmation: super::pairing::Confirmation,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -79,6 +96,13 @@ pub enum LspToPreviewMessage {
 pub enum RemoteConnectionState {
     Disconnected,
     Connecting,
+    /// The viewer is showing a pairing code and is waiting for the user to
+    /// type it into the editor.
+    PairingRequired,
+    /// The viewer has pairing disabled, so the session would be neither
+    /// authenticated nor encrypted. Waiting for the user to accept that or
+    /// cancel.
+    UnpairedWarning,
     Connected,
     Failed,
 }

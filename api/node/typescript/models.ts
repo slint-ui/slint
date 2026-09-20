@@ -126,17 +126,17 @@ export abstract class Model<T> implements Iterable<T> {
     /**
      * Implementations of this function must store the provided data parameter
      * in the model at the specified row.
+     * The default implementation throws, rejecting the modification.
      * @param _row index in range 0..(rowCount() - 1).
      * @param _data new data item to store on the given row index
      */
     setRowData(_row: number, _data: T): void {
-        console.log(
-            "setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model",
-        );
+        throw new TypeError("setRowData is not implemented on this model");
     }
 
     /**
      * Adds a line to the model with the provided data.
+     * Throws when the model rejects the modification.
      * The default implementation calls {@link Model.insertRow} with the row count.
      * @param data new data item to store in a new row.
      */
@@ -146,24 +146,24 @@ export abstract class Model<T> implements Iterable<T> {
 
     /**
      * Implementations of this function must remove the row at the specified index.
+     * Throws when the model rejects the modification; the default implementation
+     * always throws.
      * @param _index index of the row to remove.
      */
     removeRow(_index: number): void {
-        console.log(
-            "removeRow called on a model which does not re-implement this method. This happens when trying to modify a read-only model",
-        );
+        throw new TypeError("removeRow is not implemented on this model");
     }
 
     /**
      * Implementations of this function must add a row at the specified index, pushing all next
      * rows to the right.
+     * Throws when the model rejects the modification; the default implementation
+     * always throws.
      * @param _index index of the row to insert.
      * @param _data new data item to store in a new row.
      */
     insertRow(_index: number, _data: T): void {
-        console.log(
-            "insertRow called on a model which does not re-implement this method. This happens when trying to modify a read-only model",
-        );
+        throw new TypeError("insertRow is not implemented on this model");
     }
 
     [Symbol.iterator](): Iterator<T> {
@@ -260,27 +260,27 @@ export class ArrayModel<T> extends Model<T> {
 
     /**
      * Remove a row from the array backing the model and notifies run-time about the removed row.
-     * @param _index index of the row to remove.
+     * Throws a RangeError when the index is out of bounds.
+     * @param index index of the row to remove.
      */
-    removeRow(_index: number) {
-        // Validate index range to prevent out-of-bounds access as this method is used by
-        // the `array.remove(index)` slint method.
-        if (_index < 0 || _index >= this.#array.length) {
-            return;
+    removeRow(index: number): void {
+        if (index < 0 || index >= this.#array.length) {
+            throw new RangeError(`row index ${index} is out of bounds`);
         }
-        this.remove(_index, 1);
+        this.remove(index, 1);
     }
 
     /**
      * Insert a new row into the array backing the model at the specified index and notifies run-time about the added row.
-     * @param _index index at which to insert the new row.
-     * @param _data data item to store in the new row.
+     * Throws a RangeError when the index is out of bounds.
+     * @param index index at which to insert the new row.
+     * @param data data item to store in the new row.
      */
-    insertRow(_index: number, _data: T) {
-        // Validate index range to prevent out-of-bounds access as this method is used by
-        // the `array.insert(index, value)` slint method.
-        if (_index < 0 || _index > this.#array.length) return;
-        this.splice(_index, 0, _data);
+    insertRow(index: number, data: T): void {
+        if (index < 0 || index > this.#array.length) {
+            throw new RangeError(`row index ${index} is out of bounds`);
+        }
+        this.splice(index, 0, data);
     }
 
     /**

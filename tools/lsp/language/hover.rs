@@ -6,12 +6,14 @@ use crate::editor_preview::{
     token_info::{TokenInfo, token_info},
 };
 use crate::util;
-use i_slint_compiler::doc_comments::ElementDocEntry;
+use i_slint_compiler::expression_tree::Expression;
+use i_slint_compiler::langtype::ElementDocEntry;
 use i_slint_compiler::langtype::{BuiltinElement, ElementType, Type};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken};
 use itertools::Itertools as _;
 use lsp_types::{Hover, HoverContents, MarkupContent};
+use std::rc::Rc;
 
 pub fn get_tooltip(
     document_cache: &mut editor_preview::DocumentCache,
@@ -80,6 +82,14 @@ pub fn get_tooltip(
         // Todo: this can happen when there is some syntax error
         TokenInfo::LocalProperty(_) | TokenInfo::LocalCallback(_) | TokenInfo::LocalFunction(_) => {
             return None;
+        }
+        TokenInfo::StructField(s, field) => {
+            from_slint_code(&format!("{field}: {}", s.fields.get(&field)?), documentation)
+        }
+        TokenInfo::ModelData(elem) => {
+            let ty = Expression::RepeaterModelReference { element: Rc::downgrade(&elem) }.ty();
+            let name = elem.borrow().repeated.as_ref()?.model_data_id.clone();
+            from_slint_code(&format!("{name}: {ty}"), documentation)
         }
         TokenInfo::IncompleteNamedReference(el, name) => {
             from_property_in_type(&el, &name, documentation)?
@@ -212,7 +222,7 @@ fn strip_paragraph_id(line: &str) -> &str {
     line[..start].trim_end()
 }
 
-/// Extract the prose description from a raw builtins.slint doc comment,
+/// Extract the prose description from a raw builtin element doc comment,
 /// stripping code fences, `\`-annotations, `\{#sls.…}` paragraph ids, and
 /// `<Component />` MDX tags that don't render well in a tooltip.
 fn clean_builtin_doc(raw: &str) -> String {
@@ -356,6 +366,40 @@ mod tests {
     use i_slint_compiler::parser::TextSize;
 
     #[test]
+    fn test_tooltip_struct_field_and_model_data() {
+        // #13305
+        let source = r#"
+struct InnerData {
+    /// docs for inner
+    inner: string,
+}
+struct Data { first: string, second: [InnerData] }
+export component AppWindow {
+    in property <Data> data;
+    Text { text: data.first + data.second[0].inner; }
+    for item in data.second: Text { text: item.inner; }
+}"#;
+        let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
+        let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+        let mut tooltip = |needle: &str, offset: u32| {
+            let offset = TextSize::new(source.find(needle).unwrap() as u32 + offset);
+            let token = crate::language::token_at_offset(&doc, offset).unwrap();
+            match get_tooltip(&mut dc, token).unwrap().contents {
+                HoverContents::Markup(m) => m.value,
+                x => panic!("Found {x:?}"),
+            }
+        };
+
+        assert_eq!(tooltip("data.first", 5), "```slint\nfirst: string\n```");
+        assert_eq!(
+            tooltip("data.second[0].inner", 15),
+            "```slint\n/// docs for inner\ninner: string\n```"
+        );
+        assert_eq!(tooltip("item.inner", 0), "```slint\nitem: InnerData\n```");
+        assert_eq!(tooltip("item.inner", 5), "```slint\n/// docs for inner\ninner: string\n```");
+    }
+
+    #[test]
     fn test_tooltip() {
         let source = r#"
 import { StandardTableView } from "std-widgets.slint";
@@ -456,7 +500,7 @@ export component Test { // not docs
             get_tooltip(&mut dc, find_tk("Glob.hello_world", 8.into())),
             "```slint\nproperty <{ a: int,b: float,}> hello-world\n```",
         );
-        // builtin property: signature + doc from builtins.slint
+        // builtin property: signature + doc from the builtin element declaration
         let enabled_tip = get_tooltip(&mut dc, find_tk("self.enabled", 5.into()));
         assert_tooltip_contains(enabled_tip.clone(), "property <bool> enabled");
         assert_tooltip_contains(enabled_tip, "TouchArea"); // doc mentions TouchArea
@@ -468,7 +512,7 @@ export component Test { // not docs
             get_tooltip(&mut dc, find_tk("root-prop.to-float", 1.into())),
             "```slint\n// root-prop is a property\nproperty <string> root-prop\n```",
         );
-        // builtin property: signature + doc from builtins.slint
+        // builtin property: signature + doc from the builtin element declaration
         let bg_tip = get_tooltip(&mut dc, find_tk("background: red", 0.into()));
         assert_tooltip_contains(bg_tip.clone(), "```slint\nproperty <brush> background\n```");
         assert_tooltip_contains(bg_tip, "background brush"); // doc text
@@ -563,6 +607,29 @@ export component Test { // not docs
             get_tooltip(&mut dc, find_tk("Eee.E2", 5.into())),
             "```slint\n/// Here some docs for Eee\nEee.E2\n```",
         );
+    }
+
+    #[test]
+    fn test_tooltip_expected_type() {
+        // A bare enum value resolved through the expected type (the comparison's rhs) hovers
+        // as that enum value.
+        let source = r#"
+enum Direction { up, down, forward }
+export component Test {
+    in property <Direction> dir;
+    out property <bool> b: dir == forward;
+}"#;
+        let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
+        let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+        let offset = TextSize::new(source.find("dir == forward").unwrap() as u32 + 7);
+        let token = crate::language::token_at_offset(&doc, offset).unwrap();
+        assert_eq!(token.text(), "forward");
+        match get_tooltip(&mut dc, token).unwrap().contents {
+            HoverContents::Markup(m) => {
+                assert!(m.value.contains("Direction.forward"), "got {:?}", m.value)
+            }
+            x => panic!("Found {x:?}"),
+        }
     }
 
     #[test]

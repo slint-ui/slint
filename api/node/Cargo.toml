@@ -23,14 +23,15 @@ path = "rust/lib.rs"
 
 [features]
 # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, slint_tool_binary.yaml, and api/python/slint/Cargo.toml
-default = ["backend-linuxkms-noseat", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
+default = ["backend-linuxkms-libinput", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
 
 backend-qt = ["slint-interpreter/backend-qt"]
 backend-winit = ["slint-interpreter/backend-winit"]
 backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
 backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
 backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
-backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
+backend-linuxkms-libseat = ["slint-interpreter/backend-linuxkms-libseat"]
+backend-linuxkms-libinput = ["slint-interpreter/backend-linuxkms-libinput"]
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
 renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
 renderer-skia = ["slint-interpreter/renderer-skia"]
@@ -59,7 +60,7 @@ napi-derive = "3"
 i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true, features = ["default", "gettext-rs"] }
 i-slint-backend-selector = { workspace = true }
-slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-2", "system-tray"] }
+slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-18", "system-tray"] }
 spin_on = { workspace = true }
 css-color-parser2 = { workspace = true }
 itertools = { workspace = true }
@@ -79,3 +80,4 @@ windows = { workspace = true, features = ["Wdk_Foundation", "Win32_Foundation", 
 [build-dependencies]
 napi-build = "2"
 i-slint-common = { workspace = true }
+syn = { version = "3.0", features = ["full"] }

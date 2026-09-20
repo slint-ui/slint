@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 mod lsp_to_preview;
+pub mod pairing;
 mod preview_to_lsp;
+pub mod session;
 mod versioned_url;
 
 pub use lsp_to_preview::{
     LspToPreview, LspToPreviewMessage, PreviewComponent, PreviewConfig, RemoteConnectionState,
 };
+pub use pairing::PairingRejection;
 pub use preview_to_lsp::{PreviewTarget, PreviewToLsp, PreviewToLspMessage};
 pub use versioned_url::VersionedUrl;
 
@@ -39,9 +42,9 @@ pub mod wasm_prelude {
     }
 }
 
-#[cfg(feature = "file-watcher")]
+#[cfg(any(feature = "file-watcher", feature = "preview-session"))]
 mod diagnostics_adapter;
-#[cfg(feature = "file-watcher")]
+#[cfg(any(feature = "file-watcher", feature = "preview-session"))]
 pub use diagnostics_adapter::to_lsp_diagnostic;
 
 pub type SourceFileVersion = Option<i32>;

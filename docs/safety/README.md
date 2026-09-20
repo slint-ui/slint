@@ -6,7 +6,7 @@ Hand-written content lives in `src/content/docs/`. Everything under
 `src/content/docs/generated/` is produced by `slint-doc-generator` and
 gitignored, with one subdirectory per section of the site: `reference/` holds
 the API reference of the items annotated with `\sc` in
-`internal/compiler/builtins.slint` (and later in
+`internal/compiler/builtin_elements.rs` (and later in
 `internal/common/{enums,builtin_structs}.rs`), `qualification-report/` the
 traceability matrix. The pages set their own `slug`, so their location under
 `generated/` doesn't affect their URL.

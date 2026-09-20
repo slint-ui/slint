@@ -201,6 +201,7 @@ fn wire_tooltip_placement(
         lhs: Box::new(Expression::PropertyReference(pointer_y)),
         rhs: Box::new(tooltip_offset_expr),
         op: '+',
+        source_location: None,
     };
 
     let mut x_binding: BindingExpression = x_pointer.into();

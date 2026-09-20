@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! `resolve_native_classes` picks the most minimal native class that still has every property the
-//! element uses, and a binding that just repeats the default value from `builtins.slint` isn't a
+//! element uses, and a binding that just repeats the default value of the builtin element isn't a
 //! use of it.
 //!
 //! The other half of the pass, keeping the default of a property that's only read through a

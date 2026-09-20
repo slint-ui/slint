@@ -360,17 +360,20 @@ class LiveReloadModelWrapperBase : public private_api::ModelChangeListener
             interpreter::Value v(std::move(value));
             reinterpret_cast<LiveReloadModelWrapperBase *>(self.instance)->set_row_data(row, v);
         };
-        auto push_row = [](VRef<ModelAdaptorVTable> self, slint::cbindgen_private::Value *value) {
+        auto push_row = [](VRef<ModelAdaptorVTable> self,
+                           slint::cbindgen_private::Value *value) -> bool {
             interpreter::Value v(std::move(value));
-            reinterpret_cast<LiveReloadModelWrapperBase *>(self.instance)->push_row(v);
+            return reinterpret_cast<LiveReloadModelWrapperBase *>(self.instance)->push_row(v);
         };
-        auto remove_row = [](VRef<ModelAdaptorVTable> self, uintptr_t row) {
-            reinterpret_cast<LiveReloadModelWrapperBase *>(self.instance)->remove_row(int(row));
+        auto remove_row = [](VRef<ModelAdaptorVTable> self, uintptr_t row) -> bool {
+            return reinterpret_cast<LiveReloadModelWrapperBase *>(self.instance)
+                    ->remove_row(int(row));
         };
         auto insert_row = [](VRef<ModelAdaptorVTable> self, uintptr_t row,
-                             slint::cbindgen_private::Value *value) {
+                             slint::cbindgen_private::Value *value) -> bool {
             interpreter::Value v(std::move(value));
-            reinterpret_cast<LiveReloadModelWrapperBase *>(self.instance)->insert_row(int(row), v);
+            return reinterpret_cast<LiveReloadModelWrapperBase *>(self.instance)
+                    ->insert_row(int(row), v);
         };
         auto get_notify =
                 [](VRef<ModelAdaptorVTable> self) -> const cbindgen_private::ModelNotifyOpaque * {
@@ -395,9 +398,9 @@ protected:
     virtual int row_count() const = 0;
     virtual std::optional<slint::interpreter::Value> row_data(int i) const = 0;
     virtual void set_row_data(int i, const slint::interpreter::Value &value) = 0;
-    virtual void push_row(const slint::interpreter::Value &value) = 0;
-    virtual void remove_row(int row) = 0;
-    virtual void insert_row(int row, const slint::interpreter::Value &value) = 0;
+    virtual bool push_row(const slint::interpreter::Value &value) = 0;
+    virtual bool remove_row(int row) = 0;
+    virtual bool insert_row(int row, const slint::interpreter::Value &value) = 0;
 
     static interpreter::Value wrap(std::shared_ptr<LiveReloadModelWrapperBase> wrapper)
     {
@@ -444,16 +447,16 @@ public:
         model->set_row_data(i, from_slint_value<ModelData>(value));
     }
 
-    void push_row(const slint::interpreter::Value &value) override
+    bool push_row(const slint::interpreter::Value &value) override
     {
-        model->push_row(from_slint_value<ModelData>(value));
+        return model->push_row(from_slint_value<ModelData>(value));
     }
 
-    void remove_row(int row) override { model->remove_row(row); }
+    bool remove_row(int row) override { return model->remove_row(row); }
 
-    void insert_row(int row, const slint::interpreter::Value &value) override
+    bool insert_row(int row, const slint::interpreter::Value &value) override
     {
-        model->insert_row(row, from_slint_value<ModelData>(value));
+        return model->insert_row(row, from_slint_value<ModelData>(value));
     }
 
     static slint::interpreter::Value wrap(std::shared_ptr<slint::Model<ModelData>> model)

@@ -101,7 +101,7 @@ fn eval_expression(
             arguments,
             source_location: _,
         } => handle_builtin_function(f, arguments, local_context),
-        Expression::BinaryExpression { lhs, rhs, op } => {
+        Expression::BinaryExpression { lhs, rhs, op, .. } => {
             let lhs = eval_expression(lhs, local_context, None);
             let rhs = eval_expression(rhs, local_context, None);
 
@@ -145,7 +145,7 @@ fn eval_expression(
                 (_, _) => Value::Void,
             }
         }
-        Expression::Condition { true_expr, false_expr, condition } => {
+        Expression::Condition { true_expr, false_expr, condition, .. } => {
             let condition = eval_expression(condition, local_context, None);
             if condition.try_into().unwrap_or(true) {
                 eval_expression(true_expr, local_context, field_filter)
@@ -210,6 +210,9 @@ fn eval_expression(
             }
             expression_tree::EasingCurve::CubicBezier(a, b, c, d) => {
                 i_slint_core::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
+            }
+            expression_tree::EasingCurve::Spring(a) => {
+                i_slint_core::animations::EasingCurve::Spring(*a)
             }
         }),
         Expression::LinearGradient { angle, stops } => {
@@ -676,7 +679,7 @@ fn handle_builtin_function(
             };
             let value = eval_expression(&arguments[1], local_context, None);
 
-            model.push_row(value);
+            let _ = model.push_row(value);
 
             Value::Void
         }
@@ -696,7 +699,7 @@ fn handle_builtin_function(
             };
 
             if let Ok(index) = usize::try_from(index as i64) {
-                model.remove_row(index);
+                let _ = model.remove_row(index);
             }
 
             Value::Void
@@ -717,7 +720,7 @@ fn handle_builtin_function(
 
             let value = eval_expression(&arguments[2], local_context, None);
             if let Ok(index) = usize::try_from(index as i64) {
-                model.insert_row(index, value);
+                let _ = model.insert_row(index, value);
             }
 
             Value::Void

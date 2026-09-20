@@ -5,19 +5,24 @@
 // the right and the branches can be any type of the subset.
 
 export component TestCase inherits Window {
+//#c                               ^-
     in property <bool> a;
     in property <bool> b;
     in property <int> lo;
     in property <int> hi;
     //#sls.op.ternary
     out property <int> pick: a ? hi : lo;
+//#c                         ^+^++
     //#sls.op.ternary.type
     out property <length> len: a ? 10px : 20px;
+//#c                           ^+^++
     // A chained conditional associates to the right.
     //#sls.op.ternary.assoc
     out property <int> rank: a ? 2 : b ? 1 : 0;
+//#c                         ^+^++     ^++
     // The condition can be a logical expression.
     out property <int> both: (a && b) ? hi : lo;
+//#c                         ^+ ^++   ^++
 }
 
 /*
