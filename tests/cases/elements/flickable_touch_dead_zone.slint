@@ -1,0 +1,85 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// When a drag starts on an element inside the Flickable, the Flickable only
+// takes over once the pointer has left a small dead zone. With a finger, the
+// dead zone is taken off the movement that starts the drag, so that the
+// content starts moving smoothly instead of jumping to catch up: it trails the
+// finger by the size of the dead zone. With a mouse, the content stays anchored
+// under the cursor.
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+
+    f := Flickable {
+        content-width: 2100phx;
+        content-height: 2100phx;
+
+        // Covers the content, so that every press lands on a child first and
+        // the Flickable has to intercept the drag.
+        TouchArea {
+            clicked => {
+                root.clicked-count += 1;
+            }
+        }
+    }
+
+    in-out property <length> content-x <=> f.content-x;
+    in-out property <length> content-y <=> f.content-y;
+    in-out property <int> clicked-count;
+}
+
+/*
+
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
+let instance = TestCase::new().unwrap();
+
+let touch = |y: f32, phase: TouchPhase| {
+    instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(300.0, y), phase }));
+};
+
+// With a finger
+touch(300.0, TouchPhase::Started);
+// Inside the dead zone nothing moves
+touch(296.0, TouchPhase::Moved);
+assert_eq!(instance.get_content_y(), 0.);
+// Leaving the dead zone starts the drag. Of the 20px covered so far, the
+// 8px of the dead zone are not applied: the content doesn't jump
+touch(280.0, TouchPhase::Moved);
+assert_eq!(instance.get_content_y(), -12.);
+// From here on the content follows the finger, trailing it by the dead zone
+touch(250.0, TouchPhase::Moved);
+assert_eq!(instance.get_content_y(), -42.);
+touch(240.0, TouchPhase::Moved);
+assert_eq!(instance.get_content_y(), -52.);
+assert_eq!(instance.get_content_x(), 0.);
+// Release long after the last move so no fling animation starts
+slint_testing::mock_elapsed_time(1000);
+touch(240.0, TouchPhase::Ended);
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_content_y(), -52.);
+// The drag was not a click on the element underneath
+assert_eq!(instance.get_clicked_count(), 0);
+
+instance.set_content_y(0.);
+
+// With the mouse, the same movement keeps the content anchored under the
+// cursor: the dead zone is applied once the drag starts
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 300.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 296.0) });
+assert_eq!(instance.get_content_y(), 0.);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 280.0) });
+assert_eq!(instance.get_content_y(), -20.);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 250.0) });
+assert_eq!(instance.get_content_y(), -50.);
+slint_testing::mock_elapsed_time(1000);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(300.0, 250.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_content_y(), -50.);
+assert_eq!(instance.get_clicked_count(), 0);
+```
+
+*/
