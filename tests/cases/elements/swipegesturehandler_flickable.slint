@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A SwipeGestureHandler that handles no direction for a given press doesn't
+// hold that press back: a Flickable inside sees it right away and follows the
+// drag from its start. Here the swipe is only handled from the left edge.
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+
+    swipe := SwipeGestureHandler {
+        handle-swipe-right: self.pressed-position.x < 40px;
+        swiped => {
+            root.swiped-count += 1;
+        }
+
+        f := Flickable {
+            content-width: 500phx;
+            content-height: 2100phx;
+        }
+    }
+
+    in-out property <length> content-y <=> f.content-y;
+    out property <bool> swiping: swipe.swiping;
+    in-out property <int> swiped-count;
+}
+
+/*
+
+```rust
+use slint::platform::WindowEvent;
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
+let instance = TestCase::new().unwrap();
+
+let touch = |x: f32, y: f32, phase: TouchPhase| {
+    instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 5, position: LogicalPoint::new(x, y), phase }));
+};
+
+// Away from the edge the handler handles nothing, so the Flickable pans
+// without waiting for the handler's forwarding delay to pass.
+// The content trails the finger by the Flickable's 8px dead zone.
+touch(300.0, 300.0, TouchPhase::Started);
+touch(300.0, 290.0, TouchPhase::Moved);
+assert_eq!(instance.get_content_y(), -2.);
+touch(300.0, 260.0, TouchPhase::Moved);
+assert_eq!(instance.get_content_y(), -32.);
+assert!(!instance.get_swiping());
+slint_testing::mock_elapsed_time(1000);
+touch(300.0, 260.0, TouchPhase::Ended);
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_content_y(), -32.);
+assert_eq!(instance.get_swiped_count(), 0);
+
+// From the edge, the swipe to the right is still recognized
+touch(10.0, 300.0, TouchPhase::Started);
+touch(30.0, 300.0, TouchPhase::Moved);
+assert!(instance.get_swiping());
+touch(200.0, 300.0, TouchPhase::Moved);
+touch(200.0, 300.0, TouchPhase::Ended);
+assert!(!instance.get_swiping());
+assert_eq!(instance.get_swiped_count(), 1);
+assert_eq!(instance.get_content_y(), -32.);
+```
+
+*/

@@ -894,6 +894,17 @@ impl Item for SwipeGestureHandler {
                     .pressed_position()
                     .apply_pin(self)
                     .set(crate::lengths::logical_position_to_api(*position));
+                // The directions are read after `pressed-position` is set,
+                // so that a binding can make them depend on where the press is.
+                let handles_swipe = self.handle_swipe_left()
+                    || self.handle_swipe_right()
+                    || self.handle_swipe_up()
+                    || self.handle_swipe_down();
+                if !handles_swipe {
+                    // Holding the press back would only hide it from a Flickable inside,
+                    // which then jumps by what the pointer covered in the meantime.
+                    return InputEventFilterResult::ForwardAndIgnore;
+                }
                 self.pressed.set(true);
                 InputEventFilterResult::DelayForwarding(
                     super::flickable::FORWARD_DELAY.as_millis() as _
