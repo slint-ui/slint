@@ -54,7 +54,6 @@ use euclid::num::Zero;
 use i_slint_core_macros::*;
 #[allow(unused)]
 use num_traits::Float;
-use std::println;
 mod animation;
 mod velocity_tracker;
 use animation::{FlickAnimation, FlickAnimationParameter};
@@ -629,9 +628,6 @@ impl FlickableDataInner {
             self.last_scroll_event = None;
             self.running_animation = None;
             self.velocity_rb = Default::default();
-            println!(
-                "Handle Mouse. Wheel. Flick: {flick_rc:?}, Ignore because not allowed direction"
-            );
             return InputEventResult::EventIgnored;
         }
 
@@ -1001,7 +997,6 @@ impl FlickableData {
         flick_rc: &ItemRc,
     ) -> InputEventFilterResult {
         let mut inner = self.inner.borrow_mut();
-        println!("Handle Mouse Filter. Flick: {flick_rc:?}: {event:?}");
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
                 if inner.capture_events.is_none() && !Self::can_pan(flick, flick_rc) {
@@ -1072,7 +1067,6 @@ impl FlickableData {
                     TouchPhase::Started => InputEventFilterResult::ForwardEvent,
                     TouchPhase::Moved => {
                         if inner.capture_events.is_some_and(|v| v == CaptureEvents::WheelMove) {
-                            println!("Handle Mouse Filter. Flick: {flick_rc:?}: Move Intercept");
                             InputEventFilterResult::Intercept
                         } else {
                             // If we recently handled a wheel event, intercept it to prevent children from grabbing
@@ -1082,21 +1076,12 @@ impl FlickableData {
                                 flick, delta, flick_rc,
                             ) {
                                 inner.last_scroll_event = None;
-                                println!(
-                                    "Handle Mouse Filter. Flick: {flick_rc:?}: Move ForwardEvent"
-                                );
                                 InputEventFilterResult::ForwardEvent
                             } else if inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
                                 && inner.capture_events.is_none()
                             {
-                                println!(
-                                    "Handle Mouse Filter. Flick: {flick_rc:?}: Move Intercept"
-                                );
                                 InputEventFilterResult::Intercept
                             } else {
-                                println!(
-                                    "Handle Mouse Filter. Flick: {flick_rc:?}: Move ForwardEvent"
-                                );
                                 ForwardEvent
                             }
                         }
@@ -1185,7 +1170,6 @@ impl FlickableData {
         window_adapter: &Rc<dyn WindowAdapter>,
         flick_rc: &ItemRc,
     ) -> InputEventResult {
-        println!("Handle Mouse. Flick: {flick_rc:?}: {event:?}");
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { .. } => {

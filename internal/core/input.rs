@@ -24,7 +24,6 @@ use core::cell::Cell;
 use core::fmt::Display;
 use core::pin::Pin;
 use core::time::Duration;
-use std::println;
 
 /// A mouse or touch event
 ///
@@ -1668,7 +1667,6 @@ pub(crate) fn send_exit_events(
     for (idx, it) in old_input_state.item_stack.iter().enumerate() {
         let Some(item) = it.0.upgrade() else { break };
         let g = item.geometry();
-        println!("Send exit events to item: {item:?}. Geometry: {g:?}, Position: {pos:?}");
         let contains = pos.is_some_and(|p| g.contains(p));
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
@@ -1732,7 +1730,6 @@ pub fn process_mouse_input(
     window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
 ) -> MouseInputResult {
-    println!("Process Mouse input: {mouse_event:?}");
     let mut result = MouseInputState {
         drag_data: mouse_input_state.drag_data.clone(),
         drag_source: mouse_input_state.drag_source.clone(),
