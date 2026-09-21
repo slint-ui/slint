@@ -538,8 +538,6 @@ impl FlickableDataInner {
         let use_bounce_x = FlickAnimation::use_bounce(effective_bounce(flick, &geo, Dimension::X));
         let use_bounce_y = FlickAnimation::use_bounce(effective_bounce(flick, &geo, Dimension::Y));
         let new_pos = ensure_in_bound(flick, current_pos + delta, &geo, use_bounce_x, use_bounce_y);
-        let _delta_old = delta;
-
         FlickAnimation::apply_friction(current_pos, new_pos - current_pos, flick, flick_rc)
     }
 
