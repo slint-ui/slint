@@ -54,6 +54,7 @@ use euclid::num::Zero;
 use i_slint_core_macros::*;
 #[allow(unused)]
 use num_traits::Float;
+use std::println;
 mod animation;
 mod velocity_tracker;
 use animation::{FlickAnimation, FlickAnimationParameter};
@@ -863,6 +864,11 @@ impl FlickableDataInner {
                 flick_rc,
             );
             let velocity_estimation = self.velocity_rb.estimate_velocity();
+            println!(
+                "Animate. RB: {:?}. Estimated velocity: {:?}",
+                self.velocity_rb,
+                velocity_estimation.as_ref().map(|v| v.velocity)
+            );
             let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
 
             let x_simulation = if inside_bounds_x {
@@ -1003,6 +1009,7 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
+                println!("handle_mouse_filter Pressed: {position:?}");
                 if inner.capture_events.is_none() && !Self::can_pan(flick, flick_rc) {
                     // There is nothing to pan in either direction: don't hold up the press waiting to see if it turns into a drag,
                     // just let it fall through to whatever is underneath,
@@ -1027,6 +1034,7 @@ impl FlickableData {
                 }
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
+                println!("handle_mouse_filter Released");
                 inner.pressed_mouse_state = None;
                 if inner.capture_events.is_some() {
                     InputEventFilterResult::Intercept
@@ -1035,6 +1043,7 @@ impl FlickableData {
                 }
             }
             MouseEvent::Moved { position, .. } => {
+                println!("handle_mouse_filter Moved: {position:?}");
                 let do_intercept = inner.capture_events.is_some()
                     || inner.pressed_mouse_state.is_some_and(
                         |(pressed_time, pressed_mouse_position)| {
@@ -1177,6 +1186,7 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { .. } => {
+                println!("handle_mouse Pressed");
                 inner.capture_events = Some(CaptureEvents::MouseStart);
                 inner.capture_momentum();
                 inner.last_scroll_event =
@@ -1184,6 +1194,7 @@ impl FlickableData {
                 InputEventResult::GrabMouse
             }
             MouseEvent::Exit | MouseEvent::Released { .. } => {
+                println!("handle_mouse Released");
                 if inner.capture_events.is_some_and(|f| matches!(f, CaptureEvents::MouseMove)) {
                     let was_capturing = true;
                     inner.animate(flick, flick_rc);
@@ -1202,6 +1213,7 @@ impl FlickableData {
                 }
             }
             MouseEvent::Moved { position, history, .. } => {
+                println!("handle_mouse Moved: {position:?}, {history:?}");
                 // Important constraint: The content_y might not be stable, and might jump around
                 // wildly!
                 // This is especially the case if a ListView is involved, which will continuously

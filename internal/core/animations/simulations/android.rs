@@ -15,6 +15,7 @@ use crate::animations::simulations::{Direction, Parameter, PositionSimulation, S
 use core::time::Duration;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
+use std::println;
 
 const INFLEXION: f32 = 0.35;
 const PHYSICAL_COEFFICIENT: f32 = 9.80665 // g, in meters per second^2
@@ -127,6 +128,7 @@ impl AndroidFlick {
         let max_duration = self.duration.as_secs_f32();
         if max_duration <= 0. {
             // Already finished
+            println!("Simulation step: Finished because of time");
             return true;
         }
         let time_diff = new_tick.duration_since(self.start_time);
