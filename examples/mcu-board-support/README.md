@@ -101,6 +101,23 @@ udisksctl mount -b /dev/sda1
 picotool load -u -v -x -t elf target/thumbv8m.main-none-eabihf/release/printerdemo_mcu
 ```
 
+### On the Raspberry Pi Pico2 with the Waveshare Pico-ResTouch-LCD-3.5
+
+The [Waveshare Pico-ResTouch-LCD-3.5](https://www.waveshare.com/pico-restouch-lcd-3.5.htm) is a 3.5" resistive touch display that a Raspberry Pi Pico2 plugs into.
+It has a 480x320 ILI9488 controller behind a serial-to-parallel converter and an XPT2046 touch controller.
+
+Build the demo with:
+
+```sh
+cargo build --manifest-path demos/printerdemo_mcu/Cargo.toml --no-default-features --features=mcu-board-support/pico2-restouch-lcd-3-5 --target=thumbv8m.main-none-eabihf --release
+```
+
+Flash using [picotool](https://github.com/raspberrypi/picotool) (connect the device while pressing the "bootsel" button):
+
+```sh
+picotool load -u -v -x -t elf target/thumbv8m.main-none-eabihf/release/printerdemo_mcu
+```
+
 ### On the Waveshare Pico2 Touch LCD 2.8
 
 The [Waveshare Pico2 Touch LCD 2.8](https://www.waveshare.com/product/rp2350-touch-lcd-2.8.htm) is a Raspberry Pi Pico2 development board with an integrated 2.8" capacitive touch display (320x240, ST7789 controller, CST328 touch controller).
