@@ -5,6 +5,11 @@
 import XCTest
 
 final class ScrollComparisonTests: XCTestCase {
+    private struct ScrollMetrics {
+        let uikitOffset: Double
+        let slintOffset: Double
+    }
+
     private func launch(
         scenario: String,
         startOffset: Double? = nil,
@@ -20,7 +25,8 @@ final class ScrollComparisonTests: XCTestCase {
             app.launchEnvironment["START_FROM_BOTTOM_DISTANCE"] = String(fromBottomDistance)
         }
         app.launch()
-        XCTAssertTrue(app.staticTexts["UIKit over Slint"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Slint"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["UIKit"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Scroll comparison metrics"].waitForExistence(timeout: 10))
         return app
     }
@@ -33,6 +39,21 @@ final class ScrollComparisonTests: XCTestCase {
     ) {
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
+        start.press(
+            forDuration: 0.02,
+            thenDragTo: end,
+            withVelocity: XCUIGestureVelocity(rawValue: velocity),
+            thenHoldForDuration: 0
+        )
+    }
+
+    private func flick(
+        _ app: XCUIApplication,
+        distance: CGFloat,
+        velocity: CGFloat
+    ) {
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+        let end = start.withOffset(CGVector(dx: 0, dy: -distance))
         start.press(
             forDuration: 0.02,
             thenDragTo: end,
@@ -55,7 +76,8 @@ final class ScrollComparisonTests: XCTestCase {
         )
     }
 
-    private func waitForTrace(_ app: XCUIApplication, name: String) {
+    @discardableResult
+    private func waitForTrace(_ app: XCUIApplication, name: String) -> ScrollMetrics? {
         let settled = expectation(description: "Capture \(name)")
         DispatchQueue.main.asyncAfter(deadline: .now() + 6) { settled.fulfill() }
         wait(for: [settled], timeout: 8)
@@ -74,10 +96,29 @@ final class ScrollComparisonTests: XCTestCase {
               let nativeOffset = Double(metrics[nativeRange]),
               let slintOffset = Double(metrics[slintRange]) else {
             XCTFail("Missing numeric scroll metrics: \(metrics)")
-            return
+            return nil
         }
         XCTAssertGreaterThan(nativeOffset, 100, "UIKit did not receive the gesture")
         XCTAssertGreaterThan(slintOffset, 100, "Slint did not receive the gesture")
+        return ScrollMetrics(uikitOffset: nativeOffset, slintOffset: slintOffset)
+    }
+
+    func testShortHardFlickRetainsReleaseMomentum() {
+        for trial in 1...3 {
+            let name = "short-hard-d120-v6400-trial-\(trial)"
+            let app = launch(scenario: name)
+            flick(app, distance: 120, velocity: 6_400)
+            guard let metrics = waitForTrace(app, name: name) else {
+                app.terminate()
+                continue
+            }
+            XCTAssertGreaterThan(metrics.uikitOffset, 700, "UIKit did not capture hard-flick momentum")
+            XCTExpectFailure("Slint loses the release momentum of a short, hard flick")
+            XCTAssertGreaterThanOrEqual(
+                metrics.slintOffset, metrics.uikitOffset * 0.5,
+                "Slint traveled less than half UIKit's distance")
+            app.terminate()
+        }
     }
 
     func testVelocitySweep() {

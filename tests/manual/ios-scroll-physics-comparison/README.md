@@ -15,6 +15,11 @@ each frame velocity, the velocity difference, and the maximum offset separation.
 The UI test target also records frame-by-frame CSV traces for speed sweeps,
 boundary behavior, interruption, reversal, and rapid repeated flicks.
 
+`testShortHardFlickRetainsReleaseMomentum` uses XCTest's public gesture API to
+move 120 points at a requested 6,400 points per second.
+It repeats the gesture three times and records a known expected failure when
+Slint travels less than half UIKit's settled distance.
+
 The rapid-flick helper uses private XCTest event-synthesis classes.
 Its cases use 75–350 ms between lifting one touch and beginning the next.
 Each timing case runs three times to expose launch-velocity instability.

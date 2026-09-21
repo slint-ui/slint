@@ -130,6 +130,22 @@ Relevant implementation properties:
 
 The production solution needs actual touch-event timestamps, sub-millisecond precision or explicit zero-duration handling, and preferably coalesced touch history. A native-derived maximum fling velocity should protect against invalid samples without masking normal high-speed input.
 
+The updated exact-event harness includes a focused regression for the visible
+short, hard flick failure.
+It moves the finger 120 points with XCTest's public gesture API at a requested
+velocity of 6,400 points per second and repeats the case three times.
+The test requires UIKit to travel at least 700 points and records an expected
+failure when Slint travels less than half as far.
+
+| Trial | UIKit settled offset | Slint settled offset | Slint shortfall |
+|---:|---:|---:|---:|
+| 1 | 1,166.3 pt | 130.7 pt | 88.8% |
+| 2 | 1,166.3 pt | 133.6 pt | 88.5% |
+| 3 | 1,041.0 pt | 215.5 pt | 79.3% |
+
+All three runs reproduced the missing Slint momentum while UIKit captured a
+large inertial continuation from the same forwarded event stream.
+
 ### 6. The initial lower-bound mismatch was a test geometry problem
 
 UIKit originally stopped at 4,980 while Slint stopped at 4,992. The Material `ScrollView`'s inner `Flickable` reserves 12 logical pixels for horizontal scrollbar/padding geometry even when the policy is off, so the two effective viewports were different.

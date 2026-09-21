@@ -157,7 +157,9 @@ extern void set_slint_scroll_offset(float offset);
 @end
 
 @interface NativeScrollPane : UIView <UIScrollViewDelegate>
-@property (nonatomic, strong) UILabel *title;
+@property (nonatomic, strong) UIView *header;
+@property (nonatomic, strong) UILabel *slintTitle;
+@property (nonatomic, strong) UILabel *uikitTitle;
 @property (nonatomic, strong) UILabel *metrics;
 @property (nonatomic, strong) ForwardingScrollView *scroll;
 @property (nonatomic, strong) NSArray<UIView *> *rows;
@@ -171,15 +173,30 @@ extern void set_slint_scroll_offset(float offset);
     if (!self)
         return nil;
     self.backgroundColor = UIColor.clearColor;
-    self.title = [[UILabel alloc] init];
-    self.title.text = @"UIKit over Slint";
-    self.title.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold];
-    self.title.textAlignment = NSTextAlignmentCenter;
-    self.title.textColor = [UIColor colorWithRed:23.0 / 255
-                                           green:35.0 / 255
-                                            blue:59.0 / 255
-                                           alpha:1];
-    [self addSubview:self.title];
+    self.header = [[UIView alloc] init];
+    self.header.backgroundColor = [UIColor colorWithWhite:1 alpha:0.94];
+    self.header.layer.cornerRadius = 9;
+    self.header.layer.masksToBounds = YES;
+    self.header.userInteractionEnabled = NO;
+    self.slintTitle = [[UILabel alloc] init];
+    self.slintTitle.text = @"Slint";
+    self.slintTitle.font = [UIFont systemFontOfSize:18 weight:UIFontWeightBold];
+    self.slintTitle.textAlignment = NSTextAlignmentCenter;
+    self.slintTitle.textColor = [UIColor colorWithRed:20.0 / 255
+                                                green:90.0 / 255
+                                                 blue:170.0 / 255
+                                                alpha:1];
+    self.uikitTitle = [[UILabel alloc] init];
+    self.uikitTitle.text = @"UIKit";
+    self.uikitTitle.font = [UIFont systemFontOfSize:18 weight:UIFontWeightBold];
+    self.uikitTitle.textAlignment = NSTextAlignmentCenter;
+    self.uikitTitle.textColor = [UIColor colorWithRed:184.0 / 255
+                                                green:20.0 / 255
+                                                 blue:10.0 / 255
+                                                alpha:1];
+    [self.header addSubview:self.slintTitle];
+    [self.header addSubview:self.uikitTitle];
+    [self addSubview:self.header];
     self.scroll = [[ForwardingScrollView alloc] init];
     NSString *scenario = NSProcessInfo.processInfo.environment[@"SCROLL_SCENARIO"];
     self.scroll.scenario = scenario.length > 0 ? scenario : @"manual";
@@ -237,7 +254,10 @@ extern void set_slint_scroll_offset(float offset);
 {
     [super layoutSubviews];
     CGFloat width = self.bounds.size.width;
-    self.title.frame = CGRectMake(8, 54, width - 16, 40);
+    self.header.frame = CGRectMake(8, 54, width - 16, 40);
+    CGFloat headerWidth = self.header.bounds.size.width;
+    self.slintTitle.frame = CGRectMake(0, 0, headerWidth / 2, 40);
+    self.uikitTitle.frame = CGRectMake(headerWidth / 2, 0, headerWidth / 2, 40);
     self.scroll.frame = CGRectMake(8, 102, width - 16, self.bounds.size.height - 148);
     self.scroll.contentSize = CGSizeMake(width - 28, 1000 * 72);
     [self.rows enumerateObjectsUsingBlock:^(UIView *item, NSUInteger row, BOOL *__unused stop) {
