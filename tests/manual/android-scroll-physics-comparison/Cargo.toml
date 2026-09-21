@@ -1,0 +1,31 @@
+[package]
+name = "android-native-slint-scroll"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+log = "0.4"
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["compat-1-18", "std", "backend-android-activity-06"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.15.1"
+
+[package.metadata.android]
+package = "dev.slint.androidscrollcomparison"
+build_targets = ["aarch64-linux-android"]
+target_sdk_version = 35
+min_sdk_version = 26
+
+[package.metadata.android.application]
+label = "Android + Slint Scroll"
+theme = "@android:style/Theme.Material.Light.NoActionBar"
+
+[profile.release]
+panic = "abort"
