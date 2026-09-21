@@ -123,16 +123,20 @@ mod xdg_desktop_settings;
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod wasm_input_helper;
 
-cfg_if::cfg_if! {
-    if #[cfg(enable_femtovg_renderer)] {
+core::cfg_select! {
+    enable_femtovg_renderer => {
         const DEFAULT_RENDERER_NAME: &str = "FemtoVG";
-    } else if #[cfg(enable_skia_renderer)] {
+    }
+    enable_skia_renderer => {
         const DEFAULT_RENDERER_NAME: &str = "Skia";
-    } else if #[cfg(feature = "renderer-software")] {
+    }
+    feature = "renderer-software" => {
         const DEFAULT_RENDERER_NAME: &str = "Software";
-    } else if #[cfg(feature = "renderer-vello")] {
+    }
+    feature = "renderer-vello" => {
         const DEFAULT_RENDERER_NAME: &str = "Vello";
-    } else {
+    }
+    _ => {
         compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software` or `renderer-vello`");
     }
 }
@@ -140,20 +144,25 @@ cfg_if::cfg_if! {
 fn default_renderer_factory(
     shared_backend_data: &Rc<SharedBackendData>,
 ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
-    cfg_if::cfg_if! {
-        if #[cfg(enable_skia_renderer)] {
+    core::cfg_select! {
+        enable_skia_renderer => {
             renderer::skia::WinitSkiaRenderer::new_suspended(shared_backend_data)
-        } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
+        }
+        feature = "renderer-femtovg-wgpu" => {
             renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_backend_data)
-        } else if #[cfg(all(feature = "renderer-femtovg", supports_opengl))] {
+        }
+        all(feature = "renderer-femtovg", supports_opengl) => {
             renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_backend_data)
-        } else if #[cfg(feature = "renderer-software")] {
+        }
+        feature = "renderer-software" => {
             renderer::sw::WinitSoftwareRenderer::new_suspended(shared_backend_data)
-        } else if #[cfg(feature = "renderer-vello")] {
+        }
+        feature = "renderer-vello" => {
             // Last in the chain: vello is opt-in and only becomes the default
             // when it is the only renderer built in.
             renderer::vello::WinitVelloRenderer::new_suspended(shared_backend_data)
-        } else {
+        }
+        _ => {
             compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software` or `renderer-vello`");
         }
     }
@@ -518,11 +527,12 @@ impl SharedBackendData {
         #[cfg(target_os = "macos")]
         Self::disable_macos_automatic_shortcut_localization();
 
-        cfg_if::cfg_if! {
-            if #[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))] {
+        core::cfg_select! {
+            all(unix, not(target_vendor = "apple"), feature = "wayland") => {
                 use winit::platform::wayland::EventLoopExtWayland;
                 let is_wayland = event_loop.is_wayland();
-            } else {
+            }
+            _ => {
                 let is_wayland = false;
             }
         }
@@ -1345,37 +1355,43 @@ fn create_renderer(
         }
         #[cfg(feature = "unstable-wgpu-29")]
         (None, Some(RequestedGraphicsAPI::WGPU29(..))) => {
-            cfg_if::cfg_if! {
-                if #[cfg(enable_skia_renderer)] {
+            core::cfg_select! {
+                enable_skia_renderer => {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(shared_data)
-                } else if #[cfg(feature = "renderer-vello")] {
+                }
+                feature = "renderer-vello" => {
                     renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
-                } else {
+                }
+                _ => {
                     Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select renderer-skia* or renderer-vello".into())
                 }
             }
         }
         #[cfg(feature = "unstable-wgpu-30")]
         (None, Some(RequestedGraphicsAPI::WGPU30(..))) => {
-            cfg_if::cfg_if! {
-                if #[cfg(enable_skia_renderer)] {
+            core::cfg_select! {
+                enable_skia_renderer => {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(shared_data)
-                } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
+                }
+                feature = "renderer-femtovg-wgpu" => {
                     renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
-                } else {
+                }
+                _ => {
                     Err("unstable-wgpu-30 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
                 }
             }
         }
         (None, Some(_requested_graphics_api)) => {
-            cfg_if::cfg_if! {
-                if #[cfg(enable_skia_renderer)] {
+            core::cfg_select! {
+                enable_skia_renderer => {
                     renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(Some(_requested_graphics_api))?(shared_data)
-                } else if #[cfg(all(feature = "renderer-femtovg", supports_opengl))] {
+                }
+                all(feature = "renderer-femtovg", supports_opengl) => {
                     // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
                     i_slint_core::graphics::RequestedOpenGLVersion::try_from(_requested_graphics_api)?;
                     renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_data)
-                } else {
+                }
+                _ => {
                     return Err(format!("Graphics API use requested by the compile-time enabled renderers don't support that").into())
                 }
             }

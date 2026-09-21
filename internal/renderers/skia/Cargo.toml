@@ -50,7 +50,6 @@ i-slint-common = { workspace = true, features = ["default"] }
 const-field-offset = { version = "0.2.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { workspace = true }
 
-cfg-if = "1"
 lyon_path = { workspace = true }
 pin-weak = "1"
 scoped-tls-hkt = "0.1"

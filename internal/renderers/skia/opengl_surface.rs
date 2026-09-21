@@ -324,12 +324,14 @@ impl OpenGLSurface {
         ),
         PlatformError,
     > {
-        cfg_if::cfg_if! {
-            if #[cfg(target_os = "macos")] {
+        core::cfg_select! {
+            target_os = "macos" => {
                 let display_api_preference = glutin::display::DisplayApiPreference::Cgl;
-            } else if #[cfg(not(target_family = "windows"))] {
+            }
+            not(target_family = "windows") => {
                 let display_api_preference = glutin::display::DisplayApiPreference::Egl;
-            } else {
+            }
+            _ => {
                 let display_api_preference = glutin::display::DisplayApiPreference::EglThenWgl(Some(_window_handle.as_raw()));
             }
         }

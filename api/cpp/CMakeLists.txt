@@ -26,7 +26,7 @@ if (NOT Corrosion_FOUND)
 endif ()
 
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
-find_package(Rust 1.92 REQUIRED MODULE)
+find_package(Rust 1.95 REQUIRED MODULE)
 
 # When building for Android (NDK toolchain sets CMAKE_SYSTEM_NAME to "Android"),
 # auto-configure the Rust target and pick platform-level defaults.

@@ -400,7 +400,7 @@ fn region_line_ranges(
         }
     }
     // check that current items are properly sorted
-    debug_assert!(line_ranges.windows(2).all(|x| x[0].end < x[1].start));
+    debug_assert!(line_ranges.array_windows().all(|[a, b]| a.end < b.start));
     next_validity
 }
 
