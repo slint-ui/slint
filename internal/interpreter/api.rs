@@ -983,8 +983,8 @@ impl Compiler {
     /// `<path>/<lang>/LC_MESSAGES/<domain>.po`, where the domain is set with
     /// [`Self::set_translation_domain`].
     #[cfg(feature = "bundle-translations")]
-    pub fn set_translation_bundle_path(&mut self, path: PathBuf) {
-        self.config.translation_path_bundle = Some(path);
+    pub fn set_bundled_translations_path(&mut self, path: PathBuf) {
+        self.config.bundled_translations_path = Some(path);
     }
 
     /// Sets the callback that will be invoked when loading imported .slint files. The specified

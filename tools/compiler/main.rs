@@ -260,7 +260,7 @@ fn main() -> std::io::Result<()> {
     }
     #[cfg(feature = "bundle-translations")]
     if let Some(path) = args.bundle_translations {
-        compiler_config.translation_path_bundle = Some(path);
+        compiler_config.bundled_translations_path = Some(path);
     }
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
     let (doc, diag, loader) =

@@ -208,7 +208,7 @@ impl CompilerConfiguration {
         path: impl Into<std::path::PathBuf>,
     ) -> CompilerConfiguration {
         let mut config = self.config;
-        config.translation_path_bundle = Some(path.into());
+        config.bundled_translations_path = Some(path.into());
         Self { config }
     }
 
