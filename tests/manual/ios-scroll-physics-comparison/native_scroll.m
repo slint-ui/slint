@@ -125,7 +125,7 @@ extern void set_slint_scroll_offset(float offset);
     // and its padding, so use the same effective viewport height in UIKit.
     self.scroll.frame = CGRectMake(8, 112, width - 16, self.bounds.size.height - 158);
     self.scroll.contentSize = CGSizeMake(width - 16, 1000 * 72);
-    [self.rows enumerateObjectsUsingBlock:^(UIView *item, NSUInteger row, BOOL *stop) {
+    [self.rows enumerateObjectsUsingBlock:^(UIView *item, NSUInteger row, BOOL *__unused stop) {
         item.frame = CGRectMake(0, row * 72, width - 16, 72);
         item.subviews.firstObject.frame = CGRectMake(12, 0, width - 40, 72);
     }];

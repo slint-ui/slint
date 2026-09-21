@@ -73,15 +73,14 @@ extern "C" fn mirror_native_touch(phase: i32, x: f32, y: f32) {
     };
     APP.with(|slot| {
         if let Some(app) = slot.borrow().as_ref().and_then(slint::Weak::upgrade) {
-            app.window()
-                .dispatch_event(slint::platform::WindowEvent::internal(
-                    slint::platform::InternalEvent::Touch {
-                        id: 1000,
-                        position: i_slint_core::lengths::LogicalPoint::new(x, y),
-                        phase,
-                        history: Default::default(),
-                    },
-                ));
+            app.window().dispatch_event(slint::platform::WindowEvent::internal(
+                slint::platform::InternalEvent::Touch {
+                    id: 1000,
+                    position: i_slint_core::lengths::LogicalPoint::new(x, y),
+                    phase,
+                    history: Default::default(),
+                },
+            ));
         }
     });
 }

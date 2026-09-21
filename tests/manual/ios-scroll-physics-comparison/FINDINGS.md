@@ -27,21 +27,14 @@ The comparison app displays a native UIKit list beside a Slint list on the same 
 | Device | iPhone 13 Pro Max |
 | Device ID | `00008110-00022D943EB8801E` |
 | Slint source branch | `mm/flickable-scroll-animation-v2` from Murmele/slint |
-| Local branch | `nigel/ios-scroll-physics-investigation` |
-| Local HEAD before the latest uncommitted tests | `50097906d37cfcee9b3d6c625ef520d5ba83b6a8` |
-| Rebase base | Upstream Slint `master` at `4bcc1b3480` |
+| Tested source snapshot | `ea8335305c237525e341ebc37df89171d3a1bd6a` |
 | Build | Release |
 | Native reference | `UIScrollViewDecelerationRateNormal` with bounce enabled |
 | Display | ProMotion enabled in the app plist |
 | Test content | 1,000 equal-height rows for long, unbounded measurements |
 
-Local paths used during this investigation:
-
-- Slint worktree: `/private/tmp/slint-native-scroll-prototype`
-- Comparison app: `/private/tmp/native-slint-scroll-app`
-- Xcode build products: `/private/tmp/native-slint-scroll-build`
-
-No changes from this investigation have been pushed.
+The harness source is in this directory. Raw traces and Xcode build products
+from the original device run are not committed.
 
 ## Measurement method and limitations
 
@@ -253,9 +246,10 @@ Slint's normalized half-return time remains almost constant for pulls of 100 poi
 
 These are single runs per pull distance on the physical iPhone 13 Pro Max. The settle time is the first sample after which exposure remains within 0.5 points of the bound. As with the fling measurements, the CSV contains model offsets sampled from `CADisplayLink`, rather than decoded screen pixels.
 
-## Candidate local changes
+## Candidate changes tested separately
 
-The local worktree currently contains two uncommitted experimental source changes:
+Some measurements used two experimental runtime changes that are not included
+with this harness:
 
 1. In `internal/core/animations/simulations/ios.rs`, increase `VELOCITY_TOLERANCE` from 1 to 10.
 2. In `internal/core/items/flickable.rs`:
@@ -270,11 +264,11 @@ These changes explain the improved ordinary-drag results. They remain incomplete
 
 | Purpose | Location |
 |---|---|
-| Flickable gesture capture and momentum retention | `/private/tmp/slint-native-scroll-prototype/internal/core/items/flickable.rs` |
-| Fling and carried-momentum calculation | `/private/tmp/slint-native-scroll-prototype/internal/core/items/flickable/animation.rs` |
-| iOS decay and spring simulation | `/private/tmp/slint-native-scroll-prototype/internal/core/animations/simulations/ios.rs` |
-| XCTest cases | `/private/tmp/native-slint-scroll-app/UITests/ScrollComparisonTests.swift` |
-| Low-level rapid-touch synthesis helper | `/private/tmp/native-slint-scroll-app/UITests/DisableQuiescence.m` |
+| Flickable gesture capture and momentum retention | `internal/core/items/flickable.rs` |
+| Fling and carried-momentum calculation | `internal/core/items/flickable/animation.rs` |
+| iOS decay and spring simulation | `internal/core/animations/simulations/ios.rs` |
+| XCTest cases | `tests/manual/ios-scroll-physics-comparison/UITests/ScrollComparisonTests.swift` |
+| Low-level rapid-touch synthesis helper | `tests/manual/ios-scroll-physics-comparison/UITests/DisableQuiescence.m` |
 
 The helper filename predates its current role and should be renamed if this harness is retained.
 
@@ -319,18 +313,9 @@ These tolerances are a practical starting point and should be agreed by the runt
 - Full `i-slint-core` suite: 365 passed and 1 failed. The failure was in the untouched `general::test_velocity_tracker_cases` case (`y only: received 666.6676 expected 266.6667`). It is outside the modified files, but it was not independently reproduced on a clean checkout, so it should not yet be classified as pre-existing.
 - Rapid repeated-flick XCTest: passed and produced the four trace files described above.
 
-## Trace files
-
-| Data set | Path |
-|---|---|
-| Original fast baseline | `/private/tmp/native-slint-baseline.csv` |
-| Original slow baseline | `/private/tmp/native-slint-slow.csv` |
-| Candidate-fix fast trace | `/private/tmp/native-slint-fix2-fast.csv` |
-| Candidate-fix slow trace | `/private/tmp/native-slint-fix3-slow.csv` |
-| Refined speed and boundary matrix | `/private/tmp/native-slint-matrix2-traces-20260920/` |
-| Rapid repeated-flick traces | `/private/tmp/native-slint-rapid-record-traces-20260920/` |
-
-The rapid trace files are named `scroll-repeated-hard-flicks-1.csv` through `scroll-repeated-hard-flicks-4.csv`.
+The original raw trace files are not committed. The rapid trace files generated
+by this harness are named `scroll-repeated-hard-flicks-1.csv` through
+`scroll-repeated-hard-flicks-4.csv`.
 
 ## Conclusion
 
