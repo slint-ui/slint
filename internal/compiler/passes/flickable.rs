@@ -204,11 +204,11 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
             })
         };
 
-    if !flickable_elem.borrow().is_binding_set("height", false) {
+    if !flickable_elem.borrow().is_binding_set_outside_states("height", false) {
         forward_minmax_of("max-height", "max", Orientation::Vertical, MinMaxOp::Min);
         forward_minmax_of("preferred-height", "preferred", Orientation::Vertical, MinMaxOp::Min);
     }
-    if !flickable_elem.borrow().is_binding_set("width", false) {
+    if !flickable_elem.borrow().is_binding_set_outside_states("width", false) {
         forward_minmax_of("max-width", "max", Orientation::Horizontal, MinMaxOp::Min);
         forward_minmax_of("preferred-width", "preferred", Orientation::Horizontal, MinMaxOp::Min);
     }
@@ -261,7 +261,7 @@ fn set_binding_if_not_explicit(
     // binding by using is_binding_set instead of binding().is_none().
     // Otherwise an animation on the property would prevent setting the binding, even if the binding
     // is not set, but just animated.
-    if !elem.borrow().is_binding_set(property, false)
+    if !elem.borrow().is_binding_set_outside_states(property, false)
         && let Some(e) = expression()
     {
         elem.borrow_mut().set_binding_if_not_set(property.into(), || e);
