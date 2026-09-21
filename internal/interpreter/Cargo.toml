@@ -39,7 +39,7 @@ system-tray = ["i-slint-core/system-tray"]
 ## enable the [`print_diagnostics`] function to show diagnostic in the console output
 display-diagnostics = ["i-slint-compiler/display-diagnostics"]
 
-## Enable [`Compiler::set_translation_bundle_path`] to bundle the translations from `.po` files
+## Enable [`Compiler::set_bundled_translations_path`] to bundle the translations from `.po` files
 ## into the compiled component, so that `slint::select_bundled_translation` can select them.
 bundle-translations = ["i-slint-compiler/bundle-translations"]
 
