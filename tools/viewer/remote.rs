@@ -6,11 +6,13 @@ use std::{net::SocketAddr, rc::Rc};
 
 use i_slint_core::SharedString;
 use i_slint_live_preview::preview_sessions::{
-    PreviewCompilation, PreviewSession, PreviewSessionEvent, register_font,
+    PreviewCompilation, PreviewSession, PreviewSessionCommands, PreviewSessionEvent,
+    PreviewSessionHandle, register_font,
 };
 use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage, lsp_types};
 use i_slint_live_preview::remote::{Connection, ConnectionMessage, PairingPolicy};
 use slint::ComponentHandle as _;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 slint::slint! {
     export { RemoteViewerWindow, RemoteViewerState } from "remote/main.slint";
@@ -75,11 +77,25 @@ fn build_info() -> SharedString {
 enum Event {
     Connection(ConnectionMessage),
     Preview(PreviewSessionEvent),
+    /// A compilation finished on the preview worker. It is instantiated on this
+    /// (event-loop) thread; `generation` lets the UI drop a result that a newer
+    /// edit has already superseded.
+    Compiled {
+        compilation: PreviewCompilation,
+        generation: u64,
+    },
     /// The app returned to the foreground after having been suspended: re-announce
     /// the mDNS service (see [`announce_mdns`] for why the old announcement may be
     /// dead). Only iOS has the lifecycle observers that send this.
     #[cfg_attr(not(target_os = "ios"), allow(dead_code))]
     Resumed,
+}
+
+/// A build the event-loop thread asks the preview worker for. The worker answers with
+/// [`Event::Compiled`] carrying the same `generation`.
+struct CompileRequest {
+    preview_component: PreviewComponent,
+    generation: u64,
 }
 
 #[cfg(target_vendor = "apple")]
@@ -128,18 +144,19 @@ async fn run_async(
     }
 
     let connection_event_sender = event_sender.clone();
-    let (connection, preview_session) = Connection::listen(
+    let (session_handle, session_commands) = PreviewSessionHandle::new();
+    let connection = Connection::listen_with_session_handle(
         address,
         device_name_override(),
         pairing_policy,
         move |message| {
             let _ = connection_event_sender.send(Event::Connection(message));
         },
-        move |message| {
-            let _ = event_sender.send(Event::Preview(message));
-        },
+        session_handle,
     )
     .await?;
+    let (compile_sender, compile_receiver) = tokio::sync::mpsc::unbounded_channel();
+    spawn_preview_worker(&connection, session_commands, compile_receiver, event_sender);
     let connection = Rc::new(connection);
 
     // Forward all debug output to the LSP, so that the LSP can show it to the user.
@@ -214,8 +231,15 @@ async fn run_async(
     let mut user_instance: Option<slint_interpreter::ComponentInstance> = None;
     let mut current_preview: Option<PreviewComponent> = None;
     let mut registered_fonts = HashSet::<lsp_types::Url>::new();
+    let mut generation = 0u64;
     while let Some(event) = event_receiver.recv().await {
         match event {
+            Event::Compiled { compilation, generation: g } => {
+                // A pairing code on screen has to stay legible
+                if g == generation && !prompt_on_screen {
+                    apply_compiled(compilation, &mut placeholder, &mut user_instance, &chrome)?;
+                }
+            }
             Event::Resumed => {
                 #[cfg(target_vendor = "apple")]
                 if enable_mdns {
@@ -232,28 +256,20 @@ async fn run_async(
                 PreviewSessionEvent::SetUserSettings { .. } => {}
                 PreviewSessionEvent::ShowPreview { component } => {
                     current_preview = Some(component);
-                    if !prompt_on_screen {
-                        show_current(
-                            &current_preview,
-                            &mut placeholder,
-                            &mut user_instance,
-                            &preview_session,
-                            &chrome,
-                        )
-                        .await?;
-                    }
+                    request_build(
+                        &compile_sender,
+                        &current_preview,
+                        prompt_on_screen,
+                        &mut generation,
+                    );
                 }
                 PreviewSessionEvent::ContentsChanged => {
-                    if !prompt_on_screen {
-                        show_current(
-                            &current_preview,
-                            &mut placeholder,
-                            &mut user_instance,
-                            &preview_session,
-                            &chrome,
-                        )
-                        .await?;
-                    }
+                    request_build(
+                        &compile_sender,
+                        &current_preview,
+                        prompt_on_screen,
+                        &mut generation,
+                    );
                 }
                 PreviewSessionEvent::HighlightFromEditor { .. } => {}
                 PreviewSessionEvent::RegisterFont { url, contents } => {
@@ -278,6 +294,8 @@ async fn run_async(
                 if last_connection == Some(remote_addr) {
                     last_connection = None;
                     current_preview = None;
+                    // Drop any compilation still in flight for the old session
+                    generation += 1;
                     if !prompt_on_screen {
                         swap_to_placeholder(
                             &mut placeholder,
@@ -320,14 +338,12 @@ async fn run_async(
                 prompt_on_screen = false;
                 // Nobody got in, so restore whatever the prompt displaced,
                 // including anything the session changed meanwhile.
-                let restored = show_current(
+                let restored = request_build(
+                    &compile_sender,
                     &current_preview,
-                    &mut placeholder,
-                    &mut user_instance,
-                    &preview_session,
-                    &chrome,
-                )
-                .await?;
+                    prompt_on_screen,
+                    &mut generation,
+                );
                 if !restored {
                     let state = if last_connection.is_some() {
                         RemoteViewerState::Connected
@@ -352,66 +368,106 @@ async fn run_async(
     Ok(())
 }
 
-/// Rebuild and show whatever component is currently being previewed.
+/// Ask the worker to build whatever component is currently being previewed, unless a
+/// pairing code is on screen. Bumps `generation` so the result of an earlier, superseded
+/// request is dropped when it arrives.
 ///
-/// Returns whether there was one, so callers that have to fall back to a
+/// Returns whether a build was queued, so callers that have to fall back to a
 /// placeholder can tell.
-async fn show_current(
+fn request_build(
+    compile_sender: &UnboundedSender<CompileRequest>,
     current_preview: &Option<PreviewComponent>,
-    placeholder: &mut RemoteViewerWindow,
-    user_instance: &mut Option<slint_interpreter::ComponentInstance>,
-    preview_session: &PreviewSession,
-    chrome: &Chrome,
-) -> anyhow::Result<bool> {
-    let Some(preview_component) = current_preview.clone() else { return Ok(false) };
-    build_and_show(&preview_component, placeholder, user_instance, preview_session, chrome).await?;
-    Ok(true)
+    prompt_on_screen: bool,
+    generation: &mut u64,
+) -> bool {
+    if prompt_on_screen {
+        return false;
+    }
+    let Some(preview_component) = current_preview.clone() else { return false };
+    *generation += 1;
+    let _ = compile_sender.send(CompileRequest { preview_component, generation: *generation });
+    true
 }
 
-/// Returns `Err` only on unrecoverable platform failure; compile errors and missing
-/// components reinstall the placeholder and return `Ok(())`.
-async fn build_and_show(
-    preview_component: &PreviewComponent,
+/// Run the preview session on a thread of its own, so that fetching the sources and
+/// compiling them never block the event loop. The session reaches the editor through the
+/// connection's own network thread, and answers each [`CompileRequest`] with an
+/// [`Event::Compiled`] for the event-loop thread to instantiate.
+fn spawn_preview_worker(
+    connection: &Connection,
+    session_commands: PreviewSessionCommands,
+    mut compile_receiver: UnboundedReceiver<CompileRequest>,
+    event_sender: UnboundedSender<Event>,
+) {
+    let to_editor = connection.preview_to_lsp();
+    std::thread::Builder::new()
+        .name("slint-remote-preview".into())
+        .spawn(move || {
+            let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
+                Ok(runtime) => runtime,
+                Err(err) => {
+                    tracing::error!("Cannot start the preview worker runtime: {err}");
+                    return;
+                }
+            };
+            let local_set = tokio::task::LocalSet::new();
+            runtime.block_on(local_set.run_until(async move {
+                let preview_event_sender = event_sender.clone();
+                let preview_session = PreviewSession::start_with(
+                    session_commands,
+                    Rc::new(to_editor),
+                    move |message| {
+                        let _ = preview_event_sender.send(Event::Preview(message));
+                    },
+                );
+                while let Some(mut request) = compile_receiver.recv().await {
+                    while let Ok(next) = compile_receiver.try_recv() {
+                        request = next;
+                    }
+                    let compilation =
+                        preview_session.compile_component(&request.preview_component).await;
+                    if event_sender
+                        .send(Event::Compiled { compilation, generation: request.generation })
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+            }));
+        })
+        .expect("failed to spawn the remote preview thread");
+}
+
+/// Instantiate a finished compilation and put it on screen.
+///
+/// Returns `Err` only on unrecoverable platform failure; a build that produced nothing to
+/// show reinstalls the placeholder and returns `Ok(())`.
+fn apply_compiled(
+    compilation: PreviewCompilation,
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
-    preview_session: &PreviewSession,
     chrome: &Chrome,
 ) -> anyhow::Result<()> {
-    tracing::debug!("build_and_show");
+    tracing::debug!("apply_compiled");
 
-    let compiled = match preview_session.compile_component(preview_component).await {
-        PreviewCompilation::Ready(compiled) => compiled,
+    let component = match compilation {
+        PreviewCompilation::Ready(compiled) => compiled.component_definition(),
+        PreviewCompilation::ComponentNotFound => None,
         PreviewCompilation::CompilationError { message } => {
-            swap_to_placeholder(
-                placeholder,
-                user_instance,
-                chrome,
-                &message,
-                RemoteViewerState::PreviewError,
-            )?;
-            return Ok(());
+            return show_error(placeholder, user_instance, chrome, &message);
         }
-        PreviewCompilation::ComponentNotFound => {
-            swap_to_placeholder(
-                placeholder,
-                user_instance,
-                chrome,
-                "Component not found",
-                RemoteViewerState::PreviewError,
-            )?;
-            return Ok(());
+        // No build happened at all, so nothing else takes the spinner down
+        PreviewCompilation::Unavailable => {
+            return match user_instance {
+                Some(_) => Ok(()),
+                None => {
+                    show_error(placeholder, user_instance, chrome, "Could not load the preview")
+                }
+            };
         }
-        PreviewCompilation::Unavailable => return Ok(()),
     };
-    let Some(component) = compiled.component_definition() else {
-        swap_to_placeholder(
-            placeholder,
-            user_instance,
-            chrome,
-            "Component not found",
-            RemoteViewerState::PreviewError,
-        )?;
-        return Ok(());
+    let Some(component) = component else {
+        return show_error(placeholder, user_instance, chrome, "Component not found");
     };
 
     let new_instance = component
@@ -423,6 +479,22 @@ async fn build_and_show(
     // The placeholder is hidden now, but keep its state property truthful.
     placeholder.set_state(RemoteViewerState::Previewing);
     Ok(())
+}
+
+/// Put `message` on the placeholder, in place of whatever was on screen.
+fn show_error(
+    placeholder: &mut RemoteViewerWindow,
+    user_instance: &mut Option<slint_interpreter::ComponentInstance>,
+    chrome: &Chrome,
+    message: &str,
+) -> anyhow::Result<()> {
+    swap_to_placeholder(
+        placeholder,
+        user_instance,
+        chrome,
+        message,
+        RemoteViewerState::PreviewError,
+    )
 }
 
 /// Everything on the placeholder screen that doesn't depend on what the

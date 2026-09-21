@@ -1204,7 +1204,9 @@ fn describe_version_mismatch(err: &tokio_tungstenite_wasm::Error) -> Option<Stri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use i_slint_live_preview::preview_sessions::{PreviewSession, PreviewSessionEvent};
+    use i_slint_live_preview::preview_sessions::{
+        PreviewSession, PreviewSessionEvent, PreviewSessionHandle,
+    };
     use i_slint_live_preview::protocol::PreviewComponent;
     use i_slint_live_preview::remote::{Connection, ConnectionMessage, PairingPolicy};
     use lsp_types::Url;
@@ -1233,19 +1235,25 @@ mod tests {
     ) {
         let (tx, rx) = mpsc::unbounded_channel();
         let (preview_event_sender, preview_events) = mpsc::unbounded_channel();
-        let (connection, preview_session) = Connection::listen(
+        let (session_handle, session_commands) = PreviewSessionHandle::new();
+        let connection = Connection::listen_with_session_handle(
             Some(std::net::SocketAddr::from(([127, 0, 0, 1], port))),
             None,
             policy,
             move |msg| {
                 let _ = tx.send(msg);
             },
-            move |event| {
-                let _ = preview_event_sender.send(event);
-            },
+            session_handle,
         )
         .await
         .unwrap();
+        let preview_session = PreviewSession::start_with(
+            session_commands,
+            Rc::new(connection.preview_to_lsp()),
+            move |event| {
+                let _ = preview_event_sender.send(event);
+            },
+        );
         (connection, rx, preview_session, preview_events)
     }
 
