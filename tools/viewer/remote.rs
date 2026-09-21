@@ -379,8 +379,8 @@ async fn build_and_show(
 ) -> anyhow::Result<()> {
     tracing::debug!("build_and_show");
 
-    let component = match preview_session.compile_component(preview_component).await {
-        PreviewCompilation::Ready(component) => component,
+    let compiled = match preview_session.compile_component(preview_component).await {
+        PreviewCompilation::Ready(compiled) => compiled,
         PreviewCompilation::CompilationError { message } => {
             swap_to_placeholder(
                 placeholder,
@@ -402,6 +402,16 @@ async fn build_and_show(
             return Ok(());
         }
         PreviewCompilation::Unavailable => return Ok(()),
+    };
+    let Some(component) = compiled.component_definition() else {
+        swap_to_placeholder(
+            placeholder,
+            user_instance,
+            chrome,
+            "Component not found",
+            RemoteViewerState::PreviewError,
+        )?;
+        return Ok(());
     };
 
     let new_instance = component
