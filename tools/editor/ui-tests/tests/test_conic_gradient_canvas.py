@@ -10,7 +10,7 @@ import slint_testing
 from editor_sync import wait_for_source
 from gradient_interactions import around, center, click, control, gesture, shifted
 from slint_testing import keys
-from source_snapshot import SourceSnapshot, wait_for_source_change
+from source_snapshot import SourceSnapshot
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -222,10 +222,19 @@ def test_conic_rotation_crosses_the_seam(
         )
         original.assert_unchanged_now()
         click(window, "Close Custom")
-        saved = wait_for_source_change(
-            conic_scene, original.sources[Path(conic_scene.name)]
-        )
-        original.wait_for_applied(saved, conic_scene.name)
+        baseline = original.sources[Path(conic_scene.name)]
+
+        def applied_source() -> bytes | None:
+            saved = conic_scene.read_bytes()
+            if not saved or saved == baseline:
+                return None
+            try:
+                original.wait_for_applied(saved, conic_scene.name, timeout=0.1)
+            except AssertionError:
+                return None
+            return saved
+
+        saved = wait_until(applied_source)
         angle = re.search(rb"from ([0-9.]+)deg", saved)
         assert angle is not None
         assert float(angle.group(1)) == pytest.approx(367, abs=0.001)
