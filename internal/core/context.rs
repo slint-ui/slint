@@ -21,8 +21,8 @@ pub type WindowEventHook =
     Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, crate::platform::WindowEventDispatchResult)>;
 
 crate::thread_local! {
-    pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
-        = const { once_cell::unsync::OnceCell::new() }
+    pub(crate) static GLOBAL_CONTEXT : core::cell::OnceCell<SlintContext>
+        = const { core::cell::OnceCell::new() }
 }
 
 #[pin_project::pin_project]
