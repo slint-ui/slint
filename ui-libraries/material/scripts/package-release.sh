@@ -46,10 +46,11 @@ trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
 cp -a "$material_directory/src" "$temporary_directory/material-$version"
 (
     cd "$temporary_directory"
-    zip -qr "$output_directory/$archive_name" "material-$version"
+    zip -qr "$archive_name" "material-$version"
 )
 
-unzip -tq "$output_directory/$archive_name"
+unzip -tq "$temporary_directory/$archive_name"
+mv "$temporary_directory/$archive_name" "$output_directory/$archive_name"
 (
     cd "$output_directory"
     sha256sum "$archive_name" > "$archive_name.sha256"
