@@ -6,6 +6,11 @@
 // alive, but its parent chain is gone. Nothing the handler reaches for through that dead chain may
 // panic. A read yields the default, a write is dropped, and a call does nothing.
 
+struct Rec {
+    len: length,
+    name: string,
+}
+
 export component TestCase {
     width: 300px;
     height: 300px;
@@ -21,8 +26,8 @@ export component TestCase {
 
     callback noop() -> int;
     callback noop2() -> int;
-    callback rec-cb() -> { len: length, name: string };
-    in-out property <{ len: length, name: string }> rec: { len: 5px, name: "n" };
+    callback rec-cb() -> Rec;
+    in-out property <Rec> rec: { len: 5px, name: "n" };
     function bump() -> int { root.counter += 1; return root.counter; }
 
     fs := FocusScope { }
