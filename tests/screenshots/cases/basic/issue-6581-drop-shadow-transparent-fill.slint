@@ -1,9 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Regression test for https://github.com/slint-ui/slint/issues/6581: a drop shadow on a
-// Rectangle with a transparent fill and only a border used to fill the entire, transparent
-// interior with the shadow color instead of leaving it untouched.
+// A transparent rectangle casts a shadow of its border, including the part visible
+// through its interior. See https://github.com/slint-ui/slint/issues/6581.
 //
 // SIZE=300x300
 // BASE_THRESHOLD=3

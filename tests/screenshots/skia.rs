@@ -208,3 +208,61 @@ fn text_alignment_anchor_stays_fixed() {
         }
     }
 }
+
+#[test]
+fn shadow_tracks_source_paint() {
+    init_skia();
+    let mut compiler = slint_interpreter::Compiler::default();
+    let compiled = poll_once(compiler.build_from_source(
+        r#"
+        export component TestCase inherits Window {
+            width: 130px;
+            height: 70px;
+            background: white;
+            in-out property<brush> fill: transparent;
+            in-out property<brush> stroke: black;
+            in-out property<length> border-size: 4px;
+            Rectangle {
+                x: 10px;
+                y: 10px;
+                width: 40px;
+                height: 40px;
+                background: root.fill;
+                border-color: root.stroke;
+                border-width: root.border-size;
+                drop-shadow-color: red;
+                drop-shadow-offset-x: 60px;
+            }
+        }
+        "#
+        .into(),
+        "shadow_tracks_source_paint.slint".into(),
+    ))
+    .unwrap();
+    assert!(!compiled.has_errors());
+    let component = compiled.components().last().unwrap().create().unwrap();
+    component.show().unwrap();
+    let sample = |x: usize| {
+        let image = component.window().take_snapshot().unwrap();
+        let pixel = image.as_slice()[30 * image.width() as usize + x];
+        (pixel.r, pixel.g, pixel.b)
+    };
+    assert_eq!(sample(90), (255, 255, 255));
+    assert_eq!(sample(72), (255, 0, 0));
+    component
+        .set_property("fill", slint_interpreter::Brush::from(slint_interpreter::Color::from_argb_u8(128, 0, 128, 0)).into())
+        .unwrap();
+    let (r, g, b) = sample(90);
+    assert_eq!(r, 255);
+    assert!((126..=128).contains(&g) && (126..=128).contains(&b));
+    component.set_property("fill", slint_interpreter::Brush::default().into()).unwrap();
+    component.set_property("stroke", slint_interpreter::Brush::default().into()).unwrap();
+    assert_eq!(sample(72), (255, 255, 255));
+    component
+        .set_property("stroke", slint_interpreter::Brush::from(slint_interpreter::Color::from_rgb_u8(0, 0, 0)).into())
+        .unwrap();
+    component.set_property("border-size", 0.into()).unwrap();
+    assert_eq!(sample(72), (255, 255, 255));
+    component.set_property("border-size", 4.into()).unwrap();
+    assert_eq!(sample(72), (255, 0, 0));
+}

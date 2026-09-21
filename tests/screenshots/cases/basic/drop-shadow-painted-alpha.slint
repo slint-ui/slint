@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=480x320
+// BASE_THRESHOLD=3
+//ignore: software
+
+export component TestCase inherits Window {
+    width: 480px;
+    height: 320px;
+    background: white;
+
+    // Equal geometry with different paint exercises the shared shadow cache.
+    // Repeated rectangles also exercise shadow bindings on repeated roots.
+    for row in 3: Rectangle {
+        y: row * 105px;
+        height: 105px;
+        for column in 4: Rectangle {
+            x: 12px + column * 120px;
+            y: 12px;
+            width: 70px;
+            height: 65px;
+            background: column == 0 ? transparent : column == 1 ? #00800080
+                : column == 2 ? @linear-gradient(90deg, #00800000, #008000ff) : green;
+            border-width: 7px;
+            border-color: column == 3 ? transparent : column == 2 ? #0000ff80 : blue;
+            border-top-left-radius: row == 0 ? 0px : 16px;
+            border-bottom-right-radius: row == 0 ? 0px : 8px;
+            drop-shadow-color: #ff0000c0;
+            drop-shadow-offset-x: 18px;
+            drop-shadow-offset-y: 12px;
+            drop-shadow-blur: row == 0 ? 0px : 6px;
+            drop-shadow-spread: row == 1 ? 3px : row == 2 ? -2px : 0px;
+        }
+    }
+}

@@ -81,6 +81,19 @@ fn create_box_shadow_element(
         ..Default::default()
     };
 
+    if matches!(kind, ShadowKind::Drop) {
+        for property_name in ["background", "border-color", "border-width"] {
+            element.set_binding(
+                property_name.into(),
+                Expression::PropertyReference(NamedReference::new(
+                    sibling_element,
+                    property_name.into(),
+                ))
+                .into(),
+            );
+        }
+    }
+
     for property_name in super::border_radius::BORDER_RADIUS_PROPERTIES {
         let source_property = if sibling_element.borrow().is_binding_set(property_name, true) {
             Some(SmolStr::new_static(property_name))

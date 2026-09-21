@@ -640,17 +640,10 @@ fn build(l: &mut Loader) {
         in property <length> border-bottom-right-radius;
         //! ## Drop Shadows
         //!
-        //! Use the `drop-shadow-*` properties to draw a box shadow around a rectangle.
-        //!
-        //! The CSS equivalent is `box-shadow`: `box-shadow: 2px 2px 4px 1px black` translates to
-        //! `drop-shadow-offset-x: 2px; drop-shadow-offset-y: 2px; drop-shadow-blur: 4px;
-        //! drop-shadow-spread: 1px; drop-shadow-color: black;`.
-        //!
-        //! The whole rectangle casts the shadow as if its fill and border were opaque.
-        //! The rectangle's original shape, including rounded corners, is excluded from the shadow.
-        //! This keeps a transparent interior clear and prevents the shadow from darkening a partially transparent fill.
-        //! The fill and border transparency do not affect the shadow's shape or strength.
-        //! CSS `filter: drop-shadow()` instead derives its shadow from the painted content's alpha.
+        //! Use the `drop-shadow-*` properties to draw a shadow of a rectangle's painted shape.
+        //! The fill and border alpha determine the shadow's shape and strength.
+        //! A rectangle with a transparent fill and an opaque border casts a border-shaped shadow.
+        //! The offset shadow can remain visible through transparent parts of the rectangle.
         //!
         //! ### drop-shadow-blur
         //! <SlintProperty propName="drop-shadow-blur" typeName="length"/>
@@ -2233,6 +2226,9 @@ fn build(l: &mut Loader) {
     }
 
     item! { BoxShadow: Empty {
+        in property <brush> background;
+        in property <brush> border-color;
+        in property <length> border-width;
         in property <length> border-top-left-radius;
         in property <length> border-top-right-radius;
         in property <length> border-bottom-left-radius;
