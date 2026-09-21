@@ -39,6 +39,20 @@ final class ScrollComparisonTests: XCTestCase {
         )
     }
 
+    private func pullDownAndHold(
+        _ app: XCUIApplication,
+        distance: CGFloat
+    ) {
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.25))
+        let end = start.withOffset(CGVector(dx: 0, dy: distance))
+        start.press(
+            forDuration: 0.05,
+            thenDragTo: end,
+            withVelocity: XCUIGestureVelocity(rawValue: 400),
+            thenHoldForDuration: 0.40
+        )
+    }
+
     private func waitForTrace(_ app: XCUIApplication, name: String) {
         let settled = expectation(description: "Capture \(name)")
         DispatchQueue.main.asyncAfter(deadline: .now() + 6) { settled.fulfill() }
@@ -109,6 +123,16 @@ final class ScrollComparisonTests: XCTestCase {
             let name = "top-pull-\(Int(velocity))"
             let app = launch(scenario: name)
             drag(app, from: 0.30, to: 0.75, velocity: velocity)
+            waitForTrace(app, name: name)
+            app.terminate()
+        }
+    }
+
+    func testTopPullDistanceAndReturnCurve() {
+        for distance in [50.0, 100.0, 200.0, 300.0] {
+            let name = "top-pull-distance-\(Int(distance))"
+            let app = launch(scenario: name)
+            pullDownAndHold(app, distance: distance)
             waitForTrace(app, name: name)
             app.terminate()
         }

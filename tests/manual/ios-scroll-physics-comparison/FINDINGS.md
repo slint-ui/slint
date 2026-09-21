@@ -234,6 +234,25 @@ The problem appears only in large, fast single swipes because the harness receiv
 
 These measurements are model offsets sampled from one `CADisplayLink`, not a decoded framebuffer recording. CoreDevice reported that screen recording is unavailable for this attached device, so the current evidence cannot distinguish a one-frame presentation-order effect from a one-frame model update. A production fix should be checked with a ReplayKit or high-frame-rate camera recording in addition to the CSV trace.
 
+### 11. Top-bound pull resistance is close, but the bounce-return curve changes with pull distance differently
+
+A distance-controlled top-bound test pulled the same forwarded finger path down by 50, 100, 200, and 300 points at a requested XCTest velocity of 400 pixels per second. Each gesture then held the finger stationary for 400 ms before release. This separates resistance under the finger from the spring return after release.
+
+| Finger pull | UIKit held exposure | Slint held exposure | Slint - UIKit | UIKit half-return | Slint half-return | UIKit settle | Slint settle |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 50 pt | 16.0 pt | 17.3 pt | +1.3 pt | 238 ms | 124 ms | 572 ms | 447 ms |
+| 100 pt | 44.0 pt | 43.6 pt | -0.4 pt | 137 ms | 121 ms | 593 ms | 555 ms |
+| 200 pt | 89.3 pt | 86.6 pt | -2.7 pt | 94 ms | 119 ms | 601 ms | 627 ms |
+| 300 pt | 130.0 pt | 125.5 pt | -4.5 pt | 87 ms | 119 ms | 618 ms | 666 ms |
+
+The pull resistance is close. Slint exposes slightly more background in the 50-point case and slightly less from 100 points onward. The largest measured exposure difference is 4.5 points after a 300-point finger pull.
+
+The return curves do not match. In the 50-point case, UIKit first expands from 16 to 20 points after release before returning, while Slint returns monotonically and settles 125 ms earlier. The 100-point curves are close, with Slint settling 38 ms earlier. At 200 and 300 points, UIKit returns faster through the middle of the curve: Slint reaches half exposure 25 and 32 ms later and settles 26 and 48 ms later respectively.
+
+Slint's normalized half-return time remains almost constant for pulls of 100 points or more: 121, 119, and 119 ms. UIKit's half-return time decreases with pull distance from 137 to 94 to 87 ms. This indicates that the two implementations scale their spring response with overscroll distance differently. Matching only the final bound and approximate total duration will not make these animations look the same.
+
+These are single runs per pull distance on the physical iPhone 13 Pro Max. The settle time is the first sample after which exposure remains within 0.5 points of the bound. As with the fling measurements, the CSV contains model offsets sampled from `CADisplayLink`, rather than decoded screen pixels.
+
 ## Candidate local changes
 
 The local worktree currently contains two uncommitted experimental source changes:
