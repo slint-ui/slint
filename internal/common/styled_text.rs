@@ -1,6 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::ops::Range;
+
 #[derive(Clone, Debug, PartialEq)]
 /// Styles that can be applied to text spans
 #[allow(missing_docs, dead_code)]
@@ -19,7 +23,7 @@ pub enum Style {
 /// A style and a text span
 pub struct FormattedSpan {
     /// Span of text to style
-    pub range: core::ops::Range<usize>,
+    pub range: Range<usize>,
     /// The style to apply
     pub style: Style,
 }
@@ -35,11 +39,11 @@ enum ListItemType {
 #[derive(Clone, Debug, PartialEq)]
 pub struct StyledTextParagraph {
     /// The raw paragraph text
-    pub text: alloc::string::String,
+    pub text: String,
     /// Formatting styles and spans
-    pub formatting: alloc::vec::Vec<FormattedSpan>,
+    pub formatting: Vec<FormattedSpan>,
     /// Locations of clickable links within the paragraph
-    pub links: alloc::vec::Vec<(core::ops::Range<usize>, alloc::string::String)>,
+    pub links: Vec<(Range<usize>, String)>,
 }
 
 /// Error returned by markdown styled text parsing
@@ -49,17 +53,17 @@ pub struct StyledTextParagraph {
 pub struct StyledTextParseError {
     kind: StyledTextParseErrorKind,
     /// Byte range in the format string where the error occurred
-    range: Option<core::ops::Range<usize>>,
+    range: Option<Range<usize>>,
 }
 
 #[cfg(feature = "markdown")]
 impl StyledTextParseError {
     /// Byte range in the markdown format string where the error occurred
-    pub fn range(&self) -> Option<core::ops::Range<usize>> {
+    pub fn range(&self) -> Option<Range<usize>> {
         self.range.clone()
     }
 
-    fn new(kind: StyledTextParseErrorKind, range: core::ops::Range<usize>) -> Self {
+    fn new(kind: StyledTextParseErrorKind, range: Range<usize>) -> Self {
         Self { kind, range: Some(range) }
     }
 
@@ -90,19 +94,19 @@ enum StyledTextParseErrorKind {
     ParagraphNotStarted,
     /// Unsupported markdown syntax
     #[display("Markdown {_0} are not supported")]
-    UnsupportedMarkdown(alloc::string::String),
+    UnsupportedMarkdown(String),
     /// Unsupported html tag
     #[display("HTML tag <{_0}> is not supported")]
-    UnsupportedHtmlTag(alloc::string::String),
+    UnsupportedHtmlTag(String),
     /// Unimplemented html attribute
     #[display("Unexpected {_0} attribute in html {_1}")]
-    UnexpectedAttribute(alloc::string::String, alloc::string::String),
+    UnexpectedAttribute(String, String),
     /// Missing color attribute in html
     #[display("Missing color attribute in html {_0}")]
-    MissingColor(alloc::string::String),
+    MissingColor(String),
     /// Closing html tag doesn't match the opening tag
     #[display("Closing html tag doesn't match the opening tag. Expected {_0}, got {_1}")]
-    ClosingTagMismatch(alloc::string::String, alloc::string::String),
+    ClosingTagMismatch(String, String),
     /// Argument index out of range
     #[display("Argument index {_0} out of range: {_1} arguments provided")]
     ArgumentOutOfRange(usize, usize),
@@ -113,10 +117,10 @@ enum StyledTextParseErrorKind {
     MultiParagraphInterpolation,
     /// HTML closing tag overlaps with markdown formatting
     #[display("HTML tag {_0} overlaps with markdown formatting")]
-    InterleavedStyles(alloc::string::String),
+    InterleavedStyles(String),
     /// Invalid color value
     #[display("Invalid color value '{_0}'")]
-    InvalidColor(alloc::string::String),
+    InvalidColor(String),
 }
 
 #[cfg(feature = "markdown")]
@@ -129,7 +133,7 @@ pub fn invalid_color_value(error: &StyledTextParseError) -> Option<&str> {
 }
 
 #[cfg(feature = "markdown")]
-pub fn paragraph_from_plain_text(text: alloc::string::String) -> StyledTextParagraph {
+pub fn paragraph_from_plain_text(text: String) -> StyledTextParagraph {
     StyledTextParagraph { text, formatting: Default::default(), links: Default::default() }
 }
 
@@ -139,7 +143,7 @@ pub const MARKDOWN_INTERPOLATION_PLACEHOLDER: char = '\u{e541}';
 
 #[cfg(feature = "markdown")]
 fn begin_paragraph(indentation: u32, list_item_type: Option<ListItemType>) -> StyledTextParagraph {
-    let mut text = alloc::string::String::with_capacity(indentation as usize * 4);
+    let mut text = String::with_capacity(indentation as usize * 4);
     for _ in 0..indentation {
         text.push_str("    ");
     }
@@ -182,8 +186,8 @@ fn substitute<S: AsRef<[StyledTextParagraph]>>(
     string: &str,
     args: &[S],
     arg_index: &mut usize,
-    errors: &mut alloc::vec::Vec<StyledTextParseError>,
-    event_range: &core::ops::Range<usize>,
+    errors: &mut Vec<StyledTextParseError>,
+    event_range: &Range<usize>,
 ) {
     use StyledTextParseErrorKind as E;
     let mut pos = 0;
@@ -223,11 +227,11 @@ fn substitute_in_string<S: AsRef<[StyledTextParagraph]>>(
     string: &str,
     args: &[S],
     arg_index: &mut usize,
-    errors: &mut alloc::vec::Vec<StyledTextParseError>,
-    event_range: &core::ops::Range<usize>,
-) -> alloc::string::String {
+    errors: &mut Vec<StyledTextParseError>,
+    event_range: &Range<usize>,
+) -> String {
     use StyledTextParseErrorKind as E;
-    let mut result = alloc::string::String::with_capacity(string.len());
+    let mut result = String::with_capacity(string.len());
     let mut pos = 0;
     while let Some(mut p) = string[pos..].find(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
         p += pos;
@@ -261,14 +265,14 @@ fn substitute_in_string<S: AsRef<[StyledTextParagraph]>>(
 #[cfg(feature = "markdown")]
 /// An open style: what it is, where it starts in the current paragraph, and the pieces of it
 /// that earlier paragraphs already hold.
-type OpenSpan = (Style, usize, alloc::vec::Vec<(usize, core::ops::Range<usize>)>);
+type OpenSpan = (Style, usize, Vec<(usize, Range<usize>)>);
 
 #[cfg(feature = "markdown")]
 fn push_span(
     paragraph: &mut StyledTextParagraph,
-    range: core::ops::Range<usize>,
+    range: Range<usize>,
     style: Style,
-    url: Option<alloc::string::String>,
+    url: Option<String>,
 ) {
     if let Some(url) = url {
         paragraph.links.push((range.clone(), url));
@@ -283,7 +287,7 @@ fn push_span(
 /// one paragraph's text, so every open style is cut in two here (#13548). The piece that starts
 /// in `new_paragraph` starts after whatever indentation or bullet it already holds.
 fn start_paragraph(
-    paragraphs: &mut alloc::vec::Vec<StyledTextParagraph>,
+    paragraphs: &mut Vec<StyledTextParagraph>,
     current_paragraph: &mut Option<StyledTextParagraph>,
     style_stack: &mut [OpenSpan],
     new_paragraph: StyledTextParagraph,
@@ -304,10 +308,10 @@ fn start_paragraph(
 fn close_span(
     paragraphs: &mut [StyledTextParagraph],
     paragraph: &mut StyledTextParagraph,
-    pieces: alloc::vec::Vec<(usize, core::ops::Range<usize>)>,
-    last: core::ops::Range<usize>,
+    pieces: Vec<(usize, Range<usize>)>,
+    last: Range<usize>,
     style: Style,
-    url: Option<alloc::string::String>,
+    url: Option<String>,
 ) {
     // Each paragraph owns the text of its links, so every piece but the last needs a copy.
     for (index, range) in pieces {
@@ -319,8 +323,8 @@ fn close_span(
 #[cfg(feature = "markdown")]
 fn get_or_create_paragraph<'a>(
     current_paragraph: &'a mut Option<StyledTextParagraph>,
-    errors: &mut alloc::vec::Vec<StyledTextParseError>,
-    event_range: &core::ops::Range<usize>,
+    errors: &mut Vec<StyledTextParseError>,
+    event_range: &Range<usize>,
 ) -> &'a mut StyledTextParagraph {
     use StyledTextParseErrorKind as E;
     if current_paragraph.is_none() {
@@ -335,7 +339,7 @@ fn get_or_create_paragraph<'a>(
 }
 
 #[cfg(feature = "markdown")]
-fn unsupported_tag_name(tag: &pulldown_cmark::Tag<'_>) -> alloc::string::String {
+fn unsupported_tag_name(tag: &pulldown_cmark::Tag<'_>) -> String {
     use pulldown_cmark::Tag::*;
     match tag {
         Heading { .. } => "headings",
@@ -356,7 +360,7 @@ fn unsupported_tag_name(tag: &pulldown_cmark::Tag<'_>) -> alloc::string::String 
 }
 
 #[cfg(feature = "markdown")]
-fn unsupported_event_name(event: &pulldown_cmark::Event<'_>) -> alloc::string::String {
+fn unsupported_event_name(event: &pulldown_cmark::Event<'_>) -> String {
     use pulldown_cmark::Event::*;
     match event {
         Rule => "horizontal rules".into(),
@@ -372,7 +376,7 @@ fn unsupported_event_name(event: &pulldown_cmark::Event<'_>) -> alloc::string::S
 pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
     format_string: &str,
     args: &[S],
-) -> (alloc::vec::Vec<StyledTextParagraph>, alloc::vec::Vec<StyledTextParseError>) {
+) -> (Vec<StyledTextParagraph>, Vec<StyledTextParseError>) {
     use StyledTextParseErrorKind as E;
 
     let parser = pulldown_cmark::Parser::new_ext(
@@ -380,12 +384,12 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
         pulldown_cmark::Options::ENABLE_STRIKETHROUGH,
     );
 
-    let mut list_state_stack: alloc::vec::Vec<Option<u64>> = alloc::vec::Vec::new();
-    let mut style_stack: alloc::vec::Vec<OpenSpan> = alloc::vec::Vec::new();
+    let mut list_state_stack: Vec<Option<u64>> = Vec::new();
+    let mut style_stack: Vec<OpenSpan> = Vec::new();
     let mut current_url = None;
     let mut arg_index = 0;
-    let mut paragraphs = alloc::vec::Vec::new();
-    let mut errors = alloc::vec::Vec::new();
+    let mut paragraphs = Vec::new();
+    let mut errors = Vec::new();
     // Tracks skipped Start tags whose End events haven't been seen yet.
     // When an End event fails to pop the style stack and this is > 0,
     // we silently consume it instead of reporting a cascading Pop error.
@@ -739,8 +743,8 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
 
 #[cfg(all(feature = "markdown", test))]
 fn assert_no_errors(
-    result: (alloc::vec::Vec<StyledTextParagraph>, alloc::vec::Vec<StyledTextParseError>),
-) -> alloc::vec::Vec<StyledTextParagraph> {
+    result: (Vec<StyledTextParagraph>, Vec<StyledTextParseError>),
+) -> Vec<StyledTextParagraph> {
     let (paragraphs, errors) = result;
     assert!(errors.is_empty(), "Unexpected errors: {errors:?}");
     paragraphs
@@ -758,12 +762,12 @@ fn markdown_style_across_line_break() {
             StyledTextParagraph {
                 text: "Это очень".into(),
                 formatting: alloc::vec![FormattedSpan { range: 7..17, style: Style::Strong }],
-                links: alloc::vec::Vec::new()
+                links: Vec::new()
             },
             StyledTextParagraph {
                 text: "важно для нас".into(),
                 formatting: alloc::vec![FormattedSpan { range: 0..10, style: Style::Strong }],
-                links: alloc::vec::Vec::new()
+                links: Vec::new()
             }
         ]
     );
@@ -775,17 +779,17 @@ fn markdown_style_across_line_break() {
             StyledTextParagraph {
                 text: "a".into(),
                 formatting: alloc::vec![FormattedSpan { range: 0..1, style: Style::Strong }],
-                links: alloc::vec::Vec::new()
+                links: Vec::new()
             },
             StyledTextParagraph {
                 text: "b".into(),
                 formatting: alloc::vec![FormattedSpan { range: 0..1, style: Style::Strong }],
-                links: alloc::vec::Vec::new()
+                links: Vec::new()
             },
             StyledTextParagraph {
                 text: "c".into(),
                 formatting: alloc::vec![FormattedSpan { range: 0..1, style: Style::Strong }],
-                links: alloc::vec::Vec::new()
+                links: Vec::new()
             }
         ]
     );
@@ -794,20 +798,16 @@ fn markdown_style_across_line_break() {
     assert_eq!(
         assert_no_errors(parse_interpolated::<&[_]>("- a\n  - **x\n    y**", &[])),
         [
-            StyledTextParagraph {
-                text: "• a".into(),
-                formatting: alloc::vec::Vec::new(),
-                links: alloc::vec::Vec::new()
-            },
+            StyledTextParagraph { text: "• a".into(), formatting: Vec::new(), links: Vec::new() },
             StyledTextParagraph {
                 text: "    ◦ x".into(),
                 formatting: alloc::vec![FormattedSpan { range: 8..9, style: Style::Strong }],
-                links: alloc::vec::Vec::new()
+                links: Vec::new()
             },
             StyledTextParagraph {
                 text: "    y".into(),
                 formatting: alloc::vec![FormattedSpan { range: 4..5, style: Style::Strong }],
-                links: alloc::vec::Vec::new()
+                links: Vec::new()
             }
         ]
     );
@@ -819,12 +819,12 @@ fn markdown_style_across_line_break() {
             StyledTextParagraph {
                 text: "a".into(),
                 formatting: alloc::vec![FormattedSpan { range: 0..1, style: Style::Underline }],
-                links: alloc::vec::Vec::new()
+                links: Vec::new()
             },
             StyledTextParagraph {
                 text: "b".into(),
                 formatting: alloc::vec![FormattedSpan { range: 0..1, style: Style::Underline }],
-                links: alloc::vec::Vec::new()
+                links: Vec::new()
             }
         ]
     );
@@ -855,7 +855,7 @@ fn markdown_parsing() {
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }],
-            links: alloc::vec::Vec::new()
+            links: Vec::new()
         }]
     );
 
@@ -870,13 +870,13 @@ fn markdown_parsing() {
         [
             StyledTextParagraph {
                 text: "• line 1".into(),
-                formatting: alloc::vec::Vec::new(),
-                links: alloc::vec::Vec::new()
+                formatting: Vec::new(),
+                links: Vec::new()
             },
             StyledTextParagraph {
                 text: "• line 2".into(),
-                formatting: alloc::vec::Vec::new(),
-                links: alloc::vec::Vec::new()
+                formatting: Vec::new(),
+                links: Vec::new()
             }
         ]
     );
@@ -891,21 +891,9 @@ fn markdown_parsing() {
             &[]
         )),
         [
-            StyledTextParagraph {
-                text: "1. a".into(),
-                formatting: alloc::vec::Vec::new(),
-                links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
-                text: "2. b".into(),
-                formatting: alloc::vec::Vec::new(),
-                links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
-                text: "3. c".into(),
-                formatting: alloc::vec::Vec::new(),
-                links: alloc::vec::Vec::new()
-            }
+            StyledTextParagraph { text: "1. a".into(), formatting: Vec::new(), links: Vec::new() },
+            StyledTextParagraph { text: "2. b".into(), formatting: Vec::new(), links: Vec::new() },
+            StyledTextParagraph { text: "3. c".into(), formatting: Vec::new(), links: Vec::new() }
         ]
     );
 
@@ -926,12 +914,12 @@ new *line*
                     FormattedSpan { range: 21..34, style: Style::Strikethrough },
                     FormattedSpan { range: 35..39, style: Style::Code }
                 ],
-                links: alloc::vec::Vec::new()
+                links: Vec::new()
             },
             StyledTextParagraph {
                 text: "new line".into(),
                 formatting: alloc::vec![FormattedSpan { range: 4..8, style: Style::Emphasis },],
-                links: alloc::vec::Vec::new()
+                links: Vec::new()
             }
         ]
     );
@@ -949,23 +937,23 @@ new *line*
         [
             StyledTextParagraph {
                 text: "• root".into(),
-                formatting: alloc::vec::Vec::new(),
-                links: alloc::vec::Vec::new()
+                formatting: Vec::new(),
+                links: Vec::new()
             },
             StyledTextParagraph {
                 text: "    ◦ child".into(),
-                formatting: alloc::vec::Vec::new(),
-                links: alloc::vec::Vec::new()
+                formatting: Vec::new(),
+                links: Vec::new()
             },
             StyledTextParagraph {
                 text: "        ▪ grandchild".into(),
-                formatting: alloc::vec::Vec::new(),
-                links: alloc::vec::Vec::new()
+                formatting: Vec::new(),
+                links: Vec::new()
             },
             StyledTextParagraph {
                 text: "            • great grandchild".into(),
-                formatting: alloc::vec::Vec::new(),
-                links: alloc::vec::Vec::new()
+                formatting: Vec::new(),
+                links: Vec::new()
             },
         ]
     );
@@ -987,7 +975,7 @@ new *line*
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 0..11, style: Style::Underline },],
-            links: alloc::vec::Vec::new()
+            links: Vec::new()
         }]
     );
 
@@ -1002,7 +990,7 @@ new *line*
                 range: 0..11,
                 style: Style::Color(0xff_00_00_ff)
             },],
-            links: alloc::vec::Vec::new()
+            links: Vec::new()
         }]
     );
 
@@ -1017,7 +1005,7 @@ new *line*
                 FormattedSpan { range: 0..11, style: Style::Color(0xff_ff_00_00) },
                 FormattedSpan { range: 0..11, style: Style::Underline },
             ],
-            links: alloc::vec::Vec::new()
+            links: Vec::new()
         }]
     );
 
@@ -1033,7 +1021,7 @@ new *line*
                     FormattedSpan { range: 0..11, style: Style::Color(0) },
                     FormattedSpan { range: 0..11, style: Style::Underline },
                 ],
-                links: alloc::vec::Vec::new()
+                links: Vec::new()
             }]
         );
         assert_eq!(errors.len(), 1);
