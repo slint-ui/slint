@@ -56,6 +56,45 @@ pub(crate) fn encode_png(
     None
 }
 
+/// The URI list naming `paths`, or `None` if one of them has no URI form: a partial list
+/// would offer files that the drag doesn't carry.
+///
+/// A relative path names the same file it would name when opened, the one in the current
+/// directory, since a URI can only name a file absolutely.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn file_paths_to_uris<'a>(
+    paths: impl IntoIterator<Item = &'a std::path::Path>,
+) -> Option<winit::data_transfer::SendData> {
+    let uris = paths
+        .into_iter()
+        .map(|path| {
+            url::Url::from_file_path(std::path::absolute(path).ok()?).ok().map(String::from)
+        })
+        .collect::<Option<Vec<_>>>()?;
+    (!uris.is_empty()).then_some(winit::data_transfer::SendData::Uris(uris))
+}
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn file_paths_to_uris<'a>(
+    _paths: impl IntoIterator<Item = &'a std::path::Path>,
+) -> Option<winit::data_transfer::SendData> {
+    None
+}
+
+/// The local files an incoming URI list names, or `None` if one of the URIs names none:
+/// a partial list would claim files that the drag doesn't carry.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn dropped_file_paths(uris: &[String]) -> Option<Vec<std::path::PathBuf>> {
+    let paths = uris
+        .iter()
+        .map(|uri| url::Url::parse(uri).ok()?.to_file_path().ok())
+        .collect::<Option<Vec<_>>>()?;
+    (!paths.is_empty()).then_some(paths)
+}
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn dropped_file_paths(_uris: &[String]) -> Option<Vec<std::path::PathBuf>> {
+    None
+}
+
 /// Decode the encoded image bytes of an incoming drag, without going through the
 /// image cache.
 pub(crate) fn decode_dropped_image(
@@ -113,5 +152,49 @@ pub(crate) fn slint_action_to_dnd(
         // `DragAction` is `#[non_exhaustive]`, so a catch-all is still required.
         #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
         _ => None,
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+    use std::path::{Path, PathBuf};
+
+    fn uris(paths: &[&str]) -> Option<winit::data_transfer::SendData> {
+        file_paths_to_uris(paths.iter().map(Path::new))
+    }
+
+    #[test]
+    fn a_relative_path_names_the_file_in_the_current_directory() {
+        let in_current_dir = std::env::current_dir().unwrap().join("a.txt");
+        let expected = String::from(url::Url::from_file_path(&in_current_dir).unwrap());
+        assert_eq!(uris(&["a.txt"]), Some(winit::data_transfer::SendData::Uris(vec![expected])));
+    }
+
+    #[test]
+    fn the_paths_survive_the_round_trip() {
+        // Built from the current directory, so that they are absolute on every platform.
+        let here = std::env::current_dir().unwrap();
+        let paths = [here.join("a.txt"), here.join("b c.png")];
+        let winit::data_transfer::SendData::Uris(sent) =
+            file_paths_to_uris(paths.iter().map(PathBuf::as_path)).unwrap()
+        else {
+            panic!("file paths are sent as a URI list");
+        };
+        assert_eq!(dropped_file_paths(&sent), Some(paths.to_vec()));
+    }
+
+    #[test]
+    fn nothing_is_offered_and_nothing_is_taken_without_a_path() {
+        assert_eq!(uris(&[]), None);
+        assert_eq!(dropped_file_paths(&[]), None);
+    }
+
+    #[test]
+    fn a_list_that_mixes_files_with_other_uris_is_refused() {
+        let here = std::env::current_dir().unwrap();
+        let file = String::from(url::Url::from_file_path(here.join("a.txt")).unwrap());
+        assert!(dropped_file_paths(std::slice::from_ref(&file)).is_some());
+        assert_eq!(dropped_file_paths(&[file, String::from("https://slint.dev")]), None);
     }
 }

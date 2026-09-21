@@ -2369,6 +2369,7 @@ dependencies = [
  "scopeguard",
  "softbuffer",
  "strum",
+ "url",
  "vtable",
  "wasm-bindgen",
  "web-sys",
