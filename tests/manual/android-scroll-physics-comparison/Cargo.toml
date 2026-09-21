@@ -1,4 +1,5 @@
 [package]
+# cspell:ignore androidscrollcomparison
 name = "android-native-slint-scroll"
 version = "0.1.0"
 edition = "2024"

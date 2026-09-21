@@ -1,6 +1,7 @@
 #!/bin/zsh
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
+# cspell:ignore androidscrollcomparison logcat
 
 set -e
 

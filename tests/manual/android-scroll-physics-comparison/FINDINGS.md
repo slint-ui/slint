@@ -1,5 +1,6 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
 <!-- SPDX-License-Identifier: MIT -->
+<!-- cspell:ignore nocapture overscroll RZCWC Scroller -->
 
 # Android native versus Slint scroll-physics comparison
 

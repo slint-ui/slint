@@ -1,5 +1,6 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
+# cspell:ignore androidwindowadapter inputmethod Spannable
 
 diff --git a/internal/backends/android-activity/androidwindowadapter.rs b/internal/backends/android-activity/androidwindowadapter.rs
 index 90d3508554..14d50f1e2f 100644

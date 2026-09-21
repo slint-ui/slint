@@ -1,5 +1,6 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
 <!-- SPDX-License-Identifier: MIT -->
+<!-- cspell:ignore androidscrollcomparison worktree -->
 
 # Android and Slint scroll physics comparison
 
