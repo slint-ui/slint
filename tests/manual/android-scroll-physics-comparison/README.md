@@ -17,16 +17,12 @@ to another to validate the event-copying setup.
 
 The native pane and JNI bridge run inside Slint's Android activity so both
 lists share the same device input and frame clock.
-The diagnostic instrumentation is therefore supplied as a patch instead of
-being compiled into the production backend.
+This comparison branch includes the diagnostic runtime instrumentation, so a
+normal checkout and build displays both views without an additional patch step.
 
 ## Setup
 
-Use a disposable worktree because the instrumentation temporarily modifies
-runtime sources:
-
 ```sh
-git apply tests/manual/android-scroll-physics-comparison/patches/instrumentation.patch
 rustup target add aarch64-linux-android
 cd tests/manual/android-scroll-physics-comparison
 CARGO_APK_RELEASE_KEYSTORE="$HOME/.android/debug.keystore" \
@@ -58,15 +54,9 @@ adb -s "$ADB_SERIAL" shell am start \
   --ez native_control true
 ```
 
-Remove the temporary instrumentation when finished:
-
-```sh
-git apply -R tests/manual/android-scroll-physics-comparison/patches/instrumentation.patch
-```
-
 The standard matrix includes a three-trial short, hard flick that moves 120 dp
 in 20 ms.
-The instrumentation patch records native and Slint frame offsets, native
+The diagnostic instrumentation records native and Slint frame offsets, native
 release velocity, Slint's estimated release velocity, and the interval between
 the last move event and release.
 It does not include the candidate fix for the missing leading Android history

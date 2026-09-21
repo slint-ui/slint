@@ -875,6 +875,13 @@ impl FlickableDataInner {
                 flick_rc,
             );
             let velocity_estimation = self.velocity_rb.estimate_velocity();
+            #[cfg(target_os = "android")]
+            std::println!(
+                "SCROLL_VELOCITY,{:?},{},{}",
+                velocity_estimation.as_ref().map(|estimate| estimate.velocity),
+                flick.content_x().get(),
+                flick.content_y().get()
+            );
             let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
 
             let x_simulation = if inside_bounds_x {

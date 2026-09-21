@@ -64,11 +64,16 @@ slint::slint! {
     }
 }
 
-static SCROLL_OFFSET_BITS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+#[cfg(target_os = "android")]
+unsafe extern "Rust" {
+    fn slint_set_scroll_offset_for_comparison(offset: f32);
+}
 
-#[unsafe(no_mangle)]
-pub extern "Rust" fn slint_scroll_offset_for_comparison() -> f32 {
-    f32::from_bits(SCROLL_OFFSET_BITS.load(std::sync::atomic::Ordering::Relaxed))
+fn publish_scroll_offset(offset: f32) {
+    #[cfg(target_os = "android")]
+    unsafe {
+        slint_set_scroll_offset_for_comparison(offset);
+    }
 }
 
 fn run() -> Result<(), slint::PlatformError> {
@@ -82,7 +87,7 @@ fn run() -> Result<(), slint::PlatformError> {
         move || {
             if let Some(app) = weak.upgrade() {
                 let offset = app.get_scroll_offset();
-                SCROLL_OFFSET_BITS.store(offset.to_bits(), std::sync::atomic::Ordering::Relaxed);
+                publish_scroll_offset(offset);
                 log::info!(
                     "SCROLL_COMPARE,S,{:.3},{:.3}",
                     start.elapsed().as_secs_f64() * 1000.0,

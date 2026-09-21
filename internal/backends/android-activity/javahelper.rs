@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore dalvik jboolean jfloat jint
+// cSpell: ignore dalvik jboolean jfloat jint jlong
 use super::*;
 use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
@@ -9,12 +9,16 @@ use i_slint_common::unicode_utils::{
 use i_slint_core::SharedString;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
-use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
+use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, TouchHistory, TouchPhase};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::items::{CapitalizationMode, ColorScheme, InputType};
 use i_slint_core::lengths::{LogicalLength, PhysicalEdges};
-use i_slint_core::platform::{Key, WindowAdapter, WindowEvent, WindowEventDispatchResult};
+use i_slint_core::platform::{
+    InternalEvent, Key, WindowAdapter, WindowEvent, WindowEventDispatchResult,
+};
 use jni::objects::{JClass, JClassLoader, JString, LoaderContext};
+#[allow(unused_imports)]
+use jni::sys::jlong;
 use jni::sys::{jfloat, jint};
 use jni::{Env, JavaVM, bind_java_type};
 use std::sync::OnceLock;
@@ -32,6 +36,7 @@ bind_java_type! {
     SlintAndroidJavaHelper => ".SlintAndroidJavaHelper",
     type_map = {
         AndroidActivity => "android.app.Activity",
+        AndroidMotionEvent => "android.view.MotionEvent",
         AndroidRect => "android.graphics.Rect",
     },
     constructors {
@@ -114,6 +119,10 @@ bind_java_type! {
             sig = () -> (),
             fn = callback_on_back_invoked,
         },
+        pub static fn forward_touch {
+            sig = (event: AndroidMotionEvent) -> (),
+            fn = callback_forward_touch,
+        },
         pub static fn popup_menu_action {
             sig = (id: jint) -> (),
             fn = callback_popup_menu_action,
@@ -138,6 +147,10 @@ bind_java_type! {
         pub static fn set_night_mode {
             sig = (night_mode: jint) -> (),
             fn = callback_set_night_mode,
+        },
+        pub static fn slint_scroll_offset {
+            sig = () -> jfloat,
+            fn = callback_slint_scroll_offset,
         },
         pub static fn set_font_scale {
             sig = (font_scale: jfloat) -> (),
@@ -199,6 +212,44 @@ bind_java_type! {
         right: jint,
         top: jint,
     },
+}
+
+bind_java_type! {
+    AndroidMotionEvent => "android.view.MotionEvent",
+    methods {
+        fn get_action_masked {
+            name = "getActionMasked",
+            sig = () -> jint,
+        },
+        fn get_event_time {
+            name = "getEventTime",
+            sig = () -> jlong,
+        },
+        fn get_history_size {
+            name = "getHistorySize",
+            sig = () -> jint,
+        },
+        fn get_historical_event_time {
+            name = "getHistoricalEventTime",
+            sig = (position: jint) -> jlong,
+        },
+        fn get_historical_x {
+            name = "getHistoricalX",
+            sig = (position: jint) -> jfloat,
+        },
+        fn get_historical_y {
+            name = "getHistoricalY",
+            sig = (position: jint) -> jfloat,
+        },
+        fn get_x {
+            name = "getX",
+            sig = () -> jfloat,
+        },
+        fn get_y {
+            name = "getY",
+            sig = () -> jfloat,
+        },
+    }
 }
 
 bind_java_type! {
@@ -634,6 +685,84 @@ fn callback_update_text<'local>(
                 }
             };
             adaptor.window.dispatch_event(i_slint_core::platform::WindowEvent::internal(event));
+        }
+    })
+    .unwrap();
+    Ok(())
+}
+
+static SCROLL_COMPARISON_OFFSET_BITS: std::sync::atomic::AtomicU32 =
+    std::sync::atomic::AtomicU32::new(0);
+
+#[unsafe(no_mangle)]
+pub extern "Rust" fn slint_set_scroll_offset_for_comparison(offset: f32) {
+    SCROLL_COMPARISON_OFFSET_BITS.store(offset.to_bits(), std::sync::atomic::Ordering::Relaxed);
+}
+
+fn callback_slint_scroll_offset<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
+) -> Result<jfloat, jni::errors::Error> {
+    Ok(f32::from_bits(
+        SCROLL_COMPARISON_OFFSET_BITS.load(std::sync::atomic::Ordering::Relaxed),
+    ))
+}
+
+fn callback_forward_touch<'local>(
+    env: &mut Env<'local>,
+    _class: JClass<'local>,
+    event: AndroidMotionEvent<'local>,
+) -> Result<(), jni::errors::Error> {
+    let action = event.get_action_masked(env)?;
+    let phase = match action {
+        0 => TouchPhase::Started,
+        1 => TouchPhase::Ended,
+        2 => TouchPhase::Moved,
+        3 => TouchPhase::Cancelled,
+        _ => return Ok(()),
+    };
+    let event_time = event.get_event_time(env)?;
+    let position = (event.get_x(env)?, event.get_y(env)?);
+    let mut historical_points = Vec::new();
+    if phase == TouchPhase::Moved {
+        for index in 0..event.get_history_size(env)? {
+            historical_points.push((
+                event.get_historical_x(env, index)?,
+                event.get_historical_y(env, index)?,
+                Duration::from_millis(
+                    event_time.saturating_sub(event.get_historical_event_time(env, index)?) as u64,
+                ),
+            ));
+        }
+    }
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(adapter) = CURRENT_WINDOW.with_borrow(|window| window.upgrade()) {
+            let offset = adapter.offset.get();
+            let scale = adapter.window.scale_factor();
+            let logical_position = |x, y| {
+                i_slint_core::lengths::logical_point_from_api(
+                    PhysicalPosition::new(x as i32 - offset.x, y as i32 - offset.y)
+                        .to_logical(scale),
+                )
+            };
+            let position = logical_position(position.0, position.1);
+            let history = if phase == TouchPhase::Moved {
+                TouchHistory {
+                    event_pos: Some(position),
+                    history: historical_points
+                        .into_iter()
+                        .map(|(x, y, age)| (logical_position(x, y), age))
+                        .collect(),
+                }
+            } else {
+                Default::default()
+            };
+            adapter.window.dispatch_event(WindowEvent::internal(InternalEvent::Touch {
+                id: 0,
+                position,
+                phase,
+                history,
+            }));
         }
     })
     .unwrap();

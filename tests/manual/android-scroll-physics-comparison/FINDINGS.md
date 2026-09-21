@@ -122,7 +122,8 @@ This should be resolved alongside the Android history fix so that the expected e
 ## Local artifacts
 
 - App source: `tests/manual/android-scroll-physics-comparison`
-- Temporary runtime instrumentation: `patches/instrumentation.patch`
+- Runtime instrumentation: `internal/backends/android-activity` and
+  `internal/core/items/flickable.rs`
 - Device matrix script: `scripts/run-matrix.sh`
 
 The raw traces and screenshots from the original physical-device run are not committed.
