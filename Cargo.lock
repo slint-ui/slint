@@ -3689,6 +3689,7 @@ dependencies = [
  "hkdf",
  "hostname",
  "i-slint-backend-selector",
+ "i-slint-backend-testing",
  "i-slint-compiler",
  "i-slint-core",
  "lsp-types",

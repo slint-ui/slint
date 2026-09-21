@@ -15,6 +15,11 @@ use std::sync::{Arc, Mutex};
 //re-export for the generated code:
 pub use slint_interpreter::{Compiler, ComponentInstance, DefaultTranslationContext, Value};
 
+/// Builds the [`Compiler`] the worker thread compiles with. A `Compiler` is not
+/// `Send`, so the worker is given something to build one with rather than one to
+/// move.
+type CompilerFactory = Box<dyn FnOnce() -> Compiler + Send>;
+
 /// This struct is used to compile and instantiate a component from a .slint file on disk.
 /// The file is watched for changes and the component is recompiled and instantiated
 pub struct LiveReloadingComponent {
@@ -23,7 +28,6 @@ pub struct LiveReloadingComponent {
     // Kept so the FFI can return a stable reference; the window is reused across reloads.
     window_adapter: Option<Rc<dyn i_slint_core::window::WindowAdapter>>,
     watcher: Arc<Mutex<Watcher>>,
-    compiler: Compiler,
     file_name: PathBuf,
     component_name: Option<String>,
     properties: RefCell<HashMap<String, Value>>,
@@ -33,21 +37,24 @@ pub struct LiveReloadingComponent {
 }
 
 impl LiveReloadingComponent {
-    /// Compile and instantiate a component from the specified .slint file and component.
+    /// Compile and instantiate a component from the specified .slint file and
+    /// component, and watch the file for changes.
+    ///
+    /// Every compilation, this first one included, runs on a background thread, so
+    /// that only the instantiation happens on the current (event-loop) thread. That
+    /// thread builds its [`Compiler`] from `compiler_factory`.
     pub fn new(
-        mut compiler: Compiler,
+        compiler_factory: impl FnOnce() -> Compiler + Send + 'static,
         file_name: PathBuf,
         component_name: Option<String>,
     ) -> Result<Rc<RefCell<Self>>, PlatformError> {
-        compiler.set_embed_resources(i_slint_compiler::EmbedResourcesKind::ListAllResources);
-
+        let (compile_request, compile_rx) = std::sync::mpsc::channel();
+        let watcher_file_name = file_name.clone();
         let self_rc = Rc::<RefCell<Self>>::new_cyclic(move |self_weak| {
-            let watcher = Watcher::new(self_weak.clone());
             RefCell::new(Self {
                 instance: None,
                 window_adapter: None,
-                watcher,
-                compiler,
+                watcher: Watcher::new(self_weak.clone(), compile_request),
                 file_name,
                 component_name,
                 properties: Default::default(),
@@ -58,7 +65,19 @@ impl LiveReloadingComponent {
         });
 
         let mut self_mut = self_rc.borrow_mut();
-        let result = self_mut.build();
+        // The worker owns the only compiler, so it builds this first version too and
+        // this thread waits for it.
+        let first_build = Watcher::spawn_compile_worker(
+            &self_mut.watcher,
+            compile_rx,
+            Box::new(compiler_factory),
+            watcher_file_name,
+        );
+        let result: slint_interpreter::CompilationResult = first_build
+            .recv()
+            .map_err(|_| -> PlatformError { "The compile thread stopped".into() })?
+            .into();
+        self_mut.update_watched_paths(&result);
         result.print_diagnostics();
         if result.has_errors() {
             return Err(format!("Could not compile {}", self_mut.file_name.display()).into());
@@ -74,11 +93,10 @@ impl LiveReloadingComponent {
         Ok(self_rc)
     }
 
-    /// Reload the component from the .slint file.
-    /// If there is an error, it won't actually reload.
-    /// Return false in case of errors
-    pub fn reload(&mut self) -> bool {
-        let result = self.build();
+    /// Swap in a new instance from a result the compile worker produced.
+    /// Return false in case of errors.
+    fn apply_reload(&mut self, result: slint_interpreter::CompilationResult) -> bool {
+        self.update_watched_paths(&result);
         result.print_diagnostics();
         if result.has_errors() {
             return false;
@@ -114,20 +132,15 @@ impl LiveReloadingComponent {
         }
     }
 
-    fn build(&self) -> slint_interpreter::CompilationResult {
-        let mut future = core::pin::pin!(self.compiler.build_from_path(&self.file_name));
-        let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
-        let std::task::Poll::Ready(result) = std::future::Future::poll(future.as_mut(), &mut cx)
-        else {
-            unreachable!("Compiler returned Pending")
-        };
+    /// Tell the file watcher which files to watch: the .slint file, the files
+    /// it imports (from the compilation result), and any extra data files.
+    fn update_watched_paths(&self, result: &slint_interpreter::CompilationResult) {
         Watcher::update_watched_paths(
             &self.watcher,
             std::iter::once(self.file_name.clone())
                 .chain(result.watch_paths(i_slint_core::InternalToken).iter().cloned())
                 .chain(self.extra_watch_paths.iter().cloned()),
         );
-        result
     }
 
     /// Reload the properties and callbacks after a reload()
@@ -245,23 +258,45 @@ impl LiveReloadingComponent {
     }
 }
 
-enum WatcherState {
-    Starting,
-    /// The file system watcher notified the main thread of a change
-    Changed,
-    /// The main thread is waiting for the next event
-    Waiting(Waker),
+/// Poll a future that is expected to be immediately ready. The compiler is only
+/// asynchronous when an async file loader is set, which the live preview does
+/// not use.
+pub fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
+    let mut future = core::pin::pin!(future);
+    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+    match std::future::Future::poll(future.as_mut(), &mut cx) {
+        std::task::Poll::Ready(result) => result,
+        std::task::Poll::Pending => unreachable!("Compiler returned Pending"),
+    }
 }
 
 struct Watcher {
     // (wouldn't need to be an option if new_cyclic() could return errors)
     watcher: Option<FileWatcher>,
-    state: WatcherState,
+    /// Set while the event-loop future is parked, for the worker to wake it.
+    waker: Option<Waker>,
+    /// Where a compile request (the generation counter) is sent to the worker.
+    compile_request: std::sync::mpsc::Sender<u64>,
+    /// The result of the latest background compilation, waiting to be applied
+    /// on the event-loop thread.
+    pending_result: Option<slint_interpreter::CompilationResultSend>,
+    /// Bumped on every detected change so the worker can coalesce bursts of
+    /// file events into a single compilation of the latest state.
+    generation: u64,
 }
 
 impl Watcher {
-    fn new(component_weak: std::rc::Weak<RefCell<LiveReloadingComponent>>) -> Arc<Mutex<Self>> {
-        let arc = Arc::new(Mutex::new(Self { state: WatcherState::Starting, watcher: None }));
+    fn new(
+        component_weak: std::rc::Weak<RefCell<LiveReloadingComponent>>,
+        compile_request: std::sync::mpsc::Sender<u64>,
+    ) -> Arc<Mutex<Self>> {
+        let arc = Arc::new(Mutex::new(Self {
+            waker: None,
+            watcher: None,
+            compile_request,
+            pending_result: None,
+            generation: 0,
+        }));
 
         let watcher_weak = Arc::downgrade(&arc);
         let result = slint_interpreter::spawn_local(std::future::poll_fn(move |cx| {
@@ -271,20 +306,20 @@ impl Watcher {
                 // When the instance is dropped, we can stop this future
                 return std::task::Poll::Ready(());
             };
-            let state = std::mem::replace(
-                &mut watcher.lock().unwrap().state,
-                WatcherState::Waiting(cx.waker().clone()),
-            );
-            if matches!(state, WatcherState::Changed) {
-                let success = instance.borrow_mut().reload();
-                if success {
-                    let borrowed = instance.borrow();
-                    borrowed.reload_properties_and_callbacks();
-                    if let Some(hook) = &borrowed.post_reload_hook {
-                        hook(borrowed.instance());
-                    }
-                };
+            let reload = {
+                let mut locked = watcher.lock().unwrap();
+                locked.waker = Some(cx.waker().clone());
+                locked.pending_result.take()
             };
+            if let Some(result) = reload
+                && instance.borrow_mut().apply_reload(result.into())
+            {
+                let borrowed = instance.borrow();
+                borrowed.reload_properties_and_callbacks();
+                if let Some(hook) = &borrowed.post_reload_hook {
+                    hook(borrowed.instance());
+                }
+            }
             std::task::Poll::Pending
         }));
 
@@ -297,18 +332,60 @@ impl Watcher {
         arc.lock().unwrap().watcher = FileWatcher::start(
             move |_event| {
                 let Some(watcher) = watcher_weak.upgrade() else { return };
-                if let WatcherState::Waiting(waker) =
-                    std::mem::replace(&mut watcher.lock().unwrap().state, WatcherState::Changed)
-                {
-                    // Wait a bit to let the time to write multiple files
-                    std::thread::sleep(crate::REBUILD_DEBOUNCE);
-                    waker.wake();
-                }
+                let mut locked = watcher.lock().unwrap();
+                locked.generation += 1;
+                let _ = locked.compile_request.send(locked.generation);
             },
             move |err| eprintln!("Warning: file watcher error: {err}"),
         )
         .ok();
         arc
+    }
+
+    /// Spawn the background thread that owns the [`Compiler`]. It builds the file
+    /// once, on the returned channel, and then recompiles it on request, leaving
+    /// each result for the event-loop thread to instantiate.
+    fn spawn_compile_worker(
+        arc: &Arc<Mutex<Self>>,
+        rx: std::sync::mpsc::Receiver<u64>,
+        compiler_factory: CompilerFactory,
+        file_name: PathBuf,
+    ) -> std::sync::mpsc::Receiver<slint_interpreter::CompilationResultSend> {
+        let (first_build, first_build_rx) = std::sync::mpsc::channel();
+        let watcher_weak = Arc::downgrade(arc);
+        std::thread::Builder::new()
+            .name("slint-live-preview-compiler".into())
+            .spawn(move || {
+                let mut compiler = compiler_factory();
+                compiler
+                    .set_embed_resources(i_slint_compiler::EmbedResourcesKind::ListAllResources);
+                if first_build
+                    .send(poll_ready(compiler.build_from_path(&file_name)).into_send())
+                    .is_err()
+                {
+                    return;
+                }
+                while let Ok(mut generation) = rx.recv() {
+                    std::thread::sleep(crate::REBUILD_DEBOUNCE);
+                    while let Ok(g) = rx.try_recv() {
+                        generation = g;
+                    }
+                    let result = poll_ready(compiler.build_from_path(&file_name)).into_send();
+                    let Some(watcher) = watcher_weak.upgrade() else { return };
+                    let mut locked = watcher.lock().unwrap();
+                    // A newer change arrived while compiling; the next request is fresher
+                    if locked.generation != generation {
+                        continue;
+                    }
+                    locked.pending_result = Some(result);
+                    if let Some(waker) = locked.waker.take() {
+                        drop(locked);
+                        waker.wake();
+                    }
+                }
+            })
+            .expect("failed to spawn the live-preview compile thread");
+        first_build_rx
     }
 
     fn update_watched_paths<I>(self_: &Mutex<Self>, paths: I)
@@ -345,35 +422,41 @@ mod ffi {
         no_default_translation_context: bool,
         bundled_translations_path: Slice<u8>,
     ) -> *const LiveReloadingComponentInner {
-        let mut compiler = Compiler::default();
-        compiler.set_include_paths(
-            include_paths.iter().map(|path| PathBuf::from(path.as_str())).collect(),
-        );
-        compiler.set_library_paths(
-            library_paths
-                .iter()
-                .map(|path| path.as_str().split_once('=').expect("library path must have an '='"))
-                .map(|(lib, path)| (lib.into(), PathBuf::from(path)))
-                .collect(),
-        );
-        if !style.is_empty() {
-            compiler.set_style(std::str::from_utf8(&style).unwrap().into());
-        }
-        if !translation_domain.is_empty() {
+        // Owned, so that the worker thread can build a Compiler of its own from them
+        let include_paths: Vec<PathBuf> =
+            include_paths.iter().map(|path| PathBuf::from(path.as_str())).collect();
+        let library_paths: HashMap<String, PathBuf> = library_paths
+            .iter()
+            .map(|path| path.as_str().split_once('=').expect("library path must have an '='"))
+            .map(|(lib, path)| (lib.into(), PathBuf::from(path)))
+            .collect();
+        let style = (!style.is_empty()).then(|| std::str::from_utf8(&style).unwrap().to_string());
+        let translation_domain = (!translation_domain.is_empty())
+            .then(|| std::str::from_utf8(&translation_domain).unwrap().to_string());
+        let bundled_translations_path = (!bundled_translations_path.is_empty())
+            .then(|| PathBuf::from(std::str::from_utf8(&bundled_translations_path).unwrap()));
+
+        let compiler_factory = move || {
+            let mut compiler = Compiler::default();
+            compiler.set_include_paths(include_paths.clone());
+            compiler.set_library_paths(library_paths.clone());
+            if let Some(style) = &style {
+                compiler.set_style(style.clone());
+            }
+            if let Some(translation_domain) = &translation_domain {
+                compiler.set_translation_domain(translation_domain.clone());
+            }
+            if no_default_translation_context {
+                compiler.set_default_translation_context(DefaultTranslationContext::None);
+            }
+            if let Some(bundled_translations_path) = &bundled_translations_path {
+                compiler.set_bundled_translations_path(bundled_translations_path.clone());
+            }
             compiler
-                .set_translation_domain(std::str::from_utf8(&translation_domain).unwrap().into());
-        }
-        if no_default_translation_context {
-            compiler.set_default_translation_context(DefaultTranslationContext::None);
-        }
-        if !bundled_translations_path.is_empty() {
-            compiler.set_bundled_translations_path(
-                std::str::from_utf8(&bundled_translations_path).unwrap().into(),
-            );
-        }
+        };
         Rc::into_raw(
             LiveReloadingComponent::new(
-                compiler,
+                compiler_factory,
                 std::path::PathBuf::from(std::str::from_utf8(&file_name).unwrap()),
                 Some(std::str::from_utf8(&component_name).unwrap().into()),
             )
