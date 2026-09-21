@@ -195,8 +195,8 @@ pub trait LineBufferProvider {
     /// The `line` is the y position of the line to be drawn.
     /// The `range` is the range within the line that is going to be rendered (eg, within the dirty region).
     /// Its start and length are multiples of the horizontal
-    /// [`DirtyRegionAlignment`](SoftwareRenderer::set_dirty_region_alignment), and lines are only
-    /// skipped in multiples of the vertical one.
+    /// [`DirtyRegionAlignment`](SoftwareRenderer::set_dirty_region_alignment).
+    /// The runs of lines it is called for begin and end on the vertical one.
     /// The `render_fn` function should be called to render the line, passing the buffer
     /// corresponding to the specified line and range.
     fn process_line(
@@ -312,6 +312,7 @@ impl PhysicalRegion {
 /// Some display controllers require the origin and size of address windows to be multiples of a
 /// fixed number of pixels.
 /// The default alignment of one pixel on each axis preserves the renderer's existing behavior.
+/// Set it with [`SoftwareRenderer::set_dirty_region_alignment`].
 ///
 /// The physical screen width must be a multiple of the horizontal alignment, and the physical
 /// screen height must be a multiple of the vertical alignment.
@@ -764,9 +765,7 @@ impl SoftwareRenderer {
     /// passed to [`LineBufferProvider::process_line`] can be sent to the display as they are.
     ///
     /// The screen dimensions must be multiples of their corresponding alignment after applying
-    /// [`RenderingRotation`]. This is checked with a `debug_assert`; in release builds the
-    /// region is clipped to the screen instead, which leaves the block at the far edge shorter
-    /// than the alignment.
+    /// [`RenderingRotation`].
     pub fn set_dirty_region_alignment(&self, alignment: DirtyRegionAlignment) {
         self.dirty_region_alignment.set(alignment);
     }
@@ -804,8 +803,7 @@ impl SoftwareRenderer {
     /// `pixel_stride * height`, or `pixel_stride * width` if the screen is rotated by 90°.
     ///
     /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
-    /// in the window frame of reference. It is affected by the screen rotation and by
-    /// [`Self::set_dirty_region_alignment`].
+    /// in the window frame of reference. It is affected by the screen rotation.
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
         self.render_buffer_impl(&mut TargetPixelSlice { data: buffer, pixel_stride })
     }
@@ -1031,8 +1029,7 @@ impl SoftwareRenderer {
     ///
     /// The renderer uses a cache internally and will only render the part of the window
     /// which are dirty, depending on the dirty tracking policy set in [`SoftwareRenderer::new`]
-    /// This function returns the physical region that was rendered considering the rotation and
-    /// [`Self::set_dirty_region_alignment`].
+    /// This function returns the physical region that was rendered considering the rotation.
     ///
     /// The [`LineBufferProvider::process_line()`] function will be called for each line and should
     ///  provide a buffer to draw into.
