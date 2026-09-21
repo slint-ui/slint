@@ -443,10 +443,10 @@ fn analyze_binding(
         b.analysis = Some(Default::default());
     };
     debug_assert!(
-        !context
-            .currently_analyzing
-            .iter()
-            .any(|p| p.prop == current.prop && p.elements != current.elements),
+        !context.currently_analyzing.iter().any(|p| p.prop == current.prop
+            && p.elements != current.elements
+            && (p.elements.starts_with(&current.elements)
+                || current.elements.starts_with(&p.elements))),
         "PropertyPath::relative grew the prefix of {current:?}, so the stack cannot recognize it"
     );
     context.currently_analyzing.insert(current.clone());
