@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+// cspell:ignore instancetype nonatomic
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>

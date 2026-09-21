@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+// cspell:ignore fobjc
 
 fn main() {
     cc::Build::new().file("native_scroll.m").flag("-fobjc-arc").compile("native_scroll");
