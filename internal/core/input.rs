@@ -217,7 +217,7 @@ pub struct TouchHistory {
 /// The [`TouchHistory`] of a move event.
 ///
 /// cbindgen can't express `TouchHistory` (it contains a `Vec`) nor `Option<Box<_>>` in C++, so
-/// this newtype is left out of the generated headers and replaced there by a pointer-sized
+/// this new type is left out of the generated headers and replaced there by a pointer-sized
 /// struct, declared by hand in `api/cpp/cbindgen.rs`. C++ never records a history.
 #[repr(transparent)]
 #[derive(Debug, Clone, PartialEq, Default)]
