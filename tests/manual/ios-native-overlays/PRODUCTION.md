@@ -26,9 +26,9 @@ The prototype demonstrates these behaviors on a physical iPhone:
 - A Slint-rendered button can use a transparent native button to present a `UIMenu`.
 - A pure `UITextView` can run beside the bridge for device comparisons.
 
-The focused simulator test also demonstrates a selected field following a Slint `Flickable`.
+Focused tests on a simulator and physical device demonstrate a selected field following a Slint
+`Flickable`.
 Its UIKit handles remain aligned and clipped to the Slint viewport.
-This case still needs to pass on a physical iPhone.
 
 The automated tests also compare the final caret displacement after horizontal and vertical
 keyboard trackpad gestures.
@@ -67,7 +67,7 @@ It proves that a native control can present UI from the position of a Slint-rend
 | Programmatic selection changes | Missing | Slint changes don't update UIKit's selection. |
 | Marked text and IME composition | Partial | Text is mirrored, but Slint doesn't expose marked-text styling. |
 | Bidirectional and vertical text | Missing | Selection rectangles assume left-to-right horizontal text. |
-| Scrolling field geometry | Partially demonstrated | A focused simulator test moves one field through a Slint `Flickable`; physical-device behavior, arbitrary transforms, and nested clips remain untested. |
+| Scrolling field geometry | Partially demonstrated | Focused simulator and physical-device tests move one field through a Slint `Flickable`; arbitrary transforms and nested clips remain untested. |
 | Other dynamic layout | Missing | Rotation, resize, safe-area, scale, and animation changes aren't covered. |
 | Accessibility | Unverified | VoiceOver and other assistive technologies need a dedicated pass. |
 | Multiple windows and teardown | Missing | A process-global manager owns one window's overlays. |
@@ -274,10 +274,10 @@ Use deterministic text layouts to test:
 
 ### Device Interaction Tests
 
-Keep the current physical-device tests for keyboard input, menus, focus, handles, and multiline
-selection. Run the scrolling-field test on a physical device, then add tests for programmatic
-updates, rotation, background and foreground transitions, nested and animated scrolling, hardware
-keyboards, and window recreation.
+Keep the current physical-device tests for keyboard input, menus, focus, handles, multiline
+selection, and the scrolling field.
+Add tests for programmatic updates, rotation, background and foreground transitions, nested and
+animated scrolling, hardware keyboards, and window recreation.
 
 Run input-method tests with representative Chinese, Japanese, Korean, Arabic, Hebrew,
 and Indic keyboards.
