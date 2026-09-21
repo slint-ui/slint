@@ -103,7 +103,6 @@ const-field-offset = { version = "0.2.1", path = "../../helper_crates/const-fiel
 vtable = { workspace = true }
 
 portable-atomic = { version = "1", features = ["critical-section"] }
-cfg-if = "1"
 derive_more = { workspace = true, features = ["error", "deref", "deref_mut"] }
 euclid = { workspace = true }
 lyon_algorithms = { version = "1.0", optional = true, default-features = false }

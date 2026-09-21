@@ -168,8 +168,8 @@ fn default_wgpu_surface_factory(
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
 ) -> Result<Box<dyn Surface>, PlatformError> {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "wgpu-30")] {
+    core::cfg_select! {
+        feature = "wgpu-30" => {
             surface_factory::<wgpu_30_surface::WGPUSurface>(
                 context,
                 window_handle,
@@ -177,7 +177,8 @@ fn default_wgpu_surface_factory(
                 size,
                 requested_graphics_api,
             )
-        } else {
+        }
+        _ => {
             surface_factory::<wgpu_29_surface::WGPUSurface>(
                 context,
                 window_handle,
