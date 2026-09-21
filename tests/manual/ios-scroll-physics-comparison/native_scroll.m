@@ -1,6 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-// cspell:ignore Autoresizing instancetype nonatomic NSEC NSUTF Subview Subviews subviews uikit
+// cspell:ignore Autoresizing fabs instancetype nonatomic NSEC NSUTF Subview Subviews subviews uikit
 
 #import <UIKit/UIKit.h>
 #import <UIKit/UIGestureRecognizerSubclass.h>

@@ -28,6 +28,7 @@
         "miri",
         "monomorphized",
         "monomorphizing",
+        "newtype",
         "peekable",
         "overscroll",
         "overscrolled",
