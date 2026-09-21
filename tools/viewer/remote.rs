@@ -261,6 +261,8 @@ async fn run_async(
                         &current_preview,
                         prompt_on_screen,
                         &mut generation,
+                        &placeholder,
+                        &user_instance,
                     );
                 }
                 PreviewSessionEvent::ContentsChanged => {
@@ -269,6 +271,8 @@ async fn run_async(
                         &current_preview,
                         prompt_on_screen,
                         &mut generation,
+                        &placeholder,
+                        &user_instance,
                     );
                 }
                 PreviewSessionEvent::HighlightFromEditor { .. } => {}
@@ -343,6 +347,8 @@ async fn run_async(
                     &current_preview,
                     prompt_on_screen,
                     &mut generation,
+                    &placeholder,
+                    &user_instance,
                 );
                 if !restored {
                     let state = if last_connection.is_some() {
@@ -379,12 +385,18 @@ fn request_build(
     current_preview: &Option<PreviewComponent>,
     prompt_on_screen: bool,
     generation: &mut u64,
+    placeholder: &RemoteViewerWindow,
+    user_instance: &Option<slint_interpreter::ComponentInstance>,
 ) -> bool {
     if prompt_on_screen {
         return false;
     }
     let Some(preview_component) = current_preview.clone() else { return false };
     *generation += 1;
+    // During a reload the previewed component stays up, with nothing to overlay
+    if user_instance.is_none() {
+        placeholder.set_state(RemoteViewerState::Compiling);
+    }
     let _ = compile_sender.send(CompileRequest { preview_component, generation: *generation });
     true
 }
