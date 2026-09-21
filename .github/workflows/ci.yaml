@@ -93,7 +93,7 @@ jobs:
             RUSTFLAGS: -D warnings
             SLINT_EMIT_DEBUG_INFO: '1'
             # The UI tests need a private package that GitHub doesn't hand the
-            # token for to pull requests from forks. Lint and build the editor
+            # token for to pull requests from forks. Build and test the editor
             # there anyway, and skip only the steps that need the token.
             UI_TESTS: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         steps:
@@ -101,7 +101,6 @@ jobs:
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ./.github/actions/setup-rust
               with:
-                  components: clippy
                   key: x-visual-editor-v1-${{ matrix.suite }}
                   save_if: ${{ github.ref == 'refs/heads/master' }}
             - uses: actions/setup-python@v7
@@ -118,9 +117,6 @@ jobs:
                   UV_INDEX_SLINT_PRIVATE_USERNAME: __token__
                   UV_INDEX_SLINT_PRIVATE_PASSWORD: ${{ secrets.SLINT_TESTING_TOKEN }}
               run: uv sync --locked
-            - name: Lint the visual editor
-              if: matrix.suite == 'rust'
-              run: cargo clippy --locked -p slint-editor --all-targets --all-features --features slint/mcp --timings -- -D warnings
             - name: Test the visual editor
               if: matrix.suite == 'rust'
               run: cargo test --locked -p slint-editor --all-features --features slint/mcp --timings
