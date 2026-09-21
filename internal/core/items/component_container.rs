@@ -26,10 +26,10 @@ use crate::window::WindowAdapter;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
+use core::cell::OnceCell;
 use core::cell::RefCell;
 use core::pin::Pin;
 use i_slint_core_macros::*;
-use once_cell::unsync::OnceCell;
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
