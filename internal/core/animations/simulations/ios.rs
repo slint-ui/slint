@@ -84,9 +84,7 @@ impl Parameter for IOsFlickParameters {
 
 #[derive(Debug)]
 pub struct IOsFlick {
-    /// If the limit is not reached, it is also fine. Exceeding the limit is
-    /// expected too (that's the overscroll this simulation is for); the
-    /// spring phase pulls the position back to it.
+    /// Limit property to determine when to bounce back
     limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
     data: IOsFlickParameters,
     start_value: f32,
@@ -95,14 +93,12 @@ pub struct IOsFlick {
     /// cross `limit_value`; `f32::INFINITY` if it never does.
     spring_time: f32,
     /// The spring that pulls the position back to `limit_value` once
-    /// `spring_time` has elapsed. Always built, mirroring the original
-    /// (Dart always constructs `_springSimulation` too), but only evaluated
-    /// once `spring_time` is finite and elapsed.
+    /// `spring_time` has elapsed.
     spring: SpringRegime,
     /// The absolute position this simulation's own formula last produced.
     /// `current` may be changed by other code between calls (e.g. bounds
     /// clamping), so steps apply a delta relative to this rather than
-    /// assigning absolute positions; see `android::AndroidFlick` for why.
+    /// assigning absolute positions;
     traveled: f32,
 }
 
