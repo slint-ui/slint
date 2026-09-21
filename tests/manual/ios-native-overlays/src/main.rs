@@ -16,15 +16,30 @@ slint::slint! {
         in-out property<int> active-editor: -1;
         in-out property<bool> menu-button-pressed;
         in-out property<string> menu-result: "No context-menu action selected";
+        in-out property<length> scroll-offset: 0px;
+        callback scroll-geometry-changed();
+        changed scroll-offset => root.scroll-geometry-changed();
 
         out property<float> editor-x: editor.x / 1px;
         out property<float> editor-y: editor.y / 1px;
         out property<float> editor-width: editor.width / 1px;
         out property<float> editor-height: editor.height / 1px;
-        out property<float> second-editor-x: second-editor.x / 1px;
-        out property<float> second-editor-y: second-editor.y / 1px;
+        out property<float> second-editor-x: (scroll-clip.x + second-editor.x) / 1px;
+        out property<float> second-editor-y: (scroll-clip.y + root.scroll-offset + second-editor.y) / 1px;
         out property<float> second-editor-width: second-editor.width / 1px;
         out property<float> second-editor-height: second-editor.height / 1px;
+        out property<float> scroll-clip-x: scroll-clip.x / 1px;
+        out property<float> scroll-clip-y: scroll-clip.y / 1px;
+        out property<float> scroll-clip-width: scroll-clip.width / 1px;
+        out property<float> scroll-clip-height: scroll-clip.height / 1px;
+        out property<float> scroll-up-x: scroll-up.x / 1px;
+        out property<float> scroll-up-y: scroll-up.y / 1px;
+        out property<float> scroll-up-width: scroll-up.width / 1px;
+        out property<float> scroll-up-height: scroll-up.height / 1px;
+        out property<float> scroll-down-x: scroll-down.x / 1px;
+        out property<float> scroll-down-y: scroll-down.y / 1px;
+        out property<float> scroll-down-width: scroll-down.width / 1px;
+        out property<float> scroll-down-height: scroll-down.height / 1px;
         out property<float> native-editor-x: native-editor.x / 1px;
         out property<float> native-editor-y: native-editor.y / 1px;
         out property<float> native-editor-width: native-editor.width / 1px;
@@ -76,34 +91,112 @@ slint::slint! {
             }
         }
 
-        second-editor := Rectangle {
+        Text {
             x: 24px;
             y: 218px;
             width: root.width - 48px;
-            height: 112px;
-            background: #ffffff;
-            border-width: 1px;
-            border-color: root.active-editor == 1 ? #1473e6 : #c5cad3;
+            text: "Scrollable Slint multiline field";
+            font-size: 16px;
+            font-weight: 600;
+            color: #17233b;
+        }
+
+        scroll-clip := Rectangle {
+            x: 24px;
+            y: 246px;
+            width: root.width - 128px;
+            height: 140px;
+            background: #dce4ef;
+            border-radius: 12px;
+            clip: true;
+
+            scroll-view := Flickable {
+                width: parent.width;
+                height: parent.height;
+                content-width: self.width;
+                content-height: 240px;
+                content-y <=> root.scroll-offset;
+
+                second-editor := Rectangle {
+                    x: 0px;
+                    y: 14px;
+                    width: parent.width;
+                    height: 112px;
+                    background: #ffffff;
+                    border-width: 1px;
+                    border-color: root.active-editor == 1 ? #1473e6 : #c5cad3;
+                    border-radius: 12px;
+
+                    second-editor-input := TextInput {
+                        x: 16px;
+                        y: 12px;
+                        width: parent.width - 32px;
+                        height: parent.height - 24px;
+                        text <=> root.second-editor-text;
+                        font-size: 17px;
+                        color: #17233b;
+                        vertical-alignment: top;
+                        single-line: false;
+                        wrap: word-wrap;
+                        accessible-role: none;
+                    }
+                }
+
+                Text {
+                    x: 12px;
+                    y: 164px;
+                    width: parent.width - 24px;
+                    text: "Drag this empty area to scroll with the selection active.";
+                    wrap: word-wrap;
+                    font-size: 13px;
+                    color: #536078;
+                }
+            }
+        }
+
+        scroll-up := Rectangle {
+            x: root.width - 92px;
+            y: 246px;
+            width: 68px;
+            height: 64px;
+            background: #1473e6;
             border-radius: 12px;
 
-            second-editor-input := TextInput {
-                x: 16px;
-                y: 12px;
-                width: parent.width - 32px;
-                height: parent.height - 24px;
-                text <=> root.second-editor-text;
-                font-size: 17px;
-                color: #17233b;
-                vertical-alignment: top;
-                single-line: false;
-                wrap: word-wrap;
-                accessible-role: none;
+            Text {
+                width: parent.width;
+                height: parent.height;
+                text: "Scroll\nup";
+                color: #ffffff;
+                font-size: 14px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        scroll-down := Rectangle {
+            x: root.width - 92px;
+            y: 322px;
+            width: 68px;
+            height: 64px;
+            background: #1473e6;
+            border-radius: 12px;
+
+            Text {
+                width: parent.width;
+                height: parent.height;
+                text: "Scroll\ndown";
+                color: #ffffff;
+                font-size: 14px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
             }
         }
 
         Text {
             x: 24px;
-            y: 354px;
+            y: 406px;
             width: root.width - 48px;
             text: "Pure UIKit multiline baseline";
             font-size: 18px;
@@ -113,7 +206,7 @@ slint::slint! {
 
         native-editor := Rectangle {
             x: 24px;
-            y: 388px;
+            y: 434px;
             width: root.width - 48px;
             height: 112px;
             background: #ffffff;
@@ -124,7 +217,7 @@ slint::slint! {
 
         Text {
             x: 24px;
-            y: 524px;
+            y: 558px;
             width: root.width - 48px;
             text: "Native menu from a Slint button";
             font-size: 18px;
@@ -134,7 +227,7 @@ slint::slint! {
 
         menu-card := Rectangle {
             x: 24px;
-            y: 562px;
+            y: 586px;
             width: root.width - 48px;
             height: 56px;
             background: root.menu-button-pressed ? #0f66cf : #1473e6;
@@ -154,7 +247,7 @@ slint::slint! {
 
         Rectangle {
             x: 24px;
-            y: 638px;
+            y: 654px;
             width: root.width - 48px;
             height: 54px;
             background: #e7edf6;
@@ -463,6 +556,31 @@ extern "C" fn native_menu_button_pressed(pressed: bool) {
     });
 }
 
+fn update_scroll_geometry(app: &NativeOverlayDemo) {
+    unsafe {
+        update_native_scroll_geometry(
+            app.get_second_editor_x(),
+            app.get_second_editor_y(),
+            app.get_second_editor_width(),
+            app.get_second_editor_height(),
+            app.get_scroll_clip_x(),
+            app.get_scroll_clip_y(),
+            app.get_scroll_clip_width(),
+            app.get_scroll_clip_height(),
+        );
+    }
+}
+
+#[unsafe(no_mangle)]
+extern "C" fn native_scroll_requested(direction: i32) {
+    APP.with(|slot| {
+        if let Some(app) = slot.borrow().as_ref().and_then(slint::Weak::upgrade) {
+            let delta = if direction < 0 { -36. } else { 36. };
+            app.set_scroll_offset((app.get_scroll_offset() + delta).clamp(-100., 0.));
+        }
+    });
+}
+
 #[unsafe(no_mangle)]
 extern "C" fn native_context_action(action: i32) {
     let result = match action {
@@ -489,6 +607,18 @@ unsafe extern "C" {
         second_editor_y: f32,
         second_editor_width: f32,
         second_editor_height: f32,
+        scroll_clip_x: f32,
+        scroll_clip_y: f32,
+        scroll_clip_width: f32,
+        scroll_clip_height: f32,
+        scroll_up_x: f32,
+        scroll_up_y: f32,
+        scroll_up_width: f32,
+        scroll_up_height: f32,
+        scroll_down_x: f32,
+        scroll_down_y: f32,
+        scroll_down_width: f32,
+        scroll_down_height: f32,
         native_editor_x: f32,
         native_editor_y: f32,
         native_editor_width: f32,
@@ -500,11 +630,27 @@ unsafe extern "C" {
         initial_text: *const c_char,
         second_initial_text: *const c_char,
     );
+    fn update_native_scroll_geometry(
+        second_editor_x: f32,
+        second_editor_y: f32,
+        second_editor_width: f32,
+        second_editor_height: f32,
+        scroll_clip_x: f32,
+        scroll_clip_y: f32,
+        scroll_clip_width: f32,
+        scroll_clip_height: f32,
+    );
 }
 
 fn main() {
     let app = NativeOverlayDemo::new().unwrap();
     APP.with(|slot| *slot.borrow_mut() = Some(app.as_weak()));
+    let weak = app.as_weak();
+    app.on_scroll_geometry_changed(move || {
+        if let Some(app) = weak.upgrade() {
+            update_scroll_geometry(&app);
+        }
+    });
     let weak = app.as_weak();
     slint::spawn_local(async move {
         let app = weak.unwrap();
@@ -525,6 +671,18 @@ fn main() {
                 app.get_second_editor_y(),
                 app.get_second_editor_width(),
                 app.get_second_editor_height(),
+                app.get_scroll_clip_x(),
+                app.get_scroll_clip_y(),
+                app.get_scroll_clip_width(),
+                app.get_scroll_clip_height(),
+                app.get_scroll_up_x(),
+                app.get_scroll_up_y(),
+                app.get_scroll_up_width(),
+                app.get_scroll_up_height(),
+                app.get_scroll_down_x(),
+                app.get_scroll_down_y(),
+                app.get_scroll_down_width(),
+                app.get_scroll_down_height(),
                 app.get_native_editor_x(),
                 app.get_native_editor_y(),
                 app.get_native_editor_width(),

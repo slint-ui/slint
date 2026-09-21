@@ -17,7 +17,11 @@ The underlying Slint inputs are hidden from accessibility because the UIKit inpu
 
 A transparent UIKit button presents a native menu beneath a Slint-rendered button.
 The second field demonstrates wrapped multiline editing and responder transfer without dismissing
-the keyboard. Both fields keep their text, carets, and selection highlights rendered by Slint.
+the keyboard.
+It sits in a Slint `Flickable`: drag the exposed area below the field, or use the
+scroll buttons, to move it while a native selection is active. The UIKit clip follows the Slint
+viewport and passes empty-area touches through to Slint.
+Both fields keep their text, carets, and selection highlights rendered by Slint.
 
 See [Production Readiness](PRODUCTION.md) for the supported behavior, known gaps,
 proposed architecture, and test plan.
@@ -34,6 +38,9 @@ xcodegen generate
 Select an attached iPhone and run the `SlintNativeOverlays` scheme in Release.
 The UI tests verify native text delivery, model synchronization, responder transfer,
 native text selection, keyboard trackpad endpoints, and the UIKit context menu.
+The focused scroll test selects multiline text and drags the Slint `Flickable`.
+It checks that the native editor moved while retaining keyboard focus.
+It then verifies that typing replaces the selected word.
 The keyboard trackpad tests compare final caret positions.
 They don't measure the live movement curve or input latency.
 
@@ -81,7 +88,7 @@ xcodebuild test \
     -configuration Release \
     -destination "id=$SLINT_DEVICE_ID" \
     -derivedDataPath "$SLINT_DERIVED_DATA" \
-    -only-testing:SlintNativeOverlaysUITests/NativeOverlayTests/testHorizontalKeyboardTrackpadEndpointMatchesUIKit \
+    -only-testing:SlintNativeOverlaysUITests/NativeOverlayTests/testMultilineSelectionFollowsSlintScroll \
     DEVELOPMENT_TEAM="$SLINT_TEAM_ID" \
     CODE_SIGN_STYLE=Automatic
 ```

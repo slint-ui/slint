@@ -20,6 +20,7 @@ extern uintptr_t native_closest_text_position(uintptr_t editorIndex, float windo
 extern uint32_t native_selection_color(uintptr_t editorIndex);
 extern void native_editor_active(uintptr_t editorIndex, bool active);
 extern void native_menu_button_pressed(bool pressed);
+extern void native_scroll_requested(int direction);
 extern void native_context_action(int action);
 
 @interface SlintTextPosition : UITextPosition
@@ -67,6 +68,25 @@ extern void native_context_action(int action);
 - (BOOL)containsStart { return self.containsStartValue; }
 - (BOOL)containsEnd { return self.containsEndValue; }
 - (BOOL)isVertical { return NO; }
+@end
+
+@interface SlintTextClipView : UIView
+@end
+
+@implementation SlintTextClipView
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
+{
+    if (self.hidden || !self.userInteractionEnabled || self.alpha < 0.01)
+        return nil;
+
+    for (UIView *subview in self.subviews.reverseObjectEnumerator) {
+        CGPoint childPoint = [subview convertPoint:point fromView:self];
+        UIView *hit = [subview hitTest:childPoint withEvent:event];
+        if (hit)
+            return hit;
+    }
+    return nil;
+}
 @end
 
 @interface SlintTextInputView : UIView <UITextInput, UITextInputTraits>
@@ -481,7 +501,10 @@ extern void native_context_action(int action);
 @property (nonatomic, weak) UIView *host;
 @property (nonatomic, strong) UIButton *menuTarget;
 @property (nonatomic, strong) SlintTextInputView *editor;
+@property (nonatomic, strong) UIView *secondEditorClip;
 @property (nonatomic, strong) SlintTextInputView *secondEditor;
+@property (nonatomic, strong) UIButton *scrollUpTarget;
+@property (nonatomic, strong) UIButton *scrollDownTarget;
 @property (nonatomic, strong) UITextView *nativeEditor;
 @end
 
@@ -495,6 +518,9 @@ extern void native_context_action(int action);
 - (instancetype)initWithHost:(UIView *)host
                  editorFrame:(CGRect)editorFrame
            secondEditorFrame:(CGRect)secondEditorFrame
+             scrollClipFrame:(CGRect)scrollClipFrame
+               scrollUpFrame:(CGRect)scrollUpFrame
+             scrollDownFrame:(CGRect)scrollDownFrame
            nativeEditorFrame:(CGRect)nativeEditorFrame
                    menuFrame:(CGRect)menuFrame
                  initialText:(NSString *)initialText
@@ -511,14 +537,42 @@ extern void native_context_action(int action);
                                                   multiline:NO
                                          accessibilityLabel:@"Native text editor"];
     [host addSubview:self.editor];
+    self.secondEditorClip = [[SlintTextClipView alloc] initWithFrame:scrollClipFrame];
+    self.secondEditorClip.backgroundColor = UIColor.clearColor;
+    self.secondEditorClip.clipsToBounds = YES;
+    self.secondEditorClip.userInteractionEnabled = YES;
+    [host addSubview:self.secondEditorClip];
+
+    CGRect secondEditorFrameInClip = [host convertRect:secondEditorFrame
+                                                toView:self.secondEditorClip];
     self.secondEditor =
-            [[SlintTextInputView alloc] initWithFrame:secondEditorFrame
+            [[SlintTextInputView alloc] initWithFrame:secondEditorFrameInClip
                                                  host:host
                                                  text:secondInitialText
                                           editorIndex:1
                                             multiline:YES
                                    accessibilityLabel:@"Native multiline text editor"];
-    [host addSubview:self.secondEditor];
+    [self.secondEditorClip addSubview:self.secondEditor];
+
+    self.scrollUpTarget = [UIButton buttonWithType:UIButtonTypeCustom];
+    self.scrollUpTarget.frame = scrollUpFrame;
+    self.scrollUpTarget.backgroundColor = UIColor.clearColor;
+    self.scrollUpTarget.accessibilityIdentifier = @"Scroll text up";
+    self.scrollUpTarget.accessibilityLabel = @"Scroll text up";
+    [self.scrollUpTarget addTarget:self
+                            action:@selector(scrollTextUp)
+                  forControlEvents:UIControlEventTouchUpInside];
+    [host addSubview:self.scrollUpTarget];
+
+    self.scrollDownTarget = [UIButton buttonWithType:UIButtonTypeCustom];
+    self.scrollDownTarget.frame = scrollDownFrame;
+    self.scrollDownTarget.backgroundColor = UIColor.clearColor;
+    self.scrollDownTarget.accessibilityIdentifier = @"Scroll text down";
+    self.scrollDownTarget.accessibilityLabel = @"Scroll text down";
+    [self.scrollDownTarget addTarget:self
+                              action:@selector(scrollTextDown)
+                    forControlEvents:UIControlEventTouchUpInside];
+    [host addSubview:self.scrollDownTarget];
 
     self.nativeEditor = [[UITextView alloc] initWithFrame:nativeEditorFrame];
     self.nativeEditor.text = secondInitialText;
@@ -567,19 +621,45 @@ extern void native_context_action(int action);
     native_menu_button_pressed(false);
 }
 
+- (void)scrollTextUp
+{
+    native_scroll_requested(-1);
+}
+
+- (void)scrollTextDown
+{
+    native_scroll_requested(1);
+}
+
+- (void)updateSecondEditorFrame:(CGRect)secondEditorFrame scrollClipFrame:(CGRect)scrollClipFrame
+{
+    self.secondEditorClip.frame = scrollClipFrame;
+    self.secondEditor.frame = [self.host convertRect:secondEditorFrame
+                                              toView:self.secondEditorClip];
+    [self.secondEditor setNeedsLayout];
+    [self.secondEditor layoutIfNeeded];
+}
+
 - (void)hostTapped:(UITapGestureRecognizer *)recognizer
 {
     if (recognizer.state != UIGestureRecognizerStateEnded)
         return;
     CGPoint point = [recognizer locationInView:self.host];
-    if (CGRectContainsPoint(self.editor.frame, point)) {
+    CGRect secondEditorFrame = [self.secondEditor convertRect:self.secondEditor.bounds
+                                                       toView:self.host];
+    if (CGRectContainsPoint(self.scrollUpTarget.frame, point)
+        || CGRectContainsPoint(self.scrollDownTarget.frame, point)) {
+        return;
+    } else if (CGRectContainsPoint(self.editor.frame, point)) {
         [self.secondEditor resignFirstResponder];
         [self.nativeEditor resignFirstResponder];
         [self.editor becomeFirstResponder];
-    } else if (CGRectContainsPoint(self.secondEditor.frame, point)) {
+    } else if (CGRectContainsPoint(secondEditorFrame, point)) {
         [self.editor resignFirstResponder];
         [self.nativeEditor resignFirstResponder];
         [self.secondEditor becomeFirstResponder];
+    } else if (CGRectContainsPoint(self.secondEditorClip.frame, point)) {
+        return;
     } else if (CGRectContainsPoint(self.nativeEditor.frame, point)) {
         [self.editor resignFirstResponder];
         [self.secondEditor resignFirstResponder];
@@ -623,7 +703,11 @@ static NativeOverlayManager *manager;
 
 void install_native_overlays(void *hostPointer, float editorX, float editorY, float editorWidth,
                              float editorHeight, float secondEditorX, float secondEditorY,
-                             float secondEditorWidth, float secondEditorHeight, float nativeEditorX,
+                             float secondEditorWidth, float secondEditorHeight, float scrollClipX,
+                             float scrollClipY, float scrollClipWidth, float scrollClipHeight,
+                             float scrollUpX, float scrollUpY, float scrollUpWidth,
+                             float scrollUpHeight, float scrollDownX, float scrollDownY,
+                             float scrollDownWidth, float scrollDownHeight, float nativeEditorX,
                              float nativeEditorY, float nativeEditorWidth, float nativeEditorHeight,
                              float menuX, float menuY, float menuWidth, float menuHeight,
                              const char *initialText, const char *secondInitialText)
@@ -636,9 +720,23 @@ void install_native_overlays(void *hostPointer, float editorX, float editorY, fl
              editorFrame:CGRectMake(editorX, editorY, editorWidth, editorHeight)
        secondEditorFrame:CGRectMake(secondEditorX, secondEditorY, secondEditorWidth,
                                     secondEditorHeight)
+         scrollClipFrame:CGRectMake(scrollClipX, scrollClipY, scrollClipWidth, scrollClipHeight)
+           scrollUpFrame:CGRectMake(scrollUpX, scrollUpY, scrollUpWidth, scrollUpHeight)
+         scrollDownFrame:CGRectMake(scrollDownX, scrollDownY, scrollDownWidth, scrollDownHeight)
        nativeEditorFrame:CGRectMake(nativeEditorX, nativeEditorY, nativeEditorWidth,
                                     nativeEditorHeight)
                menuFrame:CGRectMake(menuX, menuY, menuWidth, menuHeight)
              initialText:text
        secondInitialText:secondText];
+}
+
+void update_native_scroll_geometry(float secondEditorX, float secondEditorY,
+                                   float secondEditorWidth, float secondEditorHeight,
+                                   float scrollClipX, float scrollClipY, float scrollClipWidth,
+                                   float scrollClipHeight)
+{
+    [manager updateSecondEditorFrame:
+                     CGRectMake(secondEditorX, secondEditorY, secondEditorWidth, secondEditorHeight)
+                         scrollClipFrame:
+                     CGRectMake(scrollClipX, scrollClipY, scrollClipWidth, scrollClipHeight)];
 }

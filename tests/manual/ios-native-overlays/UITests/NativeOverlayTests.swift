@@ -255,6 +255,47 @@ final class NativeOverlayTests: XCTestCase {
         XCTAssertLessThan(updated.count, original.count - 4)
     }
 
+    func testMultilineSelectionFollowsSlintScroll() {
+        let app = launch()
+        let editor = multilineEditor(app)
+        editor.tap()
+        XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 5))
+
+        editor.coordinate(withNormalizedOffset: CGVector(dx: 0.35, dy: 0.3)).doubleTap()
+        XCTAssertTrue(app.menuItems["Copy"].waitForExistence(timeout: 5))
+        let originalValue = editor.value as? String ?? ""
+        let originalFrame = editor.frame
+
+        let dragStart = editor.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.5, dy: 1.08)
+        )
+        dragStart.press(
+            forDuration: 0.1,
+            thenDragTo: dragStart.withOffset(CGVector(dx: 0, dy: -60)),
+            withVelocity: .slow,
+            thenHoldForDuration: 0.1
+        )
+
+        let editorMoved = NSPredicate { _, _ in
+            editor.frame.minY < originalFrame.minY - 20
+        }
+        expectation(for: editorMoved, evaluatedWith: editor)
+        waitForExpectations(timeout: 5)
+        XCTAssertTrue(app.keyboards.element.exists)
+        keepScreenshot(app, name: "selection-after-slint-scroll")
+
+        let evidence = XCTAttachment(
+            string: "Before: \(originalFrame)\nAfter: \(editor.frame)"
+        )
+        evidence.name = "slint-scroll-editor-geometry"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+
+        app.typeText("Z")
+        let updatedValue = editor.value as? String ?? ""
+        XCTAssertLessThan(updatedValue.count, originalValue.count - 1)
+    }
+
     func testNativeContextMenuCallsSlint() {
         let app = launch()
         let menuTarget = app.buttons["Show native menu"]
