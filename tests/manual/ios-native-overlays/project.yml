@@ -1,0 +1,43 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+# cspell:ignore INFOPLIST
+
+name: SlintNativeOverlays
+targets:
+  SlintNativeOverlays:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.6"
+    sources: []
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.slint.native-overlays
+        PRODUCT_NAME: SlintNativeOverlays
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_FILE: Info.plist
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    postCompileScripts:
+      - name: Build Slint with Cargo
+        script: |
+          bash "$SRCROOT/../../../scripts/build_for_ios_with_cargo.bash" ios-native-overlays
+  SlintNativeOverlaysUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "16.6"
+    sources: [UITests]
+    dependencies:
+      - target: SlintNativeOverlays
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.slint.native-overlays.tests
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  SlintNativeOverlays:
+    build:
+      targets:
+        SlintNativeOverlays: all
+        SlintNativeOverlaysUITests: [test]
+    test:
+      targets: [SlintNativeOverlaysUITests]
