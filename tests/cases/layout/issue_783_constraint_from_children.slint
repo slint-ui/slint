@@ -43,12 +43,14 @@ export component TestCase {
             }
         }
     }
-    broken := Rectangle { // #407
+    // #407: a `for`-repeated body contributes its constraints like a static one
+    // would, whether or not it is a layout.
+    r9 := Rectangle {
         for ax in 5 : HorizontalLayout { Text { text: "foo"; } }
         for ay in 5 : Text { text: "foo"; }
     }
     foo := Text { text: "foo"; }
-    out property <bool> test: foo.min-height > 1px && t2 && t3 && t4 && t5 && t6 && t7 && t8;
+    out property <bool> test: foo.min-height > 1px && t2 && t3 && t4 && t5 && t6 && t7 && t8 && t9;
     out property <bool> t2: r2.min-height == foo.min-height && r2.preferred-width == foo.preferred-width;
     out property <bool> t3: r3.min-height == foo.min-height && r3.preferred-width == foo.preferred-width;
     out property <bool> t4: r4.min-height == foo.min-height && r4.preferred-width == foo.preferred-width;
@@ -56,6 +58,7 @@ export component TestCase {
     out property <bool> t6: r6.min-height == foo.min-height && r6.preferred-width == foo.preferred-width;
     out property <bool> t7: r7.min-width == 200px && r7.preferred-height == 300px;
     out property <bool> t8: r8.min-height == foo.min-height && r8.preferred-width == foo.preferred-width && r8.min-width == 200px && r8.preferred-height == 300px;
+    out property <bool> t9: r9.min-height == foo.min-height && r9.preferred-width == foo.preferred-width;
 }
 
 /*
