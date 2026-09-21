@@ -134,10 +134,10 @@ test("smoke test", async ({ page }) => {
     const base = new URL("../", page.url());
     await expect(
         page.getByRole("link", {
-            name: "material component source",
+            name: "Download ZIP",
             exact: true,
         }),
-    ).toHaveAttribute("href", `${base.pathname}zip/material-1.0.1.zip`);
+    ).toHaveAttribute("href", `${base.pathname}zip/material-1.1.0.zip`);
     await page
         .getByLabel("Main")
         .getByRole("link", { name: "FilledButton" })
