@@ -76,8 +76,7 @@ fn bidi_selection_spans_are_ascending_in_x() {
                 f32::round,
             );
             saw_line_with_several_spans |= spans.0.len() > 1;
-            for pair in spans.0.windows(2) {
-                let (left, right) = (&pair[0], &pair[1]);
+            for [left, right] in spans.0.array_windows() {
                 if (left.paragraph, left.line) != (right.paragraph, right.line) {
                     continue;
                 }
