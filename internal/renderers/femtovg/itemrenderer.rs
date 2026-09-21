@@ -101,11 +101,11 @@ pub struct GLItemRenderer<'a, R: femtovg::Renderer + TextureImporter> {
     metrics: RenderingMetrics,
 }
 
-fn rect_with_radius_to_path(
+fn append_rect_with_radius_to_path(
+    path: &mut femtovg::Path,
     rect: PhysicalRect,
     border_radius: PhysicalBorderRadius,
-) -> femtovg::Path {
-    let mut path = femtovg::Path::new();
+) {
     let x = rect.origin.x;
     let y = rect.origin.y;
     let width = rect.size.width;
@@ -131,7 +131,189 @@ fn rect_with_radius_to_path(
             border_radius.bottom_left,
         );
     }
+}
+fn rect_with_radius_to_path(
+    rect: PhysicalRect,
+    border_radius: PhysicalBorderRadius,
+) -> femtovg::Path {
+    let mut path = femtovg::Path::new();
+    append_rect_with_radius_to_path(&mut path, rect, border_radius);
     path
+}
+
+/// Renders a drop shadow shape, which is usually placed underneath another rectangular shape
+/// with an offset (the drop-shadow-offset-x/y). The algorithm follows the HTML Canvas spec 4.12.5.1.18:
+///  * Create a new image to cache the shadow rendering
+///  * Fill the image with transparent "black"
+///  * Draw the (rounded) rectangle at shadow offset_x/offset_y
+///  * Blur the image
+///  * Fill the image with the shadow color and SourceIn as composition mode
+///  * Draw the shadow image
+fn render_drop_box_shadow_image<R: femtovg::Renderer + TextureImporter>(
+    canvas: &CanvasRc<R>,
+    textures_to_delete_after_flush: &RefCell<Vec<Rc<Texture<R>>>>,
+    current_render_target: femtovg::RenderTarget,
+    shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+) -> Option<ItemGraphicsCacheEntry<R>> {
+    let blur = shadow_options.blur;
+    let width = shadow_options.width;
+    let height = shadow_options.height;
+    let radius = shadow_options.radius;
+
+    let shadow_rect = PhysicalRect::new(
+        PhysicalPoint::default(),
+        PhysicalSize::from_lengths(width + blur * 2., height + blur * 2.),
+    );
+
+    let shadow_image_width = shadow_rect.width().ceil() as u32;
+    let shadow_image_height = shadow_rect.height().ceil() as u32;
+
+    let shadow_image = Texture::new_empty_on_gpu(canvas, shadow_image_width, shadow_image_height)?;
+
+    {
+        let mut canvas = canvas.borrow_mut();
+        canvas.save();
+
+        canvas.set_render_target(shadow_image.as_render_target());
+
+        canvas.reset();
+
+        canvas.clear_rect(
+            0,
+            0,
+            shadow_rect.width().ceil() as u32,
+            shadow_rect.height().ceil() as u32,
+            femtovg::Color::rgba(0, 0, 0, 0),
+        );
+
+        let shadow_path = rect_with_radius_to_path(
+            PhysicalRect::new(
+                shadow_options.shape_origin(),
+                PhysicalSize::from_lengths(width, height),
+            ),
+            radius,
+        );
+        canvas.fill_path(&shadow_path, &femtovg::Paint::color(femtovg::Color::rgb(255, 255, 255)));
+    }
+
+    let shadow_image = if blur.get() > 0. {
+        let blurred_image = shadow_image
+            .filter(femtovg::ImageFilter::GaussianBlur { sigma: shadow_options.blur_sigma() });
+
+        canvas.borrow_mut().set_render_target(blurred_image.as_render_target());
+
+        textures_to_delete_after_flush.borrow_mut().push(shadow_image);
+
+        blurred_image
+    } else {
+        shadow_image
+    };
+
+    {
+        let mut canvas = canvas.borrow_mut();
+
+        canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
+
+        let mut shadow_image_rect = femtovg::Path::new();
+        shadow_image_rect.rect(0., 0., shadow_rect.width(), shadow_rect.height());
+        canvas.fill_path(
+            &shadow_image_rect,
+            &femtovg::Paint::color(to_femtovg_color(&shadow_options.color)),
+        );
+
+        canvas.restore();
+
+        canvas.set_render_target(current_render_target);
+    }
+
+    Some(ItemGraphicsCacheEntry::Texture(shadow_image))
+}
+
+/// Renders an inset shadow shape, sized to the element's own geometry.
+/// Punches a hole matching the geometry inset by the spread and offset,
+/// blurs the resulting ring, colorizes it, then masks it to the element's own
+/// rounded-rect shape
+fn render_inset_box_shadow_image<R: femtovg::Renderer + TextureImporter>(
+    canvas: &CanvasRc<R>,
+    textures_to_delete_after_flush: &RefCell<Vec<Rc<Texture<R>>>>,
+    current_render_target: femtovg::RenderTarget,
+    shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+) -> Option<ItemGraphicsCacheEntry<R>> {
+    let width = shadow_options.width.get();
+    let height = shadow_options.height.get();
+    if width < 1. || height < 1. {
+        return None;
+    }
+    let blur = shadow_options.blur.get();
+    let spread = shadow_options.spread.get();
+    let offset_x = shadow_options.offset_x_inset;
+    let offset_y = shadow_options.offset_y_inset;
+
+    let shadow_image_width = width.ceil() as u32;
+    let shadow_image_height = height.ceil() as u32;
+
+    let shadow_image = Texture::new_empty_on_gpu(canvas, shadow_image_width, shadow_image_height)?;
+
+    {
+        let mut canvas = canvas.borrow_mut();
+        canvas.save();
+        canvas.set_render_target(shadow_image.as_render_target());
+        canvas.reset();
+        canvas.clear_rect(
+            0,
+            0,
+            shadow_image_width,
+            shadow_image_height,
+            femtovg::Color::rgba(0, 0, 0, 0),
+        );
+
+        // The outer edge of the ring is pushed well outside the canvas so it never competes
+        // with the hole's edge during the blur
+        let inflate = blur + spread.abs() + offset_x.abs() + offset_y.abs() + 16.;
+        let mut ring_path = femtovg::Path::new();
+        ring_path.rect(-inflate, -inflate, width + 2. * inflate, height + 2. * inflate);
+
+        // The inset "hole", as a second subpath of the same ring path rather than a separate
+        // draw call punched out with `DestinationOut`
+        let inner_rect = PhysicalRect::new(
+            PhysicalPoint::new(spread + offset_x, spread + offset_y),
+            PhysicalSize::new((width - 2. * spread).max(0.), (height - 2. * spread).max(0.)),
+        );
+        append_rect_with_radius_to_path(&mut ring_path, inner_rect, shadow_options.inner_radius());
+        canvas.fill_path(
+            &ring_path,
+            &femtovg::Paint::color(femtovg::Color::rgb(255, 255, 255))
+                .with_fill_rule(femtovg::FillRule::EvenOdd),
+        );
+    }
+
+    let shadow_image = if blur > 0. {
+        let blurred_image = shadow_image
+            .filter(femtovg::ImageFilter::GaussianBlur { sigma: shadow_options.blur_sigma() });
+
+        canvas.borrow_mut().set_render_target(blurred_image.as_render_target());
+
+        textures_to_delete_after_flush.borrow_mut().push(shadow_image);
+
+        blurred_image
+    } else {
+        shadow_image
+    };
+
+    {
+        let mut canvas = canvas.borrow_mut();
+        canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
+
+        let mut full_rect = femtovg::Path::new();
+        full_rect.rect(0., 0., width, height);
+
+        canvas
+            .fill_path(&full_rect, &femtovg::Paint::color(to_femtovg_color(&shadow_options.color)));
+        canvas.restore();
+        canvas.set_render_target(current_render_target);
+    }
+
+    Some(ItemGraphicsCacheEntry::Texture(shadow_image))
 }
 
 fn rect_to_path(r: PhysicalRect) -> femtovg::Path {
@@ -387,121 +569,46 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         })
     }
 
-    /// Draws a rectangular shadow shape, which is usually placed underneath another rectangular shape
-    /// with an offset (the drop-shadow-offset-x/y). The algorithm follows the HTML Canvas spec 4.12.5.1.18:
-    ///  * Create a new image to cache the shadow rendering
-    ///  * Fill the image with transparent "black"
-    ///  * Draw the (rounded) rectangle at shadow offset_x/offset_y
-    ///  * Blur the image
-    ///  * Fill the image with the shadow color and SourceIn as composition mode
-    ///  * Draw the shadow image
     fn draw_box_shadow(
         &mut self,
         box_shadow: Pin<&items::BoxShadow>,
         item_rc: &ItemRc,
         _size: LogicalSize,
     ) {
+        let inset = box_shadow.inset();
         if box_shadow.color().alpha() == 0
-            || (box_shadow.blur() == LogicalLength::zero()
+            || (!inset
+                && box_shadow.blur() == LogicalLength::zero()
                 && box_shadow.offset_x() == LogicalLength::zero()
                 && box_shadow.offset_y() == LogicalLength::zero())
         {
             return;
         }
-        // TODO: implement inset shadows and spread for femtovg, using the shape_size,
-        // outer_radius and inner_radius of the BoxShadowOptions. Until then, skip rendering
-        // inset shadows entirely (otherwise they'd render incorrectly as a drop shadow).
-        // Spread is silently ignored.
-        if box_shadow.inset() {
-            return;
-        }
+        // TODO: implement spread for drop shadows in femtovg, using the shape_size and
+        // outer_radius of the BoxShadowOptions. Spread is silently ignored for drop shadows.
 
+        let current_render_target = self.current_render_target();
         let cache_entry = self.box_shadow_cache.get_box_shadow(
             item_rc,
             self.graphics_cache,
             box_shadow,
             self.scale_factor,
             |shadow_options| {
-                let blur = shadow_options.blur;
-                let width = shadow_options.width;
-                let height = shadow_options.height;
-                let radius = shadow_options.radius;
-
-                let shadow_rect = PhysicalRect::new(
-                    PhysicalPoint::default(),
-                    PhysicalSize::from_lengths(width + blur * 2., height + blur * 2.),
-                );
-
-                let shadow_image_width = shadow_rect.width().ceil() as u32;
-                let shadow_image_height = shadow_rect.height().ceil() as u32;
-
-                let shadow_image = Texture::new_empty_on_gpu(
-                    &self.canvas,
-                    shadow_image_width,
-                    shadow_image_height,
-                )?;
-
-                {
-                    let mut canvas = self.canvas.borrow_mut();
-                    canvas.save();
-
-                    canvas.set_render_target(shadow_image.as_render_target());
-
-                    canvas.reset();
-
-                    canvas.clear_rect(
-                        0,
-                        0,
-                        shadow_rect.width().ceil() as u32,
-                        shadow_rect.height().ceil() as u32,
-                        femtovg::Color::rgba(0, 0, 0, 0),
-                    );
-
-                    let shadow_path = rect_with_radius_to_path(
-                        PhysicalRect::new(
-                            shadow_options.shape_origin(),
-                            PhysicalSize::from_lengths(width, height),
-                        ),
-                        radius,
-                    );
-                    canvas.fill_path(
-                        &shadow_path,
-                        &femtovg::Paint::color(femtovg::Color::rgb(255, 255, 255)),
-                    );
-                }
-
-                let shadow_image = if blur.get() > 0. {
-                    let blurred_image = shadow_image.filter(femtovg::ImageFilter::GaussianBlur {
-                        sigma: shadow_options.blur_sigma(),
-                    });
-
-                    self.canvas.borrow_mut().set_render_target(blurred_image.as_render_target());
-
-                    self.textures_to_delete_after_flush.borrow_mut().push(shadow_image);
-
-                    blurred_image
+                if shadow_options.inset {
+                    render_inset_box_shadow_image(
+                        &self.canvas,
+                        &self.textures_to_delete_after_flush,
+                        current_render_target,
+                        shadow_options,
+                    )
                 } else {
-                    shadow_image
-                };
-
-                {
-                    let mut canvas = self.canvas.borrow_mut();
-
-                    canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
-
-                    let mut shadow_image_rect = femtovg::Path::new();
-                    shadow_image_rect.rect(0., 0., shadow_rect.width(), shadow_rect.height());
-                    canvas.fill_path(
-                        &shadow_image_rect,
-                        &femtovg::Paint::color(to_femtovg_color(&box_shadow.color())),
-                    );
-
-                    canvas.restore();
-
-                    canvas.set_render_target(self.current_render_target());
+                    render_drop_box_shadow_image(
+                        &self.canvas,
+                        &self.textures_to_delete_after_flush,
+                        current_render_target,
+                        shadow_options,
+                    )
                 }
-
-                Some(ItemGraphicsCacheEntry::Texture(shadow_image))
             },
         );
 
@@ -515,25 +622,43 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             None => return,
         };
 
-        // On the paint for the box shadow, we don't need anti-aliasing on the fringes,
-        // since we are just blitting a texture. This saves a triangle strip for the stroke.
-        let shadow_image_paint = shadow_image.as_paint().with_anti_alias(false);
+        if inset {
+            let shadow_image_paint = shadow_image.as_paint();
+            let geometry_path = rect_with_radius_to_path(
+                PhysicalRect::new(
+                    PhysicalPoint::default(),
+                    PhysicalSize::new(
+                        shadow_image_size.width as f32,
+                        shadow_image_size.height as f32,
+                    ),
+                ),
+                box_shadow.logical_border_radius() * self.scale_factor,
+            );
+            self.canvas.borrow_mut().fill_path(&geometry_path, &shadow_image_paint);
+        } else {
+            // On the paint for the box drop shadow, we don't need anti-aliasing on the fringes,
+            // since we are just blitting a texture. This saves a triangle strip for the stroke.
+            let shadow_image_paint = shadow_image.as_paint().with_anti_alias(true);
 
-        let mut shadow_image_rect = femtovg::Path::new();
-        shadow_image_rect.rect(
-            0.,
-            0.,
-            shadow_image_size.width as f32,
-            shadow_image_size.height as f32,
-        );
+            let mut shadow_image_rect = femtovg::Path::new();
+            shadow_image_rect.rect(
+                0.,
+                0.,
+                shadow_image_size.width as f32,
+                shadow_image_size.height as f32,
+            );
 
-        self.canvas.borrow_mut().save_with(|canvas| {
-            let blur = box_shadow.blur() * self.scale_factor;
-            let offset = LogicalPoint::from_lengths(box_shadow.offset_x(), box_shadow.offset_y())
-                * self.scale_factor;
-            canvas.translate(offset.x - blur.get(), offset.y - blur.get());
-            canvas.fill_path(&shadow_image_rect, &shadow_image_paint);
-        });
+            self.canvas.borrow_mut().save_with(|canvas| {
+                if !inset {
+                    let blur = box_shadow.blur() * self.scale_factor;
+                    let offset =
+                        LogicalPoint::from_lengths(box_shadow.offset_x(), box_shadow.offset_y())
+                            * self.scale_factor;
+                    canvas.translate(offset.x - blur.get(), offset.y - blur.get());
+                }
+                canvas.fill_path(&shadow_image_rect, &shadow_image_paint);
+            });
+        }
     }
 
     fn visit_opacity(
