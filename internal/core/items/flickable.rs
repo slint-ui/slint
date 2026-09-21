@@ -543,20 +543,7 @@ impl FlickableDataInner {
         FlickAnimation::apply_friction(current_pos, new_pos - current_pos, flick, flick_rc)
     }
 
-    /// Execute a scroll move
-    fn scroll_move(
-        &mut self,
-        flick: Pin<&Flickable>,
-        flick_rc: &ItemRc,
-        position: LogicalPoint,
-        delta: LogicalVector,
-        history: &TouchHistory,
-        content_x: &Pin<&Property<LogicalLength>>,
-        content_y: &Pin<&Property<LogicalLength>>,
-    ) -> bool {
-        let current_tick = crate::animations::current_tick();
-        let current_pos = LogicalPoint::from_lengths(content_x.get(), content_y.get());
-
+    fn track_move(&mut self, current_tick: Instant, delta: LogicalVector, history: &TouchHistory) {
         if history.history.len() > 0 {
             let mut last_time = self
                 .velocity_rb
@@ -595,6 +582,23 @@ impl FlickableDataInner {
             self.maybe_lose_momentum(&current_tick);
             self.velocity_rb.push(current_tick, delta);
         }
+    }
+
+    /// Execute a scroll move
+    fn scroll_move(
+        &mut self,
+        flick: Pin<&Flickable>,
+        flick_rc: &ItemRc,
+        position: LogicalPoint,
+        delta: LogicalVector,
+        history: &TouchHistory,
+        content_x: &Pin<&Property<LogicalLength>>,
+        content_y: &Pin<&Property<LogicalLength>>,
+    ) -> bool {
+        let current_tick = crate::animations::current_tick();
+        let current_pos = LogicalPoint::from_lengths(content_x.get(), content_y.get());
+
+        self.track_move(current_tick, delta, history);
 
         // We calculate the new content position by adding the mouse delta in the flickable
         // coordinate system to the current content position.
@@ -1259,6 +1263,11 @@ impl FlickableData {
                         // drag in a unsupported direction gives up the grab
                         InputEventResult::EventIgnored
                     } else {
+                        inner.track_move(
+                            crate::animations::current_tick(),
+                            mouse_delta,
+                            history.get().unwrap_or(&TouchHistory::default()),
+                        );
                         // the mouse was moved, but not enough to start the drag, we still want to accept further events
                         // so that we may pass the threshold at some point
                         InputEventResult::EventAccepted
