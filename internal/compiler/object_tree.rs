@@ -3541,6 +3541,10 @@ impl Element {
     ///
     /// Synthetic debug hooks (materialized for unbound properties) are never considered set
     /// (`has_binding` treats them as "no expression").
+    ///
+    /// A caller that supplies a default almost always wants
+    /// [`Self::is_binding_set_outside_states`]: a state leaves a binding behind whose value while
+    /// no state applies is the type default.
     pub fn is_binding_set(self: &Element, property_name: &str, need_explicit: bool) -> bool {
         self.any_in_inheritance_chain(|element| {
             element.bindings.0.get(property_name).is_some_and(|binding| {
@@ -3687,15 +3691,20 @@ impl Element {
         self.bindings.0.get(property_name)
     }
 
-    /// Whether a state is what binds `property_name`.
+    /// Whether a state is what binds `property_name` on this element.
+    ///
+    /// Unlike [`Self::is_binding_set`] this doesn't look at the base types: inlining copies the
+    /// mark onto the instance, and a base's own root fills its fallback when its component is
+    /// processed.
     pub fn is_binding_from_state(&self, property_name: &str) -> bool {
         self.binding_cell_including_synthetic(property_name)
             .is_some_and(|cell| cell.borrow().from_state)
     }
 
     /// Like [`Self::is_binding_set`], except a binding a state created doesn't count.
-    pub fn is_binding_set_outside_states(&self, property_name: &str) -> bool {
-        self.is_binding_set(property_name, false) && !self.is_binding_from_state(property_name)
+    pub fn is_binding_set_outside_states(&self, property_name: &str, need_explicit: bool) -> bool {
+        self.is_binding_set(property_name, need_explicit)
+            && !self.is_binding_from_state(property_name)
     }
 
     /// Set the property `property_name` of this Element only if it was not set.

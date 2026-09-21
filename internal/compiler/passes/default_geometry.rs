@@ -114,7 +114,7 @@ pub fn default_geometry(
                                 Type::LogicalLength
                             );
 
-                            elem.borrow().is_binding_set(property, true)
+                            elem.borrow().is_binding_set_outside_states(property, true)
                         };
 
                         let width_specified = has_length_property_binding(elem, "width");
@@ -134,10 +134,11 @@ pub fn default_geometry(
                                 make_default_implicit(elem, "width");
                                 make_default_implicit(elem, "height");
                             }
-                        } else if is_image {
+                        } else {
+                            fill_implicit_state_fallback(elem);
                             // If an image is in a layout and has no explicit width or height specified, change the default for image-fit
                             // to `contain`
-                            if !width_specified || !height_specified {
+                            if is_image && (!width_specified || !height_specified) {
                                 let image_fit_lookup = elem.borrow().lookup_property(
                                     "image-fit",
                                     PropertyLookupMode::ComponentLocal,
@@ -174,8 +175,7 @@ pub fn default_geometry(
                 }
             } else if matches!(builtin_type.default_size_binding, DefaultSizeBinding::ImplicitSize)
             {
-                fill_implicit_state_fallback(elem, "width");
-                fill_implicit_state_fallback(elem, "height");
+                fill_implicit_state_fallback(elem);
             }
 
             Some(elem.clone())
@@ -512,11 +512,13 @@ fn bind_size_to_source_image(elem: &ElementRc) {
 
 /// Fills the value a state-set size falls back to with the implicit size.
 ///
-/// A component's root has no parent here, and a binding at the use site would shadow the
-/// state (#8852).
-fn fill_implicit_state_fallback(elem: &ElementRc, property: &str) {
-    if elem.borrow().is_binding_from_state(property) {
-        make_default_implicit(elem, property);
+/// For the elements this pass doesn't size itself: a component's root, whose size comes from
+/// the use site, and a layout child, whose size comes from the layout (#8852).
+fn fill_implicit_state_fallback(elem: &ElementRc) {
+    for property in ["width", "height"] {
+        if elem.borrow().is_binding_from_state(property) {
+            make_default_implicit(elem, property);
+        }
     }
 }
 
@@ -547,7 +549,7 @@ fn make_default_aspect_ratio_preserving_binding(
     missing_size_property: &'static str,
     given_size_property: &'static str,
 ) {
-    if elem.borrow().is_binding_set(missing_size_property, false) {
+    if elem.borrow().is_binding_set_outside_states(missing_size_property, false) {
         return;
     }
 
@@ -621,7 +623,7 @@ fn maybe_center_in_parent(
     pos_prop: &'static str,
     size_prop: &'static str,
 ) {
-    if elem.borrow().is_binding_set_outside_states(pos_prop) {
+    if elem.borrow().is_binding_set_outside_states(pos_prop, false) {
         return;
     }
 
