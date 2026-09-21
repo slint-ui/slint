@@ -516,10 +516,11 @@ fn cast_to_path_data(ctx: &mut EvalContext, from: &Expression) -> Value {
             Value::PathData(PathData::Elements(elements))
         }
         Expression::Struct { values, .. }
-            if values.contains_key("events") && values.contains_key("points") =>
+            if let Some(events) = values.get("events")
+                && let Some(points) = values.get("points") =>
         {
-            let events_value = eval_expression(ctx, &values["events"]);
-            let points_value = eval_expression(ctx, &values["points"]);
+            let events_value = eval_expression(ctx, events);
+            let points_value = eval_expression(ctx, points);
             // `for_each_enums!` already produces a `TryFrom<Value>` impl for
             // every Slint enum (via `declare_value_enum_conversion!` in
             // `api.rs`), so model rows of `Value::EnumerationValue` convert
