@@ -10,7 +10,6 @@ use euclid::approxeq::ApproxEq;
 use femtovg::Transform2D;
 use i_slint_core::graphics::ResolvedBrush;
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
-use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{IntRect, Point, Size};
@@ -22,8 +21,8 @@ use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
 };
 use i_slint_core::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    ScaleFactor, logical_size_from_api,
+    LogicalBorderRadius, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, ScaleFactor,
+    logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
@@ -101,9 +100,7 @@ pub struct GLItemRenderer<'a, R: femtovg::Renderer + TextureImporter> {
     metrics: RenderingMetrics,
 }
 
-// Appends a (rounded) rectangle as a new sub-path onto `path`, instead of returning a
-// standalone one. Combined with the even-odd fill rule, two overlapping sub-paths added this
-// way cancel out, which is how `draw_box_shadow` punches a hole into the shadow fill.
+// Appends a rounded rectangle as a new subpath.
 fn append_rect_with_radius(
     path: &mut femtovg::Path,
     rect: PhysicalRect,
@@ -410,19 +407,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         &mut self,
         box_shadow: Pin<&items::BoxShadow>,
         item_rc: &ItemRc,
-        size: LogicalSize,
+        _size: LogicalSize,
     ) {
-        if box_shadow.color().alpha() == 0
-            || (box_shadow.blur() == LogicalLength::zero()
-                && box_shadow.offset_x() == LogicalLength::zero()
-                && box_shadow.offset_y() == LogicalLength::zero())
-        {
+        if box_shadow.color().alpha() == 0 {
             return;
         }
-        // TODO: implement inset shadows and spread for femtovg, using the shape_size,
-        // outer_radius and inner_radius of the BoxShadowOptions. Until then, skip rendering
-        // inset shadows entirely (otherwise they'd render incorrectly as a drop shadow).
-        // Spread is silently ignored.
+        // FemtoVG does not implement inset shadows.
         if box_shadow.inset() {
             return;
         }
@@ -434,14 +424,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             self.scale_factor,
             |shadow_options| {
                 let blur = shadow_options.blur;
-                let width = shadow_options.width;
-                let height = shadow_options.height;
-                let radius = shadow_options.radius;
-
-                let shadow_rect = PhysicalRect::new(
-                    PhysicalPoint::default(),
-                    PhysicalSize::from_lengths(width + blur * 2., height + blur * 2.),
-                );
+                let (background, layout) = shadow_options.source.as_ref()?;
+                if shadow_options.shape_size().is_empty() {
+                    return None;
+                }
+                let fill_paint = self.brush_to_paint(background.clone(), layout.brush_size);
+                let border_paint =
+                    self.brush_to_paint(layout.border_color.clone(), layout.brush_size);
+                let shadow_rect = PhysicalRect::from_size(shadow_options.drop_texture_size());
 
                 let shadow_image_width = shadow_rect.width().ceil() as u32;
                 let shadow_image_height = shadow_rect.height().ceil() as u32;
@@ -468,17 +458,29 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                         femtovg::Color::rgba(0, 0, 0, 0),
                     );
 
-                    let shadow_path = rect_with_radius_to_path(
-                        PhysicalRect::new(
-                            shadow_options.shape_origin(),
-                            PhysicalSize::from_lengths(width, height),
-                        ),
-                        radius,
-                    );
-                    canvas.fill_path(
-                        &shadow_path,
-                        &femtovg::Paint::color(femtovg::Color::rgb(255, 255, 255)),
-                    );
+                    let pad = blur.get() + shadow_options.spread.get();
+                    canvas.translate(pad, pad);
+                    if !layout.background_rect.is_empty()
+                        && let Some(paint) = fill_paint
+                    {
+                        canvas.fill_path(
+                            &rect_with_radius_to_path(
+                                layout.background_rect,
+                                layout.background_radius,
+                            ),
+                            &paint,
+                        );
+                    }
+                    if layout.border_width.get() > 0.
+                        && let Some(mut paint) = border_paint
+                    {
+                        paint.set_line_width(layout.border_width.get());
+                        canvas.stroke_path(
+                            &rect_with_radius_to_path(layout.border_rect, layout.border_radius),
+                            &paint,
+                        );
+                    }
+                    canvas.reset_transform();
                 }
 
                 let shadow_image = if blur.get() > 0. {
@@ -526,18 +528,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             None => return,
         };
 
-        // The knockout sub-path below (see the even-odd fill rule) is only curved when the
-        // shadow has a border radius; a square knockout has no fringe to smooth, so
-        // anti-aliasing - and the triangle strip it costs - is only needed in the rounded case.
-        let shadow_image_paint = shadow_image
-            .as_paint()
-            .with_fill_rule(femtovg::FillRule::EvenOdd)
-            .with_anti_alias(!box_shadow.logical_border_radius().is_zero());
-
-        let blur = box_shadow.blur() * self.scale_factor;
+        let shadow_image_paint = shadow_image.as_paint().with_anti_alias(false);
+        let pad = ((box_shadow.blur() + box_shadow.spread()) * self.scale_factor).get();
         let offset = LogicalPoint::from_lengths(box_shadow.offset_x(), box_shadow.offset_y())
             * self.scale_factor;
-
         let mut shadow_image_rect = femtovg::Path::new();
         shadow_image_rect.rect(
             0.,
@@ -545,36 +539,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             shadow_image_size.width as f32,
             shadow_image_size.height as f32,
         );
-        // CSS box-shadow (which drop-shadow-* follows) never paints underneath the casting
-        // element's own, un-offset shape: cut that area out of the fill so a transparent
-        // fill doesn't get shadow-colored through the middle. The hole is expressed here,
-        // in the texture's own coordinate space (i.e. relative to the translation applied
-        // below), rather than by clearing pixels on the destination canvas, so that content
-        // already painted underneath the shadow (e.g. the window background) is left alone.
-        // See https://github.com/slint-ui/slint/issues/6581.
-        append_rect_with_radius(
-            &mut shadow_image_rect,
-            PhysicalRect::new(
-                PhysicalPoint::new(blur.get() - offset.x, blur.get() - offset.y),
-                size * self.scale_factor,
-            ),
-            box_shadow.logical_border_radius() * self.scale_factor,
-        );
-
         self.canvas.borrow_mut().save_with(|canvas| {
-            canvas.translate(offset.x - blur.get(), offset.y - blur.get());
-            // The knockout sub-path above is only meant to subtract from the outer rect; when
-            // the offset exceeds the blur padding, its bounds spill past the outer rect (e.g.
-            // to negative texture coordinates), where even-odd would otherwise fill a sliver
-            // with an out-of-range, wrapped UV sample. Scissor to the outer rect to keep the
-            // fill confined to the actual texture, matching how layer image paints are bounded
-            // elsewhere in this file.
-            canvas.intersect_scissor(
-                0.,
-                0.,
-                shadow_image_size.width as f32,
-                shadow_image_size.height as f32,
-            );
+            canvas.translate(offset.x - pad, offset.y - pad);
             canvas.fill_path(&shadow_image_rect, &shadow_image_paint);
         });
     }

@@ -19,7 +19,6 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
-use kurbo::Shape as _;
 
 use super::{PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 
@@ -36,11 +35,6 @@ use super::{PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 /// frontend rewrite in vello_cpu 0.1 fixed that (linebender/vello#1701), so
 /// on the versions we build against only the cost remains.
 const UNCLIPPED: kurbo::Rect = kurbo::Rect::new(0., 0., 1e9, 1e9);
-
-/// Flattening tolerance (in physical pixels) used when materializing a `Shape` into a
-/// `BezPath` for the box shadow's donut knockout clip. Matches the default the backends
-/// themselves use for the shapes they flatten internally.
-const CLIP_TOLERANCE: f64 = 0.1;
 
 #[derive(Clone, Copy)]
 struct RenderState {
@@ -507,7 +501,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
     fn draw_box_shadow(
         &mut self,
         box_shadow: Pin<&items::BoxShadow>,
-        _item_rc: &ItemRc,
+        item_rc: &ItemRc,
         size: LogicalSize,
     ) {
         let color = box_shadow.color();
@@ -523,9 +517,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
 
         // anyrender's box shadow takes one uniform corner radius,
         // so approximate per-corner radii with their average
-        // until vello grows support for non-uniform ones (linebender/vello#1245). The
-        // knockout below isn't drawn through that primitive, though, so it keeps using the
-        // real per-corner radii to match the casting element's actual silhouette.
+        // until vello grows support for non-uniform ones (linebender/vello#1245).
         let per_corner_radius = box_shadow.logical_border_radius() * sf;
         let base_radius = (per_corner_radius.top_left
             + per_corner_radius.top_right
@@ -545,87 +537,66 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             return;
         }
 
-        let radius = base_radius + spread;
-
-        let rect = kurbo::Rect::new(
-            offset.x as f64 - spread,
-            offset.y as f64 - spread,
-            offset.x as f64 + phys_size.width as f64 + spread,
-            offset.y as f64 + phys_size.height as f64 + spread,
-        );
-        if rect.is_zero_area() {
+        let Some(options) =
+            i_slint_core::graphics::boxshadowcache::BoxShadowOptions::new(item_rc, box_shadow, sf)
+        else {
+            return;
+        };
+        if options.shape_size().is_empty() {
             return;
         }
-
-        // CSS box-shadow (which drop-shadow-* follows) never paints underneath the casting
-        // element's own, un-offset shape: exclude that area with a clip layer so a
-        // transparent fill doesn't get shadow-colored through the middle. The clip is a
-        // donut - an outer bound with the un-offset, un-spread box shape subtracted - built
-        // from two sub-paths with opposite winding, which is what makes the inner one a hole
-        // rather than just more coverage, under either fill rule. Unlike the averaged radius
-        // used for the shadow's own (uniform-radius-only) blur primitive above, the hole uses
-        // the real per-corner radii, so it matches the casting element's actual silhouette.
-        // See https://github.com/slint-ui/slint/issues/6581.
-        let own_bounds = kurbo::Rect::new(0., 0., phys_size.width as f64, phys_size.height as f64);
-        let own_shape = phys_rect_shape(PhysicalRect::from(phys_size), per_corner_radius);
-
-        // The donut's outer bound must fully contain both the hole and everything the shadow
-        // actually paints, in every case, or the two sub-paths stop forming a clean donut and
-        // shadow leaks through the un-covered part of the hole instead of being clipped by it.
-        //
-        // vello_cpu's blur (see `fill_blurred_rounded_rect`) rasterizes `rect` inflated by
-        // 2.5 standard deviations - and since the standard deviation passed below is half the
-        // CSS blur radius, that inflation is 1.25x `blur`, not 1x. Padding by only `blur`
-        // therefore clipped away the last quarter of the Gaussian falloff on every blurred
-        // shadow drawn through this backend.
-        //
-        // Separately, `own_bounds` sits at the un-offset, un-spread box position, while `rect`
-        // is offset- and spread-adjusted: a large enough offset or a sufficiently negative
-        // spread can push `own_bounds` partly or fully outside `rect`'s padded extent. Union
-        // the two so the outer bound keeps containing the hole in that case too.
-        let blur_pad = 1.25 * blur;
-        let shadow_extent = kurbo::Rect::new(
-            rect.x0 - blur_pad,
-            rect.y0 - blur_pad,
-            rect.x1 + blur_pad,
-            rect.y1 + blur_pad,
-        );
-        let clip_bounds = kurbo::Rect::new(
-            shadow_extent.x0.min(own_bounds.x0),
-            shadow_extent.y0.min(own_bounds.y0),
-            shadow_extent.x1.max(own_bounds.x1),
-            shadow_extent.y1.max(own_bounds.y1),
-        );
-        // The outer bound doesn't need rounding - unlike own_shape, whose rounding is what
-        // makes the hole - and staying sharp means it trivially contains own_shape's rounded
-        // corners too, which a rounded outer bound wouldn't have been guaranteed to do.
-        let mut clip_shape = clip_bounds.to_path(CLIP_TOLERANCE);
-        clip_shape.extend(own_shape.to_path(CLIP_TOLERANCE).reverse_subpaths());
-
-        self.scene.push_clip_layer(self.current_state.transform, &clip_shape);
-
-        if blur == 0. {
-            // No blur: a plain rounded rectangle fill matches exactly.
-            let shape = RectShape::uniform(rect, radius);
-            self.scene.fill(
+        let Some((background, layout)) = options.source else { return };
+        let transform = self.current_state.transform
+            * kurbo::Affine::translate((offset.x as f64, offset.y as f64));
+        let extent = kurbo::Rect::new(
+            -spread,
+            -spread,
+            phys_size.width as f64 + spread,
+            phys_size.height as f64 + spread,
+        )
+        .inflate(2. * blur + 1., 2. * blur + 1.);
+        let filter = (blur > 0.).then(|| {
+            Arc::new(anyrender::Filter::single(anyrender::filters::FilterEffect::blur(
+                (blur / 2.) as f32,
+            )))
+        });
+        self.scene.push_layer(peniko::BlendMode::default(), 1., transform, &extent, filter, None);
+        if !layout.background_rect.is_empty() {
+            self.fill_with_brush(
+                background,
+                layout.brush_size,
+                transform,
                 peniko::Fill::default(),
-                self.current_state.transform,
-                peniko::BrushRef::Solid(to_peniko_color(color)),
-                None,
-                &shape,
-            );
-        } else {
-            // The CSS drop-shadow convention Slint follows: the Gaussian's
-            // standard deviation is half the blur radius.
-            self.scene.draw_box_shadow(
-                self.current_state.transform,
-                rect,
-                to_peniko_color(color),
-                radius,
-                blur / 2.,
+                &phys_rect_shape(layout.background_rect, layout.background_radius),
             );
         }
-
+        if layout.border_width.get() > 0. {
+            self.stroke_with_brush(
+                layout.border_color,
+                layout.brush_size,
+                transform,
+                &kurbo::Stroke::new(layout.border_width.get() as f64).with_join(kurbo::Join::Miter),
+                &phys_rect_shape(layout.border_rect, layout.border_radius),
+            );
+        }
+        // Color the combined source alpha before blurring it, preserving overlap between
+        // partially transparent fill and border paint.
+        self.scene.push_layer(
+            peniko::BlendMode::new(peniko::Mix::Normal, peniko::Compose::SrcIn),
+            1.,
+            transform,
+            &extent,
+            None,
+            None,
+        );
+        self.scene.fill(
+            peniko::Fill::default(),
+            transform,
+            peniko::BrushRef::Solid(to_peniko_color(color)),
+            None,
+            &extent,
+        );
+        self.scene.pop_layer();
         self.scene.pop_layer();
     }
 
