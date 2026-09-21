@@ -205,9 +205,8 @@ renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "dep:i-
 ## Same as `renderer-skia`, but Skia will prefer Vulkan when selecting a backend.
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "dep:i-slint-renderer-skia", "std"]
 
-## Enable Skia software rendering for the Linux KMS backend.
-## Select it with `SLINT_BACKEND=linuxkms-skia-software`.
-## This feature does not change renderer selection on other backends.
+## Same as `renderer-skia`, but compiles only Skia's CPU rendering path, without a GPU renderer.
+## Select it with `SLINT_BACKEND=linuxkms-skia-software` or `SLINT_BACKEND=winit-skia-software`.
 renderer-skia-software = ["i-slint-backend-selector/renderer-skia-software", "std"]
 
 ## Render using the software renderer.

@@ -132,9 +132,9 @@ not with the Slint software renderer.
 
 Enable the Rust `renderer-skia-software` feature together with a Linux KMS backend feature
 to use Skia without a working graphics acceleration driver.
+It compiles Skia's CPU rendering path without a GPU renderer.
 Select `SLINT_BACKEND=linuxkms-skia-software` to request this renderer explicitly,
 including when other Skia renderers are enabled.
-This feature does not add software rendering support to other backends.
 
 ## Display Selection
 
