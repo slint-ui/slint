@@ -9,7 +9,8 @@ use crate::diagnostics::Spanned;
 use crate::expression_tree::*;
 use crate::langtype::{PropertyLookupMode, Type};
 use crate::object_tree::forward_inherited_expression::{
-    ForwardedReferenceCache, InheritedExpression, forward_inherited_expression,
+    ForwardedReferenceCache, InheritedExpression, follow_two_way_bindings,
+    forward_inherited_expression, rebase_expression_to_instance,
 };
 use crate::object_tree::*;
 use crate::symbol_counters::SymbolCounters;
@@ -207,11 +208,17 @@ fn expression_for_property(
         .binding(name)
         .map(|binding| (!binding.two_way_bindings.is_empty(), binding.expression.clone()));
     if let Some((is_two_way_binding, expression)) = local_binding {
-        if is_two_way_binding {
-            return ExpressionForProperty::TwoWayBinding;
-        }
         if !matches!(expression, Expression::Invalid) {
             return ExpressionForProperty::Expression(expression);
+        }
+        if is_two_way_binding {
+            return linked_expression(
+                element,
+                element,
+                name,
+                symbol_counters,
+                forwarded_references,
+            );
         }
     }
 
@@ -219,7 +226,15 @@ fn expression_for_property(
         InheritedExpression::Expression(expression) => {
             return ExpressionForProperty::Expression(expression);
         }
-        InheritedExpression::TwoWayBinding => return ExpressionForProperty::TwoWayBinding,
+        InheritedExpression::TwoWayBinding(base_root) => {
+            return linked_expression(
+                element,
+                &base_root,
+                name,
+                symbol_counters,
+                forwarded_references,
+            );
+        }
         InheritedExpression::Unbound => {}
     }
 
@@ -233,5 +248,40 @@ fn expression_for_property(
             )
         });
 
+    ExpressionForProperty::Expression(expression)
+}
+
+/// The value of a property that a two-way binding on `source` initializes.
+///
+/// The two ends of the binding become one property, so that value is what the other end is bound
+/// to (#1950). `source` is the element the binding is on: the element itself, or the root of a
+/// base component, whose expression is then rebased onto `element`.
+fn linked_expression(
+    element: &ElementRc,
+    source: &ElementRc,
+    name: &str,
+    symbol_counters: &SymbolCounters,
+    forwarded_references: &mut ForwardedReferenceCache,
+) -> ExpressionForProperty {
+    let Some(linked) = follow_two_way_bindings(source, name) else {
+        return ExpressionForProperty::TwoWayBinding;
+    };
+    let ExpressionForProperty::Expression(mut expression) = expression_for_property(
+        &linked.element(),
+        linked.name(),
+        symbol_counters,
+        forwarded_references,
+    ) else {
+        return ExpressionForProperty::TwoWayBinding;
+    };
+    if !Rc::ptr_eq(source, element) {
+        rebase_expression_to_instance(
+            &mut expression,
+            source,
+            element,
+            symbol_counters,
+            forwarded_references,
+        );
+    }
     ExpressionForProperty::Expression(expression)
 }

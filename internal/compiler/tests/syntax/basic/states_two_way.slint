@@ -1,28 +1,81 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// A state resolves a two-way binding to the property it links to, except where
+// `remove_aliases` keeps the two properties apart (#1950).
 
-export Demo := Window {
-//          ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
-    width:  300px;
-    height: 300px;
-    property <bool> toggle;
-    t:= Text {
-        text: "Hello World";
-        font-size: 24px;
-        y <=> x;
-    }
+// config:generate_all_exported_windows
 
-    property <string> some_prop <=> t.text;
+struct Point { x: length, y: length }
+
+global Glob {
+    in-out property <int> value;
+}
+
+export component Demo inherits Window {
+    in property <bool> toggle;
+    in-out property <int> global-value <=> Glob.value;
+    in-out property <Point> point;
+    in-out property <length> point-x <=> point.x;
 
     states [
-        Hello when toggle: {
-            t.y: 100px;
-//          >error{Cannot change the property 'y' in a state because it is initialized with a two-way binding}
-            some_prop: "plop";
-//         <error{Cannot change the property 'y' in a state because it is initialized with a two-way binding}
-//          >^error{Cannot change the property 'some-prop' in a state because it is initialized with a two-way binding}
+        Linked when toggle: {
+            global-value: 3;
+//          >error{Cannot change the property 'global-value' in a state because it is initialized with a two-way binding}
+            point-x: 5px;
+//         <error{Cannot change the property 'global-value' in a state because it is initialized with a two-way binding}
+//          >^error{Cannot change the property 'point-x' in a state because it is initialized with a two-way binding}
         }
-//     <error{Cannot change the property 'some-prop' in a state because it is initialized with a two-way binding}
+//     <error{Cannot change the property 'point-x' in a state because it is initialized with a two-way binding}
+    ]
+}
+
+// Both ends of an alias are one property, so a state can't give them two values.
+export component BothEnds inherits Window {
+    in property <bool> toggle;
+    in-out property <string> linked <=> t.text;
+    t := Text { }
+
+    states [
+        Both when toggle: {
+            linked: "a";
+//          >    <note{'linked' is changed here}
+            t.text: "b";
+//          >    <error{'text' and 'linked' are one property because of a two-way binding, so a state can only change one of them}
+        }
+    ]
+}
+
+// A model row isn't merged either.
+export component ToModelData inherits Window {
+    in property <bool> toggle;
+    in-out property <[string]> model: ["a"];
+
+    for d in model: Rectangle {
+        in-out property <string> entry <=> d;
+        states [
+            Row when toggle: {
+                entry: "changed";
+//              >error{Cannot change the property 'entry' in a state because it is initialized with a two-way binding}
+            }
+//         <error{Cannot change the property 'entry' in a state because it is initialized with a two-way binding}
+        ]
+    }
+}
+
+// A cycle has no end to take the value from.
+export component Cyclic inherits Window {
+    in property <bool> toggle;
+    in-out property <int> a <=> b;
+//                          >    <error{The binding for the property 'a' is part of a binding loop (root.a -> root.b -> root.a)}
+    in-out property <int> b <=> a;
+//                          >    <error{The binding for the property 'b' is part of a binding loop (root.a -> root.b -> root.a)}
+
+    states [
+        Loop when toggle: {
+            a: 1;
+//          >error{Cannot change the property 'a' in a state because it is initialized with a two-way binding}
+        }
+//     <error{Cannot change the property 'a' in a state because it is initialized with a two-way binding}
     ]
 }

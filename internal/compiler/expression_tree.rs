@@ -2207,6 +2207,21 @@ impl BindingExpression {
         in_state_chain.then_some(current)
     }
 
+    /// Where a state changes the property, if a state's change is what this binding is.
+    ///
+    /// Such a binding also carries the value the property has while no state applies, at the end
+    /// of its chain of conditions. Unlike [`Self::state_fallback_mut`], this doesn't say that
+    /// value is still a placeholder: something else may bind the property too.
+    pub fn state_change(&self) -> Option<&SourceLocation> {
+        match self.value_expression() {
+            Expression::Condition {
+                source_location: Some(ConditionLocation::StateChange(location)),
+                ..
+            } => Some(location),
+            _ => None,
+        }
+    }
+
     /// Create an expression binding that simply is a two way binding to the other
     pub fn new_two_way(other: TwoWayBinding) -> Self {
         Self {

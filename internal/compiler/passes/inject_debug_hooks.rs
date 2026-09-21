@@ -328,7 +328,7 @@ fn add_hooks_for_non_existent_bindings(
             forwarded_references,
         ) {
             InheritedExpression::Expression(expression) => expression.ignore_debug_hooks().clone(),
-            InheritedExpression::TwoWayBinding => continue,
+            InheritedExpression::TwoWayBinding(_) => continue,
             InheritedExpression::Unbound => default_expression,
         };
         let id = property_id(element_hash, &name);
