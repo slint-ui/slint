@@ -4628,7 +4628,6 @@ dependencies = [
 name = "i-slint-backend-selector"
 version = "1.18.1"
 dependencies = [
- "cfg-if",
  "cfg_aliases",
  "i-slint-backend-android-activity",
  "i-slint-backend-linuxkms",
@@ -4662,7 +4661,6 @@ dependencies = [
  "arboard",
  "block2 0.6.2",
  "bytemuck",
- "cfg-if",
  "cfg_aliases",
  "futures",
  "glutin",
@@ -4751,7 +4749,6 @@ dependencies = [
  "accesskit",
  "async-channel",
  "bitflags 2.13.2",
- "cfg-if",
  "chrono",
  "clru",
  "const-field-offset",
@@ -4813,7 +4810,6 @@ dependencies = [
 name = "i-slint-renderer-femtovg"
 version = "1.18.1"
 dependencies = [
- "cfg-if",
  "const-field-offset",
  "femtovg",
  "glow 0.18.0",
@@ -4834,7 +4830,6 @@ name = "i-slint-renderer-skia"
 version = "1.18.1"
 dependencies = [
  "bytemuck",
- "cfg-if",
  "cfg_aliases",
  "clru",
  "const-field-offset",
@@ -5666,7 +5661,6 @@ dependencies = [
 name = "mcu-board-support"
 version = "1.18.1"
 dependencies = [
- "cfg-if",
  "derive_more",
  "i-slint-core",
  "i-slint-core-macros",

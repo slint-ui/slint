@@ -642,8 +642,8 @@ impl WinitWindowAdapter {
         // current scheme to this fresh winit window so its CSDs render correctly.
         // Otherwise winit exposes the system Light/Dark setting directly on the
         // new window, and the OS-specific query yields the accent color.
-        cfg_if::cfg_if! {
-            if #[cfg(xdg_desktop_settings)] {
+        core::cfg_select! {
+            xdg_desktop_settings => {
                 let scheme = WindowInner::from_pub(self.window()).context().color_scheme(None);
                 winit_window.set_theme(match scheme {
                     ColorScheme::Dark => Some(winit::window::Theme::Dark),
@@ -651,7 +651,8 @@ impl WinitWindowAdapter {
                     ColorScheme::Unknown => None,
                     _ => None,
                 });
-            } else {
+            }
+            _ => {
                 let initial_scheme = winit_window.theme().map_or(ColorScheme::Unknown, |theme| match theme {
                     winit::window::Theme::Dark => ColorScheme::Dark,
                     winit::window::Theme::Light => ColorScheme::Light,
@@ -1037,8 +1038,8 @@ impl WinitWindowAdapter {
     }
 
     fn query_system_accent_color() -> Color {
-        cfg_if::cfg_if! {
-            if #[cfg(target_os = "windows")] {
+        core::cfg_select! {
+            target_os = "windows" => {
                 use windows::Win32::Graphics::{
                     Dwm::DwmGetColorizationColor,
                     Gdi::{GetSysColor, COLOR_HIGHLIGHT},
@@ -1059,7 +1060,8 @@ impl WinitWindowAdapter {
                 let g = ((colorref >> 8) & 0xFF) as u8;
                 let b = ((colorref >> 16) & 0xFF) as u8;
                 Color::from_argb_u8(255, r, g, b)
-            } else if #[cfg(target_os = "macos")] {
+            }
+            target_os = "macos" => {
                 use objc2::ClassType;
                 use objc2_app_kit::{NSColor, NSColorType};
                 // controlAccentColor is only available on macOS 10.14 and later.
@@ -1076,9 +1078,11 @@ impl WinitWindowAdapter {
                     let a = c.alphaComponent() as f32;
                     Color::from_argb_f32(a, r, g, b)
                 }).unwrap_or_default()
-            } else if #[cfg(target_arch = "wasm32")] {
+            }
+            target_arch = "wasm32" => {
                 query_wasm_accent_color()
-            } else {
+            }
+            _ => {
                 // Linux: set by XDG settings watcher; other platforms: not available
                 Color::default()
             }
