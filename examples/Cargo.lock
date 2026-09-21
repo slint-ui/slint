@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "_7guis"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "chrono",
  "slint",
@@ -472,7 +472,7 @@ dependencies = [
 
 [[package]]
 name = "async-io"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "async-compat",
  "reqwest",
@@ -702,7 +702,7 @@ dependencies = [
 
 [[package]]
 name = "bevy-example"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "async-compat",
  "bevy",
@@ -715,7 +715,7 @@ dependencies = [
 
 [[package]]
 name = "bevy-hosts-slint"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "bevy",
  "bevy_image",
@@ -725,7 +725,7 @@ dependencies = [
 
 [[package]]
 name = "bevy-hosts-slint-gpu"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "bevy",
  "bevy_image",
@@ -2390,7 +2390,7 @@ dependencies = [
 
 [[package]]
 name = "carousel"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "mcu-board-support",
  "slint",
@@ -2399,9 +2399,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.4.6"
+version = "1.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3eb0f42d6c360dc3f8a821f6bf2fdea7f72bfd36b3076eb0e6d1e9e0752fff4"
+checksum = "54413ede23c2daf518f35156dfde027feb2374004d63bd497f983c8db9c0e313"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -3014,7 +3014,7 @@ dependencies = [
 
 [[package]]
 name = "dnd-kanban"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "slint",
  "slint-build",
@@ -3315,7 +3315,7 @@ dependencies = [
 
 [[package]]
 name = "ffmpeg"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -3376,9 +3376,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.12"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e0f1c7c3a72c66fd80abe965175f7523475c0489a87d3ff9d6e8c87d87a9d2d"
+checksum = "ef25905e51abafe4dcea6c15fec58c57b601cdbd0ee53d22ea1d3016c587d39b"
 
 [[package]]
 name = "fixed_decimal"
@@ -3684,7 +3684,7 @@ dependencies = [
 
 [[package]]
 name = "gallery"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "slint",
  "slint-build",
@@ -4256,7 +4256,7 @@ dependencies = [
 
 [[package]]
 name = "gstreamer-player"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "cfg_aliases",
  "futures",
@@ -4547,9 +4547,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-rustls"
-version = "0.27.9"
+version = "0.27.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ca68d021ef39cf6463ab54c1d0f5daf03377b70561305bb89a8f83aab66e0f"
+checksum = "dfa8e654703247911e29c23fbeaa261834bd9bb74efba2f9acddc37bfb127f53"
 dependencies = [
  "http",
  "hyper",
@@ -4587,7 +4587,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-android-activity"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "android-activity 0.5.2",
  "android-activity 0.6.1",
@@ -4602,7 +4602,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-linuxkms"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "bytemuck",
  "calloop 0.14.4",
@@ -4626,7 +4626,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-selector"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "cfg_aliases",
  "i-slint-backend-android-activity",
@@ -4642,7 +4642,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-testing"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "cfg_aliases",
  "i-slint-common",
@@ -4654,7 +4654,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-winit"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "accesskit",
  "accesskit_winit 0.33.2",
@@ -4697,7 +4697,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-common"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "derive_more",
  "fontique 0.11.1",
@@ -4712,7 +4712,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-compiler"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "annotate-snippets",
  "by_address",
@@ -4744,7 +4744,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "accesskit",
  "async-channel",
@@ -4799,7 +4799,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core-macros"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "quote",
  "serde_json",
@@ -4808,7 +4808,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-femtovg"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "const-field-offset",
  "femtovg",
@@ -4827,7 +4827,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-skia"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "bytemuck",
  "cfg_aliases",
@@ -4865,7 +4865,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-software"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "bytemuck",
  "clru",
@@ -5122,7 +5122,7 @@ dependencies = [
 
 [[package]]
 name = "imagefilter"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "image",
  "slint",
@@ -5640,7 +5640,7 @@ dependencies = [
 
 [[package]]
 name = "maps"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "image",
  "reqwest",
@@ -5659,7 +5659,7 @@ dependencies = [
 
 [[package]]
 name = "mcu-board-support"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "derive_more",
  "i-slint-core",
@@ -5697,7 +5697,7 @@ dependencies = [
 
 [[package]]
 name = "memory"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "rand",
  "slint",
@@ -5893,7 +5893,7 @@ dependencies = [
 
 [[package]]
 name = "native-gestures"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "android_logger",
  "slint",
@@ -6565,7 +6565,7 @@ dependencies = [
 
 [[package]]
 name = "opengl_texture"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "glow 0.17.0",
  "slint",
@@ -6575,7 +6575,7 @@ dependencies = [
 
 [[package]]
 name = "opengl_underlay"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "glow 0.17.0",
  "slint",
@@ -6904,7 +6904,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "plotter"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "plotters",
  "slint",
@@ -7175,9 +7175,9 @@ checksum = "019b4b213425016d7d84a153c4c73afb0946fbb4840e4eece7ba8848b9d6da22"
 
 [[package]]
 name = "rand"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
+checksum = "65c9fb96cbc91e3478eaae79a69fcd3f1ae4ad052e471fe6732fff548984b4af"
 dependencies = [
  "chacha20",
  "getrandom 0.4.3",
@@ -7510,7 +7510,7 @@ dependencies = [
 
 [[package]]
 name = "runtime_key_bindings"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "slint",
  "slint-build",
@@ -7924,7 +7924,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slide_puzzle"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "rand",
  "slint",
@@ -7933,7 +7933,7 @@ dependencies = [
 
 [[package]]
 name = "slint"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "const-field-offset",
  "i-slint-backend-android-activity",
@@ -7957,7 +7957,7 @@ dependencies = [
 
 [[package]]
 name = "slint-build"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "derive_more",
  "fontique 0.11.1",
@@ -7968,7 +7968,7 @@ dependencies = [
 
 [[package]]
 name = "slint-macros"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "i-slint-compiler",
  "proc-macro2",
@@ -8117,7 +8117,7 @@ dependencies = [
 
 [[package]]
 name = "speedometer"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
@@ -8341,7 +8341,7 @@ dependencies = [
 
 [[package]]
 name = "system-tray"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "slint",
 ]
@@ -8550,7 +8550,7 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
 name = "todo"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "console_error_panic_hook",
  "i-slint-backend-testing",
@@ -8563,7 +8563,7 @@ dependencies = [
 
 [[package]]
 name = "todo-mvc"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
@@ -9056,7 +9056,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "virtual_keyboard"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "slint",
  "slint-build",
@@ -9714,7 +9714,7 @@ dependencies = [
 
 [[package]]
 name = "wgpu_texture"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "bytemuck",
  "slint",

@@ -39,22 +39,22 @@ keywords = ["gui", "toolkit", "graphics", "design", "ui"]
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
 repository = "https://github.com/slint-ui/slint"
 rust-version = "1.95"
-version = "1.18.1"
+version = "1.19.0"
 
 [workspace.dependencies]
 # These are path dependencies on workspace members. The `version` pin is required
 # by `cargo xtask check_license_headers` (REUSE compliance), which enforces that
 # every slint/i-slint path dependency specifies `version = "=<workspace version>"`.
-slint = { version = "=1.18.1", path = "../api/rs/slint", default-features = false }
-slint-cpp = { version = "=1.18.1", path = "../api/cpp", default-features = false }
-slint-interpreter = { version = "=1.18.1", path = "../internal/interpreter", default-features = false }
-i-slint-backend-qt = { version = "=1.18.1", path = "../internal/backends/qt", default-features = false }
-i-slint-backend-testing = { version = "=1.18.1", path = "../internal/backends/testing", default-features = false }
-i-slint-backend-winit = { version = "=1.18.1", path = "../internal/backends/winit", default-features = false }
-i-slint-compiler = { version = "=1.18.1", path = "../internal/compiler", default-features = false }
-i-slint-core = { version = "=1.18.1", path = "../internal/core", default-features = false }
-i-slint-renderer-anyrender = { version = "=1.18.1", path = "../internal/renderers/anyrender", default-features = false }
-i-slint-renderer-skia = { version = "=1.18.1", path = "../internal/renderers/skia", default-features = false }
+slint = { version = "=1.19.0", path = "../api/rs/slint", default-features = false }
+slint-cpp = { version = "=1.19.0", path = "../api/cpp", default-features = false }
+slint-interpreter = { version = "=1.19.0", path = "../internal/interpreter", default-features = false }
+i-slint-backend-qt = { version = "=1.19.0", path = "../internal/backends/qt", default-features = false }
+i-slint-backend-testing = { version = "=1.19.0", path = "../internal/backends/testing", default-features = false }
+i-slint-backend-winit = { version = "=1.19.0", path = "../internal/backends/winit", default-features = false }
+i-slint-compiler = { version = "=1.19.0", path = "../internal/compiler", default-features = false }
+i-slint-core = { version = "=1.19.0", path = "../internal/core", default-features = false }
+i-slint-renderer-anyrender = { version = "=1.19.0", path = "../internal/renderers/anyrender", default-features = false }
+i-slint-renderer-skia = { version = "=1.19.0", path = "../internal/renderers/skia", default-features = false }
 
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 itertools = { version = "0.15" }
