@@ -95,6 +95,47 @@ fn screenshot_and_remote_conflict() {
     assert!(!out.exists(), "screenshot file should not have been written");
 }
 
+#[cfg(feature = "remote")]
+#[test]
+fn pairing_code_requires_remote() {
+    let file = write_slint("export component Main inherits Window {}");
+    let (code, _stdout, stderr) = run(&["--pairing-code", "4321", file.path().to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("--remote"), "stderr was:\n{stderr}");
+}
+
+#[cfg(feature = "remote")]
+#[test]
+fn no_pairing_requires_remote() {
+    let file = write_slint("export component Main inherits Window {}");
+    let (code, _stdout, stderr) = run(&["--no-pairing", file.path().to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("--remote"), "stderr was:\n{stderr}");
+}
+
+#[cfg(feature = "remote")]
+#[test]
+fn pairing_code_and_no_pairing_conflict() {
+    let (code, _stdout, stderr) = run(&["--remote", "--pairing-code", "4321", "--no-pairing"]);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("cannot be used with '--no-pairing'"), "stderr was:\n{stderr}");
+}
+
+#[cfg(feature = "remote")]
+#[test]
+fn malformed_pairing_codes_are_rejected() {
+    // A pinned code has to have the same shape as a generated one, so the
+    // editor can keep a fixed-length numeric field.
+    for bad in ["", "123", "12345", "12a4", "abcd"] {
+        let (code, _stdout, stderr) = run(&["--remote", "--pairing-code", bad]);
+        assert_eq!(code, 2, "{bad:?} should have been rejected");
+        assert!(
+            stderr.contains("--pairing-code must be exactly 4 digits"),
+            "for {bad:?} stderr was:\n{stderr}"
+        );
+    }
+}
+
 #[test]
 fn auto_reload_and_save_data_conflict() {
     let (code, _stdout, stderr) = run(&["--auto-reload", "--save-data", "x.json", "x.slint"]);

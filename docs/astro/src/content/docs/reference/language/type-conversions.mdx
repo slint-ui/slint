@@ -5,8 +5,6 @@ description: Implicit and explicit conversions between Slint types.
 
 import Link from '@slint/common-files/src/components/Link.astro';
 
-## Type Conversions
-
 Slint supports conversions between different types. Explicit
 conversions are required to make the UI description more robust, but implicit
 conversions are allowed between some types for convenience.
@@ -46,7 +44,7 @@ export component Example {
 }
 ```
 
-### Converting Between Numbers and Strings
+## Converting Between Numbers and Strings
 
 `int` and `float` convert implicitly to `string`.
 To control how many digits appear in the result, use the [`to-fixed()` and `to-precision()`](../../property-types/numeric-types/#to-fixeddigits-int---string)
@@ -57,7 +55,7 @@ For the other direction, convert a `string` to a number with the [`to-float()`](
 and check whether a string holds a valid number with `is-float()`.
 
 All these conversions use the decimal separator of the current locale,
-which is exposed as <Link type="Platform.decimal-separator" label="Platform.decimal-separator" /> and defaults to the dot (`.`).
+which is exposed as <Link type="Platform.decimal-separator" /> and defaults to the dot (`.`).
 For example, in a German locale the decimal separator is the comma (`,`):
 
 -   The `float` value `1.5` converts to the string `"1,5"`.

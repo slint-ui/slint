@@ -30,10 +30,22 @@ pub fn setup(
     to_lsp: &Rc<dyn i_slint_editor_preview::PreviewToLsp>,
 ) {
     api.set_remote_discovered_viewers(ModelRc::new(VecModel::<RemoteViewerInfo>::default()));
+    // The code field is fixed-length, so the UI needs the same number the
+    // viewer generates against.
+    api.set_remote_pairing_code_length(i_slint_live_preview::protocol::pairing::CODE_DIGITS as i32);
 
     let discovery_api_weak = api_weak.clone();
     api.on_remote_start_discovery(move || {
         let api_weak = discovery_api_weak.clone();
+        // Opening the pane shouldn't greet the user with whatever went wrong
+        // last time: a code that expired while they were away is not news on
+        // the way back in. Anything live keeps its state.
+        if let Some(api) = api_weak.upgrade()
+            && api.get_remote_connection_state() == RemoteConnectionState::Failed
+        {
+            api.set_remote_connection_state(RemoteConnectionState::Disconnected);
+            api.set_remote_connection_error(SharedString::default());
+        }
         crate::preview::PREVIEW_STATE.with_borrow(|preview_state| {
             preview_state.remote_discovery.start(api_weak);
         });
@@ -83,6 +95,32 @@ pub fn setup(
     api.on_remote_disconnect(move || {
         if let Err(err) = lsp.send(&PreviewToLspMessage::DisconnectRemote) {
             tracing::error!("Failed sending DisconnectRemote to LSP: {err}");
+        }
+    });
+
+    let lsp = to_lsp.clone();
+    api.on_remote_submit_pairing_code(move |code| {
+        let code = code.trim().to_owned();
+        if !i_slint_live_preview::protocol::pairing::is_valid_code(&code) {
+            tracing::warn!("Ignoring malformed pairing code");
+            return;
+        }
+        if let Err(err) = lsp.send(&PreviewToLspMessage::SubmitPairingCode { code }) {
+            tracing::error!("Failed sending SubmitPairingCode to LSP: {err}");
+        }
+    });
+
+    let lsp = to_lsp.clone();
+    api.on_remote_cancel_pairing(move || {
+        if let Err(err) = lsp.send(&PreviewToLspMessage::CancelPairing) {
+            tracing::error!("Failed sending CancelPairing to LSP: {err}");
+        }
+    });
+
+    let lsp = to_lsp.clone();
+    api.on_remote_accept_unpaired(move || {
+        if let Err(err) = lsp.send(&PreviewToLspMessage::AcceptUnpairedConnection) {
+            tracing::error!("Failed sending AcceptUnpairedConnection to LSP: {err}");
         }
     });
 }

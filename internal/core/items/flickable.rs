@@ -420,6 +420,10 @@ struct FlickableDataInner {
     /// We use two heuristics: First, a timeout after we received a scroll event, and second, if the mouse moves we
     /// stop filtering scroll event until the next scroll event.
     last_scroll_event: Option<(Instant, LogicalPoint)>,
+    /// When a touch pad gesture (wheel events with phases) that went through this Flickable started.
+    /// The first Flickable that can scroll it then takes it over.
+    /// A timestamp, because the Ended phase doesn't reach the children of the Flickable that took it over.
+    wheel_gesture_start: Option<Instant>,
 
     /// Ringbuffer to store the last move deltas. From those data the velocity can be
     /// calculated required for the animation after the release event
@@ -462,8 +466,7 @@ impl FlickableDataInner {
         phase: TouchPhase,
         flick_rc: &ItemRc,
     ) -> InputEventResult {
-        if phase != TouchPhase::Started
-            && delta != LogicalVector::default()
+        if delta != LogicalVector::default()
             && !Self::is_allowed_scroll_direction(flick, delta, flick_rc)
         {
             // Release the capture immediately, this event is not meant for this Flickable.
@@ -472,6 +475,16 @@ impl FlickableDataInner {
             self.running_animation = None;
             self.velocity_rb = VelocityRingBuffer::default();
             return InputEventResult::EventIgnored;
+        }
+
+        if phase == TouchPhase::Moved
+            && self.capture_events.is_none()
+            && self.wheel_gesture_start.take().is_some_and(|start| {
+                crate::animations::current_tick() - start < SCROLL_FILTER_DURATION
+            })
+        {
+            self.velocity_rb = VelocityRingBuffer::default();
+            self.capture_events = Some(CaptureEvents::MouseWheel);
         }
 
         let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
@@ -509,8 +522,6 @@ impl FlickableDataInner {
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Started => {
-                self.velocity_rb = VelocityRingBuffer::default();
-                self.capture_events = Some(CaptureEvents::MouseWheel);
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Moved => {
@@ -696,6 +707,13 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
+                if inner.capture_events.is_none() && !Self::can_pan(flick, flick_rc) {
+                    // There is nothing to pan in either direction: don't hold up the press waiting to see if it turns into a drag,
+                    // just let it fall through to whatever is underneath,
+                    // the same way wheel events already are when the Flickable can't scroll in their direction.
+                    return InputEventFilterResult::ForwardAndIgnore;
+                }
+
                 inner.velocity_rb = VelocityRingBuffer::default();
                 inner.pressed_mouse_state = Some((crate::animations::current_tick(), *position));
                 inner.last_mouse_position = *position;
@@ -738,46 +756,29 @@ impl FlickableData {
             }
             MouseEvent::Wheel { position, delta_x, delta_y, phase } => {
                 match phase {
-                    TouchPhase::Cancelled => {
-                        // Qt sends the Cancelled Phase
-                        // If we recently handled a wheel event, intercept it to prevent children from grabbing
-                        // the scroll event
-                        let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
-                        if FlickableDataInner::is_allowed_scroll_direction(flick, delta, flick_rc)
-                            && inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
-                        {
-                            InputEventFilterResult::Intercept
-                        } else {
-                            inner.last_scroll_event = None;
-                            InputEventFilterResult::ForwardEvent
-                        }
+                    TouchPhase::Started => {
+                        inner.wheel_gesture_start = Some(crate::animations::current_tick())
                     }
-                    TouchPhase::Started => InputEventFilterResult::Intercept,
-                    TouchPhase::Moved => {
-                        if inner.capture_events.is_some() {
-                            InputEventFilterResult::Intercept
-                        } else {
-                            // If we recently handled a wheel event, intercept it to prevent children from grabbing
-                            // the scroll event
-                            let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
-                            if FlickableDataInner::is_allowed_scroll_direction(
-                                flick, delta, flick_rc,
-                            ) && inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
-                            {
-                                InputEventFilterResult::Intercept
-                            } else {
-                                inner.last_scroll_event = None;
-                                InputEventFilterResult::ForwardEvent
-                            }
-                        }
-                    }
-                    TouchPhase::Ended => {
-                        if inner.capture_events.is_some() {
-                            InputEventFilterResult::Intercept
-                        } else {
-                            InputEventFilterResult::ForwardEvent
-                        }
-                    }
+                    TouchPhase::Ended => inner.wheel_gesture_start = None,
+                    TouchPhase::Moved | TouchPhase::Cancelled => {}
+                }
+                if inner.capture_events.is_some() {
+                    InputEventFilterResult::Intercept
+                } else if *phase == TouchPhase::Ended {
+                    InputEventFilterResult::ForwardEvent
+                } else if inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
+                    && FlickableDataInner::is_allowed_scroll_direction(
+                        flick,
+                        Self::scroll_delta(window_adapter, *delta_x, *delta_y),
+                        flick_rc,
+                    )
+                {
+                    // If we recently handled a wheel event, intercept it to prevent children from grabbing
+                    // the scroll event
+                    InputEventFilterResult::Intercept
+                } else {
+                    inner.last_scroll_event = None;
+                    InputEventFilterResult::ForwardEvent
                 }
             }
             // Not the left button
@@ -812,6 +813,21 @@ impl FlickableData {
             && abs(mouse_delta.x_length()) > DISTANCE_THRESHOLD)
             || ((content_height > flickable_height || flick.content_y() != zero)
                 && abs(mouse_delta.y_length()) > DISTANCE_THRESHOLD)
+    }
+
+    /// Whether the flickable has any content to pan in either direction, regardless of mouse movement.
+    /// Used to decide whether a press that no descendant claimed is worth grabbing,
+    /// mirroring the direction check wheel events already get in `handle_mouse_filter`.
+    fn can_pan(flick: Pin<&Flickable>, flick_rc: &ItemRc) -> bool {
+        let flickable_geometry = Flickable::geometry_without_virtual_keyboard(flick_rc);
+        let flickable_width = flickable_geometry.width_length();
+        let flickable_height = flickable_geometry.height_length();
+        let content_width = flick.content_width();
+        let content_height = flick.content_height();
+        let zero = LogicalLength::zero();
+
+        (content_width > flickable_width || flick.content_x() != zero)
+            || (content_height > flickable_height || flick.content_y() != zero)
     }
 
     fn handle_mouse(

@@ -34,7 +34,7 @@ raw = f"https://raw.githubusercontent.com/rust-skia/skia/{tag}"
 
 # Skia's DEPS is Python, listing every checkout its own build expects
 ns = {"Var": lambda name: ns["vars"][name]}
-exec(fetch(f"{raw}/DEPS"), ns)
+exec(fetch(f"{raw}/DEPS"), ns)  # noqa: S102 -- evaluating DEPS is the point
 
 fork = "https://github.com/rust-skia/skia.git"
 sources = [{"type": "git", "url": fork, "tag": tag, "dest": dest}]

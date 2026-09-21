@@ -24,7 +24,7 @@
 // we've updated. See also the target dependency in Cargo.toml.
 #![cfg(any(target_pointer_width = "64", target_arch = "wasm32"))]
 
-use std::cell::{OnceCell, RefCell};
+use std::cell::{Cell, RefCell};
 use std::num::NonZeroU32;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
@@ -38,6 +38,7 @@ use i_slint_core::item_rendering::ItemCache;
 use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
@@ -47,14 +48,22 @@ pub(crate) type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
 pub(crate) type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 pub(crate) type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
 
-// cSpell: ignore imagecache
+// cSpell: ignore imagecache winsys
 mod imagecache;
 mod itemrenderer;
 mod recording;
+#[cfg(feature = "vello")]
+mod vello;
 
 pub use imagecache::{ImageConversionCache, SharedImageData};
 pub use itemrenderer::AnyrenderItemRenderer;
 pub use recording::RecordingWindowRenderer;
+#[cfg(feature = "vello")]
+pub use vello::VelloWindowRenderer;
+
+/// A Slint renderer rendering through vello on WGPU.
+#[cfg(feature = "vello")]
+pub type VelloRenderer = AnyrenderSlintRenderer<VelloWindowRenderer>;
 
 /// Slint-side extension to [`anyrender::WindowRenderer`].
 ///
@@ -66,12 +75,16 @@ pub trait SlintWindowRenderer: anyrender::WindowRenderer {
     /// Render one frame of `surface_size` and present it. The surface starts
     /// out filled with `base_color`; `draw` then paints the window's items on
     /// top of it. Errors from `draw` are propagated to the caller.
+    ///
+    /// Returns what happened to the frame. Anything but
+    /// [`DrawOutcome::Success`] means nothing was presented and `draw` may not
+    /// have run at all, so the caller has to ask for another frame.
     fn slint_render<F>(
         &mut self,
         surface_size: i_slint_core::api::PhysicalSize,
         base_color: peniko::color::AlphaColor<peniko::color::Srgb>,
         draw: F,
-    ) -> Result<(), PlatformError>
+    ) -> Result<DrawOutcome, PlatformError>
     where
         F: FnOnce(&mut Self::ScenePainter<'_>) -> Result<(), PlatformError>;
 
@@ -96,11 +109,20 @@ pub trait SlintWindowRenderer: anyrender::WindowRenderer {
     {
         Err("take_snapshot is not implemented for this anyrender backend".into())
     }
+
+    /// Describes what actually renders, for the `SLINT_DEBUG_PERFORMANCE`
+    /// report. Called once per surface, so it can name the graphics device
+    /// the surface ended up on.
+    fn winsys_info(&self) -> String {
+        "anyrender renderer".into()
+    }
 }
 
-/// Lazily created on the first frame; stays `None` when the
-/// `SLINT_DEBUG_PERFORMANCE` environment variable does not ask for metrics.
-type MaybeMetricsCollector = OnceCell<Option<Rc<RenderingMetricsCollector>>>;
+/// Created on the first frame after a surface becomes available, so that
+/// [`SlintWindowRenderer::winsys_info`] can name the graphics device. Stays
+/// `None` when the `SLINT_DEBUG_PERFORMANCE` environment variable does not
+/// ask for metrics.
+type MaybeMetricsCollector = RefCell<Option<Rc<RenderingMetricsCollector>>>;
 
 /// A Slint [`Renderer`](i_slint_core::renderer::Renderer) that drives any
 /// [`anyrender`] backend implementing [`SlintWindowRenderer`].
@@ -111,6 +133,9 @@ pub struct AnyrenderSlintRenderer<W: SlintWindowRenderer> {
     item_image_cache: ItemCache<Option<SharedImageData>>,
     text_layout_cache: sharedparley::TextLayoutCache,
     rendering_metrics_collector: MaybeMetricsCollector,
+    /// Set when a surface is created, so the collector is rebuilt against the
+    /// device that surface ended up on.
+    rendering_first_time: Cell<bool>,
 }
 
 impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
@@ -122,7 +147,14 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
             item_image_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
+            rendering_first_time: Cell::new(true),
         }
+    }
+
+    /// Call after a surface was created, so that the next frame reports the
+    /// metrics against the device it ended up on.
+    pub fn reset_metrics_collector(&self) {
+        self.rendering_first_time.set(true);
     }
 
     /// Borrow the underlying [`anyrender::WindowRenderer`] mutably.
@@ -130,7 +162,7 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
         self.window_renderer.borrow_mut()
     }
 
-    pub fn render(&self) -> Result<(), PlatformError> {
+    pub fn render(&self) -> Result<DrawOutcome, PlatformError> {
         self.render_with_options(0., (0., 0.), None)
     }
 
@@ -143,21 +175,22 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         post_render_cb: Option<&dyn Fn(&mut dyn i_slint_core::item_rendering::ItemRenderer)>,
-    ) -> Result<(), PlatformError> {
+    ) -> Result<DrawOutcome, PlatformError> {
         let window_adapter = self.try_window_adapter()?;
         let window = window_adapter.window();
         let surface_size = window.size();
 
         if surface_size.width == 0 || surface_size.height == 0 {
-            return Ok(());
+            return Ok(DrawOutcome::Skipped);
         }
 
         let window_inner = WindowInner::from_pub(window);
 
-        let collector = self
-            .rendering_metrics_collector
-            .get_or_init(|| RenderingMetricsCollector::new("anyrender renderer"))
-            .clone();
+        if self.rendering_first_time.take() {
+            *self.rendering_metrics_collector.borrow_mut() =
+                RenderingMetricsCollector::new(&self.window_renderer.borrow().winsys_info());
+        }
+        let collector = self.rendering_metrics_collector.borrow().clone();
 
         self.item_image_cache.clear_cache_if_scale_factor_changed(window);
 

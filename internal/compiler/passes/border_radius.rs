@@ -24,9 +24,13 @@ pub fn handle_border_radius(root_component: &Rc<Component>, _diag: &mut BuildDia
             let bty = if let Some(bty) = elem.borrow().builtin_type() { bty } else { return };
             if bty.name == "Rectangle"
                 && elem.borrow().is_binding_set("border-radius", true)
-                && BORDER_RADIUS_PROPERTIES
-                    .iter()
-                    .any(|property_name| elem.borrow().is_binding_set(property_name, true))
+                && BORDER_RADIUS_PROPERTIES.iter().any(|property_name| {
+                    let elem = elem.borrow();
+                    elem.is_binding_set(property_name, true)
+                        || elem.binding_cell_including_synthetic(property_name).is_some_and(
+                            |binding| binding.borrow().expression.is_synthetic_debug_hook(),
+                        )
+                })
             {
                 let border_radius = NamedReference::new(elem, SmolStr::new_static("border-radius"));
                 for property_name in BORDER_RADIUS_PROPERTIES.iter() {

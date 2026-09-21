@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore nonconstant
+
+// `orientation` picks the tab bar's implementation, a structural choice baked
+// once into a TabWidget subclass's own, already-lowered tab bar when it
+// already declares its own Tab. Overriding it at an instantiation site of
+// such a subclass can't take effect (there's no separate tab bar to pick an
+// implementation for) and used to be silently ignored; it must be rejected.
+// See issue_8394_tabwidget_subclass_orientation_nonconstant.slint for the
+// nonconstant-expression variant.
+
+import { TabWidget } from "std-widgets.slint";
+
+component Xyz inherits TabWidget {
+    Tab { title: "Tab 1"; }
+}
+
+export component Test inherits Window {
+    Xyz {
+        orientation: vertical;
+//                   >       <error{Cannot set orientation when instantiating a TabWidget subclass that already declares its own Tab; declare it on the subclass instead}
+    }
+}

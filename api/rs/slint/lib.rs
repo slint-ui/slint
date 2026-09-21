@@ -206,9 +206,9 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
-#[cfg(not(feature = "compat-1-2"))]
+#[cfg(not(feature = "compat-1-18"))]
 compile_error!(
-    "The feature `compat-1-2` must be enabled to ensure \
+    "The feature `compat-1-18` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
 
@@ -493,7 +493,7 @@ pub mod platform {
 #[i_slint_core_macros::slint_doc]
 /// This module contains some of the enums and structs from the Slint language.
 ///
-/// See also the list of [global structs and enums](slint:StructType)
+/// See also the list of [global structs and enums](slint:struct)
 pub mod language {
     macro_rules! export_builtin_structs {
         ($(
@@ -535,7 +535,7 @@ pub mod android;
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_1_18_0;
+pub struct VersionCheck_1_18_1;
 
 #[cfg(doctest)]
 mod compile_fail_tests;
@@ -722,7 +722,7 @@ pub mod winit_030 {
 
     pub use i_slint_backend_winit::{
         CustomApplicationHandler, EventLoopBuilder, EventResult, SlintEvent, WinitWindowAccessor,
-        winit,
+        invoke_from_active_event_loop, winit,
     };
 
     #[deprecated(note = "Renamed to `EventResult`")]

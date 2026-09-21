@@ -48,6 +48,7 @@ let c = x.get_derived_color();
 assert_eq!((c.red(), c.green(), c.blue(), c.alpha()), (1, 2, 3, 0xff));
 
 // `mirror` tracks `base` until it is set, then holds the set value.
+//#sls.binding.set-replaces
 assert_eq!(x.get_mirror(), 42);
 x.set_mirror(99);
 assert_eq!(x.get_mirror(), 99);

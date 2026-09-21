@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-safeui-desktop"
-version = "1.18.0"
+version = "1.18.1"
 edition = "2024"
 publish = false
 license = "MIT"

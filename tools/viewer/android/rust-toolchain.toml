@@ -1,0 +1,9 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# F-Droid's rebuild of the viewer has to match ours byte for byte, so the
+# compiler is pinned; docs/internal/release.md says when to move it.
+[toolchain]
+channel = "1.98.1"
+targets = ["aarch64-linux-android", "armv7-linux-androideabi", "x86_64-linux-android"]
+profile = "minimal"

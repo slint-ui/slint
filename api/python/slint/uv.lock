@@ -644,7 +644,7 @@ wheels = [
 
 [[package]]
 name = "slint"
-version = "1.18.0b1"
+version = "1.18.1b1"
 source = { editable = "." }
 
 [package.optional-dependencies]
@@ -688,7 +688,7 @@ dev = [
 
 [[package]]
 name = "slint-dev"
-version = "1.18.0b1"
+version = "1.18.1b1"
 source = { directory = "../slint-dev" }
 
 [[package]]

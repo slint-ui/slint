@@ -883,7 +883,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             Value::Void
         }
-        Expression::BinaryExpression { lhs, rhs, op } => {
+        Expression::BinaryExpression { lhs, rhs, op, .. } => {
             let lhs = eval_expression(ctx, lhs);
             // `&&` and `||` must short-circuit, or else rhs side effects
             // would wrongly run.
@@ -915,7 +915,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             Value::Image(image)
         }
-        Expression::Condition { condition, true_expr, false_expr } => {
+        Expression::Condition { condition, true_expr, false_expr, .. } => {
             match eval_expression(ctx, condition) {
                 Value::Bool(true) => eval_expression(ctx, true_expr),
                 Value::Bool(false) => eval_expression(ctx, false_expr),
@@ -1109,10 +1109,10 @@ fn with_layout_item_info(
     repeated_cross_size: Option<&Expression>,
     sub_expression: &Expression,
 ) -> Value {
-    // On a box layout's main-axis pass, re-measure each repeated cell at the
-    // layout's cross size so a height-for-width (resp. width-for-height)
-    // instance measures like an equivalent static cell. On a non-numeric
-    // value, fall back to the plain layout info rather than measuring at 0.
+    // On a vertical box layout's main-axis pass, re-measure each repeated
+    // cell at the layout's content width so a height-for-width instance
+    // measures like an equivalent static cell. On a non-numeric value, fall
+    // back to the plain layout info rather than measuring at 0.
     let cross_size: Option<f32> =
         repeated_cross_size.and_then(|e| eval_expression(ctx, e).try_into().ok());
     let mut cells: Vec<Value> = Vec::with_capacity(elements.len());
@@ -1179,11 +1179,11 @@ fn push_repeater_layout_items(
         struct_value.set_field("constraint".to_string(), info.constraint.into());
         // The cell's `cross-axis-self-alignment` in a box layout; `to_cells`
         // reads it back on the cross-axis solve, an absent field means `auto`.
-        if info.cross_axis_self_alignment != i_slint_core::items::CrossAxisSelfAlignment::Auto {
+        if info.cross_axis_self_alignment != i_slint_core::items::CrossAxisAlignment::Auto {
             struct_value.set_field(
                 "cross-axis-self-alignment".to_string(),
                 Value::EnumerationValue(
-                    "CrossAxisSelfAlignment".to_string(),
+                    "CrossAxisAlignment".to_string(),
                     info.cross_axis_self_alignment.to_string(),
                 ),
             );
@@ -1205,11 +1205,8 @@ fn push_repeater_layout_items(
                     (Some(cs), i_slint_core::items::Orientation::Vertical) => {
                         RepeatedItemTree::layout_item_info_at_cross_width(instance.as_pin_ref(), cs)
                     }
-                    (Some(cs), i_slint_core::items::Orientation::Horizontal) => {
-                        RepeatedItemTree::layout_item_info_at_cross_height(
-                            instance.as_pin_ref(),
-                            cs,
-                        )
+                    (Some(_), i_slint_core::items::Orientation::Horizontal) => {
+                        unreachable!("a horizontal main pass forwards no cross size")
                     }
                     // A grid re-measures each instance at its own solved
                     // column width instead of one size shared by all cells.
@@ -1428,7 +1425,7 @@ fn flex_props_to_value(props: i_slint_core::layout::FlexItemProps) -> Value {
     s.set_field(
         "cross-axis-self-alignment".to_string(),
         Value::EnumerationValue(
-            "CrossAxisSelfAlignment".to_string(),
+            "CrossAxisAlignment".to_string(),
             format!("{:?}", props.cross_axis_self_alignment).to_lowercase(),
         ),
     );
@@ -1954,6 +1951,9 @@ fn call_builtin_function(
         BuiltinFunction::ToStringUnlocalized => {
             let n = to_num(ctx, &arguments[0]);
             Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
+        }
+        BuiltinFunction::DefaultWindowTitle => {
+            Value::String(i_slint_core::window::default_window_title())
         }
         BuiltinFunction::DecimalSeparator => Value::String(
             find_window_adapter(ctx)

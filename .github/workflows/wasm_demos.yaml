@@ -21,6 +21,10 @@ jobs:
             # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
             CARGO_PROFILE_RELEASE_LTO: "fat"
             CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+            # Minimal slint feature set for the web: winit backend + femtovg renderer.
+            # This omits the software renderer (~450 KB), which is only used as a
+            # fallback when WebGL is unavailable.
+            WASM_SLINT_FEATURES: slint/backend-winit,slint/renderer-femtovg
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v7
@@ -33,36 +37,35 @@ jobs:
             - name: Printerdemo WASM build
               run: |
                   sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build ${{ inputs.build_artifacts && '--release' || '--dev' }} --target web
+                  wasm-pack build ${{ inputs.build_artifacts && '--release' || '--dev' }} --target web --no-default-features --features $WASM_SLINT_FEATURES
               working-directory:  demos/printerdemo/rust
             - name: Gallery WASM build
               if: ${{ inputs.build_artifacts }}
               run: |
                   sed -i "s/#wasm# //" Cargo.toml
-                  export SLINT_STYLE=fluent && wasm-pack build --release  --out-dir pkg/fluent --target web
-                  export SLINT_STYLE=material && wasm-pack build --release --out-dir pkg/material --target web
-                  export SLINT_STYLE=cupertino && wasm-pack build --release --out-dir pkg/cupertino --target web
-                  export SLINT_STYLE=cosmic && wasm-pack build --release --out-dir pkg/cosmic --target web
+                  for style in fluent material cupertino cosmic; do
+                      SLINT_STYLE=$style wasm-pack build --release --out-dir pkg/$style --target web --no-default-features --features $WASM_SLINT_FEATURES
+                  done
               working-directory: examples/gallery
             - name: Remaining wasm demos
               if: ${{ inputs.build_artifacts }}
               run: |
-                  for demo in demos/printerdemo/rust demos/usecases/rust examples/todo/rust examples/todo-mvc/rust examples/carousel/rust examples/slide_puzzle examples/memory examples/dnd-kanban examples/imagefilter/rust examples/plotter examples/opengl_underlay demos/home-automation/rust examples/speedometer/rust; do
+                  for demo in demos/usecases/rust examples/todo/rust examples/todo-mvc/rust examples/carousel/rust examples/slide_puzzle examples/memory examples/dnd-kanban examples/imagefilter/rust examples/plotter examples/opengl_underlay demos/home-automation/rust examples/speedometer/rust; do
                       pushd $demo
                       sed -i "s/#wasm# //" Cargo.toml
-                      wasm-pack build ${{ inputs.build_artifacts && '--release' || '--dev' }} --target web
+                      wasm-pack build ${{ inputs.build_artifacts && '--release' || '--dev' }} --target web --no-default-features --features $WASM_SLINT_FEATURES
                       popd
                   done
             - name: Energy Monitor example WASM build
               if: ${{ inputs.build_artifacts }}
               run: |
                   sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build --release --target web --no-default-features --features slint/default,chrono
+                  wasm-pack build --release --target web --no-default-features --features $WASM_SLINT_FEATURES,chrono
               working-directory: demos/energy-monitor
             - name: Weather Demo example WASM build
               run: |
                   sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build --release --target web --no-default-features --features slint/default,chrono
+                  wasm-pack build --release --target web --no-default-features --features $WASM_SLINT_FEATURES,chrono
               working-directory: demos/weather-demo
             - name: "Upload Demo Artifacts"
               if: ${{ inputs.build_artifacts }}

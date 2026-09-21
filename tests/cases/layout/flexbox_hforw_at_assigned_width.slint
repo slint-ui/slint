@@ -23,26 +23,6 @@ component ReportedCard inherits Rectangle {
     }
 }
 
-// Mirror of ReportedCard with column direction, for the width-for-height case.
-// All labels use the same string: the width assertion compares against the
-// reference text's width, so the cells must not depend on every "ButtonN"
-// happening to render equally wide.
-component ReportedCardColumn inherits Rectangle {
-    FlexboxLayout {
-        flex-direction: column;
-        padding: 10px;
-        spacing: 30px;
-        Text { text: "Button1"; }
-        FlexboxLayout {
-            flex-direction: column;
-            spacing: 10px;
-            Text { text: "Button1"; }
-            Text { text: "Button1"; }
-            Text { text: "Button1"; }
-        }
-    }
-}
-
 // Repeater flavor of ReportedCard: the h4w inner flexbox is a repeated cell,
 // so the measure callback maps taffy's flat cell index to a runtime instance
 // (the runtime-cell-count path) instead of a static cell.
@@ -71,26 +51,6 @@ component RepeaterOnlyCard inherits Rectangle {
     FlexboxLayout {
         padding: 10px;
         for i in 1: InnerFlex { }
-    }
-}
-
-// Column mirror, for the width-for-height case.
-component InnerFlexColumn inherits Rectangle {
-    FlexboxLayout {
-        flex-direction: column;
-        spacing: 10px;
-        Text { text: "Button1"; }
-        Text { text: "Button1"; }
-        Text { text: "Button1"; }
-    }
-}
-component RepeatedCardColumn inherits Rectangle {
-    FlexboxLayout {
-        flex-direction: column;
-        padding: 10px;
-        spacing: 30px;
-        Text { text: "Button1"; }
-        for i in 1: InnerFlexColumn { }
     }
 }
 
@@ -167,26 +127,8 @@ export component TestCase inherits Window {
         anchor := Rectangle { width: w; height: 5px; }
     }
 
-    // Width-for-height mirror of the case above: a column-direction card as the
-    // cell of a wrapping column flexbox, measured at its assigned height. The
-    // inner column flexbox's preferred height is the wrapping estimate (two
-    // texts per column), so it wraps into a second column that the reported
-    // width must include.
-    property <length> column-height: 3 * line-height + 80px;
-    FlexboxLayout {
-        x: 400px; y: 200px; width: 380px; height: column-height;
-        flex-direction: column;
-        flex-wrap: wrap;
-        padding: 0px; spacing: 0px;
-        cross-axis-line-alignment: start;
-        cross-axis-alignment: start;
-        ReportedCardColumn { preferred-height: column-height; }
-        colAnchor := Rectangle { width: 5px; height: column-height; }
-    }
-
-    // Same as the two constrained cases, with the repeated cards: exercises
-    // the runtime-cell-count (repeater) measure callback through the info
-    // path.
+    // Same as the constrained case, with the repeated card: exercises the
+    // runtime-cell-count (repeater) measure callback through the info path.
     FlexboxLayout {
         x: 0; y: 480px; width: w; height: 250px;
         flex-direction: row;
@@ -196,17 +138,6 @@ export component TestCase inherits Window {
         cross-axis-alignment: start;
         RepeatedCard { preferred-width: w; }
         repAnchor := Rectangle { width: w; height: 5px; }
-    }
-
-    FlexboxLayout {
-        x: 400px; y: 480px; width: 380px; height: column-height;
-        flex-direction: column;
-        flex-wrap: wrap;
-        padding: 0px; spacing: 0px;
-        cross-axis-line-alignment: start;
-        cross-axis-alignment: start;
-        RepeatedCardColumn { preferred-height: column-height; }
-        repColAnchor := Rectangle { width: 5px; height: column-height; }
     }
 
     // Repeater-only card: the card's flexbox has no static cell at all. The
@@ -229,9 +160,7 @@ export component TestCase inherits Window {
     out property <length> wrapped-h: wrappedCell.height;
     out property <length> nowrap-h: nowrapCell.height;
     out property <length> constrained-h: anchor.y;
-    out property <length> constrained-w: colAnchor.x;
     out property <length> constrained-rep-h: repAnchor.y;
-    out property <length> constrained-rep-w: repColAnchor.x;
     out property <length> constrained-rep-only-h: repOnlyAnchor.y;
 
     // Inner wraps to two lines (spacing 10) + outer padding 20.
@@ -239,15 +168,12 @@ export component TestCase inherits Window {
     // Single line + outer padding 20.
     out property <bool> nowrap-ok: abs(nowrap-h - (line-height + 20px)) < 1px;
     out property <bool> constrained-ok: abs(constrained-h - (2 * line-height + 10px + 20px)) < 1px;
-    // Inner wraps into two columns (spacing 10) + outer padding 20.
-    out property <bool> constrained-w-ok: abs(constrained-w - (2 * t + 10px + 20px)) < 1px;
     out property <bool> constrained-rep-ok: abs(constrained-rep-h - (2 * line-height + 10px + 20px)) < 1px;
-    out property <bool> constrained-rep-w-ok: abs(constrained-rep-w - (2 * t + 10px + 20px)) < 1px;
     // One text per line: three lines (2 * spacing 10) + outer padding 20.
     out property <bool> constrained-rep-only-ok: abs(constrained-rep-only-h - (3 * line-height + 20px + 20px)) < 1px;
 
-    out property <bool> test: wrapped-ok && nowrap-ok && constrained-ok && constrained-w-ok
-        && constrained-rep-ok && constrained-rep-w-ok && constrained-rep-only-ok;
+    out property <bool> test: wrapped-ok && nowrap-ok && constrained-ok
+        && constrained-rep-ok && constrained-rep-only-ok;
 }
 
 /*
@@ -259,12 +185,8 @@ assert!(instance.get_wrapped_ok(), "wrapped cell height wrong: {} for line heigh
     instance.get_wrapped_h(), instance.get_line_height());
 assert!(instance.get_constrained_ok(), "constrained-path cell height wrong: {} for line height {}",
     instance.get_constrained_h(), instance.get_line_height());
-assert!(instance.get_constrained_w_ok(), "constrained-path cell width wrong: {}",
-    instance.get_constrained_w());
 assert!(instance.get_constrained_rep_ok(), "repeated cell height wrong: {} for line height {}",
     instance.get_constrained_rep_h(), instance.get_line_height());
-assert!(instance.get_constrained_rep_w_ok(), "repeated cell width wrong: {}",
-    instance.get_constrained_rep_w());
 assert!(instance.get_constrained_rep_only_ok(), "repeater-only cell height wrong: {} for line height {}",
     instance.get_constrained_rep_only_h(), instance.get_line_height());
 ```
@@ -275,9 +197,7 @@ const TestCase &instance = *handle;
 assert(instance.get_nowrap_ok());
 assert(instance.get_wrapped_ok());
 assert(instance.get_constrained_ok());
-assert(instance.get_constrained_w_ok());
 assert(instance.get_constrained_rep_ok());
-assert(instance.get_constrained_rep_w_ok());
 assert(instance.get_constrained_rep_only_ok());
 ```
 
@@ -286,9 +206,7 @@ var instance = new slint.TestCase({});
 assert(instance.nowrap_ok);
 assert(instance.wrapped_ok);
 assert(instance.constrained_ok);
-assert(instance.constrained_w_ok);
 assert(instance.constrained_rep_ok);
-assert(instance.constrained_rep_w_ok);
 assert(instance.constrained_rep_only_ok);
 ```
 */

@@ -57,6 +57,10 @@ fn generate_third_party_licenses() {
     let workspace_dir = manifest_dir.ancestors().nth(2).unwrap().to_path_buf();
     let in_workspace = workspace_dir.join("xtask/Cargo.toml").exists();
 
+    // The generator's inputs: the dependency set and the license allow list.
+    println!("cargo:rerun-if-changed={}", workspace_dir.join("Cargo.lock").display());
+    println!("cargo:rerun-if-changed={}", manifest_dir.join("Cargo.toml").display());
+
     if !wanted || !in_workspace {
         if wanted {
             println!(

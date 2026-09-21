@@ -72,8 +72,8 @@ Once all tests are passing this list can be removed.
   - [x] Empty expression
   - [ ] Empty expression with semi-colon
 
-## Contributor License Agreement
+## License
 
-The same license agreement exists for the tree-sitter parser as the rest of the repository
+Contributions to the tree-sitter parser are licensed under the same terms as the rest of the repository.
 
-See: [Contributor License Agreement (CLA)](https://cla-assistant.io/slint-ui/slint)
+See the [main CONTRIBUTING.md](https://github.com/slint-ui/slint/blob/master/CONTRIBUTING.md#license) for details.

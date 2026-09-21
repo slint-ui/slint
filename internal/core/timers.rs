@@ -296,8 +296,8 @@ struct ActiveTimer {
 pub struct TimerList {
     timers: slab::Slab<TimerData>,
     active_timers: Vec<ActiveTimer>,
-    /// If a callback is currently running, this is the id of the currently running callback
-    callback_active: Option<usize>,
+    /// Set while [`TimerList::activate_expired`] walks the timers, so a re-entrant call skips it.
+    activating: bool,
     /// This list's index in [`ThreadTimers::lists`], assigned the first time a timer id naming it
     /// is handed out. Cached here so encoding an id doesn't have to search the registry.
     handle: Option<usize>,
@@ -305,6 +305,15 @@ pub struct TimerList {
     /// is later compared against. `None` until a context takes the list over — the origin is
     /// the platform's start time, and without a platform there is no origin.
     context: Option<crate::SlintContextWeak>,
+}
+
+/// Clears [`TimerList::activating`] on the way out, including on panic.
+struct ActivationGuard<'a>(&'a RefCell<TimerList>);
+
+impl Drop for ActivationGuard<'_> {
+    fn drop(&mut self) {
+        self.0.borrow_mut().activating = false;
+    }
 }
 
 impl TimerList {
@@ -315,7 +324,7 @@ impl TimerList {
     }
 
     /// Activates any expired timers by calling their callback function. Returns true if any timers were
-    /// activated; false otherwise.
+    /// activated; false if none was due, or if this is a re-entrant call.
     pub fn maybe_activate_timers(now: Instant) -> bool {
         current_timers().is_some_and(|timers| Self::activate_expired(&timers, now))
     }
@@ -337,7 +346,7 @@ impl TimerList {
     }
 
     /// Activates the timers in `timers` that have expired by `now`. Returns true if any
-    /// timer was activated; false otherwise.
+    /// timer was activated; false if none was due, or if this is a re-entrant call.
     ///
     /// Takes the list by `&RefCell` rather than `&mut self` because the borrow has to be
     /// released around every callback: a callback may start, stop or drop timers.
@@ -347,7 +356,13 @@ impl TimerList {
             return false;
         }
 
-        assert!(timers.borrow().callback_active.is_none(), "Recursion in timer code");
+        // A custom event loop may re-enter here from its `request_redraw()` (#6332).
+        // Dropping a callback runs user code too, so the whole walk is guarded.
+        if timers.borrow().activating {
+            return false;
+        }
+        timers.borrow_mut().activating = true;
+        let _activating = ActivationGuard(timers);
 
         // Re-register all timers that expired but are repeating, as well as all that haven't expired yet. This is
         // done in one shot to ensure a consistent state by the time the callbacks are invoked.
@@ -390,8 +405,6 @@ impl TimerList {
             let mut callback = {
                 let mut timers = timers.borrow_mut();
 
-                timers.callback_active = Some(active_timer.id);
-
                 // have to release the borrow on `timers` before invoking the callback,
                 // so here we temporarily move the callback out of its permanent place
                 core::mem::replace(
@@ -405,7 +418,6 @@ impl TimerList {
                 CallbackVariant::MultiFire(ref mut cb) => cb(),
                 CallbackVariant::SingleShot(cb) => {
                     cb();
-                    timers.borrow_mut().callback_active = None;
                     timers.borrow_mut().timers.remove(active_timer.id);
                     continue;
                 }
@@ -421,7 +433,6 @@ impl TimerList {
                 *callback_register = callback;
             }
 
-            timers.callback_active = None;
             let t = &mut timers.timers[active_timer.id];
             if t.removed {
                 timers.timers.remove(active_timer.id);
@@ -967,6 +978,26 @@ assert_eq!(state.borrow().variable2, 2);
  */
 #[cfg(doctest)]
 const _BUG3019: () = ();
+
+/**
+ * Test that re-entering the timer machinery from a timer callback is ignored rather than fatal.
+```rust
+i_slint_backend_testing::init_no_event_loop();
+use slint::Timer;
+use std::{rc::Rc, cell::Cell, time::Duration};
+let called = Rc::new(Cell::new(0));
+let called_ = called.clone();
+// A single shot timer isn't re-registered, so the nested call reaches the guard.
+Timer::single_shot(Duration::from_millis(100), move || {
+    called_.set(called_.get() + 1);
+    slint::platform::update_timers_and_animations();
+});
+i_slint_backend_testing::mock_elapsed_time(150);
+assert_eq!(called.get(), 1);
+```
+ */
+#[cfg(doctest)]
+const _RECURSIVE_UPDATE_TIMERS: () = ();
 
 /**
  * Test that starting a singleshot timer works

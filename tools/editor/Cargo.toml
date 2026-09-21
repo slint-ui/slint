@@ -30,13 +30,14 @@ i-slint-backend-selector = { workspace = true }
 i-slint-common = { workspace = true }
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
 i-slint-core = { workspace = true, features = ["std"] }
-i-slint-editor-preview = { workspace = true, features = ["preview-engine", "preview-builtin"] }
+i-slint-editor-preview = { workspace = true, features = ["preview-engine", "preview-builtin", "preview-process"] }
 i-slint-live-preview = { workspace = true, features = ["protocol", "file-watcher"] }
 
 by_address = { workspace = true }
 clap = { workspace = true }
 clru = { workspace = true }
 crossbeam-channel = "0.5"
+futures-util = "0.3.32"
 itertools = { workspace = true }
 lsp-types = { workspace = true }
 nucleo-matcher = "0.3.1"
@@ -46,6 +47,7 @@ slint = { workspace = true, features = ["compat-1-2", "backend-winit", "renderer
 slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"] }
 smol_str = { workspace = true }
 tokio = { version = "1.50.0", features = ["macros", "net", "rt", "sync", "time"] }
+tr = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
@@ -61,7 +63,7 @@ tempfile = "3"
 # Used by the visual editor for the auto-updater.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSToolbar", "NSView", "NSWindow"] }
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSBundle", "NSError"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSBundle", "NSError", "NSDate"] }
 objc2 = "0.6"
 raw-window-handle = "0.6"
 

@@ -121,7 +121,7 @@ fn simplify_binary_expression(
     ga: &GlobalAnalysis,
     cache: &mut ConstPropCache,
 ) -> bool {
-    let Expression::BinaryExpression { lhs, op, rhs } = expr else { unreachable!() };
+    let Expression::BinaryExpression { lhs, op, rhs, .. } = expr else { unreachable!() };
     let mut can_inline = simplify_expression(lhs, ga, cache);
     can_inline &= simplify_expression(rhs, ga, cache);
 
@@ -351,7 +351,9 @@ fn simplify_condition(
     ga: &GlobalAnalysis,
     cache: &mut ConstPropCache,
 ) -> bool {
-    let Expression::Condition { condition, true_expr, false_expr } = expr else { unreachable!() };
+    let Expression::Condition { condition, true_expr, false_expr, .. } = expr else {
+        unreachable!()
+    };
     let mut can_inline = simplify_expression(condition, ga, cache);
     can_inline &= match &**condition {
         Expression::BoolLiteral(true) => {
@@ -598,11 +600,12 @@ export component Foo {
     match &out3_binding {
         // We have a code block because the first entry stores the value of `input` in a local variable
         Expression::CodeBlock(stmts) => match &stmts[1] {
-            Expression::Condition { condition: _, true_expr: _, false_expr } => match &**false_expr
-            {
-                Expression::BoolLiteral(b) => assert!(*b),
-                _ => panic!("false_expr not optimized in : {out3_binding:?}"),
-            },
+            Expression::Condition { condition: _, true_expr: _, false_expr, .. } => {
+                match &**false_expr {
+                    Expression::BoolLiteral(b) => assert!(*b),
+                    _ => panic!("false_expr not optimized in : {out3_binding:?}"),
+                }
+            }
             _ => panic!("not condition:  {out3_binding:?}"),
         },
         _ => panic!("not code block: {out3_binding:?}"),
@@ -680,7 +683,7 @@ fn test_propagate_font_size() {
     fn assert_expr_is_mul(e: &Expression, l: f64, r: f64) {
         assert!(
             matches!(e, Expression::Cast { from, .. }
-                        if matches!(from.as_ref(), Expression::BinaryExpression { lhs, rhs, op: '*'}
+                        if matches!(from.as_ref(), Expression::BinaryExpression { lhs, rhs, op: '*', ..}
                         if matches!((lhs.as_ref(), rhs.as_ref()), (Expression::NumberLiteral(lhs, _), Expression::NumberLiteral(rhs, _)) if *lhs == l && *rhs == r ))),
             "Expression {e:?} is not a {l} * {r} expected"
         );
@@ -894,6 +897,7 @@ fn test_fold_layout_info_merge() {
         lhs: Box::new(info(10., 200., 50., 1.)),
         rhs: Box::new(info(20., 100., 30., 0.)),
         op: '+',
+        source_location: None,
     };
     fold_const_expression(&mut expr);
     // The merge takes the max of the lower bounds and the preferred size,
@@ -921,6 +925,7 @@ fn test_fold_layout_info_merge() {
         lhs: Box::new(info(10., 200., 50., 1.)),
         rhs: Box::new(non_literal),
         op: '+',
+        source_location: None,
     };
     fold_const_expression(&mut expr);
     assert!(matches!(expr, Expression::BinaryExpression { .. }), "{expr:?}");

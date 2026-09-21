@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { test, expect, vi, beforeEach } from "vitest";
+import { test, expect, vi } from "vitest";
 import { exportFigmaVariablesToSeparateFiles } from "../backend/utils/export-variables";
 
 // Mock the global figma object with proper variable structure
@@ -15,10 +15,6 @@ const mockFigma = {
 
 // Set up global figma object
 (global as any).figma = mockFigma;
-
-beforeEach(() => {
-    vi.clearAllMocks();
-});
 
 test("exports single collection with basic variables", async () => {
     // Mock collection and variables

@@ -1,34 +1,199 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style, PaintStyle, Metrics, Typography, Colors, DialogStyle } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
-import { Api, EditorSurfaceMode } from "api.slint";
+import { Api, EditorSurfaceMode, Hover } from "api.slint";
+import { InspectorFillPicker } from "components/inspector/fill-picker.slint";
+import { FillSession } from "components/inspector/fill-session.slint";
+export { FillSessionRequest, FillSessionTarget } from "components/inspector/fill-session.slint";
 import { Project } from "project.slint";
+import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
-import { AppState, PaletteComponentKind, SidebarToggleButton, StudioTheme } from "components/common.slint";
+import { AppState, ElementKind, SidebarToggleButton } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
+import { GradientOverlay } from "components/gradient-overlay.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { EditorTopBar } from "components/top-bar.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
 import { LeftPane } from "components/left-pane.slint";
-import { EditorMetrics } from "components/common.slint";
+import { EditorWindow } from "components/common.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
-export { Api, Project }
+export { Api, Hover, Preview, Project, FillSession }
+export { ElementVisuals } from "components/element-presentation.slint";
+export { EditorCursors, EditorWindow } from "components/common.slint";
+
+component NewFileErrorPopup inherits PopupWindow {
+    in property <DialogStyle> style: Style.dialog;
+    in property <string> error;
+    callback dismissed();
+
+    width: root.style.width;
+    height: root.style.height;
+    close-policy: no-auto-close;
+
+    Rectangle {
+        border-width: Metrics.border-width;
+        border-color: root.style.border;
+        border-radius: Metrics.radius-large;
+        background: root.style.background;
+        clip: true;
+        drop-shadow-blur: root.style.shadow.blur;
+        drop-shadow-offset-y: root.style.shadow.offset-y;
+        drop-shadow-color: root.style.shadow.color;
+
+        VerticalLayout {
+            height: parent.height;
+
+            Rectangle {
+                vertical-stretch: 1;
+
+                VerticalLayout {
+                    padding: root.style.padding;
+                    spacing: Metrics.space-medium;
+
+                    HorizontalLayout {
+                        spacing: Metrics.space-medium;
+                        cross-axis-alignment: start;
+
+                        Rectangle {
+                            width: root.style.error.icon-size;
+                            height: root.style.error.icon-size;
+                            border-radius: root.style.error.icon-size / 2;
+                            background: root.style.error.icon-background;
+
+                            Text {
+                                text: "×";
+                                color: root.style.error.icon-foreground;
+                                font-size: root.style.error.icon-text.size;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: Metrics.space-small;
+
+                            Text {
+                                text: @tr("Couldn’t create file");
+                                color: Colors.foreground;
+                                font-size: Typography.heading.size;
+                                font-weight: Typography.heading.weight;
+                            }
+
+                            Text {
+                                text: @tr("A new Slint file couldn’t be created in the project root.");
+                                color: Colors.muted;
+                                font-size: Typography.body.size;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: root.style.error.height;
+                        border-width: Metrics.border-width;
+                        border-color: root.style.error.border;
+                        border-radius: root.style.error.radius;
+                        background: root.style.error.background;
+
+                        Text {
+                            x: root.style.error.inset;
+                            width: parent.width - 2 * root.style.error.inset;
+                            text: root.error;
+                            color: root.style.error.foreground;
+                            font-size: Typography.caption.size;
+                            wrap: word-wrap;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                height: root.style.footer-height;
+                vertical-stretch: 0;
+                background: root.style.footer-background;
+
+                Rectangle {
+                    height: Metrics.border-width;
+                    y: 0px;
+                    background: root.style.footer-border;
+                }
+
+                Rectangle {
+                    private property <PaintStyle> paint: close-touch.pressed ? root.style.close-button.appearance.pressed
+                        : close-touch.has-hover ? root.style.close-button.appearance.hover : root.style.close-button.appearance.normal;
+                    width: bt.width + 2 * root.style.close-button.padding-inline;
+                    height: root.style.close-button.height;
+                    x: parent.width - self.width - Metrics.space-large;
+                    y: (parent.height - self.height) / 2;
+                    border-width: Metrics.border-width;
+                    border-color: self.paint.border;
+                    border-radius: root.style.close-button.radius;
+                    background: self.paint.background;
+
+                    bt := Text {
+                        text: @tr("Close");
+                        color: parent.paint.foreground;
+                        font-size: root.style.close-button.text.size;
+                        font-weight: root.style.close-button.text.weight;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    close-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        accessible-role: AccessibleRole.button;
+                        accessible-label: @tr("Close");
+                        clicked => {
+                            root.close();
+                            root.dismissed();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 export component EditorUi inherits Window {
-    preferred-width: 1360px;
-    preferred-height: 860px;
-    min-width: 1040px;
-    min-height: 680px;
+    private property <bool> palette-drag-in-outline: false;
+    preferred-width: Style.shell.width;
+    preferred-height: Style.shell.height;
+    min-width: Style.shell.min-width;
+    min-height: Style.shell.min-height;
     title: "Slint Visual Editor";
-    background: StudioTheme.app-bg;
-    default-font-family: "Inter";
+    background: Colors.background;
+    default-font-family: Typography.family;
+
+    init => {
+        EditorWindow.width = root.width;
+        EditorWindow.height = root.height;
+    }
+    changed width => { EditorWindow.width = root.width; }
+    changed height => { EditorWindow.height = root.height; }
 
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
+    in property <length> elements-pane-height: 0px;
+    in property <length> outline-pane-height: 0px;
+    callback elements-pane-resized(length);
+    callback outline-pane-resized(length);
+    callback elements-pane-reset();
+    callback outline-pane-reset();
+    callback perform-native-window-zoom() -> bool;
+    private property <string> new-file-error;
+
+    function create-new-slint-file() {
+        root.new-file-error = Project.create-new-slint-file();
+        if root.new-file-error != "" {
+            new-file-error-popup.show();
+        }
+    }
 
     function open-startup-wizard() {
         Api.open-startup-wizard();
@@ -41,10 +206,48 @@ export component EditorUi inherits Window {
     function open-project() {
         root.close-startup-wizard();
     }
+    function apply-history(redo: bool) {
+        FillSession.apply-history(redo);
+    }
+
+    function toggle-maximized() {
+        if !root.perform-native-window-zoom() {
+            root.maximized = !root.maximized;
+        }
+    }
+
+    MenuBar {
+        Menu {
+            title: @tr("File");
+            MenuItem {
+                title: @tr("New Slint File");
+                enabled: Project.file-tree.length > 0;
+                activated => { root.create-new-slint-file(); }
+            }
+        }
+        Menu {
+            title: @tr("Edit");
+            MenuItem {
+                title: @tr("Undo");
+                enabled: Api.undo-enabled;
+                activated => { root.apply-history(false); }
+            }
+            MenuItem {
+                title: @tr("Redo");
+                enabled: Api.redo-enabled;
+                activated => { root.apply-history(true); }
+            }
+        }
+    }
+
     Rectangle {
         y: 0;
-        height: EditorMetrics.top-bar-height;
-        WindowMoveArea { }
+        height: Style.shell.top-bar-height;
+        WindowMoveArea {
+            TouchArea {
+                double-clicked => { root.toggle-maximized(); }
+            }
+        }
     }
 
     VerticalLayout {
@@ -58,7 +261,7 @@ export component EditorUi inherits Window {
             capture-key-pressed(event) => {
                 if event.text == Key.Shift || event.text == Key.ShiftR {
                     self.shift-pressed = true;
-                    return accept;
+                    return reject;
                 }
                 reject
             }
@@ -66,12 +269,17 @@ export component EditorUi inherits Window {
             capture-key-released(event) => {
                 if event.text == Key.Shift || event.text == Key.ShiftR {
                     self.shift-pressed = false;
-                    return accept;
+                    return reject;
                 }
                 reject
             }
 
             key-pressed(event) => {
+                let redo-y = Platform.os == OperatingSystemType.windows && (event.text == "y" || event.text == "Y");
+                if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z" || redo-y) {
+                    root.apply-history(event.modifiers.shift || redo-y);
+                    return accept;
+                }
                 if event.text == Key.Escape && AppState.has-active-drag() {
                     AppState.cancel-active-drags();
                     return accept;
@@ -90,19 +298,26 @@ export component EditorUi inherits Window {
 
             DropArea {
                 can-drop(event) => {
-                    if AppState.palette-drag-kind != PaletteComponentKind.none {
-                        AppState.update-palette-drag(AppState.palette-drag-kind, event.position);
+                    if AppState.palette-drag-kind != ElementKind.none {
+                        AppState.update-palette-drag(AppState.palette-drag-kind, { x: event.position.x + self.absolute-position.x, y: event.position.y + self.absolute-position.y });
+                    }
+                    if AppState.outline-drag-active && !AppState.outline-drag-cancelled {
+                        AppState.update-outline-drag-position({ x: event.position.x + self.absolute-position.x, y: event.position.y + self.absolute-position.y });
                     }
                     return DragAction.none;
                 }
 
                 Rectangle {
-                    background: StudioTheme.app-bg;
+                    background: Colors.background;
                 }
 
                 VerticalLayout {
                     title-move-area := WindowMoveArea {
-                        height: EditorMetrics.top-bar-height;
+                        height: Style.shell.top-bar-height;
+
+                        title-touch-area := TouchArea {
+                            double-clicked => { root.toggle-maximized(); }
+                        }
 
                         EditorTopBar { }
                     }
@@ -112,71 +327,125 @@ export component EditorUi inherits Window {
 
                         if !root.sidebars-collapsed: LeftPane {
                             can-collapse: true;
+                            elements-pane-height: root.elements-pane-height;
                             drag-started => { editor.focus(); }
                             panes-collapsed => {
                                 root.sidebars-collapsed = true;
                             }
+                            elements-pane-resized(height) => {
+                                root.elements-pane-resized(height);
+                            }
+                            elements-pane-reset => {
+                                root.elements-pane-reset();
+                            }
+                            create-new-slint-file => { root.create-new-slint-file(); }
                         }
 
-                        if Api.editor-surface-mode == EditorSurfaceMode.component: EditorCanvas {
-                            shift-pressed: editor.shift-pressed;
-                            real-element-selected => { editor.focus(); }
-                        }
+                        canvas-viewport := Rectangle {
+                            clip: true;
 
-                        if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
-                            sidebars-collapsed: root.sidebars-collapsed;
+                            if Api.editor-surface-mode == EditorSurfaceMode.component: EditorCanvas {
+                                shift-pressed: editor.shift-pressed;
+                                real-element-selected => { editor.focus(); }
+                            }
+
+                            if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
+                                sidebars-collapsed: root.sidebars-collapsed;
+                            }
+
+                            DragPreview {
+                                parent-origin: parent.absolute-position;
+                                show-outline: false;
+                                visible: AppState.palette-drag-kind != ElementKind.none
+                                    && !(Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed && root.palette-drag-in-outline);
+                            }
                         }
 
                         if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
-                            phone-background: StudioTheme.phone-bg;
-                            phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
+                            changed palette-drag-in-outline => {
+                                root.palette-drag-in-outline = self.palette-drag-in-outline;
+                            }
+                            outline-pane-height: root.outline-pane-height;
                             element-information: Api.current-element;
                             inspector-scroll-y <=> root.inspector-scroll-y;
-                            element-selected => { editor.focus(); }
                             outline-drag-started => { editor.focus(); }
+                            outline-pane-resized(height) => {
+                                root.outline-pane-resized(height);
+                            }
+                            outline-pane-reset => {
+                                root.outline-pane-reset();
+                            }
                         }
                     }
                 }
 
-                DragPreview { }
-
                 if root.sidebars-collapsed: Rectangle {
-                    x: 18px;
-                    y: EditorMetrics.top-bar-height + 14px;
-                    width: 274px;
-                    height: 42px;
-                    border-radius: 12px;
-                    border-width: 1px;
-                    border-color: StudioTheme.dark ? #ffffff18 : #d0d7de;
-                    background: StudioTheme.panel-bg.with-alpha(0.92);
-                    drop-shadow-blur: 16px;
-                    drop-shadow-offset-y: 8px;
-                    drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b28;
+                    x: Metrics.space-large;
+                    y: Style.shell.top-bar-height + Metrics.space-medium;
+                    width: Style.collapsed-sidebar.width;
+                    height: Style.collapsed-sidebar.height;
+                    border-radius: Style.collapsed-sidebar.radius;
+                    border-width: Metrics.border-width;
+                    border-color: Style.floating-panel.border;
+                    background: Style.floating-panel.background;
+                    drop-shadow-blur: Style.floating-panel.shadow.blur;
+                    drop-shadow-offset-y: Style.floating-panel.shadow.offset-y;
+                    drop-shadow-color: Style.floating-panel.shadow.color;
 
                     HorizontalLayout {
-                        padding-left: 12px;
-                        padding-right: 6px;
-                        spacing: 10px;
+                        padding-left: Metrics.space-medium;
+                        padding-right: Metrics.space-compact;
+                        spacing: Metrics.space-medium;
                         cross-axis-alignment: center;
 
                         Text {
                             horizontal-stretch: 1;
                             text: Project.selected-project-file;
-                            color: StudioTheme.text;
-                            font-size: 13px;
-                            font-weight: 800;
+                            color: Colors.foreground;
+                            font-size: Typography.body.size;
+                            font-weight: FontWeight.extra-bold;
                             vertical-alignment: center;
                             overflow: elide;
                         }
 
                         SidebarToggleButton {
                             active: true;
+                            accessible-role: AccessibleRole.button;
+                            accessible-label: "Expand sidebars";
                             clicked => {
                                 root.sidebars-collapsed = false;
                             }
                         }
                     }
                 }
+            }
+
+            DragPreview { parent-origin: parent.absolute-position; show-palette: false; }
+
+            fill-layer := TouchArea {
+                visible: FillSession.open;
+                enabled: FillSession.open;
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down {
+                        Api.dismiss-fill-picker({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y }, event.button);
+                    }
+                }
+                if FillSession.canvas-active: Rectangle {
+                    x: canvas-viewport.absolute-position.x - fill-layer.absolute-position.x;
+                    y: canvas-viewport.absolute-position.y - fill-layer.absolute-position.y;
+                    width: canvas-viewport.width;
+                    height: canvas-viewport.height;
+                    clip: true;
+
+                    GradientOverlay {
+                        x: FillSession.canvas-origin.x - parent.absolute-position.x;
+                        y: FillSession.canvas-origin.y - parent.absolute-position.y;
+                        width: FillSession.canvas-size.width;
+                        height: FillSession.canvas-size.height;
+                        selection: FillSession.selection;
+                    }
+                }
+                InspectorFillPicker { }
             }
         }
 
@@ -195,8 +464,15 @@ export component EditorUi inherits Window {
         if UpdateStatus.shows-bar(): UpdateStatusBar { }
     }
 
+    new-file-error-popup := NewFileErrorPopup {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        error: root.new-file-error;
+        dismissed => { root.new-file-error = ""; }
+    }
+
     if UpdateStatus.in-titlebar() && UpdateStatus.has-news(): UpdateStatusPill {
-        x: 100px;
-        y: 16px;
+        x: Style.shell.titlebar-safe-left;
+        y: Metrics.space-large;
     }
 }

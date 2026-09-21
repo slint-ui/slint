@@ -86,6 +86,12 @@ impl<'a> SkiaItemRenderer<'a> {
         }
     }
 
+    /// Skia leaves anti-aliasing off by default, which keeps an upright rectangle's edges crisp.
+    /// A transform that tilts the rectangle turns those edges into stair steps instead.
+    fn needs_anti_alias(&self) -> bool {
+        !self.canvas.local_to_device_as_3x3().preserves_axis_alignment()
+    }
+
     fn render_drop_shadow_image(
         canvas: &skia_safe::Canvas,
         shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
@@ -471,24 +477,23 @@ impl<'a> SkiaItemRenderer<'a> {
         RenderingResult::ContinueRenderingWithoutChildren
     }
 
-    // Same as pixel_align_origin_auto_restore() but can be used across function calls where
-    // `&self` is needed. Returns true if the caller must call `restore()` on `self.canvas`.
-    fn save_canvas_and_pixel_align_origin(&self) -> bool {
+    // Snap the alignment anchor; the caller restores the canvas when this returns true.
+    fn save_canvas_and_pixel_align_origin(&self, anchor: PhysicalPoint) -> bool {
         let local_to_device = self.canvas.local_to_device_as_3x3();
-        if !local_to_device.is_translate() || local_to_device.is_identity() {
+        if !local_to_device.is_translate() {
             return false;
         }
         let Some(device_to_local) = local_to_device.invert() else {
             return false;
         };
-        let mut target_point = local_to_device.map_point(skia_safe::Point::default());
+        let mut target_point = local_to_device.map_point(to_skia_point(anchor));
 
         target_point.x = target_point.x.round();
         target_point.y = target_point.y.round();
 
         self.canvas.save();
 
-        self.canvas.translate(device_to_local.map_point(target_point));
+        self.canvas.translate(device_to_local.map_point(target_point) - to_skia_point(anchor));
 
         true
     }
@@ -529,7 +534,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             return;
         }
 
-        let paint = match self.brush_to_paint(
+        let mut paint = match self.brush_to_paint(
             rect.background(),
             geometry.width_length(),
             geometry.height_length(),
@@ -537,6 +542,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             Some(paint) => paint,
             None => return,
         };
+        paint.set_anti_alias(self.needs_anti_alias());
         self.canvas.draw_rect(to_skia_rect(&geometry), &paint);
     }
 
@@ -558,7 +564,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         {
             let background_rect = to_skia_rrect(&layout.background_rect, &layout.background_radius);
             fill_paint.set_style(skia_safe::PaintStyle::Fill);
-            if !background_rect.is_rect() {
+            if !background_rect.is_rect() || self.needs_anti_alias() {
                 fill_paint.set_anti_alias(true);
             }
             self.canvas.draw_rrect(background_rect, &fill_paint);
@@ -571,7 +577,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             let border_rect = to_skia_rrect(&layout.border_rect, &layout.border_radius);
             border_paint.set_style(skia_safe::PaintStyle::Stroke);
             border_paint.set_stroke_width(layout.border_width.get());
-            if !border_rect.is_rect() {
+            if !border_rect.is_rect() || self.needs_anti_alias() {
                 border_paint.set_anti_alias(true);
             }
             self.canvas.draw_rrect(border_rect, &border_paint);
@@ -612,7 +618,13 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        let restore = self.save_canvas_and_pixel_align_origin();
+        let (horizontal, vertical) = text.alignment();
+        let anchor = i_slint_core::item_rendering::text_alignment_anchor(
+            size * self.scale_factor,
+            horizontal,
+            vertical,
+        );
+        let restore = self.save_canvas_and_pixel_align_origin(anchor);
         sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
         if restore {
             self.canvas.restore();
@@ -625,7 +637,12 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         self_rc: &i_slint_core::items::ItemRc,
         size: LogicalSize,
     ) {
-        let restore = self.save_canvas_and_pixel_align_origin();
+        let anchor = i_slint_core::item_rendering::text_alignment_anchor(
+            size * self.scale_factor,
+            text_input.horizontal_alignment(),
+            text_input.vertical_alignment(),
+        );
+        let restore = self.save_canvas_and_pixel_align_origin(anchor);
         sharedparley::draw_text_input(self, text_input, self_rc, size, self.text_layout_cache);
         if restore {
             self.canvas.restore();
@@ -1076,6 +1093,15 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         }
     }
 
+    fn snap_selection_x(&self, x: f32) -> f32 {
+        let transform = self.canvas.local_to_device_as_3x3();
+        if !transform.is_translate() {
+            return x;
+        }
+        let origin = transform.map_point(skia_safe::Point::default()).x;
+        (origin + x).round() - origin
+    }
+
     fn draw_glyph_run(
         &mut self,
         font: &sharedparley::parley::FontData,
@@ -1093,6 +1119,17 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         };
         let mut font = skia_safe::Font::from_typeface(type_face, font_size.get());
         font.set_subpixel(true);
+        // The typeface itself is cached (keyed on blob + variation settings, not synthesis), so
+        // faux styling has to be applied to this per-draw-call `Font` instead: skewing or
+        // emboldening the cached typeface would leak into every other run drawn with it.
+        if synthesis.embolden() {
+            font.set_embolden(true);
+        }
+        if let Some(skew_degrees) = synthesis.skew() {
+            // Skia skews text left/right relative to the y-axis; a negative skew leans glyphs
+            // to the right, matching the forward lean of real italic/oblique faces.
+            font.set_skew_x(-skew_degrees.to_radians().tan());
+        }
 
         let (glyph_ids, glyph_positions): (Vec<_>, Vec<_>) = glyphs_it
             .into_iter()

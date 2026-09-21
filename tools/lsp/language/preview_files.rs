@@ -191,19 +191,7 @@ mod tests {
     /// through, or the preview shows a broken component.
     #[test]
     fn serves_the_files_a_viewer_asks_for() {
-        use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget};
-        use std::cell::RefCell;
-        use std::rc::Rc;
-
-        struct Recorder(Rc<RefCell<Vec<LspToPreviewMessage>>>);
-        impl crate::editor_preview::LspToPreview for Recorder {
-            fn send(&self, message: &LspToPreviewMessage) {
-                self.0.borrow_mut().push(message.clone());
-            }
-            fn preview_target(&self) -> PreviewTarget {
-                PreviewTarget::Dummy
-            }
-        }
+        use i_slint_live_preview::protocol::LspToPreviewMessage;
 
         let project = tempfile::tempdir().unwrap();
         std::fs::write(project.path().join("other.slint"), "export component Other { }").unwrap();
@@ -218,10 +206,9 @@ mod tests {
         "#;
         std::fs::write(&main, main_source).unwrap();
 
-        let recorded = Rc::new(RefCell::new(Vec::new()));
+        let (capture, recorded) = crate::language::test::preview_capture();
         let mut ctx = crate::language::test::mock_context();
-        ctx.session.to_preview =
-            crate::editor_preview::LspToPreviews::with_one(Recorder(recorded.clone()));
+        ctx.session.primary_preview_mut().to_preview = capture;
         crate::language::test::load(&mut ctx.session, &main, main_source);
         recorded.borrow_mut().clear();
 

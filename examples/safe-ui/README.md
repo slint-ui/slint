@@ -1,3 +1,5 @@
+<!-- cspell:ignore Paweł -->
+
 # Slint Safety Critical UI Demo
 
 We aim to make Slint suitable in environments that require reliable display of safety-critical UI, such as vehicles of any kind, medical devices, or industrial tools and machines.
@@ -30,14 +32,15 @@ The overlay is rendered on the Cortex-M7 running FreeRTOS and NXP's SafeAssure f
 ## Project Layout
 
 The safety scene uses [Slint SC](../../api/slint-sc/),
-the safety-critical subset of Slint: `Window` and `Rectangle` only, and no `Timer` or model.
+the safety-critical subset of Slint:
+`Window`, `Image` and `TouchArea`, with no `Timer` and no model.
 The UI and its logic are independent of the platform they run on:
 
 - [`app/`](./app) — the scene ([`main.slint`](./app/main.slint)) and the event loop `app_main`.
   A backend implements the `Platform` trait (a clock, the display size, touch events, and an RGB8 framebuffer),
   and drives the UI by calling `app_main`.
-  The once-per-second color cycle of the three telltales, which full Slint would express with a `Timer`,
-  is written in Rust here.
+  The airlock sequence is application logic, so it's written in Rust here,
+  and the scene shows the state it's given.
 - [`desktop/`](./desktop) — a desktop backend that shows the rendered frames in a Slint window and forwards its input,
   for running the example on a development machine.
 - [`ffi/`](./ffi) — a backend over the C system interface, exposing `slint_app_main()` so C firmware can drive the UI.
@@ -46,6 +49,28 @@ The UI and its logic are independent of the platform they run on:
   and drives `ffi`'s `slint_app_main()`, so the C path can be exercised on a development machine.
 - [`esp32-s3-box/`](./esp32-s3-box) — a bare-metal backend for the ESP32-S3-BOX-3,
   on esp-hal and embassy, driving the board's panel and touch controller directly.
+
+## The Airlock Screen
+
+The scene is a public transit airlock at 320x240: two doors, the chamber between them, a pressure indicator, and one action panel.
+It shows the state the host gives it and makes no door-control or safety decision of its own.
+
+Tap ENTER to secure both doors, which takes six seconds, and then equalize the chamber pressure, which takes nine more.
+The panel counts the seconds down while a phase runs, and a ten-segment ring reports how far equalization has come.
+Tap EXIT OUTER once the outer door reads READY, then EXIT INNER to release the inner door and return to the start.
+
+Two gestures exist only so the demo can reach the fault screen without a real fault:
+a tap on the occupant chamber raises one, and a tap on the red emergency banner clears it.
+
+The screen has to say all of that without a font: Slint SC decodes images at compile time and draws no text.
+The artwork carries every label, and a countdown or a percentage is assembled from single-digit images.
+The scene splits along those pieces:
+[`main.slint`](./app/main.slint) places them,
+[`components.slint`](./app/components.slint) holds the door and digit images,
+and [`progress.slint`](./app/progress.slint) and [`progress-text.slint`](./app/progress-text.slint)
+assemble the ring and the countdown.
+The subset shapes the rest, since it has no `visible`, no `enabled`, and no division.
+The files say how each of those is worked around.
 
 ## Supported Pixel Formats
 
@@ -78,6 +103,36 @@ The app's `build.rs` finds it there automatically, for the profile the app is
 built with, so build the compiler with the same one. That holds for a cross
 build too: its host products sit next to the target ones, under the same
 profile. Pass `SLINT_COMPILER` to use a binary from somewhere else.
+
+## Code Coverage
+
+The Rust code is measured with [`cargo llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov), a separate
+cargo subcommand: install it and the LLVM tools once with `cargo install cargo-llvm-cov` and
+`rustup component add llvm-tools-preview`.
+The `.slint` files of the scene are measured by the same run, at the level of the Slint language. With
+`SLINT_COVERAGE` set, the build script has the compiler write, next to the generated code, a map of the ranges
+of the code that are a coverage point, one for every element, binding, callback handler and call, and for both
+outcomes of every `?:`, `&&` and `||`. The generated code carries nothing, so the code measured is the code that
+ships. The `slint-sc-coverage` tool maps the LLVM coverage of the code at those ranges back to the `.slint` file,
+in the lcov format, reporting which points were never reached (the example does not reach them all):
+
+```
+cargo build -p slint-compiler --no-default-features --features slint-sc
+cd examples/safe-ui
+SLINT_COVERAGE=1 SLINT_COMPILER=$PWD/../../target/debug/slint-compiler \
+    cargo llvm-cov --json --output-path coverage.json -p slint-safeui-app
+cargo run --manifest-path ../../Cargo.toml -p slint-sc-coverage -- --export coverage.json -o slint-lcov.info
+```
+
+`cargo llvm-cov` builds into its own target directory, where the build script would look for the compiler,
+hence `SLINT_COMPILER`.
+Any lcov consumer shows the result, `genhtml` or an editor's coverage view alike, and it merges with the Rust
+coverage of the same run into one report:
+
+```
+cargo llvm-cov report --lcov --output-path lcov.info
+genhtml lcov.info slint-lcov.info -o coverage
+```
 
 ## Build System Integration
 
@@ -152,6 +207,28 @@ toolchain it needs; with the board attached over USB-C:
 ```
 cd examples/safe-ui/esp32-s3-box && cargo run --release
 ```
+
+## Artwork
+
+The PNGs in [`app/assets/`](./app/assets) were exported at native size from the Public Transit concept in Figma.
+The source file is `AwH2AA7IrUYRfIdmGSN1YT`, export section `2086`.
+Text is baked into the artwork; no runtime fonts or vector assets are required.
+The fault background combines the original background, pressure warning at (118,115), and emergency panel at (7,181).
+The eleven `progress/progress-*.png` states combine the Figma base and segment overlays at their native pixel offsets.
+One image selects the ring state in completed 10% steps; separate raster digits display the exact percentage.
+The assets include icons from these free sources:
+
+- [Font Awesome Free 6.7.2](https://fontawesome.com/license/free), Copyright 2024 Fonticons, Inc., CC BY 4.0: lock, unlock-keyhole, check, triangle-exclamation, hand, person-walking, and right-from-bracket icons in the backgrounds, doors, pressure-lock/check indicators, and enter/exit panels.
+- [Tabler Icons](https://github.com/tabler/tabler-icons/blob/main/LICENSE), Copyright (c) 2020-2026 Paweł Kuna, MIT: hourglass-half in both wait panels.
+- [Ionicons](https://github.com/ionic-team/ionicons/blob/main/LICENSE), Copyright (c) 2015-present Ionic (http://ionic.io/), MIT: man in both occupant chambers.
+
+Icons were resized, recolored, and rasterized into the compositions.
+The Ionicons man artwork was cropped to its bounds and its paths combined; the empty chamber uses a pale version.
+Original composition and other artwork are Copyright © SixtyFPS GmbH <info@slint.dev>, MIT.
+The repository's `REUSE.toml` records these credits and licenses for each affected PNG, with license texts in `LICENSES/`.
+
+Retain these attributions when redistributing the raster artwork.
+The MIT source headers do not replace third-party artwork licenses.
 
 ## Known Limitations
 
