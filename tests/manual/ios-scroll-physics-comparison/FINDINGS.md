@@ -4,7 +4,7 @@
 # iOS Scroll Physics Parity Investigation
 
 **Date:** 20–21 September 2026<br>
-**Audience:** Slint runtime and input developers  
+**Audience:** Slint runtime and input developers<br>
 **Status:** Diagnostic prototype; candidate changes are not a production fix
 
 ## Objective
