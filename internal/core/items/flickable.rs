@@ -499,6 +499,14 @@ impl FlickableDataInner {
         }
     }
 
+    fn subtract_distance_threshold(delta: Coord) -> Coord {
+        if delta >= 0 as Coord {
+            (delta - DISTANCE_THRESHOLD.0).max(0 as Coord)
+        } else {
+            (delta + DISTANCE_THRESHOLD.0).min(0 as Coord)
+        }
+    }
+
     fn should_capture_scroll(&self, timeout: Duration, position: LogicalPoint) -> bool {
         self.last_scroll_event.is_some_and(|(last_time, last_position)| {
             // Note: Squared length for MCU support, which use i32 coords.
@@ -681,9 +689,15 @@ impl FlickableDataInner {
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Moved => {
-                if self.capture_events.is_some_and(|capture| {
-                    matches!(capture, CaptureEvents::WheelStart | CaptureEvents::WheelMove)
-                }) {
+                if let Some(capture) = self.capture_events
+                    && matches!(capture, CaptureEvents::WheelStart | CaptureEvents::WheelMove)
+                {
+                    if matches!(capture, CaptureEvents::WheelStart) {
+                        // Otherwise we'd jump instead of starting the drag smoothly.
+                        delta.x = Self::subtract_distance_threshold(delta.x);
+                        delta.y = Self::subtract_distance_threshold(delta.y);
+                    }
+
                     // Touchpad case with different phases
                     flicked = self.scroll_move(
                         flick,
@@ -1210,7 +1224,7 @@ impl FlickableData {
                 // the mouse in the flickables coordinate system and never the content coordinate
                 // system.
                 if let Some((_pressed_time, _pressed_mouse_position)) = inner.pressed_mouse_state {
-                    let mouse_delta = *position - inner.last_mouse_position;
+                    let mut mouse_delta = *position - inner.last_mouse_position;
                     let is_capturing = inner.capture_events.is_some_and(|f| {
                         matches!(f, CaptureEvents::MouseStart | CaptureEvents::MouseMove)
                     });
@@ -1221,6 +1235,14 @@ impl FlickableData {
                         // and start capturing mouse events.
                         let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
                         let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
+
+                        if !is_capturing && event.is_from_touch() {
+                            // Otherwise we'd jump instead of starting the drag smoothly.
+                            mouse_delta.x =
+                                FlickableDataInner::subtract_distance_threshold(mouse_delta.x);
+                            mouse_delta.y =
+                                FlickableDataInner::subtract_distance_threshold(mouse_delta.y);
+                        }
 
                         let flicked = inner.scroll_move(
                             flick,

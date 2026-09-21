@@ -83,6 +83,7 @@ assert!(instance.get_content_y() != -200.0);
 use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton}};
 use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
 
+const DISTANCE_THRESHOLD: f32 = 8.;
 let instance = TestCase::new().unwrap();
 
 // Drag the content with the mouse
@@ -100,14 +101,14 @@ assert_eq!(instance.get_content_y(), 0.);
 instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(50.0, 50.0), phase: TouchPhase::Started, history: Default::default() }));
 instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(50.0, 50.0), phase: TouchPhase::Moved, history: Default::default() }));
 instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(20.0, 30.0), phase: TouchPhase::Moved, history: Default::default() }));
-assert_eq!(instance.get_content_x(), -30.);
-assert_eq!(instance.get_content_y(), -20.);
+assert_eq!(instance.get_content_x(), -30. + DISTANCE_THRESHOLD);
+assert_eq!(instance.get_content_y(), -20. + DISTANCE_THRESHOLD);
 // Release long after the last move so no fling animation starts
 slint_testing::mock_elapsed_time(1000);
 instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(20.0, 30.0), phase: TouchPhase::Ended, history: Default::default() }));
 slint_testing::mock_elapsed_time(1000);
-assert_eq!(instance.get_content_x(), -30.);
-assert_eq!(instance.get_content_y(), -20.);
+assert_eq!(instance.get_content_x(), -30. + DISTANCE_THRESHOLD);
+assert_eq!(instance.get_content_y(), -20. + DISTANCE_THRESHOLD);
 ```
 
 */

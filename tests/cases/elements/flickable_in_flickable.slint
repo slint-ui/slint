@@ -155,6 +155,7 @@ assert_eq!(instance.get_outer_y(), 40., "Scrolling vertical on the outer was not
 // Touch pad gestures (#13421)
 use slint::platform::WindowEvent;
 use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
+const DISTANCE_THRESHOLD: f32 = 8.;
 let instance = TestCase::new().unwrap();
 let wheel = |pos: LogicalPoint, delta_y: f32, phase| {
     instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pos, delta_x: 0., delta_y, phase }));
@@ -178,7 +179,7 @@ wheel(LOCATION_OUTER_INNER, 0., TouchPhase::Started);
 wheel(LOCATION_OUTER_INNER, -20., TouchPhase::Moved);
 wheel(LOCATION_OUTER_INNER, -20., TouchPhase::Moved);
 assert_eq!(instance.get_inner_x(), 0.);
-assert_eq!(instance.get_outer_y(), 40., "The outer follows the gesture because the inner cannot scroll vertically");
+assert_eq!(instance.get_outer_y(), 40. - DISTANCE_THRESHOLD, "The outer follows the gesture because the inner cannot scroll vertically");
 wheel(LOCATION_OUTER_INNER, 0., TouchPhase::Ended);
 slint_testing::mock_elapsed_time(3000);
 
