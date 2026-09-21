@@ -49,6 +49,12 @@ pub fn setup_with_platform(
     height: u32,
 ) -> Rc<MinimalSoftwareWindow> {
     slint::platform::set_platform(platform).ok();
+    // Text metrics come from the bundled fonts, not from whichever UI font the platform
+    // happens to have.
+    // macOS's San Francisco also doesn't shape linearly in the font size:
+    // its AAT `trak` tracking is keyed on the point size,
+    // so a measurement converted back to logical pixels moves with the scale factor.
+    i_slint_backend_testing::configure_test_fonts();
     let window = window();
     window.set_size(PhysicalSize::new(width, height));
     window
