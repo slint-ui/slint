@@ -259,6 +259,64 @@ fn substitute_in_string<S: AsRef<[StyledTextParagraph]>>(
 }
 
 #[cfg(feature = "markdown")]
+/// An open style: what it is, where it starts in the current paragraph, and the pieces of it
+/// that earlier paragraphs already hold.
+type OpenSpan = (Style, usize, alloc::vec::Vec<(usize, core::ops::Range<usize>)>);
+
+#[cfg(feature = "markdown")]
+fn push_span(
+    paragraph: &mut StyledTextParagraph,
+    range: core::ops::Range<usize>,
+    style: Style,
+    url: Option<alloc::string::String>,
+) {
+    if let Some(url) = url {
+        paragraph.links.push((range.clone(), url));
+    }
+    paragraph.formatting.push(FormattedSpan { range, style });
+}
+
+#[cfg(feature = "markdown")]
+/// Ends the current paragraph and starts `new_paragraph`.
+///
+/// A style the paragraphs are inside of covers text in both of them, and a range only addresses
+/// one paragraph's text, so every open style is cut in two here (#13548). The piece that starts
+/// in `new_paragraph` starts after whatever indentation or bullet it already holds.
+fn start_paragraph(
+    paragraphs: &mut alloc::vec::Vec<StyledTextParagraph>,
+    current_paragraph: &mut Option<StyledTextParagraph>,
+    style_stack: &mut [OpenSpan],
+    new_paragraph: StyledTextParagraph,
+) {
+    let offset = new_paragraph.text.len();
+    let Some(paragraph) = current_paragraph.replace(new_paragraph) else { return };
+    let index = paragraphs.len();
+    let end = paragraph.text.len();
+    paragraphs.push(paragraph);
+    for (_, start, pieces) in style_stack.iter_mut() {
+        pieces.push((index, *start..end));
+        *start = offset;
+    }
+}
+
+#[cfg(feature = "markdown")]
+/// Records the pieces an open style left in earlier paragraphs, and its last one in `paragraph`.
+fn close_span(
+    paragraphs: &mut [StyledTextParagraph],
+    paragraph: &mut StyledTextParagraph,
+    pieces: alloc::vec::Vec<(usize, core::ops::Range<usize>)>,
+    last: core::ops::Range<usize>,
+    style: Style,
+    url: Option<alloc::string::String>,
+) {
+    // Each paragraph owns the text of its links, so every piece but the last needs a copy.
+    for (index, range) in pieces {
+        push_span(&mut paragraphs[index], range, style.clone(), url.clone());
+    }
+    push_span(paragraph, last, style, url);
+}
+
+#[cfg(feature = "markdown")]
 fn get_or_create_paragraph<'a>(
     current_paragraph: &'a mut Option<StyledTextParagraph>,
     errors: &mut alloc::vec::Vec<StyledTextParseError>,
@@ -323,7 +381,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
     );
 
     let mut list_state_stack: alloc::vec::Vec<Option<u64>> = alloc::vec::Vec::new();
-    let mut style_stack: alloc::vec::Vec<(Style, usize)> = alloc::vec::Vec::new();
+    let mut style_stack: alloc::vec::Vec<OpenSpan> = alloc::vec::Vec::new();
     let mut current_url = None;
     let mut arg_index = 0;
     let mut paragraphs = alloc::vec::Vec::new();
@@ -341,11 +399,12 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
 
         match event {
             pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => {
-                if let Some(paragraph) =
-                    current_paragraph.replace(begin_paragraph(indentation, None))
-                {
-                    paragraphs.push(paragraph);
-                }
+                start_paragraph(
+                    &mut paragraphs,
+                    &mut current_paragraph,
+                    &mut style_stack,
+                    begin_paragraph(indentation, None),
+                );
             }
             pulldown_cmark::Event::End(pulldown_cmark::TagEnd::List(_)) => {
                 if list_state_stack.pop().is_none() {
@@ -358,27 +417,31 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
             pulldown_cmark::Event::Start(tag) => {
                 let style = match tag {
                     pulldown_cmark::Tag::Paragraph => {
-                        if let Some(paragraph) =
-                            current_paragraph.replace(begin_paragraph(indentation, None))
-                        {
-                            paragraphs.push(paragraph);
-                        }
+                        start_paragraph(
+                            &mut paragraphs,
+                            &mut current_paragraph,
+                            &mut style_stack,
+                            begin_paragraph(indentation, None),
+                        );
                         continue;
                     }
                     pulldown_cmark::Tag::Item => {
-                        let old_paragraph = current_paragraph.replace(begin_paragraph(
+                        let new_paragraph = begin_paragraph(
                             indentation,
                             Some(match list_state_stack.last().copied() {
                                 Some(Some(index)) => ListItemType::Ordered(index),
                                 _ => ListItemType::Unordered,
                             }),
-                        ));
+                        );
                         if let Some(state) = list_state_stack.last_mut() {
                             *state = state.map(|state| state + 1);
                         }
-                        if let Some(paragraph) = old_paragraph {
-                            paragraphs.push(paragraph);
-                        }
+                        start_paragraph(
+                            &mut paragraphs,
+                            &mut current_paragraph,
+                            &mut style_stack,
+                            new_paragraph,
+                        );
                         continue;
                     }
                     pulldown_cmark::Tag::List(index) => {
@@ -425,7 +488,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                 let paragraph =
                     get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range);
 
-                style_stack.push((style, paragraph.text.len()));
+                style_stack.push((style, paragraph.text.len(), Default::default()));
             }
             pulldown_cmark::Event::Text(text) => {
                 let paragraph =
@@ -434,7 +497,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                 substitute(paragraph, &text, args, &mut arg_index, &mut errors, &event_range);
             }
             pulldown_cmark::Event::End(_) => {
-                let (style, start) = if let Some(value) = style_stack.pop() {
+                let (style, start, pieces) = if let Some(value) = style_stack.pop() {
                     value
                 } else if skip_end_count > 0 {
                     skip_end_count -= 1;
@@ -444,20 +507,19 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                     continue;
                 };
 
+                let url = current_url.take().map(|url| {
+                    if url.contains(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
+                        substitute_in_string(&url, args, &mut arg_index, &mut errors, &event_range)
+                    } else {
+                        url.into()
+                    }
+                });
+
                 let paragraph =
                     get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range);
                 let end = paragraph.text.len();
 
-                if let Some(url) = current_url.take() {
-                    let url = if url.contains(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
-                        substitute_in_string(&url, args, &mut arg_index, &mut errors, &event_range)
-                    } else {
-                        url.into()
-                    };
-                    paragraph.links.push((start..end, url));
-                }
-
-                paragraph.formatting.push(FormattedSpan { range: start..end, style });
+                close_span(&mut paragraphs, paragraph, pieces, start..end, style, url);
             }
             pulldown_cmark::Event::Code(text) => {
                 let paragraph =
@@ -465,13 +527,11 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                 let start = paragraph.text.len();
 
                 substitute(paragraph, &text, args, &mut arg_index, &mut errors, &event_range);
-                paragraph
-                    .formatting
-                    .push(FormattedSpan { range: start..paragraph.text.len(), style: Style::Code });
+                push_span(paragraph, start..paragraph.text.len(), Style::Code, None);
             }
             pulldown_cmark::Event::InlineHtml(html) => {
                 if html.starts_with("</") {
-                    let (style, start) = if let Some(value) = style_stack.pop() {
+                    let (style, start, pieces) = if let Some(value) = style_stack.pop() {
                         value
                     } else if skip_end_count > 0 {
                         skip_end_count -= 1;
@@ -488,7 +548,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                             // The top of the stack is a markdown style, not
                             // the expected HTML style. Push it back and report
                             // an error instead of consuming it (issue #11563).
-                            style_stack.push((style, start));
+                            style_stack.push((style, start, pieces));
                             interleaved_count += 1;
                             errors.push(StyledTextParseError::new(
                                 E::InterleavedStyles((&*html).into()),
@@ -510,7 +570,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                         get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range);
 
                     let end = paragraph.text.len();
-                    paragraph.formatting.push(FormattedSpan { range: start..end, style });
+                    close_span(&mut paragraphs, paragraph, pieces, start..end, style, None);
                 } else {
                     let mut expecting_color_attribute = false;
                     let mut push_skip = false;
@@ -532,7 +592,11 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                                         &mut errors,
                                         &event_range,
                                     );
-                                    style_stack.push((Style::Underline, paragraph.text.len()));
+                                    style_stack.push((
+                                        Style::Underline,
+                                        paragraph.text.len(),
+                                        Default::default(),
+                                    ));
                                 }
                                 "font" => {
                                     expecting_color_attribute = true;
@@ -585,33 +649,26 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                                                     .copied()
                                             });
 
-                                    match color_value {
-                                        Some(value) => {
-                                            let paragraph = get_or_create_paragraph(
-                                                &mut current_paragraph,
-                                                &mut errors,
-                                                &event_range,
-                                            );
-                                            style_stack
-                                                .push((Style::Color(value), paragraph.text.len()));
-                                        }
-                                        None => {
-                                            let r = base + span.start()..base + span.end();
-                                            errors.push(StyledTextParseError::new(
-                                                E::InvalidColor(color_str.into()),
-                                                r,
-                                            ));
-                                            // Push a dummy style so the closing </font> tag
-                                            // can pop it without error
-                                            let paragraph = get_or_create_paragraph(
-                                                &mut current_paragraph,
-                                                &mut errors,
-                                                &event_range,
-                                            );
-                                            style_stack
-                                                .push((Style::Color(0), paragraph.text.len()));
-                                        }
-                                    }
+                                    let value = color_value.unwrap_or_else(|| {
+                                        let r = base + span.start()..base + span.end();
+                                        errors.push(StyledTextParseError::new(
+                                            E::InvalidColor(color_str.into()),
+                                            r,
+                                        ));
+                                        // A dummy style so the closing </font> tag can pop
+                                        // it without error
+                                        0
+                                    });
+                                    let paragraph = get_or_create_paragraph(
+                                        &mut current_paragraph,
+                                        &mut errors,
+                                        &event_range,
+                                    );
+                                    style_stack.push((
+                                        Style::Color(value),
+                                        paragraph.text.len(),
+                                        Default::default(),
+                                    ));
                                 }
                                 _ => {
                                     let r = base + span.start()..base + span.end();
@@ -687,6 +744,107 @@ fn assert_no_errors(
     let (paragraphs, errors) = result;
     assert!(errors.is_empty(), "Unexpected errors: {errors:?}");
     paragraphs
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_style_across_line_break() {
+    // A style that spans a line break becomes one span per paragraph. Before that, the offset
+    // recorded in the paragraph before the break was applied to the one after it, which split a
+    // multi-byte character and panicked the shaper (#13548).
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("Это **очень\nважно** для нас", &[])),
+        [
+            StyledTextParagraph {
+                text: "Это очень".into(),
+                formatting: alloc::vec![FormattedSpan { range: 7..17, style: Style::Strong }],
+                links: alloc::vec::Vec::new()
+            },
+            StyledTextParagraph {
+                text: "важно для нас".into(),
+                formatting: alloc::vec![FormattedSpan { range: 0..10, style: Style::Strong }],
+                links: alloc::vec::Vec::new()
+            }
+        ]
+    );
+
+    // A hard break, and a span covering three paragraphs.
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("**a\\\nb\\\nc**", &[])),
+        [
+            StyledTextParagraph {
+                text: "a".into(),
+                formatting: alloc::vec![FormattedSpan { range: 0..1, style: Style::Strong }],
+                links: alloc::vec::Vec::new()
+            },
+            StyledTextParagraph {
+                text: "b".into(),
+                formatting: alloc::vec![FormattedSpan { range: 0..1, style: Style::Strong }],
+                links: alloc::vec::Vec::new()
+            },
+            StyledTextParagraph {
+                text: "c".into(),
+                formatting: alloc::vec![FormattedSpan { range: 0..1, style: Style::Strong }],
+                links: alloc::vec::Vec::new()
+            }
+        ]
+    );
+
+    // The indentation and the bullet a list item starts with are not part of the span.
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("- a\n  - **x\n    y**", &[])),
+        [
+            StyledTextParagraph {
+                text: "• a".into(),
+                formatting: alloc::vec::Vec::new(),
+                links: alloc::vec::Vec::new()
+            },
+            StyledTextParagraph {
+                text: "    ◦ x".into(),
+                formatting: alloc::vec![FormattedSpan { range: 8..9, style: Style::Strong }],
+                links: alloc::vec::Vec::new()
+            },
+            StyledTextParagraph {
+                text: "    y".into(),
+                formatting: alloc::vec![FormattedSpan { range: 4..5, style: Style::Strong }],
+                links: alloc::vec::Vec::new()
+            }
+        ]
+    );
+
+    // An HTML style closes the same way.
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("<u>a\nb</u>", &[])),
+        [
+            StyledTextParagraph {
+                text: "a".into(),
+                formatting: alloc::vec![FormattedSpan { range: 0..1, style: Style::Underline }],
+                links: alloc::vec::Vec::new()
+            },
+            StyledTextParagraph {
+                text: "b".into(),
+                formatting: alloc::vec![FormattedSpan { range: 0..1, style: Style::Underline }],
+                links: alloc::vec::Vec::new()
+            }
+        ]
+    );
+
+    // A link keeps its destination on every paragraph it covers.
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("[a\nb](http://x)", &[])),
+        [
+            StyledTextParagraph {
+                text: "a".into(),
+                formatting: alloc::vec![FormattedSpan { range: 0..1, style: Style::Link }],
+                links: alloc::vec![(0..1, "http://x".into())]
+            },
+            StyledTextParagraph {
+                text: "b".into(),
+                formatting: alloc::vec![FormattedSpan { range: 0..1, style: Style::Link }],
+                links: alloc::vec![(0..1, "http://x".into())]
+            }
+        ]
+    );
 }
 
 #[cfg(feature = "markdown")]
