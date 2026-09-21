@@ -10,7 +10,6 @@ edition = "2024"
 
 [dependencies]
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-18", "unstable-winit-030", "renderer-femtovg-wgpu"] }
-i-slint-core = { path = "../../../internal/core" }
 raw-window-handle = "0.6"
 
 [build-dependencies]

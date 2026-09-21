@@ -20,7 +20,8 @@ final class ScrollComparisonTests: XCTestCase {
             app.launchEnvironment["START_FROM_BOTTOM_DISTANCE"] = String(fromBottomDistance)
         }
         app.launch()
-        XCTAssertTrue(app.staticTexts["UIKit"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["UIKit over Slint"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Scroll comparison metrics"].waitForExistence(timeout: 10))
         return app
     }
 
@@ -30,8 +31,8 @@ final class ScrollComparisonTests: XCTestCase {
         to endY: CGFloat,
         velocity: CGFloat
     ) {
-        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: startY))
-        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: endY))
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
         start.press(
             forDuration: 0.02,
             thenDragTo: end,
@@ -44,7 +45,7 @@ final class ScrollComparisonTests: XCTestCase {
         _ app: XCUIApplication,
         distance: CGFloat
     ) {
-        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.25))
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
         let end = start.withOffset(CGVector(dx: 0, dy: distance))
         start.press(
             forDuration: 0.05,
@@ -62,6 +63,21 @@ final class ScrollComparisonTests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+        let metrics = app.staticTexts["Scroll comparison metrics"].value as? String ?? "missing"
+        XCTContext.runActivity(named: "\(name): \(metrics)") { _ in }
+        let pattern = #"UIKit=([-0-9.]+), Slint=([-0-9.]+)"#
+        let expression = try! NSRegularExpression(pattern: pattern)
+        let range = NSRange(metrics.startIndex..., in: metrics)
+        guard let match = expression.firstMatch(in: metrics, range: range),
+              let nativeRange = Range(match.range(at: 1), in: metrics),
+              let slintRange = Range(match.range(at: 2), in: metrics),
+              let nativeOffset = Double(metrics[nativeRange]),
+              let slintOffset = Double(metrics[slintRange]) else {
+            XCTFail("Missing numeric scroll metrics: \(metrics)")
+            return
+        }
+        XCTAssertGreaterThan(nativeOffset, 100, "UIKit did not receive the gesture")
+        XCTAssertGreaterThan(slintOffset, 100, "Slint did not receive the gesture")
     }
 
     func testVelocitySweep() {
@@ -108,14 +124,25 @@ final class ScrollComparisonTests: XCTestCase {
     }
 
     func testRepeatedHardFlickAcceleration() {
-        for flickCount in 1...4 {
-            let name = "repeated-hard-flicks-\(flickCount)"
-            let app = launch(scenario: name)
-            let processID = (app.value(forKey: "processID") as! NSNumber).int32Value
-            XCTAssertTrue(synthesizeRapidFlicks(
-                processID, app.frame.width, app.frame.height, Int32(flickCount)))
-            waitForTrace(app, name: name)
-            app.terminate()
+        let cases: [(count: Int32, gap: Double)] = [
+            (1, 0.125),
+            (4, 0.075),
+            (4, 0.125),
+            (4, 0.200),
+            (4, 0.350),
+        ]
+        for testCase in cases {
+            for trial in 1...3 {
+                let milliseconds = Int(testCase.gap * 1_000)
+                let name = "repeated-hard-flicks-\(testCase.count)-gap-\(milliseconds)ms-trial-\(trial)"
+                let app = launch(scenario: name)
+                let processID = (app.value(forKey: "processID") as! NSNumber).int32Value
+                XCTAssertTrue(synthesizeRapidFlicksWithGap(
+                    processID, app.frame.width, app.frame.height,
+                    testCase.count, testCase.gap))
+                waitForTrace(app, name: name)
+                app.terminate()
+            }
         }
     }
 
@@ -181,7 +208,7 @@ final class ScrollComparisonTests: XCTestCase {
         let app = launch(scenario: "touch-stops-deceleration", startOffset: 1_500)
         drag(app, from: 0.75, to: 0.30, velocity: 1_600)
         usleep(300_000)
-        let stop = app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.50))
+        let stop = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.50))
         stop.press(forDuration: 0.5)
         waitForTrace(app, name: "touch-stops-deceleration")
     }

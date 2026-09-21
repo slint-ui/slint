@@ -12,24 +12,27 @@
 @end
 
 @interface XCSynthesizedEventRecord : NSObject
-@property(nonatomic) pid_t targetProcessID;
-- (instancetype)initWithName:(NSString *)name interfaceOrientation:(UIInterfaceOrientation)orientation;
+@property (nonatomic) pid_t targetProcessID;
+- (instancetype)initWithName:(NSString *)name
+        interfaceOrientation:(UIInterfaceOrientation)orientation;
 - (void)addPointerEventPath:(XCPointerEventPath *)path;
 - (BOOL)synthesizeWithError:(NSError **)error;
 @end
 
-BOOL synthesizeRapidFlicks(pid_t processID, double width, double height, int count) {
-    XCSynthesizedEventRecord *record = [[XCSynthesizedEventRecord alloc]
-        initWithName:@"Rapid repeated hard flicks"
-        interfaceOrientation:UIInterfaceOrientationPortrait];
+BOOL synthesizeRapidFlicksWithGap(pid_t processID, double width, double height, int count,
+                                  double interFlickGap)
+{
+    XCSynthesizedEventRecord *record =
+            [[XCSynthesizedEventRecord alloc] initWithName:@"Rapid repeated hard flicks"
+                                      interfaceOrientation:UIInterfaceOrientationPortrait];
     record.targetProcessID = processID;
 
     double startTime = 0;
-    CGPoint start = CGPointMake(width * 0.25, height * 0.75);
-    CGPoint end = CGPointMake(width * 0.25, height * 0.30);
+    CGPoint start = CGPointMake(width * 0.5, height * 0.75);
+    CGPoint end = CGPointMake(width * 0.5, height * 0.30);
     for (int flick = 0; flick < count; flick++) {
-        XCPointerEventPath *path = [[XCPointerEventPath alloc]
-            initForTouchAtPoint:start offset:startTime];
+        XCPointerEventPath *path = [[XCPointerEventPath alloc] initForTouchAtPoint:start
+                                                                            offset:startTime];
         for (int step = 1; step <= 5; step++) {
             CGFloat progress = step / 5.0;
             CGPoint point = CGPointMake(start.x, start.y + (end.y - start.y) * progress);
@@ -37,11 +40,12 @@ BOOL synthesizeRapidFlicks(pid_t processID, double width, double height, int cou
         }
         [path liftUpAtOffset:startTime + 0.065];
         [record addPointerEventPath:path];
-        startTime += 0.075;
+        startTime += 0.065 + interFlickGap;
     }
 
     NSError *error = nil;
     BOOL result = [record synthesizeWithError:&error];
-    if (!result) NSLog(@"Rapid flick synthesis failed: %@", error);
+    if (!result)
+        NSLog(@"Rapid flick synthesis failed: %@", error);
     return result;
 }

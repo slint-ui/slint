@@ -3,4 +3,5 @@
 
 #import <Foundation/Foundation.h>
 
-BOOL synthesizeRapidFlicks(pid_t processID, double width, double height, int count);
+BOOL synthesizeRapidFlicksWithGap(pid_t processID, double width, double height,
+                                  int count, double interFlickGap);

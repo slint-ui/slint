@@ -3,14 +3,22 @@
 
 # UIKit and Slint scroll physics comparison
 
-This manual iOS harness renders a native `UIScrollView` beside a Slint
-`ScrollView`. Touches that begin in the native list are forwarded to Slint so
-both implementations receive the same gesture. The UI test target records
-frame-by-frame offsets for speed sweeps, boundary behavior, interruption,
-reversal, and rapid repeated flicks.
+This manual iOS harness superimposes a translucent native `UIScrollView` over a
+Slint `ScrollView`.
+A passive gesture recognizer forwards the original `UITouch` objects and
+`UIEvent` to Slint's underlying UIKit view.
+Both implementations therefore receive the same event objects, coordinates,
+and timestamps.
 
-The rapid-flick helper uses private XCTest event-synthesis classes. Use this
-project only for local diagnostics.
+A live overlay shows each scroll offset, their point and percentage difference,
+each frame velocity, the velocity difference, and the maximum offset separation.
+The UI test target also records frame-by-frame CSV traces for speed sweeps,
+boundary behavior, interruption, reversal, and rapid repeated flicks.
+
+The rapid-flick helper uses private XCTest event-synthesis classes.
+Its cases use 75–350 ms between lifting one touch and beginning the next.
+Each timing case runs three times to expose launch-velocity instability.
+Use this project only for local diagnostics.
 
 ## Setup
 

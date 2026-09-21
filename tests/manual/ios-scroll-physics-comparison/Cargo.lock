@@ -2396,7 +2396,6 @@ name = "native-slint-scroll"
 version = "0.1.0"
 dependencies = [
  "cc",
- "i-slint-core",
  "raw-window-handle",
  "slint",
 ]

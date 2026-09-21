@@ -19,7 +19,10 @@ Match Slint `ScrollView`/`Flickable` behavior to a native iOS `UIScrollView`, in
 - overscroll and spring behavior at both bounds; and
 - acceleration caused by several rapid, same-direction flicks.
 
-The comparison app displays a native UIKit list beside a Slint list on the same iPhone. A single synthesized touch path is forwarded to both views, so they receive the same gesture. A UIKit-versus-UIKit control test confirmed that the forwarding mechanism can keep two native lists synchronized.
+The original comparison app displayed a native UIKit list beside a Slint list.
+It converted native touch positions into separate Slint events.
+The current harness superimposes the lists and forwards the original `UITouch`
+objects and `UIEvent` to Slint's UIKit view.
 
 ## Test environment
 
@@ -49,7 +52,14 @@ The native velocity field did not produce useful nonzero samples in the current 
 
 Unless otherwise stated, each numeric result below is one run on one device. The findings establish specific behavioral differences and useful candidate values; they do not establish universal constants for all iOS devices and refresh rates.
 
-The rapid-flick test uses private XCTest event-synthesis APIs. It is appropriate for a local diagnostic harness, but it should not become a shipped dependency or a required public-API test without replacement.
+The rapid-flick test uses private XCTest event-synthesis APIs.
+It is appropriate for a local diagnostic harness, but it should not become a
+shipped dependency or a required public-API test without replacement.
+
+The original rapid-flick results used a 10 ms interval between touches.
+That interval is not physically realistic and invalidates those results as
+evidence of user-visible repeated-flick behavior.
+The current harness tests intervals from 75 to 350 ms.
 
 ## Main findings
 
@@ -160,9 +170,12 @@ Touching during an active deceleration stopped both views immediately, with no m
 
 Reversing direction during deceleration left an approximately 34-point final difference in one run, although both stopped after about 2.31 seconds. This should be retested after the velocity estimator and momentum-retention paths are corrected.
 
-### 9. UIKit has a rapid repeated-flick acceleration mode, and Slint currently fails to reproduce it
+### 9. Historical Rapid-Flick Result Requires Replacement
 
-The user's observation is correct. Apple's native list enters a much faster mode after a sufficiently rapid series of same-direction flicks.
+The original run suggested that UIKit entered a faster mode after four
+same-direction flicks.
+The 10 ms interval between touches was not physically realistic.
+Do not use the measurements in this section as evidence of user behavior.
 
 There is public corroboration in Flutter's iOS-style physics. Flutter documents `BouncingScrollPhysics.carriedMomentum` as mimicking iOS's speed increase with repeated flings and uses this function:
 
@@ -195,7 +208,9 @@ Fitted post-release results:
 
 UIKit nearly doubles launch velocity on the fourth rapid flick while preserving the same decay rate. Slint remains at its ordinary launch velocity. This isolates the defect to momentum capture, retention, or application rather than inertial decay.
 
-The next investigation should instrument:
+The replacement investigation uses the exact-event overlay and human-feasible
+75–350 ms intervals.
+It should instrument:
 
 - the active animation velocity captured when the new touch begins;
 - whether that value survives until the next release;
