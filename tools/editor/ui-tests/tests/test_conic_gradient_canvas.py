@@ -223,16 +223,18 @@ def test_conic_rotation_crosses_the_seam(
         original.assert_unchanged_now()
         click(window, "Close Custom")
         baseline = original.sources[Path(conic_scene.name)]
-        pattern = re.escape(baseline).replace(
-            re.escape(b"from 350deg"), rb"from [0-9.]+deg"
-        )
 
-        def complete_source() -> bytes | None:
+        def applied_source() -> bytes | None:
             saved = conic_scene.read_bytes()
-            return saved if saved != baseline and re.fullmatch(pattern, saved) else None
+            if not saved or saved == baseline:
+                return None
+            try:
+                original.wait_for_applied(saved, conic_scene.name, timeout=0.1)
+            except AssertionError:
+                return None
+            return saved
 
-        saved = wait_until(complete_source)
-        original.wait_for_applied(saved, conic_scene.name)
+        saved = wait_until(applied_source)
         angle = re.search(rb"from ([0-9.]+)deg", saved)
         assert angle is not None
         assert float(angle.group(1)) == pytest.approx(367, abs=0.001)
