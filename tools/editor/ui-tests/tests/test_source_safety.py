@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from editor_sync import wait_for_source
 from inspector_interactions import FIELDS
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
@@ -216,7 +217,6 @@ def test_stale_revision_commit_is_rejected(
         snapshot.assert_unchanged()
 
 
-@pytest.mark.skip(reason="Requires a Rust source-watcher recovery fix")
 def test_deleted_root_file_recovers_without_relaunch(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -224,23 +224,25 @@ def test_deleted_root_file_recovers_without_relaunch(
 ) -> None:
     source_file = fixture_project / "Main.slint"
     baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
+        wait_for_source(source_file, baseline)
         window_element_with_label(
             window, "Fixture text", slint_testing.AccessibleRole.Text
         )
         source_file.unlink()
-        time.sleep(0.25)
+        SourceSnapshot.capture(fixture_project).assert_unchanged()
         window_element_with_label(
             window, "Fixture text", slint_testing.AccessibleRole.Text
         )
         assert not source_file.exists()
         restored = baseline.replace(b"Fixture text", b"Restored root", 1)
         source_file.write_bytes(restored)
+        snapshot.wait_for_applied(restored)
         window_element_with_label(
             window, "Restored root", slint_testing.AccessibleRole.Text
         )
-        assert source_file.read_bytes() == restored
         assert editor.process.poll() is None
 
 

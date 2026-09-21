@@ -5,6 +5,7 @@ mod clipboard;
 mod color_scheme;
 mod font_size;
 mod keyboard_animator;
+mod scene;
 mod trait_observer;
 mod virtual_keyboard;
 
@@ -12,5 +13,8 @@ pub(crate) use clipboard::UiPasteboardClipboard;
 pub(crate) use color_scheme::{current_color_scheme, install_color_scheme_observer};
 pub(crate) use font_size::{current_default_font_size, install_font_size_observer};
 pub(crate) use keyboard_animator::KeyboardCurveSampler;
+pub(crate) use scene::{
+    SceneLifecycle, attach_window_to_scene, content_view, install_scene_lifecycle,
+};
 pub(crate) use trait_observer::TraitChangeObserver;
 pub(crate) use virtual_keyboard::{KeyboardNotifications, register_keyboard_notifications};

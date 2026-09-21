@@ -114,6 +114,8 @@ pub(crate) fn try_walk_parent(
 }
 
 /// Walk `parent_level` steps up the parent chain.
+///
+/// Only for instantiation, where the chain is still alive; evaluation uses [`try_walk_parent`].
 pub(crate) fn walk_parent(
     start: &Pin<Rc<SubComponentInstance>>,
     level: usize,
@@ -142,7 +144,9 @@ impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
                 // The `Type` values live in the shared `CompilationUnit`, so
                 // resolve the target sub-component index through the runtime
                 // parent chain and borrow from `cu`.
-                let sub = walk_parent(current, *parent_level);
+                let Some(sub) = try_walk_parent(current, *parent_level) else {
+                    return &Type::Invalid;
+                };
                 let mut sc_idx = sub.sub_component_idx;
                 for i in &local_reference.sub_component_path {
                     sc_idx = cu.sub_components[sc_idx].sub_components[*i].ty;
@@ -192,21 +196,10 @@ pub(crate) fn walk_sub_path(
 pub(crate) fn try_walk_to(
     ctx: &EvalContext,
     parent_level: usize,
-    path: &[llr::SubComponentInstanceIdx],
+    local_reference: &llr::LocalMemberReference,
 ) -> Option<Pin<Rc<SubComponentInstance>>> {
-    Some(walk_sub_path(try_walk_parent(ctx.current.as_ref()?, parent_level)?, path))
-}
-
-/// Walk to the sub-component that owns `local`.
-///
-/// Panics if `ctx.current` is unset; the caller must check beforehand.
-pub(crate) fn walk_to(
-    ctx: &EvalContext,
-    parent_level: usize,
-    path: &[llr::SubComponentInstanceIdx],
-) -> Pin<Rc<SubComponentInstance>> {
-    let start = ctx.current.as_ref().expect("relative member reference without a sub-component");
-    walk_sub_path(walk_parent(start, parent_level), path)
+    let base = try_walk_parent(ctx.current.as_ref()?, parent_level)?;
+    Some(walk_sub_path(base, &local_reference.sub_component_path))
 }
 
 /// Flat tree index of the `item_table` entry matching `(path, item_index)`.
@@ -352,7 +345,9 @@ pub fn load_property(ctx: &EvalContext, mr: &MemberReference) -> Value {
             load_global(global, member)
         }
         MemberReference::Relative { parent_level, local_reference } => {
-            let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            let Some(instance) = try_walk_to(ctx, *parent_level, local_reference) else {
+                return Value::Void;
+            };
             load_local(&instance, &local_reference.reference)
         }
     }
@@ -366,10 +361,12 @@ pub fn store_property(ctx: &EvalContext, mr: &MemberReference, value: Value) {
             store_global(global, member, value);
         }
         MemberReference::Relative { parent_level, local_reference } => {
-            let start =
-                ctx.current.as_ref().expect("relative member reference without a sub-component");
-            let (instance, animation) =
-                walk_to_target_with_animation(walk_parent(start, *parent_level), local_reference);
+            let Some(base) =
+                ctx.current.as_ref().and_then(|start| try_walk_parent(start, *parent_level))
+            else {
+                return;
+            };
+            let (instance, animation) = walk_to_target_with_animation(base, local_reference);
             store_local(&instance, &local_reference.reference, value, animation);
         }
     }
@@ -397,7 +394,9 @@ pub fn invoke_callback(ctx: &EvalContext, mr: &MemberReference, args: &[Value]) 
             ensure_typed_default(res, &cb.ret_ty)
         }
         MemberReference::Relative { parent_level, local_reference } => {
-            let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            let Some(instance) = try_walk_to(ctx, *parent_level, local_reference) else {
+                return Value::Void;
+            };
             match &local_reference.reference {
                 LocalMemberIndex::Callback(idx) => {
                     // Register a dependency on the handler so bindings
@@ -448,7 +447,9 @@ pub fn invoke_function(ctx: &EvalContext, mr: &MemberReference, args: Vec<Value>
             eval_expression(&mut inner_ctx, &code)
         }
         MemberReference::Relative { parent_level, local_reference } => {
-            let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            let Some(instance) = try_walk_to(ctx, *parent_level, local_reference) else {
+                return Value::Void;
+            };
             let LocalMemberIndex::Function(idx) = &local_reference.reference else {
                 panic!("invoke_function on non-function reference")
             };
@@ -826,11 +827,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::ModelDataAssignment { level, value } => {
             let new_value = eval_expression(ctx, value);
             if let Some(current) = ctx.current.as_ref() {
-                let mut walker = current.clone();
-                for _ in 0..*level {
-                    let parent = walker.parent.upgrade().expect("parent vanished");
-                    walker = std::pin::Pin::new(parent);
-                }
+                let Some(walker) = try_walk_parent(current, *level) else { return Value::Void };
                 if let Some((parent_weak, repeater_idx)) = walker.repeated_in.get()
                     && let Some(parent) = parent_weak.upgrade()
                 {
@@ -1699,6 +1696,11 @@ fn binary_op(op: char, lhs: Value, rhs: Value) -> Value {
         (Value::Bool(a), Value::Void) => (Value::Bool(a), Value::Bool(false)),
         (Value::Void, Value::String(b)) => (Value::String(Default::default()), Value::String(b)),
         (Value::String(a), Value::Void) => (Value::String(a), Value::String(Default::default())),
+        // With no operand to take the type from, the operator decides.
+        (Value::Void, Value::Void) if matches!(op, '&' | '|') => {
+            (Value::Bool(false), Value::Bool(false))
+        }
+        (Value::Void, Value::Void) => (Value::Number(0.), Value::Number(0.)),
         (a, b) => (a, b),
     };
     match (op, lhs, rhs) {
@@ -2320,12 +2322,10 @@ fn call_builtin_function(
                 }),
             ] = arguments
                 && let LocalMemberIndex::Timer(timer_idx) = &local_reference.reference
-                && ctx.current.is_some()
+                && let Some(instance) = try_walk_to(ctx, *parent_level, local_reference)
+                && let Some(timer) = instance.timers.get(usize::from(*timer_idx))
             {
-                let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
-                if let Some(timer) = instance.timers.get(usize::from(*timer_idx)) {
-                    timer.restart();
-                }
+                timer.restart();
             }
             Value::Void
         }
@@ -2687,7 +2687,7 @@ pub(crate) fn resolve_item_rc_from_ref(
     let LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
         return None;
     };
-    let owner = try_walk_to(ctx, *parent_level, &local_reference.sub_component_path)?;
+    let owner = try_walk_to(ctx, *parent_level, local_reference)?;
     let parent_inst = owner.root.get().and_then(|w| w.upgrade())?;
     let full_path = crate::item_tree_vtable::sub_component_path_of(&owner, &parent_inst);
     let flat_idx = find_flat_item_index(&parent_inst.item_table, &full_path, *item_index)?;

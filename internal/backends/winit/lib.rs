@@ -25,6 +25,7 @@ use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
+use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -443,6 +444,8 @@ pub(crate) struct SharedBackendData {
     /// as winit sends them so frequently that it can cause performance issues (see #9038 and #10912).
     /// At most one window buffers a move at a time.
     pending_mouse_move: Cell<Option<(Weak<WinitWindowAdapter>, LogicalPoint)>>,
+    /// Hidden windows, checked by [`SharedBackendData::warn_about_windows_kept_alive`].
+    hidden_winit_windows: RefCell<Vec<std::sync::Weak<winit::window::Window>>>,
     #[cfg(not(target_arch = "wasm32"))]
     clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
     not_running_event_loop: RefCell<Option<winit::event_loop::EventLoop<SlintEvent>>>,
@@ -457,6 +460,9 @@ pub(crate) struct SharedBackendData {
     #[cfg(target_os = "ios")]
     #[allow(unused)]
     keyboard_notifications: ios::KeyboardNotifications,
+    #[cfg(target_os = "ios")]
+    #[allow(unused)]
+    scene_lifecycle: ios::SceneLifecycle,
 }
 
 impl SharedBackendData {
@@ -528,6 +534,9 @@ impl SharedBackendData {
         let keyboard_notifications =
             ios::register_keyboard_notifications(Rc::downgrade(&active_windows));
 
+        #[cfg(target_os = "ios")]
+        let scene_lifecycle = ios::install_scene_lifecycle(Rc::downgrade(&active_windows));
+
         let event_loop_proxy = event_loop.create_proxy();
         #[cfg(not(target_arch = "wasm32"))]
         let clipboard = crate::clipboard::create_clipboard(
@@ -545,6 +554,7 @@ impl SharedBackendData {
             active_windows,
             inactive_windows: Default::default(),
             pending_mouse_move: Default::default(),
+            hidden_winit_windows: Default::default(),
             #[cfg(not(target_arch = "wasm32"))]
             clipboard: RefCell::new(clipboard),
             not_running_event_loop: RefCell::new(Some(event_loop)),
@@ -555,6 +565,8 @@ impl SharedBackendData {
             desktop_settings: xdg_desktop_settings::DesktopSettings::new(),
             #[cfg(target_os = "ios")]
             keyboard_notifications,
+            #[cfg(target_os = "ios")]
+            scene_lifecycle,
         })
     }
 
@@ -665,6 +677,20 @@ impl SharedBackendData {
     pub(crate) fn flush_pending_mouse_move(&self) {
         if let Some((window, position)) = self.pending_mouse_move.take() {
             dispatch_mouse_move(&window, position);
+        }
+    }
+
+    pub(crate) fn watch_hidden_window(&self, window: &Arc<winit::window::Window>) {
+        self.hidden_winit_windows.borrow_mut().push(Arc::downgrade(window));
+    }
+
+    /// Call this only once the event being dispatched let go of its own reference, or a window
+    /// hidden while handling one of its events looks kept alive.
+    pub(crate) fn warn_about_windows_kept_alive(&self) {
+        if self.hidden_winit_windows.take().iter().any(|window| window.strong_count() > 0) {
+            i_slint_core::debug_log!(
+                "Slint winit backend: a window was hidden but references to it still exist, so it stays on screen. Drop the winit window if the application obtained one with WinitWindowAccessor::winit_window()"
+            );
         }
     }
 }
@@ -1101,6 +1127,9 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// When the future is ready, the output it resolves to is either `Ok(Arc<winit::window::Window>)` if the window exists,
     /// or an error if the window has been deleted in the meanwhile or isn't backed by the winit backend.
     ///
+    /// Hiding the Slint window doesn't destroy a window that's still referenced this way, so it stays
+    /// on screen. Use [`Self::with_winit_window()`] to borrow the window for the time of a callback instead.
+    ///
     /// ```rust,no_run
     /// // Bring winit and accessor traits into scope.
     /// use slint::winit_030::{WinitWindowAccessor, winit};
@@ -1142,6 +1171,13 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     fn winit_window(
         &self,
     ) -> impl std::future::Future<Output = Result<Arc<winit::window::Window>, PlatformError>>;
+
+    /// Dispatches a Winit WindowEvent directly to this window
+    fn dispatch_winit_window_event(
+        &self,
+        event_loop: &ActiveEventLoop,
+        event: &WindowEvent,
+    ) -> Result<(), PlatformError>;
 }
 
 impl WinitWindowAccessor for i_slint_core::api::Window {
@@ -1195,6 +1231,26 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
             adapter
                 .window_event_filter
                 .set(Some(Box::new(move |window, event| callback(window, event))));
+        }
+    }
+
+    fn dispatch_winit_window_event(
+        &self,
+        event_loop: &ActiveEventLoop,
+        event: &WindowEvent,
+    ) -> Result<(), PlatformError> {
+        let adapter = i_slint_core::window::WindowInner::from_pub(self).window_adapter();
+        let adapter = adapter
+            .internal(i_slint_core::InternalToken)
+            .and_then(|wa| (wa as &dyn core::any::Any).downcast_ref::<WinitWindowAdapter>());
+        if let Some(adapter) = adapter
+            && let Some(winit_window) = adapter.winit_window()
+        {
+            adapter.dispatch_winit_window_event(event_loop, &winit_window, event)
+        } else {
+            Err(PlatformError::OtherError(
+                "Slint window is not backed by a Winit window adapter".to_string().into(),
+            ))
         }
     }
 }

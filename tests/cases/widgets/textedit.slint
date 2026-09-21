@@ -207,6 +207,12 @@ menu_activate(&instance, 4);
 instance.invoke_cut();
 assert_eq!(instance.get_text(), "");
 instance.set_read_only(false);
+
+instance.set_enabled(true);
+edit.set_accessible_value("Bonjour");
+assert_eq!(instance.get_text(), "Bonjour");
+assert_eq!(edit.accessible_value(), Some("Bonjour".into()));
+assert_eq!(edits.borrow().last().unwrap(), "Bonjour", "set-value did not emit edited");
 ```
 
 */

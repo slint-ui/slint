@@ -7,9 +7,10 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from editor_sync import wait_for_source
+from gradient_interactions import center, click, control, gesture, open_radial, shifted
 from slint_testing import keys
-from source_snapshot import SourceSnapshot
-from test_linear_gradient_canvas import center, click, control, gesture, shifted
+from source_snapshot import SourceSnapshot, wait_for_source_change
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -17,17 +18,7 @@ from ui_driver import (
     press_key,
     press_shortcut,
     select_outline_row,
-    wait_until,
 )
-
-
-def open_radial(window):
-    select_outline_row(window, "fill")
-    click(window, "Rectangle background color picker")
-    control(window, "Gradient center handle")
-    assert not elements_with_label(window.root_element, "Gradient center")
-    assert not elements_with_label(window.root_element, "Gradient radius mode")
-    control(window, "Add gradient stop")
 
 
 def test_radial_activation_preserves_the_actual_picker(
@@ -38,6 +29,7 @@ def test_radial_activation_preserves_the_actual_picker(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+        wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         assert not elements_with_label(window.root_element, "Gradient center handle")
@@ -77,6 +69,7 @@ def test_radial_translation(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+        wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
         c = center(control(window, "Gradient center handle"), rotation + 35)
@@ -103,19 +96,15 @@ def test_radial_radius_save_reopen_and_history(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+        wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
         c = center(control(window, "Gradient center handle"), 35)
         r = center(control(window, "Gradient radius handle"), 35)
         gesture(window, r, shifted(c, x=100))
         click(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                radial_scene.read_bytes()
-                if radial_scene.read_bytes()
-                != original.sources[Path(radial_scene.name)]
-                else None
-            )
+        saved = wait_for_source_change(
+            radial_scene, original.sources[Path(radial_scene.name)]
         )
         radius = re.search(rb"circle ([0-9.]+)px", saved)
         assert radius is not None
@@ -139,6 +128,7 @@ def test_radial_guide_rotation_and_noop_do_not_write_source(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+        wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
         c = center(control(window, "Gradient center handle"), 35)
@@ -156,6 +146,7 @@ def test_radial_stops_cross_insert_delete_and_color(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+        wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
         start = center(control(window, "Gradient stop 2"), 35)

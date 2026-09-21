@@ -1,6 +1,6 @@
 {
   "name": "slint",
-  "version": "1.18.0",
+  "version": "1.18.1",
   "description": "Enhances Cursor's ability to work with, debug, and build Slint GUI applications",
   "author": {
     "name": "Slint",

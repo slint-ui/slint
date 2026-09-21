@@ -72,7 +72,7 @@ export component TextEditBase inherits Rectangle {
     ContextMenuArea {
         enabled: root.enabled;
         Menu {
-            if !root.read-only && root.enabled: MenuItem {
+            if !root.read-only: MenuItem {
                 title: @tr("Undo");
                 activated => {
                     text-input.undo();
@@ -88,9 +88,8 @@ export component TextEditBase inherits Rectangle {
 
             if !root.read-only && root.enabled: MenuSeparator { }
 
-            MenuItem {
+            if !root.read-only: MenuItem {
                 title: @tr("Cut");
-                enabled: !root.read-only && root.enabled;
                 activated => {
                     text-input.cut();
                 }
@@ -104,8 +103,7 @@ export component TextEditBase inherits Rectangle {
                 }
             }
 
-            MenuItem {
-                enabled: !root.read-only && root.enabled;
+            if !root.read-only: MenuItem {
                 title: @tr("Paste");
                 activated => {
                     text-input.paste();
@@ -157,7 +155,6 @@ export component TextEditBase inherits Rectangle {
                     } else if (cpos.x + root.content-x > parent.visible-width) {
                         root.content-x = min(0px, max(parent.visible-width - self.width, parent.visible-width - cpos.x));
                     }
-
                     if (cpos.y + root.content-y < 0px) {
                         root.content-y = min(
                             0px,
@@ -192,6 +189,7 @@ export component TextEditBase inherits Rectangle {
         overflow: elide;
         // `accessible-placeholder-text` is set on TextEdit already
         accessible-role: none;
+        horizontal-alignment: root.horizontal-alignment;
     }
 
     @children

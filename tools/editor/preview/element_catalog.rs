@@ -77,7 +77,7 @@ mod tests {
             export { ElementKind }
             export component MetadataProbe inherits Window {
                 public pure function label(kind: ElementKind) -> string {
-                    return ElementVisuals.for-kind(kind).drag-label;
+                    return ElementVisuals.for-kind(kind).label;
                 }
             }
         "#;
@@ -121,7 +121,7 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 label,
-                Value::String(format!("{} drag preview", entries[0].type_name).into()),
+                Value::String(entries[0].type_name.into()),
                 "{variant} must have presentation metadata",
             );
         }

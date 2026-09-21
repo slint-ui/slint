@@ -91,6 +91,7 @@ export component TextEdit {
     accessible-value <=> text;
     accessible-placeholder-text: placeholder-text;
     accessible-read-only: root.read-only;
+    accessible-action-set-value(v) => { text = v; edited(v); }
     accessible-action-set-selection-offsets(anchor, focus) => { text-input.set-selection-offsets(anchor, focus); }
 
     public function set-selection-offsets(anchor: int, focus: int) {

@@ -47,7 +47,7 @@ use crate::SlintEvent;
 use crate::{EventResult, SharedBackendData};
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
-use corelib::lengths::{LogicalLength, LogicalPoint};
+use corelib::lengths::{LogicalLength, LogicalPoint, LogicalRect, logical_size_from_api};
 use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::{Coord, graphics::*};
@@ -669,19 +669,11 @@ impl WinitWindowAdapter {
             .dispatch_event_with_result(WindowEvent::ScaleFactorChanged { scale_factor })?;
 
         #[cfg(target_os = "ios")]
-        let (content_view, keyboard_curve_self) = {
-            use objc2::Message as _;
-            use raw_window_handle::HasWindowHandle as _;
+        let (content_view, keyboard_curve_self) =
+            (crate::ios::content_view(&winit_window), self.self_weak.clone());
 
-            let raw_window_handle::RawWindowHandle::UiKit(window_handle) =
-                winit_window.window_handle().unwrap().as_raw()
-            else {
-                panic!()
-            };
-            let view = unsafe { &*(window_handle.ui_view.as_ptr() as *const objc2_ui_kit::UIView) }
-                .retain();
-            (view, self.self_weak.clone())
-        };
+        #[cfg(target_os = "ios")]
+        crate::ios::attach_window_to_scene(&content_view);
 
         // winit doesn't surface iOS appearance, so query the view's trait
         // collection directly; the matching live observers are installed below as
@@ -801,17 +793,11 @@ impl WinitWindowAdapter {
                 attributes.position = last_window_rc.outer_position().ok().map(|pos| pos.into());
                 *winit_window_or_none = WinitWindowOrNone::None(attributes.into());
 
-                if let Some(last_instance) = Arc::into_inner(last_window_rc) {
-                    // Note: Don't register the window in inactive_windows for re-creation later, as creating the window
-                    // on wayland implies making it visible. Unfortunately, winit won't allow creating a window on wayland
-                    // that's not visible.
-                    self.shared_backend_data.unregister_window(Some(last_instance.id()));
-                    drop(last_instance);
-                } else {
-                    i_slint_core::debug_log!(
-                        "Slint winit backend: request to hide window failed because references to the window still exist. This could be an application issue, make sure that there are no slint::WindowHandle instances left"
-                    );
-                }
+                // Note: Don't register the window in inactive_windows for re-creation later, as creating the window
+                // on wayland implies making it visible. Unfortunately, winit won't allow creating a window on wayland
+                // that's not visible.
+                self.shared_backend_data.watch_hidden_window(&last_window_rc);
+                self.shared_backend_data.unregister_window(Some(last_window_rc.id()));
             }
             WinitWindowOrNone::None(ref attributes) => {
                 attributes.borrow_mut().visible = false;
@@ -1267,10 +1253,10 @@ impl WinitWindowAdapter {
         &self,
         event_loop: &ActiveEventLoop,
         winit_window: &winit::window::Window,
-        event: WinitWindowEvent,
+        event: &WinitWindowEvent,
     ) -> Result<(), PlatformError> {
         if let Some(mut window_event_filter) = self.window_event_filter.take() {
-            let event_result = window_event_filter(self.window(), &event);
+            let event_result = window_event_filter(self.window(), event);
             self.window_event_filter.set(Some(window_event_filter));
 
             match event_result {
@@ -1279,11 +1265,17 @@ impl WinitWindowAdapter {
             }
         }
 
+        // A hook that ran before may have hidden the window, and then the event is about a
+        // window this adapter let go of.
+        if self.winit_window().is_none() {
+            return Ok(());
+        }
+
         #[cfg(enable_accesskit)]
         self.accesskit_adapter()
             .expect("internal error: accesskit adapter must exist when window exists")
             .borrow_mut()
-            .process_event(winit_window, &event);
+            .process_event(winit_window, event);
 
         let runtime_window = WindowInner::from_pub(self.window());
         self.maybe_set_custom_cursor(event_loop, winit_window);
@@ -1297,7 +1289,7 @@ impl WinitWindowAdapter {
         match event {
             WinitWindowEvent::RedrawRequested => self.draw()?,
             WinitWindowEvent::Resized(size) => {
-                let resized = self.resize_event(size);
+                let resized = self.resize_event(*size);
 
                 // Entering fullscreen, maximizing or minimizing the window will
                 // trigger a resize event. We need to update the internal window
@@ -1324,7 +1316,7 @@ impl WinitWindowAdapter {
             WinitWindowEvent::Focused(have_focus) => {
                 // Work around https://github.com/rust-windowing/winit/issues/4371
                 let have_focus =
-                    if cfg!(target_os = "macos") { winit_window.has_focus() } else { have_focus };
+                    if cfg!(target_os = "macos") { winit_window.has_focus() } else { *have_focus };
                 self.activation_changed(have_focus)?;
             }
 
@@ -1372,7 +1364,7 @@ impl WinitWindowAdapter {
                     i_slint_common::for_each_keys!(winit_key_to_char)
                 }
                 #[allow(unused_mut)]
-                let mut text = to_slint_key(&event, &key_code);
+                let mut text = to_slint_key(event, &key_code);
 
                 #[cfg(target_os = "windows")]
                 let text_without_modifiers = {
@@ -1388,7 +1380,7 @@ impl WinitWindowAdapter {
                     // combination used to imply AltGr or not.
                     // The latter case should be treated as a shortcut, the former should not.
                     let text_without_modifiers =
-                        to_slint_key(&event, &event.key_without_modifiers());
+                        to_slint_key(event, &event.key_without_modifiers());
                     // Skip the fallback for dead keys so the accent composes instead of being inserted.
                     if text.is_empty()
                         && !text_without_modifiers.is_empty()
@@ -1404,7 +1396,7 @@ impl WinitWindowAdapter {
                     return Ok(());
                 }
 
-                if is_synthetic {
+                if *is_synthetic {
                     // Synthetic event are sent when the focus is acquired, for all the keys currently pressed.
                     // Don't forward these keys other than modifiers to the app
                     use winit::keyboard::{Key::Named, NamedKey as N};
@@ -1456,7 +1448,7 @@ impl WinitWindowAdapter {
             WinitWindowEvent::CursorMoved { position, .. } => {
                 self.current_resize_direction.set(handle_cursor_move_for_resize(
                     winit_window,
-                    position,
+                    *position,
                     self.current_resize_direction.get(),
                     runtime_window
                         .window_item()
@@ -1483,7 +1475,7 @@ impl WinitWindowAdapter {
                         (d.x, d.y)
                     }
                 };
-                let phase = winit_touch_phase(phase);
+                let phase = winit_touch_phase(*phase);
                 self.dispatch_internal_event(BackendMouseEvent::Wheel {
                     position: self.cursor_pos.get(),
                     delta_x,
@@ -1548,15 +1540,15 @@ impl WinitWindowAdapter {
                     });
                 }
             }
-            WinitWindowEvent::ScaleFactorChanged { scale_factor, mut inner_size_writer } => {
+            WinitWindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                     self.window().dispatch_event_with_result(
                         corelib::platform::WindowEvent::ScaleFactorChanged {
-                            scale_factor: scale_factor as f32,
+                            scale_factor: *scale_factor as f32,
                         },
                     )?;
                     if let Some(physical) = self.physical_size_before_scale_factor.take() {
-                        inner_size_writer.request_inner_size(physical).ok();
+                        inner_size_writer.clone().request_inner_size(physical).ok();
                     }
                     // TODO: otherwise send a resize event or try to keep the logical size the same.
                 }
@@ -1569,12 +1561,12 @@ impl WinitWindowAdapter {
                 self.update_accent_color();
             }
             WinitWindowEvent::Occluded(occluded) => {
-                self.renderer.occluded(occluded);
+                self.renderer.occluded(*occluded);
 
                 // wgpu hands out no drawable while the window isn't visible, see
                 // `macos::RevealOnFirstFrame`. Draw now instead of at the next display link tick.
                 #[cfg(target_os = "macos")]
-                if !occluded && self.pending_redraw.get() {
+                if !*occluded && self.pending_redraw.get() {
                     self.draw()?;
                 }
 
@@ -1587,8 +1579,8 @@ impl WinitWindowAdapter {
             WinitWindowEvent::PinchGesture { delta, phase, .. } => {
                 self.dispatch_internal_event(BackendMouseEvent::PinchGesture {
                     position: self.cursor_pos.get(),
-                    delta: delta as f32,
-                    phase: winit_touch_phase(phase),
+                    delta: *delta as f32,
+                    phase: winit_touch_phase(*phase),
                 });
             }
             WinitWindowEvent::RotationGesture { delta, phase, .. } => {
@@ -1597,7 +1589,7 @@ impl WinitWindowAdapter {
                 self.dispatch_internal_event(BackendMouseEvent::RotationGesture {
                     position: self.cursor_pos.get(),
                     delta: -delta,
-                    phase: winit_touch_phase(phase),
+                    phase: winit_touch_phase(*phase),
                 });
             }
 
@@ -1690,6 +1682,15 @@ impl WinitWindowAdapter {
             }
 
             winit_window.set_visible(true);
+
+            // X11 and Windows discard what is drawn into a window that isn't mapped,
+            // which the buffer age a software surface reports doesn't account for.
+            self.renderer().as_core_renderer().mark_dirty_region(
+                LogicalRect::from_size(logical_size_from_api(
+                    self.size.get().to_logical(scale_factor as f32),
+                ))
+                .into(),
+            );
 
             // Refresh the SlintContext color-scheme now that the window is mapped: on some platforms
             // `winit_window.theme()` only reports a real value once the window is shown.

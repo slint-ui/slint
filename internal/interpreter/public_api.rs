@@ -181,7 +181,7 @@ pub fn set_callback(
     let prop = find_public_property(public, name).ok_or(())?;
     match &prop.prop {
         MemberReference::Relative { parent_level, local_reference } => {
-            let target = walk_to(sub, *parent_level, &local_reference.sub_component_path);
+            let target = walk_to(sub, *parent_level, local_reference).ok_or(())?;
             match &local_reference.reference {
                 i_slint_compiler::llr::LocalMemberIndex::Callback(idx) => {
                     let cb = Pin::as_ref(&target.callbacks[*idx]);
@@ -374,7 +374,8 @@ pub fn invoke_global(
 fn walk_to(
     start: Pin<Rc<SubComponentInstance>>,
     parent_level: usize,
-    path: &[i_slint_compiler::llr::SubComponentInstanceIdx],
-) -> Pin<Rc<SubComponentInstance>> {
-    crate::eval::walk_sub_path(crate::eval::walk_parent(&start, parent_level), path)
+    local_reference: &i_slint_compiler::llr::LocalMemberReference,
+) -> Option<Pin<Rc<SubComponentInstance>>> {
+    let base = crate::eval::try_walk_parent(&start, parent_level)?;
+    Some(crate::eval::walk_sub_path(base, &local_reference.sub_component_path))
 }

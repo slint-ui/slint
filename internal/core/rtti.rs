@@ -148,6 +148,9 @@ pub trait PropertyInfo<Item, Value> {
     fn set_debug_name(&self, _item: Pin<&Item>, _name: alloc::string::String) {}
 
     /// Prepare the property for two way binding and return the "common" shared property in the TwoWayBinding
+    ///
+    /// Every call for the same property must hand out a property backed by that one
+    /// common property, otherwise a later call detaches what an earlier one linked.
     fn prepare_for_two_way_binding(&self, item: Pin<&Item>) -> Pin<Rc<Property<Value>>>;
 
     /// Link another property to this property with a mapping function
@@ -283,15 +286,12 @@ where
             return common_property(self_.apply_pin(item));
         }
 
-        let p1 = self.apply_pin(item);
-        let value: Value = p1.get_internal().try_into().unwrap_or_default();
-        let shared_property = Rc::pin(Property::new(value));
-        Property::link_two_way_with_map_to_common_property(
-            shared_property.clone(),
-            p1,
+        let shared_property = Rc::pin(Property::<Value>::default());
+        Property::link_two_way_with_map(
+            self.apply_pin(item),
+            shared_property.as_ref(),
             |v| v.clone().try_into().unwrap_or_default(),
             |v, v2| *v = v2.clone().try_into().unwrap_or_default(),
-            true,
         );
         shared_property
     }

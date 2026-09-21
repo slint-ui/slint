@@ -1,11 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style, Colors, Metrics, SelectionFrameStyle } from "../style.slint";
 // cspell:ignore nesw
 import { CanvasCorner } from "../api.slint";
-import { EditorCursors, EditorMetrics, StudioTheme } from "common.slint";
+import { EditorCursors } from "common.slint";
 
 export component MoveResizeFrame inherits Rectangle {
+    in property <SelectionFrameStyle> style: Style.selection-frame;
     in property <bool> enabled: true;
     in property <bool> show-outline: true;
     callback control-hovered();
@@ -43,6 +45,7 @@ export component MoveResizeFrame inherits Rectangle {
     callback moved-to(Point);
     callback resized-to(CanvasCorner, Point, Size);
     callback rotated-to(angle);
+    callback double-clicked();
 
     public pure function corner-on-left(corner: CanvasCorner) -> bool {
         return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-left;
@@ -77,26 +80,26 @@ export component MoveResizeFrame inherits Rectangle {
 
     pure function resize-handle-x(corner: CanvasCorner) -> length {
         return root.corner-on-left(corner)
-            ? -EditorMetrics.selection-handle-size / 2
-            : root.width - EditorMetrics.selection-handle-size / 2;
+            ? -root.style.handle-size / 2
+            : root.width - root.style.handle-size / 2;
     }
 
     pure function resize-handle-y(corner: CanvasCorner) -> length {
         return root.corner-on-top(corner)
-            ? -EditorMetrics.selection-handle-size / 2
-            : root.height - EditorMetrics.selection-handle-size / 2;
+            ? -root.style.handle-size / 2
+            : root.height - root.style.handle-size / 2;
     }
 
     pure function rotation-zone-x(corner: CanvasCorner) -> length {
         return root.corner-on-left(corner)
-            ? EditorMetrics.selection-handle-size / 2 - EditorMetrics.rotation-zone-size
-            : root.width - EditorMetrics.selection-handle-size / 2;
+            ? root.style.handle-size / 2 - root.style.rotation-hit-size
+            : root.width - root.style.handle-size / 2;
     }
 
     pure function rotation-zone-y(corner: CanvasCorner) -> length {
         return root.corner-on-top(corner)
-            ? EditorMetrics.selection-handle-size / 2 - EditorMetrics.rotation-zone-size
-            : root.height - EditorMetrics.selection-handle-size / 2;
+            ? root.style.handle-size / 2 - root.style.rotation-hit-size
+            : root.height - root.style.handle-size / 2;
     }
 
     pure function local-point-to-parent-at(point: Point, origin: Point, size: Size, rotation: angle) -> Point {
@@ -244,6 +247,8 @@ export component MoveResizeFrame inherits Rectangle {
             private property <Point> move-start-position;
             private property <Point> move-start-pointer;
 
+            double-clicked => { root.double-clicked(); }
+
             changed pressed => {
                 if self.pressed {
                     root.move-dragging = false;
@@ -298,16 +303,16 @@ export component MoveResizeFrame inherits Rectangle {
 
         if root.active && !root.move-dragging: Rectangle {
             if root.show-outline: Rectangle {
-                x: -EditorMetrics.selection-outline-width;
-                y: -EditorMetrics.selection-outline-width;
-                width: root.width + 2 * EditorMetrics.selection-outline-width;
-                height: root.height + 2 * EditorMetrics.selection-outline-width;
-                border-width: EditorMetrics.selection-outline-width;
-                border-color: StudioTheme.canvas-outline;
+                x: -root.style.outline-width;
+                y: -root.style.outline-width;
+                width: root.width + 2 * root.style.outline-width;
+                height: root.height + 2 * root.style.outline-width;
+                border-width: root.style.outline-width;
+                border-color: root.style.accent;
             }
 
             if root.proportional-resizing(): Path {
-                stroke: StudioTheme.accent-strong;
+                stroke: Colors.focus;
                 stroke-width: 1phx;
                 viewbox-width: root.width / 1px;
                 viewbox-height: root.height / 1px;
@@ -332,8 +337,8 @@ export component MoveResizeFrame inherits Rectangle {
                 visible: root.show-rotation-handles;
                 x: root.rotation-zone-x(corner);
                 y: root.rotation-zone-y(corner);
-                width: EditorMetrics.rotation-zone-size;
-                height: EditorMetrics.rotation-zone-size;
+                width: root.style.rotation-hit-size;
+                height: root.style.rotation-hit-size;
                 TouchArea {
                     mouse-cursor: MouseCursor.custom(EditorCursors.rotation-image(root.rotation-cursor-angle(corner)), 12, 12);
                     accessible-role: AccessibleRole.button;
@@ -403,19 +408,19 @@ export component MoveResizeFrame inherits Rectangle {
                 ]: Rectangle {
                     x: root.resize-handle-x(corner);
                     y: root.resize-handle-y(corner);
-                    width: EditorMetrics.selection-handle-size;
-                    height: EditorMetrics.selection-handle-size;
-                    background: white;
-                    border-width: 1px;
-                    border-color: StudioTheme.accent-strong;
+                    width: root.style.handle-size;
+                    height: root.style.handle-size;
+                    background: root.style.handle-background;
+                    border-width: Metrics.border-width;
+                    border-color: Colors.focus;
                     visible: root.show-resize-handles;
 
                     TouchArea {
                         enabled: root.enabled;
                         x: (parent.width - self.width) / 2;
                         y: (parent.height - self.height) / 2;
-                        width: EditorMetrics.selection-handle-touch-size;
-                        height: EditorMetrics.selection-handle-touch-size;
+                        width: root.style.hit-size;
+                        height: root.style.hit-size;
                         mouse-cursor: !root.resizable ? default : root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
                         accessible-role: AccessibleRole.button;
                         accessible-label: root.accessible-prefix + " resize " + root.corner-name(corner);

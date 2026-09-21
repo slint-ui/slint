@@ -31,7 +31,11 @@ export component Button {
     accessible-checkable: root.checkable;
     accessible-checked: root.checked;
     accessible-label: root.text;
-    accessible-action-default => { state-layer.clicked(); }
+    accessible-action-default => {
+        if (root.enabled) {
+            state-layer.clicked();
+        }
+    }
 
     states [
         disabled when !root.enabled : {

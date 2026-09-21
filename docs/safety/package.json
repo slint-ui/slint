@@ -1,7 +1,7 @@
 {
   "name": "slint-safety-manual",
   "type": "module",
-  "version": "1.18.0",
+  "version": "1.18.1",
   "scripts": {
     "sync-language-spec": "node scripts/sync-language-spec.mjs",
     "gen:api": "cargo doc -p slint-sc --no-deps && rm -rf public/api && mkdir -p public/api && cp -r ../../target/doc/. public/api/",

@@ -2,7 +2,44 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## [1.18.0] - Unreleased
+## [1.18.1] - 2026-09-21
+
+ - Fixed a compiler panic when a nested repeater calls a function that reads a property of the
+   enclosing component.
+ - Fixed a panic when a repeated element's handler removes its own row, or closes its popup,
+   and then reads or writes something outside it. (#13528)
+ - `FlexboxLayout`: Fixed a panic when a cell sizes one axis from its own other axis.
+ - Layout: Fixed a minimum height over a nested layout being lost, making windows too short. (#13523)
+ - `Flickable`: Nested `Flickable`s can be scrolled with a touch pad again. (#13453)
+ - Fixed a drag carrying only file paths not reaching other applications. (#13501)
+ - `SharedPixelBuffer::clone_from_slice` now panics on a slice that doesn't match the given width
+   and height, instead of reading out of bounds. (#13491)
+ - Interpreter: Fixed two-way bindings when several properties link to the same one. (#13446)
+ - Widgets: Fixed the minimum width of `ComboBox` and the Qt `LineEdit`. (#13447)
+ - `Button`: Added the missing `accessible-enabled` property. (#13451)
+ - `TextEdit`: Added `accessible-action-set-value`, like `LineEdit`. (#13414)
+ - Qt: Fixed `accessible-label` changing the widget's text. (#13455)
+ - Qt: A disabled `CheckBox` no longer reacts to key input. (#13457)
+ - Qt: The mouse wheel no longer changes the value of a disabled `SpinBox`. (#13449)
+ - Skia: Fixed anti-aliasing of transformed rectangles.
+ - Skia: Fixed a crash on Linux when closing a window rendered on Vulkan. (#13521)
+ - winit: Fixed the window staying blank at startup with software rendering. (#13500)
+ - winit: Fixed a spurious warning that hiding the window failed when closing it. (#13507)
+ - Windows: Fall back to another renderer when the OpenGL driver doesn't support OpenGL 2.0. (#12706)
+ - LinuxKMS: Fixed sheared rendering on panels whose DRM buffer pitch exceeds the visible row. (#13516)
+ - iOS: Fixed applications rendering in software instead of on the GPU via Metal.
+ - iOS: Animations now run at the display's full refresh rate, such as 120Hz on ProMotion devices.
+ - iOS: Fixed applications intermittently starting up with a black screen.
+ - iOS: Fixed an empty window when running an iOS app on macOS.
+ - Rust: Fixed the generated code not compiling for `options[options.find-index(...)]`. (#13471)
+ - C++: Fixed MSVC warnings from the public headers. (#13234)
+ - Python: Fixed `del model[-1]` raising an error, and `del` with a step leaving stale rows. (#13468)
+ - Python: Fixed `model[-1] = value` raising an error and leaving a stale value in the UI.
+ - Python: Generated iOS projects adopt the UIScene lifecycle, which iOS 27 requires to launch.
+ - LSP: Fixed a panic when completing in a document with an unknown element. (#13445)
+ - Syntax highlighting: Added the `@keys` and `@markdown` macros. (#13443)
+
+## [1.18.0] - 2026-09-16
 
 ### General
 
@@ -56,12 +93,16 @@ All notable changes to this project are documented in this file.
  - winit: Fixed the color scheme and desktop settings not being detected with an older xdg-desktop-portal. (#10226)
  - Windows: Fixed dead keys inserting their accent character immediately instead of composing. (#12896)
  - macOS: Fixed a startup crash on macOS 10.13 and applications failing to start on macOS older than 11. (#12399)
+ - macOS: Fixed the native title bar staying blank: windows are now only transparent when their
+   background brush is translucent or they have no decorations.
  - Android: Animations now follow the display refresh rate. (#12407)
  - Android: Fixed key repeat when holding a key on the virtual keyboard, and the position of the caret
    and selection handles at the edge of the visible area. (#12630)
  - Android: Fixed `Key.Back` handlers in applications targeting Android 14 or later.
  - Android: The safe-area insets now include the display cutout.
  - Android: Fixed the event loop not waking up for pending redraw requests. (#12687)
+ - iOS: Applications adopt the UIScene lifecycle, which iOS 27 requires to launch. This requires
+   changes to your `.plist`/`.yml` file. For details, see iOS notes in the documentation.
  - esp-idf: Added `SlintPlatformConfiguration::panel_type` so MIPI-DSI panels no longer use RGB-panel APIs. (#13180)
  - LinuxKMS: Improved software rendering performance, and the `mouse-cursor` property is now honored.
  - Skia: Improved performance when rendering opaque images.
@@ -77,6 +118,7 @@ All notable changes to this project are documented in this file.
  - FemtoVG: Fixed blurry images, most visibly rasterized SVG icons, at fractional device-pixel positions. (#6455)
  - wasm: Fixed keyboard modifiers being reset when the focus moves between elements. (#7347, #8606)
  - wasm: The system accent color is now picked up.
+ - wasm: Fixed a panic on the first touch in Safari on iOS, which left the canvas frozen.
  - Fixed the IME not being updated when the position of a focused, editable `TextInput` changes.
  - Partial rendering: Removing elements, such as an `if` that turns false, a shrinking repeater or a closing
    popup, now repaints only the region they occupied instead of the whole window.
@@ -199,6 +241,7 @@ All notable changes to this project are documented in this file.
  - `DatePicker`: Fixed a missing year in the year list. (#13351)
  - `RadioGroup`: Named the argument of the `selected` callback. (#13279)
  - Qt style: Fixed the `LineEdit` text touching the frame with the Breeze style. (#13392)
+ - `LineEdit`: Added the `undo()` and `redo()` functions, and the matching context menu entries.
 
 ### Rust
 
@@ -313,6 +356,7 @@ All notable changes to this project are documented in this file.
  - slint-viewer: The window is now named after the previewed component and file.
  - slint-viewer: The Android build ships one APK per ABI, and can be reproduced by F-Droid. (#13273, #13342)
  - AI plugins: Added support for Antigravity.
+ - slint-compiler: The compiler binary is now published on crates.io: `cargo install slint-compiler`.
 
 ## [1.17.1] - 2026-07-07
 

@@ -16,7 +16,7 @@ edition = "2024"
 
 [package]
 name = "mcu-embassy"
-version = "1.18.0"
+version = "1.18.1"
 edition.workspace = true
 authors = ["David Haig <david@ninjametal.com>"]
 readme = "README.md"

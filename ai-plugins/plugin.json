@@ -1,6 +1,6 @@
 {
   "$schema": "https://antigravity.google/schemas/v1/plugin.json",
   "name": "slint",
-  "version": "1.18.0",
+  "version": "1.18.1",
   "description": "Enhances the agent's ability to work with, debug, and build Slint GUI applications"
 }

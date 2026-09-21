@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 import slint_testing
 from canvas_interactions import center
+from editor_sync import wait_for_source
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     elements_with_label,
@@ -71,9 +72,9 @@ def test_click_selection_keeps_visible_hover_outline(
     editor_environment: dict[str, str],
     fixture_project: Path,
 ) -> None:
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
+    source = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
         window = first_window(editor)
         artboard = window_element_with_label(window, "Artboard")
         target = slint_testing.LogicalPosition(
@@ -87,6 +88,58 @@ def test_click_selection_keeps_visible_hover_outline(
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
         window_element_with_label(window, "Selected Rectangle")
         window_element_with_label(window, "Hovered Rectangle")
+
+
+def test_click_outside_artboard_clears_selection(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
+        window = first_window(editor)
+        select_outline_row(window, "root-rectangle")
+        window_element_with_label(window, "Selected Rectangle")
+        window_element_with_label(window, "Rectangle background")
+        canvas = window_element_with_label(window, "Editor canvas")
+        target = slint_testing.LogicalPosition(
+            x=canvas.absolute_position.x + 10,
+            y=canvas.absolute_position.y + 10,
+        )
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerMoveEvent(target))
+        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+
+        def selection_cleared() -> bool | None:
+            tree = window_element_with_label(window, "Current file outline")
+            rows = (
+                tree.query_descendants()
+                .match_accessible_role(slint_testing.AccessibleRole.ListItem)
+                .find_all()
+            )
+            return (
+                True
+                if rows
+                and not any(row.accessible_item_selected for row in rows)
+                and not elements_with_label(window.root_element, "Selected Rectangle")
+                and not elements_with_label(window.root_element, "Rectangle background")
+                and not elements_with_label(window.root_element, "Root background")
+                else None
+            )
+
+        wait_until(selection_cleared)
+        select_outline_row(window, "root-rectangle")
+        window_element_with_label(window, "Selected Rectangle")
+        tree = window_element_with_label(window, "Current file outline")
+        root_row = (
+            tree.query_descendants()
+            .match_accessible_role(slint_testing.AccessibleRole.ListItem)
+            .find_all()[0]
+        )
+        root_row.invoke_accessible_default_action()
+        window_element_with_label(window, "Root background")
 
 
 def test_resize_handle_touch_area_is_centered(

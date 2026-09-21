@@ -2,12 +2,15 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import math
+import re
 from pathlib import Path
 
 import pytest
 import slint_testing
+from editor_sync import wait_for_source
+from gradient_interactions import center, click, control, gesture, shifted
 from slint_testing import keys
-from source_snapshot import SourceSnapshot
+from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -16,7 +19,6 @@ from ui_driver import (
     press_shortcut,
     select_outline_row,
     wait_until,
-    window_element_with_label,
 )
 
 
@@ -34,38 +36,6 @@ def scene(tmp_path):
 }
 """)
     return path
-
-
-def control(window, label, role=slint_testing.AccessibleRole.Button):
-    return window_element_with_label(window, label, role)
-
-
-def click(window, label):
-    control(window, label).invoke_accessible_default_action()
-
-
-def center(element, rotation=0):
-    angle = math.radians(rotation)
-    return slint_testing.LogicalPosition(
-        x=element.absolute_position.x
-        + element.size.width / 2 * math.cos(angle)
-        - element.size.height / 2 * math.sin(angle),
-        y=element.absolute_position.y
-        + element.size.width / 2 * math.sin(angle)
-        + element.size.height / 2 * math.cos(angle),
-    )
-
-
-def shifted(point, x=0, y=0):
-    return slint_testing.LogicalPosition(x=point.x + x, y=point.y + y)
-
-
-def gesture(window, start, end):
-    button = slint_testing.PointerEventButton.Left
-    window.dispatch_event(slint_testing.PointerMoveEvent(start))
-    window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-    window.dispatch_event(slint_testing.PointerMoveEvent(end))
-    window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
 
 
 def open_linear(window):
@@ -86,6 +56,7 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient stop 2"), rotation)
@@ -124,6 +95,7 @@ def test_linear_canvas_activation_and_colour(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         assert not elements_with_label(window.root_element, "Gradient start")
@@ -142,8 +114,14 @@ def test_linear_canvas_activation_and_colour(
         hex_field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
         assert hex_field.accessible_value == "#264052"
         click(window, "Gradient stop 1")
+        wait_until(
+            lambda: hex_field if hex_field.accessible_value == "#568fb8" else None
+        )
         assert hex_field.accessible_value == "#568fb8"
         click(window, "Gradient stop 2")
+        wait_until(
+            lambda: hex_field if hex_field.accessible_value == "#264052" else None
+        )
         assert hex_field.accessible_value == "#264052"
         hex_field.accessible_value = "#12ab3480"
         click(window, "Close Stop color")
@@ -178,6 +156,7 @@ def test_linear_endpoint_drag_and_session_history(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient start"))
@@ -188,15 +167,12 @@ def test_linear_endpoint_drag_and_session_history(
         control(window, "Add gradient stop")
         original.assert_unchanged_now()
         click(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                scene.read_bytes()
-                if scene.read_bytes() != original.sources[Path(scene.name)]
-                else None
-            )
+        saved = replace_once(
+            original.sources[Path(scene.name)],
+            b"@linear-gradient(90deg, #568fb8 0%, #264052 55%, #7e3b66 100%)",
+            b"@linear-gradient(90deg, #568fb8 20%, #264052 64%, #7e3b66 100%)",
         )
         original.wait_for_applied(saved, scene.name)
-        assert b"20%" in saved
         press_shortcut(window, keys.Control, "z")
         original.wait_for_applied(original.sources[Path(scene.name)], scene.name)
         press_shortcut(window, keys.Control, keys.Shift, "z")
@@ -212,6 +188,7 @@ def test_linear_double_click_and_delete(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         axis = control(window, "Gradient axis")
@@ -236,6 +213,7 @@ def test_linear_drag_escape_restores_gesture(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, handle))
@@ -264,6 +242,7 @@ def test_linear_axis_translation_tracks_rotated_rectangles(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient start"), rotation)
@@ -295,7 +274,9 @@ def test_linear_layout_size_and_keyboard(
     }
 }
 """)
+    baseline = scene.read_bytes()
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient start"))
@@ -312,14 +293,18 @@ def test_linear_layout_size_and_keyboard(
         click(window, "Gradient stop 1")
         press_key(window, keys.RightArrow)
         click(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                scene.read_bytes() if b"red, blue" not in scene.read_bytes() else None
-            )
+        pattern = re.escape(baseline).replace(
+            re.escape(b"@linear-gradient(90deg, red, blue)"),
+            rb"@linear-gradient\([^()\n]+\)",
         )
-        from editor_sync import wait_for_source
 
+        def complete_source() -> bytes | None:
+            saved = scene.read_bytes()
+            return saved if saved != baseline and re.fullmatch(pattern, saved) else None
+
+        saved = wait_until(complete_source)
         wait_for_source(scene, saved)
+        assert b"red, blue" not in saved
         assert b"width: 200px" not in saved
 
 
@@ -335,6 +320,7 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         click(window, "Edit stop 1 color")
@@ -347,10 +333,9 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
             )
         )
         gesture(window, center(other), center(other))
-        saved = wait_until(
-            lambda: scene.read_bytes() if b"#123456" in scene.read_bytes() else None
-        )
+        saved = wait_for_source_change(scene, original.sources[Path(scene.name)])
         original.wait_for_applied(saved, scene.name)
+        assert b"#123456" in saved
         assert b"background: yellow" in saved
         assert not elements_with_label(window.root_element, "Gradient start")
         assert not elements_with_label(window.root_element, "Close Custom")
@@ -359,10 +344,10 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
 def test_linear_external_edit_cancels_stale_draft(
     editor_binary, editor_environment, scene
 ):
-    from editor_sync import wait_for_source
 
     original = scene.read_text()
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         click(window, "Edit stop 1 color")
@@ -390,6 +375,7 @@ def test_linear_extended_axis_round_trip(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient start"))
@@ -397,13 +383,7 @@ def test_linear_extended_axis_round_trip(
         end = center(control(window, "Gradient end"))
         gesture(window, end, shifted(end, x=50))
         click(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                scene.read_bytes()
-                if scene.read_bytes() != original.sources[Path(scene.name)]
-                else None
-            )
-        )
+        saved = wait_for_source_change(scene, original.sources[Path(scene.name)])
         original.wait_for_applied(saved, scene.name)
         assert b"0% - 25%" in saved
         assert b"125%" in saved
