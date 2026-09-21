@@ -4,15 +4,21 @@
 
 # Android and Slint scroll physics comparison
 
-This manual Android harness displays a native `ScrollView` beside a Slint
-`ScrollView`. It records their offsets frame by frame for identical scripted
-gestures. A native/native control mode forwards each `MotionEvent` from one
-Android list to another to validate the event-copying setup.
+This manual Android harness superimposes a translucent native `ScrollView` over
+a Slint `ScrollView`.
+It forwards a copy of each `MotionEvent`, including its event time and
+historical samples, through a diagnostic JNI bridge to Slint.
+Both implementations therefore receive the same gesture while a live overlay
+shows their offsets, percentage difference, frame velocities, and maximum
+separation.
 
-The native pane must run inside Slint's Android activity so both lists receive
-the same device input and share the same frame clock. The diagnostic
-instrumentation is therefore supplied as a patch instead of being compiled
-into the production backend.
+A native/native control mode forwards each `MotionEvent` from one Android list
+to another to validate the event-copying setup.
+
+The native pane and JNI bridge run inside Slint's Android activity so both
+lists share the same device input and frame clock.
+The diagnostic instrumentation is therefore supplied as a patch instead of
+being compiled into the production backend.
 
 ## Setup
 
@@ -58,7 +64,10 @@ Remove the temporary instrumentation when finished:
 git apply -R tests/manual/android-scroll-physics-comparison/patches/instrumentation.patch
 ```
 
-The instrumentation patch records native frame offsets, native release
-velocity, Slint's estimated release velocity, and the interval between the
-last move event and release. It does not include the candidate fix for the
-missing leading Android history segment described in [FINDINGS.md](FINDINGS.md).
+The standard matrix includes a three-trial short, hard flick that moves 120 dp
+in 20 ms.
+The instrumentation patch records native and Slint frame offsets, native
+release velocity, Slint's estimated release velocity, and the interval between
+the last move event and release.
+It does not include the candidate fix for the missing leading Android history
+segment described in [FINDINGS.md](FINDINGS.md).

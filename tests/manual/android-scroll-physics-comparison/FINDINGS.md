@@ -13,11 +13,30 @@ Date: 2026-09-20
 - Display: 1080 x 2340 physical pixels, density 2.8125 (450 dpi)
 - Slint source: local snapshot of `mm/flickable-scroll-animation-v2` rebased on the then-current Slint `master`, commit `ea8335305c`
 - Build: release, `aarch64-linux-android`
-- Test UI: native Android `ScrollView` and Slint `Flickable` side by side, with 1,000 matching 56 dp rows
+- Test UI: translucent native Android `ScrollView` over a Slint `Flickable`, with 1,000 matching 56 dp rows
 
 ## Test validity
 
 A native/native control mode put two Android `ScrollView` instances side by side and copied each `MotionEvent` from A to B. For the 500 ms scripted swipe, both views stopped at exactly 631.1111 dp and matched frame for frame. This confirms that the event-copying harness itself does not add velocity or distance to the second view.
+
+The updated native/Slint mode forwards the same `MotionEvent` data through a
+registered JNI bridge, preserving the current sample, event time, and grouped
+historical samples.
+A live overlay samples both offsets on the same `Choreographer` frame.
+
+## Short, hard flick regression
+
+The updated matrix moves 120 dp in 20 ms and repeats the case three times.
+On the Galaxy A34, the settled offsets were:
+
+| Trial | Native Android | Slint | Slint shortfall |
+|---:|---:|---:|---:|
+| 1 | 3,532.1 dp | 102.8 dp | 97.1% |
+| 2 | 3,491.9 dp | 62.6 dp | 98.2% |
+| 3 | 3,522.5 dp | 93.2 dp | 97.4% |
+
+All three runs reproduce the same short, high-velocity momentum loss observed
+in the iOS comparison.
 
 ## Baseline result
 

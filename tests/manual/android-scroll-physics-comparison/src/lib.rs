@@ -10,7 +10,7 @@ slint::slint! {
         out property <float> scroll-offset: -list.content-y / 1px;
 
         Text {
-            x: root.width / 2;
+            x: 0;
             y: 0;
             width: root.width / 2;
             height: 48px;
@@ -19,33 +19,26 @@ slint::slint! {
             vertical-alignment: center;
             font-size: 18px;
             font-weight: 700;
-            color: #17233b;
+            color: #145aaa;
         }
 
-        TouchArea {
+        Text {
             x: root.width / 2;
             y: 0;
             width: root.width / 2;
             height: 48px;
-            clicked => {
-                list.content-y = list.content-y == 0px
-                    ? list.height - list.content-height
-                    : 0px;
-            }
-        }
-
-        Rectangle {
-            x: root.width / 2;
-            y: 0;
-            width: 1px;
-            height: root.height;
-            background: #bcc5d5;
+            text: "Android";
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            font-size: 18px;
+            font-weight: 700;
+            color: #b8140a;
         }
 
         list := ScrollView {
-            x: root.width / 2 + 1px;
+            x: 0;
             y: 48px;
-            width: root.width / 2 - 1px;
+            width: root.width;
             height: root.height - 48px;
             content-width: self.width - 12px;
             content-height: 1000 * 56px;
@@ -59,15 +52,23 @@ slint::slint! {
 
                 Text {
                     x: 12px;
+                    width: parent.width / 2 - 24px;
                     height: parent.height;
                     vertical-alignment: center;
-                    text: "Row " + (row + 1);
+                    text: "Slint " + (row + 1);
                     font-size: 18px;
-                    color: #17233b;
+                    color: #145aaa;
                 }
             }
         }
     }
+}
+
+static SCROLL_OFFSET_BITS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+#[unsafe(no_mangle)]
+pub extern "Rust" fn slint_scroll_offset_for_comparison() -> f32 {
+    f32::from_bits(SCROLL_OFFSET_BITS.load(std::sync::atomic::Ordering::Relaxed))
 }
 
 fn run() -> Result<(), slint::PlatformError> {
@@ -80,10 +81,12 @@ fn run() -> Result<(), slint::PlatformError> {
         std::time::Duration::from_millis(8),
         move || {
             if let Some(app) = weak.upgrade() {
+                let offset = app.get_scroll_offset();
+                SCROLL_OFFSET_BITS.store(offset.to_bits(), std::sync::atomic::Ordering::Relaxed);
                 log::info!(
                     "SCROLL_COMPARE,S,{:.3},{:.3}",
                     start.elapsed().as_secs_f64() * 1000.0,
-                    app.get_scroll_offset()
+                    offset
                 );
             }
         },
