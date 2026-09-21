@@ -10,7 +10,7 @@ import slint_testing
 from editor_sync import wait_for_source
 from gradient_interactions import around, center, click, control, gesture, shifted
 from slint_testing import keys
-from source_snapshot import SourceSnapshot, wait_for_source_change
+from source_snapshot import SourceSnapshot, replace_once
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -222,8 +222,10 @@ def test_conic_rotation_crosses_the_seam(
         )
         original.assert_unchanged_now()
         click(window, "Close Custom")
-        saved = wait_for_source_change(
-            conic_scene, original.sources[Path(conic_scene.name)]
+        saved = replace_once(
+            original.sources[Path(conic_scene.name)],
+            b"from 350deg",
+            b"from 366.99997deg",
         )
         original.wait_for_applied(saved, conic_scene.name)
         angle = re.search(rb"from ([0-9.]+)deg", saved)
