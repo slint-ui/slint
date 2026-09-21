@@ -193,18 +193,9 @@ same-direction flicks.
 The 10 ms interval between touches was not physically realistic.
 Do not use the measurements in this section as evidence of user behavior.
 
-There is public corroboration in Flutter's iOS-style physics. Flutter documents `BouncingScrollPhysics.carriedMomentum` as mimicking iOS's speed increase with repeated flings and uses this function:
-
-```text
-sign(existingVelocity) * min(0.000816 * abs(existingVelocity)^1.967, 40000)
-```
-
-References:
-
-- [Flutter `BouncingScrollPhysics.carriedMomentum`](https://api.flutter.dev/flutter/widgets/BouncingScrollPhysics/carriedMomentum.html)
-- [Flutter `ScrollPhysics.carriedMomentum`](https://api.flutter.dev/flutter/widgets/ScrollPhysics/carriedMomentum.html)
-
-The Slint branch already contains the same formula and enables it automatically on iOS. It also has a 20 ms `MOMENTUM_RETAIN_TIMEOUT`. The presence of the formula therefore does not mean the behavior is working end to end.
+The Slint branch contains a carried-momentum formula and enables it automatically
+on iOS. It also has a 20 ms `MOMENTUM_RETAIN_TIMEOUT`. The presence of the
+formula therefore does not mean the behavior is working end to end.
 
 Normal public XCTest drag calls were unsuitable for this test because XCTest inserted roughly 3.6–6 seconds between gestures. A diagnostic test was built with a low-level `XCSynthesizedEventRecord`:
 
