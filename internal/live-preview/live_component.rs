@@ -343,6 +343,7 @@ mod ffi {
         style: Slice<u8>,
         translation_domain: Slice<u8>,
         no_default_translation_context: bool,
+        bundled_translations_path: Slice<u8>,
     ) -> *const LiveReloadingComponentInner {
         let mut compiler = Compiler::default();
         compiler.set_include_paths(
@@ -364,6 +365,11 @@ mod ffi {
         }
         if no_default_translation_context {
             compiler.set_default_translation_context(DefaultTranslationContext::None);
+        }
+        if !bundled_translations_path.is_empty() {
+            compiler.set_bundled_translations_path(
+                std::str::from_utf8(&bundled_translations_path).unwrap().into(),
+            );
         }
         Rc::into_raw(
             LiveReloadingComponent::new(
