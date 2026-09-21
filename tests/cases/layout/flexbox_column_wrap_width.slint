@@ -1,0 +1,336 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The width of a wrapping column FlexboxLayout depends on its height: fewer
+// boxes fit in a shorter column, so the rest flow into more columns. The flex
+// counts those columns only for a height given as a length literal, on itself,
+// on a base, or on the instance using it. Such a height is a fixed constraint
+// for the parent layout, which then never writes its cache into it, so reading
+// it cannot cycle. Any other height — assigned by a parent layout, a `100%`,
+// or an expression, even one that happens to be fixed — is measured as
+// unbounded instead: the flex reports a single column, like a CSS column flex
+// container with an auto height, and does not wrap into columns wider than
+// that, so the boxes overflow below it instead of into a sibling
+// (slint-ui/slint#11936 reported that overlap).
+
+// 4 boxes of 40x30: one 40px column when tall enough, two 80px columns at 70px.
+component WrapCol inherits FlexboxLayout {
+    flex-direction: column;
+    flex-wrap: wrap;
+    spacing: 0px;
+    padding: 0px;
+    cross-axis-line-alignment: start;
+    Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+    third := Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+    Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+    out property <length> third-x: third.x;
+    out property <length> third-y: third.y;
+}
+
+// The height comes from the base component.
+component FixedCol inherits WrapCol {
+    height: 70px;
+}
+
+export component TestCase inherits Window {
+    width: 750px;
+    height: 640px;
+
+    Text { x: 8px; y: 4px; width: 734px; font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "Each WrapCol flows 4 boxes into a 70px-tall column, so the second pair lands in a second column. Blue bar = the width the parent reserved for it. Top row: the height is set with a binding, so the bar sits after both columns. Bottom row: the parent assigns the height, so the bar sits after one column and the boxes stack below the flex instead of wrapping."; }
+
+    // A: set on the flex itself, standalone.
+    Text { x: 0; y: 70px; font-size: 10px; color: #555555; text: "A: standalone"; }
+    own := WrapCol { x: 0; y: 90px; height: 70px; }
+    Rectangle { x: own.preferred-width; y: 90px; width: 5px; height: 70px; background: #5b8db8; }
+
+    // B: set on the instance, a cell of a HorizontalLayout. WrapCol is used
+    // several times, so it is not inlined: the height is set outside it.
+    Text { x: 150px; y: 70px; font-size: 10px; color: #555555; text: "B: on the instance"; }
+    HorizontalLayout {
+        x: 150px; y: 90px; width: 140px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        WrapCol { height: 70px; }
+        instAnchor := Rectangle { width: 5px; background: #5b8db8; }
+    }
+
+    // C: set by the base component.
+    Text { x: 300px; y: 70px; font-size: 10px; color: #555555; text: "C: by the base"; }
+    HorizontalLayout {
+        x: 300px; y: 90px; width: 140px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        FixedCol { }
+        baseAnchor := Rectangle { width: 5px; background: #5b8db8; }
+    }
+
+    // D: set on a repeated instance.
+    Text { x: 450px; y: 70px; font-size: 10px; color: #555555; text: "D: repeated"; }
+    HorizontalLayout {
+        x: 450px; y: 90px; width: 140px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        for i in [1]: WrapCol { height: 70px; }
+        repAnchor := Rectangle { width: 5px; background: #5b8db8; }
+    }
+
+    // E: seen through a VerticalLayout's own width info.
+    Text { x: 600px; y: 70px; font-size: 10px; color: #555555; text: "E: through a column"; }
+    vl := VerticalLayout {
+        x: 600px; y: 90px; width: 140px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        WrapCol { height: 70px; }
+    }
+    Rectangle { x: 600px + vl.preferred-width; y: 90px; width: 5px; height: 70px; background: #5b8db8; }
+
+    // F: the height assigned by a HorizontalLayout.
+    Text { x: 0; y: 200px; font-size: 10px; color: #555555; text: "F: assigned by a row"; }
+    HorizontalLayout {
+        x: 0; y: 220px; width: 140px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        assigned := WrapCol { }
+        assignedAnchor := Rectangle { width: 5px; background: #5b8db8; }
+    }
+
+    // G: the same, repeated.
+    Text { x: 150px; y: 200px; font-size: 10px; color: #555555; text: "G: assigned, repeated"; }
+    HorizontalLayout {
+        x: 150px; y: 220px; width: 140px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        for i in [1]: WrapCol { }
+        assignedRepAnchor := Rectangle { width: 5px; background: #5b8db8; }
+    }
+
+    // H: next to a wrapped Text, whose height depends on the row's width solve:
+    // the shape that used to recurse when the flex read its own height.
+    Text { x: 300px; y: 200px; font-size: 10px; color: #555555; text: "H: assigned, beside a wrapped Text"; }
+    HorizontalLayout {
+        x: 300px; y: 220px; width: 240px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        WrapCol { }
+        textAnchor := Rectangle { width: 5px; background: #5b8db8; }
+        Text { text: "some words that wrap"; wrap: word-wrap; horizontal-stretch: 1; }
+    }
+
+    // I: assigned, seen through a VerticalLayout's own width info.
+    Text { x: 600px; y: 200px; font-size: 10px; color: #555555; text: "I: assigned, through a column"; }
+    assignedVl := VerticalLayout {
+        x: 600px; y: 220px; width: 140px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        WrapCol { }
+    }
+    Rectangle { x: 600px + assignedVl.preferred-width; y: 220px; width: 5px; height: 70px; background: #5b8db8; }
+
+    // J: the parent's height. Not a literal, so it does not count, even where
+    // the parent's own height is fixed.
+    Text { x: 0; y: 310px; font-size: 10px; color: #555555; text: "J: parent.height of a fixed parent"; }
+    Rectangle { x: 0; y: 330px; width: 80px; height: 70px; parentCol := WrapCol { height: parent.height; } }
+    Rectangle { x: parentCol.preferred-width; y: 330px; width: 5px; height: 70px; background: #5b8db8; }
+
+    // K: 100% of a parent whose height a VerticalLayout assigns, beside a
+    // wrapped Text: reading that height would loop through the row's width.
+    Text { x: 150px; y: 310px; font-size: 10px; color: #555555; text: "K: 100% of an assigned parent"; }
+    HorizontalLayout {
+        x: 150px; y: 330px; width: 240px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        VerticalLayout {
+            padding: 0px; spacing: 0px;
+            Text { text: "some words that wrap"; wrap: word-wrap; }
+            pctParent := Rectangle { pctCol := WrapCol { height: 100%; } }
+        }
+    }
+
+    // L: set on a repeated instance with an opacity, which wraps the instance.
+    Text { x: 450px; y: 310px; font-size: 10px; color: #555555; text: "L: repeated, with opacity"; }
+    HorizontalLayout {
+        x: 450px; y: 330px; width: 140px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        for i in [1]: WrapCol { height: 70px; opacity: 0.8; }
+        wrappedRepAnchor := Rectangle { width: 5px; background: #5b8db8; }
+    }
+
+    // M: 100% of a fixed parent, with an opacity: the wrapper it injects
+    // becomes the tree parent, but the percent still refers to the Rectangle.
+    Text { x: 0; y: 420px; font-size: 10px; color: #555555; text: "M: 100% of a fixed parent, with opacity"; }
+    Rectangle { x: 0; y: 440px; width: 80px; height: 70px; pctFixedCol := WrapCol { height: 100%; opacity: 0.8; } }
+    Rectangle { x: pctFixedCol.preferred-width; y: 440px; width: 5px; height: 70px; background: #5b8db8; }
+
+    // N: set on a static cell with an opacity.
+    Text { x: 150px; y: 420px; font-size: 10px; color: #555555; text: "N: on the cell, with opacity"; }
+    HorizontalLayout {
+        x: 150px; y: 440px; width: 140px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        WrapCol { height: 70px; opacity: 0.8; }
+        wrappedAnchor := Rectangle { width: 5px; background: #5b8db8; }
+    }
+
+    // O: an inline flex with its own height, as a static cell. Its bindings
+    // move to the root when the flex is optimized away, which must not change
+    // the measurement.
+    Text { x: 300px; y: 420px; font-size: 10px; color: #555555; text: "O: inline flex, on the cell"; }
+    HorizontalLayout {
+        x: 300px; y: 440px; width: 140px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        FlexboxLayout {
+            height: 70px; flex-direction: column; flex-wrap: wrap;
+            spacing: 0px; padding: 0px; cross-axis-line-alignment: start;
+            Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+            Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+            Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+            Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+        }
+        inlineAnchor := Rectangle { width: 5px; background: #5b8db8; }
+    }
+
+    // P: the same, repeated with an opacity.
+    Text { x: 450px; y: 420px; font-size: 10px; color: #555555; text: "P: inline flex, repeated, with opacity"; }
+    HorizontalLayout {
+        x: 450px; y: 440px; width: 140px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        for i in [1]: FlexboxLayout {
+            height: 70px; opacity: 0.8; flex-direction: column; flex-wrap: wrap;
+            spacing: 0px; padding: 0px; cross-axis-line-alignment: start;
+            Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+            Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+            Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+            Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+        }
+        inlineRepAnchor := Rectangle { width: 5px; background: #5b8db8; }
+    }
+
+    // Q: the same, standalone.
+    Text { x: 600px; y: 420px; font-size: 10px; color: #555555; text: "Q: inline flex, standalone"; }
+    inlineOwn := FlexboxLayout {
+        x: 600px; y: 440px; height: 70px; flex-direction: column; flex-wrap: wrap;
+        spacing: 0px; padding: 0px; cross-axis-line-alignment: start;
+        Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+        Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+        Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+        Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+    }
+    Rectangle { x: 600px + inlineOwn.preferred-width; y: 440px; width: 5px; height: 70px; background: #5b8db8; }
+
+    // R: set on the cell, beside a wrapped Text whose height depends on the
+    // row's width solve (slint-ui/slint#13199): reading the settled height
+    // does not reach that solve.
+    Text { x: 0; y: 530px; font-size: 10px; color: #555555; text: "R: on the cell, beside a wrapped Text"; }
+    HorizontalLayout {
+        x: 0; y: 550px; width: 240px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        WrapCol { height: 70px; }
+        settledTextAnchor := Rectangle { width: 5px; background: #5b8db8; }
+        Text { text: "some words that wrap"; wrap: word-wrap; horizontal-stretch: 1; }
+    }
+
+    // S: the same, repeated.
+    Text { x: 300px; y: 530px; font-size: 10px; color: #555555; text: "S: repeated, beside a wrapped Text"; }
+    HorizontalLayout {
+        x: 300px; y: 550px; width: 240px; height: 70px;
+        alignment: start; padding: 0px; spacing: 0px;
+        for i in [1]: WrapCol { height: 70px; }
+        settledRepTextAnchor := Rectangle { width: 5px; background: #5b8db8; }
+        Text { text: "some words that wrap"; wrap: word-wrap; horizontal-stretch: 1; }
+    }
+
+    out property <bool> own-ok: own.preferred-width == 80px && own.min-width == 80px
+        && own.third-x == 40px;
+    out property <bool> instance-ok: instAnchor.x == 80px;
+    out property <bool> base-ok: baseAnchor.x == 80px;
+    out property <bool> repeated-ok: repAnchor.x == 80px;
+    out property <bool> through-column-ok: vl.preferred-width == 80px;
+    out property <bool> assigned-ok: assignedAnchor.x == 40px && assigned.width == 40px
+        && assigned.height == 70px && assigned.third-x == 0px && assigned.third-y == 60px;
+    out property <bool> assigned-repeated-ok: assignedRepAnchor.x == 40px;
+    out property <bool> beside-text-ok: textAnchor.x == 40px;
+    out property <bool> assigned-through-column-ok: assignedVl.preferred-width == 40px;
+    // Reports one column. The Rectangle still gives it 80px, and a flex wraps
+    // into whatever width it gets, so the solve does lay out the two columns.
+    out property <bool> parent-height-ok: parentCol.preferred-width == 40px
+        && parentCol.third-x == 40px && parentCol.third-y == 0px;
+    out property <bool> percent-of-assigned-ok: pctCol.preferred-width == 40px && pctCol.height == pctParent.height;
+    out property <bool> wrapped-repeated-ok: wrappedRepAnchor.x == 80px;
+    out property <bool> percent-of-fixed-ok: pctFixedCol.preferred-width == 40px && pctFixedCol.height == 70px;
+    out property <bool> wrapped-ok: wrappedAnchor.x == 80px;
+    out property <bool> inline-ok: inlineAnchor.x == 80px;
+    out property <bool> inline-repeated-ok: inlineRepAnchor.x == 80px;
+    out property <bool> inline-own-ok: inlineOwn.preferred-width == 80px;
+    out property <bool> settled-beside-text-ok: settledTextAnchor.x == 80px;
+    out property <bool> settled-repeated-beside-text-ok: settledRepTextAnchor.x == 80px;
+
+    out property <bool> test: own-ok && instance-ok && base-ok && repeated-ok && through-column-ok
+        && assigned-ok && assigned-repeated-ok && beside-text-ok && assigned-through-column-ok
+        && parent-height-ok && percent-of-assigned-ok && wrapped-repeated-ok
+        && percent-of-fixed-ok && wrapped-ok && inline-ok && inline-repeated-ok && inline-own-ok
+        && settled-beside-text-ok && settled-repeated-beside-text-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_own_ok(), "a height set on the flex must count the columns");
+assert!(instance.get_instance_ok(), "a height set on the instance must count the columns");
+assert!(instance.get_base_ok(), "a height set by the base must count the columns");
+assert!(instance.get_repeated_ok(), "a height set on a repeated instance must count the columns");
+assert!(instance.get_through_column_ok(), "a VerticalLayout must forward the two-column width");
+assert!(instance.get_assigned_ok(), "an assigned height must measure as one column and not wrap");
+assert!(instance.get_assigned_repeated_ok(), "a repeated cell with an assigned height must measure as one column");
+assert!(instance.get_beside_text_ok(), "a wrapped Text sibling must not change the measurement");
+assert!(instance.get_assigned_through_column_ok(), "a VerticalLayout must forward the one-column width");
+assert!(instance.get_parent_height_ok(), "parent.height is not a literal, so it must report one column");
+assert!(instance.get_percent_of_assigned_ok(), "100% of an assigned height must measure as one column");
+assert!(instance.get_wrapped_repeated_ok(), "a height set on a wrapped repeated instance must count the columns");
+assert!(instance.get_percent_of_fixed_ok(), "100% of a fixed parent must measure as one column");
+assert!(instance.get_wrapped_ok(), "a height set on a wrapped cell must count the columns");
+assert!(instance.get_inline_ok(), "an inline flex with its own height must count the columns");
+assert!(instance.get_inline_repeated_ok(), "a repeated inline flex with its own height must count the columns");
+assert!(instance.get_inline_own_ok(), "a standalone inline flex must count the columns");
+assert!(instance.get_settled_beside_text_ok(), "a settled height beside a wrapped Text must count the columns");
+assert!(instance.get_settled_repeated_beside_text_ok(), "a settled repeated height beside a wrapped Text must count the columns");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_own_ok());
+assert(instance.get_instance_ok());
+assert(instance.get_base_ok());
+assert(instance.get_repeated_ok());
+assert(instance.get_through_column_ok());
+assert(instance.get_assigned_ok());
+assert(instance.get_assigned_repeated_ok());
+assert(instance.get_beside_text_ok());
+assert(instance.get_assigned_through_column_ok());
+assert(instance.get_parent_height_ok());
+assert(instance.get_percent_of_assigned_ok());
+assert(instance.get_wrapped_repeated_ok());
+assert(instance.get_percent_of_fixed_ok());
+assert(instance.get_wrapped_ok());
+assert(instance.get_inline_ok());
+assert(instance.get_inline_repeated_ok());
+assert(instance.get_inline_own_ok());
+assert(instance.get_settled_beside_text_ok());
+assert(instance.get_settled_repeated_beside_text_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.own_ok);
+assert(instance.instance_ok);
+assert(instance.base_ok);
+assert(instance.repeated_ok);
+assert(instance.through_column_ok);
+assert(instance.assigned_ok);
+assert(instance.assigned_repeated_ok);
+assert(instance.beside_text_ok);
+assert(instance.assigned_through_column_ok);
+assert(instance.parent_height_ok);
+assert(instance.percent_of_assigned_ok);
+assert(instance.wrapped_repeated_ok);
+assert(instance.percent_of_fixed_ok);
+assert(instance.wrapped_ok);
+assert(instance.inline_ok);
+assert(instance.inline_repeated_ok);
+assert(instance.inline_own_ok);
+assert(instance.settled_beside_text_ok);
+assert(instance.settled_repeated_beside_text_ok);
+```
+*/

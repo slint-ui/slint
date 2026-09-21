@@ -393,8 +393,6 @@ fn lower_sub_component(
         layout_order_for_repeated: None,
         layout_info_v_constrained_for_repeated: None,
         layout_info_v_at_cross_width_for_repeated: None,
-        layout_info_h_constrained_for_repeated: None,
-        layout_info_h_at_cross_height_for_repeated: None,
         grid_row_child_cross_width: None,
         is_repeated_row: component
             .root_element
@@ -774,16 +772,10 @@ fn lower_sub_component(
                 root_elem,
                 &component.root_constraints.borrow(),
             );
-        let h_constrained =
-            super::lower_layout_expression::get_layout_info_h_constrained_for_repeated(
-                &mut ctx,
-                root_elem,
-                &component.root_constraints.borrow(),
-            );
         // Generate the flex item-info accessor when the element sets flex
-        // properties, or when it needs one of the constrained-axis fixes (a
-        // height-for-width instance in a column flex, or a width-for-height one).
-        if has_flex_binding || v_constrained.is_some() || h_constrained.is_some() {
+        // properties, or when it is a height-for-width instance in a column
+        // flex, which needs the constrained vertical info.
+        if has_flex_binding || v_constrained.is_some() {
             sub_component.flexbox_layout_item_info_for_repeated = Some(
                 super::lower_layout_expression::get_flexbox_layout_item_info_for_repeated(
                     &mut ctx, root_elem,
@@ -794,15 +786,6 @@ fn lower_sub_component(
         sub_component.layout_info_v_constrained_for_repeated = v_constrained.map(Into::into);
         sub_component.layout_info_v_at_cross_width_for_repeated =
             super::lower_layout_expression::get_layout_info_v_at_cross_width_for_repeated(
-                &mut ctx,
-                root_elem,
-                &component.root_constraints.borrow(),
-                true,
-            )
-            .map(Into::into);
-        sub_component.layout_info_h_constrained_for_repeated = h_constrained.map(Into::into);
-        sub_component.layout_info_h_at_cross_height_for_repeated =
-            super::lower_layout_expression::get_layout_info_h_at_cross_height_for_repeated(
                 &mut ctx,
                 root_elem,
                 &component.root_constraints.borrow(),
@@ -830,25 +813,15 @@ fn lower_sub_component(
                 super::Expression::PropertyReference(ctx.map_property_reference(&nr)).into(),
             ));
         }
-        // The parent box layout measures a height-for-width (resp.
-        // width-for-height) instance at the cross size it lays it out at,
-        // through `layout_item_info_at_cross_width` / `_at_cross_height` — the
-        // plain `layout_info` measures at the instance's preferred size.
-        // Generate both accessors: the main-axis pass queries the parent's
-        // orientation, the ortho measure pass queries the orthogonal one.
-        let root_elem = &component.root_element;
+        // The parent box layout measures a height-for-width instance at the
+        // width it lays it out at, through `layout_item_info_at_cross_width` —
+        // the plain `layout_info` measures at the instance's preferred width.
+        // A vertical layout queries it from its main-axis pass, a horizontal
+        // one from its ortho measure pass.
         sub_component.layout_info_v_at_cross_width_for_repeated =
             super::lower_layout_expression::get_layout_info_v_at_cross_width_for_repeated(
                 &mut ctx,
-                root_elem,
-                &component.root_constraints.borrow(),
-                false,
-            )
-            .map(Into::into);
-        sub_component.layout_info_h_at_cross_height_for_repeated =
-            super::lower_layout_expression::get_layout_info_h_at_cross_height_for_repeated(
-                &mut ctx,
-                root_elem,
+                &component.root_element,
                 &component.root_constraints.borrow(),
                 false,
             )
@@ -910,19 +883,14 @@ fn lower_sub_component(
                     }
                     crate::layout::RowChildTemplate::Repeated { repeated_element, .. } => {
                         // Measure this child at the column width the grid
-                        // assigns it, unless reading the horizontal cache would
-                        // close a binding loop. The expression is the same for
-                        // every child of the Row, so only the first one that
-                        // needs it builds it.
-                        let cross_width = (!grid_cell_ref.h_solve_reads_v_cache)
-                            .then(|| {
-                                super::lower_layout_expression::grid_measure_cross_width(
-                                    &mut ctx,
-                                    repeated_element,
-                                    super::lower_layout_expression::GridMeasureIndex::RowChild,
-                                )
-                            })
-                            .flatten();
+                        // assigns it. The expression is the same for every
+                        // child of the Row, so only the first one that needs
+                        // it builds it.
+                        let cross_width = super::lower_layout_expression::grid_measure_cross_width(
+                            &mut ctx,
+                            repeated_element,
+                            super::lower_layout_expression::GridMeasureIndex::RowChild,
+                        );
                         let measure_at_cross_width = cross_width.is_some();
                         if sub_component.grid_row_child_cross_width.is_none() {
                             sub_component.grid_row_child_cross_width = cross_width.map(Into::into);

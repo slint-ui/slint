@@ -101,7 +101,7 @@ fn eval_expression(
             arguments,
             source_location: _,
         } => handle_builtin_function(f, arguments, local_context),
-        Expression::BinaryExpression { lhs, rhs, op } => {
+        Expression::BinaryExpression { lhs, rhs, op, .. } => {
             let lhs = eval_expression(lhs, local_context, None);
             let rhs = eval_expression(rhs, local_context, None);
 
@@ -145,7 +145,7 @@ fn eval_expression(
                 (_, _) => Value::Void,
             }
         }
-        Expression::Condition { true_expr, false_expr, condition } => {
+        Expression::Condition { true_expr, false_expr, condition, .. } => {
             let condition = eval_expression(condition, local_context, None);
             if condition.try_into().unwrap_or(true) {
                 eval_expression(true_expr, local_context, field_filter)

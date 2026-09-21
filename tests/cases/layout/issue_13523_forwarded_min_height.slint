@@ -1,0 +1,78 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue #13523: `Widget` puts a floor over the layout it forwards, the shape the widget styles
+// use. Setting a root property in a state makes it inlined, and its height-for-width child makes
+// its vertical layout info a function of the width. A parent that measures it that way doesn't
+// re-apply the floor, so the floor has to survive the measurement: a window auto-sizing from the
+// widget has to leave room for it, rather than clipping it.
+
+component Widget {
+    in property <bool> enabled: true;
+    min-height: max(32px, layout.min-height);
+
+    states [
+        disabled when !root.enabled : {
+            root.opacity: 0.5;
+        }
+    ]
+
+    Rectangle {
+        layout := HorizontalLayout {
+            padding-top: 5px;
+            padding-bottom: 5px;
+            Text { text: "x"; wrap: word-wrap; }
+        }
+    }
+}
+
+// The same floor without the state: this one is not inlined, so it is measured through its
+// own layout info rather than through the rewrite above. Both paths have to keep the floor.
+component PlainWidget {
+    min-height: max(32px, layout.min-height);
+
+    Rectangle {
+        layout := HorizontalLayout {
+            padding-top: 5px;
+            padding-bottom: 5px;
+            Text { text: "x"; wrap: word-wrap; }
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    out property <length> widget-min-height: w.min-height;
+    out property <length> plain-min-height: p.min-height;
+
+    VerticalLayout {
+        padding: 10px;
+        HorizontalLayout {
+            w := Widget { }
+        }
+        HorizontalLayout {
+            p := PlainWidget { }
+        }
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+slint_testing::mock_elapsed_time(16);
+let size = instance.window().size();
+let minimum = instance.get_widget_min_height() + instance.get_plain_min_height() + 20.;
+assert!(size.height as f32 >= minimum, "window is {}, needs {}", size.height, minimum);
+```
+
+```cpp
+auto handle = TestCase::create();
+handle->show();
+slint_testing::mock_elapsed_time(16);
+auto size = handle->window().size();
+auto minimum = handle->get_widget_min_height() + handle->get_plain_min_height() + 20.;
+assert(size.height >= minimum);
+```
+
+*/

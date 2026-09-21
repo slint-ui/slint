@@ -9,29 +9,29 @@ use i_slint_compiler::parser::parse;
 use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 use smol_str::ToSmolStr;
 
-fn compile(source: &str) -> i_slint_compiler::object_tree::Document {
+fn compile(source: &str) -> ElementRc {
     let mut diagnostics = BuildDiagnostics::default();
     let syntax_node = parse(source.into(), None, &mut diagnostics);
     let compiler_config = CompilerConfiguration::new(OutputFormat::Interpreter);
     let (doc, diagnostics, _) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, compiler_config));
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
-    doc
+    doc.last_exported_component().unwrap().root_element.clone()
 }
 
-fn find_box_shadow(root: &ElementRc) -> ElementRc {
+fn find_by_base_type(root: &ElementRc, base_type: &str) -> ElementRc {
     let mut result = None;
     recurse_elem(root, &(), &mut |element, _| {
-        if element.borrow().base_type.to_smolstr() == "BoxShadow" {
+        if element.borrow().base_type.to_smolstr() == base_type {
             result = Some(element.clone());
         }
     });
-    result.expect("BoxShadow element should be generated")
+    result.unwrap_or_else(|| panic!("{base_type} element should be generated"))
 }
 
 #[test]
 fn box_shadow_keeps_per_corner_border_radius_bindings() {
-    let doc = compile(
+    let root = compile(
         r#"
 export component TestCase inherits Window {
     in-out property <length> top-left-radius: 12px;
@@ -56,8 +56,7 @@ export component TestCase inherits Window {
 "#,
     );
 
-    let root = doc.exports.iter().next().unwrap().1.as_ref().left().unwrap().root_element.clone();
-    let box_shadow = find_box_shadow(&root);
+    let box_shadow = find_by_base_type(&root, "BoxShadow");
 
     for property_name in [
         "border-top-left-radius",
@@ -80,7 +79,7 @@ export component TestCase inherits Window {
 
 #[test]
 fn box_shadow_expands_uniform_border_radius_to_corner_bindings() {
-    let doc = compile(
+    let root = compile(
         r#"
 export component TestCase inherits Window {
     in-out property <length> radius: 24px;
@@ -98,8 +97,7 @@ export component TestCase inherits Window {
 "#,
     );
 
-    let root = doc.exports.iter().next().unwrap().1.as_ref().left().unwrap().root_element.clone();
-    let box_shadow = find_box_shadow(&root);
+    let box_shadow = find_by_base_type(&root, "BoxShadow");
 
     for property_name in [
         "border-top-left-radius",
@@ -118,4 +116,35 @@ export component TestCase inherits Window {
             "{property_name} should reference the source rectangle"
         );
     }
+}
+
+// Issue #13301
+#[test]
+fn box_shadow_is_inside_the_transform_element() {
+    let root = compile(
+        r#"
+export component TestCase inherits Window {
+    width: 160px;
+    height: 120px;
+
+    Rectangle {
+        width: 100px;
+        height: 80px;
+        background: red;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: black;
+        transform-rotation: 45deg;
+    }
+}
+"#,
+    );
+
+    let transform = find_by_base_type(&root, "Transform");
+    let child_types = transform
+        .borrow()
+        .children
+        .iter()
+        .map(|c| c.borrow().base_type.to_smolstr())
+        .collect::<Vec<_>>();
+    assert_eq!(child_types, ["BoxShadow", "Rectangle"]);
 }

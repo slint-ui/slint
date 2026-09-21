@@ -366,23 +366,40 @@ pub enum BuiltinPropertyDefault {
     Expr(ConstantExpression),
     /// The property is computed per element by this function, which takes the element.
     ElementFunction(BuiltinFunction),
+    /// A value only the runtime knows, which this function returns. It takes no argument, so
+    /// unlike [`Self::ElementFunction`] the property still belongs to the native item.
+    RuntimeValue(BuiltinFunction),
     /// The property is actually not a property but a builtin function
     BuiltinFunction(BuiltinFunction),
 }
 
 impl BuiltinPropertyDefault {
-    pub fn expr(&self, elem: &crate::object_tree::ElementRc) -> Option<Expression> {
+    /// The default of a property that doesn't need an element to express, for the callers that
+    /// have no `ElementRc` at hand.
+    pub fn expr_without_element(&self) -> Option<Expression> {
         match self {
             BuiltinPropertyDefault::None => None,
             BuiltinPropertyDefault::Expr(constant) => Some(constant.to_expression()),
+            BuiltinPropertyDefault::RuntimeValue(function) => Some(Expression::FunctionCall {
+                function: function.clone().into(),
+                arguments: Vec::new(),
+                source_location: None,
+            }),
+            // Neither is a default this caller can express: ElementFunction needs the element,
+            // and a function is not a property in the first place
+            BuiltinPropertyDefault::ElementFunction(..)
+            | BuiltinPropertyDefault::BuiltinFunction(..) => None,
+        }
+    }
+
+    pub fn expr(&self, elem: &crate::object_tree::ElementRc) -> Option<Expression> {
+        match self {
             BuiltinPropertyDefault::ElementFunction(function) => Some(Expression::FunctionCall {
                 function: function.clone().into(),
                 arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
                 source_location: None,
             }),
-            BuiltinPropertyDefault::BuiltinFunction(..) => {
-                unreachable!("can't get an expression for functions")
-            }
+            other => other.expr_without_element(),
         }
     }
 }
@@ -998,6 +1015,20 @@ impl<'a> PropertyLookupResult<'a> {
         )
     }
 
+    /// Report the property as outside the Slint SC subset, unless it's one the subset has.
+    /// A name that resolves to nothing is left to the diagnostic that says so.
+    #[cfg(feature = "slint-sc")]
+    pub fn check_slint_sc(
+        &self,
+        name: &dyn Display,
+        source: &dyn crate::diagnostics::Spanned,
+        diag: &mut crate::diagnostics::BuildDiagnostics,
+    ) {
+        if self.is_valid() && !self.is_slint_sc {
+            diag.slint_sc_error(&format!("The property '{name}' is"), source);
+        }
+    }
+
     /// The name the member is stored under in `Element::property_declarations`, `bindings`,
     /// `change_callbacks` and `property_analysis`, and the name a `NamedReference` to it carries.
     pub fn internal_or_resolved_name(&self) -> SmolStr {
@@ -1394,6 +1425,15 @@ pub struct EnumerationValue {
 impl PartialEq for EnumerationValue {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.enumeration, &other.enumeration) && self.value == other.value
+    }
+}
+
+impl Eq for EnumerationValue {}
+
+impl std::hash::Hash for EnumerationValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(&self.enumeration).hash(state);
+        self.value.hash(state);
     }
 }
 

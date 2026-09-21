@@ -73,12 +73,13 @@ SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "CC-BY-ND-4.0"
 
 [[annotations]]
-path = ["tools/editor/ui/assets/octicons/*.svg"]
-SPDX-FileCopyrightText = "Copyright © 2026 GitHub Inc."
-SPDX-License-Identifier = "MIT"
-
-[[annotations]]
-path = ["tools/editor/ui/assets/cursors/default-32.png", "tools/editor/ui/assets/cursors/default-64.png"]
+path = [
+  "tools/editor/ui/assets/cursors/default-32.png",
+  "tools/editor/ui/assets/cursors/default-64.png",
+  "tools/editor/ui/assets/cursors/rotate.svg",
+  "tools/editor/ui/assets/cursors/corner-radius.svg",
+  "tools/editor/ui/assets/cursors/corner-radius.png",
+]
 SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
 SPDX-License-Identifier = "Apache-2.0"
 
@@ -215,6 +216,7 @@ path = [
   "ui-libraries/material/docs/src/config.yaml",
   "ui-libraries/material/examples/gallery/ui/themes/**.json",
 
+  "ai-plugins/*.json",
   "ai-plugins/.claude-plugin/*.json",
   "ai-plugins/.cursor-plugin/*.json",
   "ai-plugins/**/*.md",
@@ -419,4 +421,19 @@ SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR 
 path = ["demos/**/android/**/gradle-wrapper.properties"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["tools/editor/ui/assets/octicons/*.svg"]
+SPDX-FileCopyrightText = "Copyright © 2026 GitHub Inc."
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["tools/editor/ui/assets/lucide/*.svg"]
+SPDX-FileCopyrightText = "Copyright (c) 2026 Lucide Icons and Contributors"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["tools/editor/ui/assets/lucide/square.svg", "tools/editor/ui/assets/lucide/type.svg"]
+SPDX-FileCopyrightText = ["Copyright (c) 2026 Lucide Icons and Contributors", "Copyright (c) 2013-present Cole Bemis"]
 SPDX-License-Identifier = "MIT"

@@ -42,7 +42,6 @@ pub struct NativeSpinBox {
 cpp! {{
 void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, bool enabled, bool read_only, int active_controls) {
 auto style = qApp->style();
-option.activeSubControls = QStyle::SC_None;
 option.subControls = QStyle::SC_SpinBoxEditField | QStyle::SC_SpinBoxUp | QStyle::SC_SpinBoxDown;
 if (style->styleHint(QStyle::SH_SpinBox_ButtonsInsideFrame, nullptr, nullptr))
     option.subControls |= QStyle::SC_SpinBoxFrame;
@@ -65,6 +64,27 @@ option.stepEnabled = QAbstractSpinBox::StepDownEnabled | QAbstractSpinBox::StepU
 option.frame = true;
 }
 }}
+
+impl NativeSpinBox {
+    fn increment(self: Pin<&Self>) {
+        self.set_value_clamped(self.value().saturating_add(self.step_size()));
+    }
+
+    fn decrement(self: Pin<&Self>) {
+        self.set_value_clamped(self.value().saturating_sub(self.step_size()));
+    }
+
+    fn set_value_clamped(self: Pin<&Self>, value: i32) {
+        // i32::clamp panics when the minimum is above the maximum, and nothing
+        // keeps a .slint file from setting the properties that way.
+        let new_val = self.minimum().max(value.min(self.maximum()));
+        if new_val == self.value() {
+            return;
+        }
+        self.value.set(new_val);
+        Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
+    }
+}
 
 impl Item for NativeSpinBox {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
@@ -155,7 +175,6 @@ impl Item for NativeSpinBox {
         let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
-        let step_size = self.step_size();
         let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let pos = event
@@ -200,46 +219,27 @@ impl Item for NativeSpinBox {
                             && enabled
                             && left_button
                         {
-                            let v = self.value();
-                            if v < self.maximum() {
-                                let new_val = v + step_size;
-                                self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
-                            }
+                            self.increment();
                         }
                         if new_control
                             == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxDown;})
                             && enabled
                             && left_button
                         {
-                            let v = self.value();
-                            if v > self.minimum() {
-                                let new_val = v - step_size;
-                                self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
-                            }
+                            self.decrement();
                         }
                     }
                     true
                 }
                 MouseEvent::Moved { .. } => false,
                 MouseEvent::Wheel { delta_y, .. } => {
-                    if !self.read_only() {
-                        if *delta_y > 0. {
-                            let v = self.value();
-                            if v < self.maximum() {
-                                let new_val = v + step_size;
-                                self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
-                            }
-                        } else if *delta_y < 0. {
-                            let v = self.value();
-                            if v > self.minimum() {
-                                let new_val = v - step_size;
-                                self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
-                            }
-                        }
+                    if self.read_only() || !enabled {
+                        return InputEventResult::EventIgnored;
+                    }
+                    if *delta_y > 0. {
+                        self.increment();
+                    } else if *delta_y < 0. {
+                        self.decrement();
                     }
                     true
                 }
@@ -282,19 +282,11 @@ impl Item for NativeSpinBox {
         if !self.enabled() || self.read_only() || event.event_type != KeyEventType::KeyPressed {
             return KeyEventResult::EventIgnored;
         }
-        if event.key_event.text.starts_with(i_slint_core::input::key_codes::UpArrow)
-            && self.value() < self.maximum()
-        {
-            let new_val = self.value() + self.step_size();
-            self.value.set(new_val);
-            Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
+        if event.key_event.text.starts_with(i_slint_core::input::key_codes::UpArrow) {
+            self.increment();
             KeyEventResult::EventAccepted
-        } else if event.key_event.text.starts_with(i_slint_core::input::key_codes::DownArrow)
-            && self.value() > self.minimum()
-        {
-            let new_val = self.value() - self.step_size();
-            self.value.set(new_val);
-            Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
+        } else if event.key_event.text.starts_with(i_slint_core::input::key_codes::DownArrow) {
+            self.decrement();
             KeyEventResult::EventAccepted
         } else {
             KeyEventResult::EventIgnored

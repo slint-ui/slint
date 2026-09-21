@@ -24,7 +24,7 @@ use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
@@ -147,6 +147,17 @@ fn resolve_match_elements(
             diag,
         );
         let case_type = match_element.subject.ty();
+        if CaseValue::new(&match_element.subject).is_some() {
+            diag.push_warning(
+                "Match subject is a literal, so the same case always applies".into(),
+                &match_element.node.Expression(),
+            );
+        } else if is_literal_only(&match_element.subject) {
+            diag.push_warning(
+                "Match subject is a constant expression, so the same case always applies".into(),
+                &match_element.node.Expression(),
+            );
+        }
         for case in &mut match_element.cases {
             resolve_expression(
                 elem,
@@ -215,6 +226,24 @@ fn as_number_literal(value: &Expression) -> Option<(f64, Unit)> {
     }
 }
 
+fn is_literal_only(expr: &Expression) -> bool {
+    match expr {
+        Expression::NumberLiteral(..)
+        | Expression::StringLiteral(..)
+        | Expression::BoolLiteral(..)
+        | Expression::EnumerationValue(..) => true,
+        Expression::Cast { from, .. } => is_literal_only(from),
+        Expression::UnaryOp { sub, .. } => is_literal_only(sub),
+        Expression::BinaryExpression { lhs, rhs, .. } => {
+            is_literal_only(lhs) && is_literal_only(rhs)
+        }
+        Expression::Condition { condition, true_expr, false_expr, .. } => {
+            is_literal_only(condition) && is_literal_only(true_expr) && is_literal_only(false_expr)
+        }
+        _ => false,
+    }
+}
+
 #[derive(PartialEq)]
 enum CaseValue {
     Number(f64, Unit),
@@ -240,21 +269,44 @@ impl CaseValue {
     }
 }
 
+// `f64` has no total order/equality (NaN), but case values are always parsed
+// literals, never NaN, so treating `CaseValue` as `Eq`/`Hash` is sound here.
+impl Eq for CaseValue {}
+
+impl std::hash::Hash for CaseValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            // Normalize -0.0 to 0.0 so the hash agrees with `==`, which treats them as equal.
+            CaseValue::Number(number, unit) => {
+                debug_assert!(!number.is_nan());
+                (if *number == 0.0 { 0.0 } else { *number }).to_bits().hash(state);
+                unit.hash(state);
+            }
+            CaseValue::String(string) => string.hash(state),
+            CaseValue::Bool(boolean) => boolean.hash(state),
+            CaseValue::Enumeration(value) => value.hash(state),
+        }
+    }
+}
+
 /// Reports every case whose value is already covered by an earlier case
 fn check_duplicate_cases(
     cases: &[MatchCaseInfo],
     values: &[Option<CaseValue>],
     diag: &mut BuildDiagnostics,
 ) {
-    let mut seen: Vec<&CaseValue> = Vec::with_capacity(values.len());
+    #[allow(
+        clippy::mutable_key_type,
+        reason = "CaseValue's Enumeration variant has interior mutability, but Eq/Hash only use its Arc pointer and index, never the Enumeration's contents"
+    )]
+    let mut seen = HashSet::with_capacity(values.len());
     for (case, value) in cases.iter().zip(values) {
         let Some(value) = value else {
             continue; // not a valid literal
         };
-        if seen.contains(&value) {
+        if !seen.insert(value) {
             diag.push_error("Duplicate case value".into(), &case.node);
-        } else {
-            seen.push(value);
         }
     }
 }
@@ -279,13 +331,16 @@ fn check_exhaustiveness(
     if !matches!(match_element.wildcard, WildcardMatchCaseInfo::None) {
         return;
     }
-    // Prevents duplicated errors if both not a literal and not exhaustive
-    let mut covered: Vec<&CaseValue> = Vec::with_capacity(values.len());
+    #[allow(
+        clippy::mutable_key_type,
+        reason = "CaseValue's Enumeration variant has interior mutability, but Eq/Hash only use its Arc pointer and index, never the Enumeration's contents"
+    )]
+    let mut covered: HashSet<&CaseValue> = HashSet::with_capacity(values.len());
     for value in values {
         let Some(value) = value else {
             return;
         };
-        covered.push(value);
+        covered.insert(value);
     }
     let subject_node = match_element.node.Expression();
     let subject_type = match_element.subject.ty();
@@ -312,7 +367,7 @@ fn check_exhaustiveness(
 
     let mut missing = Vec::new();
     for value in &expected {
-        if !covered.contains(&value) {
+        if !covered.contains(value) {
             missing.push(format!("'{value}'"));
         }
     }
@@ -1184,9 +1239,12 @@ impl Expression {
                     *e = Expression::BinaryExpression {
                         lhs: Box::new(begin.clone()),
                         rhs: Box::new(Expression::BinaryExpression {
+                            source_location: None,
                             lhs: Box::new(Expression::BinaryExpression {
+                                source_location: None,
                                 lhs: Box::new(Expression::NumberLiteral(i as f64 + 1., Unit::None)),
                                 rhs: Box::new(Expression::BinaryExpression {
+                                    source_location: None,
                                     lhs: Box::new(end.clone()),
                                     rhs: Box::new(begin.clone()),
                                     op: '-',
@@ -1197,6 +1255,7 @@ impl Expression {
                             op: '/',
                         }),
                         op: '+',
+                        source_location: None,
                     };
                 }
             }
@@ -1223,6 +1282,7 @@ impl Expression {
                             lhs: Box::new(angle_typed),
                             rhs: Box::new(Expression::NumberLiteral(360., Unit::Deg)),
                             op: '/',
+                            source_location: None,
                         };
                         (color, normalized_pos)
                     })
@@ -1997,24 +2057,27 @@ impl Expression {
         node: syntax_nodes::BinaryExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let op = node
+        let (op, operator) = node
             .children_with_tokens()
-            .find_map(|n| match n.kind() {
-                SyntaxKind::Plus => Some('+'),
-                SyntaxKind::Minus => Some('-'),
-                SyntaxKind::Star => Some('*'),
-                SyntaxKind::Div => Some('/'),
-                SyntaxKind::LessEqual => Some('≤'),
-                SyntaxKind::GreaterEqual => Some('≥'),
-                SyntaxKind::LAngle => Some('<'),
-                SyntaxKind::RAngle => Some('>'),
-                SyntaxKind::EqualEqual => Some('='),
-                SyntaxKind::NotEqual => Some('!'),
-                SyntaxKind::AndAnd => Some('&'),
-                SyntaxKind::OrOr => Some('|'),
-                _ => None,
+            .find_map(|n| {
+                let op = match n.kind() {
+                    SyntaxKind::Plus => '+',
+                    SyntaxKind::Minus => '-',
+                    SyntaxKind::Star => '*',
+                    SyntaxKind::Div => '/',
+                    SyntaxKind::LessEqual => '≤',
+                    SyntaxKind::GreaterEqual => '≥',
+                    SyntaxKind::LAngle => '<',
+                    SyntaxKind::RAngle => '>',
+                    SyntaxKind::EqualEqual => '=',
+                    SyntaxKind::NotEqual => '!',
+                    SyntaxKind::AndAnd => '&',
+                    SyntaxKind::OrOr => '|',
+                    _ => return None,
+                };
+                Some((op, Some(n.to_source_location())))
             })
-            .unwrap_or('_');
+            .unwrap_or(('_', None));
 
         // In Slint SC, arithmetic (`+`, `-`, `*`), logical (`&&`, `||`), and
         // comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) are in the subset; `/` is
@@ -2101,7 +2164,12 @@ impl Expression {
             Some(ty) => rhs.maybe_convert_to(ty, &rhs_n, ctx.diag, &ctx.symbol_counters),
             None => rhs,
         };
-        Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
+        Expression::BinaryExpression {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            op,
+            source_location: operator,
+        }
     }
 
     fn from_unaryop_expression_node(
@@ -2177,6 +2245,9 @@ impl Expression {
             condition: Box::new(condition),
             true_expr: Box::new(true_expr),
             false_expr: Box::new(false_expr),
+            source_location: node
+                .child_token(SyntaxKind::Question)
+                .map(|t| ConditionLocation::Question(t.to_source_location())),
         }
     }
 
@@ -2370,6 +2441,7 @@ impl Expression {
                     lhs: Box::new(result),
                     rhs: Box::new(expr),
                     op: '+',
+                    source_location: None,
                 }),
                 None => Some(expr),
             }

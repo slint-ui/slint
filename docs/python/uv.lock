@@ -13,37 +13,37 @@ wheels = [
 
 [[package]]
 name = "griffe"
-version = "2.2.0"
+version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "griffecli" },
     { name = "griffelib" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/df/a0/927cf9416f527f623f4ccd9220337fca0cd85303b7e82adeab1e53669cd3/griffe-2.2.0.tar.gz", hash = "sha256:9c0dd9a7feda9e169d783507d777c6fb2f2fc2919b139747a5b4f5357517a611", size = 246229, upload-time = "2026-08-16T14:04:57.232Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d5/03/75ca4d08a7eff164292d42cf72c7c510423b3414e66205f0ba5b35ad3034/griffe-2.3.0.tar.gz", hash = "sha256:aa5634c0d7802583ecd29a7fe335c02d462ffdf5ce8f51426a3d326f374e6d93", size = 247493, upload-time = "2026-09-04T15:08:15.364Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/51/c9f9cb144e2bd21cbcb6ebd7978ecb5b9f5a375e78313744158338c8039c/griffe-2.2.0-py3-none-any.whl", hash = "sha256:db20672b31c3de2a1af5a18a3b3d8c186ccc2425e10290486b4f0364d25929e9", size = 5070, upload-time = "2026-08-16T14:04:51.971Z" },
+    { url = "https://files.pythonhosted.org/packages/61/f9/8bfacdb992aed404a3a53694689759841635bce93b86ddb621c1d7f2558c/griffe-2.3.0-py3-none-any.whl", hash = "sha256:92a41ff72eb1eb316cdcb7248a608f1313f9fbc6e35d5cffa5cf7c813b7db70b", size = 5072, upload-time = "2026-09-04T15:08:14.074Z" },
 ]
 
 [[package]]
 name = "griffecli"
-version = "2.2.0"
+version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama" },
     { name = "griffelib" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/de/75/3cf2fb1ae21fb55a3b917b45d24426a620ee916f4bdbd03f350c69d3d892/griffecli-2.2.0.tar.gz", hash = "sha256:b9e763131218eb19887ed52de20fe944252d811bfb4a3e339874908a588f0044", size = 58066, upload-time = "2026-08-16T14:04:55.984Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5c/15/f70539f7efb44f27d209b43e386b1a5397bd476879ff19a206b75454f58e/griffecli-2.3.0.tar.gz", hash = "sha256:916fdc851cf51d38e9b5ab82550305df45e5981d5dfe65d346544464abedb3ec", size = 59676, upload-time = "2026-09-04T15:08:16.426Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1f/83/04652213d82afeecc8e8a31231eeb87cc484dcc055fd96ecb0bfd9860405/griffecli-2.2.0-py3-none-any.whl", hash = "sha256:8ebb7ae1dcc2617f5d39f00e4c238dd6b5cd0b13157b0ce22c1ea4ca8b4c5d1d", size = 11480, upload-time = "2026-08-16T14:04:53.14Z" },
+    { url = "https://files.pythonhosted.org/packages/06/8c/8ffa4272d6bf85a0abe8898ef74ef41d505317bb4103e14a11d45d799dce/griffecli-2.3.0-py3-none-any.whl", hash = "sha256:f94653edcb52ebcac21eaeb3b7121b065a636174eddf2bd558b5935e72a553e8", size = 11593, upload-time = "2026-09-04T15:08:11.739Z" },
 ]
 
 [[package]]
 name = "griffelib"
-version = "2.2.0"
+version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f0/b4/a767e91c606deefc447a96eaf59edd77397960b1d677dffd833ee8449831/griffelib-2.2.0.tar.gz", hash = "sha256:e1bc36fe9cd21d4b6b659b456346755e4cfdc5676c0a5214083126ee12612b3c", size = 227048, upload-time = "2026-08-16T14:04:58.383Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/27/af/018c10bc9edd42b6ef6db2e96b09542050d5253f9b195e74bc910b2d13ab/griffelib-2.3.0.tar.gz", hash = "sha256:7b0952caf5bca6afa4bb5ee8c6a2d183fe3f21b62efc5f6c7243cb2b26d2d115", size = 234534, upload-time = "2026-09-04T15:08:17.472Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f6/b6/f65ac785d4ac90dcf7c831ac6256f5dd4a19780f4e1575b2c0d6eeebe319/griffelib-2.2.0-py3-none-any.whl", hash = "sha256:d71c3bc2bbed9f958488634fe788b843a9f705d6d2838ca32cd6c25eeb64dfc4", size = 166779, upload-time = "2026-08-16T14:04:54.365Z" },
+    { url = "https://files.pythonhosted.org/packages/41/63/e876e789525063c840ccfa8857febdabd6523bcef9ce7eb979b9305ea895/griffelib-2.3.0-py3-none-any.whl", hash = "sha256:1b8f9cd525681c26b1d6d574faa1371651e8459ca51d209684f50b8096ae06e0", size = 169423, upload-time = "2026-09-04T15:08:12.956Z" },
 ]
 
 [[package]]

@@ -11,21 +11,27 @@ fn main() {
     let slint_file = Path::new("main.slint");
     println!("cargo:rerun-if-changed={}", slint_file.display());
     println!("cargo:rerun-if-env-changed=SLINT_COMPILER");
+    // The map of the scene's coverage points, see the README's coverage recipe.
+    println!("cargo:rerun-if-env-changed=SLINT_COVERAGE");
 
     let compiler = find_slint_compiler(&out_dir);
     println!("cargo:rerun-if-changed={}", compiler.display());
 
     let generated = out_dir.join("main.rs");
     let depfile = out_dir.join("main.d");
-    let status = Command::new(&compiler)
+    let mut command = Command::new(&compiler);
+    command
         .arg("--slint-sc")
         .arg(slint_file)
         .arg("--depfile")
         .arg(&depfile)
         .arg("-o")
-        .arg(&generated)
-        .status()
-        .unwrap_or_else(|e| panic!("failed to run {}: {e}", compiler.display()));
+        .arg(&generated);
+    if env::var_os("SLINT_COVERAGE").is_some() {
+        command.arg("--coverage");
+    }
+    let status =
+        command.status().unwrap_or_else(|e| panic!("failed to run {}: {e}", compiler.display()));
     assert!(status.success(), "slint-compiler failed on {}", slint_file.display());
 
     // The scene decodes its images into the generated code, so editing one has

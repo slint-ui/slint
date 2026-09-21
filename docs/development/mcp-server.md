@@ -118,6 +118,16 @@ Both `system-testing` and `mcp` features trigger the same build pipeline:
 
 The MCP transport uses the `serde_json`-based serialization, while the system-testing transport uses prost's binary encoding. Both share the same proto types.
 
+## Verifying `take_screenshot` Results
+
+`SLINT_BACKEND` selects a renderer by name (e.g. `winit-skia`), but an unavailable renderer falls back silently instead of erroring — a binary built without `renderer-skia` compiled in still accepts `SLINT_BACKEND=winit-skia` and renders with whatever renderer it does have. Before trusting a renderer-specific screenshot result, confirm the renderer actually linked into the binary:
+
+```sh
+nm -gU <binary> | grep -c i_slint_renderer_skia   # 0 means it isn't compiled in
+```
+
+Also confirm the state change you're checking for actually reached the application (e.g. read back an accessible property) before treating "no pixel diff" as a rendering bug rather than a stale or unaffected snapshot.
+
 ## Adding a New Tool
 
 1. Add request and response message types to `slint_systest.proto`. The build pipeline will auto-generate the JSON schema for the MCP tool's `inputSchema`.

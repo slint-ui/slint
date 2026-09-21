@@ -508,6 +508,7 @@ impl Snapshotter {
                         (nr, expr, spc.clone())
                     })
                     .collect(),
+                selection: s.selection.clone(),
             })
             .collect();
         target_element.repeated =
@@ -548,7 +549,7 @@ impl Snapshotter {
                     pure: v.pure,
                     shadowed_name: v.shadowed_name.clone(),
                     shadowable: v.shadowable,
-                    moved_to_root: v.moved_to_root,
+                    moved_from: v.moved_from.clone(),
                     deprecated: v.deprecated.clone(),
                 };
                 (k.clone(), decl)
@@ -798,19 +799,23 @@ impl Snapshotter {
                 op: *op,
                 node: node.clone(),
             },
-            Expression::BinaryExpression { lhs, rhs, op } => Expression::BinaryExpression {
+            Expression::BinaryExpression { lhs, rhs, op, .. } => Expression::BinaryExpression {
                 lhs: Box::new(self.snapshot_expression(lhs)),
                 rhs: Box::new(self.snapshot_expression(rhs)),
                 op: *op,
+                source_location: None,
             },
             Expression::UnaryOp { sub, op } => {
                 Expression::UnaryOp { sub: Box::new(self.snapshot_expression(sub)), op: *op }
             }
-            Expression::Condition { condition, true_expr, false_expr } => Expression::Condition {
-                condition: Box::new(self.snapshot_expression(condition)),
-                true_expr: Box::new(self.snapshot_expression(true_expr)),
-                false_expr: Box::new(self.snapshot_expression(false_expr)),
-            },
+            Expression::Condition { condition, true_expr, false_expr, .. } => {
+                Expression::Condition {
+                    condition: Box::new(self.snapshot_expression(condition)),
+                    true_expr: Box::new(self.snapshot_expression(true_expr)),
+                    false_expr: Box::new(self.snapshot_expression(false_expr)),
+                    source_location: None,
+                }
+            }
             Expression::Array { element_ty, values } => Expression::Array {
                 element_ty: element_ty.clone(),
                 values: values.iter().map(|e| self.snapshot_expression(e)).collect(),
@@ -1670,11 +1675,7 @@ impl TypeLoader {
             // If there was error (esp parse error) we don't want to report further error in this document.
             // because they might be nonsense (TODO: we should check that the parse error were really in this document).
             // But we still want to create a document to give better error messages in the root document.
-            let mut ignore_diag = BuildDiagnostics::default();
-            ignore_diag.push_error_with_span(
-                "Dummy error because some of the code asserts there was an error".into(),
-                Default::default(),
-            );
+            let mut ignore_diag = BuildDiagnostics::discarded();
             let doc = crate::object_tree::Document::from_node(
                 dependency_doc,
                 imports,

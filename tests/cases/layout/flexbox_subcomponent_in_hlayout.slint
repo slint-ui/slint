@@ -2,16 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // Regression test, same recursion as flexbox_mixed_in_hlayout.slint, but the
-// width-for-height column FlexboxLayout is the root of a sub-component instead
-// of being inlined into the HorizontalLayout. The layoutinfo-h constraint then
-// lives on the sub-component's base root, so it is only visible through the
-// inherited lookup; the cell element's own field is empty. The layout must
-// still resolve (no "Recursion detected ... layoutinfo-h") and the text must
-// sit to the right of the flex without overlap.
+// column FlexboxLayout is the root of a sub-component instead of being inlined
+// into the HorizontalLayout. The layout must still resolve (no "Recursion
+// detected ... layoutinfo-h") and the text must sit to the right of the flex
+// without overlap.
 
 import { Button } from "std-widgets.slint";
 
-component FlexCol inherits FlexboxLayout {   // width-for-height (column)
+component FlexCol inherits FlexboxLayout {
     flex-direction: column;
     spacing: 4px;
     Button { text: "A"; }

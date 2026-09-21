@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A callback declared in a component and called from a handler of that
+// component, with no handler of its own: the call is a point of its own,
+// reached when the handler runs, though nothing runs for it.
+
+component Inner inherits Rectangle {
+    callback beep;
+    width: 24px;
+//#c       ^-
+    height: 24px;
+//#c        ^-
+    background: #404040;
+//#c            ^-
+    TouchArea {
+//#c^-
+        clicked => { beep(); }
+//#c    ^+           ^+
+    }
+}
+
+export component TestCase inherits Window {
+//#c                               ^-
+    Inner {
+//#c^-
+        x: 4px;
+//#c       ^+
+        y: 4px;
+//#c       ^+
+    }
+}
+
+/*
+```rust
+struct Application;
+impl TestCaseCallbacks for Application {}
+
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+let inside = slint_sc::Point::new(16, 16);
+x.dispatch_touch_event(slint_sc::TouchEvent::pressed(inside), &mut Application);
+x.dispatch_touch_event(slint_sc::TouchEvent::released(inside), &mut Application);
+```
+*/

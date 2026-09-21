@@ -175,7 +175,6 @@ pub async fn run_passes(
         default_geometry::default_geometry(component, diag, &symbol_counters);
         lower_layout::optimize_single_cell_layouts(component);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);
-        lower_layout::synthesize_layoutinfo_h_with_constraint(component);
         lower_absolute_coordinates::lower_absolute_coordinates(component);
         z_order::reorder_by_z_order(component);
         lower_property_to_element::lower_property_to_element(
@@ -197,12 +196,12 @@ pub async fn run_passes(
             diag,
         );
         visible::handle_visible(component, &global_type_registry.borrow(), diag);
-        lower_shadows::lower_shadow_properties(component, &doc.local_registry, diag);
         lower_property_to_element::lower_transform_properties(
             component,
             &global_type_registry.borrow(),
             diag,
         );
+        lower_shadows::lower_shadow_properties(component, &doc.local_registry, diag);
         clip::handle_clip(component, &global_type_registry.borrow(), diag);
         if type_loader.compiler_config.accessibility {
             lower_accessibility::lower_accessibility_properties(component, diag);
@@ -214,11 +213,6 @@ pub async fn run_passes(
     for root_component in doc.exported_roots() {
         lower_layout::check_window_layout(&root_component);
     }
-    // After the loop above: needs every component's `layoutinfo-h-with-constraint`
-    // and the wrapper elements the `lower_property_to_element` passes inject.
-    doc.visit_all_used_components(|component| {
-        lower_layout::mark_grid_h_solve_reads_v_cache(component);
-    });
     collect_globals::collect_globals(doc, diag);
     // Must be done before passes that rely on `NamedReference::is_constant`.
     collect_globals::mark_library_globals(doc);
@@ -319,6 +313,7 @@ pub async fn run_passes(
         match crate::translations::TranslationsBuilder::load_translations(
             path,
             type_loader.compiler_config.translation_domain.as_deref().unwrap_or(""),
+            &mut diag.all_loaded_files,
         ) {
             Ok(builder) => {
                 doc.translation_builder = Some(builder);

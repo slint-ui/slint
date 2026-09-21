@@ -8,7 +8,7 @@
 use crate::Value;
 use crate::eval::{
     EvalContext, eval_expression, find_window_adapter, resolve_item_rc_from_ref, store_property,
-    walk_to,
+    try_walk_to,
 };
 use crate::instance::SubComponentInstance;
 use i_slint_compiler::llr::{Expression, LocalMemberIndex, MemberReference};
@@ -46,7 +46,9 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
         Some(c) => c.clone(),
         None => return Value::Void,
     };
-    let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+    let Some(owner) = try_walk_to(ctx, *parent_level, local_reference) else {
+        return Value::Void;
+    };
     let cu = owner.compilation_unit.clone();
     let sc = &cu.sub_components[owner.sub_component_idx];
     let popup = match sc.popup_windows.get(*popup_index as usize) {
@@ -92,7 +94,7 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
     // Install bindings now but defer `init_code` until after `show_popup`,
     // so `forward-focus` calls reach a popup the window adapter already
     // considers active.
-    crate::instance::install_bindings_for_repeated_row(&popup_vrc);
+    crate::instance::init_items_and_bindings(&popup_vrc);
 
     // The position expression is evaluated lazily so the window can
     // re-query it after measuring the popup.
@@ -152,10 +154,11 @@ pub(crate) fn close_popup_window(ctx: &mut EvalContext, arguments: &[Expression]
     let MemberReference::Relative { parent_level, local_reference } = parent_ref else {
         return Value::Void;
     };
-    let Some(_current) = ctx.current.as_ref() else { return Value::Void };
     // Resolve the declaring component through the full parent item reference,
     // matching `show_popup_window` so the popup id stored there is found again.
-    let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+    let Some(owner) = try_walk_to(ctx, *parent_level, local_reference) else {
+        return Value::Void;
+    };
     let id = owner.popup_ids.get(*popup_index as usize).and_then(|slot| slot.take());
     if let Some(id) = id
         && let Some(root_inst) = owner.root.get().and_then(|w| w.upgrade())
@@ -306,7 +309,7 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
     // Install bindings now but defer `init_code` until after `show_popup`,
     // so `forward-focus` calls reach a popup the window adapter already
     // considers active.
-    crate::instance::install_bindings_for_repeated_row(&popup_vrc);
+    crate::instance::init_items_and_bindings(&popup_vrc);
 
     // Wire entries/sub_menu/activated on the popup. Two flavors:
     //
@@ -359,7 +362,9 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
         wire_popup_menu_prop(&popup_ctx, &popup_menu.entries, move || entries_value.clone());
 
         if let MemberReference::Relative { parent_level, local_reference } = context_menu_ref {
-            let sub_menu_owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            let Some(sub_menu_owner) = try_walk_to(ctx, *parent_level, local_reference) else {
+                return Value::Void;
+            };
             let LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
                 return Value::Void;
             };
@@ -521,11 +526,11 @@ fn wire_popup_menu_prop(
     mr: &MemberReference,
     binding: impl Fn() -> Value + 'static,
 ) {
-    if let MemberReference::Relative { parent_level, local_reference } = mr {
-        let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
-        if let LocalMemberIndex::Property(idx) = &local_reference.reference {
-            Pin::as_ref(&owner.properties[*idx]).set_binding(binding);
-        }
+    if let MemberReference::Relative { parent_level, local_reference } = mr
+        && let Some(owner) = try_walk_to(ctx, *parent_level, local_reference)
+        && let LocalMemberIndex::Property(idx) = &local_reference.reference
+    {
+        Pin::as_ref(&owner.properties[*idx]).set_binding(binding);
     }
 }
 
@@ -534,10 +539,10 @@ fn wire_popup_menu_cb(
     mr: &MemberReference,
     handler: impl Fn(&[Value]) -> Value + 'static,
 ) {
-    if let MemberReference::Relative { parent_level, local_reference } = mr {
-        let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
-        if let LocalMemberIndex::Callback(idx) = &local_reference.reference {
-            Pin::as_ref(&owner.callbacks[*idx]).set_handler(handler);
-        }
+    if let MemberReference::Relative { parent_level, local_reference } = mr
+        && let Some(owner) = try_walk_to(ctx, *parent_level, local_reference)
+        && let LocalMemberIndex::Callback(idx) = &local_reference.reference
+    {
+        Pin::as_ref(&owner.callbacks[*idx]).set_handler(handler);
     }
 }

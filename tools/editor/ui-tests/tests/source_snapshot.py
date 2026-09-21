@@ -7,6 +7,21 @@ from difflib import unified_diff
 from pathlib import Path
 
 
+def replace_once(source: bytes, old: bytes, new: bytes) -> bytes:
+    assert source.count(old) == 1
+    return source.replace(old, new, 1)
+
+
+def wait_for_source_change(source_file: Path, baseline: bytes) -> bytes:
+    from ui_driver import wait_until
+
+    def changed_source() -> bytes | None:
+        source = source_file.read_bytes()
+        return source if source and source != baseline else None
+
+    return wait_until(changed_source)
+
+
 def slint_sources(project: Path) -> dict[Path, bytes]:
     return {
         path.relative_to(project): path.read_bytes()
@@ -76,6 +91,23 @@ class SourceSnapshot:
 
         current = slint_sources(self.project)
         expected_sources = self.sources | {relative_path: expected}
+        assert current == expected_sources, exact_source_mismatch(
+            current, expected_sources
+        )
+
+    def wait_for_applied(
+        self,
+        expected: bytes,
+        relative_path: Path | str = "Main.slint",
+        timeout: float = 15,
+    ) -> None:
+        """Check exact project source, then wait for this revision in the preview."""
+        from editor_sync import wait_for_source
+
+        self.wait_for_exact(expected, relative_path, timeout=timeout)
+        wait_for_source(self.project / relative_path, expected, timeout=timeout)
+        expected_sources = self.sources | {Path(relative_path): expected}
+        current = slint_sources(self.project)
         assert current == expected_sources, exact_source_mismatch(
             current, expected_sources
         )

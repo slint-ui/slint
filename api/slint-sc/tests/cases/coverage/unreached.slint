@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// The coverage points the test never reaches: it renders once and reads
+// `shown`, so the elements paint and the bindings they paint with are
+// evaluated, but it never touches the window and sets `preset` before
+// reading it.
+
+export component TestCase inherits Window {
+//#c                               ^+
+    callback pressed;
+    in-out property <int> preset: 1;
+//#c                              ^-
+    in property <int> factor: 2;
+//#c                          ^+
+    out property <int> shown: factor * 2;
+//#c                          ^+
+
+    Rectangle {
+//#c^+
+        x: 4px;
+//#c       ^+
+        y: 4px;
+//#c       ^+
+        width: 24px;
+//#c           ^+
+        height: 24px;
+//#c            ^+
+        background: #ff0000;
+//#c                ^+
+        TouchArea {
+//#c    ^+
+            clicked => { root.pressed(); }
+//#c        ^-                ^-
+        }
+    }
+    // Neither painted nor touched: its size affects nothing.
+    Rectangle {
+//#c^+
+        x: 32px;
+//#c       ^+
+        y: 4px;
+//#c       ^+
+        width: 8px;
+//#c           ^-
+        height: 8px;
+//#c            ^-
+    }
+}
+
+/*
+```rust
+struct Application;
+impl TestCaseCallbacks for Application {
+    fn on_pressed(&mut self, _component: &mut TestCase) {
+        unreachable!("the test never presses");
+    }
+}
+
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+let mut buffer = [0u8; 64 * 64 * 3];
+x.render_rgb8(&mut buffer)?;
+x.set_preset(5);
+assert_eq!(x.get_preset(), 5);
+assert_eq!(x.get_shown(), 4);
+```
+*/

@@ -147,6 +147,10 @@ In the mean time, the version in the master branch can be updated
 
 * Check that the build of https://docs.rs/crate/slint/latest and https://docs.rs/crate/slint-interpreter/latest succeeded
 
+* Check that F-Droid picked the release up and could reproduce it: the build shows up on
+  https://monitor.f-droid.org/builds and the version on https://f-droid.org/packages/dev.slint.viewer/.
+  See `tools/viewer/android/fdroid/README.md` for how it finds the release.
+
 * Check that the [`versions.json`](https://github.com/slint-ui/www-releases/blob/master/releases/versions.json) is accurate.
   (Version of the nightly build and no duplicated version)
   FIXME: the release scripts or version upgrade scripts might need fixes

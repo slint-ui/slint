@@ -298,6 +298,15 @@ pub(crate) fn completion_at(
                 resolve_expression_scope(ctx, document_cache, snippet_support)
             })?;
         }
+    } else if let Some(member_access) = syntax_nodes::MemberAccess::new(node.clone()) {
+        // Member access on something that isn't a plain name, such as `foo[0].` or `foo().`
+        let dot = member_access.child_token(SyntaxKind::Dot)?;
+        if offset >= dot.text_range().end() {
+            return with_lookup_ctx(document_cache, node, Some(offset), |ctx| {
+                let base = Expression::from_expression_node(member_access.Expression(), ctx);
+                completion_items_from_lookup(&base, ctx, snippet_support)
+            });
+        }
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
             SyntaxKind::Element => {
@@ -372,14 +381,7 @@ pub(crate) fn completion_at(
                         let str = i_slint_compiler::parser::normalize_identifier(t.text());
                         expr_it = expr_it.lookup(ctx, &str)?;
                     }
-                    has_dot.then(|| {
-                        let mut r = Vec::new();
-                        expr_it.for_each_entry(ctx, &mut |str, expr| -> Option<()> {
-                            r.push(completion_item_from_expression(str, expr, snippet_support));
-                            None
-                        });
-                        r
-                    })
+                    has_dot.then(|| completion_items_from_lookup(&expr_it, ctx, snippet_support))
                 })?;
             }
             _ => (),
@@ -837,12 +839,8 @@ fn resolve_expression_scope(
     document_cache: &editor_preview::DocumentCache,
     snippet_support: bool,
 ) -> Option<Vec<CompletionItem>> {
-    let mut r = Vec::new();
     let global = i_slint_compiler::lookup::global_lookup();
-    global.for_each_entry(lookup_context, &mut |str, expr| -> Option<()> {
-        r.push(completion_item_from_expression(str, expr, snippet_support));
-        None
-    });
+    let mut r = completion_items_from_lookup(&global, lookup_context, snippet_support);
     if snippet_support
         && let Some(token) = lookup_context.current_token.as_ref().and_then(|t| match t {
             i_slint_compiler::parser::NodeOrToken::Node(n) => n.first_token(),
@@ -876,6 +874,20 @@ fn resolve_expression_scope(
         );
     }
     Some(r)
+}
+
+/// The completion items for everything `obj` exposes
+fn completion_items_from_lookup(
+    obj: &impl LookupObject,
+    ctx: &LookupCtx,
+    snippet_support: bool,
+) -> Vec<CompletionItem> {
+    let mut r = Vec::new();
+    obj.for_each_entry(ctx, &mut |str, expr| -> Option<()> {
+        r.push(completion_item_from_expression(str, expr, snippet_support));
+        None
+    });
+    r
 }
 
 fn completion_item_from_expression(
@@ -1451,6 +1463,29 @@ mod tests {
         completion_at(&mut dc, token, offset, Some(&caps))
     }
 
+    #[test]
+    fn completion_in_document_with_unknown_element() {
+        // The unknown element leaves the document in error, so the compiler skipped the passes
+        // and 'x' has no type. Completion resolves the surrounding expressions to know what is
+        // expected at the cursor, which must not panic on the untyped element.
+        for source in [
+            r#"export component Foo {
+                x := Blah { }
+                for a in x.some-model: Text { text: 🔺 }
+            }"#,
+            r#"export component Foo {
+                x := Blah { }
+                if x.some-condition: Text { text: 🔺 }
+            }"#,
+            r#"export component Foo {
+                x := Blah { }
+                Text { text: x.some-property == 🔺 }
+            }"#,
+        ] {
+            assert!(get_completions(source).is_some_and(|c| !c.is_empty()), "{source}");
+        }
+    }
+
     fn assert_completions_found(
         expected: impl IntoIterator<Item = CompletionItem>,
         results: &[CompletionItem],
@@ -1863,6 +1898,36 @@ mod tests {
         res.iter().find(|ci| ci.label == "xx").unwrap();
         res.iter().find(|ci| ci.label == "yy").unwrap();
         assert_eq!(res.len(), 2);
+    }
+
+    #[test]
+    fn struct_field_after_index() {
+        // The index makes the parser produce a MemberAccess instead of a QualifiedName (#13305)
+        let source = r#"
+            struct InnerData { inner: string }
+            struct Data { first: string, second: [InnerData] }
+            export component AppWindow {
+                property <Data> data;
+                Text { text: data.second[0].🔺; }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        assert_eq!(res.iter().map(|ci| ci.label.as_str()).collect::<Vec<_>>(), ["inner"]);
+    }
+
+    #[test]
+    fn struct_field_of_model_data() {
+        // The type of the loop variable comes from the model of the `for` (#13305)
+        let source = r#"
+            struct InnerData { inner: string }
+            struct Data { first: string, second: [InnerData] }
+            export component AppWindow {
+                property <Data> data;
+                for item in data.second: Text { text: item.🔺; }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        assert_eq!(res.iter().map(|ci| ci.label.as_str()).collect::<Vec<_>>(), ["inner"]);
     }
 
     #[test]

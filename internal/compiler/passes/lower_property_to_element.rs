@@ -140,6 +140,7 @@ pub fn transform_property_default_value(
         lhs: Expression::PropertyReference(NamedReference::new(element, prop.into())).into(),
         op: '/',
         rhs: Expression::NumberLiteral(2., Default::default()).into(),
+        source_location: None,
     };
 
     match property_name {

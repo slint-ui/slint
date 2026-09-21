@@ -96,6 +96,8 @@ pub enum PreviewToLspMessage {
     /// The client is not authenticated. Whether retrying is worthwhile is
     /// [`PairingRejection::is_terminal`].
     PairingRejected { reason: PairingRejection },
+    /// The preview exited.
+    Exited,
 }
 
 /// One transport from a preview back to the LSP.

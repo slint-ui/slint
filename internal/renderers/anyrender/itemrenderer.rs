@@ -361,7 +361,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             let mut transform = self
                 .current_state
                 .transform
-                .then_translate(kurbo::Vec2::new(fit.offset.x as f64, fit.offset.y as f64));
+                .pre_translate(kurbo::Vec2::new(fit.offset.x as f64, fit.offset.y as f64));
 
             // With bilinear sampling, a fractional tile phase blends
             // adjacent texels across every tile seam and washes out the
@@ -470,7 +470,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         let transform = self
             .current_state
             .transform
-            .then_translate(kurbo::Vec2::new(phys_offset.x as f64, phys_offset.y as f64));
+            .pre_translate(kurbo::Vec2::new(phys_offset.x as f64, phys_offset.y as f64));
 
         let brush_size = size * sf;
 
@@ -687,17 +687,17 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         self.current_state.transform = self
             .current_state
             .transform
-            .then_translate(kurbo::Vec2::new(distance.x as f64, distance.y as f64));
+            .pre_translate(kurbo::Vec2::new(distance.x as f64, distance.y as f64));
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {
         self.current_state.transform =
-            self.current_state.transform.then_rotate(angle_in_degrees.to_radians().into());
+            self.current_state.transform.pre_rotate(angle_in_degrees.to_radians().into());
     }
 
     fn scale(&mut self, x_factor: f32, y_factor: f32) {
         self.current_state.transform =
-            self.current_state.transform.then_scale_non_uniform(x_factor as f64, y_factor as f64)
+            self.current_state.transform.pre_scale_non_uniform(x_factor as f64, y_factor as f64)
     }
 
     fn apply_opacity(&mut self, opacity: f32) {
@@ -760,7 +760,7 @@ impl<'a, S: PaintScene> GlyphRenderer for AnyrenderItemRenderer<'a, S> {
         font: &parley::FontData,
         font_size: PhysicalLength,
         normalized_coords: &[i16],
-        _synthesis: &fontique::Synthesis,
+        synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
@@ -769,6 +769,17 @@ impl<'a, S: PaintScene> GlyphRenderer for AnyrenderItemRenderer<'a, S> {
             .current_state
             .transform
             .then_translate(kurbo::Vec2::new(0., y_offset.get() as f64));
+        // Faux italic, for fonts fontique picked as the closest match to an `italic` request
+        // but that carry neither a true italic face nor an `ital`/`slnt` variation axis
+        // (common for CJK fonts, see issue #10178). `glyph_transform` is applied per glyph in
+        // its own local coordinate frame, so it leans each glyph in place rather than shearing
+        // the whole run sideways the way transforming `transform` itself would. The sign here
+        // was picked by rendering both ways and comparing which one actually leans right, not
+        // derived from a convention doc alone -- kurbo's own `Affine::skew` example assumes a
+        // Y-up frame, but empirically vello_cpu's glyph space behaves Y-down here.
+        let glyph_transform = synthesis
+            .skew()
+            .map(|degrees| kurbo::Affine::skew(-degrees.to_radians().tan() as f64, 0.0));
         let glyphs: Vec<_> =
             glyphs_it.map(|g| anyrender::Glyph { id: g.id, x: g.x, y: g.y }).collect();
         self.scene.draw_glyphs(
@@ -781,7 +792,7 @@ impl<'a, S: PaintScene> GlyphRenderer for AnyrenderItemRenderer<'a, S> {
             peniko::BrushRef::from(&brush.peniko_brush),
             1.0,
             transform,
-            None,
+            glyph_transform,
             glyphs.into_iter(),
         );
     }

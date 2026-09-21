@@ -158,7 +158,10 @@ struct HighlightPositionsModel {
 
 impl HighlightPositionsModel {
     fn new(component_instance: ComponentInstance, path: PathBuf, offset: u32) -> Rc<Self> {
-        let model = Rc::new(Self { rows: Default::default(), change_tracker: Default::default() });
+        let rows = i_slint_core::properties::evaluate_no_tracking(|| {
+            selection_rectangles(&component_instance, &path, offset)
+        });
+        let model = Rc::new(Self { rows: rows.into(), change_tracker: Default::default() });
         let model_weak = Rc::downgrade(&model);
         let component_instance = component_instance.as_weak();
         model.change_tracker.init_delayed(
@@ -225,6 +228,11 @@ fn selection_rectangles(
             x: geometry.rect.origin.x,
             y: geometry.rect.origin.y,
             angle: geometry.angle,
+            describes_element: geometry.renders_as_rectangle,
+            top_left_radius: geometry.corner_radii.top_left,
+            top_right_radius: geometry.corner_radii.top_right,
+            bottom_left_radius: geometry.corner_radii.bottom_left,
+            bottom_right_radius: geometry.corner_radii.bottom_right,
         })
         .collect()
 }
@@ -233,6 +241,12 @@ pub fn highlight_positions(
     source_uri: slint::SharedString,
     offset: i32,
 ) -> slint::ModelRc<ui::SelectionRectangle> {
+    // The model holds a preview instance, so bindings must recreate it after a reload.
+    super::PREVIEW_STATE.with_borrow(|state| {
+        if let Some(api) = state.api.upgrade() {
+            api.get_inspector_generation();
+        }
+    });
     let Some(component_instance) = super::component_instance() else {
         return Default::default();
     };
@@ -473,6 +487,9 @@ fn hovered_element_at_impl(
         valid: true,
         is_selected,
         is_over_selected_element,
+        source_uri: i_slint_editor_preview::file_to_uri(&path)
+            .map(|uri| uri.to_string().into())
+            .unwrap_or_default(),
         element_path: path.to_string_lossy().to_string().into(),
         element_offset: i32::try_from(u32::from(offset)).unwrap_or_default(),
         type_name: type_name(&element_node).into(),
