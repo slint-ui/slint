@@ -3,7 +3,7 @@
 
 # iOS Scroll Physics Parity Investigation
 
-**Date:** 20 September 2026  
+**Date:** 20–21 September 2026<br>
 **Audience:** Slint runtime and input developers  
 **Status:** Diagnostic prototype; candidate changes are not a production fix
 
@@ -27,8 +27,8 @@ The comparison app displays a native UIKit list beside a Slint list on the same 
 | Device | iPhone 13 Pro Max |
 | Device ID | `00008110-00022D943EB8801E` |
 | Slint source branch | `mm/flickable-scroll-animation-v2` from Murmele/slint |
-| Local branch | `nigel/native-slint-scroll-prototype` |
-| Local HEAD | `ea8335305c237525e341ebc37df89171d3a1bd6a` |
+| Local branch | `nigel/ios-scroll-physics-investigation` |
+| Local HEAD before the latest uncommitted tests | `50097906d37cfcee9b3d6c625ef520d5ba83b6a8` |
 | Rebase base | Upstream Slint `master` at `4bcc1b3480` |
 | Build | Release |
 | Native reference | `UIScrollViewDecelerationRateNormal` with bounce enabled |
@@ -208,6 +208,31 @@ The next investigation should instrument:
 - the same-direction decision;
 - the 20 ms retention timeout relative to actual input timestamps; and
 - the final velocity before and after carried momentum is applied.
+
+### 10. A large, very fast single swipe can hide a transient trajectory mismatch behind a close endpoint
+
+Endpoint distance alone missed a visible difference reported during testing. A second sweep used one large drag from 90% to 10% of the screen height and requested XCTest velocities from 3,200 to 11,200 pixels per second. Four cases ended within 27 points of each other, but separated much more during the first frames after release:
+
+| Requested velocity | Samples while dragging | Final Slint - UIKit offset | Maximum separation | Time of maximum separation |
+|---:|---:|---:|---:|---:|
+| 4,800 | 14 | +4.8 pt | +25.5 pt | 24 ms |
+| 6,400 | 8 | +13.6 pt | +39.9 pt | 24 ms |
+| 9,600 | 5 | +26.0 pt | +63.2 pt | 31 ms |
+| 11,200 | 4 | +21.7 pt | +80.5 pt | 23 ms |
+
+The 11,200 case is the clearest example. At release, Slint was 22.6 points ahead. Six milliseconds later, UIKit's recorded offset was unchanged while Slint had advanced another 56.2 points. At the following sample UIKit advanced, but the views were then separated by 74.3 points. The gap peaked at 80.5 points and gradually returned to 21.7 points.
+
+The two views nevertheless covered almost exactly the same total post-release distance in that run: UIKit traveled 5,639.3 points and Slint traveled 5,638.4 points. This explains why an endpoint comparison said they matched while the motion was visibly out of phase.
+
+After the initial handoff, the decay curves were close. For the 11,200 case, UIKit and Slint reached 25%, 50%, 75%, and 90% of final travel at 149/144 ms, 351/346 ms, 696/691 ms, and 1,152/1,147 ms respectively. Estimated velocities after 50, 100, 200, 400, and 800 ms were also within approximately 1.5%. Their stop times were 3.489 and 3.498 seconds.
+
+The data therefore verifies a large transient trajectory mismatch, but it does not support a different sustained exponential deceleration curve in this particular case. The dominant defect is at the drag-to-fling handoff: Slint advances roughly one high-speed display frame before UIKit's first recorded inertial movement, then the small velocity difference slowly closes most of that lead.
+
+A delivery-order control called UIKit's `touchesEnded` implementation before forwarding the same release to Slint. It did not remove the effect. At requested velocity 11,200, the control peaked at 75.8 points and ended 28.0 points apart, compared with 80.5 and 21.7 points in the original order. This rules out the order of those two calls as the main cause.
+
+The problem appears only in large, fast single swipes because the harness receives very few move callbacks: four samples over 25.9 ms at 11,200 and five samples over 39.7 ms at 9,600. Investigation should focus on the release sample, coalesced touch history, and when the initial fling position is evaluated relative to the first display frame. It should retain the existing decay constant until direct instrumentation shows a later-curve error.
+
+These measurements are model offsets sampled from one `CADisplayLink`, not a decoded framebuffer recording. CoreDevice reported that screen recording is unavailable for this attached device, so the current evidence cannot distinguish a one-frame presentation-order effect from a one-frame model update. A production fix should be checked with a ReplayKit or high-frame-rate camera recording in addition to the CSV trace.
 
 ## Candidate local changes
 

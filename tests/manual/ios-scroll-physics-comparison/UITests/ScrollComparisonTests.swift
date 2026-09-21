@@ -59,6 +59,26 @@ final class ScrollComparisonTests: XCTestCase {
         }
     }
 
+    func testCurveTransitionSweep() {
+        for velocity in stride(from: 450.0, through: 1_200.0, by: 50.0) {
+            let name = "curve-velocity-\(Int(velocity))"
+            let app = launch(scenario: name)
+            drag(app, from: 0.75, to: 0.30, velocity: velocity)
+            waitForTrace(app, name: name)
+            app.terminate()
+        }
+    }
+
+    func testLargeFastCurveSweep() {
+        for velocity in [3_200.0, 4_800.0, 6_400.0, 8_000.0, 9_600.0, 11_200.0] {
+            let name = "large-fast-velocity-\(Int(velocity))"
+            let app = launch(scenario: name)
+            drag(app, from: 0.90, to: 0.10, velocity: velocity)
+            waitForTrace(app, name: name)
+            app.terminate()
+        }
+    }
+
     func testMomentumCarry() {
         for flickCount in [2, 3, 4] {
             let name = "momentum-carry-\(flickCount)"
