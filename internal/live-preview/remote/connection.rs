@@ -6,12 +6,11 @@
 use std::{
     collections::VecDeque,
     net::{IpAddr, Ipv6Addr, SocketAddr, SocketAddrV6},
-    rc::Rc,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
-use crate::preview_sessions::{PreviewSession, PreviewSessionEvent, PreviewSessionHandle};
+use crate::preview_sessions::PreviewSessionHandle;
 use crate::protocol::pairing::{
     self, CODE_TIMEOUT, MAX_ATTEMPTS, PROMPT_RATE_LIMIT, PairingRejection, Token, TokenId,
 };
@@ -403,31 +402,6 @@ async fn next_message(receiver: &mut Source, timeout: Duration) -> Option<LspToP
 }
 
 impl Connection {
-    /// Listen, and run the preview session on this thread.
-    pub async fn listen(
-        address: Option<SocketAddr>,
-        device_name_override: Option<String>,
-        pairing_policy: PairingPolicy,
-        message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
-        preview_event_handler: impl Fn(PreviewSessionEvent) + 'static,
-    ) -> anyhow::Result<(Self, Rc<PreviewSession>)> {
-        let (session_handle, session_commands) = PreviewSessionHandle::new();
-        let connection = Self::listen_with_session_handle(
-            address,
-            device_name_override,
-            pairing_policy,
-            message_handler,
-            session_handle,
-        )
-        .await?;
-        let preview_session = PreviewSession::start_with(
-            session_commands,
-            Rc::new(connection.preview_to_lsp()),
-            preview_event_handler,
-        );
-        Ok((connection, preview_session))
-    }
-
     /// Listen, feeding the session behind `session_handle`, which may run on another
     /// thread. That thread builds its session on [`Self::preview_to_lsp()`].
     pub async fn listen_with_session_handle(
@@ -579,7 +553,7 @@ impl Connection {
         })
     }
 
-    /// The sink a [`PreviewSession`] answers the editor
+    /// The sink a [`crate::preview_sessions::PreviewSession`] answers the editor
     /// through. It is `Send`, so a session on another thread can be built on it.
     pub fn preview_to_lsp(&self) -> impl PreviewToLsp + Send + use<> {
         ConnectionPreviewToLsp(self.message_sender.clone())
