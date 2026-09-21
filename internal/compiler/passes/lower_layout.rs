@@ -111,13 +111,6 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
             // PropertyReference to an element's vertical layout-info prop
             // whose target has the parametrized function: swap for the function call.
             let target = nr.element();
-            let is_vertical_layout_info = target
-                .borrow()
-                .effective_layout_info_prop(Orientation::Vertical)
-                .map(|prop_nr| {
-                    prop_nr.name() == nr.name() && Rc::ptr_eq(&prop_nr.element(), &target)
-                })
-                .unwrap_or(false);
             // A forwarded scalar constraint (`min-height: inner.min-height`) reads
             // the target's implicit min/preferred/max-height, which is its
             // layoutinfo-v at the *unconstrained* width. Thread the cross-axis
@@ -130,6 +123,17 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
                 _ => None,
             };
             if let Some(field) = constraint_field {
+                // A bare forward is what the replacement below handles; only a constraint
+                // wrapping one has to be rewritten through its binding (#13523).
+                let own_binding = target.borrow().binding(nr.name()).and_then(|b| {
+                    (!matches!(b.expression, Expression::PropertyReference(..)))
+                        .then(|| b.expression.clone())
+                });
+                if let Some(mut own_binding) = own_binding {
+                    rewrite_layoutinfo_v_for_constraint(&mut own_binding, width_param);
+                    *sub = own_binding;
+                    return;
+                }
                 if let Some(constrained_nr) =
                     target.borrow().inherited_layout_info_v_with_constraint()
                 {
@@ -150,6 +154,13 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
                 }
                 return;
             }
+            let is_vertical_layout_info = target
+                .borrow()
+                .effective_layout_info_prop(Orientation::Vertical)
+                .map(|prop_nr| {
+                    prop_nr.name() == nr.name() && Rc::ptr_eq(&prop_nr.element(), &target)
+                })
+                .unwrap_or(false);
             if !is_vertical_layout_info {
                 return;
             }
