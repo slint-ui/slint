@@ -1,23 +1,25 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style, Metrics, Colors, Typography, ColorSliderStyle, ColorControlsStyle } from "../../style.slint";
 import { Api } from "../../api.slint";
-import { InspectorTokens } from "tokens.slint";
+
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
 component ColorSlider inherits Rectangle {
+    in property <ColorSliderStyle> style: Style.color-slider;
     in property <float> position;
     in property <bool> enabled;
     in property <bool> dragging;
-    in property <color> thumb-shadow: transparent;
+    in property <color> thumb-shadow;
     callback started();
     callback moved(float);
     callback finished();
     callback canceled();
 
-    height: 16px;
+    height: root.style.height;
     Rectangle {
-        border-radius: 8px;
+        border-radius: root.style.radius;
         clip: true;
         @children
     }
@@ -37,22 +39,21 @@ component ColorSlider inherits Rectangle {
         }
     }
     Rectangle {
-        x: root.position * parent.width - 7px;
-        y: 1px;
-        width: 14px;
-        height: 14px;
-        border-radius: 7px;
-        border-width: 2px;
-        border-color: white;
-        background: transparent;
+        x: root.position * parent.width - root.style.thumb-size / 2;
+        width: root.style.thumb-size;
+        height: root.style.thumb-size;
+        border-radius: root.style.thumb-size / 2;
+        border-width: Metrics.focus-width;
+        border-color: root.style.thumb-border;
         drop-shadow-color: root.thumb-shadow;
-        drop-shadow-blur: 2px;
+        drop-shadow-blur: root.style.shadow.blur;
     }
 }
 
 export component InspectorColorControls inherits Rectangle {
+    in property <ColorControlsStyle> style: Style.color-controls;
     in property <color> value;
-    in property <length> field-height: 170px;
+    in property <length> field-height: root.style.plane.height;
     in property <bool> editable;
     in property <string> session-key;
     callback preview(color) -> bool;
@@ -123,21 +124,21 @@ export component InspectorColorControls inherits Rectangle {
     }
 
     layout := VerticalLayout {
-        spacing: 12px;
+        spacing: root.style.gap;
         alignment: start;
         Rectangle {
             height: root.field-height;
             Rectangle {
-                border-radius: 5px;
+                border-radius: root.style.plane.radius;
                 clip: true;
                 background: hsv(root.hue, 1, 1);
 
                 Rectangle { background: @linear-gradient(90deg, white 0%, transparent 100%); }
                 Rectangle { background: @linear-gradient(0deg, black 0%, transparent 100%); }
                 Rectangle {
-                    border-radius: 5px;
-                    border-width: 1px;
-                    border-color: InspectorTokens.divider;
+                    border-radius: root.style.plane.radius;
+                    border-width: Metrics.border-width;
+                    border-color: root.style.plane.border;
                 }
             }
             TouchArea {
@@ -156,20 +157,20 @@ export component InspectorColorControls inherits Rectangle {
                 }
             }
             Rectangle {
-                x: root.saturation * parent.width - 6px;
-                y: (1 - root.brightness) * parent.height - 6px;
-                width: 12px;
-                height: 12px;
-                border-radius: 6px;
-                border-width: 2px;
-                border-color: white;
-                background: transparent;
-                drop-shadow-color: #00000080;
-                drop-shadow-blur: 3px;
+                x: root.saturation * parent.width - root.style.plane.thumb-size / 2;
+                y: (1 - root.brightness) * parent.height - root.style.plane.thumb-size / 2;
+                width: root.style.plane.thumb-size;
+                height: root.style.plane.thumb-size;
+                border-radius: root.style.plane.radius;
+                border-width: Metrics.focus-width;
+                border-color: root.style.plane.thumb-border;
+                drop-shadow-color: root.style.plane.shadow.color;
+                drop-shadow-blur: root.style.plane.shadow.blur;
             }
         }
 
         ColorSlider {
+            style: root.style.slider;
             position: root.hue / 360;
             enabled: root.editable;
             dragging: root.dragging;
@@ -186,10 +187,11 @@ export component InspectorColorControls inherits Rectangle {
         }
 
         ColorSlider {
+            style: root.style.slider;
             position: root.alpha / 255;
             enabled: root.editable;
             dragging: root.dragging;
-            thumb-shadow: #00000070;
+            thumb-shadow: root.style.slider.shadow.color;
             started => { root.begin-gesture(); }
             moved(position) => {
                 root.alpha = (255 * position).round();
@@ -199,14 +201,12 @@ export component InspectorColorControls inherits Rectangle {
             canceled => { root.cancel-gesture(); }
             Rectangle {
                 for row in 2: Rectangle {
-                    y: row * 8px;
-                    width: 100%;
-                    height: 8px;
-                    for col in ceil(parent.width / 8px): Rectangle {
-                        x: col * 8px;
-                        width: 8px;
-                        height: 8px;
-                        background: (row + col).mod(2) == 0 ? InspectorTokens.panel-bg : InspectorTokens.field-border;
+                    y: row * Style.transparency-grid.cell-size;
+                    height: Style.transparency-grid.cell-size;
+                    for col in ceil(parent.width / Style.transparency-grid.cell-size): Rectangle {
+                        x: col * Style.transparency-grid.cell-size;
+                        width: Style.transparency-grid.cell-size;
+                        background: (row + col).mod(2) == 0 ? root.style.plane.checker-light : root.style.plane.checker-dark;
                     }
                 }
             }
@@ -216,25 +216,24 @@ export component InspectorColorControls inherits Rectangle {
         }
 
         HorizontalLayout {
-            height: 26px;
-            spacing: 8px;
+            height: root.style.row-height;
+            spacing: Metrics.space-regular;
             InspectorTextFieldBase {
                 accessible-name: "Hex color";
                 live-edit: true;
                 enabled: root.editable;
                 value: Api.color-to-data(root.working-color).text;
                 commit-key: root.session-key;
-                horizontal-stretch: 1;
                 accepted(text) => { return root.commit-text(text); }
             }
             HorizontalLayout {
-                width: 78px;
-                spacing: 2px;
+                width: root.style.hex.width;
+                spacing: Metrics.space-tight;
                 InspectorTextFieldBase {
                     accessible-name: "Opacity percentage";
                     live-edit: true;
                     enabled: root.editable;
-                    width: 58px;
+                    width: root.style.hex.input-width;
                     value: (root.alpha * 100 / 255).to-fixed(0);
                     commit-key: root.session-key;
                     accepted(text) => {
@@ -247,8 +246,8 @@ export component InspectorColorControls inherits Rectangle {
                 }
                 Text {
                     text: "%";
-                    color: InspectorTokens.muted;
-                    font-size: 11px;
+                    color: Colors.muted;
+                    font-size: Typography.caption.size;
                     vertical-alignment: center;
                 }
             }

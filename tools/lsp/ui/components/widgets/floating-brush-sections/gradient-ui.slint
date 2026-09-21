@@ -9,6 +9,8 @@ import { GradientType, WidgetMode, WindowManager, PickerData } from "../../../wi
 import { Api, BrushKind, GradientStop } from "../../../api.slint";
 import { Icons, EditorPalette, EditorSizeSettings, PickerStyles } from "../../../components/styling.slint";
 
+import { GradientStopMarker } from "../gradient-stop-marker.slint";
+
 struct GradientStopIndexChanged {
     start-index: int,
     end-index: int,
@@ -43,13 +45,11 @@ component GradientSlider {
     height: 0;
     x: PickerData.current-gradient-stops[stop-index].position * parent-width;
 
-    Rectangle {
-        width: 24px;
-        height: self.width;
-        background: active ? PickerStyles.focused-color : PickerStyles.slider-color;
-        border-radius: 5px;
+    GradientStopMarker {
+        active: root.active;
+        stop-color: PickerData.current-gradient-stops[stop-index].color;
 
-        property <bool> block-clicked: false;
+        property <bool> block-clicked;
         ta := TouchArea {
             moved => {
                 slider-target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
@@ -78,27 +78,12 @@ component GradientSlider {
             }
         }
 
-        Rectangle {
-            x: parent.width / 2;
-            y: 1px;
-            width: 0;
-            height: 0;
-            Image {
-                width: 10px;
-                transform-rotation: 45deg;
-                source: Icons.black-square;
-                colorize: active ? PickerStyles.focused-color : PickerStyles.slider-color;
-            }
-        }
 
-        ColorIndicator {
-            color: PickerData.current-gradient-stops[stop-index].color;
-        }
     }
 }
 
 component GradientStopValue {
-    in property <bool> focused: false;
+    in property <bool> focused;
     in-out property <int> stop-index;
     property <float> stop-data-position: PickerData.current-gradient-stops[stop-index].position;
     property <color> stop-data-color: PickerData.current-gradient-stops[stop-index].color;
@@ -236,7 +221,6 @@ component GradientStopValue {
             divider := Rectangle {
                 x: parent.width - 45px;
                 width: 1px;
-                height: parent.height;
                 background: Palette.background;
             }
 
@@ -349,7 +333,6 @@ export component GradientPicker inherits SimpleColumn {
             Rectangle {
                 x: parent.width - self.width;
                 width: 48px;
-                height: parent.height;
 
                 pi := PickerTextInput {
                     x: -12px;

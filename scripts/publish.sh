@@ -37,4 +37,5 @@ exec cargo publish "$@" \
     -p i-slint-editor-preview \
     -p slint-lsp \
     -p slint-viewer \
-    -p slint-tr-extractor
+    -p slint-tr-extractor \
+    -p slint-compiler

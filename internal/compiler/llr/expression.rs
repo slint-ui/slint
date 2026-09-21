@@ -1017,17 +1017,12 @@ impl<'a, T> EvaluationContext<'a, T> {
                         let g = &self.compilation_unit.globals[g];
                         in_global(g, &local_reference.reference, ContextMap::Identity)
                     }
-                    EvaluationScope::SubComponent(mut sc, mut parent) => {
-                        for _ in 0..*parent_level {
-                            // The parent chain is severed for function bodies (see
-                            // `for_each_expression`); the reference is then not
-                            // resolvable, like `function_info` also reports.
-                            let Some(p) = parent else {
-                                return PropertyInfoResult::default();
-                            };
-                            sc = p.sub_component;
-                            parent = p.parent;
-                        }
+                    EvaluationScope::SubComponent(..) => {
+                        // A severed parent chain leaves the reference unresolvable,
+                        // like `function_info` also reports.
+                        let Some((sc, _)) = self.scope_at_parent_level(*parent_level) else {
+                            return PropertyInfoResult::default();
+                        };
                         match_in_sub_component(
                             self.compilation_unit,
                             &self.compilation_unit.sub_components[sc],
@@ -1060,12 +1055,7 @@ impl<'a, T> EvaluationContext<'a, T> {
                 let LocalMemberIndex::Function(idx) = local_reference.reference else {
                     return None;
                 };
-                let mut scope = self.current_scope;
-                for _ in 0..*parent_level {
-                    let EvaluationScope::SubComponent(_, Some(p)) = scope else { return None };
-                    scope = EvaluationScope::SubComponent(p.sub_component, p.parent);
-                }
-                let EvaluationScope::SubComponent(mut sc, _) = scope else { return None };
+                let (mut sc, _) = self.scope_at_parent_level(*parent_level)?;
                 for i in &local_reference.sub_component_path {
                     sc = cu.sub_components[sc].sub_components[*i].ty;
                 }
@@ -1112,14 +1102,8 @@ impl<'a, T> EvaluationContext<'a, T> {
                 f(ParentScope { sub_component: sc, repeater_index: None, parent })
             }
         }
-        let EvaluationScope::SubComponent(mut sc, mut parent) = self.current_scope else {
-            panic!("not in a sub-component scope")
-        };
-        for _ in 0..parent_level {
-            let p = parent.expect("invalid parent reference");
-            sc = p.sub_component;
-            parent = p.parent;
-        }
+        let (sc, parent) =
+            self.scope_at_parent_level(parent_level).expect("invalid parent reference");
         descend(self.compilation_unit, sc, parent, sub_component_path, f)
     }
 
@@ -1133,16 +1117,25 @@ impl<'a, T> EvaluationContext<'a, T> {
         self.compilation_unit.globals.get(i)
     }
 
-    pub fn parent_sub_component_idx(&self, parent: usize) -> Option<SubComponentIdx> {
-        let EvaluationScope::SubComponent(mut sc, mut par) = self.current_scope else {
+    /// The sub-component `parent_level` frames up, with the chain left above it.
+    /// `None` if the scope is not a sub-component, or the chain is shorter than that.
+    pub fn scope_at_parent_level(
+        &self,
+        parent_level: usize,
+    ) -> Option<(SubComponentIdx, Option<&'a ParentScope<'a>>)> {
+        let EvaluationScope::SubComponent(mut sc, mut parent) = self.current_scope else {
             return None;
         };
-        for _ in 0..parent {
-            let p = par?;
+        for _ in 0..parent_level {
+            let p = parent?;
             sc = p.sub_component;
-            par = p.parent;
+            parent = p.parent;
         }
-        Some(sc)
+        Some((sc, parent))
+    }
+
+    pub fn parent_sub_component_idx(&self, parent: usize) -> Option<SubComponentIdx> {
+        self.scope_at_parent_level(parent).map(|(sc, _)| sc)
     }
 
     pub fn relative_property_ty(
@@ -1302,11 +1295,14 @@ impl ContextMap {
         match self {
             ContextMap::Identity => ctx.clone(),
             ContextMap::InSubElement { path, parent } => {
-                let mut sc = ctx.parent_sub_component_idx(*parent).unwrap();
+                // Keep the parent chain of the frame we land on: an expression there may
+                // itself have `parent_level > 0` references, and they resolve in that frame.
+                let (mut sc, parent_scope) =
+                    ctx.scope_at_parent_level(*parent).expect("invalid parent reference");
                 for i in path {
                     sc = ctx.compilation_unit.sub_components[sc].sub_components[*i].ty;
                 }
-                EvaluationContext::new_sub_component(ctx.compilation_unit, sc, (), None)
+                EvaluationContext::new_sub_component(ctx.compilation_unit, sc, (), parent_scope)
             }
             ContextMap::InGlobal(g) => EvaluationContext::new_global(ctx.compilation_unit, *g, ()),
         }

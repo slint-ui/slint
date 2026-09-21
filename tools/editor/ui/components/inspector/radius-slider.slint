@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorTokens } from "tokens.slint";
+import { Style, Metrics, RadiusSliderStyle } from "../../style.slint";
 
 export component InspectorRadiusSlider inherits FocusScope {
+    in property <RadiusSliderStyle> style: Style.radius-slider;
     in property <float> value;
     in property <float> maximum;
     in property <string> commit-key;
@@ -14,8 +15,8 @@ export component InspectorRadiusSlider inherits FocusScope {
     private property <bool> dragging;
     private property <float> drag-value;
     private property <float> progress: root.maximum > 0 ? (root.visual-value / root.maximum).clamp(0, 1) : 0;
-    height: 24px;
-    min-width: 32px;
+    height: root.style.height;
+    min-width: root.style.min-width;
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.slider;
     accessible-label: "All corner radii slider";
@@ -30,7 +31,7 @@ export component InspectorRadiusSlider inherits FocusScope {
         if root.dragging { root.dragging = false; root.canceled(); }
     }
     function update() {
-        root.drag-value = (((touch.mouse-x - 6px) / max(1px, root.width - 12px)).clamp(0, 1) * root.maximum).round();
+        root.drag-value = (((touch.mouse-x - root.style.inset) / max(1px, root.width - 2 * root.style.inset)).clamp(0, 1) * root.maximum).round();
         if !root.preview(root.drag-value) { root.cancel(); }
     }
     key-pressed(event) => {
@@ -39,14 +40,17 @@ export component InspectorRadiusSlider inherits FocusScope {
         if event.text == Key.RightArrow || event.text == Key.UpArrow { root.accepted(min(root.maximum, root.value + 1)); return accept; }
         return reject;
     }
-    Rectangle { x: 6px; y: 11px; width: parent.width - 12px; height: 2px; background: InspectorTokens.divider; }
-    Rectangle { x: 6px; y: 11px; width: (parent.width - 12px) * root.progress; height: 2px; background: InspectorTokens.slider-fill; }
+    Rectangle { x: root.style.inset; y: (root.height - self.height) / 2; width: parent.width - 2 * root.style.inset; height: root.style.track-height; background: root.style.track; }
+    Rectangle { x: root.style.inset; y: (root.height - self.height) / 2; width: (parent.width - 2 * root.style.inset) * root.progress; height: root.style.track-height; background: root.style.fill; }
     Rectangle {
-        x: 1px + (parent.width - 12px) * root.progress;
-        y: 7px; width: 10px; height: 10px; border-radius: 5px;
-        background: InspectorTokens.slider-thumb;
-        border-width: root.has-focus ? 1px : 0px;
-        border-color: InspectorTokens.accent;
+        x: root.style.inset - self.width / 2 + (parent.width - 2 * root.style.inset) * root.progress;
+        y: (root.height - self.height) / 2;
+        width: root.style.thumb-size;
+        height: self.width;
+        border-radius: self.width / 2;
+        background: root.style.thumb;
+        border-width: root.has-focus ? Metrics.border-width : 0px;
+        border-color: root.style.focus-border;
     }
     touch := TouchArea {
         mouse-cursor: pointer;

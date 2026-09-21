@@ -567,6 +567,7 @@ rustup
 Rustybuzz
 safeui
 Schukat
+scanout
 sclk
 scopeguard
 sdkconfig
@@ -592,6 +593,7 @@ singlefile
 singleshot
 skrifa
 slintcov
+slnt
 slintlib
 Smartwin
 smol

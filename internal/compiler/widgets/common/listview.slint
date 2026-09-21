@@ -121,6 +121,7 @@ component StandardListViewBase inherits ListView {
     protected function toggle-focus-item-selection() {
         if (root.current-item == root.focus-item) {
             root.current-item = -1;
+            root.current-item-changed(root.current-item);
         } else {
             root.select-focus-item();
         }

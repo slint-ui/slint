@@ -40,34 +40,34 @@ allowBuilds:
 
 # Security overrides. Each key pins the vulnerable range to a fixed version.
 overrides:
-  'svgo@>=4.0.0 <4.0.2': '>=4.0.2'
-  'yaml@>=2.0.0 <2.8.3': '>=2.8.3'
-  'uuid@<14.0.0': '>=14.0.0'
-  'qs@>=6.11.1 <=6.15.1': '>=6.15.2'
-  'js-yaml@<=4.1.1': '>=4.2.0 <5.0.0'
-  'sharp@<0.35.0': '>=0.35.0'
-  'nanoid@<3.3.17': '>=3.3.17 <4.0.0'
-  'deepmerge-ts@<8.0.0': '>=8.0.0'
+  deepmerge-ts@<8.0.0: 8.0.0
+  js-yaml@>=4.0.0 <4.3.2: 4.3.2
+  lodash-es@<=4.17.23: 4.18.1
+  lodash-es@>=4.0.0 <=4.17.23: 4.18.1
+  qs@>=2.2.5 <6.16.0: 6.16.0
+  qs@>=6.14.2 <=6.15.3: 6.16.0
+  sharp@<0.35.4: 0.35.4
+  svgo@>=4.0.0 <4.1.0: 4.1.0
 
 catalog:
-  '@astrojs/check': 0.9.9
-  '@astrojs/sitemap': 3.7.3
-  '@astrojs/starlight': 0.41.4
-  '@biomejs/biome': 2.5.5
-  '@expressive-code/plugin-line-numbers': 0.44.1
+  '@astrojs/check': 0.9.10
+  '@astrojs/sitemap': 3.7.4
+  '@astrojs/starlight': 0.42.0
+  '@biomejs/biome': 2.5.13
+  '@expressive-code/plugin-line-numbers': 0.44.2
   '@pagefind/default-ui': 1.5.2
-  '@playwright/test': 1.61.1
+  '@playwright/test': 1.63.0
   '@types/node': 24.12.0
-  astro: 7.1.3
-  astro-embed: 0.13.1
-  cspell: 10.0.1
+  astro: 7.3.2
+  astro-embed: 0.14.0
+  cspell: 10.3.0
   playwright-ctrf-json-reporter: 0.0.29
   rehype-external-links: 3.0.0
-  sharp: 0.35.3
-  starlight-links-validator: 0.25.2
+  sharp: 0.35.4
+  starlight-links-validator: 0.26.0
   remark-parse: 11.0.0
   typescript: 6.0.3
   unified: 11.0.5
   unist-util-visit: 5.1.0
-  vite: 8.1.5
-  vitest: 4.1.10
+  vite: 8.3.0
+  vitest: 5.0.0

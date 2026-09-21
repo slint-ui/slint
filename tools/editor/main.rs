@@ -439,15 +439,22 @@ fn sync_file_watcher_if_needed(
     }
 
     watcher.update_watched_paths(
-        std::iter::once(root_path.to_path_buf()).chain(
-            session
-                .document_cache
-                .all_urls_to_watch()
-                .into_iter()
-                // filter out builtins
-                .filter(|url| url.scheme() == "file")
-                .filter_map(|url| editor_preview::uri_to_file(&url)),
-        ),
+        std::iter::once(root_path.to_path_buf())
+            .chain(
+                session
+                    .document_cache
+                    .all_urls_to_watch()
+                    .into_iter()
+                    // filter out builtins
+                    .filter(|url| url.scheme() == "file")
+                    .filter_map(|url| editor_preview::uri_to_file(&url)),
+            )
+            .chain(session.previews.iter().filter_map(|preview| {
+                preview
+                    .to_show
+                    .as_ref()
+                    .and_then(|component| editor_preview::uri_to_file(&component.url))
+            })),
     )?;
     *watch_paths_revision = Some(current_revision);
     Ok(())

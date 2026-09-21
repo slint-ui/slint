@@ -4482,7 +4482,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::ModelDataAssignment { level, value } => {
             let value = compile_expression(value, ctx);
-            let mut path = "self".to_string();
+            let mut owner = MemberAccess::Direct("self".to_string());
             let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
                 unreachable!()
             };
@@ -4492,7 +4492,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 par = x.parent;
                 repeater_index = x.repeater_index;
                 sc = x.sub_component;
-                write!(path, "->parent.lock().value()").unwrap();
+                owner = owner.and_then(|x| format!("{x}->parent.lock()"));
             }
             let repeater_index = repeater_index.unwrap();
             let local_reference = ctx.compilation_unit.sub_components[sc].repeated[repeater_index]
@@ -4502,8 +4502,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let index_prop =
                 llr::MemberReference::Relative { parent_level: *level, local_reference };
             let index_access = access_member(&index_prop, ctx).get_property();
-            write!(path, "->repeater_{}", usize::from(repeater_index)).unwrap();
-            format!("{path}.model_set_row_data({index_access}, {value})")
+            owner.then_named("model_owner", |path| {
+                format!(
+                    "{path}->repeater_{}.model_set_row_data({index_access}, {value})",
+                    usize::from(repeater_index)
+                )
+            })
         }
         Expression::ArrayIndexAssignment { array, index, value } => {
             debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
@@ -5922,12 +5926,11 @@ fn generate_with_layout_item_info(
 /// `solve_flexbox_layout_with_measure` and
 /// `flexbox_layout_info_cross_axis_with_measure` calls. For each static
 /// height-for-width cell, `measure_cells[i]` carries its vertical
-/// `LayoutInfo` expression, which reads the `measure_known_w` local. taffy
-/// calls the callback with at most one of width/height known (the cross
-/// axis): with the width known we recompute that cell's height at it, with
-/// the height known no dimension changes. A call with neither dimension known
-/// is a content-size probe (see `FlexboxMeasureFn` in i-slint-core): it
-/// measures the height at the default width.
+/// `LayoutInfo` expression, which reads the `measure_known_w` local.
+/// For a height-for-width cell the lambda recomputes its height at the width it
+/// is given, and hands any other cell straight back.
+/// See `FlexboxMeasureFn` in i-slint-core for when it is called and what the
+/// sizes mean.
 fn generate_flexbox_measure_lambda(
     measure_cells: &[llr::FlexboxMeasureCell],
     ctx: &EvaluationContext,
@@ -5984,13 +5987,9 @@ fn generate_flexbox_measure_lambda(
         }
         format!("[[maybe_unused]] uintptr_t cursor = 0;\n{steps}")
     };
-    // A dimension taffy didn't assign (`known_* == false`) arrives pre-resolved
-    // to the cell's preferred size by resolve_measure_defaults in i-slint-core.
     format!(
-        "[&](uintptr_t index, float w, float h, [[maybe_unused]] bool known_w, bool known_h) \
+        "[&](uintptr_t index, float w, float h) \
          -> std::pair<float, float> {{\n\
-            if (known_h)\n\
-                return {{ w, h }};\n\
             [[maybe_unused]] float {MEASURE_KNOWN_W_LOCAL} = w;\n\
             {v_body}\
             return {{ w, h }};\n\

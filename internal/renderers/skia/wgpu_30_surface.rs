@@ -79,8 +79,11 @@ impl WGPUSurface {
         #[cfg(target_vendor = "apple")]
         metal::set_layer_contents_gravity(&surface);
 
+        // On iOS a window has no size until UIKit attaches it to a scene,
+        // and wgpu rejects a zero-sized configure.
+        // Start at 1x1; `resize_event` applies the real size.
         let mut surface_config = surface
-            .get_default_config(adapter, size.width, size.height)
+            .get_default_config(adapter, size.width.max(1), size.height.max(1))
             .ok_or_else(|| PlatformError::from("WGPU surface is not compatible with adapter"))?;
 
         let swapchain_capabilities = surface.get_capabilities(adapter);
@@ -490,22 +493,23 @@ impl crate::Surface for WGPUSurface {
     }
 
     fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
-        if transparent {
-            // The default `Opaque` discards the scene's alpha; pick a translucent mode if offered.
-            // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
-            use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
-            if let Some(mode) =
-                [PreMultiplied, PostMultiplied].into_iter().find(|m| self.alpha_modes.contains(m))
-            {
-                let mut surface_config_opt = self.surface_config.borrow_mut();
-                let (Some(surface_config), Some(surface)) =
-                    (surface_config_opt.as_mut(), &self.surface)
-                else {
-                    return Ok(());
-                };
-                surface_config.alpha_mode = mode;
-                surface.configure(&self.wgpu.device, surface_config);
-            }
+        // `Opaque` discards the scene's alpha; pick a translucent mode if offered.
+        // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
+        use wgpu::CompositeAlphaMode::{Opaque, PostMultiplied, PreMultiplied};
+        let wanted: &[wgpu::CompositeAlphaMode] =
+            if transparent { &[PreMultiplied, PostMultiplied] } else { &[Opaque] };
+        let Some(mode) = wanted.iter().copied().find(|m| self.alpha_modes.contains(m)) else {
+            return Ok(());
+        };
+
+        let mut surface_config_opt = self.surface_config.borrow_mut();
+        let (Some(surface_config), Some(surface)) = (surface_config_opt.as_mut(), &self.surface)
+        else {
+            return Ok(());
+        };
+        if surface_config.alpha_mode != mode {
+            surface_config.alpha_mode = mode;
+            surface.configure(&self.wgpu.device, surface_config);
         }
         Ok(())
     }

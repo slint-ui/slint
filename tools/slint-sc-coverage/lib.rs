@@ -4,7 +4,8 @@
 //! The coverage of `.slint` files compiled for Slint SC with `--coverage`.
 //!
 //! The compiler maps the generated code to a coverage point for every
-//! element, binding, callback handler and call, and both outcomes of every
+//! element, binding (the property a state changes included), callback
+//! handler, call, state and state's condition, and both outcomes of every
 //! `?:`, `&&` and `||`. However the points are counted, a [`Report`] gathers
 //! their hit counts by source location and writes them as lcov, as a
 //! summary, or as what the test driver compares with a case's expectations.
@@ -19,9 +20,9 @@ use std::path::{Path, PathBuf};
 /// A coverage point of the `.slint` source.
 pub struct Point {
     pub kind: Kind,
-    /// The type an element is written with, the property of a binding, the
-    /// callback of a handler or a call, or the operator of a decision (`?`,
-    /// `&&`, `||`).
+    /// What the point is called: the type of an element, the property of a
+    /// binding, the callback of a handler or a call, the name of a state or of
+    /// the state a condition belongs to, or a decision's operator.
     pub name: String,
     pub file: PathBuf,
     /// 1-based.
@@ -37,6 +38,10 @@ pub enum Kind {
     Binding,
     Handler,
     Call,
+    /// A state, reached when the state was entered.
+    State,
+    /// The condition of a state, reached when the condition was evaluated.
+    Condition,
     /// One outcome of a decision.
     Branch {
         outcome: bool,
@@ -50,6 +55,8 @@ impl fmt::Display for Kind {
             Kind::Binding => "binding",
             Kind::Handler => "handler",
             Kind::Call => "call",
+            Kind::State => "state",
+            Kind::Condition => "condition",
             Kind::Branch { .. } => "branch",
         })
     }
@@ -114,7 +121,13 @@ impl Entry {
 }
 
 impl LineCoverage {
+    /// The execution count of the line: the hits of its points, or the
+    /// evaluations of its decisions when it holds no point, as the line of an
+    /// operator of a decision written over several lines does.
     fn count(&self) -> u64 {
+        if self.points.is_empty() {
+            return self.branches.values().map(|(_, arms)| arms[0] + arms[1]).sum();
+        }
         self.points.values().sum()
     }
 
@@ -273,6 +286,10 @@ mod tests {
         // Inlined twice, the counts add up.
         report.add(&point(Kind::Binding, "len", 13, 50), 1);
         report.add(&point(Kind::Binding, "len", 13, 50), 2);
+        // The operator of a decision written over several lines is alone on
+        // its line, which the decision alone counts.
+        report.add(&point(Kind::Branch { outcome: true }, "?", 15, 9), 2);
+        report.add(&point(Kind::Branch { outcome: false }, "?", 15, 9), 1);
         report.add(&point(Kind::Handler, "clicked", 20, 5), 0);
         report.add(
             &Point { file: "/src/lib/b.slint".into(), ..point(Kind::Element, "Led", 2, 1) },
@@ -289,13 +306,16 @@ mod tests {
 SF:a.slint
 BRDA:13,0,0,4
 BRDA:13,0,1,0
-BRF:2
-BRH:1
+BRDA:15,0,0,2
+BRDA:15,0,1,1
+BRF:4
+BRH:3
 DA:7,3
 DA:13,7
+DA:15,3
 DA:20,0
-LF:3
-LH:2
+LF:4
+LH:3
 end_of_record
 TN:
 SF:lib/b.slint
@@ -313,7 +333,7 @@ end_of_record
         let case = Path::new("/src/a.slint");
         assert_eq!(report().listing(case), ["+ lib/b.slint:2:1 element Led"]);
         let lines = report().lines_of(case);
-        assert_eq!(lines.keys().copied().collect::<Vec<_>>(), [7, 13, 20]);
+        assert_eq!(lines.keys().copied().collect::<Vec<_>>(), [7, 13, 15, 20]);
         assert_eq!(
             lines[&13],
             [

@@ -703,7 +703,7 @@ declare_units! {
 /// its type, so the stored value is already scaled and needs no further
 /// conversion. The units a user can type (`cm`, `pt`, `grad`, ...) are
 /// [`WrittenUnit`] and are normalized to one of these on the way in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum Unit {
     /// Dimension-less (`float`, `int`)
     #[default]
@@ -755,6 +755,17 @@ impl std::fmt::Display for Unit {
 pub enum MinMaxOp {
     Min,
     Max,
+}
+
+/// The three places a `.slint` file writes a conditional.
+#[derive(Debug, Clone)]
+pub enum ConditionLocation {
+    /// The `?` of a `?:`.
+    Question(SourceLocation),
+    /// A state's name, and the `when` of its condition.
+    StateSelection { name: SourceLocation, when: SourceLocation },
+    /// The property a state changes.
+    StateChange(SourceLocation),
 }
 
 /// The Expression is held by properties, so it should not hold any strong references to node from the object_tree
@@ -879,8 +890,8 @@ pub enum Expression {
         condition: Box<Expression>,
         true_expr: Box<Expression>,
         false_expr: Box<Expression>,
-        /// The `?` token, when written in the source.
-        source_location: Option<SourceLocation>,
+        /// Where the source writes the conditional, when it writes one.
+        source_location: Option<ConditionLocation>,
     },
 
     Array {

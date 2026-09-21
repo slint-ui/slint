@@ -9,7 +9,7 @@ settings:
   ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
   # Defaults for local builds; CI overrides these via xcodebuild to inject the
   # Slint version and a monotonic, git-derived build number (commit count).
-  MARKETING_VERSION: "1.18.0"
+  MARKETING_VERSION: "1.18.1"
   CURRENT_PROJECT_VERSION: "1"
 targets:
   slint-viewer:
@@ -28,10 +28,17 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
+        CADisableMinimumFrameDurationOnPhone: true
         # Must be a dictionary (an empty one yields the default launch screen);
         # iPad multitasking requires a valid UILaunchScreen.
         UILaunchScreen: {}
         NSLocalNetworkUsageDescription: "We need to talk to editors on the local network."
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Slint
+                UISceneDelegateClassName: SlintWindowSceneDelegate
         NSBonjourServices:
           - "_slint-preview._tcp"
         UISupportedInterfaceOrientations:

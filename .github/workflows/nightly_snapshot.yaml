@@ -75,6 +75,17 @@ jobs:
         with:
             extra_cmake_flags: ${{ github.event.inputs.mode != 'release' && '-DCPACK_PACKAGE_VERSION=nightly' || '' }}
 
+    # Build and test the Python wheels without publishing them, so that a broken
+    # wheel build shows up here instead of during a release. In release mode
+    # `trigger_package_publishing` dispatches these workflows to publish.
+    python_wheels:
+        if: github.event.inputs.mode != 'release'
+        uses: ./.github/workflows/upload_pypi.yaml
+
+    python_compiler_wheels:
+        if: github.event.inputs.mode != 'release'
+        uses: ./.github/workflows/upload_pypi_slint_compiler.yaml
+
     check-for-secrets:
         runs-on: ubuntu-latest
         outputs:
@@ -246,6 +257,8 @@ jobs:
             ]
         runs-on: macos-14
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
+        env:
+            PUBLISH: ${{ github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release' }}
         steps:
             - uses: actions/checkout@v7
             - uses: pnpm/action-setup@v6.0.10
@@ -301,29 +314,34 @@ jobs:
               run: pnpm install --frozen-lockfile
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-            - name: Build package and optionally publish to Visual Studio Marketplace
-              id: publishToVSCM
-              uses: HaaLeo/publish-vscode-extension@v2
-              with:
-                  pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
-                  registryUrl: https://marketplace.visualstudio.com
-                  dryRun: ${{ github.event.inputs.mode != 'full-nightly' && github.event.inputs.mode != 'release' }}
-                  packagePath: editors/vscode
-                  dependencies: false
-            - name: Publish to Open VSX Registry
-              continue-on-error: true
-              if: ${{ github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release' }}
-              uses: HaaLeo/publish-vscode-extension@v2
-              with:
-                  pat: ${{ secrets.OPENVSX_PAT }}
-                  extensionFile: ${{ steps.publishToVSCM.outputs.vsixPath }}
-                  packagePath: ""
+            - name: Package the extension
+              id: package
+              working-directory: editors/vscode
+              run: |
+                  pnpm run package
+                  echo "vsixPath=$PWD/$(ls *.vsix)" >> "$GITHUB_OUTPUT"
             - name: "Upload extension artifact"
               uses: actions/upload-artifact@v7
               with:
                   name: slint-vscode.zip
                   path: |
-                      ${{ steps.publishToVSCM.outputs.vsixPath }}
+                      ${{ steps.package.outputs.vsixPath }}
+            - name: Publish to Visual Studio Marketplace
+              if: ${{ env.PUBLISH == 'true' }}
+              working-directory: editors/vscode
+              env:
+                  VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
+              run: pnpm dlx @vscode/vsce publish --packagePath "${{ steps.package.outputs.vsixPath }}"
+            # The marketplace times out regularly, so publish to Open VSX even when it failed.
+            - name: Publish to Open VSX Registry
+              if: ${{ !cancelled() && env.PUBLISH == 'true' && steps.package.outcome == 'success' }}
+              working-directory: editors/vscode
+              env:
+                  OVSX_PAT: ${{ secrets.OPENVSX_PAT }}
+              run: pnpm dlx ovsx publish --packagePath "${{ steps.package.outputs.vsixPath }}"
+            - name: Explain how to publish manually
+              if: ${{ failure() && steps.package.outcome == 'success' }}
+              run: echo "::error::Download the slint-vscode.zip artifact of this run and upload the .vsix by hand"
 
     build-figma-plugin:
         runs-on: ubuntu-latest
@@ -751,7 +769,6 @@ jobs:
             # verification above takes. Mint it afterwards and upload the
             # already-verified packages with --no-verify.
             - name: Authenticate with crates.io
-              if: github.event.inputs.mode == 'release'
               id: auth
               uses: rust-lang/crates-io-auth-action@v1
             - name: Publish to crates.io

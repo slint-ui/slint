@@ -1,76 +1,70 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette } from "std-widgets.slint";
+import { Style, PaintStyle, Metrics, Colors, Motion, Typography, WelcomeBrandStyle, ButtonStyle, RecentProjectRowStyle, WelcomeShellStyle } from "style.slint";
 import { Project } from "project.slint";
 
-global WizardTheme {
-    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
-    out property <color> stage-bg: dark ? #202124 : #c9c9c9;
-    out property <color> shell-bg: dark ? #303134 : #ffffff;
-    out property <color> side-bg: dark ? #2a2b2e : #f5f5f6;
-    out property <color> control-bg: dark ? #424347 : #eeeeef;
-    out property <color> control-hover: dark ? #4d4f54 : #e2e3e5;
-    out property <color> text: dark ? #f4f4f5 : #252527;
-    out property <color> muted: dark ? #b5b6ba : #797a7d;
-    out property <color> accent: #0878f8;
-}
-
 component BrandMark inherits Rectangle {
+    in property <WelcomeBrandStyle> style: Style.welcome-brand;
     in-out property <length> mark-size: 90px;
 
     width: mark-size;
     height: mark-size;
     border-radius: mark-size * 23%;
-    background: @linear-gradient(155deg, #32e1ff 0%, #0b89ff 52%, #115bea 100%);
+    background: root.style.background;
     clip: true;
-    drop-shadow-blur: 11px;
-    drop-shadow-offset-y: 6px;
-    drop-shadow-color: #00000033;
+    drop-shadow-blur: root.style.shadow.blur;
+    drop-shadow-offset-y: root.style.shadow.offset-y;
+    drop-shadow-color: root.style.shadow.color;
 
     for row in 4: Rectangle {
         y: root.mark-size * (22% + row * 19%);
-        height: 1px;
-        background: #ffffff26;
+        height: Metrics.border-width;
+        background: root.style.grid-horizontal;
     }
 
     for col in 4: Rectangle {
         x: root.mark-size * (22% + col * 19%);
-        width: 1px;
-        background: #ffffff22;
+        width: Metrics.border-width;
+        background: root.style.grid-vertical;
     }
 
     Image {
         width: parent.width * 56%;
         height: parent.height * 56%;
         source: @image-url("assets/slint-mark.svg");
-        colorize: white;
+        colorize: Colors.on-accent;
         opacity: 0.94;
     }
 }
 
 component ActionIcon inherits Rectangle {
+    in property <color> icon-color: Style.welcome-shell.muted;
     in property <bool> folder: false;
 
-    width: 18px;
-    height: 18px;
+    width: Metrics.icon-large;
+    height: Metrics.icon-large;
     background: transparent;
 
     Image {
-        width: 18px;
-        height: 18px;
+        width: Metrics.icon-large;
+        height: Metrics.icon-large;
         source: root.folder
             ? @image-url("assets/primer-folder-open.svg")
             : @image-url("assets/primer-plus-circle.svg");
-        colorize: WizardTheme.muted;
+        colorize: root.icon-color;
     }
 }
 
 component WelcomeAction inherits Rectangle {
+    in property <ButtonStyle> style: Style.welcome-button;
     in property <string> label;
     in property <bool> folder: false;
     in property <bool> enabled: true;
     callback clicked;
+    private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
+        : touch.pressed ? root.style.appearance.pressed
+        : touch.has-hover ? root.style.appearance.hover : root.style.appearance.normal;
 
     accessible-role: AccessibleRole.button;
     accessible-label: root.label;
@@ -81,26 +75,28 @@ component WelcomeAction inherits Rectangle {
         }
     }
 
-    height: 35px;
-    border-radius: 17.5px;
-    background: touch.pressed ? #d9dadd : touch.has-hover ? WizardTheme.control-hover : WizardTheme.control-bg;
-    animate background { duration: 140ms; easing: ease-out-quad; }
+    height: root.style.height;
+    border-radius: root.style.radius;
+    background: root.paint.background;
+    border-color: root.paint.border;
+    animate background { duration: Motion.feedback; easing: ease-out-quad; }
 
     HorizontalLayout {
-        padding-left: 11px;
-        padding-right: 11px;
-        spacing: 10px;
+        padding-left: root.style.padding-inline;
+        padding-right: root.style.padding-inline;
+        spacing: root.style.gap;
         cross-axis-alignment: center;
 
         ActionIcon {
+            icon-color: root.style.appearance.icon-color;
             folder: root.folder;
         }
 
         Text {
             text: root.label;
-            color: WizardTheme.text;
-            font-size: 14px;
-            font-weight: 800;
+            color: root.paint.foreground;
+            font-size: root.style.text.size;
+            font-weight: root.style.text.weight;
             vertical-alignment: center;
             overflow: elide;
         }
@@ -116,6 +112,7 @@ component WelcomeAction inherits Rectangle {
 }
 
 component RecentProjectRow inherits Rectangle {
+    in property <RecentProjectRowStyle> style: Style.recent-project-row;
     in property <string> title;
     in property <string> path;
     in property <bool> selected: false;
@@ -132,41 +129,41 @@ component RecentProjectRow inherits Rectangle {
         }
     }
 
-    height: 44px;
-    border-radius: 6.5px;
-    background: selected ? WizardTheme.accent : (touch.has-hover && enabled ? WizardTheme.control-hover : transparent);
-    animate background { duration: 150ms; easing: ease-out-quad; }
+    height: root.style.height;
+    border-radius: root.style.radius;
+    background: selected ? root.style.selected-background : (touch.has-hover && enabled ? root.style.hover : transparent);
+    animate background { duration: Motion.feedback; easing: ease-out-quad; }
 
     HorizontalLayout {
-        padding-left: 11px;
-        padding-right: 9px;
-        spacing: 11px;
+        padding-left: root.style.padding-left;
+        padding-right: root.style.padding-right;
+        spacing: root.style.gap;
         cross-axis-alignment: center;
 
         Image {
-            width: 27px;
-            height: 27px;
+            width: root.style.icon-size;
+            height: root.style.icon-size;
             source: @image-url("assets/primer-file-code.svg");
-            colorize: root.selected ? white : WizardTheme.accent;
+            colorize: root.selected ? Colors.on-accent : root.style.selected-background;
         }
 
         VerticalLayout {
             horizontal-stretch: 1;
             alignment: center;
-            spacing: 1.5px;
+            spacing: root.style.text-gap;
 
             Text {
                 text: root.title;
-                color: root.selected ? white : WizardTheme.text;
-                font-size: 13px;
-                font-weight: 800;
+                color: root.selected ? Colors.on-accent : root.style.foreground;
+                font-size: Typography.body.size;
+                font-weight: FontWeight.extra-bold;
                 overflow: elide;
             }
 
             Text {
                 text: root.path;
-                color: root.selected ? #d7e7ff : WizardTheme.muted;
-                font-size: 12px;
+                color: root.selected ? root.style.selected-muted : root.style.muted;
+                font-size: Typography.control.size;
                 overflow: elide;
             }
         }
@@ -189,84 +186,85 @@ component RecentProjectRow inherits Rectangle {
 }
 
 export component StartupWizard inherits Rectangle {
+    in property <WelcomeShellStyle> style: Style.welcome-shell;
     callback opened;
     callback create-new-project;
     callback open-existing-project;
 
-    property <length> shell-width: min(root.width - 32px, 740px);
-    property <length> shell-height: min(root.height - 32px, 460px);
+    property <length> shell-width: min(root.width - 2 * root.style.outer-inset, root.style.width);
+    property <length> shell-height: min(root.height - 2 * root.style.outer-inset, root.style.height);
     property <length> shell-left: (root.width - shell-width) / 2;
     property <length> shell-top: (root.height - shell-height) / 2;
-    property <length> side-width: shell-width < 620px ? 220px : 270px;
+    property <length> side-width: shell-width < root.style.compact-threshold ? root.style.compact-side-width : root.style.side-width;
     property <length> main-width: shell-width - side-width;
 
     accessible-role: AccessibleRole.region;
     accessible-label: "Startup wizard";
 
-    background: WizardTheme.stage-bg;
+    background: root.style.stage;
 
     Rectangle {
         x: root.shell-left;
         y: root.shell-top;
         width: root.shell-width;
         height: root.shell-height;
-        border-radius: 19.5px;
-        border-width: 1px;
-        border-color: WizardTheme.dark ? #ffffff22 : #98999d;
-        background: WizardTheme.shell-bg;
+        border-radius: root.style.radius;
+        border-width: Metrics.border-width;
+        border-color: root.style.border;
+        background: root.style.background;
         clip: true;
-        drop-shadow-blur: 17px;
-        drop-shadow-offset-y: 8px;
-        drop-shadow-color: WizardTheme.dark ? #00000080 : #00000030;
-        animate width, height, x, y { duration: 180ms; easing: ease-out-quad; }
+        drop-shadow-blur: root.style.shadow.blur;
+        drop-shadow-offset-y: root.style.shadow.offset-y;
+        drop-shadow-color: root.style.shadow.color;
+        animate width, height, x, y { duration: Motion.layout; easing: ease-out-quad; }
 
         Rectangle {
             width: root.main-width;
-            background: WizardTheme.shell-bg;
+            background: root.style.background;
         }
 
         side-panel := Rectangle {
             x: root.main-width;
             width: root.side-width;
-            background: WizardTheme.side-bg;
+            background: root.style.sidebar;
         }
 
         brand := BrandMark {
-            mark-size: 103px;
+            mark-size: Style.welcome-hero.brand-size;
             x: (root.main-width - self.width) / 2;
-            y: 64px;
+            y: Style.welcome-hero.top;
         }
 
         hero-title := Text {
             x: 0px;
-            y: brand.y + brand.height + 18px;
+            y: brand.y + brand.height + Style.welcome-hero.gap;
             width: root.main-width;
-            height: 37px;
+            height: Style.welcome-hero.title-height;
             text: "Slint Visual Editor";
-            color: WizardTheme.text;
-            font-size: 34px;
-            font-weight: 600;
+            color: root.style.foreground;
+            font-size: Typography.hero.size;
+            font-weight: Typography.hero.weight;
             horizontal-alignment: center;
             vertical-alignment: center;
         }
 
         Text {
             x: 0px;
-            y: hero-title.y + hero-title.height - 2px;
+            y: hero-title.y + hero-title.height - Metrics.space-tight;
             width: root.main-width;
-            height: 17px;
+            height: Style.welcome-hero.subtitle-height;
             text: "Version 1.0";
-            color: WizardTheme.muted;
-            font-size: 14px;
+            color: root.style.muted;
+            font-size: Typography.action.size;
             horizontal-alignment: center;
         }
 
         welcome-actions := VerticalLayout {
-            x: 56px;
-            y: root.shell-height - 130px;
-            width: root.main-width - 112px;
-            height: 79px;
-            spacing: 9px;
+            x: Style.welcome-actions.inset;
+            y: root.shell-height - Style.welcome-actions.bottom-inset;
+            width: root.main-width - 2 * Style.welcome-actions.inset;
+            height: Style.welcome-actions.height;
+            spacing: Style.welcome-actions.gap;
             WelcomeAction {
                 label: "Create New Project...";
                 clicked => {
@@ -284,11 +282,11 @@ export component StartupWizard inherits Rectangle {
         }
 
         recent-list := VerticalLayout {
-            x: root.main-width + 10px;
-            y: 10px;
-            width: root.side-width - 20px;
-            height: 195px;
-            spacing: 5px;
+            x: root.main-width + Style.recent-project-list.inset;
+            y: Style.recent-project-list.inset;
+            width: root.side-width - 2 * Style.recent-project-list.inset;
+            height: Style.recent-project-list.height;
+            spacing: Style.recent-project-list.gap;
 
             for project[index] in Project.recent: RecentProjectRow {
                 title: project.name;

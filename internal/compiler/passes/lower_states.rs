@@ -65,7 +65,7 @@ fn lower_state_in_element(
                 condition: Box::new(condition.clone()),
                 true_expr: Box::new(Expression::NumberLiteral((idx + 1) as _, Unit::None)),
                 false_expr: Box::new(std::mem::take(&mut state_value)),
-                source_location: None,
+                source_location: state.selection.clone(),
             };
         }
         for (property_reference, expr, node) in state.property_changes {
@@ -95,7 +95,9 @@ fn lower_state_in_element(
                 }),
                 true_expr: Box::new(expr),
                 false_expr: Box::new(property_expr),
-                source_location: None,
+                source_location: Some(ConditionLocation::StateChange(
+                    node.QualifiedName().to_source_location(),
+                )),
             };
 
             let name = property_reference.name();

@@ -61,11 +61,11 @@ jobs:
 
                     - "https://github.com/Decodetalkers/launchre"
                     - "https://github.com/Decodetalkers/haruhishot"
-                    - "https://github.com/smalltext/trace-slint/"
+                    # still requires slint 0.3
+                    #- "https://github.com/smalltext/trace-slint/"
                     # - "https://github.com/danrauch/thermocam" #  error: failed to run custom build command for `v4l2-sys-mit v0.2.0`
 
                     # - "https://github.com/zzq0097/mmm_rs" # could not compile `netease-cloud-music-api` (lib)
-                    - "https://github.com/CMahaff/lasim" # many stars
                     #- "https://github.com/spades9/image-tools"  # compile error
                     - "https://github.com/studylessshape/calculator-by-rs"
                     - "https://github.com/gleb-skobinsky/system-metrics"
@@ -83,11 +83,11 @@ jobs:
                     - "https://github.com/jpnurmi/jpos-weather"
                     #- "https://github.com/osp-project/RizPackageTools" 404
                     - "https://github.com/xenein/CountMeDown-rs"
-                    - "https://github.com/JeremiasMeister/rust-heightmap-generator"
+                    # its git renderer dep is stuck on wgpu 0.17, which needs a web-sys older than glow's
+                    #- "https://github.com/JeremiasMeister/rust-heightmap-generator"
                     - "https://github.com/joaofl/any-serve"
                     - "https://github.com/Heng30/rssbox"
                     - "https://github.com/Heng30/rssbox-android"
-                    - "https://github.com/Heng30/uibox"
                     #- "https://github.com/Heng30/bitbox" #pinned slint-build version
                     #- "https://github.com/Heng30/solana-wallet-sollet" # error in dependency (pyth-sdk-solana)
                     - "https://github.com/nzhenev/vtbox"
@@ -112,7 +112,7 @@ jobs:
                     - "https://github.com/remy2019/smtbr_gui"
                     # - "https://github.com/mrandal/PDFer" # assigns to the read-only 'has-focus' output property
                     - "https://github.com/dhasoft-rs/7Seg-Slint-Widget"
-                    # - "https://github.com/DraKraft/ozon-rs"  # Error: the trait `ToSql` is not implemented for `usize`
+                    # - "https://github.com/DraKraft/ozon-rs" # repo gone
                     # - "https://github.com/SUP2Ak/Lur-Slint" # repo gone?
                     # - "https://github.com/foxboxpdx/melonstt" # repo gone?
                     - "https://github.com/sanyexieai/me_chat"
@@ -165,7 +165,7 @@ jobs:
                     - "https://github.com/mooofin/Thalix"
 
                     # from ecosystem survey (added 2026-07)
-                    - "https://github.com/jeff141/meatshell"
+                    #- "https://github.com/yituorou/meatshell" # only builds against its vendored Slint fork
                     - "https://github.com/qarmin/szyszka"
                     - "https://github.com/rodgtr1/profit-first-income-calculator-desktop"
                     - "https://github.com/waydeerwm/layer-shika"
@@ -248,6 +248,17 @@ jobs:
                   echo i-slint-backend-winit = { path = \"$GITHUB_WORKSPACE/internal/backends/winit\" }  >> ~/.cargo/config.toml
                   echo i-slint-core = { path = \"$GITHUB_WORKSPACE/internal/core\" }  >> ~/.cargo/config.toml
                   echo i-slint-compiler = { path = \"$GITHUB_WORKSPACE/internal/compiler\" }  >> ~/.cargo/config.toml
+                  echo i-slint-common = { path = \"$GITHUB_WORKSPACE/internal/common\" }  >> ~/.cargo/config.toml
+                  echo i-slint-core-macros = { path = \"$GITHUB_WORKSPACE/internal/core-macros\" }  >> ~/.cargo/config.toml
+                  echo slint-macros = { path = \"$GITHUB_WORKSPACE/api/rs/macros\" }  >> ~/.cargo/config.toml
+                  echo i-slint-renderer-anyrender = { path = \"$GITHUB_WORKSPACE/internal/renderers/anyrender\" }  >> ~/.cargo/config.toml
+                  echo i-slint-renderer-femtovg = { path = \"$GITHUB_WORKSPACE/internal/renderers/femtovg\" }  >> ~/.cargo/config.toml
+                  echo i-slint-renderer-skia = { path = \"$GITHUB_WORKSPACE/internal/renderers/skia\" }  >> ~/.cargo/config.toml
+                  echo i-slint-renderer-software = { path = \"$GITHUB_WORKSPACE/internal/renderers/software\" }  >> ~/.cargo/config.toml
+                  echo i-slint-backend-android-activity = { path = \"$GITHUB_WORKSPACE/internal/backends/android-activity\" }  >> ~/.cargo/config.toml
+                  echo i-slint-backend-linuxkms = { path = \"$GITHUB_WORKSPACE/internal/backends/linuxkms\" }  >> ~/.cargo/config.toml
+                  echo i-slint-backend-qt = { path = \"$GITHUB_WORKSPACE/internal/backends/qt\" }  >> ~/.cargo/config.toml
+                  echo i-slint-backend-selector = { path = \"$GITHUB_WORKSPACE/internal/backends/selector\" }  >> ~/.cargo/config.toml
                   # A pinned released i-slint-backend-testing pulls in its exact i-slint-core,
                   # which conflicts with the patched one
                   echo i-slint-backend-testing = { path = \"$GITHUB_WORKSPACE/internal/backends/testing\" }  >> ~/.cargo/config.toml
@@ -271,9 +282,22 @@ jobs:
               run: |
                   cd $HOME/the_repo
                   rm -r rust-toolchain.toml .cargo/config.toml || true
+                  # The patch applies only to a requirement that accepts this checkout's version, so
+                  # relax the exact and tilde pins a project puts on the Slint crates.
+                  find . -name Cargo.toml -print0 | xargs -0 perl -0777 -pi -e '
+                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mg;
+                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;
+                      s/^(\[[^\]\n]*dependencies\.(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\][^\[]*?\bversion\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
                   cd ./${{ matrix.sub_path }}
                   sed -i "s/{{project-name}}/the-project/" Cargo.toml
                   ${{ matrix.extra_commands || 'cargo update' }}
+                  # A project that pins or vendors a released Slint resolves it from crates.io despite the
+                  # patch, and then tests nothing about this checkout. Fail instead of passing silently.
+                  awk '{ sub(/\r$/, "") }
+                       /^\[\[package\]\]/ { pkg = 0 }
+                       /^name = "(slint|slint-build|slint-interpreter|i-slint-core)"$/ { pkg = 1; name = $3; gsub(/"/, "", name) }
+                       pkg && /^source = "registry/ { print "::error::" name " comes from crates.io, not from this checkout"; bad = 1 }
+                       END { exit bad }' "$(dirname "$(cargo locate-project --workspace --message-format plain)")/Cargo.lock"
                   cargo check ${{ matrix.extra_args }}
 
     # Projects whose Slint crate lives in a sub-directory of the repository. Kept in a separate
@@ -318,10 +342,6 @@ jobs:
                     - git_url: "https://github.com/flukejones/asusctl"
                       sub_path: "rog-control-center"
                       extra_packages: gettext # build.rs runs msgfmt on the .po files
-                      extra_commands: |
-                          # the workspace pins slint-build to =1.17.1, below the patched version
-                          sed -i 's/"=1.17.1"/"*"/g' ../Cargo.toml
-                          cargo update
                     #- git_url: "https://github.com/ellenhp/openlmr"  #doesn't compile
                     #  sub_path: "openlmr-core"
                     #- git_url: "https://github.com/jenkinsmichpa/coconut_crab"
@@ -390,10 +410,18 @@ jobs:
                       extra_packages: libarchive-dev
                     - git_url: "https://github.com/Enn3Developer/n_music"
                       extra_packages: libasound2-dev libfontconfig-dev libfreetype-dev
-                      sub_path: "n_player"
+                      sub_path: "n_music_desktop"
                       extra_commands: |
+                          # the android crate asks for the fontique 0.10 feature, so the patched slint is rejected
+                          sed -i 's/unstable-fontique-010/unstable-fontique-011/' ../n_music_android/Cargo.toml
                           cargo update
                           # zune-imageprocs 0.5.1 doesn't handle the enum variants added in 0.5.3
+                          cargo update zune-core --precise 0.5.1
+                    - git_url: "https://github.com/Enn3Developer/n_music"
+                      sub_path: "n_music_android"
+                      extra_commands: |
+                          sed -i 's/unstable-fontique-010/unstable-fontique-011/' Cargo.toml
+                          cargo update
                           cargo update zune-core --precise 0.5.1
                     - git_url: "https://github.com/TsaoLun/always-blue"
                       sub_path: "."
@@ -408,10 +436,11 @@ jobs:
                       extra_commands: |
                           git clone https://github.com/sloganking/speakstream ../speakstream --depth 1
                           cargo update
-                    - git_url: "https://github.com/laycookie/record"
-                      sub_path: "."
-                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev
-                      toolchain: nightly # uses #![feature]
+                    # the repo no longer contains any .slint file or slint dependency
+                    #- git_url: "https://github.com/laycookie/record"
+                    #  sub_path: "."
+                    #  extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev
+                    #  toolchain: nightly # uses #![feature]
                     - git_url: "https://github.com/qhua948/anubis"
                       sub_path: "."
                       toolchain: nightly # uses #![feature]
@@ -457,7 +486,7 @@ jobs:
                     #      cargo new --lib ../rsiot-devices
                     #      cargo update
                     - git_url: https://github.com/maplibre/maplibre-native-slint
-                      sub_path: rust
+                      sub_path: experiments/rust
                       extra_packages: glslang-dev glslang-tools libcurl4-openssl-dev libglfw3-dev libicu-dev libjpeg-turbo8-dev libpng-dev libssl-dev libuv1-dev libwebp-dev spirv-tools protobuf-compiler
                     - git_url: https://github.com/AgustinSRG/PersonalMediaVault
                       sub_path: launcher-gui
@@ -479,6 +508,8 @@ jobs:
                     - git_url: "https://github.com/heng30/wayshot"
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev libx264-dev libavfilter-dev libavdevice-dev libswscale-dev libswresample-dev libpostproc-dev
                       extra_commands: |
+                          # the vendored i-slint crates are its own fork of 1.17.1
+                          sed -i '/^i-slint-.* = { path = "vendor\//d' Cargo.toml
                           cargo update
                           # rc.13 is a semver compatible update that changes the API
                           cargo update ort --precise 2.0.0-rc.12
@@ -492,10 +523,17 @@ jobs:
                       extra_packages: protobuf-compiler
                     - git_url: "https://gitlab.com/floers/ordinary"
                       sub_path: "."
-                      # the last commit mistypes a struct field (icon -> iconName); pin before it
-                      git_rev: 4be6e53798fd13614b0e1ae4916f313fcfbf249b
-                      # zip = "*" in its Cargo.toml, but the bundled epub lib needs the old zip API
-                      extra_commands: "cargo update && cargo update zip --precise 0.5.13"
+                      extra_args: "--workspace"
+                      extra_commands: |
+                          # these four call SlintClient::new without the render mode their own library requires
+                          for f in store/src/ui.rs keyboard/src/main.rs apps/settings/src/main.rs apps/remote/src/main.rs; do
+                              perl -0pi -e 's/            None,\n            Default::default\(\),\n/            None,\n            Default::default(),\n            Default::default(),\n/' $f
+                          done
+                          # the Category struct spells this field 'icon'
+                          sed -i 's/iconName: "settings"/icon: "settings"/' apps/settings/ui/window.slint
+                          cargo update
+                          # zip = "*" in its Cargo.toml, but the bundled epub lib needs the old zip API
+                          cargo update zip --precise 0.5.13
                     - git_url: "https://github.com/ChenhuiZhang/envsensor-demo"
                       sub_path: "."
                       # strum 0.27 only re-exports AsRefStr with the derive feature
@@ -513,6 +551,22 @@ jobs:
                       sub_path: "apps/snx-rs-gui"
                     - git_url: "https://github.com/snolab/CapsLockX"
                       sub_path: "rs/tools/clx-prefs-slint"
+                      extra_commands: |
+                          # boa 0.21 holds icu_properties at 2.0, below what i-slint-compiler needs
+                          sed -i 's/^boa_engine   = "0.21"/boa_engine   = "0.22"/' ../../core/Cargo.toml
+                          cargo update
+                    - git_url: "https://github.com/Heng30/uibox"
+                      sub_path: "."
+                      extra_commands: |
+                          # font-kit 0.11 links fontconfig through its version 3, fontique through version 6
+                          sed -i 's/^font-kit = "0.11"/font-kit = "0.14"/' uibox/Cargo.toml
+                          cargo update
+                    - git_url: "https://github.com/CMahaff/lasim"
+                      sub_path: "."
+                      extra_commands: |
+                          # url 2.4 has no std feature, which webbrowser needs
+                          sed -i 's/^url = "~2.4.0"/url = "2.5"/' Cargo.toml
+                          cargo update
                     # depends on core2 0.4, which can't be resolved
                     #- git_url: "https://github.com/osvauld/osvauld"
                     #  sub_path: "sthalam_shell"
@@ -520,6 +574,10 @@ jobs:
                       sub_path: "gui"
                     - git_url: "https://github.com/msupply-foundation/open-msupply"
                       sub_path: "server/test_connection"
+                      extra_commands: |
+                          # boa 0.21 holds icu_properties at 2.0, below what i-slint-compiler needs
+                          sed -i 's/^boa_engine = "0.21.0"/boa_engine = "0.22"/' ../service/Cargo.toml
+                          cargo update
                     - git_url: "https://github.com/romaninsh/vantage"
                       sub_path: "example_slint"
                     - git_url: "https://github.com/waitaha/waitaha"
@@ -533,6 +591,10 @@ jobs:
                     #  sub_path: "app"
                     - git_url: "https://github.com/temidaradev/chast"
                       sub_path: "p2p-chat"
+                      extra_commands: |
+                          cargo update
+                          # precis-profiles 0.1.14 moved to precis-core 0.2, which stun-rs doesn't accept
+                          cargo update -p precis-profiles --precise 0.1.13
                     # the GUI is a Python (teczka) app, there is no rcompare_gui crate
                     #- git_url: "https://github.com/aecs4u/rcompare"
                     #  sub_path: "rcompare_gui"
@@ -549,6 +611,10 @@ jobs:
                       sub_path: "heleny-gui"
                     - git_url: "https://github.com/BlackMIDIDevs/meridian"
                       sub_path: "crates/meridian-ui"
+                      extra_commands: |
+                          # unstable-wgpu-28 no longer exists
+                          sed -i 's/unstable-wgpu-28/unstable-wgpu-29/' ../../Cargo.toml
+                          cargo update
                       extra_packages: alsa-utils libasound2-dev
                       toolchain: nightly # midi-toolkit-rs uses #![feature]
                     - git_url: "https://github.com/Irminsul-dev/CheshireLane9"
@@ -560,8 +626,6 @@ jobs:
                     - git_url: "https://github.com/f321x/ntrack"
                       sub_path: "app"
                       extra_args: "--features=desktop"
-                    - git_url: "https://github.com/mailrs/mailrs"
-                      sub_path: "crates/mailrs-gui"
                     - git_url: "https://github.com/suiflex/rdb"
                       sub_path: "app"
                     - git_url: "https://github.com/myst6re/mumba"
@@ -592,19 +656,13 @@ jobs:
                     - git_url: "https://github.com/BiliRumble/Cloubit"
                       sub_path: "."
                       extra_packages: libasound2-dev
-                    - git_url: "https://github.com/nanowave-player/nanowave-ui"
-                      sub_path: "."
-                      # drop the local patch that points media_source at a missing sibling; use the published crate
-                      extra_commands: |
-                          sed -i '/media_source = { path/d' Cargo.toml
-                          cargo update
                     - git_url: "https://github.com/JeninSutradhar/ffmpeg-VideoPlayer-Rust_Slint"
                       sub_path: "."
                       extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
-                      # derive_more 1.0 needs a feature to enable its derives; the last 0.99 doesn't
                       extra_commands: |
+                          # derive_more 1.0 refuses to build without a derive feature, and nothing here uses it
+                          cargo remove derive_more
                           cargo update
-                          cargo update -p derive_more --precise 0.99.20
                     - git_url: "https://github.com/NateAGeek/SenToAni"
                       sub_path: "."
                       extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
@@ -617,30 +675,11 @@ jobs:
                     - git_url: "https://github.com/Jordan-Haidee/zeedle"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev
-                      extra_commands: |
-                          sed -i 's/version = "=1.17.1"/version = "1.17.1"/' Cargo.toml
-                          cargo update
                     - git_url: "https://github.com/Trystan-SA/rproc"
                       sub_path: "."
-                      extra_commands: |
-                          sed -i 's/version = "=1.16.1"/version = "1.16.1"/' Cargo.toml
-                          cargo update
-                    - git_url: "https://github.com/reco-project/video-stitcher"
-                      sub_path: "crates/reco-gui"
-                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
-                      extra_commands: |
-                          # ~1.15 pins slint below the patched version, and unstable-wgpu-28 no longer exists
-                          sed -i 's/version = "~1.15"/version = "*"/; s/unstable-wgpu-28/unstable-wgpu-29/' Cargo.toml
-                          cargo update
-                          # rc.13 is a semver compatible update that changes the API
-                          cargo update ort --precise 2.0.0-rc.12
                     - git_url: "https://github.com/ruapotato/Flick"
                       sub_path: "shell"
                       extra_packages: libdisplay-info-dev
-                      extra_commands: |
-                          # unpin both slint and slint-build so the patched version applies to both
-                          sed -i 's/"=1.7.2"/"*"/g' Cargo.toml
-                          cargo update
                     - git_url: "https://github.com/reciperium/temporis"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev
@@ -665,11 +704,7 @@ jobs:
                     #      sed -i 's/"=1.16.1"/"1.16.1"/g' Cargo.toml
                     #      cargo update
                     - git_url: "https://github.com/petiaccja/sed-manager-rs"
-                      sub_path: "sed_manager_config_ui"
-                      extra_commands: |
-                          cargo add serde --features derive
-                          cargo add slint --features renderer-femtovg
-                          cargo update
+                      sub_path: "sed_manager_gui/sed_manager_gui"
                     - git_url: "https://github.com/closure-studio/arkhost-ui-slint"
                       sub_path: "."
                       extra_packages: libwebkit2gtk-4.1-dev
@@ -677,9 +712,12 @@ jobs:
                     # Slint is optional here, so a feature enabling it is required
                     - git_url: "https://github.com/ShashlikMap/shashlik-map"
                       sub_path: "winit-run"
-                      extra_args: "--features=linux-cpu"
+                      # linux-cpu pulls in its renderer-cpu crate, which is out of sync with renderer-common
+                      extra_args: "--features=linux-gpu"
                       extra_commands: |
                           export MAPTILER_API_KEY=ci_dummy_key
+                          # skia-bindings links the native skia, so only one skia-safe may be in the graph
+                          sed -i 's/^skia-safe = ".*"/skia-safe = "*"/' ../Cargo.toml
                           cargo update
                     - git_url: "https://github.com/gopher64/gopher64"
                       sub_path: "."
@@ -732,6 +770,17 @@ jobs:
                   echo i-slint-backend-winit = { path = \"$GITHUB_WORKSPACE/internal/backends/winit\" }  >> ~/.cargo/config.toml
                   echo i-slint-core = { path = \"$GITHUB_WORKSPACE/internal/core\" }  >> ~/.cargo/config.toml
                   echo i-slint-compiler = { path = \"$GITHUB_WORKSPACE/internal/compiler\" }  >> ~/.cargo/config.toml
+                  echo i-slint-common = { path = \"$GITHUB_WORKSPACE/internal/common\" }  >> ~/.cargo/config.toml
+                  echo i-slint-core-macros = { path = \"$GITHUB_WORKSPACE/internal/core-macros\" }  >> ~/.cargo/config.toml
+                  echo slint-macros = { path = \"$GITHUB_WORKSPACE/api/rs/macros\" }  >> ~/.cargo/config.toml
+                  echo i-slint-renderer-anyrender = { path = \"$GITHUB_WORKSPACE/internal/renderers/anyrender\" }  >> ~/.cargo/config.toml
+                  echo i-slint-renderer-femtovg = { path = \"$GITHUB_WORKSPACE/internal/renderers/femtovg\" }  >> ~/.cargo/config.toml
+                  echo i-slint-renderer-skia = { path = \"$GITHUB_WORKSPACE/internal/renderers/skia\" }  >> ~/.cargo/config.toml
+                  echo i-slint-renderer-software = { path = \"$GITHUB_WORKSPACE/internal/renderers/software\" }  >> ~/.cargo/config.toml
+                  echo i-slint-backend-android-activity = { path = \"$GITHUB_WORKSPACE/internal/backends/android-activity\" }  >> ~/.cargo/config.toml
+                  echo i-slint-backend-linuxkms = { path = \"$GITHUB_WORKSPACE/internal/backends/linuxkms\" }  >> ~/.cargo/config.toml
+                  echo i-slint-backend-qt = { path = \"$GITHUB_WORKSPACE/internal/backends/qt\" }  >> ~/.cargo/config.toml
+                  echo i-slint-backend-selector = { path = \"$GITHUB_WORKSPACE/internal/backends/selector\" }  >> ~/.cargo/config.toml
                   # A pinned released i-slint-backend-testing pulls in its exact i-slint-core,
                   # which conflicts with the patched one
                   echo i-slint-backend-testing = { path = \"$GITHUB_WORKSPACE/internal/backends/testing\" }  >> ~/.cargo/config.toml
@@ -755,9 +804,22 @@ jobs:
               run: |
                   cd $HOME/the_repo
                   rm -r rust-toolchain.toml .cargo/config.toml || true
+                  # The patch applies only to a requirement that accepts this checkout's version, so
+                  # relax the exact and tilde pins a project puts on the Slint crates.
+                  find . -name Cargo.toml -print0 | xargs -0 perl -0777 -pi -e '
+                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mg;
+                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;
+                      s/^(\[[^\]\n]*dependencies\.(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\][^\[]*?\bversion\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
                   cd ./${{ matrix.sub_path }}
                   sed -i "s/{{project-name}}/the-project/" Cargo.toml
                   ${{ matrix.extra_commands || 'cargo update' }}
+                  # A project that pins or vendors a released Slint resolves it from crates.io despite the
+                  # patch, and then tests nothing about this checkout. Fail instead of passing silently.
+                  awk '{ sub(/\r$/, "") }
+                       /^\[\[package\]\]/ { pkg = 0 }
+                       /^name = "(slint|slint-build|slint-interpreter|i-slint-core)"$/ { pkg = 1; name = $3; gsub(/"/, "", name) }
+                       pkg && /^source = "registry/ { print "::error::" name " comes from crates.io, not from this checkout"; bad = 1 }
+                       END { exit bad }' "$(dirname "$(cargo locate-project --workspace --message-format plain)")/Cargo.lock"
                   cargo check ${{ matrix.extra_args }}
 
     # Windows-only projects: gated on cfg(windows) or using Windows-only crates, so they can
@@ -771,8 +833,7 @@ jobs:
             fail-fast: false
             matrix:
                 git_url:
-                    - "https://github.com/0hgawa/Clipo"
-                    - "https://github.com/0hgawa/vayou-slint"
+                    #- "https://github.com/0hgawa/Clipo" # the 0hgawa account is gone
                     - "https://github.com/MelDxKviel/zapret-ui"
                     - "https://github.com/kirinonakar/ocr_trans"
                     - "https://github.com/WardLordRuby/elden_mod_loader_gui"
@@ -790,6 +851,7 @@ jobs:
                     #  toolchain: nightly
                     - git_url: "https://github.com/chengbuilds/PetPhrase"
                       sub_path: "app-slint"
+                    #- git_url: "https://github.com/0hgawa/vayou-slint" # the 0hgawa account is gone
                     # servicemanager-win32 has no Linux implementation
                     - git_url: "https://github.com/chstc/NGSM"
                       sub_path: "crates/servicemanager-gui"
@@ -819,6 +881,17 @@ jobs:
                       echo "i-slint-backend-winit = { path = \"$ws/internal/backends/winit\" }"
                       echo "i-slint-core = { path = \"$ws/internal/core\" }"
                       echo "i-slint-compiler = { path = \"$ws/internal/compiler\" }"
+                      echo "i-slint-common = { path = \"$ws/internal/common\" }"
+                      echo "i-slint-core-macros = { path = \"$ws/internal/core-macros\" }"
+                      echo "slint-macros = { path = \"$ws/api/rs/macros\" }"
+                      echo "i-slint-renderer-anyrender = { path = \"$ws/internal/renderers/anyrender\" }"
+                      echo "i-slint-renderer-femtovg = { path = \"$ws/internal/renderers/femtovg\" }"
+                      echo "i-slint-renderer-skia = { path = \"$ws/internal/renderers/skia\" }"
+                      echo "i-slint-renderer-software = { path = \"$ws/internal/renderers/software\" }"
+                      echo "i-slint-backend-android-activity = { path = \"$ws/internal/backends/android-activity\" }"
+                      echo "i-slint-backend-linuxkms = { path = \"$ws/internal/backends/linuxkms\" }"
+                      echo "i-slint-backend-qt = { path = \"$ws/internal/backends/qt\" }"
+                      echo "i-slint-backend-selector = { path = \"$ws/internal/backends/selector\" }"
                       echo "i-slint-backend-testing = { path = \"$ws/internal/backends/testing\" }"
                       echo ""
                       echo "[patch.\"https://github.com/slint-ui/slint\"]"
@@ -837,8 +910,21 @@ jobs:
               run: |
                   cd "$HOME/the_repo"
                   rm -f rust-toolchain.toml .cargo/config.toml || true
+                  # The patch applies only to a requirement that accepts this checkout's version, so
+                  # relax the exact and tilde pins a project puts on the Slint crates.
+                  find . -name Cargo.toml -print0 | xargs -0 perl -0777 -pi -e '
+                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mg;
+                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;
+                      s/^(\[[^\]\n]*dependencies\.(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\][^\[]*?\bversion\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
                   cd "./${{ matrix.sub_path || '.' }}"
                   ${{ matrix.extra_commands || 'cargo update' }}
+                  # A project that pins or vendors a released Slint resolves it from crates.io despite the
+                  # patch, and then tests nothing about this checkout. Fail instead of passing silently.
+                  awk '{ sub(/\r$/, "") }
+                       /^\[\[package\]\]/ { pkg = 0 }
+                       /^name = "(slint|slint-build|slint-interpreter|i-slint-core)"$/ { pkg = 1; name = $3; gsub(/"/, "", name) }
+                       pkg && /^source = "registry/ { print "::error::" name " comes from crates.io, not from this checkout"; bad = 1 }
+                       END { exit bad }' "$(dirname "$(cargo locate-project --workspace --message-format plain)")/Cargo.lock"
                   cargo check ${{ matrix.extra_args }}
 
     # Build slint-compiler once and share it with the check_slint_only matrix below, instead of
@@ -885,6 +971,12 @@ jobs:
                     # Rust dep tray-item fails to build (TrayItemImpl missing)
                     - git_url: "https://github.com/Maeeen/emoji-picker"
                       files: "ui/emoji-picker.slint"
+                    # Rust dep media_source isn't on crates.io and every lofty 0.23 is yanked
+                    - git_url: "https://github.com/nanowave-player/nanowave-ui"
+                      files: "ui/main.slint"
+                    # Rust code is written against the removed unstable-wgpu-28 API
+                    - git_url: "https://github.com/reco-project/video-stitcher"
+                      files: "crates/reco-gui/ui/main.slint"
                     # genuine circular layout dependency in its own .slint (album art size depends on the container height)
                     #- git_url: "https://github.com/karmakarmeghdip/taan"
                     #  files: "ui/main.slint"
@@ -918,8 +1010,6 @@ jobs:
                       files: "vivi/ui/magic/magic_window.slint"
                     - git_url: "https://github.com/Aquaticat/Monochromatic"
                       files: "package/desktop-app/terminal/ui/app.slint"
-                    - git_url: "https://github.com/CoreBedtime/playground"
-                      files: "configurator/tweak_editor.slint"
                     - git_url: "https://github.com/Dominic485649/AWJimage"
                       files: "ui/awj_studio.slint"
                     - git_url: "https://github.com/FernTech-EU/qleany"
@@ -1025,8 +1115,6 @@ jobs:
                       files: "bin/tasker_gui/src/main_window.slint"
                     - git_url: "https://github.com/Davide255/LVIE"
                       files: "LVIE/ui/widgets/curve.slint"
-                    - git_url: "https://github.com/DraKraft/ozon-rs"
-                      files: "ui/app-window.slint"
                     - git_url: "https://github.com/ElevenJune/mastermind_Rust"
                       files: "ui/appwindow.slint"
                     - git_url: "https://github.com/GRX005/McModManager-rs"
@@ -1037,6 +1125,9 @@ jobs:
                       files: "ui/theme.slint"
                     - git_url: "https://github.com/Hoverth/keyboardthing"
                       files: "ui/app-window.slint"
+                    # ratatui pins unicode-width to 0.2.0, below what annotate-snippets needs
+                    - git_url: "https://github.com/mailrs/mailrs"
+                      files: "crates/mailrs-gui/ui/app.slint"
                     - git_url: "https://github.com/Martoni/QRNote"
                       files: "qr-note/ui/appwindow.slint"
                     - git_url: "https://github.com/Project-Trains/launcher"

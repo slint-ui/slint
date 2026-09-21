@@ -1015,6 +1015,20 @@ impl<'a> PropertyLookupResult<'a> {
         )
     }
 
+    /// Report the property as outside the Slint SC subset, unless it's one the subset has.
+    /// A name that resolves to nothing is left to the diagnostic that says so.
+    #[cfg(feature = "slint-sc")]
+    pub fn check_slint_sc(
+        &self,
+        name: &dyn Display,
+        source: &dyn crate::diagnostics::Spanned,
+        diag: &mut crate::diagnostics::BuildDiagnostics,
+    ) {
+        if self.is_valid() && !self.is_slint_sc {
+            diag.slint_sc_error(&format!("The property '{name}' is"), source);
+        }
+    }
+
     /// The name the member is stored under in `Element::property_declarations`, `bindings`,
     /// `change_callbacks` and `property_analysis`, and the name a `NamedReference` to it carries.
     pub fn internal_or_resolved_name(&self) -> SmolStr {
@@ -1411,6 +1425,15 @@ pub struct EnumerationValue {
 impl PartialEq for EnumerationValue {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.enumeration, &other.enumeration) && self.value == other.value
+    }
+}
+
+impl Eq for EnumerationValue {}
+
+impl std::hash::Hash for EnumerationValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(&self.enumeration).hash(state);
+        self.value.hash(state);
     }
 }
 

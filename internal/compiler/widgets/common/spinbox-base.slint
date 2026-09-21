@@ -19,9 +19,25 @@ export component SpinBoxBase {
     callback edited(value: int);
 
     public function update-value(value: int) {
-        if root.value == value || (value >= root.minimum && value <= root.maximum) {
-            root.value = value;
-            root.edited(value);
+        if root.read-only || !root.enabled {
+            return;
+        }
+
+        let clamped = clamp(value, root.minimum, root.maximum);
+        if root.value == clamped {
+            return;
+        }
+
+        root.value = clamped;
+        root.edited(root.value);
+    }
+
+    // Unlike 'update-value', a number that leaves the minimum/maximum range
+    // leaves the value alone, so that typing the first digits of a longer
+    // number doesn't move the value and rewrite the text under the cursor.
+    function update-value-from-text(value: int) {
+        if value >= root.minimum && value <= root.maximum {
+            root.update-value(value);
         }
     }
 
@@ -49,6 +65,12 @@ export component SpinBoxBase {
 
     changed value => {
         root.set-text-to-value();
+    }
+
+    changed has-focus => {
+        if !root.has-focus {
+            root.set-text-to-value();
+        }
     }
 
     function set-text-to-value() {
@@ -105,14 +127,14 @@ export component SpinBoxBase {
         }
 
         accepted => {
-            if !self.text.is-float() {
-                root.set-text-to-value();
-            }
+            // 'update-value-from-text' ignores an edit that leaves the minimum/maximum
+            // range, so the text can hold a number the value never took.
+            root.update-text-and-cursor();
         }
 
         edited => {
             if self.text.is-float() && self.text.to-float() != root.value {
-                root.update-value(self.text.to-float());
+                root.update-value-from-text(self.text.to-float());
             } else if !self.text.is-float() && self.text != "" {
                 root.set-text-to-value();
             }

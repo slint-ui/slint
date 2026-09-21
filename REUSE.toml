@@ -77,6 +77,8 @@ path = [
   "tools/editor/ui/assets/cursors/default-32.png",
   "tools/editor/ui/assets/cursors/default-64.png",
   "tools/editor/ui/assets/cursors/rotate.svg",
+  "tools/editor/ui/assets/cursors/corner-radius.svg",
+  "tools/editor/ui/assets/cursors/corner-radius.png",
 ]
 SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
 SPDX-License-Identifier = "Apache-2.0"
@@ -214,6 +216,7 @@ path = [
   "ui-libraries/material/docs/src/config.yaml",
   "ui-libraries/material/examples/gallery/ui/themes/**.json",
 
+  "ai-plugins/*.json",
   "ai-plugins/.claude-plugin/*.json",
   "ai-plugins/.cursor-plugin/*.json",
   "ai-plugins/**/*.md",

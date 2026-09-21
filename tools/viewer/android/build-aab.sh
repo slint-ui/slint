@@ -1,13 +1,14 @@
 #!/bin/bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cSpell: ignore Pslint
 #
 # Build the slint-viewer Android App Bundle for Play Store upload, plus one
 # APK per ABI for GitHub releases and the version file F-Droid polls.
 #
-# SLINT_BUILD_NUMBER (the Play Store versionCode of the bundle) defaults to
-# the git commit count; override as an env var. The APKs derive their
-# versionCode from the version, see app/build.gradle.kts.
+# SLINT_BUILD_NUMBER defaults to the git commit count; override as an env
+# var. It gives the bundle its Play Store versionCode, the APKs derive theirs
+# from the version, see app/build.gradle.kts.
 #
 # Signing (omit all three for unsigned outputs):
 #   ANDROID_KEYSTORE_PATH      upload keystore path
@@ -37,7 +38,11 @@ export SLINT_BUILD_NUMBER
 "$PROJECT_DIR/build-native.sh"
 
 cd "$PROJECT_DIR"
-gradle --no-daemon bundleRelease assembleRelease
+# The APKs come first, out of a run that only assembles them, like the one
+# F-Droid rebuilds with and has to match byte for byte. The bundle needs the
+# ABI splits off, see app/build.gradle.kts.
+gradle --no-daemon assembleRelease
+gradle --no-daemon -Pslint.no-abi-splits bundleRelease
 
 # Gradle names the bundle app-release.aab; rename it to the app.
 BUNDLE_DIR="$PROJECT_DIR/app/build/outputs/bundle/release"

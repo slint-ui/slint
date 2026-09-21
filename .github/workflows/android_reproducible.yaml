@@ -16,19 +16,28 @@ on:
 
 jobs:
     build:
-        runs-on: ubuntu-latest
+        # An older runner image than the F-Droid job's, so the two builds share
+        # as little as possible. disorderfs reverses every directory listing,
+        # which catches build scripts that walk directories without sorting.
+        runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-android-viewer-build
+            - name: Mount the checkout through disorderfs
+              run: |
+                  sudo apt-get install -y disorderfs
+                  mkdir /tmp/src
+                  disorderfs --reverse-dirents=yes "$GITHUB_WORKSPACE" /tmp/src
             - name: Build the native library
               run: tools/viewer/android/build-native.sh arm64-v8a
+              working-directory: /tmp/src
             - name: Build the APK
               run: gradle --no-daemon assembleRelease -Pslint.abi=arm64-v8a
-              working-directory: tools/viewer/android
+              working-directory: /tmp/src/tools/viewer/android
             - uses: actions/upload-artifact@v7
               with:
                   name: apk
-                  path: tools/viewer/android/app/build/outputs/apk/release/app-*-release-unsigned.apk
+                  path: /tmp/src/tools/viewer/android/app/build/outputs/apk/release/app-*-release-unsigned.apk
 
     fdroid:
         runs-on: ubuntu-latest
@@ -57,17 +66,22 @@ jobs:
                   git -C $home_vagrant/gradlew-fdroid pull
                   mkdir -p $home_vagrant/{logs,tmp,unsigned,build,metadata,.android,.gradle}
                   git config --global --add safe.directory '*'
+                  # The recipe names the last release; this checkout may be a later
+                  # version, whose codes gradle derives the same way.
+                  version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml)
+                  code=$(echo $version | awk -F. '{print $1 * 10000 + $2 * 100 + $3}')
                   sed -e "s|^    commit: .*|    commit: $(git rev-parse HEAD)|" -e '/^    binary: /d' \
+                      -e "s|^  - versionName: .*|  - versionName: $version|" \
+                      -e "s|^    versionCode: \([0-9]*\)\([0-9]\)|    versionCode: $code\2|" \
                       tools/viewer/android/fdroid/dev.slint.viewer.yml > $home_vagrant/metadata/dev.slint.viewer.yml
                   git clone . $home_vagrant/build/dev.slint.viewer
                   git -C $home_vagrant/build/dev.slint.viewer remote set-url origin https://github.com/slint-ui/slint.git
                   chown -R vagrant $home_vagrant/{logs,tmp,unsigned,build,metadata,.android,.gradle}
-                  code=$(sed -n 's/^    versionCode: //p' tools/viewer/android/fdroid/dev.slint.viewer.yml | tail -1)
                   cd $home_vagrant
                   sudo --preserve-env --user vagrant \
                       env PATH=$fdroidserver:$PATH PYTHONPATH=$fdroidserver:$fdroidserver/examples \
                       PYTHONUNBUFFERED=true HOME=$home_vagrant GRADLE_USER_HOME=$home_vagrant/.gradle \
-                      fdroid build --verbose --test --on-server --no-tarball dev.slint.viewer:$code
+                      fdroid build --verbose --test --on-server --no-tarball dev.slint.viewer:${code}3
             - uses: actions/upload-artifact@v7
               with:
                   name: apk-fdroid

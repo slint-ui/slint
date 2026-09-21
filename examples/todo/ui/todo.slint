@@ -23,6 +23,7 @@ export struct TodoItem  {
 }
 
 export component MainWindow inherits Window {
+    icon: @image-url("../../../logo/slint-logo-small-light.png");
     in property <[TodoItem]> todo-model: [
         { title: "Implement the .slint file", checked: true },
         { title: "Do the Rust part", checked: false },

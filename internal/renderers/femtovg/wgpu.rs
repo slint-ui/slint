@@ -14,12 +14,27 @@ use crate::{BeginRendering, FemtoVGRenderer, GraphicsBackend, WindowSurface};
 
 use wgpu_30 as wgpu;
 
+/// The alpha mode to composite the surface with: a translucent one when the window is
+/// transparent, so the scene's alpha survives, and `Opaque` when it isn't. Metal
+/// (CAMetalLayer) only offers `PostMultiplied`, so it has to be a fallback. `None` when the
+/// surface advertises nothing suitable, in which case the current mode stays.
+fn composite_alpha_mode(
+    transparent: bool,
+    advertised: &[wgpu::CompositeAlphaMode],
+) -> Option<wgpu::CompositeAlphaMode> {
+    use wgpu::CompositeAlphaMode::{Opaque, PostMultiplied, PreMultiplied};
+    let wanted: &[wgpu::CompositeAlphaMode] =
+        if transparent { &[PreMultiplied, PostMultiplied] } else { &[Opaque] };
+    wanted.iter().copied().find(|mode| advertised.contains(mode))
+}
+
 pub struct WGPUBackend {
     instance: RefCell<Option<wgpu::Instance>>,
     device: RefCell<Option<wgpu::Device>>,
     queue: RefCell<Option<wgpu::Queue>>,
     surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
     surface: RefCell<Option<wgpu::Surface<'static>>>,
+    alpha_modes: RefCell<Vec<wgpu::CompositeAlphaMode>>,
     snapshot_output: RefCell<Option<femtovg::renderer::WGPURenderOutput>>,
 }
 
@@ -151,6 +166,23 @@ fn wgpu_take_snapshot_pixels(
     }
 }
 
+impl WGPUBackend {
+    /// Runs `f` with the live surface and the configuration it was last given, or does nothing
+    /// while the renderer is suspended and there is no surface to reconfigure.
+    fn with_surface(
+        &self,
+        f: impl FnOnce(&wgpu::Surface<'static>, &wgpu::Device, &mut wgpu::SurfaceConfiguration),
+    ) {
+        let mut surface_config = self.surface_config.borrow_mut();
+        let Some(surface_config) = surface_config.as_mut() else { return };
+        let device = self.device.borrow();
+        let Some(device) = device.as_ref() else { return };
+        let surface = self.surface.borrow();
+        let Some(surface) = surface.as_ref() else { return };
+        f(surface, device, surface_config);
+    }
+}
+
 impl GraphicsBackend for WGPUBackend {
     type Renderer = femtovg::renderer::WGPURenderer;
     type WindowSurface = WGPUWindowSurface;
@@ -163,12 +195,14 @@ impl GraphicsBackend for WGPUBackend {
             queue: Default::default(),
             surface_config: Default::default(),
             surface: Default::default(),
+            alpha_modes: Default::default(),
             snapshot_output: Default::default(),
         }
     }
 
     fn clear_graphics_context(&self) {
         self.surface_config.borrow_mut().take();
+        self.alpha_modes.borrow_mut().clear();
         self.surface.borrow_mut().take();
         self.queue.borrow_mut().take();
         self.device.borrow_mut().take();
@@ -300,20 +334,14 @@ impl GraphicsBackend for WGPUBackend {
         width: std::num::NonZeroU32,
         height: std::num::NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Try to get hold of the wgpu types, but if we receive the resize event while suspended, ignore it.
-        let mut surface_config = self.surface_config.borrow_mut();
-        let Some(surface_config) = surface_config.as_mut() else { return Ok(()) };
-        let mut device = self.device.borrow_mut();
-        let Some(device) = device.as_mut() else { return Ok(()) };
-        let mut surface = self.surface.borrow_mut();
-        let Some(surface) = surface.as_mut() else { return Ok(()) };
+        self.with_surface(|surface, device, surface_config| {
+            // Prefer FIFO modes over possible Mailbox setting for frame pacing and better energy efficiency.
+            surface_config.present_mode = wgpu::PresentMode::AutoVsync;
+            surface_config.width = width.get();
+            surface_config.height = height.get();
 
-        // Prefer FIFO modes over possible Mailbox setting for frame pacing and better energy efficiency.
-        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
-        surface_config.width = width.get();
-        surface_config.height = height.get();
-
-        surface.configure(device, surface_config);
+            surface.configure(device, surface_config);
+        });
         Ok(())
     }
 }
@@ -348,6 +376,22 @@ impl FemtoVGRenderer<WGPUBackend> {
         Ok(())
     }
 
+    /// Adjusts the surface for a window that became transparent or opaque after it was created,
+    /// so that the scene's alpha is kept or discarded to match.
+    pub fn set_transparent(&self, transparent: bool) {
+        let Some(mode) =
+            composite_alpha_mode(transparent, &self.graphics_backend.alpha_modes.borrow())
+        else {
+            return;
+        };
+        self.graphics_backend.with_surface(|surface, device, surface_config| {
+            if surface_config.alpha_mode != mode {
+                surface_config.alpha_mode = mode;
+                surface.configure(device, surface_config);
+            }
+        });
+    }
+
     /// Configure the renderer with pre-initialized WGPU objects. This is used by both the
     /// synchronous `set_surface` path and the async WASM initialization path.
     pub fn configure_surface_from_init_result(
@@ -374,16 +418,8 @@ impl FemtoVGRenderer<WGPUBackend> {
             .unwrap_or_else(|| swapchain_capabilities.formats[0]);
         surface_config.format = swapchain_format;
 
-        // The default `Opaque` discards the scene's alpha; pick a translucent mode if offered.
-        // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
-        if transparent {
-            use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
-            let advertised = &swapchain_capabilities.alpha_modes;
-            if let Some(mode) =
-                [PreMultiplied, PostMultiplied].into_iter().find(|m| advertised.contains(m))
-            {
-                surface_config.alpha_mode = mode;
-            }
+        if let Some(mode) = composite_alpha_mode(transparent, &swapchain_capabilities.alpha_modes) {
+            surface_config.alpha_mode = mode;
         }
 
         // Skip the initial surface.configure() when the window has zero
@@ -399,6 +435,7 @@ impl FemtoVGRenderer<WGPUBackend> {
         *self.graphics_backend.device.borrow_mut() = Some(device.clone());
         *self.graphics_backend.queue.borrow_mut() = Some(queue.clone());
         *self.graphics_backend.surface_config.borrow_mut() = Some(surface_config);
+        *self.graphics_backend.alpha_modes.borrow_mut() = swapchain_capabilities.alpha_modes;
         *self.graphics_backend.surface.borrow_mut() = Some(surface);
 
         let wgpu_renderer = femtovg::renderer::WGPURenderer::new(device, queue);
@@ -424,6 +461,7 @@ impl WindowSurface<femtovg::renderer::WGPURenderer> for TextureWindowSurface {
 }
 
 struct WgpuTextureBackend {
+    #[cfg_attr(not(feature = "unstable-wgpu-30"), allow(dead_code))]
     instance: wgpu::Instance,
     device: wgpu::Device,
     queue: wgpu::Queue,

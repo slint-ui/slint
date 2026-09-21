@@ -59,8 +59,9 @@ component CalendarDelegate {
     accessible-role: button;
     accessible-checkable: true;
     accessible-checked: root.selected;
+    accessible-enabled: root.enabled;
     accessible-label: root.text;
-    accessible-action-default => { touch-area.clicked(); }
+    accessible-action-default => { if (root.enabled) { touch-area.clicked(); } }
 
     touch-area := TouchArea {
         enabled: root.enabled;
@@ -71,7 +72,7 @@ component CalendarDelegate {
         enabled: root.enabled;
 
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
+            if (event.text == Key.Space || event.text == Key.Return) {
                 touch-area.clicked();
                  return accept;
             }
@@ -336,7 +337,7 @@ export component DatePickerBase {
             IconButton {
                 icon: root.selection-mode ? root.style.input-icon : root.style.calendar-icon;
                 style: root.style.icon-button-style;
-                accessible-label: "Toggle selection mode";
+                accessible-label: @tr("Toggle selection mode");
 
                 clicked => {
                     root.toggle-selection-mode();
@@ -369,7 +370,7 @@ export component DatePickerBase {
             IconButton {
                 icon: root.style.previous-icon;
                 style: root.style.icon-button-style;
-                accessible-label: "Previous month";
+                accessible-label: @tr("Previous month");
 
                 clicked => {
                     root.show-previous();
@@ -379,7 +380,7 @@ export component DatePickerBase {
             IconButton {
                 icon: root.style.next-icon;
                 style: root.style.icon-button-style;
-                accessible-label: "Next month";
+                accessible-label: @tr("Next month");
 
                 clicked => {
                     root.show-next();

@@ -175,7 +175,7 @@ pub unsafe fn import_vulkan_texture(
             vk_image(&vulkan_texture.unwrap()) as _,
             alloc,
             skia_safe::gpu::vk::ImageTiling::OPTIMAL,
-            skia_safe::gpu::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+            skia_safe::gpu::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
             vk_format,
             1,
             None,
