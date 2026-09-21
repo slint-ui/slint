@@ -9,7 +9,7 @@ edition = "2024"
 [workspace]
 
 [dependencies]
-slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-18", "unstable-winit-030", "renderer-femtovg-wgpu"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-18", "unstable-winit-030", "renderer-skia", "renderer-software"] }
 raw-window-handle = "0.6"
 
 [build-dependencies]

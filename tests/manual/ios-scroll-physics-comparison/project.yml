@@ -20,7 +20,6 @@ targets:
     postCompileScripts:
       - name: Build Slint with Cargo
         script: |
-          export SLINT_STYLE=material
           bash "$SRCROOT/../../../scripts/build_for_ios_with_cargo.bash" native-slint-scroll
   NativeSlintScrollUITests:
     type: bundle.ui-testing
