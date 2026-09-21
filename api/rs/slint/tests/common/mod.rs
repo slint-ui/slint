@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore trak
+
 //! Shared scaffolding for integration tests that drive a `MinimalSoftwareWindow`.
 //!
 //! Each test file that uses this declares `mod common;` and calls
