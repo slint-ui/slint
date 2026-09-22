@@ -60,8 +60,8 @@ def test_custom_gradient_geometry_uses_layout_size(
         rectangle = wait_until(
             lambda: next(iter(window.find_elements_by_id("LayoutGradient::fill")), None)
         )
-        assert rectangle.size.width == pytest.approx(400)
-        assert rectangle.size.height == pytest.approx(400)
+        assert rectangle.size.width == pytest.approx(390)
+        assert rectangle.size.height == pytest.approx(720)
 
         def field(label, role):
             return window_element_with_label(window, label, role)
@@ -75,7 +75,7 @@ def test_custom_gradient_geometry_uses_layout_size(
             else conic_geometry(window, element_id="LayoutGradient::fill")
         )
         assert geometry == pytest.approx(
-            (200, 200, math.hypot(200, 200) if kind == "radial" else 160), abs=0.001
+            (195, 360, math.hypot(195, 360) if kind == "radial" else 160), abs=0.001
         )
         click_picker_button(window, "Close Custom")
         assert source_file.read_text() == source
@@ -496,7 +496,7 @@ def test_recent_gradient_resets_custom_geometry_initialization(
         assert len(recent) == 1
         recent[0].invoke_accessible_default_action()
         assert radial_geometry(window) == pytest.approx(
-            (200, 200, math.hypot(200, 200)), abs=0.001
+            (195, 360, math.hypot(195, 360)), abs=0.001
         )
 
 

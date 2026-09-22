@@ -51,6 +51,7 @@ mod inspector;
 #[cfg(target_os = "macos")]
 pub mod macos_titlebar;
 mod preview_data;
+mod project_settings;
 use ext::ElementRcNodeExt;
 mod outline;
 mod properties;
@@ -79,6 +80,7 @@ pub fn initialize(
 
     #[cfg(feature = "system-testing")]
     test_sync::initialize();
+    project_settings::setup(editor_ui);
     let settings = PREVIEW_STATE.with_borrow(|preview_state| preview_state.settings.clone());
     editor_ui.set_elements_pane_height(
         settings.elements_pane_height.map_or(0.0, |height| height as f32),
@@ -150,6 +152,7 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         }
         M::OpenProject { root } => {
             PREVIEW_STATE.with_borrow_mut(|preview_state| {
+                project_settings::open(preview_state, &root);
                 preview_state.current_project_root = Some(root.clone());
             });
             apply_project_to_file_tree(&root);
@@ -278,6 +281,8 @@ pub struct PreviewState {
     settings: VisualEditorSettings,
     current_previewed_component: Option<PreviewComponent>,
     current_project_root: Option<Url>,
+    project_settings: Option<project_settings::ProjectSettings>,
+    project_settings_generation: u64,
     file_tree_controller: Option<ui::file_tree::SharedFileTreeController>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
@@ -334,7 +339,7 @@ fn invalidate_file_history() {
     PREVIEW_STATE.with_borrow_mut(|state| {
         state.undo_redo_stack.clear();
         state.pending_history.clear();
-        undo_redo::set_undo_redo_enabled(state);
+        undo_redo::publish_edit_state(state);
     });
 }
 thread_local! {pub static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
@@ -547,7 +552,7 @@ fn set_contents(url: &VersionedUrl, content: String) {
         if !own_fill_edit
             && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
         {
-            undo_redo::set_undo_redo_enabled(preview_state);
+            undo_redo::publish_edit_state(preview_state);
         }
         let old = preview_state.source_code.insert(
             url.url().clone(),
@@ -1820,7 +1825,7 @@ fn submit_workspace_edit(
             preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
         }
         preview_state.workspace_edit_sent = true;
-        undo_redo::set_undo_redo_enabled(preview_state);
+        undo_redo::publish_edit_state(preview_state);
         preview_state
             .to_lsp
             .borrow()
@@ -2587,6 +2592,12 @@ fn set_selected_element(
     let notify_editor_about_selection_after_update =
         editor_notification == SelectionNotification::AfterUpdate;
 
+    let is_root = element_node.as_ref().is_some_and(|node| {
+        component_instance().is_some_and(|instance| {
+            Rc::ptr_eq(&node.element, &element_selection::root_element(&instance))
+        })
+    });
+
     let (lsp, format) = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         let is_in_layout = parent_layout_kind != ui::LayoutKind::None;
         let is_layout = layout_kind != ui::LayoutKind::None;
@@ -2607,8 +2618,9 @@ fn set_selected_element(
                 highlight_index: selection.as_ref().map(|s| s.instance_index as i32).unwrap_or(-1),
                 layout_data: layout_kind,
                 is_interactive,
-                is_moveable: true,
-                is_resizable: !is_in_layout && !is_layout,
+                is_root,
+                is_moveable: !is_root,
+                is_resizable: !is_root && !is_in_layout && !is_layout,
             });
 
             if let Some(document_cache) = document_cache_from(preview_state)
@@ -2791,6 +2803,7 @@ fn update_preview_area(
 
                     // element_hash (and thus hook ids) change on every recompile, so drop stale overrides.
                     (*shared_overrides).borrow_mut().clear();
+                    instance.fill_parent();
                     install_debug_hook_callback(&instance, shared_overrides.clone());
 
                     shared_handle.replace(Some(instance));
@@ -2816,6 +2829,7 @@ fn update_preview_area(
         Ok(())
     })?;
 
+    PREVIEW_STATE.with_borrow(undo_redo::publish_edit_state);
     inspector::invalidate();
     element_selection::reselect_element();
     undo_redo::apply_pending();

@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { PreviewMetrics, AppState } from "common.slint";
+import { AppState } from "common.slint";
+import { Project } from "../project.slint";
 import { Style } from "../style.slint";
 
 export enum ZoomLevel {
@@ -17,6 +18,16 @@ export enum ZoomLevel {
 }
 
 export global CanvasView {
+    out property <Size> canvas-size: {
+        width: Project.canvas-width + 2 * Style.artboard.padding,
+        height: Project.canvas-height + 2 * Style.artboard.padding,
+    };
+    private property <string> project-key: Project.settings-key;
+    changed canvas-size => { self.pan = { x: 0px, y: 0px }; }
+    changed project-key => {
+        self.pan = { x: 0px, y: 0px };
+        self.zoom-level = ZoomLevel.actual-size;
+    }
     out property <ZoomLevel> zoom-level: ZoomLevel.actual-size;
     out property <float> zoom:
         self.zoom-level == ZoomLevel.percent-25 ? 0.25 :
@@ -56,8 +67,8 @@ export global CanvasView {
     out property <bool> navigation-enabled: !self.manipulating && !AppState.has-active-drag();
     public pure function canvas-origin(size: Size) -> Point {
         return {
-            x: (size.width - PreviewMetrics.canvas-width * self.zoom) / 2 + self.pan.x,
-            y: max(Style.artboard.top-minimum, (size.height - PreviewMetrics.canvas-height * self.zoom) / 2) + self.pan.y,
+            x: (size.width - self.canvas-size.width * self.zoom) / 2 + self.pan.x,
+            y: max(Style.artboard.top-minimum, (size.height - self.canvas-size.height * self.zoom) / 2) + self.pan.y,
         };
     }
 

@@ -46,6 +46,7 @@ serde_json = { workspace = true }
 slint = { workspace = true, features = ["compat-1-2", "backend-winit", "renderer-skia", "unstable-winit-030", "raw-window-handle-06"] }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"] }
 smol_str = { workspace = true }
+tempfile = "3"
 tokio = { version = "1.50.0", features = ["macros", "net", "rt", "sync", "time"] }
 tr = { workspace = true }
 tracing = { workspace = true }
@@ -58,7 +59,6 @@ slint-build = { workspace = true }
 i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal"] }
 i-slint-editor-preview = { path = "../../internal/editor-preview", features = ["testing"] }
 spin_on = { workspace = true }
-tempfile = "3"
 
 # Used by the visual editor for the auto-updater.
 [target.'cfg(target_os = "macos")'.dependencies]
