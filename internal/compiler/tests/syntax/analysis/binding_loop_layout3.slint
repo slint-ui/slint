@@ -9,9 +9,10 @@ Compo := Rectangle {
     lay := HorizontalLayout {
         if true : Rectangle {
             VerticalLayout {
+//          >             <note{setting an 'x' or a 'y' here takes 'VerticalLayout' out of its parent's size, one way out of the binding loop reported for 'text' at line 14}
                 Text {
                     text: root.the_text;
-//                        >            <error{The binding for the property 'text' is part of a binding loop (Compo.layoutinfo-h -> Compo.preferred-width -> Compo.the-text -> Text.text -> VerticalLayout.layoutinfo-h -> Rectangle.layoutinfo-h -> lay.layoutinfo-h -> Compo.layoutinfo-h)}
+//                        >            <error{The binding for the property 'text' is part of a binding loop (Compo.layoutinfo-h -> Compo.preferred-width -> Compo.the-text -> Text.text -> VerticalLayout.layoutinfo-h -> Rectangle.layoutinfo-h -> lay.layoutinfo-h -> Compo.layoutinfo-h)↵Compute 'text' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it}
                 }
             }
         }
@@ -23,6 +24,6 @@ export Foo := Rectangle {
 //         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Compo {
         the_text: self.preferred-width / 1px;
-//                >                         <note{'the-text' is part of the binding loop reported for 'text' at line 13}
+//                >                         <note{'the-text' is part of the binding loop reported for 'text' at line 14}
     }
 }

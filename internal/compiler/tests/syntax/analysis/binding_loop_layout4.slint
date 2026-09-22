@@ -3,11 +3,12 @@
 
 component Foo {
     HorizontalLayout {
+//  >               <note{setting an 'x' or a 'y' here takes 'HorizontalLayout' out of its parent's size, one way out of the binding loop reported for 'font-size' at line 10}
 
         Text {
             text: "hello";
             font_size: self.width / 2.5;
-//                     >               <error{The binding for the property 'font-size' is part of a binding loop (Bar.layoutinfo-h -> Bar.preferred-width -> Bar.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> Foo.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> Text.width -> Text.font-size -> HorizontalLayout.layoutinfo-h -> Foo.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> Bar.layoutinfo-h)}
+//                     >               <error{The binding for the property 'font-size' is part of a binding loop (Bar.layoutinfo-h -> Bar.preferred-width -> Bar.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> Foo.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> Text.width -> Text.font-size -> HorizontalLayout.layoutinfo-h -> Foo.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> Bar.layoutinfo-h)↵Compute 'font-size' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'HorizontalLayout', so its parent stops sizing itself from it}
         }
     }
 }
