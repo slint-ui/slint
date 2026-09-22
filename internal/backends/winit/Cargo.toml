@@ -49,10 +49,11 @@ renderer-femtovg = [
   "windows/Win32_Graphics_OpenGL",
 ]
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-30"]
-renderer-skia = ["i-slint-renderer-skia"]
+renderer-skia = ["i-slint-renderer-skia/default"]
 renderer-vello = ["dep:i-slint-renderer-anyrender", "i-slint-renderer-anyrender/vello", "unstable-wgpu-29"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
+renderer-skia-software = ["i-slint-renderer-skia/softbuffer"]
 renderer-software = [
   "dep:softbuffer",
   "dep:imgref",
@@ -88,7 +89,7 @@ scopeguard = { version = "1.1.0", default-features = false }
 i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
 
 # For the Skia renderer
-i-slint-renderer-skia = { workspace = true, features = ["default"], optional = true }
+i-slint-renderer-skia = { workspace = true, optional = true }
 
 # For the vello renderer
 i-slint-renderer-anyrender = { workspace = true, optional = true }
