@@ -17,8 +17,8 @@ component KoButton inherits Text {
 
 export component Test inherits Window {
     Text { font-size: self.font-metrics.ascent; }
-//  >   <error{The binding for the property 'font-metrics' is part of a binding loop (font-size -> font-metrics -> font-size)}
-//                    >                       <^error{The binding for the property 'font-size' is part of a binding loop (font-size -> font-metrics -> font-size)}
+//  >   <error{The binding for the property 'font-metrics' is part of a binding loop (Text.font-size -> Text.font-metrics -> Text.font-size)}
+//                    >                       <^error{The binding for the property 'font-size' is part of a binding loop (Text.font-size -> Text.font-metrics -> Text.font-size)}
 
     t1 := Text { font-italic: t2.font-metrics.cap-height > 10px; }
 //                            >                                <error{The binding for the property 'font-italic' is part of a binding loop (t2.font-weight -> t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
