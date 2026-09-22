@@ -847,17 +847,15 @@ fn resolve_expression_scope(
             i_slint_compiler::parser::NodeOrToken::Token(t) => Some(t.clone()),
         })
     {
-        let mut available_types: HashSet<String> = r.iter().map(|c| c.label.clone()).collect();
+        // The lookup labels a global the way its declaration spells it, while the catalog
+        // normalizes the name, so the two only meet once both are normalized (#7492).
+        let mut available_types: HashSet<SmolStr> =
+            r.iter().map(|c| i_slint_compiler::parser::normalize_identifier(&c.label)).collect();
         build_component_import_statements_edits(
             &token,
             document_cache,
-            &mut |ci: &editor_preview::component_catalog::ComponentInformation| {
-                if !ci.is_global || !ci.is_exported || available_types.contains(&ci.name) {
-                    false
-                } else {
-                    available_types.insert(ci.name.clone());
-                    true
-                }
+            &mut |ci| {
+                ci.is_global && ci.is_exported && available_types.insert(ci.name.as_str().into())
             },
             &mut |exported_name, file, the_import| {
                 r.push(CompletionItem {
@@ -3165,5 +3163,24 @@ component Foo {{
             completion.insert_text.as_deref(),
             Some("export interface ${1:ExportedInterface} {\n    $0\n}")
         );
+    }
+    #[test]
+    fn global_in_scope_is_not_offered_for_import() {
+        // Regression test for #7492: an underscore in the name made the global be offered a
+        // second time, as an import of its normalized name.
+        let res = get_completions(
+            r#"
+export global The_Global { in property <int> hello; }
+export component Demo { property <int> foo: 🔺; }
+"#,
+        )
+        .unwrap();
+
+        let global = res.iter().find(|c| c.label == "The_Global").unwrap();
+        assert!(global.additional_text_edits.is_none());
+        assert!(!res.iter().any(|c| c.label.starts_with("The-Global")));
+
+        // A global that isn't in scope still comes with its import.
+        assert!(res.iter().any(|c| c.label == "Palette (import from \"std-widgets.slint\")"));
     }
 }
