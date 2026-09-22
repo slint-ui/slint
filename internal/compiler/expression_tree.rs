@@ -2141,6 +2141,11 @@ pub struct BindingExpression {
     /// applies is then the property's type default.
     pub from_state: bool,
 
+    /// Whether the source wrote this binding, as opposed to a compiler pass making it up.
+    /// [`Self::priority`] doesn't tell the two apart, because inlining raises a pass's
+    /// binding to 1 as well.
+    pub from_source: bool,
+
     pub animation: Option<PropertyAnimation>,
 
     /// The analysis information. None before it is computed
@@ -2157,6 +2162,7 @@ impl std::convert::From<Expression> for BindingExpression {
             span: None,
             priority: 0,
             from_state: false,
+            from_source: false,
             animation: Default::default(),
             analysis: Default::default(),
             two_way_bindings: Default::default(),
@@ -2171,6 +2177,7 @@ impl BindingExpression {
             span: Some(node.to_source_location()),
             priority: 1,
             from_state: false,
+            from_source: true,
             animation: Default::default(),
             analysis: Default::default(),
             two_way_bindings: Default::default(),
@@ -2182,6 +2189,7 @@ impl BindingExpression {
             span: Some(span),
             priority: 0,
             from_state: false,
+            from_source: false,
             animation: Default::default(),
             analysis: Default::default(),
             two_way_bindings: Default::default(),
@@ -2229,6 +2237,7 @@ impl BindingExpression {
             span: None,
             priority: 0,
             from_state: false,
+            from_source: false,
             animation: Default::default(),
             analysis: Default::default(),
             two_way_bindings: vec![other],
@@ -2264,6 +2273,7 @@ impl BindingExpression {
                 *synthetic = false;
                 self.priority = other.priority;
                 self.from_state = other.from_state;
+                self.from_source = other.from_source;
                 return true;
             }
             if self.two_way_bindings.is_empty() {
@@ -2275,10 +2285,12 @@ impl BindingExpression {
             // then edited through the two-way target instead).
             self.expression = Expression::Invalid;
             self.priority = other.priority;
+            self.from_source = other.from_source;
             return true;
         }
         self.priority = other.priority;
         self.from_state = other.from_state;
+        self.from_source = other.from_source;
         self.expression = other.expression.clone();
         true
     }

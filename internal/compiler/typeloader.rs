@@ -583,6 +583,7 @@ impl Snapshotter {
             span: binding_expression.span.clone(),
             priority: binding_expression.priority,
             from_state: binding_expression.from_state,
+            from_source: binding_expression.from_source,
             animation: binding_expression.animation.as_ref().map(|pa| match pa {
                 object_tree::PropertyAnimation::Static(element) => {
                     object_tree::PropertyAnimation::Static(

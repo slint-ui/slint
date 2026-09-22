@@ -7,11 +7,12 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use by_address::ByAddress;
 
-use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::diagnostics::{BuildDiagnostics, ByteFormat, SourceLocation, Spanned};
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression};
 use crate::langtype::ElementType;
 use crate::layout::{LayoutItem, Orientation};
@@ -184,6 +185,9 @@ struct AnalysisContext<'a> {
     error_on_binding_loop_with_window_layout: bool,
     /// Set once `MAX_ANALYSIS_DEPTH` was reported, so a document yields one error
     depth_limit_reported: bool,
+    /// For each place a binding loop diagnostic or note points at, whether one of those loops
+    /// was an error.
+    loop_reported_at: HashMap<(Option<PathBuf>, usize, usize), bool>,
     global_analysis: &'a mut GlobalAnalysis,
 }
 
@@ -200,6 +204,7 @@ fn perform_binding_analysis(
         currently_analyzing: Default::default(),
         window_layout_property: None,
         depth_limit_reported: false,
+        loop_reported_at: HashMap::new(),
         global_analysis,
     };
     doc.visit_all_used_components(|component| {
@@ -370,56 +375,7 @@ fn analyze_binding(
     }
 
     if context.currently_analyzing.contains(current) {
-        let mut loop_description = String::new();
-        let mut has_window_layout = false;
-
-        fn push_prop(prop: &PropertyPath, out: &mut String) {
-            if !out.is_empty() {
-                out.push_str(" -> ");
-            }
-            if let Some(owner) = element_name(&prop.prop.element().borrow()) {
-                out.push_str(&owner);
-                out.push('.');
-            }
-            out.push_str(&prop.prop.declared_name());
-        }
-
-        // Build description by iterating in reverse (trigger direction: "A triggers B")
-        // and close the loop by prepending `current` at the start.
-        push_prop(current, &mut loop_description);
-        for it in context.currently_analyzing.iter().rev() {
-            if context.window_layout_property.as_ref().is_some_and(|p| p == it) {
-                has_window_layout = true;
-            }
-            push_prop(it, &mut loop_description);
-            if it == current {
-                break;
-            }
-        }
-
-        for it in context.currently_analyzing.iter().rev() {
-            let p = &it.prop;
-            let elem = p.element();
-            let elem = elem.borrow();
-            let binding = elem.binding_cell_including_synthetic(p.name()).unwrap().borrow();
-            if binding.analysis.as_ref().unwrap().is_in_binding_loop.replace(true) {
-                break;
-            }
-
-            let span = binding.span.clone().unwrap_or_else(|| elem.to_source_location());
-            // Skip the properties of synthetic elements (eg. the Flickable's content element):
-            // they have no location in the source. The rest of the loop is still reported.
-            if span.source_file.is_some() {
-                if !context.error_on_binding_loop_with_window_layout && has_window_layout {
-                    diag.push_warning(format!("The binding for the property '{}' is part of a binding loop ({loop_description}).\nThis was allowed in previous version of Slint, but is deprecated and may cause panic at runtime", p.declared_name()), &span);
-                } else {
-                    diag.push_error(format!("The binding for the property '{}' is part of a binding loop ({loop_description})", p.declared_name()), &span);
-                }
-            }
-            if it == current {
-                break;
-            }
-        }
+        report_binding_loop(current, context, diag);
         return depends_on_external;
     }
 
@@ -554,6 +510,160 @@ fn analyze_binding(
     assert_eq!(&o.unwrap(), current);
 
     depends_on_external
+}
+
+/// Where a diagnostic would point, as a value two of them can be compared by.
+fn place(span: &SourceLocation) -> (Option<PathBuf>, usize, usize) {
+    (span.source_file.as_ref().map(|f| f.path().to_path_buf()), span.span.offset, span.span.length)
+}
+
+/// Whether `path` is one of the files the compiler ships, such as a style's widgets.
+fn is_builtin(path: &std::path::Path) -> bool {
+    path.to_string_lossy().starts_with("builtin:")
+}
+
+/// Report the cycle `current` closes: one diagnostic on the binding the user is most likely to
+/// change, and a `note` on every other binding of the cycle the source wrote.
+fn report_binding_loop(
+    current: &PropertyPath,
+    context: &mut AnalysisContext,
+    diag: &mut BuildDiagnostics,
+) {
+    // The cycle in trigger direction ("A triggers B"): the tail of `currently_analyzing` that
+    // starts at `current`, walked back to front.
+    let mut cycle = Vec::new();
+    let mut has_window_layout = false;
+    for it in context.currently_analyzing.iter().rev() {
+        if context.window_layout_property.as_ref().is_some_and(|p| p == it) {
+            has_window_layout = true;
+        }
+        cycle.push(it);
+        if it == current {
+            break;
+        }
+    }
+
+    // The bindings of the cycle that have a place in the source. A synthetic element (eg. the
+    // Flickable's content element) has none; the rest of the cycle is still reported.
+    let mut reportable = Vec::new();
+    // Skip a cycle whose bindings were all reported already: most often it's one reported cycle
+    // entered from another of its properties. One that shares only some is another loop.
+    let mut all_reported = true;
+    for it in &cycle {
+        let elem = it.prop.element();
+        let elem = elem.borrow();
+        let binding = elem.binding_cell_including_synthetic(it.prop.name()).unwrap().borrow();
+        if !binding.analysis.as_ref().unwrap().is_in_binding_loop.replace(true) {
+            all_reported = false;
+        }
+        let span = binding.span.clone().unwrap_or_else(|| elem.to_source_location());
+        let Some(file) = span.source_file.clone() else { continue };
+        // How much a diagnostic here helps, best first: a binding of their own that the user can
+        // change, one in a widget they only use, and the rest, which still points inside the
+        // component that produced it.
+        let builtin = is_builtin(file.path());
+        let rank = match (binding.from_source, builtin) {
+            (true, false) => 0,
+            (true, true) => 1,
+            (false, _) => 2,
+        };
+        reportable.push((*it, span, rank));
+    }
+    if all_reported {
+        return;
+    }
+    // Of equal blame, one in the user's own file over one in a widget, then the one written
+    // first, so a reader meets the loop before the notes that refer back to it. The cycle index
+    // only keeps the choice stable.
+    let Some(primary) = reportable
+        .iter()
+        .enumerate()
+        .min_by_key(|(i, (_, span, rank))| {
+            let file = span.source_file.as_ref().map(|f| f.path());
+            (*rank, file.is_some_and(is_builtin), file, span.span.offset, *i)
+        })
+        .map(|(i, _)| i)
+    else {
+        return;
+    };
+    // Skip, too, a cycle that would only point where earlier loops already did, such as one
+    // through another instance of the same component. A warning there doesn't hide an error.
+    let is_error = context.error_on_binding_loop_with_window_layout || !has_window_layout;
+    let covered = |span: &SourceLocation| {
+        context.loop_reported_at.get(&place(span)).is_some_and(|was_error| *was_error || !is_error)
+    };
+    if covered(&reportable[primary].1)
+        && reportable.iter().filter(|(_, _, rank)| *rank <= 1).all(|(_, span, _)| covered(span))
+    {
+        return;
+    }
+
+    let loop_description = describe_loop(current, &cycle);
+    let name = reportable[primary].0.prop.declared_name();
+    let mut message = format!(
+        "The binding for the property '{name}' is part of a binding loop ({loop_description})"
+    );
+    let span = &reportable[primary].1;
+    if !is_error {
+        message.push_str("\nThis was allowed in previous version of Slint, but is deprecated and may cause panic at runtime");
+        diag.push_warning(message, span);
+    } else {
+        diag.push_error(message, span);
+    }
+
+    // An editor lists each diagnostic on its own, away from the rest, so a note has to say which
+    // loop it belongs to and where that one is.
+    let reported_at = span.source_file.as_ref().map(|file| {
+        (file.path().to_path_buf(), file.line_column(span.span.offset, ByteFormat::Utf8).0)
+    });
+    // A component instantiated twice puts two elements of the cycle at the one place its source
+    // is written, so the same note can come up more than once. The diagnostic itself already
+    // speaks for its own place.
+    let mut noted = HashSet::from([place(span)]);
+    for (it, span, _) in reportable
+        .iter()
+        .enumerate()
+        .filter(|(i, (_, _, rank))| *i != primary && *rank <= 1)
+        .map(|(_, x)| x)
+    {
+        if noted.insert(place(span)) {
+            let at = match &reported_at {
+                Some((path, line))
+                    if span.source_file.as_ref().is_some_and(|f| f.path() == path.as_path()) =>
+                {
+                    format!(" at line {line}")
+                }
+                Some((path, line)) => format!(" at {}:{line}", path.display()),
+                None => String::new(),
+            };
+            diag.push_note(
+                format!(
+                    "'{}' is part of the binding loop reported for '{name}'{at}",
+                    it.prop.declared_name()
+                ),
+                span,
+            );
+        }
+    }
+    for place in noted {
+        *context.loop_reported_at.entry(place).or_default() |= is_error;
+    }
+}
+
+/// The cycle as a chain of property names, starting and ending at `current`.
+fn describe_loop(current: &PropertyPath, cycle: &[&PropertyPath]) -> String {
+    let mut out = String::new();
+    for prop in std::iter::once(current).chain(cycle.iter().copied()) {
+        if !out.is_empty() {
+            out.push_str(" -> ");
+        }
+        if let Some(owner) = element_name(&prop.prop.element().borrow()) {
+            out.push_str(&owner);
+            out.push('.');
+        }
+        out.push_str(&prop.prop.declared_name());
+    }
+    out
 }
 
 /// Find properties two-way-bound (via `<=>`) to `prop`, ascending through base components

@@ -8,35 +8,24 @@ component Wrapper {
     Rectangle {
 //  >        <error{The binding for the property 'layoutinfo-h' is part of a binding loop (HorizontalLayout.layout-cache -> Wrapper.width -> VerticalLayout.layoutinfo-h -> Rectangle.layoutinfo-h -> Wrapper.layoutinfo-h -> HorizontalLayout.layout-cache)}
         VerticalLayout {
-//      >             <error{The binding for the property 'layoutinfo-h' is part of a binding loop (HorizontalLayout.layout-cache -> Wrapper.width -> VerticalLayout.layoutinfo-h -> Rectangle.layoutinfo-h -> Wrapper.layoutinfo-h -> HorizontalLayout.layout-cache)}
             if root.width > 200px: Rectangle { }
         }
     }
 }
 
 component WrapperInherited inherits Rectangle {
-//                                  >        <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> WrapperInherited.width -> VerticalLayout.layoutinfo-h -> WrapperInherited.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> VerticalLayout.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//                                  >        <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> WrapperInherited.width -> VerticalLayout.layoutinfo-h -> WrapperInherited.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> VerticalLayout.layoutinfo-h -> root.layoutinfo-h)↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
     VerticalLayout {
-//  >             <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> WrapperInherited.width -> VerticalLayout.layoutinfo-h -> WrapperInherited.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> VerticalLayout.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
         if root.width > 200px: Rectangle { }
     }
 }
 
 export component Test inherits Window {
-//                             >     <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> WrapperInherited.width -> VerticalLayout.layoutinfo-h -> WrapperInherited.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> VerticalLayout.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
 
     VerticalLayout {
-//  >             <warning{The binding for the property 'width' is part of a binding loop (root.layoutinfo-h -> VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> WrapperInherited.width -> VerticalLayout.layoutinfo-h -> WrapperInherited.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> VerticalLayout.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
-//  >             <^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> WrapperInherited.width -> VerticalLayout.layoutinfo-h -> WrapperInherited.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> VerticalLayout.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
         HorizontalLayout {
-//      >               <warning{The binding for the property 'width' is part of a binding loop (root.layoutinfo-h -> VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> WrapperInherited.width -> VerticalLayout.layoutinfo-h -> WrapperInherited.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> VerticalLayout.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
-//      >               <^warning{The binding for the property 'layout-cache' is part of a binding loop (root.layoutinfo-h -> VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> WrapperInherited.width -> VerticalLayout.layoutinfo-h -> WrapperInherited.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> VerticalLayout.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
-//      >               <^^warning{The binding for the property 'width' is part of a binding loop (root.layoutinfo-h -> VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> WrapperInherited.width -> VerticalLayout.layoutinfo-h -> WrapperInherited.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> VerticalLayout.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
-//      >               <^^^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> WrapperInherited.width -> VerticalLayout.layoutinfo-h -> WrapperInherited.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> VerticalLayout.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
-//      >               <^^^^error{The binding for the property 'width' is part of a binding loop (HorizontalLayout.layout-cache -> Wrapper.width -> VerticalLayout.layoutinfo-h -> Rectangle.layoutinfo-h -> Wrapper.layoutinfo-h -> HorizontalLayout.layout-cache)}
             WrapperInherited { }
             Wrapper { }
-//          >      <error{The binding for the property 'layoutinfo-h' is part of a binding loop (HorizontalLayout.layout-cache -> Wrapper.width -> VerticalLayout.layoutinfo-h -> Rectangle.layoutinfo-h -> Wrapper.layoutinfo-h -> HorizontalLayout.layout-cache)}
         }
     }
 }

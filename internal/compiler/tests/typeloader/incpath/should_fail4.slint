@@ -13,5 +13,5 @@ export Z := Rectangle {
     property <int> b1: b2;
 //                     > <error{The binding for the property 'b1' is part of a binding loop (Z.b1 -> Z.b2 -> Z.b1)}
     property <int> b2: b1;
-//                     > <error{The binding for the property 'b2' is part of a binding loop (Z.b1 -> Z.b2 -> Z.b1)}
+//                     > <note{'b2' is part of the binding loop reported for 'b1' at line 13}
 }

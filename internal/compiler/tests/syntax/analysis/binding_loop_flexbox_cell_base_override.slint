@@ -23,10 +23,8 @@ export component Demo inherits Window {
     height: 200px;
 
     FlexboxLayout {
-//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (Card.helper -> root.min-height -> FlexboxLayout.layout-cache -> Card.width -> Card.helper)}
-//  >            <^error{The binding for the property 'width' is part of a binding loop (Card.helper -> root.min-height -> FlexboxLayout.layout-cache -> Card.width -> Card.helper)}
         flex-direction: column;
         Card { helper: self.width; }
-//                     >         <error{The binding for the property 'helper' is part of a binding loop (Card.helper -> root.min-height -> FlexboxLayout.layout-cache -> Card.width -> Card.helper)}
+//                     >         <note{'helper' is part of the binding loop reported for 'min-height' at line 14}
     }
 }
