@@ -27,8 +27,11 @@ impl ElementSelection {
     pub fn as_element(&self) -> Option<ElementRc> {
         let component_instance = super::component_instance()?;
 
-        let elements =
-            component_instance.element_node_at_source_code_position(&self.path, self.offset.into());
+        let elements = component_instance
+            .element_node_at_source_code_position(&self.path, self.offset.into())
+            .into_iter()
+            .filter(|(element, _)| !component_instance.element_positions(element).is_empty())
+            .collect::<Vec<_>>();
         elements.get(self.instance_index).or_else(|| elements.first()).map(|(e, _)| e.clone())
     }
 
@@ -115,6 +118,21 @@ pub fn select_element_at_source_code_position(
     )
 }
 
+fn component_positions(
+    instance: &ComponentInstance,
+    path: &Path,
+    offset: u32,
+) -> Vec<HighlightedRect> {
+    instance
+        .element_node_at_source_code_position(path, offset)
+        .iter()
+        .find_map(|(element, _)| {
+            let positions = instance.element_positions(element);
+            (!positions.is_empty()).then_some(positions)
+        })
+        .unwrap_or_default()
+}
+
 fn select_element_at_source_code_position_impl(
     component_instance: &ComponentInstance,
     path: PathBuf,
@@ -122,7 +140,7 @@ fn select_element_at_source_code_position_impl(
     position: Option<LogicalPoint>,
     editor_notification: SelectionNotification,
 ) {
-    let positions = component_instance.component_positions(&path, offset.into());
+    let positions = component_positions(component_instance, &path, offset.into());
 
     let instance_index = position
         .and_then(|p| positions.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i)))
@@ -141,8 +159,7 @@ pub fn restore_selection(
     let Some(component_instance) = super::component_instance() else {
         return;
     };
-    if component_instance
-        .component_positions(&selection.path, selection.offset.into())
+    if component_positions(&component_instance, &selection.path, selection.offset.into())
         .get(selection.instance_index)
         .is_none()
     {
@@ -219,8 +236,7 @@ fn selection_rectangles(
     path: &Path,
     offset: u32,
 ) -> Vec<ui::SelectionRectangle> {
-    component_instance
-        .component_positions(path, offset)
+    component_positions(component_instance, path, offset)
         .iter()
         .map(|geometry| ui::SelectionRectangle {
             width: geometry.rect.size.width,
@@ -283,19 +299,16 @@ fn select_element_node(
     }
 }
 
-// Return the real root element, skipping the WindowElement that might got added
 pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
-    let root_element = component_instance.definition().root_component().root_element.clone();
-    if root_element.borrow().debug.is_empty() {
-        // The root element has no debug set if it is a window inserted by the compiler.
-        // That window will have one child -- the "real root", but it might
-        // have a few more compiler-generated nodes in front or behind the "real root"!
-        let child =
-            root_element.borrow().children.iter().find(|c| !c.borrow().debug.is_empty()).cloned();
-        child.unwrap_or(root_element)
-    } else {
-        root_element
+    fn source_root(element: &ElementRc) -> Option<ElementRc> {
+        let e = element.borrow();
+        if e.debug.iter().any(|d| !i_slint_editor_preview::is_element_node_ignored(&d.node)) {
+            return Some(element.clone());
+        }
+        e.children.iter().find_map(source_root)
     }
+    let root = component_instance.definition().root_component().root_element.clone();
+    source_root(&root).unwrap_or(root)
 }
 
 #[derive(Clone)]
@@ -477,8 +490,7 @@ fn hovered_element_at_impl(
             && selection.instance_index == candidate.instance_index
     });
     let is_over_selected_element = selected.is_some_and(|selection| {
-        component_instance
-            .component_positions(&selection.path, selection.offset.into())
+        component_positions(component_instance, &selection.path, selection.offset.into())
             .get(selection.instance_index)
             .is_some_and(|geometry| geometry.contains(position))
     });
@@ -799,11 +811,11 @@ mod tests {
 
     use i_slint_compiler::parser::TextSize;
     use i_slint_core::lengths::LogicalPoint;
-    use slint::Model;
+    use slint::{ComponentHandle, Model};
     use slint_interpreter::ComponentInstance;
 
     fn demo_app() -> ComponentInstance {
-        crate::preview::test::interpret_test(
+        let instance = crate::preview::test::interpret_test(
             "fluent",
             r#"import { Button } from "std-widgets.slint";
 
@@ -828,7 +840,9 @@ component Main { // 109
 
 export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 "#,
-        )
+        );
+        instance.window().set_size(slint::LogicalSize::new(200., 200.));
+        instance
     }
 
     #[test]
@@ -1127,6 +1141,7 @@ export component MyInput {
             ]),
         );
 
+        component_instance.window().set_size(slint::LogicalSize::new(200., 200.));
         let selected = super::select_element_at_impl(
             &component_instance,
             LogicalPoint::new(100.0, 100.0),
@@ -1216,6 +1231,7 @@ export component Demo inherits Window {{
                 (controls_path, controls_source.to_string()),
             ]),
         );
+        component_instance.window().set_size(slint::LogicalSize::new(200., 200.));
         let position = LogicalPoint::new(100.0, 100.0);
         let hovered = super::hovered_element_at_impl(&component_instance, position, false, None);
 
@@ -1240,6 +1256,7 @@ export component Demo inherits Window {{
 "#,
         );
 
+        component_instance.window().set_size(slint::LogicalSize::new(120., 60.));
         let first = super::hovered_element_at_impl(
             &component_instance,
             LogicalPoint::new(10.0, 10.0),

@@ -265,7 +265,6 @@ mod visitor {
 
     pub fn visit_public_component(
         PublicComponent {
-            fixed_root_size,
             public_properties,
             private_properties: _,
             item_tree,
@@ -276,9 +275,6 @@ mod visitor {
         visitor: &mut (impl Visitor + ?Sized),
     ) {
         let scope = EvaluationScope::SubComponent(item_tree.root, None);
-        for property in fixed_root_size.iter_mut().flatten() {
-            visit_member_reference(property, &scope, state, visitor);
-        }
         for p in public_properties.values_mut() {
             visit_public_property(p, &scope, state, visitor);
         }

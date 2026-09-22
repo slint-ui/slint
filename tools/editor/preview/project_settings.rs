@@ -209,7 +209,7 @@ mod tests {
             &editor,
             &api,
             component.definition(),
-            Box::new(|instance| instance.fill_parent()),
+            Box::new(|_| {}),
             super::super::LoadBehavior::Reload,
         );
         editor.show().unwrap();
