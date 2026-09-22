@@ -31,10 +31,6 @@ from ui_driver import (
 )
 
 
-def modifier() -> str:
-    return keys.Control
-
-
 @pytest.mark.parametrize("percent", [25, 50, 100, 125, 200, 400])
 def test_zoom_scales_content_and_preserves_controls(
     editor_binary, editor_environment, fixture_project, percent, tmp_path
@@ -58,8 +54,6 @@ def test_zoom_scales_content_and_preserves_controls(
         assert handle.size.height == pytest.approx(12)
         assert center(handle).x == pytest.approx(frame.absolute_position.x)
         assert center(handle).y == pytest.approx(frame.absolute_position.y)
-        center_canvas_selection(window)
-        frame = window_element_with_label(window, "Selected Rectangle")
         canvas = window_element_with_label(window, "Editor canvas")
         window.dispatch_event(
             slint_testing.PointerMoveEvent(
@@ -79,7 +73,7 @@ def test_zoom_scales_content_and_preserves_controls(
         )
         assert blue_pixels / scale == pytest.approx(180 * percent / 100, abs=2)
         rendered.save(tmp_path / f"zoom-{percent}.png")
-        press_shortcut(window, modifier(), "0")
+        press_shortcut(window, keys.Control, "0")
         wait_until(lambda: True if frame.size.width == pytest.approx(180) else None)
         screenshot(window).save(tmp_path / "actual-size.png")
         original.assert_unchanged()
@@ -99,17 +93,6 @@ def test_zoomed_drag_writes_document_units(
         select_outline_row(window, "root-rectangle")
         center_canvas_selection(window)
         zoom_canvas(window, percent)
-        # Bring the selected element to the middle of the viewport before dragging.
-        frame = window_element_with_label(window, "Selected Rectangle")
-        canvas = window_element_with_label(window, "Editor canvas")
-        point = center(canvas)
-        window.dispatch_event(
-            slint_testing.PointerScrolledEvent(
-                point,
-                delta_x=point.x - center(frame).x,
-                delta_y=point.y - center(frame).y,
-            )
-        )
         label = (
             "Rectangle move handle"
             if operation == "move"
@@ -127,9 +110,9 @@ def test_zoomed_drag_writes_document_units(
         )
         expected = replace_once(baseline, old, new)
         original.wait_for_applied(expected)
-        press_shortcut(window, modifier(), "z")
+        press_shortcut(window, keys.Control, "z")
         original.wait_for_applied(baseline)
-        press_shortcut(window, modifier(), keys.Shift, "z")
+        press_shortcut(window, keys.Control, keys.Shift, "z")
         original.wait_for_applied(expected)
 
 
@@ -194,7 +177,7 @@ def test_zoom_during_inline_edit_preserves_text(
         )
         text = window_element_with_label(window, "Inline text editor")
         press_keys(window, "Hello ")
-        press_shortcut(window, modifier(), "=")
+        press_shortcut(window, keys.Control, "=")
         wait_until(lambda: True if text.size.width == pytest.approx(225) else None)
         press_keys(window, "world")
         press_key(window, keys.Return)
@@ -217,7 +200,6 @@ def test_zoomed_radius_and_rotation(
         select_outline_row(window, "root-rectangle")
         center_canvas_selection(window)
         zoom_canvas(window, percent)
-        center_canvas_selection(window)
         if operation == "radius":
             manual_radius_drag(
                 window,
@@ -235,7 +217,6 @@ def test_zoomed_radius_and_rotation(
                 b"        border-top-left-radius: 20px;\n"
                 b"        border-top-right-radius: 20px;",
             )
-            original.wait_for_applied(expected)
         else:
             handle = window_element_with_label(window, "Rectangle rotate top-left")
             dx, dy = rotation_delta(window, handle, 15, kind="Rectangle")
@@ -248,8 +229,8 @@ def test_zoomed_radius_and_rotation(
                 b"        x: 40px;\n        y: 40px;",
                 b"        x: 40px;\n        y: 40px;\n        transform-rotation: 15deg;",
             )
-            original.wait_for_applied(expected)
-        press_shortcut(window, modifier(), "z")
+        original.wait_for_applied(expected)
+        press_shortcut(window, keys.Control, "z")
         original.wait_for_applied(baseline)
 
 
@@ -266,7 +247,7 @@ def test_zoom_is_blocked_during_resize(
         start = center(handle)
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        press_shortcut(window, modifier(), "+")
+        press_shortcut(window, keys.Control, "+")
         assert (
             window_element_with_label(window, "Editor canvas").accessible_value
             == "100%"
@@ -325,12 +306,12 @@ def test_zoom_limits(editor_binary, editor_environment, fixture_project, percent
         window = first_window(editor)
         zoom_canvas(window, percent)
         for _ in range(3):
-            press_shortcut(window, modifier(), key)
+            press_shortcut(window, keys.Control, key)
         assert (
             window_element_with_label(window, "Editor canvas").accessible_value
             == f"{percent}%"
         )
-        press_shortcut(window, modifier(), "0")
+        press_shortcut(window, keys.Control, "0")
         wait_until(
             lambda: (
                 True

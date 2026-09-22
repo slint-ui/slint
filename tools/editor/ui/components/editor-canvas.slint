@@ -154,14 +154,10 @@ export component EditorCanvas inherits TouchArea {
             accessible-role: AccessibleRole.region;
             accessible-label: "Canvas drop marker";
         }
-    }
 
-    CanvasInteractionLayer {
-        x: root.preview-origin.x;
-        y: root.preview-origin.y;
-        width: (PreviewMetrics.phone-portrait-width - 2 * root.artboard-style.padding) * CanvasView.zoom;
-        height: (PreviewMetrics.phone-portrait-height - 2 * root.artboard-style.padding) * CanvasView.zoom;
-        shift-pressed: root.shift-pressed;
-        real-element-selected => { root.real-element-selected(); }
+        CanvasInteractionLayer {
+            shift-pressed: root.shift-pressed;
+            real-element-selected => { root.real-element-selected(); }
+        }
     }
 }
