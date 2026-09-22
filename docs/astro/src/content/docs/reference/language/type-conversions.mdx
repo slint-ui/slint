@@ -22,8 +22,9 @@ The following conversions are possible:
     but they can be divided by themselves to result in a number. Similarly, a number can be multiplied by one of
     these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
 -   The literal `0` can be converted to any of these types that have associated unit.
--   Struct types convert with another struct type if they have the same property names and their types can be converted.
-    The source struct can have either missing properties, or extra properties. But not both.
+-   Struct types convert to another struct type when the properties they have in common convert.
+    A missing property takes its default value, and an extra property is discarded with a warning.
+    Having both at once is an error, because it is likely a typo.
 -   Arrays generally don't convert between each other. Array literals can be converted if the element types are convertible.
 
 ```slint
@@ -32,10 +33,12 @@ export component Example {
     property<{a: string, b: int}> prop1: {a: 12, b: 12 };
     // OK: even if a is missing, it will just have the default value ("")
     property<{a: string, b: int}> prop2: { b: 12 };
-    // OK: even if c is too many, it will be discarded
+    // OK, with a warning: the extra c is discarded
     property<{a: string, b: int}> prop3: { a: "x", b: 12, c: 42 };
     // ERROR: b is missing and c is extra, this doesn't compile, because it could be a typo.
     // property<{a: string, b: int}> prop4: { a: "x", c: 42 };
+    // OK: no field listed, so each one takes its default value
+    property<{a: string, b: int}> prop5: {};
 
     property<string> xxx: "42.1";
     property<float> xxx1: xxx.to-float(); // 42.1
