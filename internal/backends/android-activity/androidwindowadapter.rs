@@ -50,6 +50,7 @@ pub struct AndroidWindowAdapter {
 
     long_press: RefCell<Option<LongPressDetection>>,
     last_pressed_state: Cell<ButtonState>,
+    last_move_event_time: Cell<i64>,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -195,6 +196,7 @@ impl AndroidWindowAdapter {
             show_cursor_handles: Cell::new(false),
             long_press: RefCell::default(),
             last_pressed_state: Cell::new(ButtonState(0)),
+            last_move_event_time: Cell::new(0),
         })
     }
 
@@ -363,6 +365,12 @@ impl AndroidWindowAdapter {
                         }
                         MotionAction::Up => {
                             self.long_press.take();
+                            let event_time = motion_event.event_time();
+                            println!(
+                                "SCROLL_INPUT,U,{event_time},{},{}",
+                                self.last_move_event_time.get(),
+                                event_time - self.last_move_event_time.get()
+                            );
                             if let Some(p) = motion_event.pointers().next() {
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
@@ -390,6 +398,7 @@ impl AndroidWindowAdapter {
 
                             // Get high frequency move samples
                             let now_event_time = motion_event.event_time();
+                            self.last_move_event_time.set(now_event_time);
                             for p in motion_event.pointers() {
                                 let id = p.pointer_id();
                                 let mut history = Vec::with_capacity(p.history().len());

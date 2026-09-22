@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell:ignore Spannable tbstart tbend
+// cSpell:ignore androidscrollcomparison Spannable tbstart tbend
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
+import java.util.Locale;
 import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -27,6 +28,7 @@ import android.graphics.Insets;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.ColorDrawable;
 import android.text.Editable;
 import android.text.Selection;
 import android.text.SpannableStringBuilder;
@@ -35,7 +37,17 @@ import android.view.inputmethod.InputMethodManager;
 import android.app.Activity;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.PopupWindow;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.os.SystemClock;
+import android.util.Log;
+import android.view.Choreographer;
+import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.inputmethod.BaseInputConnection;
 import android.os.Build;
 import android.window.OnBackInvokedCallback;
@@ -422,9 +434,170 @@ class SlintInputView extends View {
     }
 }
 
+class ScrollComparisonView extends ScrollView implements Choreographer.FrameCallback {
+    private final float density;
+    private final String traceId;
+    private ScrollComparisonView mirror;
+    private View eventTarget;
+    private TextView metricsLabel;
+    private android.view.VelocityTracker velocityTracker;
+    private boolean recording;
+    private long recordUntilMillis;
+    private int phase = -1;
+    private long previousFrameTimeNanos;
+    private float previousNativeOffset;
+    private float previousSlintOffset;
+    private float maxOffsetDifference;
+
+    ScrollComparisonView(Context context, String traceId, boolean overlay) {
+        super(context);
+        this.traceId = traceId;
+        density = context.getResources().getDisplayMetrics().density;
+        setBackgroundColor(overlay ? Color.TRANSPARENT : Color.rgb(244, 246, 250));
+        setFillViewport(true);
+        setOverScrollMode(View.OVER_SCROLL_ALWAYS);
+        setVerticalScrollBarEnabled(false);
+
+        LinearLayout rows = new LinearLayout(context);
+        rows.setOrientation(LinearLayout.VERTICAL);
+        for (int row = 0; row < 1000; row++) {
+            TextView label = new TextView(context);
+            label.setText((overlay ? "Android " : "Row ") + (row + 1));
+            label.setTextSize(18);
+            label.setTextColor(overlay ? Color.rgb(184, 20, 10) : Color.rgb(23, 35, 59));
+            label.setGravity(Gravity.CENTER_VERTICAL | (overlay ? Gravity.RIGHT : Gravity.LEFT));
+            label.setPadding(dp(12), 0, dp(12), 0);
+            label.setBackgroundColor(overlay
+                    ? (row % 2 == 0 ? Color.argb(52, 255, 46, 31) : Color.argb(16, 255, 255, 255))
+                    : (row % 2 == 0 ? Color.rgb(228, 235, 245) : Color.WHITE));
+            rows.addView(label, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(56)));
+        }
+        addView(rows, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
+    }
+
+    private int dp(int value) {
+        return Math.round(value * density);
+    }
+
+    void setMirror(ScrollComparisonView mirror) {
+        this.mirror = mirror;
+    }
+
+    void setEventTarget(View eventTarget) {
+        this.eventTarget = eventTarget;
+    }
+
+    void setMetricsLabel(TextView metricsLabel) {
+        this.metricsLabel = metricsLabel;
+    }
+
+    private void startRecording() {
+        if (recording) return;
+        recording = true;
+        Choreographer.getInstance().postFrameCallback(this);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        if (mirror != null) {
+            MotionEvent copiedEvent = MotionEvent.obtain(event);
+            mirror.onTouchEvent(copiedEvent);
+            copiedEvent.recycle();
+        }
+        if (eventTarget != null) {
+            MotionEvent copiedEvent = MotionEvent.obtain(event);
+            int[] sourceLocation = new int[2];
+            int[] targetLocation = new int[2];
+            getLocationOnScreen(sourceLocation);
+            eventTarget.getLocationOnScreen(targetLocation);
+            copiedEvent.offsetLocation(
+                    sourceLocation[0] - targetLocation[0],
+                    sourceLocation[1] - targetLocation[1]);
+            SlintAndroidJavaHelper.forwardTouch(copiedEvent);
+            copiedEvent.recycle();
+        }
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                velocityTracker = android.view.VelocityTracker.obtain();
+                velocityTracker.addMovement(event);
+                phase = 0;
+                previousFrameTimeNanos = 0;
+                previousNativeOffset = getScrollY() / density;
+                previousSlintOffset = SlintAndroidJavaHelper.slintScrollOffset();
+                maxOffsetDifference = Math.abs(previousSlintOffset - previousNativeOffset);
+                recordUntilMillis = Long.MAX_VALUE;
+                startRecording();
+                break;
+            case MotionEvent.ACTION_MOVE:
+                velocityTracker.addMovement(event);
+                phase = 1;
+                break;
+            case MotionEvent.ACTION_UP:
+                velocityTracker.addMovement(event);
+                velocityTracker.computeCurrentVelocity(1000);
+                Log.i("ScrollCompare", "V," + traceId + ","
+                        + (velocityTracker.getYVelocity() / density));
+                velocityTracker.recycle();
+                velocityTracker = null;
+                phase = 2;
+                recordUntilMillis = SystemClock.uptimeMillis() + 5000;
+                break;
+            case MotionEvent.ACTION_CANCEL:
+                if (velocityTracker != null) {
+                    velocityTracker.recycle();
+                    velocityTracker = null;
+                }
+                phase = 3;
+                recordUntilMillis = SystemClock.uptimeMillis() + 5000;
+                break;
+        }
+        return super.onTouchEvent(event);
+    }
+
+    @Override
+    public void doFrame(long frameTimeNanos) {
+        float nativeOffset = getScrollY() / density;
+        float slintOffset = SlintAndroidJavaHelper.slintScrollOffset();
+        float difference = slintOffset - nativeOffset;
+        maxOffsetDifference = Math.max(maxOffsetDifference, Math.abs(difference));
+        float frameSeconds = previousFrameTimeNanos == 0
+                ? 0 : (frameTimeNanos - previousFrameTimeNanos) / 1_000_000_000.0f;
+        float nativeVelocity = frameSeconds == 0
+                ? 0 : (nativeOffset - previousNativeOffset) / frameSeconds;
+        float slintVelocity = frameSeconds == 0
+                ? 0 : (slintOffset - previousSlintOffset) / frameSeconds;
+        Log.i("ScrollCompare", traceId + "," + (frameTimeNanos / 1000000.0) + "," + phase
+                + "," + nativeOffset + "," + slintOffset);
+        if (metricsLabel != null) {
+            float percent = nativeOffset == 0 ? 0 : difference / Math.abs(nativeOffset) * 100;
+            metricsLabel.setText(String.format(Locale.US,
+                    "OFFSET   Android %7.1f  Slint %7.1f\n"
+                            + "DIFFERENCE       %+7.1f  (%+6.1f%%)\n"
+                            + "VELOCITY Android %7.0f  Slint %7.0f\n"
+                            + "VELOCITY Δ       %+7.0f\n"
+                            + "MAX OFFSET Δ      %7.1f",
+                    nativeOffset, slintOffset, difference, percent,
+                    nativeVelocity, slintVelocity, slintVelocity - nativeVelocity,
+                    maxOffsetDifference));
+        }
+        previousFrameTimeNanos = frameTimeNanos;
+        previousNativeOffset = nativeOffset;
+        previousSlintOffset = slintOffset;
+        if (recordUntilMillis == Long.MAX_VALUE || SystemClock.uptimeMillis() < recordUntilMillis) {
+            Choreographer.getInstance().postFrameCallback(this);
+        } else {
+            recording = false;
+        }
+    }
+}
+
 public class SlintAndroidJavaHelper {
     Activity mActivity;
     SlintInputView mInputView;
+    PopupWindow mComparisonPopup;
+    PopupWindow mControlPopup;
     private OnBackInvokedCallback mBackCallback;
 
     public SlintAndroidJavaHelper(Activity activity) {
@@ -437,6 +610,119 @@ public class SlintAndroidJavaHelper {
                         FrameLayout.LayoutParams.MATCH_PARENT);
                 mActivity.addContentView(mInputView, params);
                 mInputView.setVisibility(View.VISIBLE);
+
+                if ("dev.slint.androidscrollcomparison".equals(mActivity.getPackageName())) {
+                    boolean nativeControl = mActivity.getIntent().getBooleanExtra("native_control", false);
+                    float density = mActivity.getResources().getDisplayMetrics().density;
+                    LinearLayout nativePane = new LinearLayout(mActivity);
+                nativePane.setOrientation(LinearLayout.VERTICAL);
+                nativePane.setBackgroundColor(nativeControl
+                        ? Color.rgb(244, 246, 250) : Color.TRANSPARENT);
+                LinearLayout titleRow = new LinearLayout(mActivity);
+                titleRow.setOrientation(LinearLayout.HORIZONTAL);
+                titleRow.setBackgroundColor(Color.argb(245, 255, 255, 255));
+                TextView slintTitle = new TextView(mActivity);
+                slintTitle.setText(nativeControl ? "Android A" : "Slint");
+                slintTitle.setTextSize(18);
+                slintTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                slintTitle.setTextColor(nativeControl
+                        ? Color.rgb(23, 35, 59) : Color.rgb(20, 90, 170));
+                slintTitle.setGravity(Gravity.CENTER);
+                titleRow.addView(slintTitle, new LinearLayout.LayoutParams(
+                        0, LinearLayout.LayoutParams.MATCH_PARENT, nativeControl ? 1 : 0.5f));
+                if (!nativeControl) {
+                    TextView androidTitle = new TextView(mActivity);
+                    androidTitle.setText("Android");
+                    androidTitle.setTextSize(18);
+                    androidTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                    androidTitle.setTextColor(Color.rgb(184, 20, 10));
+                    androidTitle.setGravity(Gravity.CENTER);
+                    titleRow.addView(androidTitle, new LinearLayout.LayoutParams(
+                            0, LinearLayout.LayoutParams.MATCH_PARENT, 0.5f));
+                }
+                nativePane.addView(titleRow, new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        Math.round(48 * density)));
+                FrameLayout comparisonContent = new FrameLayout(mActivity);
+                ScrollComparisonView nativeList =
+                        new ScrollComparisonView(mActivity, "A", !nativeControl);
+                slintTitle.setOnClickListener(view -> {
+                    if (nativeList.getScrollY() == 0) {
+                        nativeList.post(() -> nativeList.fullScroll(View.FOCUS_DOWN));
+                    } else {
+                        nativeList.fullScroll(View.FOCUS_UP);
+                    }
+                });
+                comparisonContent.addView(nativeList, new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT));
+                if (!nativeControl) {
+                    nativeList.setEventTarget(mInputView);
+                    TextView metrics = new TextView(mActivity);
+                    metrics.setTextSize(11);
+                    metrics.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+                    metrics.setTextColor(Color.WHITE);
+                    metrics.setBackgroundColor(Color.argb(220, 15, 15, 15));
+                    metrics.setPadding(Math.round(12 * density), Math.round(8 * density),
+                            Math.round(12 * density), Math.round(8 * density));
+                    metrics.setText("OFFSET   Android     0.0  Slint     0.0\n"
+                            + "DIFFERENCE          +0.0  ( +0.0%)\n"
+                            + "VELOCITY Android       0  Slint       0\n"
+                            + "VELOCITY Δ             +0\n"
+                            + "MAX OFFSET Δ          0.0");
+                    FrameLayout.LayoutParams metricsParams = new FrameLayout.LayoutParams(
+                            Math.round(340 * density), FrameLayout.LayoutParams.WRAP_CONTENT,
+                            Gravity.TOP | Gravity.RIGHT);
+                    metricsParams.setMargins(0, Math.round(8 * density), Math.round(8 * density), 0);
+                    comparisonContent.addView(metrics, metricsParams);
+                    nativeList.setMetricsLabel(metrics);
+                }
+                nativePane.addView(comparisonContent,
+                        new LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+                mComparisonPopup = new PopupWindow(
+                        nativePane,
+                        nativeControl
+                                ? mActivity.getResources().getDisplayMetrics().widthPixels / 2
+                                : FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        false);
+                mComparisonPopup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                mComparisonPopup.setTouchable(true);
+                mComparisonPopup.setOutsideTouchable(false);
+                mComparisonPopup.setClippingEnabled(false);
+                mInputView.post(() -> mComparisonPopup.showAtLocation(
+                        mInputView, Gravity.LEFT | Gravity.TOP, 0, 0));
+
+                    if (nativeControl) {
+                    LinearLayout controlPane = new LinearLayout(mActivity);
+                    controlPane.setOrientation(LinearLayout.VERTICAL);
+                    controlPane.setBackgroundColor(Color.rgb(244, 246, 250));
+                    TextView controlTitle = new TextView(mActivity);
+                    controlTitle.setText("Android B");
+                    controlTitle.setTextSize(18);
+                    controlTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                    controlTitle.setTextColor(Color.rgb(23, 35, 59));
+                    controlTitle.setGravity(Gravity.CENTER);
+                    controlPane.addView(controlTitle, new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            Math.round(48 * mActivity.getResources().getDisplayMetrics().density)));
+                    ScrollComparisonView controlList = new ScrollComparisonView(mActivity, "B", false);
+                    controlPane.addView(controlList, new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+                    nativeList.setMirror(controlList);
+                    mControlPopup = new PopupWindow(
+                            controlPane,
+                            mActivity.getResources().getDisplayMetrics().widthPixels / 2,
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                            false);
+                    mControlPopup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                    mControlPopup.setTouchable(false);
+                    mControlPopup.setClippingEnabled(false);
+                    mInputView.post(() -> mControlPopup.showAtLocation(
+                            mInputView, Gravity.RIGHT | Gravity.TOP, 0, 0));
+                    }
+                }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     mActivity.getWindow().getDecorView().getRootView()
                             .setOnApplyWindowInsetsListener((v, insets) -> dispatchInsets(insets));
@@ -591,6 +877,10 @@ public class SlintAndroidJavaHelper {
     static public native void setFontScale(float fontScale);
 
     static public native void onBackInvoked();
+
+    static public native void forwardTouch(MotionEvent event);
+
+    static public native float slintScrollOffset();
 
     static public native void moveCursorHandle(int id, int pos_x, int pos_y);
 
