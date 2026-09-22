@@ -982,8 +982,8 @@ impl DirtyRegionWalk<'_> {
         let rendering_data = item.cached_rendering_data_offset();
         let mut cache_ref = self.cache.borrow_mut();
 
-        let tree_key = vtable::VRef::as_ptr(vtable::VRc::borrow(item_rc.item_tree())).as_ptr()
-            as usize;
+        let tree_key =
+            vtable::VRef::as_ptr(vtable::VRc::borrow(item_rc.item_tree())).as_ptr() as usize;
         if item_rc.index() == 0
             && let Some(acc) = cache_ref.tree_screen_rects.get_mut(&tree_key)
         {
