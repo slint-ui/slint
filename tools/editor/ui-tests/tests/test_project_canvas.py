@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from canvas_interactions import zoom_canvas
 from editor_sync import wait_for_source
 from gradient_interactions import center, click, control, gesture, shifted
 from inspector_interactions import edit_field, wait_for_field
@@ -224,23 +225,31 @@ def test_large_canvas_scroll_and_shrink(
         edit_field(window, "Project height", "1400")
         assert_canvas(window, 1800, 1400)
         canvas = window_element_with_label(window, "Editor canvas")
-        before = canvas.absolute_position
+        assert canvas.accessible_value == "100%"
+        artboard = window_element_with_label(window, "Artboard")
+        before = artboard.absolute_position
+        target = center(canvas)
         window.dispatch_event(
             slint_testing.PointerScrolledEvent(
-                slint_testing.LogicalPosition(x=before.x + 10, y=before.y + 10),
-                delta_x=-2000,
-                delta_y=-2000,
+                target,
+                delta_x=target.x - (before.x + artboard.size.width - 60),
+                delta_y=target.y - (before.y + artboard.size.height - 60),
             )
         )
         wait_until(
             lambda: (
                 True
-                if window_element_with_label(
-                    window, "Editor canvas"
-                ).absolute_position.x
-                < before.x - 100
+                if abs(
+                    center(window_element_with_label(window, "Canvas marker")).x
+                    - target.x
+                )
+                < 0.01
                 else None
             )
+        )
+        assert (
+            window_element_with_label(window, "Artboard").absolute_position.x
+            < before.x - 100
         )
         marker = window_element_with_label(window, "Canvas marker")
         marker.single_click(slint_testing.PointerEventButton.Left)
@@ -328,3 +337,27 @@ def test_root_source_size_is_editable_without_resizing_canvas(
         assert_canvas(window, 390, 720)
         wait_for_field(window, "Root width", "250px")
         assert not (canvas_project.parent / "slint.project.json").exists()
+
+
+@pytest.mark.parametrize("percent", [50, 200])
+def test_project_resize_preserves_zoom(
+    editor_binary, editor_environment, canvas_project, percent
+):
+    snapshot = SourceSnapshot.capture(canvas_project.parent)
+    with launch_editor(editor_binary, editor_environment, canvas_project) as editor:
+        window = first_window(editor)
+        wait_for_source(canvas_project, canvas_project.read_bytes())
+        clear_selection(window)
+        zoom_canvas(window, percent)
+        edit_field(window, "Project width", "640")
+        edit_field(window, "Project height", "360")
+        assert_canvas(window, 640, 360)
+        assert (
+            window_element_with_label(window, "Editor canvas").accessible_value
+            == f"{percent}%"
+        )
+        select_outline_row(window, outline_rows(window)[0].accessible_label)
+        frame = window_element_with_label(window, "Selected Window")
+        assert frame.size.width == pytest.approx(640 * percent / 100)
+        assert frame.size.height == pytest.approx(360 * percent / 100)
+        snapshot.assert_unchanged()
