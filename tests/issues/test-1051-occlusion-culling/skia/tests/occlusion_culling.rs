@@ -17,6 +17,8 @@
 //! that `i-slint-renderer-skia` doesn't need `slint-interpreter` (and everything it pulls in: the
 //! compiler, the interpreter, the winit backend) as a dev-dependency just to run this.
 
+// cspell:ignore occluders unrotated
+
 #[path = "../../scenarios.rs"]
 mod scenarios;
 
@@ -41,7 +43,7 @@ impl Platform for TestPlatform {
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
-        core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
+        i_slint_core::animations::current_tick().into()
     }
 }
 

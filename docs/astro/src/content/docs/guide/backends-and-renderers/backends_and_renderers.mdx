@@ -65,8 +65,9 @@ With Python, all renderers are built into the packages.
 ### Occlusion Culling
 
 The Skia and Software renderers support an opt-in `occlusion-culling` feature that skips drawing
-items fully hidden behind opaque content, at the cost of an extra tree walk and per-item
-bookkeeping on every frame. It isn't available with the FemtoVG or Qt renderers.
+items fully hidden behind opaque content.
+It costs an extra tree walk and per-item bookkeeping every frame.
+The FemtoVG and Qt renderers don't support it.
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">

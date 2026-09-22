@@ -11,6 +11,8 @@
 //! inequality. Counts are the number of items `render_item_children`'s tree walk dispatches a
 //! draw call for, via `i_slint_core::item_rendering::rendered_item_count()`.
 
+// cspell:ignore occluders unrotated
+
 // A few scenes only apply to one of the two harnesses, so the other one includes them unused.
 #![allow(dead_code)]
 
@@ -125,9 +127,9 @@ pub fn unclipped_overflowing_children_source() -> String {
                 width: 10px;
                 height: 10px;
                 for i in {OVERFLOW_RECT_COUNT}: Rectangle {{
-                    // Declared (thus painted) before the opaque cover below, and overflowing
-                    // far outside the container's own bounds. Spread out along x so they don't
-                    // stack on top of (and thus legitimately occlude) each other.
+                    // Painted before the opaque cover below, and overflowing far outside the
+                    // container's own bounds. Spread out along x so they don't overlap and
+                    // occlude each other.
                     x: 100px + i * 5px;
                     y: 100px;
                     width: 4px;
@@ -135,8 +137,8 @@ pub fn unclipped_overflowing_children_source() -> String {
                     background: green;
                 }}
                 Rectangle {{
-                    // Declared (thus painted) last: exactly covers the container's own bounding
-                    // rect, but not the overflowing siblings above.
+                    // Painted last: exactly covers the container's own bounding rect, but not
+                    // the overflowing siblings above.
                     x: 0px;
                     y: 0px;
                     width: 10px;
@@ -176,8 +178,8 @@ pub const ROUNDED_CORNER_RECT_COUNT: usize = 25;
 /// `occluder_background` is `blue` for the real regression scenario and `transparent` for the
 /// control scenario: comparing the two draw-item counts (see
 /// `assert_rounded_clip_does_not_cull_corners`) proves the opaque occluder culls nothing extra,
-/// without hardcoding how many items `clip: true` + `border-radius` happens to lower to today --
-/// that's a compiler detail, and one master is actively changing.
+/// without hardcoding how many items `clip: true` + `border-radius` lower to -- a compiler
+/// detail this test shouldn't depend on.
 fn rounded_clip_source(occluder_background: &str) -> String {
     format!(
         r#"
@@ -193,7 +195,7 @@ fn rounded_clip_source(occluder_background: &str) -> String {
                 background: green;
             }}
             Rectangle {{
-                // Declared (thus painted) last, on top of the probes above.
+                // Painted last, on top of the probes above.
                 x: 0px;
                 y: 0px;
                 width: 200px;
@@ -278,7 +280,7 @@ pub fn fractional_scale_factor_source() -> String {
             background: green;
         }
         Rectangle {
-            // Declared (thus painted) last, on top of the probes above. Its right edge (see
+            // Painted last, on top of the probes above. Its right edge (see the doc comment
             // above) lands on a fractional device pixel at scale_factor 1.3.
             x: 0px;
             y: 0px;
@@ -323,7 +325,7 @@ pub fn occluder_style_source(occluder_declarations: &str) -> String {
                 background: red;
             }}
             Rectangle {{
-                // Declared (thus painted) last, on top of the probe above.
+                // Painted last, on top of the probe above.
                 x: 0px;
                 y: 0px;
                 width: 200px;
@@ -386,8 +388,8 @@ pub fn partially_covered_probe_source() -> String {
             background: red;
         }
         Rectangle {
-            // Declared (thus painted) last, covering the probe's right half and everything to
-            // the right of it, but leaving [0px, 20px) of the window uncovered.
+            // Painted last, covering the probe's right half and everything to the right of it,
+            // but leaving [0px, 20px) of the window uncovered.
             x: 20px;
             y: 0px;
             width: 180px;
@@ -498,8 +500,8 @@ fn rotated_occluder_source(occluder_background: &str) -> String {
                 background: red;
             }}
             Rectangle {{
-                // Declared (thus painted) last, on top of the probe above. Rotated by 45
-                // degrees about its center, so its corners no longer cover the window's.
+                // Painted last, on top of the probe above. Rotated 45 degrees about its center,
+                // so its corners no longer cover the window's.
                 x: 0px;
                 y: 0px;
                 width: 200px;
@@ -559,7 +561,7 @@ pub fn moving_occluder_source() -> String {
             background: rgb(root.tint, 0, 0);
         }
         Rectangle {
-            // Declared (thus painted) last, on top of the probe above.
+            // Painted last, on top of the probe above.
             x: root.cover-x;
             y: 0px;
             width: 200px;
