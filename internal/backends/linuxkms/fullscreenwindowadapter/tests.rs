@@ -83,7 +83,19 @@ slint::slint! {
 
 #[test]
 fn incremental_cursor_frames_match_full_repaints() {
-    let pixels = Rc::new(RefCell::new(vec![0; (SIZE.width * SIZE.height * 4) as usize]));
+    cursor_frames_match_full_repaints(0);
+}
+
+/// A DRM dumb buffer's rows are padded to the driver's pitch, so the cursor damage has to land
+/// in the right place with a stride that is wider than the screen as well.
+#[test]
+fn incremental_cursor_frames_match_full_repaints_with_padded_rows() {
+    cursor_frames_match_full_repaints(40);
+}
+
+fn cursor_frames_match_full_repaints(extra_row_bytes: usize) {
+    let row_bytes = SIZE.width as usize * 4 + extra_row_bytes;
+    let pixels = Rc::new(RefCell::new(vec![0; row_bytes * SIZE.height as usize]));
     let surface: SoftwareSurface =
         MemoryBuffer { pixels: pixels.clone(), initialized: Cell::new(false) }.into();
     let renderer = SkiaRenderer::new_with_surface(&SkiaSharedContext::default(), Box::new(surface));
@@ -139,5 +151,16 @@ fn incremental_cursor_frames_match_full_repaints() {
         adapter.clone().render_if_needed(position.as_ref()).unwrap();
         assert!(hidden == *pixels.borrow(), "hiding the cursor left pixels behind");
         adapter.set_mouse_cursor(MouseCursorInner::default());
+    }
+
+    // Nothing may write into the padding, which is what tells apart honouring the stride from
+    // treating the buffer as one contiguous run of rows.
+    let pixels = pixels.borrow();
+    for line in 0..SIZE.height as usize {
+        let row = &pixels[line * row_bytes..][..row_bytes];
+        assert!(
+            row[SIZE.width as usize * 4..].iter().all(|byte| *byte == 0),
+            "line {line} was drawn over its padding"
+        );
     }
 }

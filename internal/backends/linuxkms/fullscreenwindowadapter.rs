@@ -22,7 +22,6 @@ use i_slint_core::{platform::PlatformError, window::WindowAdapter, window::Windo
 use crate::display::RenderingRotation;
 
 #[cfg(all(test, enable_skia))]
-#[path = "tests/cursor/mod.rs"]
 mod tests;
 
 pub trait FullscreenRenderer {
@@ -127,6 +126,10 @@ impl FullscreenWindowAdapter {
         mouse_position: Pin<&Property<Option<LogicalPosition>>>,
     ) -> Result<(), PlatformError> {
         if self.redraw_requested.replace(false) {
+            let cursor_hidden = matches!(
+                &*self.mouse_cursor.borrow(),
+                MouseCursorInner::BuiltIn(BuiltInMouseCursor::None)
+            );
             let cursor = cursor_image_and_rect(&self.mouse_cursor.borrow(), mouse_position.get());
             let cursor_rect = cursor.as_ref().map(|(_, rect)| *rect);
             // Damage must reach the renderer before it calculates this frame's clip.
@@ -135,8 +138,11 @@ impl FullscreenWindowAdapter {
                 self.renderer.as_core_renderer().mark_dirty_region(rect.into());
             }
             let outcome = self.renderer.render_and_present(self.rotation, &|item_renderer| {
-                // Keep pointer movement in the window's draw dependency tracker.
-                let _ = mouse_position.get();
+                // The renderer evaluates this inside the window's redraw tracker, so reading the
+                // position here is what makes pointer movement alone schedule the next frame.
+                if !cursor_hidden {
+                    let _ = mouse_position.get();
+                }
                 if let Some((image, rect)) = &cursor {
                     item_renderer.save_state();
                     item_renderer.translate(rect.origin.to_vector());
