@@ -2519,8 +2519,11 @@ export component Test inherits Window {
     );
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
     let font = document.custom_fonts.first().expect("the font is imported");
-    assert!(
-        font.0.ends_with("sharedfontique/Inter-VariableFont.ttf"),
+    let font_path = std::path::Path::new(font.0.as_str());
+    assert_eq!(font_path.file_name(), Some("Inter-VariableFont.ttf".as_ref()), "{}", font.0);
+    assert_eq!(
+        font_path.parent().and_then(std::path::Path::file_name),
+        Some("sharedfontique".as_ref()),
         "the font kept the library path: {}",
         font.0
     );
