@@ -13,11 +13,18 @@ def replace_once(source: bytes, old: bytes, new: bytes) -> bytes:
 
 
 def wait_for_source_change(source_file: Path, baseline: bytes) -> bytes:
+    from editor_sync import wait_for_source
     from ui_driver import wait_until
 
     def changed_source() -> bytes | None:
         source = source_file.read_bytes()
-        return source if source and source != baseline else None
+        if not source or source == baseline:
+            return None
+        try:
+            wait_for_source(source_file, source, timeout=0.1)
+        except AssertionError:
+            return None
+        return source if source_file.read_bytes() == source else None
 
     return wait_until(changed_source)
 
