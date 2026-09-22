@@ -12,7 +12,7 @@ Wrap := Rectangle {
             }
             square := Rectangle {
                 width: height;
-//                     >     <error{The binding for the property 'width' is part of a binding loop (square.width -> HorizontalLayout.layout-cache -> text.width -> HorizontalLayout.layoutinfo-v -> VerticalLayout.layout-cache -> HorizontalLayout.height -> square.height -> square.width)}
+//                     >     <error{The binding for the property 'width' is part of a binding loop (square.width -> HorizontalLayout.layout-cache -> text.width -> HorizontalLayout.layoutinfo-v -> VerticalLayout.layout-cache -> HorizontalLayout.height -> square.height -> square.width)↵Compute 'width' without depending on a size or a position the layout produces}
                 background: violet;
             }
         }
@@ -26,6 +26,7 @@ export Test := Window {
 
     property <image> source;
     GridLayout {
+//  >         <note{setting an 'x' or a 'y' here takes 'GridLayout' out of its parent's size, one way out of the binding loop reported for 'width' at line 36}
 
 
         Image {
@@ -33,7 +34,7 @@ export Test := Window {
         }
         Rectangle {
             width: height;
-//                 >     <warning{The binding for the property 'width' is part of a binding loop (root.layoutinfo-h -> GridLayout.width -> GridLayout.layout-cache-h -> Image.width -> GridLayout.layoutinfo-v -> root.layoutinfo-v -> GridLayout.height -> GridLayout.layout-cache-v -> Rectangle.height -> Rectangle.width -> GridLayout.layoutinfo-h -> root.layoutinfo-h)↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//                 >     <warning{The binding for the property 'width' is part of a binding loop (root.layoutinfo-h -> GridLayout.width -> GridLayout.layout-cache-h -> Image.width -> GridLayout.layoutinfo-v -> root.layoutinfo-v -> GridLayout.height -> GridLayout.layout-cache-v -> Rectangle.height -> Rectangle.width -> GridLayout.layoutinfo-h -> root.layoutinfo-h)↵Compute 'width' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'GridLayout', so its parent stops sizing itself from it↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
         }
     }
 

@@ -5,10 +5,11 @@
 
 export component MyPanel {
     fb := Image {
+//        >    <note{setting an 'x' or a 'y' here takes 'fb' out of its parent's size, one way out of the binding loop reported for 'source-clip-height' at line 11}
         width: 100%;
         source-clip-width: root.width / 0.531px;
         source-clip-height: root.height / 0.531px;
-//                          >                    <error{The binding for the property 'source-clip-height' is part of a binding loop (MyPanel.height -> fb.source-clip-height -> MyPanel.layoutinfo-v -> MyPanel.preferred-height -> MyPanel.height)}
+//                          >                    <error{The binding for the property 'source-clip-height' is part of a binding loop (MyPanel.height -> fb.source-clip-height -> MyPanel.layoutinfo-v -> MyPanel.preferred-height -> MyPanel.height)↵Compute 'source-clip-height' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'fb', so its parent stops sizing itself from it}
     }
 
 }

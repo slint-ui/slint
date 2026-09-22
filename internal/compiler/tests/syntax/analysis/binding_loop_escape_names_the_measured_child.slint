@@ -1,0 +1,28 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The 'x' or 'y' escape has to name the child the parent measures inside the cycle. Here
+// 'measured' is that child, while 'sibling' only reaches the cycle through its own width, so
+// an 'x' on 'sibling' would leave the loop untouched.
+component WithSibling inherits Rectangle {
+    in property <length> helper: sibling.width;
+//                               >            <error{The binding for the property 'helper' is part of a binding loop (WithSibling.layoutinfo-h -> WithSibling.preferred-width -> WithSibling.width -> sibling.width -> WithSibling.helper -> measured.text -> WithSibling.layoutinfo-h)↵Compute 'helper' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'measured', so its parent stops sizing itself from it}
+    sibling := Rectangle { }
+    measured := Text { text: root.helper / 1px; }
+//              >   <note{setting an 'x' or a 'y' here takes 'measured' out of its parent's size, one way out of the binding loop reported for 'helper' at line 8}
+//                           >                <^note{'text' is part of the binding loop reported for 'helper' at line 8}
+}
+
+// The same shape with the advice applied: an 'x' on the measured child takes it out of the
+// parent's layout info, and no loop is left to report.
+component EscapeApplied inherits Rectangle {
+    in property <length> helper: sibling.width;
+    sibling := Rectangle { }
+    measured := Text { x: 0; text: root.helper / 1px; }
+}
+
+export component Test inherits Window {
+    WithSibling { width: self.preferred-width; }
+//                       >                   <note{'width' is part of the binding loop reported for 'helper' at line 8}
+    EscapeApplied { width: self.preferred-width; }
+}

@@ -14,7 +14,7 @@ use by_address::ByAddress;
 
 use crate::diagnostics::{BuildDiagnostics, ByteFormat, SourceLocation, Spanned};
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression};
-use crate::langtype::ElementType;
+use crate::langtype::{ElementType, Type};
 use crate::layout::{LayoutItem, Orientation};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Document, Element, ElementRc, PropertyAnimation, find_parent_element};
@@ -512,6 +512,42 @@ fn analyze_binding(
     depends_on_external
 }
 
+/// Whether the type is the `LayoutInfo` a layout solve reads, directly or from a call.
+fn is_layout_info(ty: &Type) -> bool {
+    match ty {
+        Type::Struct(_) => *ty == Type::Struct(crate::typeregister::layout_info_type()),
+        Type::Function(f) => is_layout_info(&f.return_type),
+        _ => false,
+    }
+}
+
+/// The ancestor of `elem` that `parent` holds as a child, if `parent` contains `elem` at all.
+fn child_holding(elem: &ElementRc, parent: &ElementRc) -> Option<ElementRc> {
+    let mut child = elem.clone();
+    loop {
+        let above = find_parent_element(&child)?;
+        if Rc::ptr_eq(&above, parent) {
+            return Some(child);
+        }
+        child = above;
+    }
+}
+
+/// The name of `elem`, if setting its `x` or `y` takes it out of its parent's size.
+/// `default_geometry` drops a child from a plain parent's layout info once either is set.
+/// A layout places its cells itself and refuses the binding, so a cell of one never qualifies.
+/// An element the compiler ships is one the user can't edit, so it doesn't qualify either.
+fn escapes_parent_size(elem: &ElementRc) -> Option<SmolStr> {
+    if elem.borrow().child_of_layout {
+        return None;
+    }
+    let file = elem.borrow().to_source_location().source_file?;
+    if is_builtin(file.path()) {
+        return None;
+    }
+    element_name(&elem.borrow())
+}
+
 /// Where a diagnostic would point, as a value two of them can be compared by.
 fn place(span: &SourceLocation) -> (Option<PathBuf>, usize, usize) {
     (span.source_file.as_ref().map(|f| f.path().to_path_buf()), span.span.offset, span.span.length)
@@ -603,6 +639,48 @@ fn report_binding_loop(
     let mut message = format!(
         "The binding for the property '{name}' is part of a binding loop ({loop_description})"
     );
+    // The properties a layout solve runs on. A cell's constraints reach it as a `LayoutInfo`,
+    // plain or behind a call; the sizes it decided leave as a layout cache.
+    let solves_layout =
+        |it: &&PropertyPath| it.prop.ty() == Type::LayoutCache || is_layout_info(&it.prop.ty());
+    let through_layout = cycle.iter().any(solves_layout);
+    // A child's measurement enters the cycle where a hop reaches its parent's layout info.
+    // Setting an 'x' or a 'y' on that child cuts the hop, and naming any other element of the
+    // cycle would be advice that changes nothing. A layout cache is no such hop: a cell stays
+    // a cell whatever its 'x' says.
+    // Cutting the hop opens the cycle we report. Other cycles can run through the same
+    // elements, so the advice is a way out of this one, not a promise that none is left.
+    // `cycle` closes on itself, so the hop out of its last property leads back to its first.
+    let escapable = cycle
+        .iter()
+        .zip(cycle.iter().cycle().skip(1))
+        .take(cycle.len())
+        .filter(|(_, to)| is_layout_info(&to.prop.ty()))
+        .find_map(|(from, to)| {
+            let parent = to.prop.element();
+            let elem = child_holding(&from.prop.element(), &parent)?;
+            Some((escapes_parent_size(&elem)?, elem))
+        });
+    if through_layout {
+        let mut advice = Vec::new();
+        // Advising a change to the blamed binding only helps if the user wrote it.
+        if reportable[primary].2 == 0 {
+            advice.push(format!(
+                "compute '{name}' without depending on a size or a position the layout produces"
+            ));
+        }
+        if let Some((elem_name, ..)) = &escapable {
+            advice.push(format!(
+                "set an 'x' or a 'y' on '{elem_name}', so its parent stops sizing itself from it"
+            ));
+        }
+        if !advice.is_empty() {
+            let mut sentence = advice.join(", or ");
+            sentence[..1].make_ascii_uppercase();
+            message.push('\n');
+            message.push_str(&sentence);
+        }
+    }
     let span = &reportable[primary].1;
     if !is_error {
         message.push_str("\nThis was allowed in previous version of Slint, but is deprecated and may cause panic at runtime");
@@ -616,6 +694,31 @@ fn report_binding_loop(
     let reported_at = span.source_file.as_ref().map(|file| {
         (file.path().to_path_buf(), file.line_column(span.span.offset, ByteFormat::Utf8).0)
     });
+    let at = |note_span: &SourceLocation| match &reported_at {
+        Some((path, line))
+            if note_span.source_file.as_ref().is_some_and(|f| f.path() == path.as_path()) =>
+        {
+            format!(" at line {line}")
+        }
+        Some((path, line)) => format!(" at {}:{line}", path.display()),
+        None => String::new(),
+    };
+    // The element the advice names may be one the source never named, in another component:
+    // point at it, or the reader has no way to find it.
+    if let Some((elem_name, elem)) = &escapable {
+        let elem_span = elem.borrow().to_source_location();
+        if place(&elem_span) != place(span) {
+            diag.push_note(
+                format!(
+                    "setting an 'x' or a 'y' here takes '{elem_name}' out of its parent's \
+                     size, one way out of the binding loop reported for '{name}'{}",
+                    at(&elem_span)
+                ),
+                &elem_span,
+            );
+        }
+    }
+
     // A component instantiated twice puts two elements of the cycle at the one place its source
     // is written, so the same note can come up more than once. The diagnostic itself already
     // speaks for its own place.
@@ -627,19 +730,11 @@ fn report_binding_loop(
         .map(|(_, x)| x)
     {
         if noted.insert(place(span)) {
-            let at = match &reported_at {
-                Some((path, line))
-                    if span.source_file.as_ref().is_some_and(|f| f.path() == path.as_path()) =>
-                {
-                    format!(" at line {line}")
-                }
-                Some((path, line)) => format!(" at {}:{line}", path.display()),
-                None => String::new(),
-            };
             diag.push_note(
                 format!(
-                    "'{}' is part of the binding loop reported for '{name}'{at}",
-                    it.prop.declared_name()
+                    "'{}' is part of the binding loop reported for '{name}'{}",
+                    it.prop.declared_name(),
+                    at(span)
                 ),
                 span,
             );

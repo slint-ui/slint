@@ -5,11 +5,12 @@ export component TestCase inherits Window {
 
 
     lay1 := GridLayout {
+//          >         <note{setting an 'x' or a 'y' here takes 'lay1' out of its parent's size, one way out of the binding loop reported for 'col' at line 12}
 
         Text {
             row: 1;
             col: self.x > 10px ? 3 : 4;
-//               >                    <warning{The binding for the property 'col' is part of a binding loop (root.layoutinfo-h -> lay1.width -> lay1.layout-cache-h -> Text.x -> Text.col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h)↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//               >                    <warning{The binding for the property 'col' is part of a binding loop (root.layoutinfo-h -> lay1.width -> lay1.layout-cache-h -> Text.x -> Text.col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h)↵Compute 'col' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'lay1', so its parent stops sizing itself from it↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
         }
     }
 }
