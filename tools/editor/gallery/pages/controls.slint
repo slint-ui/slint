@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ScrollView } from "std-widgets.slint";
 import { Gallery } from "../state.slint";
+import { ScrollView } from "std-widgets.slint";
 import { Colors, Style, Typography, Metrics } from "../../ui/style.slint";
 import { BodyLabel, MutedLabel, SectionTitle, PrimerTextInput, SidebarToggleButton, HorizontalResizeDivider, ComponentPaletteRow } from "../../ui/components/common.slint";
 import { ElementKind } from "../../ui/api.slint";
@@ -10,30 +10,42 @@ import { InspectorValueField } from "../../ui/components/inspector/value-field.s
 import { InspectorEditableField } from "../../ui/components/inspector/editable-field.slint";
 import { InspectorCodeField } from "../../ui/components/inspector/code-field.slint";
 import { InspectorComboBox } from "../../ui/components/inspector/combo-box.slint";
-import { InspectorEffectSlider } from "../../ui/components/inspector/effect-slider.slint";
+import { InspectorSlider } from "../../ui/components/inspector/slider.slint";
 import { InspectorEffectDial } from "../../ui/components/inspector/effect-dial.slint";
 import { InspectorRotationKnob } from "../../ui/components/inspector/rotation-knob.slint";
 import { InspectorCornerEditor } from "../../ui/components/inspector/corner-editor.slint";
 import { InspectorIconButton } from "../../ui/components/inspector/icon-button.slint";
 import { InspectorSegment } from "../../ui/components/inspector/segment.slint";
-import { InspectorInfoIcon } from "../../ui/components/inspector/info-icon.slint";
-import { InspectorPropertyRow } from "../../ui/components/inspector/property-row.slint";
 
 export component GalleryControls inherits Rectangle {
     in property <bool> inspector;
     private property <int> segment;
+    private property <string> input-text;
+    in property <int> reset-generation: Gallery.reset-generation;
+    changed reset-generation => { root.reset(); }
+    private property <string> text: "Hello Slint";
+    private property <string> expression: "parent.width / 2";
     private property <string> image-fit: "contain";
-    function accept(value: string) -> bool {
-        if Gallery.disabled || Gallery.reject-edits { Gallery.record("Rejected value: " + value); return false; }
-        Gallery.text = value;
-        Gallery.record("Accepted: " + value);
-        return true;
-    }
-    function number(value: float) -> bool {
-        if Gallery.disabled || Gallery.reject-edits { Gallery.record("Rejected numeric edit"); return false; }
-        Gallery.value = value;
-        Gallery.record("Value: " + value);
-        return true;
+    private property <float> number: 24;
+    private property <float> slider: 24;
+    private property <float> rotation: 24;
+    private property <angle> shadow-angle: 90deg;
+    private property <[float]> corners: [12, 12, 12, 12];
+    private property <length> divider: 24px;
+    private property <string> action: "Ready";
+    function reset() {
+        root.segment = 0;
+        root.text = "Hello Slint";
+        root.expression = "parent.width / 2";
+        root.image-fit = "contain";
+        root.number = 24;
+        root.slider = 24;
+        root.rotation = 24;
+        root.shadow-angle = 90deg;
+        root.corners = [12, 12, 12, 12];
+        root.divider = 24px;
+        root.action = "Ready";
+        root.input-text = "";
     }
     ScrollView {
         horizontal-scrollbar-policy: always-off;
@@ -43,44 +55,47 @@ export component GalleryControls inherits Rectangle {
             SectionTitle { label: root.inspector ? "INSPECTOR CONTROLS" : "EDITOR CONTROLS"; }
             if !root.inspector: VerticalLayout {
                 spacing: 16px;
-                BodyLabel { text: "Text input"; }
-                PrimerTextInput { text <=> Gallery.text; placeholder: "Search elements…"; accessible-name: "Sample text input"; }
+                PrimerTextInput { text <=> root.input-text; placeholder: "Search elements…"; accessible-name: "Sample text input"; }
                 HorizontalLayout {
                     alignment: start; spacing: 12px;
-                    SidebarToggleButton { accessible-role: AccessibleRole.button; accessible-label: "Toggle sidebar"; clicked => { Gallery.record("Toggle sidebar"); } }
-                    InspectorIconButton { kind: "plus"; label: "Add"; clicked => { Gallery.record("Add"); } }
-                    InspectorIconButton { kind: "minus"; label: "Remove"; clicked => { Gallery.record("Remove"); } }
-                    for i in 3: InspectorSegment { kind: "text"; label: ["One", "Two", "Three"][i]; selected: root.segment == i; clicked => { root.segment = i; Gallery.record("Segment " + (i + 1)); } }
+                    SidebarToggleButton { accessible-role: AccessibleRole.button; accessible-label: "Toggle sidebar"; clicked => { root.action = "Toggle sidebar"; } }
+                    InspectorIconButton { kind: "eye"; label: "Visibility"; clicked => { root.action = "Clicked visibility"; } }
+                    InspectorIconButton { kind: "drop"; label: "Fill"; clicked => { root.action = "Clicked fill"; } }
+                    for i in 3: InspectorSegment { width: 60px; kind: "text"; label: ["One", "Two", "Three"][i]; selected: root.segment == i; clicked => { root.segment = i; } }
                 }
-                ComponentPaletteRow { label: "Rectangle"; kind: ElementKind.rectangle; enabled: !Gallery.disabled; drag-enabled: false; }
+                ComponentPaletteRow { label: "Rectangle"; kind: ElementKind.rectangle; drag-enabled: false; }
                 HorizontalResizeDivider {
-                    resize-label: "Sample divider"; value: Gallery.value * 1px; value-maximum: 100px;
-                    value-set(v) => { root.number(v / 1px); }
-                    dragged(delta) => { root.number((Gallery.value + delta / 1px).clamp(0, 100)); }
-                    reset-requested => { root.number(24); }
+                    resize-label: "Sample divider"; value: root.divider; value-maximum: 100px;
+                    value-set(v) => { root.divider = v; }
+                    dragged(delta) => { root.divider = (root.divider + delta).clamp(0px, 100px); }
+                    reset-requested => { root.divider = 24px; }
                 }
-                MutedLabel { text: "Move the pointer and use Tab to inspect hover and focus states."; wrap: word-wrap; }
+                MutedLabel { text: root.action; }
             }
-            if root.inspector: VerticalLayout {
-                width: Style.inspector-layout.content-width;
-                spacing: 20px;
-                InspectorPropertyRow {
-                    InspectorValueField { accessible-name: "Sample numeric field"; prefix: "X"; value: Gallery.value; enabled: !Gallery.disabled; accepted(v) => { if !v.is-float() { return false; } return root.number(v.to-float()); } }
-                    InspectorEditableField { accessible-name: "Sample editable field"; value: Gallery.text; accepted(v) => { return root.accept(v); } }
+            if root.inspector: HorizontalLayout {
+                vertical-stretch: 0;
+                VerticalLayout {
+                    width: Style.inspector-layout.content-width; spacing: 20px; alignment: start;
+                    HorizontalLayout { spacing: 8px;
+                        InspectorValueField { accessible-name: "Sample numeric field"; prefix: "X"; value: root.number; accepted(v) => { if !v.is-float() { return false; } root.number = v.to-float(); return true; } }
+                        InspectorEditableField { accessible-name: "Sample editable field"; value: root.text; accepted(v) => { root.text = v; return true; } }
+                    }
+                    InspectorCodeField { accessible-name: "Sample expression"; value: root.expression; accepted(v) => { root.expression = v; return true; } }
+                    InspectorComboBox { accessible-name: "Sample image fit"; value: root.image-fit; options: [{value: "contain", label: "Contain"}, {value: "cover", label: "Cover"}, {value: "fill", label: "Fill"}]; accepted(v) => { root.image-fit = v; return true; } }
+                    BodyLabel { text: "Slider · " + root.slider; }
+                    InspectorSlider { accessible-name: "Sample slider"; value: root.slider; maximum: 100; preview(v) => { return true; } accepted(v) => { root.slider = v; return true; } }
+                    HorizontalLayout {
+                        alignment: start; spacing: 24px;
+                        InspectorRotationKnob { value: root.rotation; preview(v) => { return true; } accepted(v) => { root.rotation = v; return true; } }
+                        InspectorEffectDial { accessible-name: "Sample shadow angle"; value: root.shadow-angle; accepted(v) => { root.shadow-angle = v; return true; } }
+                    }
+                    InspectorCornerEditor {
+                        values: root.corners; maximum: 100; selection-key: root.reset-generation;
+                        preview(v) => { return true; }
+                        accepted(i,v) => { if i < 0 { root.corners = [v, v, v, v]; } else { root.corners[i] = v; } return true; }
+                    }
                 }
-                InspectorCodeField { accessible-name: "Sample expression"; value: Gallery.text; accepted(v) => { return root.accept(v); } }
-                InspectorComboBox { accessible-name: "Sample image fit"; value: root.image-fit; options: [{value: "contain", label: "Contain"}, {value: "cover", label: "Cover"}, {value: "fill", label: "Fill"}]; accepted(v) => { if Gallery.disabled || Gallery.reject-edits { return false; } root.image-fit = v; Gallery.record("Image fit: " + v); return true; } }
-                InspectorEffectSlider { accessible-name: "Sample effect"; label: "Blur"; value: Gallery.value; accepted(v) => { return root.number(v); } }
-                HorizontalLayout {
-                    alignment: start; spacing: 24px;
-                    InspectorRotationKnob { value: Gallery.value; preview(v) => { return root.number(v); } accepted(v) => { return root.number(v); } canceled => { Gallery.value = 24; } }
-                    InspectorEffectDial { accessible-name: "Sample shadow angle"; value: Gallery.value * 1deg; accepted(v) => { return root.number(v / 1deg); } }
-                }
-                InspectorCornerEditor {
-                    width: Style.inspector-layout.content-width;
-                    values: [Gallery.value, Gallery.value, Gallery.value, Gallery.value]; maximum: 100;
-                    preview(v) => { return root.number(v); } accepted(i,v) => { return root.number(v); } canceled => { Gallery.value = 24; }
-                }
+                Rectangle { horizontal-stretch: 1; }
             }
             Rectangle { vertical-stretch: 1; }
         }

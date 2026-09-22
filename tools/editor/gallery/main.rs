@@ -3,7 +3,6 @@
 
 mod catalog;
 mod controller;
-mod model;
 
 use clap::Parser;
 use slint::ComponentHandle;
@@ -12,7 +11,7 @@ use slint_editor::ui::GalleryWindow;
 #[derive(Parser)]
 #[command(about = "Interactive gallery of Visual Editor components")]
 struct Args {
-    #[arg(long, default_value = "composition")]
+    #[arg(long, default_value = "palette")]
     page: String,
     #[arg(long, default_value = "Default")]
     scenario: String,
@@ -62,8 +61,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "dark" => 2,
         _ => 0,
     });
-    let state = controller::install(&window);
-    controller::navigate(&window, &state, &args.page, &args.scenario);
+    controller::install(&window);
+    controller::navigate(&window, &args.page, &args.scenario);
     window.run()?;
     Ok(())
 }
