@@ -22,8 +22,8 @@ The following conversions are possible:
     but they can be divided by themselves to result in a number. Similarly, a number can be multiplied by one of
     these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
 -   The literal `0` can be converted to any of these types that have associated unit.
--   Struct types convert to another struct type when the properties they have in common convert.
-    A missing property takes its default value, and an extra property is discarded with a warning.
+-   Struct types convert to another struct type when the fields they have in common convert.
+    A missing field takes its default value, and an extra field is discarded with a warning.
     Having both at once is an error, because it is likely a typo.
 -   Arrays generally don't convert between each other. Array literals can be converted if the element types are convertible.
 
