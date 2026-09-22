@@ -444,6 +444,7 @@ fn parse_case_inner(p: &mut impl Parser, after: &str) {
 /// ```test,Binding
 /// foo: bar;
 /// foo: {}
+/// foo: {};
 /// ```
 fn parse_property_binding(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Binding);
@@ -458,10 +459,17 @@ fn parse_property_binding(p: &mut impl Parser) {
 /// expression ;
 /// {expression }
 /// {object: 42};
+/// {};
 /// ```
 fn parse_binding_expression(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::BindingExpression);
-    if p.nth(0).kind() == SyntaxKind::LBrace && p.nth(2).kind() != SyntaxKind::Colon {
+    // Tell a code block from an object literal, which is '{};' or '{ identifier:'
+    if p.nth(0).kind() == SyntaxKind::LBrace
+        && !matches!(
+            (p.nth(1).kind(), p.nth(2).kind()),
+            (_, SyntaxKind::Colon) | (SyntaxKind::RBrace, SyntaxKind::Semicolon)
+        )
+    {
         parse_code_block(&mut *p);
         p.test(SyntaxKind::Semicolon);
         true
