@@ -9,6 +9,8 @@ import { EditorCursors } from "common.slint";
 export component MoveResizeFrame inherits Rectangle {
     in property <SelectionFrameStyle> style: Style.selection-frame;
     in property <bool> enabled: true;
+    in property <float> geometry-scale: 1;
+    out property <bool> pointer-active: move-touch.pressed || root.resize-pressed || root.rotating;
     in property <bool> show-outline: true;
     callback control-hovered();
     in property <string> accessible-prefix: "Selection";
@@ -211,7 +213,7 @@ export component MoveResizeFrame inherits Rectangle {
 
     function emit-resize-target() {
         if root.proportional-resizing() {
-            let side = max(max(root.free-resize-size.width, root.free-resize-size.height), 80px);
+            let side = max(max(root.free-resize-size.width, root.free-resize-size.height), 80px * root.geometry-scale);
             root.resized-to(
                 root.resize-corner,
                 root.position-for-fixed-corner(
@@ -291,8 +293,8 @@ export component MoveResizeFrame inherits Rectangle {
                 }
                 if root.move-dragging {
                     root.moved-to({
-                        x: ((self.move-start-position.x + delta.x) / 1px).round() * 1px,
-                        y: ((self.move-start-position.y + delta.y) / 1px).round() * 1px,
+                        x: ((self.move-start-position.x + delta.x) / (1px * root.geometry-scale)).round() * 1px * root.geometry-scale,
+                        y: ((self.move-start-position.y + delta.y) / (1px * root.geometry-scale)).round() * 1px * root.geometry-scale,
                     });
                 }
             }
