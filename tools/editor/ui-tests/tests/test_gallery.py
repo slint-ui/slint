@@ -413,29 +413,3 @@ def test_gallery_properties_resize_preview(gallery_binary, editor_environment):
                 True if preview.size.width < 680 and preview.size.height > 400 else None
             )
         )
-
-
-def test_gallery_navigation_search(gallery_binary, editor_environment):
-    with gallery(gallery_binary, editor_environment, "controls") as window:
-        search = window_element_with_label(
-            window, "Find components", slint_testing.AccessibleRole.TextInput
-        )
-        search.accessible_value = "  InSpEcToR  "
-        button = window_element_with_label(
-            window, "Inspector controls", slint_testing.AccessibleRole.Button
-        )
-        assert not elements_with_label(
-            window.root_element, "Basic controls", slint_testing.AccessibleRole.Button
-        )
-        button.invoke_accessible_default_action()
-        window_element_with_label(
-            window, "Sample slider", slint_testing.AccessibleRole.Slider
-        )
-        window_element_with_label(
-            window, "Slider value", slint_testing.AccessibleRole.TextInput
-        )
-        search.accessible_value = ""
-        for title, _ in PAGES.values():
-            window_element_with_label(
-                window, title, slint_testing.AccessibleRole.Button
-            )

@@ -40,9 +40,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     brushes::setup(&api);
     element_library::setup(&api);
     recent_fills::setup(&api, <Api as slint::Global<'_, GalleryWindow>>::as_weak(&api));
-    window.global::<Gallery>().on_matches(|text, query| {
-        text.to_lowercase().contains(query.trim().to_lowercase().as_str())
-    });
     api.on_new_component_data_for_kind(|kind| {
         DataTransfer::from(SharedString::from(format!("{kind:?}")))
     });

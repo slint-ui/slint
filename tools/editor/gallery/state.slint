@@ -34,10 +34,6 @@ export global Gallery {
     in-out property <float> slider: 24;
     in-out property <float> rotation: 24;
     in-out property <int> segment;
-    pure callback matches(string, string) -> bool;
-    matches(text, query) => {
-        return query == "" || text.to-lowercase().replace-all(query.to-lowercase(), "") != text.to-lowercase();
-    }
 
     pure function row(label: string, kind: ElementKind, type: string, offset: int, expanded: bool) -> OutlineTreeNode {
         return {

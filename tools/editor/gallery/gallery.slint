@@ -6,7 +6,7 @@ import { Gallery } from "state.slint";
 import { GalleryProperties } from "properties.slint";
 import { Colors, Typography } from "../ui/style.slint";
 import { Api, EditorSurfaceMode } from "../ui/api.slint";
-import { AppState, EditorWindow, PrimerTextInput, MutedLabel } from "../ui/components/common.slint";
+import { AppState, EditorWindow, MutedLabel } from "../ui/components/common.slint";
 import { ElementPalette } from "../ui/components/element-palette.slint";
 import { OutlinePane } from "../ui/components/outline-pane.slint";
 import { InspectorFillPicker } from "../ui/components/inspector/fill-picker.slint";
@@ -42,9 +42,7 @@ export component GalleryWindow inherits Window {
                 VerticalLayout {
                     padding: 16px; spacing: 12px;
                     Text { text: "Component Gallery"; color: Colors.foreground; font-size: Typography.heading.size; font-weight: Typography.heading.weight; }
-                    search := PrimerTextInput { placeholder: "Find components…"; accessible-name: "Find components"; }
                     for page[index] in Gallery.pages: Button {
-                        visible: Gallery.matches(page.title, search.text);
                         text: page.title; checked: Gallery.page == page.id;
                         clicked => { Gallery.navigate(index, 0); }
                     }
