@@ -198,9 +198,8 @@ impl<T> ItemCache<T> {
     }
 }
 
-// Counts how many items `render_item_children` actually dispatches a draw call for.
-// Used by occlusion-culling integration tests.
-// Also gated on `occlusion-culling` since the counter is unused otherwise.
+// Counts items `render_item_children` dispatches a draw call for, for occlusion-culling
+// integration tests. Also gated on `occlusion-culling`, since the counter is unused otherwise.
 #[cfg(all(feature = "testing", feature = "occlusion-culling"))]
 crate::thread_local!(
     static RENDERED_ITEM_COUNT: core::cell::Cell<usize> = const { core::cell::Cell::new(0) }
@@ -213,7 +212,8 @@ pub fn reset_rendered_item_count() {
     RENDERED_ITEM_COUNT.with(|count| count.set(0));
 }
 
-/// Returns the number of items whose `render()` was invoked by `render_item_children` since the last call to `reset_rendered_item_count`.
+/// Returns the number of items rendered by `render_item_children` since the last call to
+/// `reset_rendered_item_count`.
 #[cfg(all(feature = "testing", feature = "occlusion-culling"))]
 pub fn rendered_item_count() -> usize {
     RENDERED_ITEM_COUNT.with(|count| count.get())

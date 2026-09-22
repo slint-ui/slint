@@ -17,6 +17,8 @@
 //! no_std/MCU-target -- doesn't need `slint-interpreter` (and everything it pulls in: the
 //! compiler, the interpreter, the winit backend) as a dev-dependency just to run this.
 
+// cspell:ignore occluders
+
 #[path = "../../scenarios.rs"]
 mod scenarios;
 
