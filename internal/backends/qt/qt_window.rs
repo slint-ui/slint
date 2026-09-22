@@ -1645,6 +1645,7 @@ fn shared_image_buffer_to_pixmap(buffer: &SharedImageBuffer) -> Option<qttypes::
         SharedImageBuffer::RGB565(img) => {
             (qttypes::ImageFormat::RGB16, img.width() * 2, img.as_bytes())
         }
+        #[cfg(feature = "image-pixel-format-gray8")]
         SharedImageBuffer::Gray8(img) => {
             (qttypes::ImageFormat::Grayscale8, img.width(), img.as_bytes())
         }

@@ -68,22 +68,6 @@ impl SlintImageData {
                         (self.width() * self.height()) as usize,
                     ));
                 }
-                SharedImageBuffer::RGB565(buffer) => {
-                    let rgba = buffer
-                        .as_slice()
-                        .iter()
-                        .flat_map(|p| [p.red(), p.green(), p.blue(), 255])
-                        .collect::<Vec<_>>();
-                    return Buffer::from(rgba);
-                }
-                SharedImageBuffer::Gray8(buffer) => {
-                    let rgba = buffer
-                        .as_bytes()
-                        .iter()
-                        .flat_map(|g| [*g, *g, *g, 255])
-                        .collect::<Vec<_>>();
-                    return Buffer::from(rgba);
-                }
             }
         }
 

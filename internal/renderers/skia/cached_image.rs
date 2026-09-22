@@ -64,6 +64,7 @@ pub(crate) fn as_skia_image(
                 SharedImageBuffer::RGB8(_) | SharedImageBuffer::RGBA8(_) => unreachable!(),
                 #[cfg(feature = "image-pixel-format-rgb565")]
                 SharedImageBuffer::RGB565(_) => unreachable!(),
+                #[cfg(feature = "image-pixel-format-gray8")]
                 SharedImageBuffer::Gray8(_) => unreachable!(),
             };
 
@@ -156,6 +157,7 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
             skia_safe::ColorType::RGB565,
             skia_safe::AlphaType::Opaque,
         ),
+        #[cfg(feature = "image-pixel-format-gray8")]
         SharedImageBuffer::Gray8(pixels) => (
             skia_safe::Data::new_copy(pixels.as_bytes()),
             pixels.width() as usize,

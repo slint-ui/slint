@@ -372,7 +372,6 @@ fn default_config() -> cbindgen::Config {
         .collect(),
         ..Default::default()
     };
-    // One define per line, past the width rustfmt would wrap the longer ones at.
     #[rustfmt::skip]
     let defines: Vec<(String, String)> = vec![
         ("target_pointer_width = 64".into(), "SLINT_TARGET_64".into()),
@@ -381,6 +380,7 @@ fn default_config() -> cbindgen::Config {
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
         ("feature = image-pixel-format-rgb565".into(), "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565".into()),
+        ("feature = image-pixel-format-gray8".into(), "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8".into()),
         // Disable Rust WGPU specific API feature
         ("feature = unstable-wgpu-29".into(), "SLINT_DISABLED_CODE".into()),
         ("feature = unstable-wgpu-30".into(), "SLINT_DISABLED_CODE".into()),
@@ -506,6 +506,7 @@ fn gen_corelib(
         "StandardListViewItem",
         "Rgb8Pixel",
         "Rgba8Pixel",
+        "Gray8Pixel",
     ];
 
     config.export.exclude = [
@@ -891,6 +892,11 @@ fn gen_corelib(
     public_config.export.body.insert(
         "Rgba8Pixel".to_owned(),
         "/// \\private\nfriend bool operator==(const Rgba8Pixel&, const Rgba8Pixel&) = default;"
+            .into(),
+    );
+    public_config.export.body.insert(
+        "Gray8Pixel".to_owned(),
+        "/// \\private\nfriend bool operator==(const Gray8Pixel&, const Gray8Pixel&) = default;"
             .into(),
     );
 
@@ -1348,6 +1354,7 @@ declare_features! {
     renderer_software
     gettext
     image_pixel_format_rgb565
+    image_pixel_format_gray8
     accessibility
     system_testing
     mcp

@@ -124,10 +124,11 @@ impl DrawTextureArgs {
                         TextureData::new(
                             &b.as_bytes()[start * 2..end * 2],
                             TexturePixelFormat::Rgb565,
-                            stride,
+                            stride * 2,
                             size,
                         )
                     }
+                    #[cfg(feature = "image-pixel-format-gray8")]
                     SharedBufferData::SharedImage(SharedImageBuffer::Gray8(b)) => TextureData::new(
                         &b.as_bytes()[start..end],
                         TexturePixelFormat::Gray8,

@@ -6,6 +6,8 @@ use std::sync::Arc;
 
 use anyrender::PaintScene;
 use i_slint_core::graphics::ResolvedBrush;
+#[cfg(any(feature = "image-pixel-format-rgb565", feature = "image-pixel-format-gray8"))]
+use i_slint_core::graphics::Rgba8Pixel;
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::{Image, ImageCacheKey, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::{
@@ -1221,6 +1223,7 @@ fn load_image(
                         SharedImageBuffer::RGB8(_) | SharedImageBuffer::RGBA8(_) => unreachable!(),
                         #[cfg(feature = "image-pixel-format-rgb565")]
                         SharedImageBuffer::RGB565(_) => unreachable!(),
+                        #[cfg(feature = "image-pixel-format-gray8")]
                         SharedImageBuffer::Gray8(_) => unreachable!(),
                     };
 
@@ -1306,6 +1309,21 @@ fn crop_image_data(
     }
 }
 
+/// peniko has no single channel or 16 bit image format, so those expand to RGBA8.
+#[cfg(any(feature = "image-pixel-format-rgb565", feature = "image-pixel-format-gray8"))]
+fn to_rgba8_bytes<Pixel: Copy>(buffer: &SharedPixelBuffer<Pixel>) -> Vec<u8>
+where
+    Rgba8Pixel: From<Pixel>,
+{
+    let pixels = buffer.as_slice();
+    let mut bytes = Vec::with_capacity(pixels.len() * 4);
+    for p in pixels {
+        let p = Rgba8Pixel::from(*p);
+        bytes.extend_from_slice(&[p.r, p.g, p.b, p.a]);
+    }
+    bytes
+}
+
 fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::ImageData> {
     let (data, format, alpha_type) = match buffer {
         SharedImageBuffer::RGB8(shared_pixel_buffer) => {
@@ -1327,22 +1345,11 @@ fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::Im
             });
         }
         #[cfg(feature = "image-pixel-format-rgb565")]
-        SharedImageBuffer::RGB565(shared_pixel_buffer) => {
-            let rgba: Vec<u8> = shared_pixel_buffer
-                .as_slice()
-                .iter()
-                .flat_map(|p| [p.red(), p.green(), p.blue(), 255])
-                .collect();
-            let width = shared_pixel_buffer.width();
-            let height = shared_pixel_buffer.height();
-            return Some(peniko::ImageData {
-                data: peniko::Blob::new(Arc::new(rgba)),
-                format: peniko::ImageFormat::Rgba8,
-                alpha_type: peniko::ImageAlphaType::Alpha,
-                width,
-                height,
-            });
-        }
+        SharedImageBuffer::RGB565(shared_pixel_buffer) => (
+            Arc::new(to_rgba8_bytes(shared_pixel_buffer)) as Arc<dyn AsRef<[u8]> + Send + Sync>,
+            peniko::ImageFormat::Rgba8,
+            peniko::ImageAlphaType::Alpha,
+        ),
         SharedImageBuffer::RGBA8(shared_pixel_buffer) => (
             Arc::new(PixelBufferWrap(shared_pixel_buffer.clone()))
                 as Arc<dyn AsRef<[u8]> + Send + Sync>,
@@ -1355,19 +1362,12 @@ fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::Im
             peniko::ImageFormat::Rgba8,
             peniko::ImageAlphaType::AlphaPremultiplied,
         ),
-        SharedImageBuffer::Gray8(shared_pixel_buffer) => {
-            let rgba: Vec<u8> =
-                shared_pixel_buffer.as_bytes().iter().flat_map(|g| [*g, *g, *g, 255]).collect();
-            let width = shared_pixel_buffer.width();
-            let height = shared_pixel_buffer.height();
-            return Some(peniko::ImageData {
-                data: peniko::Blob::new(Arc::new(rgba)),
-                format: peniko::ImageFormat::Rgba8,
-                alpha_type: peniko::ImageAlphaType::Alpha,
-                width,
-                height,
-            });
-        }
+        #[cfg(feature = "image-pixel-format-gray8")]
+        SharedImageBuffer::Gray8(shared_pixel_buffer) => (
+            Arc::new(to_rgba8_bytes(shared_pixel_buffer)) as Arc<dyn AsRef<[u8]> + Send + Sync>,
+            peniko::ImageFormat::Rgba8,
+            peniko::ImageAlphaType::Alpha,
+        ),
     };
 
     Some(peniko::ImageData {
@@ -1380,10 +1380,7 @@ fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::Im
 }
 
 struct PixelBufferWrap<Pixel>(SharedPixelBuffer<Pixel>);
-impl<Pixel: Clone + rgb::Pod> AsRef<[u8]> for PixelBufferWrap<Pixel>
-where
-    [Pixel]: rgb::ComponentBytes<u8>,
-{
+impl<Pixel: Clone + rgb::Pod> AsRef<[u8]> for PixelBufferWrap<Pixel> {
     fn as_ref(&self) -> &[u8] {
         self.0.as_bytes()
     }

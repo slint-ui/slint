@@ -37,6 +37,14 @@ image-pixel-format-rgb565 = [
   "i-slint-renderer-femtovg?/image-pixel-format-rgb565",
   "i-slint-renderer-skia?/image-pixel-format-rgb565",
 ]
+image-pixel-format-gray8 = [
+  "i-slint-core/image-pixel-format-gray8",
+  "i-slint-backend-qt?/image-pixel-format-gray8",
+  "i-slint-backend-winit?/image-pixel-format-gray8",
+  "i-slint-backend-linuxkms?/image-pixel-format-gray8",
+  "i-slint-renderer-femtovg?/image-pixel-format-gray8",
+  "i-slint-renderer-skia?/image-pixel-format-gray8",
+]
 
 renderer-femtovg = [
   "dep:i-slint-renderer-femtovg",

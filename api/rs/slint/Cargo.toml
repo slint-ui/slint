@@ -112,6 +112,14 @@ image-pixel-format-rgb565 = [
   "i-slint-backend-selector/image-pixel-format-rgb565",
 ]
 
+## Enable storing an image's pixels as a single 8 bit grayscale channel
+## ([`Image::from_gray8`]), instead of expanding them to RGB8.
+image-pixel-format-gray8 = [
+  "i-slint-core/image-pixel-format-gray8",
+  "i-slint-renderer-software?/image-pixel-format-gray8",
+  "i-slint-backend-selector/image-pixel-format-gray8",
+]
+
 ## Enable the live preview feature
 ##
 ## Enable this feature to reload the .slint files at runtime and reload it whenever the files are modified on disk.
@@ -364,6 +372,7 @@ features = [
   "gettext",
   "renderer-software",
   "image-pixel-format-rgb565",
+  "image-pixel-format-gray8",
   "renderer-femtovg",
   "raw-window-handle-06",
   "unstable-wgpu-29",

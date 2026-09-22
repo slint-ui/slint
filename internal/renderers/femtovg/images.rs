@@ -6,6 +6,8 @@ use std::rc::Rc;
 
 #[cfg(not(target_arch = "wasm32"))]
 use i_slint_core::graphics::BorrowedOpenGLTexture;
+#[cfg(feature = "image-pixel-format-rgb565")]
+use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::items::ImageTiling;
@@ -214,9 +216,7 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                 #[cfg(feature = "image-pixel-format-rgb565")]
                 let buffer = match buffer {
                     SharedImageBuffer::RGB565(b) => {
-                        let mut rgb = i_slint_core::graphics::SharedPixelBuffer::<
-                            i_slint_core::graphics::Rgb8Pixel,
-                        >::new(b.width(), b.height());
+                        let mut rgb = SharedPixelBuffer::<Rgb8Pixel>::new(b.width(), b.height());
                         for (dst, src) in rgb.make_mut_slice().iter_mut().zip(b.as_slice()) {
                             *dst = (*src).into();
                         }
@@ -342,6 +342,7 @@ fn image_buffer_to_image_source(
         SharedImageBuffer::RGBA8Premultiplied(buffer) => {
             (image_source(buffer).into(), femtovg::ImageFlags::PREMULTIPLIED)
         }
+        #[cfg(feature = "image-pixel-format-gray8")]
         SharedImageBuffer::Gray8(buffer) => {
             (image_source(buffer).into(), femtovg::ImageFlags::empty())
         }

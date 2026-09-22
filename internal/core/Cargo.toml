@@ -59,6 +59,11 @@ svg = ["dep:resvg", "i-slint-common/svg-text"]
 # for the extra rendering code.
 image-pixel-format-rgb565 = []
 
+# Store an image's pixels as a single 8 bit grayscale channel, instead of
+# expanding them to RGB8. Disabled by default so that applications that don't
+# need it don't pay for the extra conversion code.
+image-pixel-format-gray8 = []
+
 box-shadow-cache = []
 
 testing = []
@@ -189,7 +194,7 @@ web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator", "Blob
 
 
 [dev-dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software", "image-pixel-format-rgb565"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software", "image-pixel-format-rgb565", "image-pixel-format-gray8"] }
 i-slint-backend-testing = { path = "../backends/testing", features = ["internal"] }
 rustybuzz = { workspace = true }
 ttf-parser = { workspace = true }

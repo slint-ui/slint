@@ -207,13 +207,15 @@ pub(super) fn draw_texture_line(
             }
             #[cfg(feature = "image-pixel-format-rgb565")]
             TexturePixelFormat::Rgb565 => {
-                for pix in line_buffer {
-                    let pos = pos(2).0;
-                    let value = u16::from_ne_bytes([data[pos], data[pos + 1]]);
-                    if alpha == 0xff {
-                        *pix = TargetPixel::from_rgb565(value);
-                    } else {
-                        let p = i_slint_core::graphics::Rgb565Pixel(value);
+                if alpha == 0xff {
+                    for pix in line_buffer {
+                        let p: &[u8] = &data[pos(2).0..][..2];
+                        *pix = TargetPixel::from_rgb565(u16::from_ne_bytes([p[0], p[1]]));
+                    }
+                } else {
+                    for pix in line_buffer {
+                        let b: &[u8] = &data[pos(2).0..][..2];
+                        let p = Rgb565Pixel(u16::from_ne_bytes([b[0], b[1]]));
                         pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
                             alpha,
                             p.red(),
@@ -299,13 +301,18 @@ pub(super) fn draw_texture_line(
                     pix.blend(c);
                 }
             }
+            #[cfg(feature = "image-pixel-format-gray8")]
             TexturePixelFormat::Gray8 => {
-                for pix in line_buffer {
-                    let pos = pos(1).0;
-                    let v = data[pos];
-                    if alpha == 0xff {
+                if alpha == 0xff {
+                    for pix in line_buffer {
+                        let pos = pos(1).0;
+                        let v = data[pos];
                         *pix = TargetPixel::from_rgb(v, v, v);
-                    } else {
+                    }
+                } else {
+                    for pix in line_buffer {
+                        let pos = pos(1).0;
+                        let v = data[pos];
                         pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
                             alpha, v, v, v,
                         )));
@@ -1039,6 +1046,28 @@ fn rgb565() {
     let pix565 = Rgb565Pixel::from_rgb(0x56, 0x42, 0xe3);
     let pix888: Rgb8Pixel = pix565.into();
     assert_eq!(pix565, pix888.into());
+}
+
+#[test]
+fn rgb565_full_component_expands_to_255() {
+    // The C++ Rgb565Pixel accessors replicate the high bits the same way, so an RGB565 image
+    // has to reach pure white on every renderer, not #f8fcf8.
+    let white = Rgb565Pixel::from_rgb(0xff, 0xff, 0xff);
+    assert_eq!(white.red(), 0xff);
+    assert_eq!(white.green(), 0xff);
+    assert_eq!(white.blue(), 0xff);
+
+    let black = Rgb565Pixel::from_rgb(0, 0, 0);
+    assert_eq!(black.red(), 0);
+    assert_eq!(black.green(), 0);
+    assert_eq!(black.blue(), 0);
+
+    assert_eq!(Rgb8Pixel::from_rgb565(white.0), Rgb8Pixel { r: 0xff, g: 0xff, b: 0xff });
+
+    let white_be = Rgb565BigEndianPixel::from_rgb(0xff, 0xff, 0xff);
+    assert_eq!(white_be.red(), 0xff);
+    assert_eq!(white_be.green(), 0xff);
+    assert_eq!(white_be.blue(), 0xff);
 }
 
 #[test]

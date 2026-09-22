@@ -500,6 +500,7 @@ impl SharedBufferCommand {
                 format: TexturePixelFormat::Rgb565,
                 extra: self.extra,
             },
+            #[cfg(feature = "image-pixel-format-gray8")]
             SharedBufferData::SharedImage(SharedImageBuffer::Gray8(b)) => SceneTexture {
                 data: &b.as_bytes()[start..end],
                 pixel_stride: stride as u16,

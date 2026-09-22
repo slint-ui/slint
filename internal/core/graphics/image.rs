@@ -191,21 +191,24 @@ impl Rgb565Pixel {
 
     /// Return the red component as a u8.
     ///
-    /// The bits are shifted so that the result is between 0 and 255
+    /// The value is scaled so that a full 5-bit component yields 255.
     pub const fn red(self) -> u8 {
-        ((self.0 & Self::R_MASK) >> 8) as u8
+        let r = (self.0 & Self::R_MASK) >> 11;
+        ((r << 3) | (r >> 2)) as u8
     }
     /// Return the green component as a u8.
     ///
-    /// The bits are shifted so that the result is between 0 and 255
+    /// The value is scaled so that a full 6-bit component yields 255.
     pub const fn green(self) -> u8 {
-        ((self.0 & Self::G_MASK) >> 3) as u8
+        let g = (self.0 & Self::G_MASK) >> 5;
+        ((g << 2) | (g >> 4)) as u8
     }
     /// Return the blue component as a u8.
     ///
-    /// The bits are shifted so that the result is between 0 and 255
+    /// The value is scaled so that a full 5-bit component yields 255.
     pub const fn blue(self) -> u8 {
-        ((self.0 & Self::B_MASK) << 3) as u8
+        let b = self.0 & Self::B_MASK;
+        ((b << 3) | (b >> 2)) as u8
     }
 }
 
@@ -218,6 +221,23 @@ impl From<Rgb8Pixel> for Rgb565Pixel {
 impl From<Rgb565Pixel> for Rgb8Pixel {
     fn from(p: Rgb565Pixel) -> Self {
         Rgb8Pixel { r: p.red(), g: p.green(), b: p.blue() }
+    }
+}
+
+impl From<Rgb565Pixel> for Rgba8Pixel {
+    fn from(p: Rgb565Pixel) -> Self {
+        Rgba8Pixel { r: p.red(), g: p.green(), b: p.blue(), a: 255 }
+    }
+}
+
+#[cfg(any(feature = "image-pixel-format-rgb565", feature = "image-pixel-format-gray8"))]
+fn map_pixels<Source: Clone, Dest: Clone + From<Source>>(
+    buffer: SharedPixelBuffer<Source>,
+) -> SharedPixelBuffer<Dest> {
+    SharedPixelBuffer {
+        width: buffer.width,
+        height: buffer.height,
+        data: buffer.data.into_iter().map(Dest::from).collect(),
     }
 }
 
@@ -250,6 +270,9 @@ pub enum SharedImageBuffer {
     RGB565(SharedPixelBuffer<Rgb565Pixel>),
     /// This variant holds the data for a grayscale image where each pixel is a single luminance
     /// channel encoded as unsigned byte.
+    ///
+    /// This variant is only available with the `image-pixel-format-gray8` feature.
+    #[cfg(feature = "image-pixel-format-gray8")]
     Gray8(SharedPixelBuffer<Gray8Pixel>),
 }
 
@@ -257,27 +280,13 @@ impl SharedImageBuffer {
     /// Returns the width of the image in pixels.
     #[inline]
     pub fn width(&self) -> u32 {
-        match self {
-            Self::RGB8(buffer) => buffer.width(),
-            Self::RGBA8(buffer) => buffer.width(),
-            Self::RGBA8Premultiplied(buffer) => buffer.width(),
-            #[cfg(feature = "image-pixel-format-rgb565")]
-            Self::RGB565(buffer) => buffer.width(),
-            Self::Gray8(buffer) => buffer.width(),
-        }
+        self.size().width
     }
 
     /// Returns the height of the image in pixels.
     #[inline]
     pub fn height(&self) -> u32 {
-        match self {
-            Self::RGB8(buffer) => buffer.height(),
-            Self::RGBA8(buffer) => buffer.height(),
-            Self::RGBA8Premultiplied(buffer) => buffer.height(),
-            #[cfg(feature = "image-pixel-format-rgb565")]
-            Self::RGB565(buffer) => buffer.height(),
-            Self::Gray8(buffer) => buffer.height(),
-        }
+        self.size().height
     }
 
     /// Returns the size of the image in pixels.
@@ -289,6 +298,7 @@ impl SharedImageBuffer {
             Self::RGBA8Premultiplied(buffer) => buffer.size(),
             #[cfg(feature = "image-pixel-format-rgb565")]
             Self::RGB565(buffer) => buffer.size(),
+            #[cfg(feature = "image-pixel-format-gray8")]
             Self::Gray8(buffer) => buffer.size(),
         }
     }
@@ -310,6 +320,7 @@ impl PartialEq for SharedImageBuffer {
             Self::RGB565(lhs_buffer) => {
                 matches!(other, Self::RGB565(rhs_buffer) if lhs_buffer.data.as_ptr().eq(&rhs_buffer.data.as_ptr()))
             }
+            #[cfg(feature = "image-pixel-format-gray8")]
             Self::Gray8(lhs_buffer) => {
                 matches!(other, Self::Gray8(rhs_buffer) if lhs_buffer.data.as_ptr().eq(&rhs_buffer.data.as_ptr()))
             }
@@ -335,6 +346,9 @@ pub enum TexturePixelFormat {
     /// The array must be width * height +1 bytes long. (the extra bit is read but never used)
     SignedDistanceField,
     /// Grayscale. 8bits. Each pixel is a luminance value rendered as (v, v, v, 255).
+    ///
+    /// This variant is only available with the `image-pixel-format-gray8` feature.
+    #[cfg(feature = "image-pixel-format-gray8")]
     Gray8,
     /// 16 bits per pixel: 5 red bits, 6 green bits, and 5 blue bits, in native byte order.
     ///
@@ -352,6 +366,7 @@ impl TexturePixelFormat {
             TexturePixelFormat::RgbaPremultiplied => 4,
             TexturePixelFormat::AlphaMap => 1,
             TexturePixelFormat::SignedDistanceField => 1,
+            #[cfg(feature = "image-pixel-format-gray8")]
             TexturePixelFormat::Gray8 => 1,
             #[cfg(feature = "image-pixel-format-rgb565")]
             TexturePixelFormat::Rgb565 => 2,
@@ -616,6 +631,7 @@ impl ImageInner {
                                 });
                                 slice.fill_with(|| iter.next().unwrap());
                             }
+                            #[cfg(feature = "image-pixel-format-gray8")]
                             TexturePixelFormat::Gray8 => {
                                 let mut iter = source.iter().map(|v| Rgba8Pixel {
                                     r: *v,
@@ -984,6 +1000,9 @@ impl Image {
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel is a single
     /// grayscale luminance value encoded as u8.
+    ///
+    /// This function is only available with the `image-pixel-format-gray8` feature.
+    #[cfg(feature = "image-pixel-format-gray8")]
     pub fn from_gray8(buffer: SharedPixelBuffer<Gray8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage {
             cache_key: ImageCacheKey::Invalid,
@@ -996,7 +1015,13 @@ impl Image {
     pub fn to_rgb8(&self) -> Option<SharedPixelBuffer<Rgb8Pixel>> {
         self.0.render_to_buffer(None).and_then(|image| match image {
             SharedImageBuffer::RGB8(buffer) => Some(buffer),
-            _ => None,
+            // Dropping the alpha channel would change what the image looks like, so these
+            // are not converted. The opaque formats below are.
+            SharedImageBuffer::RGBA8(_) | SharedImageBuffer::RGBA8Premultiplied(_) => None,
+            #[cfg(feature = "image-pixel-format-rgb565")]
+            SharedImageBuffer::RGB565(buffer) => Some(map_pixels(buffer)),
+            #[cfg(feature = "image-pixel-format-gray8")]
+            SharedImageBuffer::Gray8(buffer) => Some(map_pixels(buffer)),
         })
     }
 
@@ -1023,27 +1048,9 @@ impl Image {
                 data: buffer.data.into_iter().map(Image::premultiplied_rgba_to_rgba).collect(),
             },
             #[cfg(feature = "image-pixel-format-rgb565")]
-            SharedImageBuffer::RGB565(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
-                width: buffer.width,
-                height: buffer.height,
-                data: buffer
-                    .data
-                    .into_iter()
-                    .map(|p| Rgba8Pixel::new(p.red(), p.green(), p.blue(), 255))
-                    .collect(),
-            },
-            SharedImageBuffer::Gray8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
-                width: buffer.width,
-                height: buffer.height,
-                data: buffer
-                    .data
-                    .into_iter()
-                    .map(|g| {
-                        let v = g.value();
-                        Rgba8Pixel::new(v, v, v, 255)
-                    })
-                    .collect(),
-            },
+            SharedImageBuffer::RGB565(buffer) => map_pixels(buffer),
+            #[cfg(feature = "image-pixel-format-gray8")]
+            SharedImageBuffer::Gray8(buffer) => map_pixels(buffer),
         })
     }
 
@@ -1064,27 +1071,9 @@ impl Image {
             },
             SharedImageBuffer::RGBA8Premultiplied(buffer) => buffer,
             #[cfg(feature = "image-pixel-format-rgb565")]
-            SharedImageBuffer::RGB565(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
-                width: buffer.width,
-                height: buffer.height,
-                data: buffer
-                    .data
-                    .into_iter()
-                    .map(|p| Rgba8Pixel::new(p.red(), p.green(), p.blue(), 255))
-                    .collect(),
-            },
-            SharedImageBuffer::Gray8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
-                width: buffer.width,
-                height: buffer.height,
-                data: buffer
-                    .data
-                    .into_iter()
-                    .map(|g| {
-                        let v = g.value();
-                        Rgba8Pixel::new(v, v, v, 255)
-                    })
-                    .collect(),
-            },
+            SharedImageBuffer::RGB565(buffer) => map_pixels(buffer),
+            #[cfg(feature = "image-pixel-format-gray8")]
+            SharedImageBuffer::Gray8(buffer) => map_pixels(buffer),
         })
     }
 
@@ -1830,7 +1819,7 @@ pub(crate) mod ffi {
 
     // Expand Gray8Pixel so that cbindgen can see it. (is in fact rgb::Gray<u8>)
     /// Represents a grayscale pixel.
-    #[cfg(cbindgen)]
+    #[cfg(all(cbindgen, feature = "image-pixel-format-gray8"))]
     #[repr(C)]
     struct Gray8Pixel {
         /// luminance value (between 0 and 255)
@@ -2064,15 +2053,40 @@ mod tests {
         let image = Image::from_rgb565(buffer);
         assert_eq!(image.size(), crate::graphics::IntSize::new(2, 1));
 
-        // Like for RGBA8 sources, to_rgb8 does not convert.
-        assert!(image.to_rgb8().is_none());
+        // RGB565 is opaque, so to_rgb8 converts it.
+        let rgb = image.to_rgb8().unwrap();
+        assert_eq!(rgb.as_slice()[0], super::Rgb8Pixel::new(0xff, 0, 0));
+        assert_eq!(rgb.as_slice()[1], super::Rgb8Pixel::new(0, 0xff, 0));
 
-        // The conversion truncates the low bits, so 0xff comes back as 0xf8.
+        // A full component scales back up to 0xff.
         let rgba = image.to_rgba8().unwrap();
-        assert_eq!(rgba.as_slice()[0], Rgba8Pixel::new(0xf8, 0, 0, 0xff));
-        assert_eq!(rgba.as_slice()[1], Rgba8Pixel::new(0, 0xfc, 0, 0xff));
+        assert_eq!(rgba.as_slice()[0], Rgba8Pixel::new(0xff, 0, 0, 0xff));
+        assert_eq!(rgba.as_slice()[1], Rgba8Pixel::new(0, 0xff, 0, 0xff));
 
         // RGB565 has no alpha, so the premultiplied form is the same.
+        let premultiplied = image.to_rgba8_premultiplied().unwrap();
+        assert_eq!(premultiplied.as_slice(), rgba.as_slice());
+    }
+
+    #[cfg(feature = "image-pixel-format-gray8")]
+    #[test]
+    fn test_image_from_gray8() {
+        let mut buffer = SharedPixelBuffer::<super::Gray8Pixel>::new(2, 1);
+        buffer.make_mut_slice()[0] = super::Gray8Pixel::new(0x00);
+        buffer.make_mut_slice()[1] = super::Gray8Pixel::new(0xff);
+        let image = Image::from_gray8(buffer);
+        assert_eq!(image.size(), crate::graphics::IntSize::new(2, 1));
+
+        // Gray8 is opaque, so to_rgb8 converts it, writing the luminance to all three channels.
+        let rgb = image.to_rgb8().unwrap();
+        assert_eq!(rgb.as_slice()[0], super::Rgb8Pixel::new(0, 0, 0));
+        assert_eq!(rgb.as_slice()[1], super::Rgb8Pixel::new(0xff, 0xff, 0xff));
+
+        let rgba = image.to_rgba8().unwrap();
+        assert_eq!(rgba.as_slice()[0], Rgba8Pixel::new(0, 0, 0, 0xff));
+        assert_eq!(rgba.as_slice()[1], Rgba8Pixel::new(0xff, 0xff, 0xff, 0xff));
+
+        // Gray8 has no alpha, so the premultiplied form is the same.
         let premultiplied = image.to_rgba8_premultiplied().unwrap();
         assert_eq!(premultiplied.as_slice(), rgba.as_slice());
     }

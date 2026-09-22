@@ -20,8 +20,6 @@ pub enum PixelFormat {
     RgbaPremultiplied,
     // 8bit alpha map with a given color
     AlphaMap([u8; 3]),
-    // 8bit grayscale. Each pixel is a luminance value.
-    Gray8,
 }
 
 #[cfg(feature = "renderer-software")]

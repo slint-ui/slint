@@ -285,8 +285,23 @@ TEST_CASE("Image")
         REQUIRE(!img.path().has_value());
         auto rgba8 = img.to_rgba8();
         REQUIRE(rgba8.has_value());
-        // The conversion truncates the low bits, so 0xff comes back as 0xf8.
-        REQUIRE(*rgba8->begin() == Rgba8Pixel { 0xf8, 0, 0, 0xff });
+        // A full component scales back up to 0xff.
+        REQUIRE(*rgba8->begin() == Rgba8Pixel { 0xff, 0, 0, 0xff });
+    }
+#endif
+#ifdef SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8
+    Gray8Pixel some_gray8_data[] = { { 0x00 }, { 0x7f }, { 0xff }, { 0x40 }, { 0x80 }, { 0xc0 } };
+    img = Image(SharedPixelBuffer<Gray8Pixel>(3, 2, some_gray8_data));
+    {
+        auto size = img.size();
+        REQUIRE(size.width == 3);
+        REQUIRE(size.height == 2);
+        REQUIRE(!img.path().has_value());
+        auto rgba8 = img.to_rgba8();
+        REQUIRE(rgba8.has_value());
+        // The luminance is written to all three channels, and the image is opaque.
+        REQUIRE(*rgba8->begin() == Rgba8Pixel { 0, 0, 0, 0xff });
+        REQUIRE(*(rgba8->begin() + 2) == Rgba8Pixel { 0xff, 0xff, 0xff, 0xff });
     }
 #endif
 }

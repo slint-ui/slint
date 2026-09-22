@@ -206,6 +206,7 @@ fn icon_to_winit(
                     .chain(std::iter::once(alpha as u8))
             })
             .collect(),
+        #[cfg(feature = "image-pixel-format-gray8")]
         SharedImageBuffer::Gray8(pixels) => {
             pixels.as_bytes().iter().flat_map(|g| [*g, *g, *g, 255]).collect()
         }

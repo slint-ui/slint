@@ -53,6 +53,11 @@ image-pixel-format-rgb565 = [
   "i-slint-backend-selector?/image-pixel-format-rgb565",
   "i-slint-renderer-software?/image-pixel-format-rgb565",
 ]
+image-pixel-format-gray8 = [
+  "i-slint-core/image-pixel-format-gray8",
+  "i-slint-backend-selector?/image-pixel-format-gray8",
+  "i-slint-renderer-software?/image-pixel-format-gray8",
+]
 accessibility = ["i-slint-backend-selector/accessibility"]
 # Enable the `SystemTrayIcon` element (pulls `ksni` on Linux/BSD).
 system-tray = ["i-slint-core/system-tray"]
