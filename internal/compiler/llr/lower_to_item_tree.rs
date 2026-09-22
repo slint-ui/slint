@@ -146,14 +146,6 @@ pub fn lower_to_item_tree(
             };
             let mut sc = lower_sub_component(component, &mut state, None, compiler_config);
             let public_properties = public_properties(component, &sc.mapping, &state);
-            let constraints = component.root_constraints.borrow();
-            let fixed_root_size = [
-                (constraints.fixed_width, &constraints.min_width),
-                (constraints.fixed_height, &constraints.min_height),
-            ]
-            .map(|(fixed, property)| {
-                fixed.then(|| sc.mapping.map_property_reference(property.as_ref().unwrap(), &state))
-            });
             // For C++ codegen, the root component must have the same name as the public component
             sc.sub_component.name = name.clone();
             let item_tree = ItemTree {
@@ -161,7 +153,6 @@ pub fn lower_to_item_tree(
                 root: state.push_sub_component(sc),
             };
             PublicComponent {
-                fixed_root_size,
                 item_tree,
                 public_properties,
                 private_properties: component.private_properties.borrow().clone(),
