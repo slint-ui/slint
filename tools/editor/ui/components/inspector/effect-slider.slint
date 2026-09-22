@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Colors, Typography, Metrics, EffectSliderStyle } from "../../style.slint";
+import { Style, Typography, Metrics, EffectSliderStyle } from "../../style.slint";
 import { InspectorSlider } from "slider.slint";
 import { InspectorValueField } from "value-field.slint";
 
@@ -12,7 +12,6 @@ export component InspectorEffectSlider inherits Rectangle {
     in property <float> value;
     in property <float> minimum: 0;
     in property <float> maximum: 100;
-    in property <string> suffix: "px";
     in property <string> commit-key: "";
     callback accepted(float) -> bool;
     callback started();
@@ -49,18 +48,10 @@ export component InspectorEffectSlider inherits Rectangle {
             prefix: "";
             value: "\{slider.visual-value}";
             commit-key: root.commit-key;
-            width: root.suffix != "" ? root.style.value-width : root.style.plain-value-width;
+            width: root.style.value-width;
             accepted(text) => {
                 return text.is-float() && root.accepted(text.to-float().round().clamp(root.minimum, root.maximum));
             }
-        }
-        if root.suffix != "": Text {
-            width: root.style.suffix-width;
-            height: root.style.control-height;
-            text: root.suffix;
-            color: Colors.muted;
-            font-size: root.style.suffix-text.size;
-            vertical-alignment: center;
         }
     }
 }

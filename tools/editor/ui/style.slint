@@ -423,12 +423,9 @@ export struct FillPickerStyle {
 export struct EffectSliderStyle {
     height: length = 34px,
     label-width: length = 48px,
-    value-width: length = 44px,
-    plain-value-width: length = 52px,
-    suffix-width: length = 12px,
+    value-width: length = 52px,
     control-height: length,
     foreground: color,
-    suffix-text: TextStyle,
 }
 
 export struct RotationDialStyle {
@@ -1714,7 +1711,6 @@ export global Style {
 
     out property <EffectSliderStyle> effect-slider: {
         control-height: root.inspector-field.height,
-        suffix-text: { size: 9px },
         foreground: Colors.foreground,
     };
 

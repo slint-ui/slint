@@ -40,7 +40,7 @@ export component InspectorValueField inherits Rectangle {
             stroke: root.style.appearance.muted;
             stroke-width: Metrics.border-width;
         }
-        if root.corner-index < 0: Text {
+        if root.corner-index < 0 && root.prefix != "": Text {
             text: root.prefix;
             color: field.paint-foreground;
             font-size: Typography.caption.size;

@@ -626,6 +626,38 @@ def test_invalid_text_content_does_not_change_source(
         )
 
 
+def test_inspector_length_fields_show_numbers_without_pixel_labels(
+    editor_binary, editor_environment, fixture_project
+):
+    source = fixture_project / INSPECTOR_SOURCE
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        for label in [
+            "All corner radii",
+            "Shadow distance value",
+            "Shadow blur value",
+            "Shadow spread value",
+        ]:
+            field = inspector_field(
+                window, label, slint_testing.AccessibleRole.TextInput
+            )
+            texts = (
+                field.query_descendants()
+                .match_accessible_role(slint_testing.AccessibleRole.Text)
+                .find_all()
+            )
+            assert not any(text.accessible_label == "px" for text in texts)
+        pane = window_element_with_label(window, "Inspector and outline")
+        texts = (
+            pane.query_descendants()
+            .match_accessible_role(slint_testing.AccessibleRole.Text)
+            .find_all()
+        )
+        assert not any(text.accessible_label == "px" for text in texts)
+
+
 SHADOW_EDITS = (
     pytest.param("color", "Shadow color", "#12345678", id="color"),
     pytest.param("angle", "Shadow angle", "0", id="angle"),

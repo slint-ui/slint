@@ -88,7 +88,7 @@ export component InspectorCornerEditor inherits Rectangle {
                 style: root.style.field;
                 width: root.style.field-width;
                 accessible-name: "All corner radii";
-                prefix: "px";
+                prefix: "";
                 value: "\{slider.visual-value}";
                 commit-key: root.commit-key;
                 accepted(text) => { return text.is-float() && text.to-float() >= 0 && root.accepted(-1, text.to-float()); }
