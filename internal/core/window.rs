@@ -2649,7 +2649,7 @@ pub mod ffi {
         }
     }
 
-    /// Spins an event loop and renders the items of the provided component in this window.
+    /// Calls [`Window::show()`].
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowAdapterRcOpaque) {
         unsafe {
@@ -2659,7 +2659,7 @@ pub mod ffi {
         }
     }
 
-    /// Spins an event loop and renders the items of the provided component in this window.
+    /// Calls [`Window::hide()`].
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_hide(handle: *const WindowAdapterRcOpaque) {
         unsafe {
