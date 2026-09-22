@@ -314,6 +314,21 @@ impl Document {
         }
     }
 
+    /// The names `component` is exported under, the one it is published as first: its own name
+    /// when it is exported under it, and otherwise the first name it is exported as.
+    pub fn export_names(&self, component: &Rc<Component>) -> Vec<SmolStr> {
+        let mut names: Vec<SmolStr> = self
+            .exports
+            .iter()
+            .filter(|(_, item)| matches!(item, Either::Left(c) if Rc::ptr_eq(c, component)))
+            .map(|(export_name, _)| export_name.name.clone())
+            .collect();
+        if let Some(index) = names.iter().position(|name| *name == component.id) {
+            names.swap(0, index);
+        }
+        names
+    }
+
     /// The exported root components, each one once even when exported under several names.
     pub fn exported_roots(&self) -> impl Iterator<Item = Rc<Component>> + '_ {
         let mut seen = HashSet::new();
@@ -4942,16 +4957,10 @@ impl Exports {
             .map(|index| self.components_or_types[index].1.clone())
     }
 
-    /// The `(original, alias)` pairs for renamed `export { Original as Alias }`
-    /// of components (non-global), structs and enums — the aliases the
-    /// generators attach to the generated type. Global aliases are handled
-    /// separately, through `GlobalComponent::aliases`.
+    /// The types exported under a name other than their own, as (declared name, export name).
     pub fn named_type_aliases(&self) -> Vec<(SmolStr, SmolStr)> {
         self.iter()
             .filter_map(|(exported, item)| match item {
-                Either::Left(component) if !component.is_global() => {
-                    Some((component.id.clone(), exported.name.clone()))
-                }
                 Either::Right(ty) => match ty {
                     Type::Struct(s) if s.node().is_some() => match &s.name {
                         StructName::User { name, .. } => {

@@ -13,6 +13,12 @@ struct Shape { sides: int }
 export { Shape as Figure }
 export { Shape as Polygon }
 
+component Declared inherits Window {
+    in-out property <int> value: 3;
+}
+export { Declared as Published }
+export { Declared as Published-Alias }
+
 export component TestCase inherits Rectangle {
     in-out property <int> value: 42;
 
@@ -32,6 +38,10 @@ const TestCase &instance = *handle;
 assert(instance.get_test());
 instance.set_value(1);
 assert(!instance.get_test());
+
+auto published = Published::create();
+const Published_Alias &alias = *published;
+assert(alias.get_value() == 3);
 ```
 
 ```rust
@@ -42,6 +52,12 @@ assert!(!instance.get_test());
 
 let aliased: TestCase = AliasedTestCase::new().unwrap();
 assert!(aliased.get_test());
+
+// A declaration exported only under other names is published as the first of them.
+let published: Published_Alias = Published::new().unwrap();
+assert_eq!(published.get_value(), 3);
+#[expect(deprecated)]
+let _: Declared = published;
 
 let figure: Polygon = Figure { sides: 3 };
 #[expect(deprecated)]
