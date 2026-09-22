@@ -27,7 +27,6 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::string::{current_decimal_separator, parse_number};
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
 use alloc::{rc::Rc, string::String};
@@ -1127,7 +1126,7 @@ impl Item for TextInput {
                     (self.cursor_position(&text), self.anchor_position(&text))
                 };
 
-                if !self.accept_text_input(event.key_event.text.as_str()) {
+                if !self.accept_text_input(event.key_event.text.as_str(), window_adapter) {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -1177,7 +1176,7 @@ impl Item for TextInput {
                 }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
-                if !self.accept_text_input(&event.key_event.text) {
+                if !self.accept_text_input(&event.key_event.text, window_adapter) {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -2394,7 +2393,11 @@ impl TextInput {
         window_adapter.renderer().font_metrics(font_request)
     }
 
-    fn accept_text_input(self: Pin<&Self>, text_to_insert: &str) -> bool {
+    fn accept_text_input(
+        self: Pin<&Self>,
+        text_to_insert: &str,
+        window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> bool {
         let input_type = self.input_type();
 
         match input_type {
@@ -2404,23 +2407,19 @@ impl TextInput {
                 let current = self.text();
                 let candidate = [&current[..a], text_to_insert, &current[c..]].concat();
 
+                let ctx = window_adapter.window().0.context();
+
                 // Allow localized ".", "-", "-." because otherwise the cannot start entering
-                if candidate.len() <= 2
-                    && crate::context::GLOBAL_CONTEXT.with(|ctx| {
-                        let sep =
-                            ctx.get().map(|ctx| ctx.locale_decimal_separator()).unwrap_or('.');
-                        let mut it = candidate.chars();
-                        match (it.next(), it.next()) {
-                            (Some('-'), None) => true,
-                            (Some('-'), Some(c2)) => c2 == sep,
-                            (Some(c1), None) => c1 == sep,
-                            _ => false,
-                        }
-                    })
-                {
-                    return true;
+                if candidate.len() <= 2 {
+                    let sep = ctx.locale_decimal_separator();
+                    let mut it = candidate.chars();
+                    match (it.next(), it.next()) {
+                        (Some('-'), None) => return true,
+                        (Some('-'), Some(c)) | (Some(c), None) if c == sep => return true,
+                        _ => {}
+                    }
                 }
-                return parse_number(current_decimal_separator(), &candidate).is_some();
+                return ctx.parse_number(&candidate).is_some();
             }
             InputType::Password | InputType::Text | InputType::Search => (),
         }
