@@ -2573,3 +2573,39 @@ fn adjust_window_layout(component: &Rc<Component>, prop: &'static str) {
         }
     });
 }
+
+#[test]
+fn host_sized_root_keeps_size_references_live() {
+    for host_sized_root in [false, true] {
+        let mut config =
+            crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.style = Some("fluent".into());
+        config.host_sized_root = host_sized_root;
+        let mut diagnostics = crate::diagnostics::BuildDiagnostics::default();
+        let source = r#"
+            export component Main inherits Window {
+                width: 100px;
+                height: 80px;
+                out property <length> measured-width: root.width;
+                out property <length> measured-height: root.height;
+            }
+        "#;
+        let node = crate::parser::parse(
+            source.into(),
+            Some(std::path::Path::new("main.slint")),
+            &mut diagnostics,
+        );
+        let (document, diagnostics, _) =
+            spin_on::spin_on(crate::compile_syntax_node(node, diagnostics, config));
+        assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+        let component = document.exported_roots().next().unwrap();
+        let root = component.root_element.borrow();
+        for name in ["measured-width", "measured-height"] {
+            assert_eq!(
+                root.binding(name).unwrap().analysis.as_ref().unwrap().is_const,
+                !host_sized_root,
+                "{name}"
+            );
+        }
+    }
+}

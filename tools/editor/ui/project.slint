@@ -11,6 +11,14 @@ export struct RecentProject {
 }
 
 export global Project {
+    in-out property <length> canvas-width: 390px;
+    in-out property <length> canvas-height: 720px;
+    in-out property <string> settings-key;
+    in-out property <bool> settings-available;
+    in-out property <bool> settings-editable;
+    in-out property <string> settings-error;
+    callback commit-canvas-dimension(string, string, string) -> bool;
+
     in-out property <[FileTreeNode]> file-tree;
     in-out property <string> selected-project-file;
     in-out property <[RecentProject]> recent;

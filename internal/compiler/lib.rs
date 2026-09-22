@@ -217,6 +217,9 @@ pub struct CompilerConfiguration {
     /// live-reload runtime to indicate that the `.slint` file is being previewed rather than
     /// driven by real host application logic.
     pub is_preview: bool,
+
+    /// Keep root size references connected to the dimensions supplied by an embedding host.
+    pub host_sized_root: bool,
 }
 
 impl CompilerConfiguration {
@@ -340,6 +343,7 @@ impl CompilerConfiguration {
             #[cfg(feature = "slint-sc")]
             slint_sc,
             is_preview: false,
+            host_sized_root: false,
         }
     }
 }

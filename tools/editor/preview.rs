@@ -51,6 +51,7 @@ mod inspector;
 #[cfg(target_os = "macos")]
 pub mod macos_titlebar;
 mod preview_data;
+mod project_settings;
 use ext::ElementRcNodeExt;
 mod outline;
 mod properties;
@@ -77,6 +78,7 @@ pub fn initialize(
         preview_state.settings = settings;
     });
 
+    project_settings::setup(editor_ui);
     #[cfg(feature = "system-testing")]
     test_sync::initialize();
     let settings = PREVIEW_STATE.with_borrow(|preview_state| preview_state.settings.clone());
@@ -150,6 +152,7 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         }
         M::OpenProject { root } => {
             PREVIEW_STATE.with_borrow_mut(|preview_state| {
+                project_settings::open(preview_state, &root);
                 preview_state.current_project_root = Some(root.clone());
             });
             apply_project_to_file_tree(&root);
@@ -278,6 +281,8 @@ pub struct PreviewState {
     settings: VisualEditorSettings,
     current_previewed_component: Option<PreviewComponent>,
     current_project_root: Option<Url>,
+    project_settings: Option<project_settings::ProjectSettings>,
+    project_settings_generation: u64,
     file_tree_controller: Option<ui::file_tree::SharedFileTreeController>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
@@ -2232,6 +2237,7 @@ async fn parse_source(
     // Otherwise this may cause a runtime panic because of the recursion
     cc.error_on_binding_loop_with_window_layout = true;
     cc.is_preview = true;
+    cc.host_sized_root = true;
 
     if !style.is_empty() {
         cc.style = Some(style);
@@ -2586,6 +2592,11 @@ fn set_selected_element(
     let element_node = selection.as_ref().and_then(|s| s.as_element_node());
     let notify_editor_about_selection_after_update =
         editor_notification == SelectionNotification::AfterUpdate;
+    let is_root = element_node.as_ref().is_some_and(|node| {
+        component_instance().is_some_and(|instance| {
+            Rc::ptr_eq(&node.element, &element_selection::root_element(&instance))
+        })
+    });
 
     let (lsp, format) = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         let is_in_layout = parent_layout_kind != ui::LayoutKind::None;
@@ -2607,8 +2618,9 @@ fn set_selected_element(
                 highlight_index: selection.as_ref().map(|s| s.instance_index as i32).unwrap_or(-1),
                 layout_data: layout_kind,
                 is_interactive,
-                is_moveable: true,
-                is_resizable: !is_in_layout && !is_layout,
+                is_root,
+                is_moveable: !is_root,
+                is_resizable: !is_root && !is_in_layout && !is_layout,
             });
 
             if let Some(document_cache) = document_cache_from(preview_state)
@@ -2816,6 +2828,7 @@ fn update_preview_area(
         Ok(())
     })?;
 
+    PREVIEW_STATE.with_borrow(undo_redo::set_undo_redo_enabled);
     inspector::invalidate();
     element_selection::reselect_element();
     undo_redo::apply_pending();

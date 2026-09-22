@@ -799,11 +799,11 @@ mod tests {
 
     use i_slint_compiler::parser::TextSize;
     use i_slint_core::lengths::LogicalPoint;
-    use slint::Model;
+    use slint::{ComponentHandle, Model};
     use slint_interpreter::ComponentInstance;
 
     fn demo_app() -> ComponentInstance {
-        crate::preview::test::interpret_test(
+        let instance = crate::preview::test::interpret_test(
             "fluent",
             r#"import { Button } from "std-widgets.slint";
 
@@ -828,7 +828,9 @@ component Main { // 109
 
 export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 "#,
-        )
+        );
+        instance.window().set_size(slint::LogicalSize::new(200., 200.));
+        instance
     }
 
     #[test]
@@ -1239,6 +1241,8 @@ export component Demo inherits Window {{
 }
 "#,
         );
+
+        component_instance.window().set_size(slint::LogicalSize::new(120., 60.));
 
         let first = super::hovered_element_at_impl(
             &component_instance,

@@ -64,8 +64,8 @@ ROTATED_FIXTURE_ANGLE = 30
 BOUNDARY_KINDS = ("Rectangle", "Text", "Image")
 BOUNDARY_MOVE_DIRECTIONS = ("top-left", "bottom-right")
 OUTSIDE_ARTBOARD_DISTANCE = 32
-BOUNDS_WIDTH = 388
-BOUNDS_HEIGHT = 718
+BOUNDS_WIDTH = 390
+BOUNDS_HEIGHT = 720
 THRESHOLD_LABELS = (
     "Rectangle move handle",
     "Rectangle resize bottom-right",

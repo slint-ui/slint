@@ -212,7 +212,18 @@ pub async fn run_passes(
         lower_layout::check_popup_layout(component);
     });
     for root_component in doc.exported_roots() {
-        lower_layout::check_window_layout(&root_component);
+        if type_loader.compiler_config.host_sized_root {
+            let root = root_component.root_element.borrow();
+            for name in ["width", "height"] {
+                root.property_analysis
+                    .borrow_mut()
+                    .entry(name.into())
+                    .or_default()
+                    .is_set_externally = true;
+            }
+        } else {
+            lower_layout::check_window_layout(&root_component);
+        }
     }
     collect_globals::collect_globals(doc, diag);
     // Must be done before passes that rely on `NamedReference::is_constant`.
