@@ -15,6 +15,9 @@ pub fn count_property_use(root: &CompilationUnit) {
     // 1. the public properties
     for c in &root.public_components {
         let root_ctx = EvaluationContext::new_sub_component(root, c.item_tree.root, (), None);
+        for property in c.fixed_root_size.iter().flatten() {
+            visit_property(property, &root_ctx);
+        }
         for p in c.public_properties.values() {
             // A public function can be called from native code, so it is a root.
             visit_property(&p.prop, &root_ctx);

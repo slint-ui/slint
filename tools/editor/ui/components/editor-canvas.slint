@@ -4,8 +4,9 @@
 import { CanvasView } from "canvas-view.slint";
 import { EditorGrid } from "editor-grid.slint";
 import { Style, Metrics, ArtboardStyle, CanvasSurfaceStyle } from "../style.slint";
+import { Project } from "../project.slint";
 import { Api, DropMark, ElementKind } from "../api.slint";
-import { AppState, EditorCursors, PreviewMetrics } from "index.slint";
+import { AppState, EditorCursors } from "index.slint";
 import { CanvasInteractionLayer } from "canvas-interaction-layer.slint";
 
 component CanvasChrome inherits Rectangle {
@@ -64,8 +65,8 @@ export component EditorCanvas inherits TouchArea {
         transform-scale: CanvasView.zoom;
         x: root.canvas-origin.x;
         y: root.canvas-origin.y;
-        width: PreviewMetrics.canvas-width;
-        height: PreviewMetrics.canvas-height;
+        width: CanvasView.canvas-size.width;
+        height: CanvasView.canvas-size.height;
         border-radius: root.artboard-style.radius;
         border-width: Metrics.border-width;
         border-color: root.artboard-style.border;
@@ -91,8 +92,8 @@ export component EditorCanvas inherits TouchArea {
     Rectangle {
         x: root.preview-origin.x;
         y: root.preview-origin.y;
-        width: (PreviewMetrics.canvas-width - 2 * root.artboard-style.padding) * CanvasView.zoom;
-        height: (PreviewMetrics.canvas-height - 2 * root.artboard-style.padding) * CanvasView.zoom;
+        width: Project.canvas-width * CanvasView.zoom;
+        height: Project.canvas-height * CanvasView.zoom;
         DropArea {
             can-drop(event) => {
                 if AppState.palette-drag-cancelled {

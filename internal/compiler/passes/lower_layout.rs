@@ -2521,17 +2521,14 @@ fn check_no_layout_properties(
     }
 }
 
-/// For fixed layout, we need to dissociate the width and the height property of the WindowItem from width and height property
-/// in slint such that the width and height property are actually constants.
-///
-/// The Slint runtime will change the width and height property of the native WindowItem to match those of the actual
-/// window, but we don't want that to happen if we have a fixed layout.
+/// Keep fixed source dimensions separate from the native window's size.
+/// Embedded instances can bind these properties to an externally sized container.
 pub fn check_window_layout(component: &Rc<Component>) {
     if component.root_constraints.borrow().fixed_height {
-        adjust_window_layout(component, "height");
+        adjust_window_layout(component, "height").mark_as_set();
     }
     if component.root_constraints.borrow().fixed_width {
-        adjust_window_layout(component, "width");
+        adjust_window_layout(component, "width").mark_as_set();
     }
 }
 
@@ -2547,7 +2544,7 @@ pub fn check_popup_layout(component: &Rc<Component>) {
     });
 }
 
-fn adjust_window_layout(component: &Rc<Component>, prop: &'static str) {
+fn adjust_window_layout(component: &Rc<Component>, prop: &'static str) -> NamedReference {
     let new_prop = crate::layout::create_new_prop(
         &component.root_element,
         format_smolstr!("fixed-{prop}"),
@@ -2572,4 +2569,5 @@ fn adjust_window_layout(component: &Rc<Component>, prop: &'static str) {
             *nr = new_prop.clone()
         }
     });
+    new_prop
 }

@@ -688,6 +688,37 @@ fn field_leaf_ty(
     ty
 }
 
+#[cfg(feature = "internal")]
+pub(crate) fn fill_parent(instance: &VRc<ItemTreeVTable, Instance>) {
+    let Some((parent, index)) = instance.embedded_in.get() else { return };
+    let Some(parent) = parent.upgrade() else { return };
+    let parent_index =
+        VRc::borrow_pin(&parent).as_ref().get_item_tree()[*index as usize].parent_index();
+    let container = i_slint_core::items::ItemRc::new(parent, parent_index).downgrade();
+    let public = &instance.root_sub_component.compilation_unit.public_components
+        [instance.public_component_index.unwrap()];
+    for (dimension, property) in public.fixed_root_size.iter().enumerate() {
+        let Some(property) = property else { continue };
+        let property = prepare_two_way(property, &instance.root_sub_component)
+            .expect("root size must reference a length property");
+        let container = container.clone();
+        property.as_ref().set_binding(move || {
+            let size = container
+                .upgrade()
+                .map(|item| {
+                    let item = item.borrow();
+                    let container = i_slint_core::items::ItemRef::downcast_pin::<
+                        i_slint_core::items::ComponentContainer,
+                    >(item)
+                    .expect("embedded instance must belong to a ComponentContainer");
+                    if dimension == 0 { container.width() } else { container.height() }
+                })
+                .unwrap_or_default();
+            Value::Number(size.get() as f64)
+        });
+    }
+}
+
 fn prepare_two_way(
     mr: &MemberReference,
     sub: &Pin<Rc<SubComponentInstance>>,
