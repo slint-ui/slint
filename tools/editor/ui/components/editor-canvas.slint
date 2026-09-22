@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { CanvasView } from "canvas-view.slint";
 import { EditorGrid } from "editor-grid.slint";
 import { Style, Metrics, ArtboardStyle, CanvasSurfaceStyle } from "../style.slint";
 import { Api, DropMark } from "../api.slint";
@@ -28,13 +29,18 @@ export component EditorCanvas inherits Rectangle {
     in property <ArtboardStyle> artboard-style: Style.artboard;
     in property <CanvasSurfaceStyle> style: Style.canvas-surface;
     in property <bool> shift-pressed;
-    private property <length> phone-canvas-top: max(
-        root.artboard-style.top-minimum,
-        (root.height - PreviewMetrics.phone-portrait-height) / 2,
-    );
+    private property <Size> viewport-size: { width: root.width, height: root.height };
+    private property <Point> phone-origin: CanvasView.phone-origin(root.viewport-size);
+    private property <Point> preview-origin: {
+        x: root.phone-origin.x + root.artboard-style.padding * CanvasView.zoom,
+        y: root.phone-origin.y + root.artboard-style.padding * CanvasView.zoom,
+    };
+    init => { CanvasView.viewport-size = root.viewport-size; }
+    changed viewport-size => { CanvasView.viewport-size = root.viewport-size; }
 
     accessible-role: AccessibleRole.main;
     accessible-label: "Editor canvas";
+    accessible-value: "\{(CanvasView.zoom * 100).round()}%";
 
     callback real-element-selected();
 
@@ -51,19 +57,21 @@ export component EditorCanvas inherits Rectangle {
     }
 
     Rectangle {
-        x: (parent.width - phone.width) / 2;
-        y: root.phone-canvas-top + root.artboard-style.shadow.offset-y;
-        width: phone.width;
-        height: phone.height;
-        border-radius: root.artboard-style.radius;
+        x: root.phone-origin.x;
+        y: root.phone-origin.y + root.artboard-style.shadow.offset-y * CanvasView.zoom;
+        width: phone.width * CanvasView.zoom;
+        height: phone.height * CanvasView.zoom;
+        border-radius: root.artboard-style.radius * CanvasView.zoom;
         drop-shadow-color: root.artboard-style.shadow.color;
-        drop-shadow-blur: root.artboard-style.shadow.blur;
-        drop-shadow-offset-y: root.artboard-style.shadow.offset-y;
+        drop-shadow-blur: root.artboard-style.shadow.blur * CanvasView.zoom;
+        drop-shadow-offset-y: root.artboard-style.shadow.offset-y * CanvasView.zoom;
     }
 
     phone := Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: root.phone-canvas-top;
+        transform-origin: { x: 0px, y: 0px };
+        transform-scale: CanvasView.zoom;
+        x: root.phone-origin.x;
+        y: root.phone-origin.y;
         width: PreviewMetrics.phone-portrait-width;
         height: PreviewMetrics.phone-portrait-height;
         border-radius: root.artboard-style.radius;
@@ -133,17 +141,16 @@ export component EditorCanvas inherits Rectangle {
                 accessible-role: AccessibleRole.region;
                 accessible-label: "Canvas drop marker";
             }
-        }
 
-        CanvasInteractionLayer {
-            x: root.artboard-style.padding;
-            y: root.artboard-style.padding;
-            width: parent.width - 2 * root.artboard-style.padding;
-            height: parent.height - 2 * root.artboard-style.padding;
-            shift-pressed: root.shift-pressed;
-            real-element-selected => {
-                root.real-element-selected();
-            }
         }
+    }
+
+    CanvasInteractionLayer {
+        x: root.preview-origin.x;
+        y: root.preview-origin.y;
+        width: (PreviewMetrics.phone-portrait-width - 2 * root.artboard-style.padding) * CanvasView.zoom;
+        height: (PreviewMetrics.phone-portrait-height - 2 * root.artboard-style.padding) * CanvasView.zoom;
+        shift-pressed: root.shift-pressed;
+        real-element-selected => { root.real-element-selected(); }
     }
 }

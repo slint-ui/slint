@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { PreviewMetrics, AppState } from "common.slint";
+import { Style } from "../style.slint";
+
+export global CanvasView {
+    in-out property <int> zoom-index: 3;
+    out property <[float]> zoom-levels: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
+    out property <float> zoom: self.zoom-levels[self.zoom-index];
+    in-out property <Point> pan;
+    in-out property <Size> viewport-size;
+    in-out property <bool> manipulating;
+    in-out property <bool> panning;
+    in-out property <bool> space-pressed;
+    out property <bool> navigation-enabled: !self.manipulating && !AppState.has-active-drag();
+    public pure function phone-origin(size: Size) -> Point {
+        return {
+            x: (size.width - PreviewMetrics.phone-portrait-width * self.zoom) / 2 + self.pan.x,
+            y: max(Style.artboard.top-minimum, (size.height - PreviewMetrics.phone-portrait-height * self.zoom) / 2) + self.pan.y,
+        };
+    }
+
+    public pure function to-view(point: Point) -> Point {
+        return { x: point.x * self.zoom, y: point.y * self.zoom };
+    }
+    public pure function to-preview(point: Point) -> Point {
+        return { x: point.x / self.zoom, y: point.y / self.zoom };
+    }
+    public function scroll(delta: Point) -> EventResult {
+        if !self.navigation-enabled || self.panning { return accept; }
+        self.pan = { x: self.pan.x + delta.x, y: self.pan.y + delta.y };
+        return accept;
+    }
+    public function set-zoom(index: int) {
+        if !self.navigation-enabled || self.panning { return; }
+        let next = index.clamp(0, self.zoom-levels.length - 1);
+        let center = { x: self.viewport-size.width / 2, y: self.viewport-size.height / 2 };
+        let point = self.to-preview({ x: center.x - self.phone-origin(self.viewport-size).x, y: center.y - self.phone-origin(self.viewport-size).y });
+        self.zoom-index = next;
+        let origin = self.phone-origin(self.viewport-size);
+        let scaled = self.to-view(point);
+        self.pan = {
+            x: self.pan.x + center.x - scaled.x - origin.x,
+            y: self.pan.y + center.y - scaled.y - origin.y,
+        };
+    }
+}
