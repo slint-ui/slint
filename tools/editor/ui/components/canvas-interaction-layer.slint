@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { CanvasView } from "canvas-view.slint";
 import { Style, TooltipStyle } from "../style.slint";
 import { FillSession } from "inspector/fill-session.slint";
 import { Api, Hover, PropertyValueKind, SelectionRectangle } from "../api.slint";
@@ -48,6 +49,7 @@ component SelectedCanvasFrame inherits Rectangle {
     callback pointer-hovered(Point);
     callback hover-suppressed();
     callback double-clicked();
+    callback focus-requested();
 
     private property <bool> geometry-drag-active;
     private property <Point> geometry-drag-position;
@@ -55,6 +57,11 @@ component SelectedCanvasFrame inherits Rectangle {
     private property <bool> rotation-active;
     private property <angle> pending-rotation;
     private property <bool> radius-drag-active;
+    private property <bool> pointer-active: frame.pointer-active || frame.radius-tooltip-visible;
+    changed pointer-active => {
+        CanvasView.manipulating = root.pointer-active;
+        if root.pointer-active { root.focus-requested(); }
+    }
 
     function current-corner-radius(property-name: string) -> length {
         let corner = Api.current-property-value-data(property-name);
@@ -77,10 +84,10 @@ component SelectedCanvasFrame inherits Rectangle {
         // Push live geometry so the previewed element follows the drag through
         // debug-hook overrides without writing to disk.
         Api.override-selected-element-geometry(
-            position.x,
-            position.y,
-            size.width,
-            size.height,
+            position.x / CanvasView.zoom,
+            position.y / CanvasView.zoom,
+            size.width / CanvasView.zoom,
+            size.height / CanvasView.zoom,
         );
     }
 
@@ -100,10 +107,11 @@ component SelectedCanvasFrame inherits Rectangle {
     }
 
     frame := BorderRadiusFrame {
-        x: root.selection.x;
-        y: root.selection.y;
-        width: root.selection.width;
-        height: root.selection.height;
+        x: root.selection.x * CanvasView.zoom;
+        y: root.selection.y * CanvasView.zoom;
+        width: root.selection.width * CanvasView.zoom;
+        height: root.selection.height * CanvasView.zoom;
+        geometry-scale: CanvasView.zoom;
         rotation: root.selection.angle;
         accessible-prefix: Api.current-element.type-name;
         active: !root.interaction-disabled;
@@ -155,8 +163,8 @@ component SelectedCanvasFrame inherits Rectangle {
         }
         moved-to(position) => {
             root.preview-geometry(position, {
-                width: root.selection.width,
-                height: root.selection.height,
+                width: root.selection.width * CanvasView.zoom,
+                height: root.selection.height * CanvasView.zoom,
             });
         }
         interaction-ended => {
@@ -212,10 +220,12 @@ component HoverCanvasFrame inherits MoveResizeFrame {
         && !Hover.element.is-selected
         && !Hover.element.is-over-selected-element
         && (!root.gesture-active || root.move-pressed);
-    x: root.geometry.x;
-    y: root.geometry.y;
-    width: root.geometry.width;
-    height: root.geometry.height;
+    x: root.geometry.x * CanvasView.zoom;
+    y: root.geometry.y * CanvasView.zoom;
+    width: root.geometry.width * CanvasView.zoom;
+    height: root.geometry.height * CanvasView.zoom;
+    geometry-scale: CanvasView.zoom;
+    changed pointer-active => { CanvasView.manipulating = root.pointer-active; }
     rotation: root.geometry.angle;
     active: !root.gesture-active || root.move-pressed;
     moveable: root.geometry.describes-element;
@@ -229,8 +239,8 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     function preview-geometry(position: Point) {
         root.geometry-drag-position = position;
         Api.override-selected-element-geometry(
-            position.x,
-            position.y,
+            position.x / CanvasView.zoom,
+            position.y / CanvasView.zoom,
             root.geometry.width,
             root.geometry.height,
         );
@@ -255,8 +265,8 @@ component HoverCanvasFrame inherits MoveResizeFrame {
             Api.select-element(
                 Hover.element.element-path,
                 Hover.element.element-offset,
-                position.x,
-                position.y,
+                position.x / CanvasView.zoom,
+                position.y / CanvasView.zoom,
             );
             root.real-element-selected();
         }
@@ -289,11 +299,7 @@ export component CanvasInteractionLayer inherits TouchArea {
     private property <int> preview-generation: Hover.preview-generation;
     mouse-cursor: EditorCursors.canvas-default;
 
-    changed preview-generation => {
-        if root.has-hover && root.hover-enabled {
-            root.update-hover({ x: root.mouse-x, y: root.mouse-y });
-        }
-    }
+    changed preview-generation => { root.refresh-hover(); }
     changed has-hover => {
         if !root.has-hover && !root.hover-selection-active {
             root.suppress-hover();
@@ -315,6 +321,9 @@ export component CanvasInteractionLayer inherits TouchArea {
     private property <[SelectionRectangle]> selections:
         Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset);
 
+    private property <Point> hover-window-position;
+    private property <float> zoom: CanvasView.zoom;
+    changed zoom => { root.refresh-hover(); }
     private property <Point> canvas-origin: root.absolute-position;
     private property <Size> canvas-size: { width: root.width, height: root.height };
     private property <SelectionRectangle> primary-selection: root.selections[Api.selection.highlight-index];
@@ -323,7 +332,10 @@ export component CanvasInteractionLayer inherits TouchArea {
         FillSession.canvas-size = root.canvas-size;
         FillSession.selection = root.primary-selection;
     }
-    changed canvas-origin => { FillSession.canvas-origin = root.canvas-origin; }
+    changed canvas-origin => {
+        FillSession.canvas-origin = root.canvas-origin;
+        root.refresh-hover();
+    }
     changed canvas-size => { FillSession.canvas-size = root.canvas-size; }
     changed primary-selection => { FillSession.selection = root.primary-selection; }
 
@@ -406,12 +418,26 @@ export component CanvasInteractionLayer inherits TouchArea {
         return true;
     }
 
+    function refresh-hover() {
+        if root.has-hover && root.hover-enabled {
+            root.update-hover({
+                x: root.hover-window-position.x - root.absolute-position.x,
+                y: root.hover-window-position.y - root.absolute-position.y,
+            });
+        }
+    }
+
     function update-hover(position: Point) {
+        root.hover-window-position = {
+            x: root.absolute-position.x + position.x,
+            y: root.absolute-position.y + position.y,
+        };
         if root.text-editing || FillSession.canvas-active || root.hover-selection-active || root.pressed {
             return;
         }
         root.hover-enabled = true;
-        Hover.element = Hover.element-at(position.x, position.y, false);
+        let preview = CanvasView.to-preview(position);
+        Hover.element = Hover.element-at(preview.x, preview.y, false);
     }
 
     function suppress-hover() {
@@ -424,7 +450,8 @@ export component CanvasInteractionLayer inherits TouchArea {
             return;
         }
         Api.unselect();
-        Api.select-at(self.pressed-x, self.pressed-y, false);
+        let preview = CanvasView.to-preview({ x: self.pressed-x, y: self.pressed-y });
+        Api.select-at(preview.x, preview.y, false);
         root.real-element-selected();
     }
     pointer-event(event) => {
@@ -434,10 +461,10 @@ export component CanvasInteractionLayer inherits TouchArea {
     }
 
     for geometry in Hover.geometry: Rectangle {
-        x: geometry.x;
-        y: geometry.y;
-        width: geometry.width;
-        height: geometry.height;
+        x: geometry.x * CanvasView.zoom;
+        y: geometry.y * CanvasView.zoom;
+        width: geometry.width * CanvasView.zoom;
+        height: geometry.height * CanvasView.zoom;
         transform-origin: { x: self.width / 2, y: self.height / 2 };
         transform-rotation: geometry.angle;
         visible: !root.hover-selection-active;
@@ -451,10 +478,10 @@ export component CanvasInteractionLayer inherits TouchArea {
             height: parent.height + 2 * Style.selection-frame.hover-width;
             border-width: Style.selection-frame.hover-width;
             border-color: Style.selection-frame.accent;
-            border-top-left-radius: geometry.top-left-radius > 0px ? geometry.top-left-radius + self.border-width : 0px;
-            border-top-right-radius: geometry.top-right-radius > 0px ? geometry.top-right-radius + self.border-width : 0px;
-            border-bottom-left-radius: geometry.bottom-left-radius > 0px ? geometry.bottom-left-radius + self.border-width : 0px;
-            border-bottom-right-radius: geometry.bottom-right-radius > 0px ? geometry.bottom-right-radius + self.border-width : 0px;
+            border-top-left-radius: geometry.top-left-radius > 0px ? geometry.top-left-radius * CanvasView.zoom + self.border-width : 0px;
+            border-top-right-radius: geometry.top-right-radius > 0px ? geometry.top-right-radius * CanvasView.zoom + self.border-width : 0px;
+            border-bottom-left-radius: geometry.bottom-left-radius > 0px ? geometry.bottom-left-radius * CanvasView.zoom + self.border-width : 0px;
+            border-bottom-right-radius: geometry.bottom-right-radius > 0px ? geometry.bottom-right-radius * CanvasView.zoom + self.border-width : 0px;
         }
     }
 
@@ -467,6 +494,7 @@ export component CanvasInteractionLayer inherits TouchArea {
             root.update-hover(position);
         }
         hover-suppressed => { root.suppress-hover(); }
+        focus-requested => { root.real-element-selected(); }
         double-clicked => {
             root.begin-text-edit();
         }
@@ -491,10 +519,10 @@ export component CanvasInteractionLayer inherits TouchArea {
     }
 
     if root.text-editing: FocusScope {
-        x: root.text-edit-position.x;
-        y: root.text-edit-position.y;
-        width: root.text-edit-size.width;
-        height: root.text-edit-size.height;
+        x: root.text-edit-position.x * CanvasView.zoom;
+        y: root.text-edit-position.y * CanvasView.zoom;
+        width: root.text-edit-size.width * CanvasView.zoom;
+        height: root.text-edit-size.height * CanvasView.zoom;
         init => {
             input.focus();
             input.select-all();
@@ -515,7 +543,7 @@ export component CanvasInteractionLayer inherits TouchArea {
             color: Api.current-property-value-data("color").value-brush;
             font-family: Api.current-property-value-data("font-family").value-string;
             font-size: Api.current-property-value-data("font-size").value-float
-                * root.text-edit-scale-y * 1px;
+                * root.text-edit-scale-y * CanvasView.zoom * 1px;
             font-weight: Api.current-property-value-data("font-weight").value-int;
             font-italic: Api.current-property-value-data("font-italic").value-bool;
             horizontal-alignment: root.horizontal-text-alignment(
@@ -525,7 +553,7 @@ export component CanvasInteractionLayer inherits TouchArea {
                 Api.current-property-value-data("vertical-alignment").value-int,
             );
             letter-spacing: Api.current-property-value-data("letter-spacing").value-float
-                * root.text-edit-scale-x * 1px;
+                * root.text-edit-scale-x * CanvasView.zoom * 1px;
             line-height-factor: Api.current-property-value-data("line-height-factor").value-float;
             single-line: true;
             wrap: no-wrap;

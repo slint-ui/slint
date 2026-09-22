@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { CanvasView } from "canvas-view.slint";
 import { Style, Metrics, Colors, GradientOverlayStyle } from "../style.slint";
 import { Api, FillData, LinearGradientAxis, SelectionRectangle } from "../api.slint";
 import { FillSession } from "inspector/fill-session.slint";
@@ -90,6 +91,7 @@ export component GradientOverlay inherits FocusScope {
     private property <length> axis-length: max(1px, sqrt((root.dx * root.dx + root.dy * root.dy) / (1px * 1px)) * 1px);
     private property <angle> direction: atan2(root.dy / 1px, root.dx / 1px);
     private property <bool> dragging;
+    changed dragging => { CanvasView.manipulating = root.dragging; }
     private property <GradientGestureKind> drag-kind;
     private property <Point> press;
     private property <LinearGradientAxis> original-axis;
@@ -116,13 +118,14 @@ export component GradientOverlay inherits FocusScope {
         let cx = root.selection.width / 2;
         let cy = root.selection.height / 2;
         return {
-            x: root.selection.x + cx + (p.x - cx) * cos(root.selection.angle) - (p.y - cy) * sin(root.selection.angle),
-            y: root.selection.y + cy + (p.x - cx) * sin(root.selection.angle) + (p.y - cy) * cos(root.selection.angle),
+            x: (root.selection.x + cx + (p.x - cx) * cos(root.selection.angle) - (p.y - cy) * sin(root.selection.angle)) * CanvasView.zoom,
+            y: (root.selection.y + cy + (p.x - cx) * sin(root.selection.angle) + (p.y - cy) * cos(root.selection.angle)) * CanvasView.zoom,
         };
     }
     pure function to-local(p: Point) -> Point {
-        let x = p.x - root.absolute-position.x - root.selection.x - root.selection.width / 2;
-        let y = p.y - root.absolute-position.y - root.selection.y - root.selection.height / 2;
+        let preview = CanvasView.to-preview({ x: p.x - root.absolute-position.x, y: p.y - root.absolute-position.y });
+        let x = preview.x - root.selection.x - root.selection.width / 2;
+        let y = preview.y - root.selection.y - root.selection.height / 2;
         return {
             x: root.selection.width / 2 + x * cos(root.selection.angle) + y * sin(root.selection.angle),
             y: root.selection.height / 2 - x * sin(root.selection.angle) + y * cos(root.selection.angle),

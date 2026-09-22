@@ -28,11 +28,11 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
     function radius-from-handle(corner: CanvasCorner, pointer-x: length, pointer-y: length) -> length {
         let from-left = root.corner-on-left(corner) ? pointer-x : root.width - pointer-x;
         let from-top = root.corner-on-top(corner) ? pointer-y : root.height - pointer-y;
-        return (min(from-left, from-top) - root.radius-style.inset).clamp(0px, root.max-corner-radius());
+        return ((min(from-left, from-top) - root.radius-style.inset) / root.geometry-scale).clamp(0px, root.max-corner-radius());
     }
 
     function max-corner-radius() -> length {
-        return min(root.width, root.height) / 2;
+        return min(root.width, root.height) / (2 * root.geometry-scale);
     }
 
     function corner-radius(corner: CanvasCorner) -> length {
@@ -61,7 +61,7 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
         CanvasCorner.bottom-right,
         CanvasCorner.bottom-left,
     ]: Rectangle {
-        property <length> radius: root.preview-radius(corner);
+        property <length> radius: root.preview-radius(corner) * root.geometry-scale;
         property <length> handle-center-x: root.corner-on-left(corner)
             ? root.radius-style.inset + radius
             : root.width - root.radius-style.inset - radius;

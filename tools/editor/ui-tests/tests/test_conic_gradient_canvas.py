@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
 from gradient_interactions import around, center, click, control, gesture, shifted
 from slint_testing import keys
@@ -90,27 +91,31 @@ def test_conic_escape_restores_gesture(
         original.assert_unchanged()
 
 
+@pytest.mark.parametrize("percent", [50, 100, 200])
 def test_conic_keyboard_and_seam_neighbor(
-    editor_binary, editor_environment, conic_scene, tmp_path
+    editor_binary, editor_environment, conic_scene, tmp_path, percent
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
         wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
+        select_outline_row(window, "fill")
+        zoom_canvas(window, percent)
+        center_canvas_selection(window)
         open_conic(window)
         c = center(control(window, "Gradient center handle"), 130)
         gesture(window, c, c)
         press_key(window, keys.RightArrow)
         press_shortcut(window, keys.Shift, keys.DownArrow)
         moved = center(control(window, "Gradient center handle"), 130)
-        assert moved.x == pytest.approx(c.x + 1, abs=0.001)
-        assert moved.y == pytest.approx(c.y + 10, abs=0.001)
+        assert moved.x == pytest.approx(c.x + percent / 100, abs=0.001)
+        assert moved.y == pytest.approx(c.y + percent / 10, abs=0.001)
         r = center(control(window, "Gradient rotation handle"), 130)
         gesture(window, r, r)
         press_key(window, keys.RightArrow)
         press_shortcut(window, keys.Shift, keys.LeftArrow)
         r = center(control(window, "Gradient rotation handle"), 121)
-        expected = around(moved, 126, 211)
+        expected = around(moved, 126 * percent / 100, 211)
         assert r.x == pytest.approx(expected.x, abs=0.001)
         assert r.y == pytest.approx(expected.y, abs=0.001)
         p = stop_center(window, 2, 198, start=211)
