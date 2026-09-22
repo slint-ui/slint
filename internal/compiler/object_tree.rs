@@ -827,6 +827,11 @@ pub struct PropertyDeclaration {
     /// empty when the declaration gives no advice on a replacement, and the warning then stops
     /// after naming the member.
     pub deprecated: Option<SmolStr>,
+    /// Set on a property the source can't name, such as `layoutinfo-h`: one a compiler pass
+    /// invented for its own use.
+    /// Most come from [`crate::layout::create_new_prop`], which sets this.
+    /// A pass that declares one by hand sets it too, unless it exposes the property to the source.
+    pub synthesized: bool,
 }
 
 impl PropertyDeclaration {
@@ -5229,7 +5234,11 @@ pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem
     // (should be removed by const propagation in the llr)
     injected_parent_mut.property_declarations.insert(
         "dummy".into(),
-        PropertyDeclaration { property_type: Type::LogicalLength, ..Default::default() },
+        PropertyDeclaration {
+            property_type: Type::LogicalLength,
+            synthesized: true,
+            ..Default::default()
+        },
     );
     let mut old_elem_mut = old_elem.borrow_mut();
     injected_parent_mut.default_fill_parent = std::mem::take(&mut old_elem_mut.default_fill_parent);

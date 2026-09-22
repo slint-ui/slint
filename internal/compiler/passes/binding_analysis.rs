@@ -512,6 +512,18 @@ fn analyze_binding(
     depends_on_external
 }
 
+/// Whether a compiler pass invented this property, such as `layoutinfo-h` or `layout-cache-v`:
+/// the source can't name it, so a message that does is no help.
+/// One that took over a binding the source wrote, such as a popup's `fixed-width`, still counts
+/// as the user's.
+fn is_synthesized_property(prop: &PropertyPath) -> bool {
+    let elem = prop.prop.element();
+    let elem = elem.borrow();
+    let name = prop.prop.name();
+    elem.property_declarations.get(name).is_some_and(|decl| decl.synthesized)
+        && !elem.binding_cell_including_synthetic(name).is_some_and(|b| b.borrow().from_source)
+}
+
 /// Whether the type is the `LayoutInfo` a layout solve reads, directly or from a call.
 fn is_layout_info(ty: &Type) -> bool {
     match ty {
@@ -745,14 +757,51 @@ fn report_binding_loop(
     }
 }
 
-/// The cycle as a chain of property names, starting and ending at `current`.
+/// Whether `SLINT_FULL_BINDING_LOOP_CHAIN` asks for the properties a pass invented to stay in
+/// the chain.
+/// They name the layout properties a cycle really runs through, which is what someone debugging
+/// the compiler needs and what a user can do nothing with.
+fn keep_invented_properties() -> bool {
+    static KEEP: std::sync::LazyLock<bool> =
+        std::sync::LazyLock::new(|| std::env::var_os("SLINT_FULL_BINDING_LOOP_CHAIN").is_some());
+    *KEEP
+}
+
+/// The cycle as a chain of property names, ending where it starts.
+/// A property a pass invented shows as only its element, since the source can't name it, and a
+/// run of them on one element shows it once.
+/// The chain starts at a property the source can name, so both its ends are one and the loop
+/// reads as one.
+/// A cycle made only of invented properties keeps their names, as does any cycle under
+/// [`keep_invented_properties`].
 fn describe_loop(current: &PropertyPath, cycle: &[&PropertyPath]) -> String {
+    // `cycle` ends at `current`, so these are the hops of the cycle, each triggering the next
+    // and the last triggering the first.
+    let hops: Vec<&PropertyPath> = std::iter::once(current).chain(cycle.iter().copied()).collect();
+    let hops = &hops[..hops.len() - 1];
+    let named = hops.iter().position(|prop| !is_synthesized_property(prop));
+    let collapse = named.is_some() && !keep_invented_properties();
+    let start = if collapse { named.unwrap_or(0) } else { 0 };
+
     let mut out = String::new();
-    for prop in std::iter::once(current).chain(cycle.iter().copied()) {
+    let mut hidden_on: Option<ElementRc> = None;
+    for prop in hops[start..].iter().chain(&hops[..start]).copied().chain([hops[start]]) {
+        let element = prop.prop.element();
+        let hidden = collapse && is_synthesized_property(prop);
+        if hidden && hidden_on.as_ref().is_some_and(|e| Rc::ptr_eq(e, &element)) {
+            continue;
+        }
         if !out.is_empty() {
             out.push_str(" -> ");
         }
-        if let Some(owner) = element_name(&prop.prop.element().borrow()) {
+        let owner = element_name(&element.borrow());
+        if hidden {
+            out.push_str(owner.as_deref().unwrap_or("..."));
+            hidden_on = Some(element);
+            continue;
+        }
+        hidden_on = None;
+        if let Some(owner) = owner {
             out.push_str(&owner);
             out.push('.');
         }
