@@ -555,6 +555,7 @@ impl Snapshotter {
                     shadowable: v.shadowable,
                     moved_from: v.moved_from.clone(),
                     deprecated: v.deprecated.clone(),
+                    synthesized: v.synthesized,
                 };
                 (k.clone(), decl)
             })
