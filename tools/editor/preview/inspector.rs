@@ -186,6 +186,15 @@ fn preview_value(
     names: &[&str],
     value: slint_interpreter::Value,
 ) -> bool {
+    let values = names.iter().map(|name| (*name, value.clone())).collect::<Vec<_>>();
+    preview_values(key, node, &values)
+}
+
+fn preview_values(
+    key: SharedString,
+    node: ElementRcNode,
+    values: &[(&str, slint_interpreter::Value)],
+) -> bool {
     let hash = node.with_element_debug(|debug| debug.element_hash);
     if PREVIEW_STATE.with_borrow(|state| {
         state.inspector_edit.as_ref().is_some_and(|edit| edit.key != key.as_str())
@@ -194,7 +203,7 @@ fn preview_value(
     }
     let overrides = PREVIEW_STATE.with_borrow(|state| state.debug_hook_overrides.clone());
     let mut overrides = (*overrides).borrow_mut();
-    for name in names {
+    for (name, value) in values {
         let id = i_slint_compiler::passes::property_id(hash, &SmolStr::from(*name));
         let property = overrides
             .entry(id.clone())
@@ -220,6 +229,80 @@ fn preview_value(
 pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool {
     let Some((node, _, _, names)) = validate(&key, &name, value) else { return false };
     preview_value(key, node, &names, slint_interpreter::Value::Number(value as f64))
+}
+
+fn valid_shadow_changes(changes: &[ui::InspectorNumberChange]) -> bool {
+    let mut family = None;
+    let mut names = std::collections::BTreeSet::new();
+    for change in changes {
+        let Some((prefix, name)) = ["drop-shadow-", "inner-shadow-"]
+            .into_iter()
+            .find_map(|prefix| change.name.strip_prefix(prefix).map(|name| (prefix, name)))
+        else {
+            return false;
+        };
+        if !change.value.is_finite()
+            || !matches!(name, "blur" | "spread" | "offset-x" | "offset-y")
+            || (name == "blur" && change.value < 0.)
+            || family.is_some_and(|family| family != prefix)
+            || !names.insert(name)
+        {
+            return false;
+        }
+        family = Some(prefix);
+    }
+    matches!(
+        names.iter().copied().collect::<Vec<_>>().as_slice(),
+        ["blur"] | ["spread"] | ["offset-x", "offset-y"]
+    )
+}
+
+pub(super) fn preview_shadow(
+    key: SharedString,
+    changes: slint::ModelRc<ui::InspectorNumberChange>,
+) -> bool {
+    let changes = changes.iter().collect::<Vec<_>>();
+    let target = target(&key).filter(|_| valid_shadow_changes(&changes));
+    let Some((node, _, _)) = target else {
+        cancel();
+        return false;
+    };
+    let values = changes
+        .iter()
+        .map(|change| (change.name.as_str(), slint_interpreter::Value::Number(change.value as f64)))
+        .collect::<Vec<_>>();
+    preview_values(key, node, &values)
+}
+
+pub(super) fn commit_shadow(
+    key: SharedString,
+    changes: slint::ModelRc<ui::InspectorNumberChange>,
+) -> bool {
+    let changes = changes.iter().collect::<Vec<_>>();
+    let target = target(&key).filter(|_| valid_shadow_changes(&changes));
+    let Some((node, url, version)) = target else {
+        cancel();
+        return false;
+    };
+    let changes = changes
+        .iter()
+        .map(|change| {
+            i_slint_editor_preview::editing::PropertyChange::new(
+                change.name.as_str(),
+                format!("{}px", change.value),
+            )
+        })
+        .collect();
+    let accepted = property_edit(node, url, version, changes)
+        .is_some_and(|edit| send_workspace_edit("Changing shadow".into(), edit, true));
+    if accepted {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.inspector_edit.take();
+        });
+    } else {
+        cancel();
+    }
+    accepted
 }
 
 fn fill_value(
@@ -368,5 +451,39 @@ pub(super) fn refresh() {
     let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
     if let Some(api) = api {
         api.set_inspector_generation(api.get_inspector_generation().wrapping_add(1));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shadow_batches_validate_before_previewing() {
+        let change = |name: &str, value| ui::InspectorNumberChange { name: name.into(), value };
+        for prefix in ["drop-shadow-", "inner-shadow-"] {
+            for changes in [
+                vec![change(&format!("{prefix}blur"), 0.)],
+                vec![change(&format!("{prefix}spread"), -64.)],
+                vec![
+                    change(&format!("{prefix}offset-x"), -8.),
+                    change(&format!("{prefix}offset-y"), 0.),
+                ],
+            ] {
+                assert!(valid_shadow_changes(&changes));
+            }
+        }
+        for changes in [
+            vec![],
+            vec![change("drop-shadow-blur", -1.)],
+            vec![change("drop-shadow-spread", f32::NAN)],
+            vec![change("drop-shadow-blur", f32::INFINITY)],
+            vec![change("background", 1.)],
+            vec![change("drop-shadow-offset-x", 8.)],
+            vec![change("drop-shadow-offset-x", 8.), change("inner-shadow-offset-y", 8.)],
+            vec![change("drop-shadow-spread", 1.), change("drop-shadow-spread", 2.)],
+        ] {
+            assert!(!valid_shadow_changes(&changes));
+        }
     }
 }

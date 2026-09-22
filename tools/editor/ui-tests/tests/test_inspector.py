@@ -1,18 +1,28 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cspell:ignore tobytes
+
 from pathlib import Path
 
 import pytest
 import slint_testing
 from editor_sync import wait_for_source
-from inspector_interactions import FIELDS, edit_field, inspector_field, wait_for_field
+from inspector_interactions import (
+    FIELDS,
+    edit_field,
+    inspector_field,
+    slider_position,
+    wait_for_field,
+)
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
 from ui_driver import (
     first_window,
     launch_editor,
+    press_keys,
     press_shortcut,
+    screenshot,
     select_outline_row,
     wait_until,
     window_element_with_label,
@@ -697,6 +707,142 @@ def test_shadow_control_writes_exact_source(
             shadow_expected(starting_source, family, control, value),
             relative_path=INSPECTOR_SOURCE,
         )
+
+
+@pytest.mark.parametrize("family", ("drop", "inner"))
+@pytest.mark.parametrize(
+    ("control", "label", "initial", "progress", "value"),
+    [
+        ("distance", "Shadow distance", 8 / 96, 0.5, "48"),
+        ("blur", "Shadow blur", 16 / 128, 0.5, "64"),
+        ("spread", "Shadow spread", 0.5, 0.25, "-32"),
+    ],
+)
+@pytest.mark.parametrize("outcome", ("commit", "cancel", "selection", "source"))
+def test_shadow_slider_previews_without_source_writes(
+    editor_binary,
+    editor_environment,
+    fixture_project,
+    family,
+    control,
+    label,
+    initial,
+    progress,
+    value,
+    outcome,
+):
+    source = fixture_project / INSPECTOR_SOURCE
+    baseline = shadow_source(source.read_bytes(), family)
+    source.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, baseline)
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        start = slider_position(window, label, initial)
+        end = slider_position(window, label, progress)
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        artboard = window_element_with_label(window, "Artboard")
+        image = screenshot(window)
+        scale = image.width / window.root_element.size.width
+        x, y = artboard.absolute_position.x, artboard.absolute_position.y
+        region = (
+            round(x * scale),
+            round(y * scale),
+            round((x + artboard.size.width) * scale),
+            round((y + artboard.size.height) * scale),
+        )
+        before = image.crop(region).tobytes()
+        window.dispatch_event(
+            slint_testing.PointerPressEvent(
+                start, slint_testing.PointerEventButton.Left
+            )
+        )
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_field(window, label + " value", value)
+        assert screenshot(window).crop(region).tobytes() != before
+        snapshot.assert_unchanged()
+        if outcome == "cancel":
+            press_keys(window, keys.Escape)
+        elif outcome == "selection":
+            select_element(window, "Text")
+        elif outcome == "source":
+            source.write_bytes(baseline + b"\n// External edit\n")
+            snapshot.wait_for_applied(
+                baseline + b"\n// External edit\n", INSPECTOR_SOURCE
+            )
+        window.dispatch_event(
+            slint_testing.PointerReleaseEvent(
+                end, slint_testing.PointerEventButton.Left
+            )
+        )
+        if outcome != "commit":
+            if outcome == "source":
+                snapshot.wait_for_applied(
+                    baseline + b"\n// External edit\n", INSPECTOR_SOURCE
+                )
+            else:
+                snapshot.assert_unchanged()
+            if outcome == "selection":
+                select_element(window, "Rectangle")
+            assert screenshot(window).crop(region).tobytes() == before
+        else:
+            expected = shadow_expected(baseline, family, control, value)
+            snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
+            press_shortcut(window, keys.Control, "z")
+            snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
+            press_shortcut(window, keys.Control, keys.Shift, "z")
+            snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
+
+
+@pytest.mark.parametrize("family", ("drop", "inner"))
+def test_shadow_distance_keeps_direction_through_zero(
+    editor_binary, editor_environment, fixture_project, family
+):
+    source = fixture_project / INSPECTOR_SOURCE
+    baseline = (
+        shadow_source(source.read_bytes(), family)
+        .replace(
+            f"{family}-shadow-offset-x: 0px;".encode(),
+            f"{family}-shadow-offset-x: -8px;".encode(),
+        )
+        .replace(
+            f"{family}-shadow-offset-y: 8px;".encode(),
+            f"{family}-shadow-offset-y: 0px;".encode(),
+        )
+    )
+    source.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, baseline)
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        start = slider_position(window, "Shadow distance", 8 / 96)
+        zero = slider_position(window, "Shadow distance", 0)
+        end = slider_position(window, "Shadow distance", 0.5)
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(
+            slint_testing.PointerPressEvent(
+                start, slint_testing.PointerEventButton.Left
+            )
+        )
+        window.dispatch_event(slint_testing.PointerMoveEvent(zero))
+        wait_for_field(window, "Shadow distance value", "0")
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_field(window, "Shadow distance value", "48")
+        snapshot.assert_unchanged()
+        window.dispatch_event(
+            slint_testing.PointerReleaseEvent(
+                end, slint_testing.PointerEventButton.Left
+            )
+        )
+        expected = baseline.replace(
+            f"{family}-shadow-offset-x: -8px;".encode(),
+            f"{family}-shadow-offset-x: -48px;".encode(),
+        )
+        snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
 
 
 @pytest.mark.parametrize("effect", ("none", "drop", "inner"))

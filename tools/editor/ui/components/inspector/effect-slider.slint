@@ -15,6 +15,9 @@ export component InspectorEffectSlider inherits Rectangle {
     in property <string> suffix: "px";
     in property <string> commit-key: "";
     callback accepted(float) -> bool;
+    callback started();
+    callback preview(float) -> bool;
+    callback canceled();
     width: Style.inspector-layout.content-width;
     height: root.style.height;
 
@@ -36,8 +39,10 @@ export component InspectorEffectSlider inherits Rectangle {
             minimum: root.minimum;
             maximum: root.maximum;
             commit-key: root.commit-key;
-            preview(value) => { return true; }
+            started => { root.started(); }
+            preview(value) => { return root.preview(value); }
             accepted(value) => { return root.accepted(value); }
+            canceled => { root.canceled(); }
         }
         InspectorValueField {
             accessible-name: root.accessible-name + " value";

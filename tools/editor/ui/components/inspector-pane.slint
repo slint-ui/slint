@@ -3,7 +3,7 @@
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
 import { InspectorComboOption } from "inspector/control-data.slint";
-import { Api, CodeBinding, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { Api, CodeBinding, ElementInformation, InspectorNumberChange, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
 import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
 
@@ -24,6 +24,8 @@ import { ScrollView } from "std-widgets.slint";
 export component InspectorPane inherits Rectangle {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <ElementInformation> element-information;
+    private property <angle> shadow-drag-angle;
+    private property <bool> shadow-distance-dragging;
 
     out property <bool> palette-drag-in-outline: outline-pane.palette-drag-in-outline;
 
@@ -349,17 +351,21 @@ export component InspectorPane inherits Rectangle {
     }
 
     function commit-shadow-number(property-name: string, value: float) -> bool {
-        return root.commit-code(property-name, "\{value.round()}px");
+        return Api.inspector-commit-shadow(root.inspector-key, [{ name: property-name, value: value.round() }]);
     }
 
-    function commit-shadow-offsets(angle: angle, distance: float) -> bool {
+    pure function shadow-offset-changes(angle: angle, distance: float) -> [InspectorNumberChange] {
         let prefix = root.current-shadow-prefix();
         let x = (angle.cos() * distance).round();
         let y = (angle.sin() * distance).round();
-        return root.commit-codes([
-            { name: prefix + "offset-x", value: x == 0 ? "0px" : "\{x}px" },
-            { name: prefix + "offset-y", value: y == 0 ? "0px" : "\{y}px" },
-        ]);
+        return [
+            { name: prefix + "offset-x", value: x == 0 ? 0 : x },
+            { name: prefix + "offset-y", value: y == 0 ? 0 : y },
+        ];
+    }
+
+    function commit-shadow-offsets(angle: angle, distance: float) -> bool {
+        return Api.inspector-commit-shadow(root.inspector-key, root.shadow-offset-changes(angle, distance));
     }
 
     function shadow-code(property-name: string, fallback: string) -> string {
@@ -382,6 +388,8 @@ export component InspectorPane inherits Rectangle {
         if value != "none" && value != "drop" && value != "inner" {
             return false;
         }
+        Api.inspector-cancel();
+        root.shadow-distance-dragging = false;
         let drop = root.shadow-bindings("drop-shadow-", value == "drop");
         let inner = root.shadow-bindings("inner-shadow-", value == "inner");
         return root.commit-codes([
@@ -738,9 +746,19 @@ export component InspectorPane inherits Rectangle {
                             minimum: 0;
                             maximum: 96;
                             commit-key: root.field-key(root.current-shadow-prefix() + "offset");
-                            accepted(value) => {
-                                return root.commit-shadow-offsets(root.shadow-angle(), value);
+                            started => {
+                                root.shadow-drag-angle = root.shadow-angle();
+                                root.shadow-distance-dragging = true;
                             }
+                            preview(value) => {
+                                return Api.inspector-preview-shadow(root.inspector-key, root.shadow-offset-changes(root.shadow-drag-angle, value));
+                            }
+                            accepted(value) => {
+                                let accepted = root.commit-shadow-offsets(root.shadow-distance-dragging ? root.shadow-drag-angle : root.shadow-angle(), value);
+                                root.shadow-distance-dragging = false;
+                                return accepted;
+                            }
+                            canceled => { root.shadow-distance-dragging = false; Api.inspector-cancel(); }
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
@@ -750,9 +768,13 @@ export component InspectorPane inherits Rectangle {
                             minimum: 0;
                             maximum: 128;
                             commit-key: root.field-key(root.current-shadow-prefix() + "blur");
+                            preview(value) => {
+                                return Api.inspector-preview-shadow(root.inspector-key, [{ name: root.current-shadow-prefix() + "blur", value: value }]);
+                            }
                             accepted(value) => {
                                 return root.commit-shadow-number(root.current-shadow-prefix() + "blur", value);
                             }
+                            canceled => { Api.inspector-cancel(); }
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
@@ -762,9 +784,13 @@ export component InspectorPane inherits Rectangle {
                             minimum: -64;
                             maximum: 64;
                             commit-key: root.field-key(root.current-shadow-prefix() + "spread");
+                            preview(value) => {
+                                return Api.inspector-preview-shadow(root.inspector-key, [{ name: root.current-shadow-prefix() + "spread", value: value }]);
+                            }
                             accepted(value) => {
                                 return root.commit-shadow-number(root.current-shadow-prefix() + "spread", value);
                             }
+                            canceled => { Api.inspector-cancel(); }
                         }
                     }
                 }
