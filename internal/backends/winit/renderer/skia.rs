@@ -21,7 +21,10 @@ impl WinitSkiaRenderer {
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
-            renderer: SkiaRenderer::default(&shared_backend_data.skia_context),
+            renderer: core::cfg_select! {
+                enable_skia_gpu_renderer => SkiaRenderer::default(&shared_backend_data.skia_context),
+                _ => SkiaRenderer::default_software(&shared_backend_data.skia_context),
+            },
             requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
         }))
     }
@@ -36,6 +39,26 @@ impl WinitSkiaRenderer {
         }))
     }
 
+    #[cfg(not(enable_skia_gpu_renderer))]
+    pub fn factory_for_graphics_api(
+        requested_graphics_api: Option<&RequestedGraphicsAPI>,
+    ) -> Result<
+        fn(
+            &Rc<crate::SharedBackendData>,
+        ) -> Result<Box<dyn crate::WinitCompatibleRenderer>, PlatformError>,
+        PlatformError,
+    > {
+        match requested_graphics_api {
+            Some(_) => Err("Graphics API requested but only Skia software rendering is enabled"
+                .to_string()
+                .into()),
+            None => Ok(Self::new_suspended),
+        }
+    }
+}
+
+#[cfg(enable_skia_gpu_renderer)]
+impl WinitSkiaRenderer {
     #[cfg(not(ios_and_friends))]
     pub fn new_opengl_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,

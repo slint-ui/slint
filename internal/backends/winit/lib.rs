@@ -137,7 +137,7 @@ core::cfg_select! {
         const DEFAULT_RENDERER_NAME: &str = "Vello";
     }
     _ => {
-        compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software` or `renderer-vello`");
+        compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-skia-software`, `renderer-software` or `renderer-vello`");
     }
 }
 
@@ -163,7 +163,7 @@ fn default_renderer_factory(
             renderer::vello::WinitVelloRenderer::new_suspended(shared_backend_data)
         }
         _ => {
-            compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software` or `renderer-vello`");
+            compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-skia-software`, `renderer-software` or `renderer-vello`");
         }
     }
 }
@@ -178,7 +178,8 @@ fn try_create_window_with_fallback_renderer(
         #[cfg(any(
             feature = "renderer-skia",
             feature = "renderer-skia-opengl",
-            feature = "renderer-skia-vulkan"
+            feature = "renderer-skia-vulkan",
+            all(feature = "renderer-skia-software", not(target_os = "android"))
         ))]
         renderer::skia::WinitSkiaRenderer::new_suspended,
         #[cfg(feature = "renderer-femtovg-wgpu")]
@@ -1297,7 +1298,7 @@ fn create_renderer(
                 shared_data,
             )
         }
-        #[cfg(all(enable_skia_renderer, supports_opengl))]
+        #[cfg(all(enable_skia_gpu_renderer, supports_opengl))]
         (Some("skia-opengl"), maybe_graphics_api) => {
             // If a graphics API was requested, double check that it's GL.
             if let Some(api) = maybe_graphics_api {
@@ -1305,7 +1306,7 @@ fn create_renderer(
             }
             renderer::skia::WinitSkiaRenderer::new_opengl_suspended(shared_data)
         }
-        #[cfg(enable_skia_renderer)]
+        #[cfg(enable_skia_gpu_renderer)]
         (Some("skia-wgpu"), maybe_graphics_api) => match maybe_graphics_api {
             None => renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(shared_data),
             #[cfg(feature = "unstable-wgpu-30")]
@@ -1356,7 +1357,7 @@ fn create_renderer(
         #[cfg(feature = "unstable-wgpu-29")]
         (None, Some(RequestedGraphicsAPI::WGPU29(..))) => {
             core::cfg_select! {
-                enable_skia_renderer => {
+                enable_skia_gpu_renderer => {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(shared_data)
                 }
                 feature = "renderer-vello" => {
@@ -1370,7 +1371,7 @@ fn create_renderer(
         #[cfg(feature = "unstable-wgpu-30")]
         (None, Some(RequestedGraphicsAPI::WGPU30(..))) => {
             core::cfg_select! {
-                enable_skia_renderer => {
+                enable_skia_gpu_renderer => {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(shared_data)
                 }
                 feature = "renderer-femtovg-wgpu" => {
