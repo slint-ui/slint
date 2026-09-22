@@ -10,9 +10,7 @@ export component TestCase inherits Window {
     in-out property<PatternInstrumentData> instruments_left: false ? sequencer_pattern_instruments : { notes: [3.0, 4.0] };
     in-out property<PatternInstrumentData> instruments_right: true ? { notes: [5.0, 6.0]} : sequencer_pattern_instruments;
 
-    //FIXME #9209: this is not working yet
-    //in-out property<[PatternInstrumentData]> list_of_lists: [instruments_left, instruments_right, {notes: [7.0, 8.0]}];
-    in-out property<[PatternInstrumentData]> list_of_lists: [];
+    in-out property<[PatternInstrumentData]> list_of_lists: [instruments_left, instruments_right, {notes: [7.0, 8.0]}];
 
     in-out property<[PatternInstrumentData]> list_of_lists2: false ? list_of_lists : [ {notes: [9.0, 10.0]} ];
 
@@ -25,11 +23,39 @@ export component TestCase inherits Window {
     in-out property <PatternInstrumentData> convert: true ? list_of_lists2[0] : { notes: [-3.0, -4.0] };
     in-out property <PatternInstrumentData> convert2: list_of_lists2.length == 0 ? { notes: [-3.0, -4.0] } : list_of_lists2[0];
 
+    // The element type comes from the position of the array: a function argument,
+    // a return type, a typed let, an array element, and a property of array type
+    pure function first-note(l: [PatternInstrumentData]) -> int { l[0].notes[0] }
+    pure function make-list() -> [PatternInstrumentData] { [{ notes: [13.0, 14.0] }, sequencer_pattern_instruments] }
+    pure function via-let() -> int {
+        let l: [PatternInstrumentData] = [{ notes: [15.0] }];
+        return l[0].notes[0];
+    }
+    in-out property <[[PatternInstrumentData]]> nested: [[{ notes: [16.0] }], [sequencer_pattern_instruments]];
+    in-out property <[PatternInstrumentData]> empty: [];
+
+    // An array that is indexed, bound to a let without a declared type, or whose
+    // length is taken isn't the value of the enclosing position, so it keeps the
+    // type of its own elements
+    in-out property <[string]> indexed: [["a"], ["b"]][1];
+    pure function from-untyped-let() -> [PatternInstrumentData] {
+        let sizes = [1, 2, 3];
+        return [{ notes: [sizes.length, ["a", "b"].length] }];
+    }
+
 
     out property <bool> test: instruments_left.notes[1] == 4 && instruments_right.notes[1] == 6
-       //&& list_of_lists[2].notes[1] == 8
+       && list_of_lists[2].notes[1] == 8
        && list_of_lists2[0].notes[1] == 10
-       && complex2.pattern.notes[1] == 12;
+       && complex2.pattern.notes[1] == 12
+       && convert.notes[1] == 10 && convert2.notes[1] == 10
+       && first-note([{ notes: [12.0] }]) == 12
+       && make-list()[0].notes[1] == 14 && make-list()[1].notes[0] == 1
+       && via-let() == 15
+       && nested[0][0].notes[0] == 16 && nested[1][0].notes[0] == 1
+       && empty.length == 0
+       && indexed[0] == "b"
+       && from-untyped-let()[0].notes[0] == 3 && from-untyped-let()[0].notes[1] == 2;
 }
 
 /*

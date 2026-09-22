@@ -520,12 +520,28 @@ impl Expression {
         // new scope for locals
         ctx.local_variables.push(Vec::new());
 
+        // The block evaluates to its last statement; the value of the others is discarded
+        let value_range = node
+            .children()
+            .filter(|n| {
+                matches!(
+                    n.kind(),
+                    SyntaxKind::Expression | SyntaxKind::ReturnStatement | SyntaxKind::LetStatement
+                )
+            })
+            .last()
+            .filter(|n| n.kind() == SyntaxKind::Expression)
+            .map(|n| n.text_range());
         let mut statements_or_exprs = node
             .children()
             .filter_map(|n| match n.kind() {
-                SyntaxKind::Expression => {
+                SyntaxKind::Expression if Some(n.text_range()) == value_range => {
                     Some((n.clone(), Self::from_expression_node(n.into(), ctx)))
                 }
+                SyntaxKind::Expression => Some((
+                    n.clone(),
+                    ctx.without_expected_type(|ctx| Self::from_expression_node(n.into(), ctx)),
+                )),
                 SyntaxKind::ReturnStatement => {
                     Some((n.clone(), Self::from_return_statement(n.into(), ctx)))
                 }
@@ -601,7 +617,9 @@ impl Expression {
             Some(t) => ctx.with_expected_type(t.clone(), |ctx| {
                 Self::from_expression_node(node.Expression(), ctx)
             }),
-            None => Self::from_expression_node(node.Expression(), ctx),
+            None => {
+                ctx.without_expected_type(|ctx| Self::from_expression_node(node.Expression(), ctx))
+            }
         };
         let ty = declared_ty.unwrap_or_else(|| value.ty());
 
@@ -2256,7 +2274,8 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let (array_expr_n, index_expr_n) = node.Expression();
-        let array_expr = Self::from_expression_node(array_expr_n, ctx);
+        let array_expr =
+            ctx.without_expected_type(|ctx| Self::from_expression_node(array_expr_n, ctx));
         let index_expr = ctx
             .with_expected_type(Type::Int32, |ctx| {
                 Self::from_expression_node(index_expr_n.clone(), ctx)
@@ -2311,16 +2330,18 @@ impl Expression {
             })
             .collect();
 
-        let element_ty = if values.is_empty() {
-            Type::Void
-        } else {
-            Self::common_target_type_for_type_list(values.iter().map(|expr| expr.ty()))
+        let element_ty = match element_expected {
+            Type::Invalid | Type::Void if values.is_empty() => Type::Void,
+            Type::Invalid | Type::Void => {
+                Self::common_target_type_for_type_list(values.iter().map(|expr| expr.ty()))
+            }
+            expected => expected,
         };
 
-        for e in values.iter_mut() {
+        for (e, n) in values.iter_mut().zip(node.Expression()) {
             *e = core::mem::replace(e, Expression::Invalid).maybe_convert_to(
                 element_ty.clone(),
-                &node,
+                &n,
                 ctx.diag,
                 &ctx.symbol_counters,
             );

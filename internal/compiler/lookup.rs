@@ -136,6 +136,12 @@ impl<'a> LookupCtx<'a> {
         r
     }
 
+    /// Run `f` with no `expected_type`, for a sub-expression whose type the enclosing
+    /// position doesn't constrain.
+    pub fn without_expected_type<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
+        self.with_expected_type(Type::Invalid, f)
+    }
+
     pub fn is_legacy_component(&self) -> bool {
         self.component_scope.first().is_some_and(|e| e.borrow().is_legacy_syntax)
     }
