@@ -2482,6 +2482,82 @@ import { LibraryHelperType } from "@libdir/library_helper_type.slint";
 }
 
 #[test]
+fn test_library_import_of_resources() {
+    // The library prefix resolves an image and a font too, not just a `.slint` file (#7086).
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+    let compile = |source: &str| {
+        let mut compiler_config =
+            CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        compiler_config.library_paths = HashMap::from([
+            ("images".into(), manifest_dir.join("../../logo")),
+            ("fonts".into(), manifest_dir.join("../common/sharedfontique")),
+        ]);
+        compiler_config.style = Some("fluent".into());
+        // Embed the image, so that a path that didn't resolve is reported rather than carried
+        // as a string nothing reads.
+        compiler_config.embed_resources = crate::EmbedResourcesKind::EmbedAllResources;
+
+        let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+        let doc_node = crate::parser::parse(
+            source.into(),
+            Some(&manifest_dir.join("test.slint")),
+            &mut test_diags,
+        );
+        assert!(!test_diags.has_errors());
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config))
+    };
+
+    let (document, diagnostics, _) = compile(
+        r#"
+import "@fonts/Inter-VariableFont.ttf";
+
+export component Test inherits Window {
+    Image { source: @image-url("@images/slint-logo-square-light.png"); }
+}
+"#,
+    );
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    let font = document.custom_fonts.first().expect("the font is imported");
+    let font_path = std::path::Path::new(font.0.as_str());
+    assert_eq!(font_path.file_name(), Some("Inter-VariableFont.ttf".as_ref()), "{}", font.0);
+    assert_eq!(
+        font_path.parent().and_then(std::path::Path::file_name),
+        Some("sharedfontique".as_ref()),
+        "the font kept the library path: {}",
+        font.0
+    );
+
+    // A file the library doesn't provide is reported, so the two assertions above say the
+    // prefix resolved rather than that nothing ever looked.
+    let (_, diagnostics, _) = compile(
+        r#"
+export component Test inherits Window {
+    Image { source: @image-url("@images/no-such-image.png"); }
+}
+"#,
+    );
+    let errors = diagnostics.to_string_vec();
+    assert!(
+        errors.iter().any(|e| e.contains("Cannot find image file") && e.contains("logo")),
+        "{errors:?}"
+    );
+
+    let (_, diagnostics, _) = compile(
+        r#"
+import "@fonts/no-such-font.ttf";
+
+export component Test inherits Window { }
+"#,
+    );
+    let errors = diagnostics.to_string_vec();
+    assert!(
+        errors.iter().any(|e| e.contains("no-such-font.ttf") && e.contains("not found")),
+        "{errors:?}"
+    );
+}
+
+#[test]
 fn test_library_import_errors() {
     let test_source_path: PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader", "library"].iter().collect();
