@@ -1850,6 +1850,14 @@ impl ComponentInstance {
         crate::highlight::element_node_at_source_code_position(self.inner.vrc(), path, offset)
     }
 
+    /// Bind source-defined root dimensions to the explicitly sized ComponentContainer hosting this instance.
+    /// Does nothing for a standalone instance.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn fill_parent(&self) {
+        crate::bindings::fill_parent(self.inner.vrc());
+    }
+
     /// Set a callback triggered by `Expression::DebugHook`.
     #[cfg(feature = "internal")]
     pub fn set_debug_hook_callback(&self, callback: Option<crate::debug_hook::DebugHookCallback>) {
@@ -2590,4 +2598,115 @@ export component Foo3 inherits Window {
     let offset = code.find("Rectangle {\n        x: xo").unwrap() as u32;
     assert_eq!(handle.component_positions(&path, offset).len(), 3);
     assert!(handle.component_positions(&path, code.len() as u32 - 1).is_empty());
+}
+
+#[cfg(feature = "internal")]
+#[test]
+fn embedded_root_size_binding_preserves_standalone_dimensions() {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    i_slint_backend_testing::init_no_event_loop();
+    for debug_hooks in [false, true] {
+        for (base, bindings, initial_width, initial_height) in [
+            ("Window", "width: 100px; height: 80px;", 100., 80.),
+            ("Rectangle", "width: 100px; height: 80px;", 100., 80.),
+            ("Base", "", 100., 80.),
+            (
+                "Window",
+                "width: 100px; height: 80px; states [ active when enabled: { width: 120px; height: 90px; } ]",
+                120.,
+                90.,
+            ),
+            (
+                "Window",
+                "in-out property <length> w: 100px; in-out property <length> h: 80px; width <=> w; height <=> h;",
+                100.,
+                80.,
+            ),
+        ] {
+            let mut compiler = Compiler::default();
+            compiler.set_style("fluent".into());
+            let config = compiler.compiler_configuration(i_slint_core::InternalToken);
+            config.enable_experimental = true;
+            config.debug_hooks = debug_hooks.then(std::hash::RandomState::new);
+            let source = std::format!(
+                r#"
+                component Base inherits Window {{ width: 100px; height: 80px; }}
+                export component Content inherits {base} {{
+                    in-out property <bool> enabled: true;
+                    {bindings}
+                    out property <length> child-width: child.width;
+                    out property <length> child-height: child.height;
+                    child := Rectangle {{ width: parent.width; height: parent.height; }}
+                }}
+            "#
+            );
+            let result = spin_on::spin_on(compiler.build_from_source(source, Default::default()));
+            assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+            let definition = result.component("Content").unwrap();
+            let standalone = definition.create().unwrap();
+            standalone.fill_parent();
+            assert_eq!(standalone.get_property("child-width"), Ok(Value::Number(initial_width)));
+            assert_eq!(standalone.get_property("child-height"), Ok(Value::Number(initial_height)));
+
+            let host = spin_on::spin_on(
+                compiler.build_from_source(
+                    r#"
+                export component Host inherits Window {
+                    width: 800px; height: 600px;
+                    in property <component-factory> factory;
+                    in-out property <length> canvas-width: 300px;
+                    in-out property <length> canvas-height: 200px;
+                    ComponentContainer {
+                        width: canvas-width; height: canvas-height;
+                        component-factory: factory;
+                    }
+                }
+            "#
+                    .into(),
+                    Default::default(),
+                ),
+            )
+            .component("Host")
+            .unwrap()
+            .create()
+            .unwrap();
+            let embedded = Rc::new(RefCell::new(None));
+            let captured = embedded.clone();
+            host.set_property(
+                "factory",
+                ComponentFactory::new(move |ctx| {
+                    let instance = definition.create_embedded(ctx).unwrap();
+                    instance.fill_parent();
+                    captured.replace(Some(instance.clone_strong()));
+                    Some(instance)
+                })
+                .into(),
+            )
+            .unwrap();
+            i_slint_core::item_tree::ensure_item_tree_instantiated(&vtable::VRc::into_dyn(
+                host.inner.0.clone(),
+            ));
+            let embedded = embedded.borrow();
+            let instance = embedded.as_ref().expect("factory instantiated");
+            for (width, height) in [(300., 200.), (640., 360.), (160., 90.)] {
+                host.set_property("canvas-width", Value::Number(width)).unwrap();
+                host.set_property("canvas-height", Value::Number(height)).unwrap();
+                instance.set_property("enabled", Value::Bool(false)).unwrap();
+                assert_eq!(
+                    instance.get_property("child-width"),
+                    Ok(Value::Number(width)),
+                    "{base}: {bindings}, hooks={debug_hooks}"
+                );
+                assert_eq!(
+                    instance.get_property("child-height"),
+                    Ok(Value::Number(height)),
+                    "{base}: {bindings}, hooks={debug_hooks}"
+                );
+            }
+            assert_eq!(standalone.get_property("child-width"), Ok(Value::Number(initial_width)));
+            assert_eq!(standalone.get_property("child-height"), Ok(Value::Number(initial_height)));
+        }
+    }
 }
