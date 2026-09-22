@@ -78,8 +78,6 @@ component EditorScrollBar inherits Rectangle {
                 root.scrolled();
             }
         }
-
-        scroll-event(event) => { return reject; }
     }
 }
 
@@ -96,11 +94,10 @@ export component EditorScrollIndicators inherits Rectangle {
     in property <ScrollBarPolicy> vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
     callback scrolled();
 
-    private property <bool> active;
+    private property <bool> active: idle.running || root.engaged;
     private property <bool> engaged: horizontal.engaged || vertical.engaged;
 
     function reveal() {
-        root.active = true;
         idle.running = !root.engaged;
         if idle.running { idle.restart(); }
     }
@@ -114,7 +111,6 @@ export component EditorScrollIndicators inherits Rectangle {
         interval: root.style.idle-duration;
         triggered => {
             self.running = false;
-            root.active = false;
         }
     }
 

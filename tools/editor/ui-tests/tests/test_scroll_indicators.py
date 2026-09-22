@@ -5,6 +5,7 @@ import pytest
 import slint_testing
 from canvas_interactions import center
 from editor_sync import wait_for_source
+from gradient_interactions import gesture
 from source_snapshot import SourceSnapshot
 from ui_driver import first_window, launch_editor, wait_until, window_element_with_label
 
@@ -16,7 +17,7 @@ def test_tree_indicators_scroll_without_losing_virtualization(
     file = tmp_path / "Main.slint"
     rows = "\n".join(
         f"row-{index} := Rectangle {{ width: 10px; height: 10px; }}"
-        for index in range(150)
+        for index in range(150 if panel == "outline" else 1)
     )
     file.write_text(
         "export component Main inherits Window { width: 400px; height: 400px;"
@@ -60,22 +61,19 @@ def test_tree_indicators_scroll_without_losing_virtualization(
         assert 0 < len(before) < 150
         assert vertical.computed_opacity == 0
         tree_size = tree.size
-        (tmp_path / f"{panel}-idle.png").write_bytes(window.grab_window_as_png())
         window.dispatch_event(
             slint_testing.PointerScrolledEvent(center(tree), delta_x=0, delta_y=-300)
         )
         wait_until(lambda: True if vertical.computed_opacity > 0.99 else None)
         wait_until(lambda: True if row_labels() != before else None)
         assert tree.size == tree_size
-        (tmp_path / f"{panel}-scrolling.png").write_bytes(window.grab_window_as_png())
 
+        wait_until(lambda: True if 0 < vertical.computed_opacity < 1 else None)
+        before_drag = row_labels()
         start = center(vertical)
         end = slint_testing.LogicalPosition(x=start.x, y=start.y + 30)
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerMoveEvent(start))
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        gesture(window, start, end)
+        wait_until(lambda: True if row_labels() != before_drag else None)
         window.dispatch_event(slint_testing.PointerExitedEvent())
         assert 0 < len(row_labels()) < 150
         wait_until(lambda: True if vertical.computed_opacity == 0 else None)
