@@ -111,7 +111,11 @@ pub async fn run_passes(
     // Inject debug hooks early — before any lowering or inlining — so source element identity
     // is preserved and hooks can be attributed to the correct source location.
     if let Some(random_state) = &type_loader.compiler_config.debug_hooks {
-        let root_components = doc.exported_roots().collect::<Vec<_>>();
+        collect_subcomponents::collect_subcomponents(doc);
+        let root_components = doc
+            .exported_roots()
+            .chain(doc.used_types.borrow().sub_components.iter().cloned())
+            .collect::<Vec<_>>();
         inject_debug_hooks::inject_debug_hooks(
             &root_components,
             random_state,

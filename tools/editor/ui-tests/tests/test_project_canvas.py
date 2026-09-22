@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
-from canvas_interactions import zoom_canvas
+from canvas_interactions import manual_drag, zoom_canvas
 from editor_sync import wait_for_source
 from gradient_interactions import center, click, control, gesture, shifted
 from inspector_interactions import edit_field, wait_for_field
@@ -101,6 +101,8 @@ def history(window: slint_testing.Window, redo: bool = False) -> None:
     [
         ("Window", "width: 100px;\n    height: 80px;"),
         ("Rectangle", "width: 100px;\n    height: 80px;"),
+        ("Window", "width: 100%; height: 100%;"),
+        ("Rectangle", "width: 100%; height: 100%;"),
         ("Window", ""),
         ("Base", ""),
         pytest.param(
@@ -149,6 +151,35 @@ def test_root_fills_project_canvas(
         canvas_project.write_text(source.replace("#f0f4ff", "#ffffff"))
         wait_for_source(canvas_project, canvas_project.read_bytes())
         assert_canvas(window, 640, 360)
+
+
+@pytest.mark.parametrize("root_type", ["Window", "Rectangle"])
+def test_percentage_root_preserves_live_child_resize(
+    editor_binary, editor_environment, canvas_project, root_type
+):
+    source = (
+        canvas_project.read_bytes()
+        .replace(b"inherits Window", f"inherits {root_type}".encode())
+        .replace(b"width: 100px;\n    height: 80px;", b"width: 100%; height: 100%;")
+    )
+    canvas_project.write_bytes(source)
+    snapshot = SourceSnapshot.capture(canvas_project.parent)
+    with launch_editor(editor_binary, editor_environment, canvas_project) as editor:
+        window = first_window(editor)
+        wait_for_source(canvas_project, source)
+        assert_canvas(window, 390, 720)
+        select_outline_row(window, "marker")
+        manual_drag(
+            window,
+            window_element_with_label(window, "Rectangle resize bottom-right"),
+            20,
+            16,
+            snapshot,
+        )
+        changed = replace_once(source, b"width: 40px;", b"width: 60px;")
+        changed = replace_once(changed, b"height: 40px;", b"height: 56px;")
+        snapshot.wait_for_applied(changed)
+        assert_canvas(window, 390, 720)
 
 
 def test_project_keyboard_commits_invalid_input_and_selection(

@@ -2271,7 +2271,8 @@ async fn parse_source(
     let wrapper_name = wrapper.as_ref().map(|w| w.name.clone());
     let original_lines = source_code.lines().count();
     let source = if let Some(wrapper) = wrapper {
-        cc.components_to_generate = i_slint_compiler::ComponentSelection::ExportedWindows;
+        cc.components_to_generate =
+            i_slint_compiler::ComponentSelection::Named(wrapper.name.clone());
         wrapper.source
     } else {
         source_code
@@ -2283,10 +2284,8 @@ async fn parse_source(
         .filter(|d| {
             wrapper_name.is_none()
                 || d.level() != diagnostics::DiagnosticLevel::Warning
-                || (!(d.message().starts_with("Exported component")
-                    && d.message().contains("doesn't inherit Window"))
-                    && (d.source_file() != Some(path.as_path())
-                        || d.line_column().0 <= original_lines))
+                || d.source_file() != Some(path.as_path())
+                || d.line_column().0 <= original_lines
         })
         .collect();
     let format = if config.format_utf8 {
@@ -2296,10 +2295,10 @@ async fn parse_source(
     };
     PreviewCompilation {
         diagnostics,
-        component: wrapper_name
-            .as_deref()
-            .and_then(|name| result.component(name))
-            .or_else(|| result.components().next()),
+        component: match wrapper_name {
+            Some(name) => result.component(&name),
+            None => result.components().next(),
+        },
         component_name,
         source_file_versions: source_file_versions.clone(),
         document_cache: Rc::new(i_slint_editor_preview::DocumentCache::new_from_raw_parts(
