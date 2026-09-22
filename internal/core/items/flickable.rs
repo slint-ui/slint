@@ -874,16 +874,13 @@ impl FlickableDataInner {
         flick_velocity: f32,
         dimension: Dimension,
     ) -> Pin<Box<Property<f32>>> {
+        let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
+
         let flick_weak = flick_rc.downgrade();
         let calculate_limits = move || {
-            flick_weak
-                .upgrade()
-                .and_then(|flick_rc| {
-                    flick_rc.downcast::<Flickable>().map(move |flick| (flick_rc, flick))
-                })
-                .map(|(flick_rc, flick)| {
+            flick_weak.upgrade().and_then(|flick_rc| flick_rc.downcast::<Flickable>()).map(
+                |flick| {
                     let flick = flick.as_pin_ref();
-                    let geo = Flickable::geometry_without_virtual_keyboard(&flick_rc);
                     ensure_in_bound(
                         flick,
                         LogicalPoint::from_lengths(-flick.content_width(), -flick.content_height()),
@@ -891,7 +888,8 @@ impl FlickableDataInner {
                         false,
                         false,
                     )
-                })
+                },
+            )
         };
 
         if flick_velocity < 0. {
