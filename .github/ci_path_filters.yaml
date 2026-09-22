@@ -110,13 +110,6 @@ tree_sitter:
 
 figma_inspector:
  - 'tools/figma-inspector/**'
- - 'api/wasm-interpreter/**'
- - 'api/rs/**'
- - 'internal/**'
- - 'helper_crates/**'
- - 'docs/common/src/utils/slint.tmLanguage.json'
- - 'Cargo.toml'
- - '.cargo/**'
  - *js_config
  - *ci_config
 
