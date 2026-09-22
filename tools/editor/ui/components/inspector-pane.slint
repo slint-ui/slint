@@ -559,24 +559,14 @@ export component InspectorPane inherits Rectangle {
 
                 if Api.selection.highlight-index < 0 && Project.settings-available: InspectorSection {
                     title: "Project";
-                    InspectorPropertyRow {
-                        label: "width";
+                    for name in ["width", "height"]: InspectorPropertyRow {
+                        label: name;
                         InspectorValueField {
-                            accessible-name: "Project width";
-                            value: "\{Project.canvas-width / 1px}";
+                            accessible-name: "Project " + name;
+                            value: "\{(name == "width" ? Project.canvas-width : Project.canvas-height) / 1px}";
                             commit-key: Project.settings-key;
                             enabled: Project.settings-editable;
-                            accepted(text) => { return Project.commit-canvas-dimension(self.commit-key, "width", text); }
-                        }
-                    }
-                    InspectorPropertyRow {
-                        label: "height";
-                        InspectorValueField {
-                            accessible-name: "Project height";
-                            value: "\{Project.canvas-height / 1px}";
-                            commit-key: Project.settings-key;
-                            enabled: Project.settings-editable;
-                            accepted(text) => { return Project.commit-canvas-dimension(self.commit-key, "height", text); }
+                            accepted(text) => { return Project.commit-canvas-dimension(self.commit-key, name, text); }
                         }
                     }
                     if Project.settings-error != "": Text {

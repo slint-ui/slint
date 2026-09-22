@@ -11,7 +11,7 @@ use super::{PreviewState, ui, undo_redo};
 
 const FILE_NAME: &str = "slint.project.json";
 
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub(super) struct CanvasSize {
     pub width: f32,
     pub height: f32,
@@ -47,7 +47,7 @@ impl ProjectSettings {
         let mut settings = Self {
             path: root.join(FILE_NAME),
             contents: None,
-            document: json!({"visual-editor": {"version": 1, "canvas": CanvasSize::default()}}),
+            document: json!({}),
             size: CanvasSize::default(),
             load_error: None,
             error: String::new(),
@@ -151,7 +151,6 @@ pub(super) fn apply(state: &mut PreviewState, size: CanvasSize) -> bool {
     if let Err(error) = &result {
         settings.error = format!("Cannot save {FILE_NAME}: {error}");
     }
-    publish(state);
     result.is_ok()
 }
 
@@ -179,12 +178,12 @@ fn commit(state: &mut PreviewState, key: &str, dimension: &str, value: &str) -> 
     if size == before {
         return true;
     }
-    if !apply(state, size) {
-        return false;
+    let applied = apply(state, size);
+    if applied {
+        state.undo_redo_stack.push_canvas(before);
     }
-    state.undo_redo_stack.push_canvas(before);
     undo_redo::set_undo_redo_enabled(state);
-    true
+    applied
 }
 
 #[cfg(test)]

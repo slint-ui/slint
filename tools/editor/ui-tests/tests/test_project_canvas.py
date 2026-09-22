@@ -19,7 +19,6 @@ from ui_driver import (
     press_key,
     press_keys,
     press_shortcut,
-    screenshot,
     select_outline_row,
     wait_until,
     window_element_with_label,
@@ -84,11 +83,7 @@ def clear_selection(
             position, slint_testing.PointerEventButton.Left
         )
     )
-    wait_for_field(
-        window,
-        "Project width",
-        window_element_with_label(window, "Project width").accessible_value,
-    )
+    window_element_with_label(window, "Project width")
 
 
 def history(window: slint_testing.Window, redo: bool = False) -> None:
@@ -143,16 +138,10 @@ def test_root_fills_project_canvas(
         canvas_project.write_text(source.replace("#f0f4ff", "#ffffff"))
         wait_for_source(canvas_project, canvas_project.read_bytes())
         assert_canvas(window, 640, 360)
-    with launch_editor(editor_binary, editor_environment, canvas_project) as editor:
-        window = first_window(editor)
-        wait_for_source(canvas_project, canvas_project.read_bytes())
-        assert_canvas(window, 640, 360)
-        wait_for_field(window, "Project width", "640")
-        wait_for_field(window, "Project height", "360")
 
 
 def test_project_keyboard_commits_invalid_input_and_selection(
-    editor_binary, editor_environment, canvas_project, tmp_path
+    editor_binary, editor_environment, canvas_project
 ):
     source = canvas_project.read_bytes()
     with launch_editor(editor_binary, editor_environment, canvas_project) as editor:
@@ -176,7 +165,6 @@ def test_project_keyboard_commits_invalid_input_and_selection(
         press_key(window, keys.Tab)
         assert_canvas(window, 500, 500)
         assert canvas_project.read_bytes() == source
-        screenshot(window).save(tmp_path / "project-canvas.png")
 
 
 def test_project_and_source_history_share_order(
@@ -212,10 +200,16 @@ def test_project_and_source_history_share_order(
             (canvas_project.parent / "slint.project.json").read_text()
         )
         assert settings["visual-editor"]["canvas"] == {"width": 500, "height": 500}
+    with launch_editor(editor_binary, editor_environment, canvas_project) as editor:
+        window = first_window(editor)
+        wait_for_source(canvas_project, changed)
+        assert_canvas(window, 500, 500)
+        wait_for_field(window, "Project width", "500")
+        wait_for_field(window, "Project height", "500")
 
 
 def test_large_canvas_scroll_and_shrink(
-    editor_binary, editor_environment, canvas_project, tmp_path
+    editor_binary, editor_environment, canvas_project
 ):
     source = canvas_project.read_bytes().replace(
         b"background: #4488cc;",
@@ -293,7 +287,6 @@ def test_large_canvas_scroll_and_shrink(
         artboard = window_element_with_label(window, "Artboard")
         assert artboard.absolute_position.x > 0
         assert artboard.absolute_position.y > 0
-        screenshot(window).save(tmp_path / "project-canvas.png")
 
 
 def test_external_settings_change_rejects_commit(
