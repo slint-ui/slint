@@ -159,6 +159,7 @@ pub(crate) fn completion_at(
                         ("states", "states [\n    $0\n]"),
                         ("for", "for $1 in $2: ${3:Rectangle} {\n    $0\n}"),
                         ("if", "if $1: ${2:Rectangle} {\n    $0\n}"),
+                        ("match", "match $1 {\n    $2: ${3:Rectangle} {\n        $0\n    }\n}"),
                         ("@children", "@children"),
                     ]
                     .iter()
