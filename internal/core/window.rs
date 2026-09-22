@@ -1144,7 +1144,11 @@ impl WindowInner {
 
         self.ensure_tree_instantiated();
         if let Some(position) = hover_position_after_drop {
-            self.process_mouse_input(MouseEvent::Moved { position, touch_finger_id: 0 });
+            self.process_mouse_input(MouseEvent::Moved {
+                position,
+                touch_finger_id: 0,
+                history: Default::default(),
+            });
         }
 
         Some(MouseDispatchResult { drag_action, accepted })
