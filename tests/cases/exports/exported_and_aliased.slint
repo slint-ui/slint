@@ -9,6 +9,10 @@ component Listed inherits Rectangle {
 export { Listed }
 export { Listed as ListedAlias }
 
+struct Shape { sides: int }
+export { Shape as Figure }
+export { Shape as Polygon }
+
 export component TestCase inherits Rectangle {
     in-out property <int> value: 42;
 
@@ -38,6 +42,10 @@ assert!(!instance.get_test());
 
 let aliased: TestCase = AliasedTestCase::new().unwrap();
 assert!(aliased.get_test());
+
+let figure: Polygon = Figure { sides: 3 };
+#[expect(deprecated)]
+let _: Shape = figure;
 ```
 
 ```js
