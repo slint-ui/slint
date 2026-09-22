@@ -17,7 +17,7 @@ export { TestCase as NamedTestCase }
 
 ```cpp
 auto handle = NamedTestCase::create();
-const TestCase &instance = *handle;
+const NamedTestCase &instance = *handle;
 assert(instance.get_en() == NamedEnum::Bonjour);
 NamedStruct value;
 instance.set_st(value);

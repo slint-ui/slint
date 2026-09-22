@@ -21,7 +21,10 @@ use typed_index_collections::TiVec;
 /// name (deprecated when not reachable from the public API), the renamed export aliases,
 /// and the deprecated pre-rename names. Collision-renamed types are omitted — they were
 /// never public.
-fn type_exports(document: &object_tree::Document) -> Vec<TypeExport> {
+fn type_exports(
+    document: &object_tree::Document,
+    exported_roots: &[(Rc<Component>, Vec<SmolStr>)],
+) -> Vec<TypeExport> {
     let used_types = document.used_types.borrow();
     let public = public_facing_type_names(document);
     let mut list = Vec::new();
@@ -43,6 +46,24 @@ fn type_exports(document: &object_tree::Document) -> Vec<TypeExport> {
     }
     for (internal_name, exported_name) in document.exports.named_type_aliases() {
         list.push(TypeExport { exported_name, internal_name, deprecated: false });
+    }
+    for (component, names) in exported_roots {
+        let (internal_name, aliases) =
+            names.split_first().expect("an exported root has at least one export name");
+        for exported_name in aliases {
+            list.push(TypeExport {
+                exported_name: exported_name.clone(),
+                internal_name: internal_name.clone(),
+                deprecated: false,
+            });
+        }
+        if component.id != *internal_name {
+            list.push(TypeExport {
+                exported_name: component.id.clone(),
+                internal_name: internal_name.clone(),
+                deprecated: true,
+            });
+        }
     }
     for (old_name, new_name) in &used_types.deprecated_type_aliases {
         list.push(TypeExport {
@@ -107,27 +128,35 @@ pub fn lower_to_item_tree(
         state.sub_component_mapping.insert(ByAddress(c.clone()), idx);
     }
 
-    let public_components = document
+    let exported_roots: Vec<(Rc<Component>, Vec<SmolStr>)> = document
         .exported_roots()
-        .map(|component| {
+        .map(|c| {
+            let names = document.export_names(&c);
+            (c, names)
+        })
+        .collect();
+    let public_components = exported_roots
+        .iter()
+        .map(|(component, names)| {
+            let name = &names[0];
             let top_level_type = if component.inherits_system_tray_icon() {
                 TopLevelComponentType::SystemTrayIcon
             } else {
                 TopLevelComponentType::Window
             };
-            let mut sc = lower_sub_component(&component, &mut state, None, compiler_config);
-            let public_properties = public_properties(&component, &sc.mapping, &state);
-            sc.sub_component.name = component.id.clone();
+            let mut sc = lower_sub_component(component, &mut state, None, compiler_config);
+            let public_properties = public_properties(component, &sc.mapping, &state);
+            // For C++ codegen, the root component must have the same name as the public component
+            sc.sub_component.name = name.clone();
             let item_tree = ItemTree {
                 tree: make_tree(&state, &component.root_element, &sc, &[]),
                 root: state.push_sub_component(sc),
             };
-            // For C++ codegen, the root component must have the same name as the public component
             PublicComponent {
                 item_tree,
                 public_properties,
                 private_properties: component.private_properties.borrow().clone(),
-                name: component.id.clone(),
+                name: name.clone(),
                 top_level_type,
             }
         })
@@ -171,7 +200,7 @@ pub fn lower_to_item_tree(
             .collect(),
         has_debug_info: compiler_config.debug_info,
         popup_menu,
-        type_exports: type_exports(document),
+        type_exports: type_exports(document, &exported_roots),
         #[cfg(feature = "bundle-translations")]
         translations: state.translation_builder.map(|x| x.result()),
     };
