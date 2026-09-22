@@ -93,55 +93,63 @@ export component EditorCanvas inherits Rectangle {
                 component-factory: Api.preview-area;
             }
 
-            DropArea {
-                can-drop(event) => {
-                    if AppState.palette-drag-cancelled {
-                        return DragAction.none;
-                    }
-                    if AppState.palette-drag-kind != ElementKind.none {
-                        AppState.update-palette-drag(
-                            AppState.palette-drag-kind,
-                            {
-                                x: self.absolute-position.x + event.position.x,
-                                y: self.absolute-position.y + event.position.y,
-                            },
-                        );
-                        return DragAction.copy;
-                    }
-                    return Api.can-drop(event.data, event.position.x, event.position.y, true)
-                        ? DragAction.copy : DragAction.none;
-                }
-                dropped(event) => {
-                    if AppState.palette-drag-kind != ElementKind.none {
-                        let size = AppState.palette-drag-size;
-                        Api.drop-with-geometry(
-                            event.data,
-                            event.position,
-                            {
-                                x: event.position.x - size.width / 2,
-                                y: event.position.y - size.height / 2,
-                            },
-                            size,
-                        );
-                    } else {
-                        Api.drop(event.data, event.position.x, event.position.y);
-                    }
-                    return event.proposed-action;
-                }
-            }
+        }
+    }
 
-            property <DropMark> drop-mark: Api.drop-mark;
-            if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
-                x: min(drop-mark.x1, drop-mark.x2);
-                y: min(drop-mark.y1, drop-mark.y2);
-                width: max((drop-mark.x2 - drop-mark.x1).abs(), 2px);
-                height: max((drop-mark.y2 - drop-mark.y1).abs(), 2px);
-                border-color: root.style.drop-indicator.foreground;
-                background: root.style.drop-indicator.background;
-                accessible-role: AccessibleRole.region;
-                accessible-label: "Canvas drop marker";
+    Rectangle {
+        x: root.preview-origin.x;
+        y: root.preview-origin.y;
+        width: (PreviewMetrics.phone-portrait-width - 2 * root.artboard-style.padding) * CanvasView.zoom;
+        height: (PreviewMetrics.phone-portrait-height - 2 * root.artboard-style.padding) * CanvasView.zoom;
+        DropArea {
+            can-drop(event) => {
+                if AppState.palette-drag-cancelled {
+                    return DragAction.none;
+                }
+                if AppState.palette-drag-kind != ElementKind.none {
+                    AppState.update-palette-drag(
+                        AppState.palette-drag-kind,
+                        {
+                            x: self.absolute-position.x + event.position.x,
+                            y: self.absolute-position.y + event.position.y,
+                        },
+                    );
+                    return DragAction.copy;
+                }
+                let preview = CanvasView.to-preview(event.position);
+                return Api.can-drop(event.data, preview.x, preview.y, true)
+                    ? DragAction.copy : DragAction.none;
             }
+            dropped(event) => {
+                let preview = CanvasView.to-preview(event.position);
+                if AppState.palette-drag-kind != ElementKind.none {
+                    let size = AppState.palette-drag-size;
+                    Api.drop-with-geometry(
+                        event.data,
+                        preview,
+                        {
+                            x: preview.x - size.width / 2,
+                            y: preview.y - size.height / 2,
+                        },
+                        size,
+                    );
+                } else {
+                    Api.drop(event.data, preview.x, preview.y);
+                }
+                return event.proposed-action;
+            }
+        }
 
+        property <DropMark> drop-mark: Api.drop-mark;
+        if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
+            x: min(drop-mark.x1, drop-mark.x2) * CanvasView.zoom;
+            y: min(drop-mark.y1, drop-mark.y2) * CanvasView.zoom;
+            width: max((drop-mark.x2 - drop-mark.x1).abs() * CanvasView.zoom, 2px);
+            height: max((drop-mark.y2 - drop-mark.y1).abs() * CanvasView.zoom, 2px);
+            border-color: root.style.drop-indicator.foreground;
+            background: root.style.drop-indicator.background;
+            accessible-role: AccessibleRole.region;
+            accessible-label: "Canvas drop marker";
         }
     }
 

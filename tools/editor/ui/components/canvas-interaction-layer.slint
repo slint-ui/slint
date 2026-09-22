@@ -529,10 +529,10 @@ export component CanvasInteractionLayer inherits TouchArea {
     }
 
     if root.text-editing: FocusScope {
-        x: root.text-edit-position.x;
-        y: root.text-edit-position.y;
-        width: root.text-edit-size.width;
-        height: root.text-edit-size.height;
+        x: root.text-edit-position.x * CanvasView.zoom;
+        y: root.text-edit-position.y * CanvasView.zoom;
+        width: root.text-edit-size.width * CanvasView.zoom;
+        height: root.text-edit-size.height * CanvasView.zoom;
         init => {
             input.focus();
             input.select-all();
@@ -553,7 +553,7 @@ export component CanvasInteractionLayer inherits TouchArea {
             color: Api.current-property-value-data("color").value-brush;
             font-family: Api.current-property-value-data("font-family").value-string;
             font-size: Api.current-property-value-data("font-size").value-float
-                * root.text-edit-scale-y * 1px;
+                * root.text-edit-scale-y * CanvasView.zoom * 1px;
             font-weight: Api.current-property-value-data("font-weight").value-int;
             font-italic: Api.current-property-value-data("font-italic").value-bool;
             horizontal-alignment: root.horizontal-text-alignment(
@@ -563,7 +563,7 @@ export component CanvasInteractionLayer inherits TouchArea {
                 Api.current-property-value-data("vertical-alignment").value-int,
             );
             letter-spacing: Api.current-property-value-data("letter-spacing").value-float
-                * root.text-edit-scale-x * 1px;
+                * root.text-edit-scale-x * CanvasView.zoom * 1px;
             line-height-factor: Api.current-property-value-data("line-height-factor").value-float;
             single-line: true;
             wrap: no-wrap;
