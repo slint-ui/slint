@@ -1153,7 +1153,9 @@ fn get_code_actions(
         };
         if is_lookup_error {
             // Couldn't lookup the element, there is probably an error. Suggest an edit
-            let text = token.text();
+            // The catalog holds the normalized name, the token holds whichever spelling
+            // of a separator the file used.
+            let text = i_slint_compiler::parser::normalize_identifier(token.text());
             completion::build_component_import_statements_edits(
                 &token,
                 document_cache,
@@ -1336,7 +1338,8 @@ fn get_code_actions(
                 matches!(tr.lookup_qualified(&qual.members), Type::Invalid)
             });
         if is_lookup_error {
-            let text = token.text();
+            // See the component quick-fix above for why the token is normalized.
+            let text = i_slint_compiler::parser::normalize_identifier(token.text());
             completion::build_type_import_statements_edits(
                 &token,
                 document_cache,
@@ -2676,7 +2679,6 @@ export component TestWindow inherits Window {
 
         // Load the types file first so the cache knows about it
         let mut dc = test::empty_document_cache();
-        spin_on::spin_on(dc.preload_builtins());
         let mut diagnostics = BuildDiagnostics::default();
         let _ = spin_on::spin_on(dc.load_url(
             &types_url,
@@ -2750,6 +2752,61 @@ export component TestWindow inherits Window {
                 get_code_actions(&mut document_cache_with_import, token, &capabilities)
             });
         assert_eq!(action2, None, "import action should not appear when type is already imported");
+    }
+
+    #[test]
+    fn test_add_import_for_name_with_a_separator() {
+        // The catalog holds the normalized name while the token holds the spelling the file
+        // used, so an underscore used to mean no quick fix was offered at all (#7492).
+        let types_content = r#"export struct My_Struct { x: int }
+export component My_Component { }
+"#;
+        let main_content = r#"export component TestWindow inherits Window {
+    property <My_Struct> position;
+    My_Component { }
+}
+"#;
+        let types_url =
+            Url::from_file_path(editor_preview::test::test_file_name("types.slint")).unwrap();
+        let main_url =
+            Url::from_file_path(editor_preview::test::test_file_name("main.slint")).unwrap();
+
+        let mut dc = test::empty_document_cache();
+        let mut diagnostics = BuildDiagnostics::default();
+        let _ = spin_on::spin_on(dc.load_url(
+            &types_url,
+            Some(1),
+            types_content.to_string(),
+            &mut diagnostics,
+        ));
+        let _ = spin_on::spin_on(dc.load_url(
+            &main_url,
+            Some(42),
+            main_content.to_string(),
+            &mut diagnostics,
+        ));
+
+        let capabilities = ClientCapabilities::default();
+        let mut titles = |name: &str| {
+            let offset = main_content.find(name).unwrap();
+            let before = &main_content[..offset];
+            let position = Position::new(
+                before.matches('\n').count() as _,
+                (offset - before.rfind('\n').map_or(0, |nl| nl + 1)) as _,
+            );
+            token_descr(&dc, &main_url, &position)
+                .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities))
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|action| match action {
+                    CodeActionOrCommand::CodeAction(action) => Some(action.title),
+                    CodeActionOrCommand::Command(_) => None,
+                })
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(titles("My_Struct"), ["import { My-Struct } from \"types.slint\""]);
+        assert_eq!(titles("My_Component"), ["import { My-Component } from \"types.slint\""]);
     }
 
     #[test]
