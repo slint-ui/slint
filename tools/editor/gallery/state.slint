@@ -1,9 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, FillData, OutlineTreeNode, ElementKind, BrushKind, EditorSurfaceMode, DropLocation } from "../ui/api.slint";
+import { Api, FillData, OutlineTreeNode, ElementKind, BrushKind, EditorSurfaceMode } from "../ui/api.slint";
 import { FillSession } from "../ui/components/inspector/fill-session.slint";
-import { AppState } from "../ui/components/common.slint";
 
 export struct GalleryPage { id: string, title: string, description: string, scenarios: [string] }
 export global Gallery {
@@ -11,9 +10,9 @@ export global Gallery {
         { id: "foundations", title: "Theme and typography", description: "Semantic colors, type, spacing, radii, and icons.", scenarios: ["Default"] },
         { id: "controls", title: "Basic controls", description: "Inputs, buttons, segments, and a resize divider.", scenarios: ["Default"] },
         { id: "inspector-controls", title: "Inspector controls", description: "Independent sample values for fields, the slider, and compound controls.", scenarios: ["Default"] },
-        { id: "palette", title: "Element palette", description: "Search and expand groups, then drag into the drop target.", scenarios: ["Default", "Unavailable", "Dragging disabled"] },
+        { id: "palette", title: "Element palette", description: "Search and expand element groups.", scenarios: ["Default", "Unavailable"] },
         { id: "picker", title: "Color and gradients", description: "Edit a sample swatch with the production color and gradient picker.", scenarios: ["Default", "Transparent", "Linear", "Radial", "Conic", "Unsupported"] },
-        { id: "outline", title: "Outline", description: "Select and expand sample rows. Drops report their destination.", scenarios: ["Default", "Collapsed", "Long names", "Empty", "Unavailable"] },
+        { id: "outline", title: "Outline", description: "Select and expand sample rows.", scenarios: ["Default", "Collapsed", "Long names", "Empty", "Unavailable"] },
     ];
     in-out property <int> page-index: 3;
     in-out property <int> scenario-index;
@@ -22,7 +21,6 @@ export global Gallery {
     out property <string> description: pages[page-index].description;
     out property <[string]> scenarios: pages[page-index].scenarios;
     out property <string> scenario: scenarios[scenario-index];
-    in-out property <string> feedback: "Ready";
     in-out property <int> reset-generation;
     in-out property <FillData> fill;
     in-out property <float> preview-width;
@@ -53,15 +51,10 @@ export global Gallery {
     }
     public function navigate(page: int, scenario: int) {
         FillSession.close-picker(false, false);
-        AppState.cancel-active-drags();
-        AppState.finish-outline-drag();
-        AppState.finish-palette-drag();
         Gallery.page-index = page;
         Gallery.scenario-index = scenario;
         Gallery.reset-generation += 1;
-        Gallery.feedback = "Ready";
         Api.editor-surface-mode = Gallery.scenario == "Unavailable" ? EditorSurfaceMode.image : EditorSurfaceMode.component;
-        Api.known-components = Gallery.scenario == "Dragging disabled" ? [] : [{ category: "Gallery" }];
         Api.current-element = { source-uri: "gallery" };
         Api.recent-fills = [];
         set-outline(Gallery.scenario != "Collapsed");
@@ -89,14 +82,7 @@ export global Gallery {
     callback select-row <=> Api.outline-select-element;
     select-row(uri, offset, notify) => {
         Api.current-element = { source-uri: uri, offset: offset };
-        Gallery.feedback = "Selected row " + offset;
     }
     callback expand-row <=> Api.outline-set-expanded;
     expand-row(row, expanded) => { set-outline(expanded); }
-    callback can-drop-row <=> Api.outline-can-drop;
-    can-drop-row(data, uri, offset, location) => { return true; }
-    callback drop-row <=> Api.outline-drop;
-    drop-row(data, uri, offset, location) => {
-        Gallery.feedback = "Dropped " + (location == DropLocation.onto ? "Onto" : location == DropLocation.before ? "Before" : "After") + " row " + offset;
-    }
 }

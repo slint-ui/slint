@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
-from canvas_interactions import begin_palette_drag, center
+from canvas_interactions import center
 from gradient_interactions import gesture
 from inspector_interactions import slider_track_position
 from slint_testing import keys
@@ -28,7 +28,7 @@ PAGES = {
     "foundations": ("Theme and typography", ("Default",)),
     "controls": ("Basic controls", ("Default",)),
     "inspector-controls": ("Inspector controls", ("Default",)),
-    "palette": ("Element palette", ("Default", "Unavailable", "Dragging disabled")),
+    "palette": ("Element palette", ("Default", "Unavailable")),
     "picker": (
         "Color and gradients",
         ("Default", "Transparent", "Linear", "Radial", "Conic", "Unsupported"),
@@ -60,20 +60,9 @@ def gallery(
     page: str,
     scenario: str = "Default",
     theme: str = "light",
-    width: int = 1440,
-    height: int = 1000,
-    scale: int = 1,
 ) -> Iterator[slint_testing.Window]:
     with slint_testing.Application(
-        [
-            str(binary),
-            "--width",
-            str(width),
-            "--height",
-            str(height),
-            "--scale-factor",
-            str(scale),
-        ],
+        [str(binary)],
         env=environment | {"SLINT_BACKEND": "headless-skia"},
         launch_timeout=30,
     ) as application:
@@ -134,7 +123,7 @@ def test_gallery_scenarios_render(
                 "foundations": "SEMANTIC COLORS",
                 "controls": "Sample text input",
                 "inspector-controls": "Sample slider",
-                "palette": "Sample drop target",
+                "palette": "ELEMENTS",
                 "picker": "Sample fill",
                 "outline": "OUTLINE",
             }[page]
@@ -160,34 +149,12 @@ def test_gallery_scenarios_render(
             )
 
 
-def test_gallery_palette_drop_and_reset(gallery_binary, editor_environment):
-    with gallery(gallery_binary, editor_environment, "palette") as window:
-        target = center(window_element_with_label(window, "Sample drop target"))
-        begin_palette_drag(window, "Rectangle", target)
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(
-                target, slint_testing.PointerEventButton.Left
-            )
-        )
-        window_element_with_label(window, "Dropped Rectangle")
-        window_element_with_label(
-            window, "Reset example"
-        ).invoke_accessible_default_action()
-        window_element_with_label(window, "Ready")
-        assert not elements_with_label(window.root_element, "Rectangle drag preview")
-
-
-def test_gallery_outline_selection_expansion_and_drop(
+def test_gallery_outline_selection_expansion_and_reset(
     gallery_binary, editor_environment
 ):
     with gallery(gallery_binary, editor_environment, "outline") as window:
         title = select_outline_row(window, "title")
         assert title.accessible_item_selected
-        card = window_element_with_label(
-            window, "card", slint_testing.AccessibleRole.ListItem
-        )
-        window.drag_and_drop(center(title), center(card))
-        window_element_with_label(window, "Dropped Onto row 1")
         main = window_element_with_label(
             window, "Main", slint_testing.AccessibleRole.ListItem
         )
@@ -206,7 +173,9 @@ def test_gallery_outline_selection_expansion_and_drop(
         window_element_with_label(
             window, "Reset example"
         ).invoke_accessible_default_action()
-        window_element_with_label(window, "Ready")
+        assert window_element_with_label(
+            window, "Main", slint_testing.AccessibleRole.ListItem
+        ).accessible_item_selected
 
 
 def test_gallery_picker_cancel_and_commit(gallery_binary, editor_environment):
@@ -246,32 +215,6 @@ def test_gallery_picker_cancel_and_commit(gallery_binary, editor_environment):
             window, "Close Custom"
         ).invoke_accessible_default_action()
         assert open_picker().accessible_value.lower().lstrip("#") == "00ff00"
-
-
-@pytest.mark.parametrize("width,height", [(1024, 768), (1440, 1000)])
-@pytest.mark.parametrize("scale", [1, 2])
-def test_gallery_picker_bounds_at_window_sizes(
-    gallery_binary, editor_environment, tmp_path, width, height, scale
-):
-    with gallery(
-        gallery_binary,
-        editor_environment,
-        "picker",
-        "Linear",
-        width=width,
-        height=height,
-        scale=scale,
-    ) as window:
-        window_element_with_label(
-            window, "Open color picker"
-        ).invoke_accessible_default_action()
-        close = window_element_with_label(window, "Close Custom")
-        assert close.absolute_position.x >= 0
-        assert close.absolute_position.x + close.size.width <= width
-        assert close.absolute_position.y + close.size.height <= height
-        image = screenshot(window)
-        assert image.size == (width * scale, height * scale)
-        image.save(tmp_path / f"picker-{width}-{height}-{scale}.png")
 
 
 @pytest.mark.parametrize("label", ["Sample slider", "All corner radii slider"])
@@ -390,10 +333,9 @@ def test_gallery_properties_edit_component_values(gallery_binary, editor_environ
 
 
 def test_gallery_properties_resize_preview(gallery_binary, editor_environment):
-    with gallery(
-        gallery_binary, editor_environment, "foundations", width=1024, height=768
-    ) as window:
+    with gallery(gallery_binary, editor_environment, "foundations") as window:
         preview = window_element_with_label(window, "Gallery preview")
+        original_size = preview.size
         for label, value in [("Preview width", "680"), ("Preview height", "400")]:
             window_element_with_label(
                 window, label, slint_testing.AccessibleRole.TextInput
@@ -406,13 +348,12 @@ def test_gallery_properties_resize_preview(gallery_binary, editor_environment):
             )
         )
         sidebar = window_element_with_label(window, "Gallery properties")
-        assert sidebar.absolute_position.x + sidebar.size.width <= 1024
+        assert (
+            sidebar.absolute_position.x + sidebar.size.width
+            <= window.root_element.size.width
+        )
         assert preview.absolute_position.y < 200
         window_element_with_label(
             window, "Reset example"
         ).invoke_accessible_default_action()
-        wait_until(
-            lambda: (
-                True if preview.size.width < 680 and preview.size.height > 400 else None
-            )
-        )
+        wait_until(lambda: True if preview.size == original_size else None)

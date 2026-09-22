@@ -6,16 +6,15 @@ import { Gallery } from "state.slint";
 import { GalleryProperties } from "properties.slint";
 import { Colors, Typography } from "../ui/style.slint";
 import { Api, EditorSurfaceMode } from "../ui/api.slint";
-import { AppState, EditorWindow, MutedLabel } from "../ui/components/common.slint";
+import { EditorWindow, MutedLabel } from "../ui/components/common.slint";
 import { ElementPalette } from "../ui/components/element-palette.slint";
 import { OutlinePane } from "../ui/components/outline-pane.slint";
 import { InspectorFillPicker } from "../ui/components/inspector/fill-picker.slint";
 import { FillSession } from "../ui/components/inspector/fill-session.slint";
-import { DragPreview } from "../ui/components/drag-preview.slint";
 import { GalleryControls, GalleryFoundations } from "pages/controls.slint";
 import "../ui/assets/Inter-VariableFont.ttf";
 
-export { Gallery, Api, AppState, EditorWindow, FillSession }
+export { Gallery, Api, EditorWindow, FillSession }
 export { GalleryPage } from "state.slint";
 
 export component GalleryWindow inherits Window {
@@ -30,78 +29,61 @@ export component GalleryWindow inherits Window {
     init => { root.system-scheme = Palette.color-scheme; EditorWindow.width = root.width; EditorWindow.height = root.height; if Platform.uses-mock-data { Gallery.navigate(Gallery.page-index, 0); } }
     changed width => { EditorWindow.width = root.width; }
     changed height => { EditorWindow.height = root.height; }
-    focus := FocusScope {
-        capture-key-pressed(event) => {
-            if event.text == Key.Escape { AppState.cancel-active-drags(); }
-            return reject;
-        }
-        HorizontalLayout {
-            spacing: 1px;
-            Rectangle {
-                width: 218px; background: Colors.surface;
-                VerticalLayout {
-                    padding: 16px; spacing: 12px;
-                    Text { text: "Component Gallery"; color: Colors.foreground; font-size: Typography.heading.size; font-weight: Typography.heading.weight; }
-                    for page[index] in Gallery.pages: Button {
-                        text: page.title; checked: Gallery.page == page.id;
-                        clicked => { Gallery.navigate(index, 0); }
-                    }
-                    Rectangle { vertical-stretch: 1; }
-                }
-            }
+    HorizontalLayout {
+        spacing: 1px;
+        Rectangle {
+            width: 218px; background: Colors.surface;
             VerticalLayout {
-                padding: 24px; spacing: 16px;
-                Text { text: Gallery.title; wrap: word-wrap; color: Colors.foreground; font-size: 24px; font-weight: 600; }
-                MutedLabel { text: Gallery.description; wrap: word-wrap; }
-                ScrollView {
-                    vertical-stretch: 1;
-                    content-width: max(self.width, Gallery.preview-width * 1px);
-                    content-height: max(self.height, Gallery.preview-height * 1px);
-                    Rectangle {
-                        x: 0px; y: 0px;
-                        width: Gallery.preview-width > 0 ? Gallery.preview-width * 1px : parent.width;
-                        height: Gallery.preview-height > 0 ? Gallery.preview-height * 1px : parent.height;
-                        background: Colors.surface;
-                        accessible-role: AccessibleRole.region; accessible-label: "Gallery preview";
-                        if Gallery.page == "foundations": GalleryFoundations { }
-                        if Gallery.page == "controls" || Gallery.page == "inspector-controls": GalleryControls { inspector: Gallery.page == "inspector-controls"; }
-                        if Gallery.page == "palette": HorizontalLayout {
-                            spacing: 24px;
-                            ElementPalette { width: Gallery.panel-width * 1px; image-mode: Api.editor-surface-mode == EditorSurfaceMode.image; drag-started => { focus.focus(); } }
-                            Rectangle {
-                                border-width: 1px; border-color: Colors.border; background: Colors.subtle;
-                                accessible-role: AccessibleRole.region; accessible-label: "Sample drop target";
-                                MutedLabel { text: "Drop an element here"; horizontal-alignment: center; vertical-alignment: center; }
-                                DropArea {
-                                    can-drop(event) => { return AppState.palette-drag-cancelled ? DragAction.none : DragAction.copy; }
-                                    dropped(event) => { Api.drop(event.data, event.position.x, event.position.y); return DragAction.copy; }
-                                }
-                            }
+                padding: 16px; spacing: 12px;
+                Text { text: "Component Gallery"; color: Colors.foreground; font-size: Typography.heading.size; font-weight: Typography.heading.weight; }
+                for page[index] in Gallery.pages: Button {
+                    text: page.title; checked: Gallery.page == page.id;
+                    clicked => { Gallery.navigate(index, 0); }
+                }
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+        VerticalLayout {
+            padding: 24px; spacing: 16px;
+            Text { text: Gallery.title; wrap: word-wrap; color: Colors.foreground; font-size: 24px; font-weight: 600; }
+            MutedLabel { text: Gallery.description; wrap: word-wrap; }
+            ScrollView {
+                vertical-stretch: 1;
+                content-width: max(self.width, Gallery.preview-width * 1px);
+                content-height: max(self.height, Gallery.preview-height * 1px);
+                Rectangle {
+                    x: 0px; y: 0px;
+                    width: Gallery.preview-width > 0 ? Gallery.preview-width * 1px : parent.width;
+                    height: Gallery.preview-height > 0 ? Gallery.preview-height * 1px : parent.height;
+                    background: Colors.surface;
+                    accessible-role: AccessibleRole.region; accessible-label: "Gallery preview";
+                    if Gallery.page == "foundations": GalleryFoundations { }
+                    if Gallery.page == "controls" || Gallery.page == "inspector-controls": GalleryControls { inspector: Gallery.page == "inspector-controls"; }
+                    if Gallery.page == "palette": HorizontalLayout {
+                        ElementPalette { width: Gallery.panel-width * 1px; image-mode: Api.editor-surface-mode == EditorSurfaceMode.image; }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                    if Gallery.page == "outline": HorizontalLayout {
+                        OutlinePane { width: Gallery.panel-width * 1px; }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                    if Gallery.page == "picker": VerticalLayout {
+                        padding: 24px; spacing: 16px; alignment: start;
+                        Rectangle {
+                            width: 240px; height: 160px;
+                            background: Api.fill-brush(FillSession.open ? FillSession.working-fill : Gallery.fill);
+                            accessible-role: AccessibleRole.region; accessible-label: "Sample fill";
                         }
-                        if Gallery.page == "outline": HorizontalLayout {
-                            OutlinePane { width: Gallery.panel-width * 1px; drag-started => { focus.focus(); } }
-                            Rectangle { horizontal-stretch: 1; }
-                        }
-                        if Gallery.page == "picker": VerticalLayout {
-                            padding: 24px; spacing: 16px; alignment: start;
-                            Rectangle {
-                                width: 240px; height: 160px;
-                                background: Api.fill-brush(FillSession.open ? FillSession.working-fill : Gallery.fill);
-                                accessible-role: AccessibleRole.region; accessible-label: "Sample fill";
-                            }
-                            Button { width: 240px; text: "Open color picker"; clicked => { Gallery.open-picker(self.absolute-position); } }
-                        }
+                        Button { width: 240px; text: "Open color picker"; clicked => { Gallery.open-picker(self.absolute-position); } }
                     }
                 }
-                if Gallery.page == "palette" || Gallery.page == "outline": MutedLabel { text: Gallery.feedback; }
             }
-            GalleryProperties { theme-index <=> root.theme-index; }
         }
+        GalleryProperties { theme-index <=> root.theme-index; }
     }
     TouchArea {
         visible: FillSession.open;
         clicked => { FillSession.close-picker(true, true); }
         InspectorFillPicker { }
     }
-    DragPreview { parent-origin: { x: 0px, y: 0px }; show-palette: false; }
 }
