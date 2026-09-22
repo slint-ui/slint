@@ -215,6 +215,27 @@ public:
     {
     }
 
+#ifdef SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565
+    /// Construct an image from a SharedPixelBuffer of RGB565 pixels.
+    ///
+    /// This is the native format of many embedded displays. The software
+    /// renderer can draw such images without any pixel conversion.
+    ///
+    /// This constructor is only available when Slint was configured with
+    /// SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565.
+    Image(SharedPixelBuffer<Rgb565Pixel> buffer)
+        : data(Data::ImageInner_EmbeddedImage(
+                  cbindgen_private::types::ImageCacheKey::Invalid(),
+                  cbindgen_private::types::SharedImageBuffer::RGB565(
+                          cbindgen_private::types::SharedPixelBuffer<Rgb565Pixel> {
+                                  .width = buffer.width(),
+                                  .height = buffer.height(),
+                                  .data = buffer.m_data })))
+    {
+    }
+
+#endif
+
     /// Returns the size of the Image in pixels.
     Size<uint32_t> size() const { return cbindgen_private::types::slint_image_size(&data); }
 

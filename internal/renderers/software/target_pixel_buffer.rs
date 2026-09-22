@@ -119,6 +119,15 @@ impl DrawTextureArgs {
                             size,
                         )
                     }
+                    #[cfg(feature = "image-pixel-format-rgb565")]
+                    SharedBufferData::SharedImage(SharedImageBuffer::RGB565(b)) => {
+                        TextureData::new(
+                            &b.as_bytes()[start * 2..end * 2],
+                            TexturePixelFormat::Rgb565,
+                            stride,
+                            size,
+                        )
+                    }
                     SharedBufferData::AlphaMap { data, .. } => TextureData::new(
                         &data[start..end],
                         TexturePixelFormat::AlphaMap,
