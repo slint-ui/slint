@@ -153,7 +153,8 @@ def test_gallery_scenarios_render(
             )
             image = screenshot(window)
             assert image.width >= 800 and image.height >= 600
-            assert len(image.resize((80, 60)).getcolors(4801)) > 10
+            colors = image.resize((80, 60)).getcolors(4801)
+            assert colors is not None and len(colors) > 10
             image.save(
                 destination / f"{page}-{scenario.lower().replace(' ', '-')}-{theme}.png"
             )
