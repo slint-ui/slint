@@ -17,6 +17,8 @@
 //! no_std/MCU-target -- doesn't need `slint-interpreter` (and everything it pulls in: the
 //! compiler, the interpreter, the winit backend) as a dev-dependency just to run this.
 
+// cspell:ignore occluders
+
 #[path = "../../scenarios.rs"]
 mod scenarios;
 
@@ -35,7 +37,7 @@ impl Platform for TestPlatform {
         Ok(self.window.clone())
     }
     fn duration_since_start(&self) -> core::time::Duration {
-        core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
+        i_slint_core::animations::current_tick().into()
     }
 }
 
