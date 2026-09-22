@@ -8,7 +8,7 @@ import { Api, DropMark } from "../api.slint";
 import { AppState, EditorCursors, ElementKind, PreviewMetrics } from "common.slint";
 import { CanvasInteractionLayer } from "canvas-interaction-layer.slint";
 
-component PhoneChrome inherits Rectangle {
+component CanvasChrome inherits Rectangle {
     in property <ArtboardStyle> style: Style.artboard;
     background: root.style.background;
     clip: true;
@@ -30,10 +30,10 @@ export component EditorCanvas inherits TouchArea {
     in property <CanvasSurfaceStyle> style: Style.canvas-surface;
     in property <bool> shift-pressed;
     private property <Size> viewport-size: { width: root.width, height: root.height };
-    private property <Point> phone-origin: CanvasView.phone-origin(root.viewport-size);
+    private property <Point> canvas-origin: CanvasView.canvas-origin(root.viewport-size);
     private property <Point> preview-origin: {
-        x: root.phone-origin.x + root.artboard-style.padding * CanvasView.zoom,
-        y: root.phone-origin.y + root.artboard-style.padding * CanvasView.zoom,
+        x: root.canvas-origin.x + root.artboard-style.padding * CanvasView.zoom,
+        y: root.canvas-origin.y + root.artboard-style.padding * CanvasView.zoom,
     };
     init => { CanvasView.viewport-size = root.viewport-size; }
     changed viewport-size => { CanvasView.viewport-size = root.viewport-size; }
@@ -59,24 +59,13 @@ export component EditorCanvas inherits TouchArea {
         }
     }
 
-    Rectangle {
-        x: root.phone-origin.x;
-        y: root.phone-origin.y + root.artboard-style.shadow.offset-y * CanvasView.zoom;
-        width: phone.width * CanvasView.zoom;
-        height: phone.height * CanvasView.zoom;
-        border-radius: root.artboard-style.radius * CanvasView.zoom;
-        drop-shadow-color: root.artboard-style.shadow.color;
-        drop-shadow-blur: root.artboard-style.shadow.blur * CanvasView.zoom;
-        drop-shadow-offset-y: root.artboard-style.shadow.offset-y * CanvasView.zoom;
-    }
-
-    phone := Rectangle {
+    canvas-chrome := Rectangle {
         transform-origin: { x: 0px, y: 0px };
         transform-scale: CanvasView.zoom;
-        x: root.phone-origin.x;
-        y: root.phone-origin.y;
-        width: PreviewMetrics.phone-portrait-width;
-        height: PreviewMetrics.phone-portrait-height;
+        x: root.canvas-origin.x;
+        y: root.canvas-origin.y;
+        width: PreviewMetrics.canvas-width;
+        height: PreviewMetrics.canvas-height;
         border-radius: root.artboard-style.radius;
         border-width: Metrics.border-width;
         border-color: root.artboard-style.border;
@@ -88,7 +77,7 @@ export component EditorCanvas inherits TouchArea {
             }
         }
 
-        PhoneChrome {
+        CanvasChrome {
             style: root.artboard-style;
             ComponentContainer {
                 width: 100%;
@@ -102,8 +91,8 @@ export component EditorCanvas inherits TouchArea {
     Rectangle {
         x: root.preview-origin.x;
         y: root.preview-origin.y;
-        width: (PreviewMetrics.phone-portrait-width - 2 * root.artboard-style.padding) * CanvasView.zoom;
-        height: (PreviewMetrics.phone-portrait-height - 2 * root.artboard-style.padding) * CanvasView.zoom;
+        width: (PreviewMetrics.canvas-width - 2 * root.artboard-style.padding) * CanvasView.zoom;
+        height: (PreviewMetrics.canvas-height - 2 * root.artboard-style.padding) * CanvasView.zoom;
         DropArea {
             can-drop(event) => {
                 if AppState.palette-drag-cancelled {

@@ -271,7 +271,6 @@ export struct ArtboardStyle {
     padding: length = 1px,
     top-minimum: length = 40px,
     background: color,
-    shadow: ShadowStyle,
     border: brush,
 }
 
@@ -878,7 +877,6 @@ export global LightTheme {
 
     out property <ArtboardStyle> artboard: {
         background: #ffffff,
-        shadow: { color: #64748b30, blur: 30px, offset-y: 18px },
         border: LightTheme.colors.border,
     };
 
@@ -1182,7 +1180,6 @@ export global DarkTheme {
 
     out property <ArtboardStyle> artboard: {
         background: #f7f8fb,
-        shadow: { color: #00000055, blur: 30px, offset-y: 18px },
         border: DarkTheme.colors.border,
     };
 
@@ -1690,7 +1687,6 @@ export global Style {
 
     out property <ArtboardStyle> artboard: {
         background: Theme.canvas.artboard.background,
-        shadow: Theme.canvas.artboard.shadow,
         border: Theme.canvas.artboard.border,
     };
 

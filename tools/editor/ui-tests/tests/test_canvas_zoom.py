@@ -33,7 +33,7 @@ from ui_driver import (
 )
 
 
-@pytest.mark.parametrize("percent", [25, 50, 100, 125, 200, 400])
+@pytest.mark.parametrize("percent", [25, 50, 75, 100, 125, 150, 200, 300, 400])
 def test_zoom_scales_content_and_preserves_controls(
     editor_binary, editor_environment, fixture_project, percent, tmp_path
 ):
@@ -313,6 +313,7 @@ def test_zoom_limits(editor_binary, editor_environment, fixture_project, percent
             window_element_with_label(window, "Editor canvas").accessible_value
             == f"{percent}%"
         )
+        zoom_canvas(window, 400 if percent == 25 else 25)
         press_shortcut(window, keys.Control, "0")
         wait_until(
             lambda: (

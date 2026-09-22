@@ -4,20 +4,60 @@
 import { PreviewMetrics, AppState } from "common.slint";
 import { Style } from "../style.slint";
 
+export enum ZoomLevel {
+    percent-25,
+    percent-50,
+    percent-75,
+    actual-size,
+    percent-125,
+    percent-150,
+    percent-200,
+    percent-300,
+    percent-400,
+}
+
 export global CanvasView {
-    in-out property <int> zoom-index: 3;
-    out property <[float]> zoom-levels: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
-    out property <float> zoom: self.zoom-levels[self.zoom-index];
+    out property <ZoomLevel> zoom-level: ZoomLevel.actual-size;
+    out property <float> zoom:
+        self.zoom-level == ZoomLevel.percent-25 ? 0.25 :
+        self.zoom-level == ZoomLevel.percent-50 ? 0.5 :
+        self.zoom-level == ZoomLevel.percent-75 ? 0.75 :
+        self.zoom-level == ZoomLevel.actual-size ? 1 :
+        self.zoom-level == ZoomLevel.percent-125 ? 1.25 :
+        self.zoom-level == ZoomLevel.percent-150 ? 1.5 :
+        self.zoom-level == ZoomLevel.percent-200 ? 2 :
+        self.zoom-level == ZoomLevel.percent-300 ? 3 :
+        4;
+    out property <ZoomLevel> next-zoom-level:
+        self.zoom-level == ZoomLevel.percent-25 ? ZoomLevel.percent-50 :
+        self.zoom-level == ZoomLevel.percent-50 ? ZoomLevel.percent-75 :
+        self.zoom-level == ZoomLevel.percent-75 ? ZoomLevel.actual-size :
+        self.zoom-level == ZoomLevel.actual-size ? ZoomLevel.percent-125 :
+        self.zoom-level == ZoomLevel.percent-125 ? ZoomLevel.percent-150 :
+        self.zoom-level == ZoomLevel.percent-150 ? ZoomLevel.percent-200 :
+        self.zoom-level == ZoomLevel.percent-200 ? ZoomLevel.percent-300 :
+        self.zoom-level == ZoomLevel.percent-300 ? ZoomLevel.percent-400 :
+        ZoomLevel.percent-400;
+    out property <ZoomLevel> previous-zoom-level:
+        self.zoom-level == ZoomLevel.percent-400 ? ZoomLevel.percent-300 :
+        self.zoom-level == ZoomLevel.percent-300 ? ZoomLevel.percent-200 :
+        self.zoom-level == ZoomLevel.percent-200 ? ZoomLevel.percent-150 :
+        self.zoom-level == ZoomLevel.percent-150 ? ZoomLevel.percent-125 :
+        self.zoom-level == ZoomLevel.percent-125 ? ZoomLevel.actual-size :
+        self.zoom-level == ZoomLevel.actual-size ? ZoomLevel.percent-75 :
+        self.zoom-level == ZoomLevel.percent-75 ? ZoomLevel.percent-50 :
+        self.zoom-level == ZoomLevel.percent-50 ? ZoomLevel.percent-25 :
+        ZoomLevel.percent-25;
     in-out property <Point> pan;
     in-out property <Size> viewport-size;
     in-out property <bool> manipulating;
     in-out property <bool> panning;
     in-out property <bool> space-pressed;
     out property <bool> navigation-enabled: !self.manipulating && !AppState.has-active-drag();
-    public pure function phone-origin(size: Size) -> Point {
+    public pure function canvas-origin(size: Size) -> Point {
         return {
-            x: (size.width - PreviewMetrics.phone-portrait-width * self.zoom) / 2 + self.pan.x,
-            y: max(Style.artboard.top-minimum, (size.height - PreviewMetrics.phone-portrait-height * self.zoom) / 2) + self.pan.y,
+            x: (size.width - PreviewMetrics.canvas-width * self.zoom) / 2 + self.pan.x,
+            y: max(Style.artboard.top-minimum, (size.height - PreviewMetrics.canvas-height * self.zoom) / 2) + self.pan.y,
         };
     }
 
@@ -32,13 +72,12 @@ export global CanvasView {
         self.pan = { x: self.pan.x + delta.x, y: self.pan.y + delta.y };
         return accept;
     }
-    public function set-zoom(index: int) {
+    public function set-zoom(level: ZoomLevel) {
         if !self.navigation-enabled || self.panning { return; }
-        let next = index.clamp(0, self.zoom-levels.length - 1);
         let center = { x: self.viewport-size.width / 2, y: self.viewport-size.height / 2 };
-        let point = self.to-preview({ x: center.x - self.phone-origin(self.viewport-size).x, y: center.y - self.phone-origin(self.viewport-size).y });
-        self.zoom-index = next;
-        let origin = self.phone-origin(self.viewport-size);
+        let point = self.to-preview({ x: center.x - self.canvas-origin(self.viewport-size).x, y: center.y - self.canvas-origin(self.viewport-size).y });
+        self.zoom-level = level;
+        let origin = self.canvas-origin(self.viewport-size);
         let scaled = self.to-view(point);
         self.pan = {
             x: self.pan.x + center.x - scaled.x - origin.x,
