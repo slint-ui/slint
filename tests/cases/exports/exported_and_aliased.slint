@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Exporting one declaration under several names used to panic the compiler.
+
+component Listed inherits Rectangle {
+    in-out property <int> value: 1;
+}
+export { Listed }
+export { Listed as ListedAlias }
+
+export component TestCase inherits Rectangle {
+    in-out property <int> value: 42;
+
+    // Instantiated as well as exported.
+    listed := Listed {}
+
+    out property <bool> test: value == 42 && listed.value == 1;
+}
+
+export { TestCase as AliasedTestCase }
+
+/*
+
+```cpp
+auto handle = AliasedTestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.set_value(1);
+assert(!instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_value(1);
+assert!(!instance.get_test());
+
+let aliased: TestCase = AliasedTestCase::new().unwrap();
+assert!(aliased.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+instance.value = 1;
+assert(!instance.test);
+```
+
+*/

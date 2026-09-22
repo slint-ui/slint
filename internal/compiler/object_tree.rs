@@ -314,11 +314,14 @@ impl Document {
         }
     }
 
-    pub fn exported_roots(&self) -> impl DoubleEndedIterator<Item = Rc<Component>> + '_ {
+    /// The exported root components, each one once even when exported under several names.
+    pub fn exported_roots(&self) -> impl Iterator<Item = Rc<Component>> + '_ {
+        let mut seen = HashSet::new();
         self.exports
             .iter()
             .filter_map(|e| e.1.as_ref().left())
             .filter(|c| !c.is_global() && !c.is_interface())
+            .filter(move |c| seen.insert(Rc::as_ptr(c)))
             .cloned()
     }
 
