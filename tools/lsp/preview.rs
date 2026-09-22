@@ -1334,7 +1334,14 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
                 ui::ui_set_known_components(&api, &preview_state.known_components, index);
                 let component = document_cache.get_document(preview_url).and_then(|doc| {
                     match previewed_component.as_ref() {
-                        Some(c_id) => doc.inner_components.iter().find(|c| c.id == c_id).cloned(),
+                        Some(c_id) => doc
+                            .inner_components
+                            .iter()
+                            .find(|c| {
+                                c.id == c_id
+                                    || doc.export_names(c).first().is_some_and(|n| n == c_id)
+                            })
+                            .cloned(),
                         None => doc.last_exported_component(),
                     }
                 });

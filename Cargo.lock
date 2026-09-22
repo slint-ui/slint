@@ -1126,9 +1126,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.4.6"
+version = "1.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3eb0f42d6c360dc3f8a821f6bf2fdea7f72bfd36b3076eb0e6d1e9e0752fff4"
+checksum = "54413ede23c2daf518f35156dfde027feb2374004d63bd497f983c8db9c0e313"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -2237,9 +2237,9 @@ dependencies = [
 
 [[package]]
 name = "esp-metadata-generated"
-version = "0.5.1"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44d5a63d730b8c56e6b32773e35fcc4988d7d2e5c64d521652317d3ebddf2b52"
+checksum = "911aadae41ec99104efa865bd0b6e486b4b735999f9b571963748a46d16495ab"
 
 [[package]]
 name = "esp-println"
@@ -2381,7 +2381,7 @@ dependencies = [
 
 [[package]]
 name = "figma_import"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "clap",
  "derive_more",
@@ -2407,9 +2407,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.12"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e0f1c7c3a72c66fd80abe965175f7523475c0489a87d3ff9d6e8c87d87a9d2d"
+checksum = "ef25905e51abafe4dcea6c15fec58c57b601cdbd0ee53d22ea1d3016c587d39b"
 
 [[package]]
 name = "fixed_decimal"
@@ -3325,9 +3325,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-rustls"
-version = "0.27.9"
+version = "0.27.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ca68d021ef39cf6463ab54c1d0f5daf03377b70561305bb89a8f83aab66e0f"
+checksum = "dfa8e654703247911e29c23fbeaa261834bd9bb74efba2f9acddc37bfb127f53"
 dependencies = [
  "http",
  "hyper",
@@ -3365,7 +3365,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-android-activity"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "android-activity 0.5.2",
  "android-activity 0.6.1",
@@ -3381,7 +3381,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-linuxkms"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "bytemuck",
  "calloop 0.14.4",
@@ -3406,7 +3406,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-qt"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "const-field-offset",
  "cpp",
@@ -3423,9 +3423,8 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-selector"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
- "cfg-if",
  "cfg_aliases",
  "i-slint-backend-android-activity",
  "i-slint-backend-linuxkms",
@@ -3443,7 +3442,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-testing"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "async-net",
  "base64 0.23.1",
@@ -3472,14 +3471,13 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-winit"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "accesskit",
  "accesskit_winit",
  "arboard",
  "block2 0.6.2",
  "bytemuck",
- "cfg-if",
  "cfg_aliases",
  "futures",
  "glutin",
@@ -3518,7 +3516,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-common"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "derive_more",
  "fontique",
@@ -3533,7 +3531,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-compiler"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "annotate-snippets",
  "base64 0.23.1",
@@ -3577,13 +3575,12 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "accesskit",
  "async-channel",
  "async-compat",
  "bitflags 2.13.2",
- "cfg-if",
  "chrono",
  "clru",
  "const-field-offset",
@@ -3647,7 +3644,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core-macros"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "quote",
  "serde_json",
@@ -3656,7 +3653,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-editor-preview"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "async-compat",
  "directories",
@@ -3680,7 +3677,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-live-preview"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
@@ -3714,14 +3711,14 @@ dependencies = [
 
 [[package]]
 name = "i-slint-parser-test-macro"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "quote",
 ]
 
 [[package]]
 name = "i-slint-renderer-anyrender"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "anyrender",
  "anyrender_vello",
@@ -3736,9 +3733,8 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-femtovg"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
- "cfg-if",
  "const-field-offset",
  "femtovg",
  "glow 0.18.0",
@@ -3756,10 +3752,9 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-skia"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "bytemuck",
- "cfg-if",
  "cfg_aliases",
  "clru",
  "const-field-offset",
@@ -3795,7 +3790,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-software"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "bytemuck",
  "clru",
@@ -5090,9 +5085,9 @@ dependencies = [
 
 [[package]]
 name = "napi"
-version = "3.12.6"
+version = "3.12.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ca373b1769db491f38386d57a882b9a21debb2dcd17c0d3e16d02ec311a1d7c"
+checksum = "b7d3c1107f2fda46a7bd2676d65221b7b8160054494b38554b0e055c731714db"
 dependencies = [
  "bitflags 2.13.2",
  "ctor 1.0.13",
@@ -5106,15 +5101,15 @@ dependencies = [
 
 [[package]]
 name = "napi-build"
-version = "2.4.3"
+version = "2.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "709388aa95cadd11adda653ab6d8ebe5733144acd2b111fa7b2da8a0bf0f16a7"
+checksum = "9befcb51d87271051c0c11aaf625d09340266b7f1ac3fef5975e62274dc2813f"
 
 [[package]]
 name = "napi-derive"
-version = "3.6.7"
+version = "3.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76117d85c6ccd9f07102daf39931c7229934483008276d84ecb7c19aa50dfe69"
+checksum = "7e332e701386d8101b093203e296059ad8aeef58ddd4c75594f3c84ce637405e"
 dependencies = [
  "convert_case 0.12.0",
  "ctor 1.0.13",
@@ -5126,9 +5121,9 @@ dependencies = [
 
 [[package]]
 name = "napi-derive-backend"
-version = "6.1.3"
+version = "6.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c1c87a71568f3fe5c736b10878ff55064b250bb4ea4b48c8055713e07b9e463"
+checksum = "fd6856fe1686867da90ed0dc292d7c0c87a695eb7c578b913360f33619ee01e3"
 dependencies = [
  "convert_case 0.12.0",
  "proc-macro2",
@@ -5139,9 +5134,9 @@ dependencies = [
 
 [[package]]
 name = "napi-sys"
-version = "3.3.1"
+version = "3.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d29a242104e456960e6c6479847570be731c1a92b8f8c05ddfb5439e5c09915"
+checksum = "6801fc65ba4d7035636e93635e281113f00410401a237dcd4f55b1565ead2115"
 dependencies = [
  "libloading 0.9.0",
 ]
@@ -6549,7 +6544,7 @@ dependencies = [
  "bytes",
  "getrandom 0.4.3",
  "lru-slab",
- "rand 0.10.2",
+ "rand 0.10.3",
  "rand_pcg",
  "ring",
  "rustc-hash 2.1.3",
@@ -6618,9 +6613,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
+checksum = "65c9fb96cbc91e3478eaae79a69fcd3f1ae4ad052e471fe6732fff548984b4af"
 dependencies = [
  "chacha20 0.10.2",
  "getrandom 0.4.3",
@@ -7599,7 +7594,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slint"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "async-compat",
  "bytemuck",
@@ -7635,7 +7630,7 @@ dependencies = [
 
 [[package]]
 name = "slint-build"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "derive_more",
  "document-features",
@@ -7647,7 +7642,7 @@ dependencies = [
 
 [[package]]
 name = "slint-compiler"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "clap",
  "i-slint-common",
@@ -7660,7 +7655,7 @@ dependencies = [
 
 [[package]]
 name = "slint-cpp"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "anyhow",
  "cbindgen",
@@ -7682,7 +7677,7 @@ dependencies = [
 
 [[package]]
 name = "slint-doc-generator"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -7702,7 +7697,7 @@ dependencies = [
 
 [[package]]
 name = "slint-editor"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "by_address",
  "clap",
@@ -7748,7 +7743,7 @@ dependencies = [
 
 [[package]]
 name = "slint-interpreter"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "derive_more",
  "document-features",
@@ -7775,7 +7770,7 @@ dependencies = [
 
 [[package]]
 name = "slint-lsp"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "by_address",
  "clap",
@@ -7827,7 +7822,7 @@ dependencies = [
 
 [[package]]
 name = "slint-macros"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "i-slint-compiler",
  "proc-macro2",
@@ -7837,7 +7832,7 @@ dependencies = [
 
 [[package]]
 name = "slint-node"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "async-io",
  "css-color-parser2",
@@ -7861,7 +7856,7 @@ dependencies = [
 
 [[package]]
 name = "slint-python"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "chrono",
  "css-color-parser2",
@@ -7878,7 +7873,7 @@ dependencies = [
 
 [[package]]
 name = "slint-sc"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "image",
  "rayon",
@@ -7890,7 +7885,7 @@ dependencies = [
 
 [[package]]
 name = "slint-sc-coverage"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "clap",
  "serde",
@@ -7899,7 +7894,7 @@ dependencies = [
 
 [[package]]
 name = "slint-tr-extractor"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "chrono",
  "clap",
@@ -7913,7 +7908,7 @@ dependencies = [
 
 [[package]]
 name = "slint-viewer"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "anyhow",
  "async-compat",
@@ -7948,7 +7943,7 @@ dependencies = [
 
 [[package]]
 name = "slint-wasm-interpreter"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "console_error_panic_hook",
  "i-slint-backend-winit",
@@ -8993,7 +8988,7 @@ dependencies = [
  "http",
  "httparse",
  "log",
- "rand 0.10.2",
+ "rand 0.10.3",
  "sha1 0.11.0",
  "thiserror 2.0.20",
 ]
@@ -10769,7 +10764,7 @@ checksum = "32ac00cd3f8ec9c1d33fb3e7958a82df6989c42d747bd326c822b1d625283547"
 
 [[package]]
 name = "xtask"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -10961,7 +10956,7 @@ dependencies = [
 
 [[package]]
 name = "zed_slint"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "zed_extension_api",
 ]

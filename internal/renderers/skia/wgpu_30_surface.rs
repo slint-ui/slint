@@ -79,8 +79,11 @@ impl WGPUSurface {
         #[cfg(target_vendor = "apple")]
         metal::set_layer_contents_gravity(&surface);
 
+        // On iOS a window has no size until UIKit attaches it to a scene,
+        // and wgpu rejects a zero-sized configure.
+        // Start at 1x1; `resize_event` applies the real size.
         let mut surface_config = surface
-            .get_default_config(adapter, size.width, size.height)
+            .get_default_config(adapter, size.width.max(1), size.height.max(1))
             .ok_or_else(|| PlatformError::from("WGPU surface is not compatible with adapter"))?;
 
         let swapchain_capabilities = surface.get_capabilities(adapter);

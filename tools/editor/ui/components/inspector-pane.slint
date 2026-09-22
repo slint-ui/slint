@@ -3,7 +3,7 @@
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
 import { InspectorComboOption } from "inspector/control-data.slint";
-import { Api, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { Api, CodeBinding, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
 import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
 
@@ -25,7 +25,8 @@ export component InspectorPane inherits Rectangle {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <ElementInformation> element-information;
 
-    callback element-selected();
+    out property <bool> palette-drag-in-outline: outline-pane.palette-drag-in-outline;
+
     callback outline-drag-started();
     callback outline-pane-resized(length);
     callback outline-pane-reset();
@@ -122,7 +123,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function is-root-selection() -> bool {
-        return !root.has-backend-rect();
+        return Api.selection.highlight-index >= 0 && root.element-information.id == "root";
     }
 
     function selected-x() -> length {
@@ -206,14 +207,13 @@ export component InspectorPane inherits Rectangle {
         ) {
             return false;
         }
-        Api.set-code-binding(
+        return Api.set-code-binding(
             root.element-information.source-uri,
             root.element-information.source-version,
             root.element-information.offset,
             property-name,
             value,
         );
-        return true;
     }
 
     function commit-px-code(property-name: string, value: string) -> bool {
@@ -261,18 +261,13 @@ export component InspectorPane inherits Rectangle {
         return property.code;
     }
 
-    function remove-code(property-name: string) -> bool {
-        if root.element-information.source-uri == "" {
-            return false;
-        }
-        Api.set-code-binding(
+    function commit-codes(bindings: [CodeBinding]) -> bool {
+        return Api.set-code-bindings(
             root.element-information.source-uri,
             root.element-information.source-version,
             root.element-information.offset,
-            property-name,
-            "",
+            bindings,
         );
-        return true;
     }
 
     function has-shadow-property(prefix: string) -> bool {
@@ -361,41 +356,38 @@ export component InspectorPane inherits Rectangle {
         let prefix = root.current-shadow-prefix();
         let x = (angle.cos() * distance).round();
         let y = (angle.sin() * distance).round();
-        return root.commit-shadow-number(prefix + "offset-x", x)
-            && root.commit-shadow-number(prefix + "offset-y", y);
+        return root.commit-codes([
+            { name: prefix + "offset-x", value: x == 0 ? "0px" : "\{x}px" },
+            { name: prefix + "offset-y", value: y == 0 ? "0px" : "\{y}px" },
+        ]);
     }
 
-    function remove-shadow-family(prefix: string) -> bool {
-        return root.remove-code(prefix + "color")
-            && root.remove-code(prefix + "blur")
-            && root.remove-code(prefix + "spread")
-            && root.remove-code(prefix + "offset-x")
-            && root.remove-code(prefix + "offset-y");
+    function shadow-code(property-name: string, fallback: string) -> string {
+        let code = Api.current-property-value-data(property-name).code;
+        return code != "" ? code : fallback;
     }
 
-    function ensure-shadow-defaults(prefix: string) -> bool {
+    function shadow-bindings(prefix: string, enabled: bool) -> [CodeBinding] {
         let color = prefix == "inner-shadow-" ? "#00000030" : "#00000040";
-        return (Api.current-property-value-data(prefix + "color").code != "" || root.commit-code(prefix + "color", color))
-            && (Api.current-property-value-data(prefix + "blur").code != "" || root.commit-shadow-number(prefix + "blur", 16))
-            && (Api.current-property-value-data(prefix + "spread").code != "" || root.commit-shadow-number(prefix + "spread", 0))
-            && (Api.current-property-value-data(prefix + "offset-x").code != "" || root.commit-shadow-number(prefix + "offset-x", 0))
-            && (Api.current-property-value-data(prefix + "offset-y").code != "" || root.commit-shadow-number(prefix + "offset-y", 8));
+        return [
+            { name: prefix + "color", value: enabled ? root.shadow-code(prefix + "color", color) : "" },
+            { name: prefix + "blur", value: enabled ? root.shadow-code(prefix + "blur", "16px") : "" },
+            { name: prefix + "spread", value: enabled ? root.shadow-code(prefix + "spread", "0px") : "" },
+            { name: prefix + "offset-x", value: enabled ? root.shadow-code(prefix + "offset-x", "0px") : "" },
+            { name: prefix + "offset-y", value: enabled ? root.shadow-code(prefix + "offset-y", "8px") : "" },
+        ];
     }
 
     function set-rectangle-effect(value: string) -> bool {
-        if value == "none" {
-            return root.remove-shadow-family("drop-shadow-")
-                && root.remove-shadow-family("inner-shadow-");
+        if value != "none" && value != "drop" && value != "inner" {
+            return false;
         }
-        if value == "drop" {
-            return root.remove-shadow-family("inner-shadow-")
-                && root.ensure-shadow-defaults("drop-shadow-");
-        }
-        if value == "inner" {
-            return root.remove-shadow-family("drop-shadow-")
-                && root.ensure-shadow-defaults("inner-shadow-");
-        }
-        return false;
+        let drop = root.shadow-bindings("drop-shadow-", value == "drop");
+        let inner = root.shadow-bindings("inner-shadow-", value == "inner");
+        return root.commit-codes([
+            drop[0], drop[1], drop[2], drop[3], drop[4],
+            inner[0], inner[1], inner[2], inner[3], inner[4],
+        ]);
     }
 
     function quote(value: string) -> string {
@@ -961,12 +953,11 @@ export component InspectorPane inherits Rectangle {
         }
     }
 
-    OutlinePane {
+    outline-pane := OutlinePane {
         x: root.content-x;
         y: root.inspector-height + root.split-height;
         width: root.width - root.content-x;
         height: root.outline-height;
-        element-selected => { root.element-selected(); }
         drag-started => { root.outline-drag-started(); }
     }
 }

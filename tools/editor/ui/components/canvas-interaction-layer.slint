@@ -46,6 +46,7 @@ component SelectedCanvasFrame inherits Rectangle {
     in property <bool> shift-pressed;
     in property <bool> interaction-disabled;
     callback pointer-hovered(Point);
+    callback hover-suppressed();
     callback double-clicked();
 
     private property <bool> geometry-drag-active;
@@ -133,12 +134,12 @@ component SelectedCanvasFrame inherits Rectangle {
             root.pending-rotation = rotation;
             Api.override-selected-element-rotation(rotation);
         }
-        control-hovered => { Hover.element = {}; }
-        move-press-started(position) => { Hover.element = {}; }
+        control-hovered => { root.hover-suppressed(); }
+        move-press-started(position) => { root.hover-suppressed(); }
         interaction-started => {
             root.rotation-active = false;
             root.radius-drag-active = false;
-            Hover.element = {};
+            root.hover-suppressed();
         }
         pointer-moved(position) => {
             if !self.move-pressed {
@@ -199,7 +200,6 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     show-outline: false;
     in property <SelectionRectangle> geometry;
     in property <bool> gesture-active;
-    in property <bool> selection-area-has-hover;
     callback gesture-started();
     callback gesture-ended();
     callback pointer-hovered(Point);
@@ -249,12 +249,6 @@ component HoverCanvasFrame inherits MoveResizeFrame {
         }
     }
 
-    changed frame-hover => {
-        if !root.frame-hover && !root.selection-area-has-hover && !root.gesture-active
-            && !Hover.element.is-selected {
-            Hover.element = {};
-        }
-    }
     move-press-started(position) => {
         if !root.gesture-active {
             root.gesture-started();
@@ -289,8 +283,22 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     ]
 }
 
-export component CanvasInteractionLayer inherits Rectangle {
+export component CanvasInteractionLayer inherits TouchArea {
     in property <bool> shift-pressed;
+    private property <bool> hover-enabled;
+    private property <int> preview-generation: Hover.preview-generation;
+    mouse-cursor: EditorCursors.canvas-default;
+
+    changed preview-generation => {
+        if root.has-hover && root.hover-enabled {
+            root.update-hover({ x: root.mouse-x, y: root.mouse-y });
+        }
+    }
+    changed has-hover => {
+        if !root.has-hover && !root.hover-selection-active {
+            root.suppress-hover();
+        }
+    }
     // Coordinates the selected and hover frames while a hovered item owns the pointer gesture.
     private property <bool> hover-selection-active;
     private property <bool> text-editing;
@@ -304,11 +312,8 @@ export component CanvasInteractionLayer inherits Rectangle {
     private property <Size> text-edit-size;
     private property <float> text-edit-scale-x: 1;
     private property <float> text-edit-scale-y: 1;
-    // Guard on highlight-index >= 0: after Api.unselect(), the backend still populates
-    // current-element with the component root. Its frame would intercept future selections.
-    private property <[SelectionRectangle]> selections: Api.selection.highlight-index >= 0
-        ? Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset)
-        : [];
+    private property <[SelectionRectangle]> selections:
+        Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset);
 
     private property <Point> canvas-origin: root.absolute-position;
     private property <Size> canvas-size: { width: root.width, height: root.height };
@@ -402,41 +407,43 @@ export component CanvasInteractionLayer inherits Rectangle {
     }
 
     function update-hover(position: Point) {
-        if root.text-editing || FillSession.canvas-active || root.hover-selection-active || selection-area.pressed {
+        if root.text-editing || FillSession.canvas-active || root.hover-selection-active || root.pressed {
             return;
         }
+        root.hover-enabled = true;
         Hover.element = Hover.element-at(position.x, position.y, false);
     }
 
-    // Click to select the real previewed element. This sits on top of the live
-    // preview so it intercepts clicks. Its pointer positions are in content coordinates.
-    selection-area := TouchArea {
-        width: root.width;
-        height: root.height;
-        mouse-cursor: EditorCursors.canvas-default;
-        clicked => {
-            if root.text-editing && !root.commit-text-edit() {
-                return;
-            }
-            Api.unselect();
-            Api.select-at(self.pressed-x, self.pressed-y, false);
-            root.real-element-selected();
+    function suppress-hover() {
+        root.hover-enabled = false;
+        Hover.element = {};
+    }
+
+    clicked => {
+        if root.text-editing && !root.commit-text-edit() {
+            return;
         }
-        pointer-event(event) => {
-            if event.kind == PointerEventKind.move {
-                root.update-hover({ x: self.mouse-x, y: self.mouse-y });
-            }
+        Api.unselect();
+        Api.select-at(self.pressed-x, self.pressed-y, false);
+        root.real-element-selected();
+    }
+    pointer-event(event) => {
+        if event.kind == PointerEventKind.move {
+            root.update-hover({ x: self.mouse-x, y: self.mouse-y });
         }
     }
 
-    for geometry in Hover.element.geometry: Rectangle {
+    for geometry in Hover.geometry: Rectangle {
         x: geometry.x;
         y: geometry.y;
         width: geometry.width;
         height: geometry.height;
         transform-origin: { x: self.width / 2, y: self.height / 2 };
         transform-rotation: geometry.angle;
-        visible: Hover.element.valid && !root.hover-selection-active;
+        visible: !root.hover-selection-active;
+        accessible-role: AccessibleRole.region;
+        // HoverCanvasFrame labels canvas hover; tree hover uses only this passive outline.
+        accessible-label: Hover.tree-source-uri != "" ? "Hovered " + Hover.tree-type-name : "";
         Rectangle {
             x: -Style.selection-frame.hover-width;
             y: -Style.selection-frame.hover-width;
@@ -459,6 +466,7 @@ export component CanvasInteractionLayer inherits Rectangle {
         pointer-hovered(position) => {
             root.update-hover(position);
         }
+        hover-suppressed => { root.suppress-hover(); }
         double-clicked => {
             root.begin-text-edit();
         }
@@ -467,8 +475,8 @@ export component CanvasInteractionLayer inherits Rectangle {
     for geometry in (FillSession.canvas-active ? [] : Hover.element.geometry): HoverCanvasFrame {
         geometry: geometry;
         gesture-active: root.hover-selection-active;
-        selection-area-has-hover: selection-area.has-hover;
         gesture-started => {
+            root.hover-enabled = false;
             root.hover-selection-active = true;
         }
         gesture-ended => {

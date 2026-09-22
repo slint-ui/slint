@@ -1,16 +1,35 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cspell:ignore tobytes
+
 import contextlib
 import time
 from collections.abc import Callable, Iterator
+from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TypeVar
 
 import slint_testing
 from editor_sync import EditorSync, current_editor_sync
+from PIL import Image
 from ui_reporting import capture_failure, current_report, replay_stage
+
+
+def screenshot(window: slint_testing.Window) -> Image.Image:
+    previous = b""
+
+    def settled() -> Image.Image | None:
+        nonlocal previous
+        image = Image.open(BytesIO(window.grab_window_as_png())).convert("RGB")
+        data = image.tobytes()
+        stable = data == previous
+        previous = data
+        return image if stable else None
+
+    return wait_until(settled)
+
 
 PALETTE_KINDS = ("Image", "Rectangle", "Text", "TouchArea")
 
@@ -98,12 +117,27 @@ ELEMENT_ROWS = {
 }
 
 
+def outline_row(window: slint_testing.Window, label: str) -> slint_testing.Element:
+    return window_element_with_label(
+        window, label, slint_testing.AccessibleRole.ListItem
+    )
+
+
+def outline_rows(window: slint_testing.Window) -> list[slint_testing.Element]:
+    tree = window_element_with_label(
+        window, "Current file outline", slint_testing.AccessibleRole.List
+    )
+    return (
+        tree.query_descendants()
+        .match_accessible_role(slint_testing.AccessibleRole.ListItem)
+        .find_all()
+    )
+
+
 def select_outline_row(
     window: slint_testing.Window, row_label: str
 ) -> slint_testing.Element:
-    row = window_element_with_label(
-        window, row_label, slint_testing.AccessibleRole.ListItem
-    )
+    row = outline_row(window, row_label)
     row.invoke_accessible_default_action()
     return wait_until(lambda: row if row.accessible_item_selected else None)
 

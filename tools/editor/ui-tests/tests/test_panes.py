@@ -80,10 +80,6 @@ def test_pane_sizes_persist_across_relaunch(
             window_element_with_label(window, "ELEMENTS").accessible_label == "ELEMENTS"
         )
         assert (
-            window_element_with_label(window, "APPEARANCE").accessible_label
-            == "APPEARANCE"
-        )
-        assert (
             window_element_with_label(window, "OUTLINE").accessible_label == "OUTLINE"
         )
         assert elements_divider.absolute_position.y > initial_elements_y

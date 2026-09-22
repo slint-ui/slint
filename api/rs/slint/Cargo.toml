@@ -262,7 +262,7 @@ backend-android-activity-05 = [
 #! in your `Cargo.toml` when enabling any of these features:
 #!
 #! ```toml
-#! slint = { version = "~1.18", features = ["unstable-wgpu-30"] }
+#! slint = { version = "~1.19", features = ["unstable-wgpu-30"] }
 #! ```
 
 ## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 29.x.

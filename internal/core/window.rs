@@ -1082,6 +1082,8 @@ impl WindowInner {
             mouse_input_state
         };
 
+        let hover_position_after_drop =
+            matches!(event, MouseEvent::Drop { .. }).then(|| event.position()).flatten();
         let accepted = dispatch_accepted | grab_accepted;
 
         if last_top_item != mouse_input_state.top_item_including_delayed() {
@@ -1141,6 +1143,9 @@ impl WindowInner {
         }
 
         self.ensure_tree_instantiated();
+        if let Some(position) = hover_position_after_drop {
+            self.process_mouse_input(MouseEvent::Moved { position, touch_finger_id: 0 });
+        }
 
         Some(MouseDispatchResult { drag_action, accepted })
     }

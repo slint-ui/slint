@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 80 80"><g filter="url(#a)"><path fill="#000" d="M26.366 30.143c-.992-2.38 1.396-4.77 3.777-3.777l18.436 7.681c2.54 1.058 2.303 4.73-.35 5.454l-5.265 1.436a2.889 2.889 0 0 0-2.027 2.027L39.5 48.228c-.724 2.654-4.396 2.89-5.454.351l-7.681-18.436Z"/><path stroke="#fff" stroke-width="1.541" d="M27.076 29.847c-.727-1.746 1.025-3.498 2.77-2.77l18.437 7.68c1.861.777 1.688 3.47-.257 4l-5.265 1.437a3.659 3.659 0 0 0-2.567 2.567l-1.437 5.265c-.53 1.945-3.223 2.118-4 .257l-7.68-18.436Z"/></g><defs><filter id="a" width="52" height="52" x="12" y="12" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" result="hardAlpha" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"/><feOffset dy="1.926"/><feGaussianBlur stdDeviation="2.889"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0"/><feBlend in2="BackgroundImageFix" result="effect1_dropShadow_3436_1176"/><feBlend in="SourceGraphic" in2="effect1_dropShadow_3436_1176" result="shape"/></filter></defs><g filter="url(#radius-shadow)">
+  <path d="M44 62 A12 12 0 0 1 56 50" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M44 62 A12 12 0 0 1 56 50" stroke="#666" stroke-width="2.5" stroke-linecap="round"/>
+</g>
+<defs>
+  <filter id="radius-shadow" x="32" y="38" width="38" height="38" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+    <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-opacity=".4"/>
+  </filter>
+</defs>
+</svg>

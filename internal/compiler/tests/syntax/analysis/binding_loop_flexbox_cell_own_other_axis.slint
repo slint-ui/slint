@@ -14,6 +14,59 @@
 // `to_apply` keeps while dropping the inherited 'min-height' next to it; and a
 // runtime 'flex-direction', which the solve handles without knowing the axis
 // relation.
+//
+// Then the components that set the constraint inside themselves, where
+// `to_apply` drops it — declared anyway, because it reaches the element's own
+// geometry: 'CardSelf' directly, 'CardHelper' through a property, 'CardFn'
+// through a function, 'CardAlias' through a two-way binding, and 'CardX'
+// through 'x' rather than a size.
+
+component CardHelper {
+    property <length> helper: self.width;
+//                            >         <error{The binding for the property 'helper' is part of a binding loop (helper -> min-height -> layout-cache -> width -> helper)}
+    min-height: root.helper;
+//              >          <error{The binding for the property 'min-height' is part of a binding loop (helper -> min-height -> layout-cache -> width -> helper)}
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+component CardFn {
+    pure function helper() -> length { self.width }
+//  >                                             <error{The binding for the property 'helper' is part of a binding loop (helper -> min-height -> layout-cache -> width -> helper)}
+    min-height: self.helper();
+//              >            <error{The binding for the property 'min-height' is part of a binding loop (helper -> min-height -> layout-cache -> width -> helper)}
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+component CardAlias {
+    property <length> alias <=> self.width;
+//                          >             <error{The binding for the property 'alias' is part of a binding loop (alias -> min-height -> layout-cache -> width -> alias)}
+    min-height: root.alias;
+//              >         <error{The binding for the property 'min-height' is part of a binding loop (alias -> min-height -> layout-cache -> width -> alias)}
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+component CardX {
+    min-height: self.x;
+//              >     <error{The binding for the property 'min-height' is part of a binding loop (x -> min-height -> layout-cache -> x)}
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+component CardSelf {
+    min-height: self.width;
+//              >         <error{The binding for the property 'min-height' is part of a binding loop (width -> min-height -> layout-cache -> width)}
+//              >         <^error{The binding for the property 'min-height' is part of a binding loop (width -> min-height -> layout-cache -> width)}
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
 
 component Card {
     min-height: inner.min-height;
@@ -56,6 +109,12 @@ export component Demo inherits Window {
     }
 
     FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (width -> min-height -> layout-cache -> width)}
+//  >            <^error{The binding for the property 'width' is part of a binding loop (width -> min-height -> layout-cache -> width)}
+        for i in 2: CardSelf { }
+    }
+
+    FlexboxLayout {
 //  >            <error{The binding for the property 'layout-cache' is part of a binding loop (width -> layout-cache -> height -> width)}
 //  >            <^error{The binding for the property 'height' is part of a binding loop (width -> layout-cache -> height -> width)}
         flex-direction: column;
@@ -69,5 +128,40 @@ export component Demo inherits Window {
         flex-direction: root.horizontal ? row : column;
         Rectangle { width: self.height; }
 //                         >          <error{The binding for the property 'width' is part of a binding loop (width -> layout-cache -> height -> width)}
+    }
+
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (width -> min-height -> layout-cache -> width)}
+//  >            <^error{The binding for the property 'width' is part of a binding loop (width -> min-height -> layout-cache -> width)}
+        flex-direction: column;
+        CardSelf { }
+    }
+
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (helper -> min-height -> layout-cache -> width -> helper)}
+//  >            <^error{The binding for the property 'width' is part of a binding loop (helper -> min-height -> layout-cache -> width -> helper)}
+        flex-direction: column;
+        CardHelper { }
+    }
+
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (helper -> min-height -> layout-cache -> width -> helper)}
+//  >            <^error{The binding for the property 'width' is part of a binding loop (helper -> min-height -> layout-cache -> width -> helper)}
+        flex-direction: column;
+        CardFn { }
+    }
+
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (alias -> min-height -> layout-cache -> width -> alias)}
+//  >            <^error{The binding for the property 'width' is part of a binding loop (alias -> min-height -> layout-cache -> width -> alias)}
+        flex-direction: column;
+        CardAlias { }
+    }
+
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (x -> min-height -> layout-cache -> x)}
+//  >            <^error{The binding for the property 'x' is part of a binding loop (x -> min-height -> layout-cache -> x)}
+        flex-direction: column;
+        CardX { }
     }
 }

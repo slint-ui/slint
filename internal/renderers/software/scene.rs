@@ -205,7 +205,9 @@ impl Scene {
         }
         self.current_items_index = i;
         // check that current items are properly sorted
-        debug_assert!(self.items[0..self.current_items_index].windows(2).all(|x| x[0].z >= x[1].z));
+        debug_assert!(
+            self.items[0..self.current_items_index].array_windows().all(|[a, b]| a.z >= b.z)
+        );
     }
 
     // return true if lines were skipped

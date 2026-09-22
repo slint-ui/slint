@@ -691,10 +691,7 @@ pub(super) fn draw_radial_gradient(
         // Find the two gradient stops to interpolate between
         let mut color = g.stops.first().map(|s| s.color).unwrap_or_default();
 
-        for window in g.stops.windows(2) {
-            let stop1 = &window[0];
-            let stop2 = &window[1];
-
+        for [stop1, stop2] in g.stops.array_windows() {
             if position >= stop1.position && position <= stop2.position {
                 // Interpolate between the two stops
                 let t = if stop2.position == stop1.position {
@@ -766,10 +763,7 @@ pub(super) fn draw_conic_gradient(
         // Find the two gradient stops to interpolate between
         let mut color = g.stops.first().map(|s| s.color).unwrap_or_default();
 
-        for window in g.stops.windows(2) {
-            let stop1 = &window[0];
-            let stop2 = &window[1];
-
+        for [stop1, stop2] in g.stops.array_windows() {
             if position >= stop1.position && position <= stop2.position {
                 // Interpolate between the two stops
                 let t = if stop2.position == stop1.position {

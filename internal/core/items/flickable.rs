@@ -1228,6 +1228,7 @@ impl FlickableData {
                     let is_capturing = inner.capture_events.is_some_and(|f| {
                         matches!(f, CaptureEvents::MouseStart | CaptureEvents::MouseMove)
                     });
+
                     if is_capturing
                         || self.should_capture_mouse_direction(mouse_delta, flick, flick_rc)
                     {

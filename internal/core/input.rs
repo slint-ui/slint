@@ -724,12 +724,13 @@ pub(crate) mod ffi {
 /// Normalize a key string: lowercase and NFC-normalize.
 fn normalize_key(key: &str) -> SharedString {
     let lowered = key.to_lowercase();
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "shared-parley")] {
+    core::cfg_select! {
+        feature = "shared-parley" => {
             let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
             let normalized = normalizer.normalize(&lowered);
             SharedString::from(normalized.as_ref())
-        } else {
+        }
+        _ => {
             SharedString::from(lowered.as_str())
         }
     }
@@ -1534,8 +1535,7 @@ fn offer_native_drag(
     state: &mut MouseInputState,
 ) {
     let data = drag_area.data();
-    // A native drag only carries serializable data, so offer it only when there's some.
-    if data.has_plain_text() || data.has_image() {
+    if data.has_native_data() {
         let request = crate::window::DragRequest {
             data: data.clone(),
             allowed: drag_area.allowed_actions(),

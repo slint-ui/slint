@@ -57,8 +57,8 @@ jobs:
             matrix:
                 include:
                     - os: windows-2022
-                      name: "Windows 2022 1.92"
-                      rust_version: "1.92"
+                      name: "Windows 2022 1.95"
+                      rust_version: "1.95"
                       # The platform-independent interpreter test driver only runs on macOS
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery --exclude test-driver-interpreter"
                     - os: macos-14
@@ -199,7 +199,7 @@ jobs:
                     - os: macos-14
                       rust_version: beta
                     - os: windows-2022
-                      rust_version: "1.92"
+                      rust_version: "1.95"
         runs-on: ${{ matrix.os }}
 
         steps:
@@ -263,7 +263,7 @@ jobs:
               # macOS and Ubuntu only run when api_cpp changed
               entries='[{"os":"windows-2022","rust_version":"nightly"}]'
               if [ "${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') }}" = "true" ]; then
-                entries='[{"os":"windows-2022","rust_version":"nightly"},{"os":"macos-14","rust_version":"1.92"},{"os":"ubuntu-22.04","rust_version":"stable"}]'
+                entries='[{"os":"windows-2022","rust_version":"nightly"},{"os":"macos-14","rust_version":"1.95"},{"os":"ubuntu-22.04","rust_version":"stable"}]'
               fi
               echo "matrix={\"include\":$entries}" >> "$GITHUB_OUTPUT"
 
@@ -734,8 +734,8 @@ jobs:
             matrix:
                 include:
                     - os: ubuntu-22.04
-                      name: "Ubuntu 22.04 1.92 (cargo update)"
-                      rust_version: "1.92"
+                      name: "Ubuntu 22.04 1.95 (cargo update)"
+                      rust_version: "1.95"
                       extra_args: "--exclude plotter"
                     - os: windows-2022
                       name: "Windows 2022 nightly (cargo update)"

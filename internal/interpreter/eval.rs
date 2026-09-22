@@ -114,6 +114,8 @@ pub(crate) fn try_walk_parent(
 }
 
 /// Walk `parent_level` steps up the parent chain.
+///
+/// Only for instantiation, where the chain is still alive; evaluation uses [`try_walk_parent`].
 pub(crate) fn walk_parent(
     start: &Pin<Rc<SubComponentInstance>>,
     level: usize,
@@ -142,7 +144,9 @@ impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
                 // The `Type` values live in the shared `CompilationUnit`, so
                 // resolve the target sub-component index through the runtime
                 // parent chain and borrow from `cu`.
-                let sub = walk_parent(current, *parent_level);
+                let Some(sub) = try_walk_parent(current, *parent_level) else {
+                    return &Type::Invalid;
+                };
                 let mut sc_idx = sub.sub_component_idx;
                 for i in &local_reference.sub_component_path {
                     sc_idx = cu.sub_components[sc_idx].sub_components[*i].ty;
@@ -192,21 +196,10 @@ pub(crate) fn walk_sub_path(
 pub(crate) fn try_walk_to(
     ctx: &EvalContext,
     parent_level: usize,
-    path: &[llr::SubComponentInstanceIdx],
+    local_reference: &llr::LocalMemberReference,
 ) -> Option<Pin<Rc<SubComponentInstance>>> {
-    Some(walk_sub_path(try_walk_parent(ctx.current.as_ref()?, parent_level)?, path))
-}
-
-/// Walk to the sub-component that owns `local`.
-///
-/// Panics if `ctx.current` is unset; the caller must check beforehand.
-pub(crate) fn walk_to(
-    ctx: &EvalContext,
-    parent_level: usize,
-    path: &[llr::SubComponentInstanceIdx],
-) -> Pin<Rc<SubComponentInstance>> {
-    let start = ctx.current.as_ref().expect("relative member reference without a sub-component");
-    walk_sub_path(walk_parent(start, parent_level), path)
+    let base = try_walk_parent(ctx.current.as_ref()?, parent_level)?;
+    Some(walk_sub_path(base, &local_reference.sub_component_path))
 }
 
 /// Flat tree index of the `item_table` entry matching `(path, item_index)`.
@@ -352,7 +345,9 @@ pub fn load_property(ctx: &EvalContext, mr: &MemberReference) -> Value {
             load_global(global, member)
         }
         MemberReference::Relative { parent_level, local_reference } => {
-            let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            let Some(instance) = try_walk_to(ctx, *parent_level, local_reference) else {
+                return Value::Void;
+            };
             load_local(&instance, &local_reference.reference)
         }
     }
@@ -366,10 +361,12 @@ pub fn store_property(ctx: &EvalContext, mr: &MemberReference, value: Value) {
             store_global(global, member, value);
         }
         MemberReference::Relative { parent_level, local_reference } => {
-            let start =
-                ctx.current.as_ref().expect("relative member reference without a sub-component");
-            let (instance, animation) =
-                walk_to_target_with_animation(walk_parent(start, *parent_level), local_reference);
+            let Some(base) =
+                ctx.current.as_ref().and_then(|start| try_walk_parent(start, *parent_level))
+            else {
+                return;
+            };
+            let (instance, animation) = walk_to_target_with_animation(base, local_reference);
             store_local(&instance, &local_reference.reference, value, animation);
         }
     }
@@ -397,7 +394,9 @@ pub fn invoke_callback(ctx: &EvalContext, mr: &MemberReference, args: &[Value]) 
             ensure_typed_default(res, &cb.ret_ty)
         }
         MemberReference::Relative { parent_level, local_reference } => {
-            let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            let Some(instance) = try_walk_to(ctx, *parent_level, local_reference) else {
+                return Value::Void;
+            };
             match &local_reference.reference {
                 LocalMemberIndex::Callback(idx) => {
                     // Register a dependency on the handler so bindings
@@ -448,7 +447,9 @@ pub fn invoke_function(ctx: &EvalContext, mr: &MemberReference, args: Vec<Value>
             eval_expression(&mut inner_ctx, &code)
         }
         MemberReference::Relative { parent_level, local_reference } => {
-            let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            let Some(instance) = try_walk_to(ctx, *parent_level, local_reference) else {
+                return Value::Void;
+            };
             let LocalMemberIndex::Function(idx) = &local_reference.reference else {
                 panic!("invoke_function on non-function reference")
             };
@@ -515,10 +516,11 @@ fn cast_to_path_data(ctx: &mut EvalContext, from: &Expression) -> Value {
             Value::PathData(PathData::Elements(elements))
         }
         Expression::Struct { values, .. }
-            if values.contains_key("events") && values.contains_key("points") =>
+            if let Some(events) = values.get("events")
+                && let Some(points) = values.get("points") =>
         {
-            let events_value = eval_expression(ctx, &values["events"]);
-            let points_value = eval_expression(ctx, &values["points"]);
+            let events_value = eval_expression(ctx, events);
+            let points_value = eval_expression(ctx, points);
             // `for_each_enums!` already produces a `TryFrom<Value>` impl for
             // every Slint enum (via `declare_value_enum_conversion!` in
             // `api.rs`), so model rows of `Value::EnumerationValue` convert
@@ -826,11 +828,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::ModelDataAssignment { level, value } => {
             let new_value = eval_expression(ctx, value);
             if let Some(current) = ctx.current.as_ref() {
-                let mut walker = current.clone();
-                for _ in 0..*level {
-                    let parent = walker.parent.upgrade().expect("parent vanished");
-                    walker = std::pin::Pin::new(parent);
-                }
+                let Some(walker) = try_walk_parent(current, *level) else { return Value::Void };
                 if let Some((parent_weak, repeater_idx)) = walker.repeated_in.get()
                     && let Some(parent) = parent_weak.upgrade()
                 {
@@ -1083,12 +1081,14 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::BoxLayoutInfoOrthoWithMeasure { .. } => {
             crate::eval_layout::box_layout_info_ortho_with_measure(ctx, expression)
         }
-        Expression::TranslationReference { .. } => {
-            // TranslationReference is only emitted when `bundle-translations`
-            // is active, which the interpreter does not use. Runtime @tr()
-            // goes through BuiltinFunction::Translate instead.
-            Value::String(Default::default())
+        #[cfg(feature = "bundle-translations")]
+        Expression::TranslationReference { format_args, string_index, plural } => {
+            eval_translation_reference(ctx, format_args, *string_index, plural.as_deref())
         }
+        // TranslationReference is only emitted when `bundle-translations` is active.
+        // Runtime @tr() goes through BuiltinFunction::Translate instead.
+        #[cfg(not(feature = "bundle-translations"))]
+        Expression::TranslationReference { .. } => Value::String(Default::default()),
         Expression::Closure { .. } => unreachable!(
             "closures are dispatched by their consuming builtin and should not go through eval_expression"
         ),
@@ -1699,6 +1699,11 @@ fn binary_op(op: char, lhs: Value, rhs: Value) -> Value {
         (Value::Bool(a), Value::Void) => (Value::Bool(a), Value::Bool(false)),
         (Value::Void, Value::String(b)) => (Value::String(Default::default()), Value::String(b)),
         (Value::String(a), Value::Void) => (Value::String(a), Value::String(Default::default())),
+        // With no operand to take the type from, the operator decides.
+        (Value::Void, Value::Void) if matches!(op, '&' | '|') => {
+            (Value::Bool(false), Value::Bool(false))
+        }
+        (Value::Void, Value::Void) => (Value::Number(0.), Value::Number(0.)),
         (a, b) => (a, b),
     };
     match (op, lhs, rhs) {
@@ -1883,6 +1888,58 @@ fn log_message_location(
     })
 }
 
+/// Arguments of a `@tr(...)` formatting, as a model of strings.
+struct StringModelWrapper(ModelRc<Value>);
+impl i_slint_core::translations::FormatArgs for StringModelWrapper {
+    type Output<'a> = SharedString;
+    fn from_index(&self, index: usize) -> Option<SharedString> {
+        self.0.row_data(index).and_then(|v| v.try_into().ok())
+    }
+}
+
+/// Look up a string that the compiler bundled from the `.po` files, in the language currently
+/// selected with `slint::select_bundled_translation`.
+#[cfg(feature = "bundle-translations")]
+fn eval_translation_reference(
+    ctx: &mut EvalContext,
+    format_args: &Expression,
+    string_index: usize,
+    plural: Option<&Expression>,
+) -> Value {
+    let unit = ctx.compilation_unit.clone();
+    let Some(translations) = unit.translations.as_ref() else {
+        return Value::String(Default::default());
+    };
+    let Value::Model(args) = eval_expression(ctx, format_args) else {
+        return Value::String(Default::default());
+    };
+    let args = StringModelWrapper(args);
+    let Some(plural) = plural else {
+        return Value::String(i_slint_core::translations::translate_from_bundle(
+            &translations.strings[string_index],
+            &args,
+        ));
+    };
+
+    let n: i32 = eval_expression(ctx, plural).try_into().unwrap_or(0);
+    let forms = translations.plurals[string_index].iter().map(|f| f.as_deref()).collect::<Vec<_>>();
+    let globals = ctx.globals.clone();
+    Value::String(i_slint_core::translations::translate_from_bundle_with_plural_form(
+        &forms,
+        |language_index| {
+            let rule = translations.plural_rules.get(language_index)?.as_ref()?;
+            // The rules can't access any property, they only take `n` as argument
+            let mut rule_ctx = EvalContext::for_global(globals, unit.clone());
+            rule_ctx.function_arguments = vec![Value::Number(n as f64)];
+            rule_ctx.function_arg_types = vec![Type::Int32];
+            let form: i32 = eval_expression(&mut rule_ctx, rule).try_into().ok()?;
+            usize::try_from(form).ok()
+        },
+        &args,
+        n,
+    ))
+}
+
 fn call_builtin_function(
     ctx: &mut EvalContext,
     f: BuiltinFunction,
@@ -1978,10 +2035,11 @@ fn call_builtin_function(
             crate::popup::setup_system_tray_icon(ctx, arguments)
         }
         BuiltinFunction::StringIsFloat => Value::Bool(
-            <f64 as core::str::FromStr>::from_str(to_string(ctx, &arguments[0]).as_str()).is_ok(),
+            i_slint_core::string::string_to_float(to_string(ctx, &arguments[0]).as_str()).is_some(),
         ),
         BuiltinFunction::StringToFloat => Value::Number(
-            core::str::FromStr::from_str(to_string(ctx, &arguments[0]).as_str()).unwrap_or(0.),
+            i_slint_core::string::string_to_float(to_string(ctx, &arguments[0]).as_str())
+                .unwrap_or_default() as f64,
         ),
         BuiltinFunction::StringIsEmpty => Value::Bool(to_string(ctx, &arguments[0]).is_empty()),
         BuiltinFunction::StringCharacterCount => Value::Number(
@@ -2320,12 +2378,10 @@ fn call_builtin_function(
                 }),
             ] = arguments
                 && let LocalMemberIndex::Timer(timer_idx) = &local_reference.reference
-                && ctx.current.is_some()
+                && let Some(instance) = try_walk_to(ctx, *parent_level, local_reference)
+                && let Some(timer) = instance.timers.get(usize::from(*timer_idx))
             {
-                let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
-                if let Some(timer) = instance.timers.get(usize::from(*timer_idx)) {
-                    timer.restart();
-                }
+                timer.restart();
             }
             Value::Void
         }
@@ -2565,13 +2621,6 @@ fn call_builtin_function(
             let Value::Model(args) = args else {
                 return Value::String(original);
             };
-            struct StringModelWrapper(ModelRc<Value>);
-            impl i_slint_core::translations::FormatArgs for StringModelWrapper {
-                type Output<'a> = SharedString;
-                fn from_index(&self, index: usize) -> Option<SharedString> {
-                    self.0.row_data(index).and_then(|v| v.try_into().ok())
-                }
-            }
             let n: i32 = eval_expression(ctx, &arguments[4]).try_into().unwrap_or(0);
             let plural: SharedString = to_string(ctx, &arguments[5]);
             Value::String(i_slint_core::translations::translate(
@@ -2687,7 +2736,7 @@ pub(crate) fn resolve_item_rc_from_ref(
     let LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
         return None;
     };
-    let owner = try_walk_to(ctx, *parent_level, &local_reference.sub_component_path)?;
+    let owner = try_walk_to(ctx, *parent_level, local_reference)?;
     let parent_inst = owner.root.get().and_then(|w| w.upgrade())?;
     let full_path = crate::item_tree_vtable::sub_component_path_of(&owner, &parent_inst);
     let flat_idx = find_flat_item_index(&parent_inst.item_table, &full_path, *item_index)?;

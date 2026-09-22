@@ -12,6 +12,11 @@ export global EditorIcons {
 }
 
 export global EditorCursors {
+    out property <MouseCursor> corner-radius: MouseCursor.custom(
+        @image-url("../assets/cursors/corner-radius.png"),
+        14,
+        14,
+    );
     pure callback rotation-image(angle) -> image;
     out property <MouseCursor> canvas-default: MouseCursor.custom(
         @image-url("../assets/cursors/default-32.png"),
@@ -358,7 +363,15 @@ export global AppState {
     in-out property <bool> outline-drag-cancelled: false;
     in-out property <string> outline-drag-label: "";
     in-out property <image> outline-drag-icon;
-    in-out property <Point> outline-drag-position: { x: 0px, y: 0px };
+    in-out property <Point> outline-drag-grab-offset;
+    in-out property <Point> outline-drag-pointer-position;
+    in-out property <length> outline-drag-content-inset;
+    in-out property <brush> outline-drag-background;
+    in-out property <float> outline-drag-icon-opacity;
+    out property <Point> outline-drag-position: {
+        x: self.outline-drag-pointer-position.x - self.outline-drag-grab-offset.x,
+        y: self.outline-drag-pointer-position.y - self.outline-drag-grab-offset.y,
+    };
     in-out property <Size> outline-drag-preview-size: { width: 216px, height: 32px };
 
     public pure function has-active-drag() -> bool {
@@ -400,15 +413,23 @@ export global AppState {
         self.cancel-outline-drag();
     }
 
-    pure function outline-drag-pointer-gap() -> length {
-        return Metrics.radius-medium;
+    public pure function palette-drag-pointer-position() -> Point {
+        return {
+            x: self.palette-drag-preview-position.x + self.palette-drag-size.width / 2,
+            y: self.palette-drag-preview-position.y + self.palette-drag-size.height / 2,
+        };
+    }
+
+    public pure function drag-cancelled() -> bool {
+        return self.palette-drag-cancelled
+            || (self.palette-drag-kind == ElementKind.none && self.outline-drag-cancelled);
     }
 
     public function update-outline-drag-position(window-position: Point) {
-        self.outline-drag-position = {
-            x: window-position.x + self.outline-drag-pointer-gap(),
-            y: window-position.y + self.outline-drag-pointer-gap(),
-        };
+        if self.palette-drag-kind != ElementKind.none {
+            self.update-palette-drag(self.palette-drag-kind, window-position);
+        }
+        self.outline-drag-pointer-position = window-position;
     }
 
     public function start-outline-drag(label: string, icon: image, window-position: Point) {

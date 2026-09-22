@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 import slint_testing
 from canvas_interactions import (
+    begin_palette_drag,
     center,
     fixture_element,
     frame_rotation,
@@ -24,7 +25,7 @@ from canvas_interactions import (
 )
 from editor_sync import wait_for_source
 from slint_testing import keys
-from source_snapshot import SourceSnapshot
+from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_driver import (
     elements_with_label,
     file_row,
@@ -77,48 +78,6 @@ PALETTE_DROP_SIZES = {
     "Text": (220, 40),
     "Image": (160, 96),
 }
-
-
-def replace_once(source: bytes, old: bytes, new: bytes) -> bytes:
-    assert source.count(old) == 1
-    return source.replace(old, new, 1)
-
-
-def wait_for_source_change(source_file: Path, baseline: bytes) -> bytes:
-    def changed_source() -> bytes | None:
-        source = source_file.read_bytes()
-        return source if source != baseline else None
-
-    return wait_until(changed_source)
-
-
-def begin_palette_drag(
-    window: slint_testing.Window,
-    kind: str,
-    target: slint_testing.LogicalPosition,
-) -> None:
-    def leftmost_enabled_row() -> slint_testing.Element | None:
-        rows = [
-            row
-            for row in elements_with_label(
-                window.root_element,
-                kind,
-                slint_testing.AccessibleRole.ListItem,
-            )
-            if row.accessible_enabled
-        ]
-        return min(rows, key=lambda row: row.absolute_position.x) if rows else None
-
-    palette_row = wait_until(leftmost_enabled_row)
-    start = center(palette_row)
-    button = slint_testing.PointerEventButton.Left
-    window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-    window.dispatch_event(
-        slint_testing.PointerMoveEvent(
-            slint_testing.LogicalPosition(x=start.x + 16, y=start.y + 16)
-        )
-    )
-    window.dispatch_event(slint_testing.PointerMoveEvent(target))
 
 
 def finish_palette_drag(

@@ -4,37 +4,20 @@
 # cspell:ignore getcolors getpixel tobytes
 
 import math
-from io import BytesIO
 from pathlib import Path
 
 import pytest
 import slint_testing
-from canvas_interactions import center
+from canvas_interactions import begin_palette_drag, center
 from editor_sync import wait_for_source
 from PIL import Image
-from test_palette import begin_palette_drag
 from ui_driver import (
     first_window,
     launch_editor,
+    screenshot,
     select_outline_row,
-    wait_until,
     window_element_with_label,
 )
-
-
-def screenshot(window: slint_testing.Window) -> Image.Image:
-    previous = b""
-    stable_frames = 0
-
-    def settled() -> Image.Image | None:
-        nonlocal previous, stable_frames
-        image = Image.open(BytesIO(window.grab_window_as_png())).convert("RGB")
-        data = image.tobytes()
-        stable_frames = stable_frames + 1 if data == previous else 0
-        previous = data
-        return image if stable_frames >= 1 else None
-
-    return wait_until(settled)
 
 
 def protected_regions(window: slint_testing.Window, image: Image.Image):

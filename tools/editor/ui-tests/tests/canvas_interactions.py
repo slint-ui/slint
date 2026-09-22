@@ -6,9 +6,37 @@ import math
 import slint_testing
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
-from ui_driver import elements_with_label, wait_until, window_element_with_label
+from ui_driver import (
+    elements_with_label,
+    palette_row,
+    wait_until,
+    window_element_with_label,
+)
 
 Frame = tuple[float, float, float, float]
+
+
+def begin_palette_drag(
+    window: slint_testing.Window,
+    kind: str,
+    target: slint_testing.LogicalPosition,
+) -> None:
+    row = wait_until(
+        lambda: (
+            candidate
+            if (candidate := palette_row(window, kind)).accessible_enabled
+            else None
+        )
+    )
+    start = center(row)
+    button = slint_testing.PointerEventButton.Left
+    window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+    window.dispatch_event(
+        slint_testing.PointerMoveEvent(
+            slint_testing.LogicalPosition(x=start.x + 16, y=start.y + 16)
+        )
+    )
+    window.dispatch_event(slint_testing.PointerMoveEvent(target))
 
 
 def center(
