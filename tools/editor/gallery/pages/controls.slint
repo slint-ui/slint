@@ -19,16 +19,16 @@ import { InspectorSegment } from "../../ui/components/inspector/segment.slint";
 
 export component GalleryControls inherits Rectangle {
     in property <bool> inspector;
-    private property <int> segment;
-    private property <string> input-text;
+    in-out property <int> segment <=> Gallery.segment;
+    in-out property <string> input-text <=> Gallery.input-text;
     in property <int> reset-generation: Gallery.reset-generation;
     changed reset-generation => { root.reset(); }
-    private property <string> text: "Hello Slint";
+    in-out property <string> text <=> Gallery.sample-text;
     private property <string> expression: "parent.width / 2";
     private property <string> image-fit: "contain";
-    private property <float> number: 24;
-    private property <float> slider: 24;
-    private property <float> rotation: 24;
+    in-out property <float> number <=> Gallery.number;
+    in-out property <float> slider <=> Gallery.slider;
+    in-out property <float> rotation <=> Gallery.rotation;
     private property <angle> shadow-angle: 90deg;
     private property <[float]> corners: [12, 12, 12, 12];
     private property <length> divider: 24px;

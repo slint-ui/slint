@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Button, ComboBox, Palette } from "std-widgets.slint";
+import { Button, ScrollView, Palette } from "std-widgets.slint";
 import { Gallery } from "state.slint";
+import { GalleryProperties } from "properties.slint";
 import { Colors, Typography } from "../ui/style.slint";
 import { Api, EditorSurfaceMode } from "../ui/api.slint";
 import { AppState, EditorWindow, PrimerTextInput, MutedLabel } from "../ui/components/common.slint";
@@ -26,16 +27,9 @@ export component GalleryWindow inherits Window {
     in-out property <int> theme-index;
     private property <ColorScheme> system-scheme;
     changed theme-index => { Palette.color-scheme = root.theme-index == 1 ? ColorScheme.light : root.theme-index == 2 ? ColorScheme.dark : root.system-scheme; }
-    init => { root.system-scheme = Palette.color-scheme; EditorWindow.width = root.width; EditorWindow.height = root.height; }
+    init => { root.system-scheme = Palette.color-scheme; EditorWindow.width = root.width; EditorWindow.height = root.height; if Platform.uses-mock-data { Gallery.navigate(Gallery.page-index, 0); } }
     changed width => { EditorWindow.width = root.width; }
     changed height => { EditorWindow.height = root.height; }
-    public function clear-transients() {
-        Gallery.reset-generation += 1;
-        FillSession.close-picker(false, false);
-        AppState.cancel-active-drags();
-        AppState.finish-outline-drag();
-        AppState.finish-palette-drag();
-    }
     focus := FocusScope {
         capture-key-pressed(event) => {
             if event.text == Key.Escape { AppState.cancel-active-drags(); }
@@ -49,34 +43,33 @@ export component GalleryWindow inherits Window {
                     padding: 16px; spacing: 12px;
                     Text { text: "Component Gallery"; color: Colors.foreground; font-size: Typography.heading.size; font-weight: Typography.heading.weight; }
                     search := PrimerTextInput { placeholder: "Find components…"; accessible-name: "Find components"; }
-                    for page in Gallery.pages: Button {
+                    for page[index] in Gallery.pages: Button {
                         visible: Gallery.matches(page.title, search.text);
                         text: page.title; checked: Gallery.page == page.id;
-                        clicked => { Gallery.navigate(page.id, "Default"); }
+                        clicked => { Gallery.navigate(index, 0); }
                     }
                     Rectangle { vertical-stretch: 1; }
-                    ComboBox { model: ["System", "Light", "Dark"]; current-index <=> root.theme-index; }
                 }
             }
             VerticalLayout {
                 padding: 24px; spacing: 16px;
-                Text { text: Gallery.title; color: Colors.foreground; font-size: 24px; font-weight: 600; }
+                Text { text: Gallery.title; wrap: word-wrap; color: Colors.foreground; font-size: 24px; font-weight: 600; }
                 MutedLabel { text: Gallery.description; wrap: word-wrap; }
-                HorizontalLayout {
-                    spacing: 12px;
-                    if Gallery.scenarios.length > 1: ComboBox { width: 220px; model: Gallery.scenarios; current-index: Gallery.scenario-index; selected(value) => { Gallery.navigate(Gallery.page, value); } }
-                    if Gallery.page != "foundations": Button { text: "Reset example"; clicked => { Gallery.navigate(Gallery.page, Gallery.scenario); } }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                Rectangle {
-                    background: Colors.surface;
-                    accessible-role: AccessibleRole.region; accessible-label: "Gallery preview";
+                ScrollView {
+                    vertical-stretch: 1;
+                    content-width: max(self.width, Gallery.preview-width * 1px);
+                    content-height: max(self.height, Gallery.preview-height * 1px);
                     Rectangle {
+                        x: 0px; y: 0px;
+                        width: Gallery.preview-width > 0 ? Gallery.preview-width * 1px : parent.width;
+                        height: Gallery.preview-height > 0 ? Gallery.preview-height * 1px : parent.height;
+                        background: Colors.surface;
+                        accessible-role: AccessibleRole.region; accessible-label: "Gallery preview";
                         if Gallery.page == "foundations": GalleryFoundations { }
                         if Gallery.page == "controls" || Gallery.page == "inspector-controls": GalleryControls { inspector: Gallery.page == "inspector-controls"; }
                         if Gallery.page == "palette": HorizontalLayout {
                             spacing: 24px;
-                            ElementPalette { width: 260px; image-mode: Api.editor-surface-mode == EditorSurfaceMode.image; drag-started => { focus.focus(); } }
+                            ElementPalette { width: Gallery.panel-width * 1px; image-mode: Api.editor-surface-mode == EditorSurfaceMode.image; drag-started => { focus.focus(); } }
                             Rectangle {
                                 border-width: 1px; border-color: Colors.border; background: Colors.subtle;
                                 accessible-role: AccessibleRole.region; accessible-label: "Sample drop target";
@@ -88,7 +81,7 @@ export component GalleryWindow inherits Window {
                             }
                         }
                         if Gallery.page == "outline": HorizontalLayout {
-                            OutlinePane { width: 300px; drag-started => { focus.focus(); } }
+                            OutlinePane { width: Gallery.panel-width * 1px; drag-started => { focus.focus(); } }
                             Rectangle { horizontal-stretch: 1; }
                         }
                         if Gallery.page == "picker": VerticalLayout {
@@ -104,6 +97,7 @@ export component GalleryWindow inherits Window {
                 }
                 if Gallery.page == "palette" || Gallery.page == "outline": MutedLabel { text: Gallery.feedback; }
             }
+            GalleryProperties { theme-index <=> root.theme-index; }
         }
     }
     TouchArea {

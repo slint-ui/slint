@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import os
-import subprocess
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -23,14 +22,20 @@ from ui_driver import (
     window_element_with_label,
 )
 
-PAGES = (
-    "foundations",
-    "controls",
-    "inspector-controls",
-    "palette",
-    "picker",
-    "outline",
-)
+PAGES = {
+    "foundations": ("Theme and typography", ("Default",)),
+    "controls": ("Basic controls", ("Default",)),
+    "inspector-controls": ("Inspector controls", ("Default",)),
+    "palette": ("Element palette", ("Default", "Unavailable", "Dragging disabled")),
+    "picker": (
+        "Color and gradients",
+        ("Default", "Transparent", "Linear", "Radial", "Conic", "Unsupported"),
+    ),
+    "outline": (
+        "Outline",
+        ("Default", "Collapsed", "Long names", "Empty", "Unavailable"),
+    ),
+}
 
 
 @pytest.fixture
@@ -60,12 +65,6 @@ def gallery(
     with slint_testing.Application(
         [
             str(binary),
-            "--page",
-            page,
-            "--scenario",
-            scenario,
-            "--theme",
-            theme,
             "--width",
             str(width),
             "--height",
@@ -83,6 +82,32 @@ def gallery(
                 preview if preview.size.width > 0 and preview.size.height > 0 else None
             )
         )
+        window_element_with_label(
+            window, PAGES[page][0], slint_testing.AccessibleRole.Button
+        ).invoke_accessible_default_action()
+        for label, index in [
+            ("Gallery theme", ("system", "light", "dark").index(theme)),
+            ("Gallery state", PAGES[page][1].index(scenario)),
+        ]:
+            if label == "Gallery state" and len(PAGES[page][1]) == 1:
+                continue
+            combo = window_element_with_label(
+                window, label, slint_testing.AccessibleRole.Combobox
+            )
+            combo.invoke_accessible_expand_action()
+            for _ in range(index):
+                press_key(window, keys.DownArrow)
+            press_key(window, keys.Return)
+            expected = (
+                ("System", "Light", "Dark")[index]
+                if label == "Gallery theme"
+                else scenario
+            )
+            wait_until(
+                lambda combo=combo, expected=expected: (
+                    True if combo.accessible_value == expected else None
+                )
+            )
         yield window
 
 
@@ -91,12 +116,7 @@ def gallery(
 def test_gallery_scenarios_render(
     gallery_binary, editor_environment, tmp_path, page, theme
 ):
-    listing = subprocess.run(
-        [str(gallery_binary), "--list"], check=True, capture_output=True, text=True
-    ).stdout
-    scenarios = dict(line.split(": ", 1) for line in listing.splitlines())[page].split(
-        ", "
-    )
+    scenarios = PAGES[page][1]
     destination = Path(os.environ.get("SLINT_GALLERY_SCREENSHOT_DIR", str(tmp_path)))
     destination.mkdir(parents=True, exist_ok=True)
     for scenario in scenarios:
@@ -117,6 +137,18 @@ def test_gallery_scenarios_render(
                 "outline": "OUTLINE",
             }[page]
             window_element_with_label(window, expected)
+            sidebar = window_element_with_label(window, "Gallery properties")
+            assert (
+                sidebar.absolute_position.x
+                > window_element_with_label(
+                    window, "Gallery preview"
+                ).absolute_position.x
+            )
+            assert sidebar.absolute_position.x + sidebar.size.width <= 1440
+            assert (
+                window_element_with_label(window, "Gallery preview").absolute_position.y
+                < 200
+            )
             image = screenshot(window)
             assert image.width >= 800 and image.height >= 600
             assert len(image.resize((80, 60)).getcolors(4801)) > 10
@@ -176,6 +208,9 @@ def test_gallery_outline_selection_expansion_and_drop(
 
 def test_gallery_picker_cancel_and_commit(gallery_binary, editor_environment):
     with gallery(gallery_binary, editor_environment, "picker") as window:
+        window_element_with_label(
+            window, "Property fill color", slint_testing.AccessibleRole.TextInput
+        ).accessible_value = "#ff9900"
 
         def open_picker():
             window_element_with_label(
@@ -188,6 +223,7 @@ def test_gallery_picker_cancel_and_commit(gallery_binary, editor_environment):
             return field
 
         original = open_picker().accessible_value
+        assert original.lower().lstrip("#") == "ff9900"
         window_element_with_label(
             window, "Hex color", slint_testing.AccessibleRole.TextInput
         ).accessible_value = "#ff0000"
@@ -207,17 +243,6 @@ def test_gallery_picker_cancel_and_commit(gallery_binary, editor_environment):
             window, "Close Custom"
         ).invoke_accessible_default_action()
         assert open_picker().accessible_value.lower().lstrip("#") == "00ff00"
-
-
-def test_gallery_invalid_launch_is_reported(gallery_binary):
-    result = subprocess.run(
-        [str(gallery_binary), "--page", "missing"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode != 0
-    assert "Unknown page" in result.stderr
 
 
 @pytest.mark.parametrize("width,height", [(1024, 768), (1440, 1000)])
@@ -312,3 +337,105 @@ def test_gallery_basic_controls_pointer_targets(gallery_binary, editor_environme
         )
         gesture(window, center(visibility), center(visibility))
         window_element_with_label(window, "Clicked visibility")
+
+
+def test_gallery_properties_edit_component_values(gallery_binary, editor_environment):
+    with gallery(gallery_binary, editor_environment, "inspector-controls") as window:
+        value = window_element_with_label(
+            window, "Slider value", slint_testing.AccessibleRole.TextInput
+        )
+        value.accessible_value = "42"
+        slider = window_element_with_label(
+            window, "Sample slider", slint_testing.AccessibleRole.Slider
+        )
+        wait_until(lambda: True if float(slider.accessible_value) == 42 else None)
+        target = slider_track_position(slider, 0.6)
+        gesture(window, target, target)
+        wait_until(lambda: True if float(value.accessible_value) == 60 else None)
+        assert (
+            window_element_with_label(
+                window, "Sample numeric field", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+            == "24"
+        )
+        text = window_element_with_label(
+            window, "Property sample text", slint_testing.AccessibleRole.TextInput
+        )
+        text.accessible_value = "From the sidebar"
+        wait_until(
+            lambda: (
+                True
+                if window_element_with_label(
+                    window,
+                    "Sample editable field",
+                    slint_testing.AccessibleRole.TextInput,
+                ).accessible_value
+                == "From the sidebar"
+                else None
+            )
+        )
+        window_element_with_label(
+            window, "Reset example"
+        ).invoke_accessible_default_action()
+        wait_until(lambda: True if float(slider.accessible_value) == 24 else None)
+        assert (
+            window_element_with_label(
+                window, "Sample editable field", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+            == "Hello Slint"
+        )
+
+
+def test_gallery_properties_resize_preview(gallery_binary, editor_environment):
+    with gallery(
+        gallery_binary, editor_environment, "foundations", width=1024, height=768
+    ) as window:
+        preview = window_element_with_label(window, "Gallery preview")
+        for label, value in [("Preview width", "680"), ("Preview height", "400")]:
+            window_element_with_label(
+                window, label, slint_testing.AccessibleRole.TextInput
+            ).accessible_value = value
+        wait_until(
+            lambda: (
+                True
+                if preview.size.width == 680 and preview.size.height == 400
+                else None
+            )
+        )
+        sidebar = window_element_with_label(window, "Gallery properties")
+        assert sidebar.absolute_position.x + sidebar.size.width <= 1024
+        assert preview.absolute_position.y < 200
+        window_element_with_label(
+            window, "Reset example"
+        ).invoke_accessible_default_action()
+        wait_until(
+            lambda: (
+                True if preview.size.width < 680 and preview.size.height > 400 else None
+            )
+        )
+
+
+def test_gallery_navigation_search(gallery_binary, editor_environment):
+    with gallery(gallery_binary, editor_environment, "controls") as window:
+        search = window_element_with_label(
+            window, "Find components", slint_testing.AccessibleRole.TextInput
+        )
+        search.accessible_value = "  InSpEcToR  "
+        button = window_element_with_label(
+            window, "Inspector controls", slint_testing.AccessibleRole.Button
+        )
+        assert not elements_with_label(
+            window.root_element, "Basic controls", slint_testing.AccessibleRole.Button
+        )
+        button.invoke_accessible_default_action()
+        window_element_with_label(
+            window, "Sample slider", slint_testing.AccessibleRole.Slider
+        )
+        window_element_with_label(
+            window, "Slider value", slint_testing.AccessibleRole.TextInput
+        )
+        search.accessible_value = ""
+        for title, _ in PAGES.values():
+            window_element_with_label(
+                window, title, slint_testing.AccessibleRole.Button
+            )

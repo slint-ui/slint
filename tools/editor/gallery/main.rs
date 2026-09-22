@@ -1,24 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-mod catalog;
-mod controller;
-
 use clap::Parser;
-use slint::ComponentHandle;
-use slint_editor::ui::GalleryWindow;
+use i_slint_core::DataTransfer;
+use slint::{ComponentHandle, SharedString};
+use slint_editor::{
+    component_support::{brushes, element_library, recent_fills},
+    ui::{Api, Gallery, GalleryWindow},
+};
 
 #[derive(Parser)]
 #[command(about = "Interactive gallery of Visual Editor components")]
 struct Args {
-    #[arg(long, default_value = "palette")]
-    page: String,
-    #[arg(long, default_value = "Default")]
-    scenario: String,
-    #[arg(long, value_parser = ["system", "light", "dark"], default_value = "system")]
-    theme: String,
-    #[arg(long)]
-    list: bool,
     #[arg(long, default_value_t = 1440, value_parser = clap::value_parser!(u32).range(800..=3840))]
     width: u32,
     #[arg(long, default_value_t = 1000, value_parser = clap::value_parser!(u32).range(600..=2160))]
@@ -29,19 +22,6 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    if args.list {
-        for page in catalog::PAGES {
-            println!("{}: {}", page.id, page.scenarios.join(", "));
-        }
-        return Ok(());
-    }
-    let page = catalog::page(&args.page)
-        .ok_or_else(|| format!("Unknown page: {}. Use --list.", args.page))?;
-    if !page.scenarios.contains(&args.scenario.as_str()) {
-        return Err(
-            format!("Unknown scenario for {}: {}. Use --list.", args.page, args.scenario).into()
-        );
-    }
     let window = GalleryWindow::new()?;
     let size = slint::LogicalSize::new(args.width as f32, args.height as f32);
     if let Some(scale_factor) = args.scale_factor {
@@ -56,13 +36,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         window.window().set_size(size);
     }
-    window.set_theme_index(match args.theme.as_str() {
-        "light" => 1,
-        "dark" => 2,
-        _ => 0,
+    let api = window.global::<Api>();
+    brushes::setup(&api);
+    element_library::setup(&api);
+    recent_fills::setup(&api, <Api as slint::Global<'_, GalleryWindow>>::as_weak(&api));
+    window.global::<Gallery>().on_matches(|text, query| {
+        text.to_lowercase().contains(query.trim().to_lowercase().as_str())
     });
-    controller::install(&window);
-    controller::navigate(&window, &args.page, &args.scenario);
+    api.on_new_component_data_for_kind(|kind| {
+        DataTransfer::from(SharedString::from(format!("{kind:?}")))
+    });
+    api.on_move_element_instance_data(|_, id| {
+        DataTransfer::from(SharedString::from(format!("Row {id}")))
+    });
+    let weak = window.as_weak();
+    api.on_drop(move |data, _, _| {
+        if let Some(window) = weak.upgrade() {
+            window
+                .global::<Gallery>()
+                .set_feedback(format!("Dropped {}", data.plain_text().unwrap_or_default()).into());
+        }
+    });
+    window.global::<Gallery>().invoke_navigate(window.global::<Gallery>().get_page_index(), 0);
     window.run()?;
     Ok(())
 }
