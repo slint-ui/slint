@@ -2631,6 +2631,7 @@ impl Element {
                                 r.bindings.0.entry(binding_name).or_insert_with(|| {
                                     let mut r = BindingExpression::from(Expression::Invalid);
                                     r.priority = 1;
+                                    r.from_source = true;
                                     r.span = Some(prop_name_token.to_source_location());
                                     r.into()
                                 });

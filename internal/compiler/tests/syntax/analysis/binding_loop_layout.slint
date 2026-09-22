@@ -3,13 +3,8 @@
 
 TC := Rectangle {
 // ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
-//    >        <^error{The binding for the property 'layoutinfo-h' is part of a binding loop (tc.layoutinfo-h -> tc.preferred-width -> tc.width -> outer.width -> inner.width -> inner-inner.width -> inner.layoutinfo-h -> outer.layoutinfo-h -> tc.layoutinfo-h)}
     outer := VerticalLayout {
-//           >             <error{The binding for the property 'width' is part of a binding loop (tc.layoutinfo-h -> tc.preferred-width -> tc.width -> outer.width -> inner.width -> inner-inner.width -> inner.layoutinfo-h -> outer.layoutinfo-h -> tc.layoutinfo-h)}
-//           >             <^error{The binding for the property 'layoutinfo-h' is part of a binding loop (tc.layoutinfo-h -> tc.preferred-width -> tc.width -> outer.width -> inner.width -> inner-inner.width -> inner.layoutinfo-h -> outer.layoutinfo-h -> tc.layoutinfo-h)}
         inner := HorizontalLayout {
-//               >               <error{The binding for the property 'width' is part of a binding loop (tc.layoutinfo-h -> tc.preferred-width -> tc.width -> outer.width -> inner.width -> inner-inner.width -> inner.layoutinfo-h -> outer.layoutinfo-h -> tc.layoutinfo-h)}
-//               >               <^error{The binding for the property 'layoutinfo-h' is part of a binding loop (tc.layoutinfo-h -> tc.preferred-width -> tc.width -> outer.width -> inner.width -> inner-inner.width -> inner.layoutinfo-h -> outer.layoutinfo-h -> tc.layoutinfo-h)}
             inner_inner := VerticalLayout {
                 width: parent.width;
 //                     >           <error{The binding for the property 'width' is part of a binding loop (tc.layoutinfo-h -> tc.preferred-width -> tc.width -> outer.width -> inner.width -> inner-inner.width -> inner.layoutinfo-h -> outer.layoutinfo-h -> tc.layoutinfo-h)}
@@ -22,10 +17,7 @@ TC := Rectangle {
 
 export Test := Rectangle {
 //          ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
-//             >        <^warning{The binding for the property 'width' is part of a binding loop (root_window.layoutinfo-h -> root.width -> l.width -> l.layout-cache -> Text.width -> l.layoutinfo-v -> l.preferred-height -> Text.text -> l.layoutinfo-h -> root.layoutinfo-h -> root_window.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
     VerticalLayout {  // FIXME: That's an internal property, but people might understand
-//  >             <error{The binding for the property 'min-width' is part of a binding loop (VerticalLayout.layoutinfo-h -> VerticalLayout.min-width -> Rectangle.width -> VerticalLayout.layoutinfo-h)}
-//  >             <^error{The binding for the property 'layoutinfo-h' is part of a binding loop (VerticalLayout.layoutinfo-h -> VerticalLayout.min-width -> Rectangle.width -> VerticalLayout.layoutinfo-h)}
         Rectangle {
             width: parent.min_width;
 //                 >               <error{The binding for the property 'width' is part of a binding loop (VerticalLayout.layoutinfo-h -> VerticalLayout.min-width -> Rectangle.width -> VerticalLayout.layoutinfo-h)}
@@ -34,13 +26,6 @@ export Test := Rectangle {
 
 
     l := HorizontalLayout {  // FIXME: That's an internal property, but people might understand
-//       >               <error{The binding for the property 'preferred-width' is part of a binding loop (l.layoutinfo-h -> l.preferred-width -> Text.text -> l.layoutinfo-h)}
-//       >               <^error{The binding for the property 'layoutinfo-h' is part of a binding loop (l.layoutinfo-h -> l.preferred-width -> Text.text -> l.layoutinfo-h)}
-//       >               <^^error{The binding for the property 'layoutinfo-v' is part of a binding loop (Text.text -> l.layoutinfo-v -> l.preferred-height -> Text.text)}
-//       >               <^^^error{The binding for the property 'preferred-height' is part of a binding loop (Text.text -> l.layoutinfo-v -> l.preferred-height -> Text.text)}
-//       >               <^^^^warning{The binding for the property 'width' is part of a binding loop (root_window.layoutinfo-h -> root.width -> l.width -> l.layout-cache -> Text.width -> l.layoutinfo-v -> l.preferred-height -> Text.text -> l.layoutinfo-h -> root.layoutinfo-h -> root_window.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
-//       >               <^^^^^warning{The binding for the property 'layout-cache' is part of a binding loop (root_window.layoutinfo-h -> root.width -> l.width -> l.layout-cache -> Text.width -> l.layoutinfo-v -> l.preferred-height -> Text.text -> l.layoutinfo-h -> root.layoutinfo-h -> root_window.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
-//       >               <^^^^^^warning{The binding for the property 'width' is part of a binding loop (root_window.layoutinfo-h -> root.width -> l.width -> l.layout-cache -> Text.width -> l.layoutinfo-v -> l.preferred-height -> Text.text -> l.layoutinfo-h -> root.layoutinfo-h -> root_window.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
         Text {
             text: "hello \{l.preferred-width/1px}x\{l.preferred-height/1px}";
 //                >                                                         <error{The binding for the property 'text' is part of a binding loop (l.layoutinfo-h -> l.preferred-width -> Text.text -> l.layoutinfo-h)}
@@ -49,8 +34,7 @@ export Test := Rectangle {
     }
 
     tc := TC {
-//        > <error{The binding for the property 'preferred-width' is part of a binding loop (tc.layoutinfo-h -> tc.preferred-width -> tc.width -> outer.width -> inner.width -> inner-inner.width -> inner.layoutinfo-h -> outer.layoutinfo-h -> tc.layoutinfo-h)}
         width: preferred-width;
-//             >              <error{The binding for the property 'width' is part of a binding loop (tc.layoutinfo-h -> tc.preferred-width -> tc.width -> outer.width -> inner.width -> inner-inner.width -> inner.layoutinfo-h -> outer.layoutinfo-h -> tc.layoutinfo-h)}
+//             >              <note{'width' is part of the binding loop reported for 'width' at line 9}
     }
 }

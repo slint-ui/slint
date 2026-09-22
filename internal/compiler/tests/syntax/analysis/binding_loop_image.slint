@@ -4,7 +4,6 @@
 // Issue 10342
 
 export component MyPanel {
-//                       >error{The binding for the property 'layoutinfo-v' is part of a binding loop (MyPanel.height -> fb.source-clip-height -> MyPanel.layoutinfo-v -> MyPanel.preferred-height -> MyPanel.height)}
     fb := Image {
         width: 100%;
         source-clip-width: root.width / 0.531px;
@@ -13,12 +12,9 @@ export component MyPanel {
     }
 
 }
-//<<<error{The binding for the property 'layoutinfo-v' is part of a binding loop (MyPanel.height -> fb.source-clip-height -> MyPanel.layoutinfo-v -> MyPanel.preferred-height -> MyPanel.height)}
 
 export component MainWindow inherits Window {
     MyPanel {
-//  >      <error{The binding for the property 'preferred-height' is part of a binding loop (MyPanel.height -> fb.source-clip-height -> MyPanel.layoutinfo-v -> MyPanel.preferred-height -> MyPanel.height)}
-//  >      <^error{The binding for the property 'height' is part of a binding loop (MyPanel.height -> fb.source-clip-height -> MyPanel.layoutinfo-v -> MyPanel.preferred-height -> MyPanel.height)}
         x: 30px;
         y: 30px;
         width: 200px;
