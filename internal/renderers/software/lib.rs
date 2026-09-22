@@ -40,8 +40,8 @@ use i_slint_core::graphics::rendering_metrics_collector::{RefreshMode, Rendering
 use i_slint_core::graphics::{BorderRadius, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemRenderer, PlainOrStyledText, RenderBorderRectangle, RenderImage,
-    RenderRectangle,
+    CachedRenderingData, ItemRenderer, ItemRendererFeatures, PlainOrStyledText,
+    RenderBorderRectangle, RenderImage, RenderRectangle,
 };
 use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::items::{ItemRc, TextOverflow, TextWrap};
@@ -49,11 +49,11 @@ use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
-use i_slint_core::partial_renderer::{DirtyRegion, PartialRenderingState};
+use i_slint_core::partial_renderer::{DirtyRegion, PartialRenderer, PartialRenderingState};
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use i_slint_core::window::{WindowAdapter, WindowInner};
-use i_slint_core::{Brush, Color, ImageInner, StaticTextures};
+use i_slint_core::{Brush, Color, Coord, ImageInner, StaticTextures};
 #[allow(unused)]
 use num_traits::Float;
 use num_traits::NumCast;
@@ -193,7 +193,10 @@ pub trait LineBufferProvider {
     /// Called once per line, you will have to call the render_fn back with the buffer.
     ///
     /// The `line` is the y position of the line to be drawn.
-    /// The `range` is the range within the line that is going to be rendered (eg, within the dirty region)
+    /// The `range` is the range within the line that is going to be rendered (eg, within the dirty region).
+    /// Its start and length are multiples of the horizontal
+    /// [`DirtyRegionAlignment`](SoftwareRenderer::set_dirty_region_alignment).
+    /// The runs of lines it is called for begin and end on the vertical one.
     /// The `render_fn` function should be called to render the line, passing the buffer
     /// corresponding to the specified line and range.
     fn process_line(
@@ -304,6 +307,136 @@ impl PhysicalRegion {
     }
 }
 
+/// Aligns software-renderer dirty regions to a physical pixel grid.
+///
+/// Some display controllers require the origin and size of address windows to be multiples of a
+/// fixed number of pixels.
+/// The default alignment of one pixel on each axis preserves the renderer's existing behavior.
+/// Set it with [`SoftwareRenderer::set_dirty_region_alignment`].
+///
+/// The physical screen width must be a multiple of the horizontal alignment, and the physical
+/// screen height must be a multiple of the vertical alignment.
+/// This applies after [`RenderingRotation`] transforms the screen.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct DirtyRegionAlignment {
+    horizontal: u16,
+    vertical: u16,
+}
+
+impl Default for DirtyRegionAlignment {
+    fn default() -> Self {
+        Self { horizontal: 1, vertical: 1 }
+    }
+}
+
+impl DirtyRegionAlignment {
+    /// Creates a physical dirty-region alignment.
+    ///
+    /// Values of zero are treated as one.
+    pub fn new(horizontal: u16, vertical: u16) -> Self {
+        Self { horizontal: horizontal.max(1), vertical: vertical.max(1) }
+    }
+
+    /// Returns the horizontal alignment in physical pixels.
+    pub fn horizontal(self) -> u16 {
+        self.horizontal
+    }
+
+    /// Returns the vertical alignment in physical pixels.
+    pub fn vertical(self) -> u16 {
+        self.vertical
+    }
+}
+
+fn expand_dirty_region_for_alignment(
+    dirty_region: &DirtyRegion,
+    factor: ScaleFactor,
+    rotation: RenderingRotation,
+    alignment: DirtyRegionAlignment,
+) -> DirtyRegion {
+    let (horizontal, vertical) = if rotation.is_transpose() {
+        (alignment.vertical(), alignment.horizontal())
+    } else {
+        (alignment.horizontal(), alignment.vertical())
+    };
+    let factor = factor.get();
+    // Inflating by the full alignment is deliberately more than the `alignment - 1` pixels that
+    // snapping can add on each side: it stays a superset after the logical-to-physical rounding
+    // and is cheaper than inverse-mapping the snapped physical region back to logical space.
+    let horizontal = (horizontal as f32 / factor).ceil() as Coord;
+    let vertical = (vertical as f32 / factor).ceil() as Coord;
+    let mut expanded = DirtyRegion::default();
+    for dirty_box in dirty_region.iter() {
+        expanded.add_box(dirty_box.inflate(horizontal, vertical));
+    }
+    expanded
+}
+
+fn snap_interval_to_grid(min: i16, max: i16, granularity: u16, limit: i16) -> (i16, i16) {
+    let granularity = granularity as i32;
+    let min = min as i32;
+    let max = max as i32;
+    let limit = limit as i32;
+    let snapped_min = min.div_euclid(granularity) * granularity;
+    // The clamp can leave the extent unaligned when the screen size is not a multiple of the
+    // granularity; that configuration is rejected by the debug_assert in to_physical_region,
+    // and this is the release-mode fallback for it.
+    let snapped_max = ((max + granularity - 1).div_euclid(granularity) * granularity).min(limit);
+    (snapped_min as i16, snapped_max as i16)
+}
+
+fn to_physical_region(
+    dirty_region: &DirtyRegion,
+    factor: ScaleFactor,
+    rotation: RotationInfo,
+    size: PhysicalSize,
+    alignment: DirtyRegionAlignment,
+) -> PhysicalRegion {
+    let screen_rect = PhysicalRect::from_size(size);
+    let panel_size = size.transformed(rotation);
+    debug_assert!(
+        panel_size.width <= 0 || panel_size.width as i32 % alignment.horizontal() as i32 == 0,
+        "the screen width must be a multiple of the horizontal dirty-region alignment"
+    );
+    debug_assert!(
+        panel_size.height <= 0 || panel_size.height as i32 % alignment.vertical() as i32 == 0,
+        "the screen height must be a multiple of the vertical dirty-region alignment"
+    );
+
+    let mut physical_region = PhysicalRegion::default();
+    for dirty_box in dirty_region.iter() {
+        let Some(rect) =
+            (dirty_box.cast() * factor).to_rect().round_out().cast().intersection(&screen_rect)
+        else {
+            continue;
+        };
+        let mut aligned_box = rect.transformed(rotation).to_box2d();
+        if alignment.horizontal() > 1 {
+            (aligned_box.min.x, aligned_box.max.x) = snap_interval_to_grid(
+                aligned_box.min.x,
+                aligned_box.max.x,
+                alignment.horizontal(),
+                panel_size.width,
+            );
+        }
+        if alignment.vertical() > 1 {
+            (aligned_box.min.y, aligned_box.max.y) = snap_interval_to_grid(
+                aligned_box.min.y,
+                aligned_box.max.y,
+                alignment.vertical(),
+                panel_size.height,
+            );
+        }
+        if aligned_box.is_empty() {
+            continue;
+        }
+        debug_assert!(physical_region.count < PHYSICAL_REGION_MAX_SIZE);
+        physical_region.rectangles[physical_region.count] = aligned_box;
+        physical_region.count += 1;
+    }
+    physical_region
+}
+
 #[test]
 fn region_iter() {
     let mut region = PhysicalRegion::default();
@@ -337,6 +470,123 @@ fn region_iter() {
     assert_eq!(iter.next(), Some(r(0, 10, 10, 5)));
     assert_eq!(iter.next(), Some(r(6, 15, 3, 7)));
     assert_eq!(iter.next(), None);
+}
+
+#[test]
+fn dirty_region_alignment_snaps_minimal_region() {
+    use i_slint_core::lengths::LogicalRect;
+
+    let factor = ScaleFactor::new(1.0);
+    let size = euclid::size2(64, 64);
+    let rotation = RotationInfo { orientation: RenderingRotation::NoRotation, screen_size: size };
+    let mut dirty_region = DirtyRegion::default();
+    dirty_region.add_rect(LogicalRect::new(euclid::point2(3.0, 5.0), euclid::size2(7.0, 9.0)));
+
+    let aligned =
+        to_physical_region(&dirty_region, factor, rotation, size, DirtyRegionAlignment::new(2, 2));
+    assert_eq!(aligned.count, 1);
+    assert_eq!(aligned.rectangles[0].min, euclid::point2(2, 4));
+    assert_eq!(aligned.rectangles[0].max, euclid::point2(10, 14));
+
+    let unaligned = to_physical_region(&dirty_region, factor, rotation, size, Default::default());
+    assert_eq!(unaligned.count, 1);
+    assert_eq!(unaligned.rectangles[0].min, euclid::point2(3, 5));
+    assert_eq!(unaligned.rectangles[0].max, euclid::point2(10, 14));
+}
+
+#[test]
+fn dirty_region_alignment_expands_with_scale_factor() {
+    use i_slint_core::lengths::LogicalRect;
+
+    let factor = ScaleFactor::new(1.5);
+    let size = euclid::size2(48, 48);
+    let rotation = RotationInfo { orientation: RenderingRotation::NoRotation, screen_size: size };
+    let alignment = DirtyRegionAlignment::new(2, 2);
+    let mut dirty_region = DirtyRegion::default();
+    dirty_region.add_rect(LogicalRect::new(euclid::point2(3.0, 5.0), euclid::size2(7.0, 9.0)));
+
+    let aligned = to_physical_region(&dirty_region, factor, rotation, size, alignment);
+    assert_eq!(aligned.count, 1);
+    assert_eq!(aligned.rectangles[0].min, euclid::point2(4, 6));
+    assert_eq!(aligned.rectangles[0].max, euclid::point2(16, 22));
+
+    // The logical expansion is in logical pixels, so it has to cover the alignment divided by
+    // the scale factor, rounded up.
+    let expanded = expand_dirty_region_for_alignment(
+        &dirty_region,
+        factor,
+        RenderingRotation::NoRotation,
+        alignment,
+    );
+    let expanded_box = expanded.iter().next().unwrap();
+    assert_eq!(expanded_box.min, euclid::point2(1.0, 3.0));
+    assert_eq!(expanded_box.max, euclid::point2(12.0, 16.0));
+
+    // What is drawn must cover what is reported as rendered.
+    let redrawn = to_physical_region(&expanded, factor, rotation, size, Default::default());
+    assert!(redrawn.rectangles[0].contains_box(&aligned.rectangles[0]));
+}
+
+#[test]
+fn dirty_region_alignment_accepts_non_power_of_two_grid() {
+    use i_slint_core::lengths::LogicalRect;
+
+    let factor = ScaleFactor::new(1.0);
+    let size = euclid::size2(48, 48);
+    let rotation = RotationInfo { orientation: RenderingRotation::NoRotation, screen_size: size };
+    let mut dirty_region = DirtyRegion::default();
+    dirty_region.add_rect(LogicalRect::new(euclid::point2(4.0, 7.0), euclid::size2(5.0, 5.0)));
+
+    let aligned =
+        to_physical_region(&dirty_region, factor, rotation, size, DirtyRegionAlignment::new(3, 3));
+    assert_eq!(aligned.count, 1);
+    assert_eq!(aligned.rectangles[0].min, euclid::point2(3, 6));
+    assert_eq!(aligned.rectangles[0].max, euclid::point2(9, 12));
+}
+
+#[test]
+fn dirty_region_alignment_uses_rotated_panel_axes() {
+    use i_slint_core::lengths::LogicalRect;
+
+    let factor = ScaleFactor::new(1.0);
+    let size = euclid::size2(80, 40);
+    let rotation = RotationInfo { orientation: RenderingRotation::Rotate90, screen_size: size };
+    let alignment = DirtyRegionAlignment::new(4, 8);
+    let mut dirty_region = DirtyRegion::default();
+    dirty_region.add_rect(LogicalRect::new(euclid::point2(70.0, 30.0), euclid::size2(7.0, 7.0)));
+
+    let aligned = to_physical_region(&dirty_region, factor, rotation, size, alignment);
+    assert_eq!(aligned.count, 1);
+    assert_eq!(aligned.rectangles[0].min, euclid::point2(0, 64));
+    assert_eq!(aligned.rectangles[0].max, euclid::point2(12, 80));
+
+    let expanded = expand_dirty_region_for_alignment(
+        &dirty_region,
+        factor,
+        RenderingRotation::Rotate90,
+        alignment,
+    );
+    let expanded_box = expanded.iter().next().unwrap();
+    assert_eq!(expanded_box.min, euclid::point2(62.0, 26.0));
+    assert_eq!(expanded_box.max, euclid::point2(85.0, 41.0));
+}
+
+#[test]
+fn physical_region_count_excludes_clipped_rectangles() {
+    use i_slint_core::lengths::LogicalRect;
+
+    let factor = ScaleFactor::new(1.0);
+    let size = euclid::size2(64, 64);
+    let rotation = RotationInfo { orientation: RenderingRotation::NoRotation, screen_size: size };
+    let mut dirty_region = DirtyRegion::default();
+    dirty_region
+        .add_rect(LogicalRect::new(euclid::point2(100.0, 100.0), euclid::size2(10.0, 10.0)));
+    dirty_region.add_rect(LogicalRect::new(euclid::point2(3.0, 5.0), euclid::size2(7.0, 9.0)));
+
+    let physical = to_physical_region(&dirty_region, factor, rotation, size, Default::default());
+    assert_eq!(physical.count, 1);
+    assert_eq!(physical.rectangles[0].min, euclid::point2(3, 5));
+    assert_eq!(physical.rectangles[0].max, euclid::point2(10, 14));
 }
 
 /// Computes what are the x ranges that intersects the region for specified y line.
@@ -443,6 +693,7 @@ impl<'a, T: TargetPixel> target_pixel_buffer::TargetPixelBuffer for TargetPixelS
 ///     in one single buffer
 pub struct SoftwareRenderer {
     repaint_buffer_type: Cell<RepaintBufferType>,
+    dirty_region_alignment: Cell<DirtyRegionAlignment>,
     /// This is the area which was dirty on the previous frame.
     /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
     prev_frame_dirty: Cell<DirtyRegion>,
@@ -459,6 +710,7 @@ impl Default for SoftwareRenderer {
         Self {
             partial_rendering_state: Default::default(),
             prev_frame_dirty: Default::default(),
+            dirty_region_alignment: Default::default(),
             maybe_window_adapter: Default::default(),
             rotation: Default::default(),
             rendering_metrics_collector: RenderingMetricsCollector::new("software"),
@@ -504,6 +756,23 @@ impl SoftwareRenderer {
     /// Returns the kind of buffer that must be passed to  [`Self::render`]
     pub fn repaint_buffer_type(&self) -> RepaintBufferType {
         self.repaint_buffer_type.get()
+    }
+
+    /// Aligns dirty regions to the specified physical pixel grid.
+    ///
+    /// Use this for display controllers that require aligned address windows. The pixels the
+    /// alignment adds are repainted, so the region returned by [`Self::render`] and the range
+    /// passed to [`LineBufferProvider::process_line`] can be sent to the display as they are.
+    ///
+    /// The screen dimensions must be multiples of their corresponding alignment after applying
+    /// [`RenderingRotation`].
+    pub fn set_dirty_region_alignment(&self, alignment: DirtyRegionAlignment) {
+        self.dirty_region_alignment.set(alignment);
+    }
+
+    /// Returns the physical pixel alignment for dirty regions.
+    pub fn dirty_region_alignment(&self) -> DirtyRegionAlignment {
+        self.dirty_region_alignment.get()
     }
 
     /// Set how the window need to be rotated in the buffer.
@@ -624,47 +893,13 @@ impl SoftwareRenderer {
             .draw_contents(|components, post_render| {
                 let logical_size = (size.cast() / factor).cast();
 
-                match self.repaint_buffer_type.get() {
-                    RepaintBufferType::NewBuffer => {
-                        renderer.dirty_region = LogicalRect::from_size(logical_size).into();
-                        self.partial_rendering_state.clear_cache();
-                    }
-                    RepaintBufferType::ReusedBuffer => {
-                        self.partial_rendering_state.apply_dirty_region(
-                            &mut renderer,
-                            components,
-                            logical_size,
-                            None,
-                        );
-                    }
-                    RepaintBufferType::SwappedBuffers => {
-                        let dirty_region_for_this_frame =
-                            self.partial_rendering_state.apply_dirty_region(
-                                &mut renderer,
-                                components,
-                                logical_size,
-                                Some(self.prev_frame_dirty.take()),
-                            );
-                        self.prev_frame_dirty.set(dirty_region_for_this_frame);
-                    }
-                }
-
-                let rotation = RotationInfo { orientation: rotation, screen_size: size };
-                let screen_rect = PhysicalRect::from_size(size);
-                let mut i = renderer.dirty_region.iter().filter_map(|r| {
-                    (r.cast() * factor)
-                        .to_rect()
-                        .round_out()
-                        .cast()
-                        .intersection(&screen_rect)?
-                        .transformed(rotation)
-                        .into()
-                });
-                let dirty_region = PhysicalRegion {
-                    rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
-                    count: renderer.dirty_region.iter().count(),
-                };
-                drop(i);
+                let dirty_region = self.compute_frame_dirty_region(
+                    &mut renderer,
+                    components,
+                    logical_size,
+                    factor,
+                    size,
+                );
 
                 renderer.actual_renderer.processor.dirty_region = dirty_region.clone();
                 if !renderer
@@ -707,6 +942,72 @@ impl SoftwareRenderer {
                 dirty_region
             })
             .unwrap_or_default()
+    }
+
+    /// Computes the dirty region for this frame according to the repaint buffer type, converts
+    /// it to the physical region to return to the caller, applying the configured
+    /// [`DirtyRegionAlignment`], and expands the logical dirty region in place so that the
+    /// partial renderer repaints every pixel the alignment added.
+    ///
+    /// This runs before the items are drawn, so `renderer`'s dirty region is what the partial
+    /// renderer culls against.
+    ///
+    /// For `SwappedBuffers`, `prev_frame_dirty` intentionally keeps the unexpanded region:
+    /// the next frame starts from a superset of it and re-applies the expansion.
+    fn compute_frame_dirty_region<T: ItemRenderer + ItemRendererFeatures>(
+        &self,
+        renderer: &mut PartialRenderer<'_, T>,
+        components: &[(ItemTreeWeak, LogicalPoint)],
+        logical_size: LogicalSize,
+        factor: ScaleFactor,
+        size: PhysicalSize,
+    ) -> PhysicalRegion {
+        match self.repaint_buffer_type.get() {
+            RepaintBufferType::NewBuffer => {
+                // NewBuffer always redraws the full screen, so skip dirty region
+                // tracking to avoid unbounded growth of the partial rendering cache.
+                renderer.dirty_region = LogicalRect::from_size(logical_size).into();
+                self.partial_rendering_state.clear_cache();
+            }
+            RepaintBufferType::ReusedBuffer => {
+                self.partial_rendering_state.apply_dirty_region(
+                    renderer,
+                    components,
+                    logical_size,
+                    None,
+                );
+            }
+            RepaintBufferType::SwappedBuffers => {
+                let dirty_region_for_this_frame = self.partial_rendering_state.apply_dirty_region(
+                    renderer,
+                    components,
+                    logical_size,
+                    Some(self.prev_frame_dirty.take()),
+                );
+                self.prev_frame_dirty.set(dirty_region_for_this_frame);
+            }
+        }
+
+        let alignment = self.dirty_region_alignment.get();
+        let rotation = self.rotation.get();
+        let physical_region = to_physical_region(
+            &renderer.dirty_region,
+            factor,
+            RotationInfo { orientation: rotation, screen_size: size },
+            size,
+            alignment,
+        );
+        if alignment != DirtyRegionAlignment::default()
+            && self.repaint_buffer_type.get() != RepaintBufferType::NewBuffer
+        {
+            renderer.dirty_region = expand_dirty_region_for_alignment(
+                &renderer.dirty_region,
+                factor,
+                rotation,
+                alignment,
+            );
+        }
+        physical_region
     }
 
     fn measure_frame_rendered(&self, renderer: &mut dyn ItemRenderer) {
@@ -1489,50 +1790,13 @@ fn prepare_scene(
     window.draw_contents(|components, post_render| {
         let logical_size = (size.cast() / factor).cast();
 
-        match software_renderer.repaint_buffer_type.get() {
-            RepaintBufferType::NewBuffer => {
-                // NewBuffer always redraws the full screen, so skip dirty region
-                // tracking to avoid unbounded growth of the partial rendering cache.
-                renderer.dirty_region = LogicalRect::from_size(logical_size).into();
-                software_renderer.partial_rendering_state.clear_cache();
-            }
-            RepaintBufferType::ReusedBuffer => {
-                software_renderer.partial_rendering_state.apply_dirty_region(
-                    &mut renderer,
-                    components,
-                    logical_size,
-                    None,
-                );
-            }
-            RepaintBufferType::SwappedBuffers => {
-                let dirty_region_for_this_frame =
-                    software_renderer.partial_rendering_state.apply_dirty_region(
-                        &mut renderer,
-                        components,
-                        logical_size,
-                        Some(software_renderer.prev_frame_dirty.take()),
-                    );
-                software_renderer.prev_frame_dirty.set(dirty_region_for_this_frame);
-            }
-        }
-
-        let rotation =
-            RotationInfo { orientation: software_renderer.rotation.get(), screen_size: size };
-        let screen_rect = PhysicalRect::from_size(size);
-        let mut i = renderer.dirty_region.iter().filter_map(|r| {
-            (r.cast() * factor)
-                .to_rect()
-                .round_out()
-                .cast()
-                .intersection(&screen_rect)?
-                .transformed(rotation)
-                .into()
-        });
-        dirty_region = PhysicalRegion {
-            rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
-            count: renderer.dirty_region.iter().count(),
-        };
-        drop(i);
+        dirty_region = software_renderer.compute_frame_dirty_region(
+            &mut renderer,
+            components,
+            logical_size,
+            factor,
+            size,
+        );
 
         let partial = software_renderer.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
         for (component, origin) in components {
