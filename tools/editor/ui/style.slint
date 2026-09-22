@@ -423,33 +423,9 @@ export struct FillPickerStyle {
 export struct EffectSliderStyle {
     height: length = 34px,
     label-width: length = 48px,
-    track-width: length = 62px,
-    track-height: length = 3px,
-    thumb-size: length = 11px,
-    value-width: length = 44px,
-    plain-value-width: length = 52px,
-    suffix-width: length = 12px,
-    pressed-thumb: color,
-    shadow: ShadowStyle,
-    track: brush,
-    fill: color,
-    thumb: color,
+    value-width: length = 52px,
     control-height: length,
-    border: color,
     foreground: color,
-    suffix-text: TextStyle,
-}
-
-export struct RadiusSliderStyle {
-    thumb-size: length = 10px,
-    track-height: length = 2px,
-    inset: length = 6px,
-    fill: color,
-    thumb: color,
-    track: color,
-    height: length,
-    min-width: length,
-    focus-border: brush,
 }
 
 export struct RotationDialStyle {
@@ -466,6 +442,23 @@ export struct RotationDialStyle {
     dot-border: color,
     shadow: ShadowStyle,
     focus-border: brush,
+}
+
+export struct InspectorSliderStyle {
+    thumb-width: length = 22px,
+    thumb-height: length = 14px,
+    track-height: length = 10px,
+    fill-height: length = 2px,
+    zero-height: length = 6px,
+    dot-size: length = 3px,
+    fill: color,
+    track: brush,
+    track-border: color,
+    zero: color,
+    hover-border: color,
+    dial: RotationDialStyle,
+    height: length,
+    min-width: length,
 }
 
 export struct ComboMenuStyle {
@@ -616,7 +609,7 @@ export struct CornerEditorStyle {
     field-width: length = 72px,
     gap: length,
     mode: CornerModeStyle,
-    slider: RadiusSliderStyle,
+    slider: InspectorSliderStyle,
     field: FieldStyle,
 }
 
@@ -687,8 +680,6 @@ struct OverlayTheme {
 struct InspectorTheme {
     divider: color,
     fill-picker: FillPickerStyle,
-    effect-slider: EffectSliderStyle,
-    radius-slider: RadiusSliderStyle,
     rotation-dial: RotationDialStyle,
     combo-menu: ComboMenuStyle,
 }
@@ -911,22 +902,6 @@ export global LightTheme {
         shadow: { color: #64748b35, blur: 18px, offset-y: 8px },
         background: LightTheme.colors.surface,
         border: LightTheme.divider,
-    };
-
-    out property <EffectSliderStyle> effect-slider: {
-        pressed-thumb: LightTheme.colors.accent.with-alpha(0.88),
-        track: LightTheme.inspector-field.normal.background,
-        fill: LightTheme.colors.accent,
-        thumb: LightTheme.colors.accent,
-        border: LightTheme.colors.surface,
-        foreground: LightTheme.colors.foreground,
-    };
-
-    out property <RadiusSliderStyle> radius-slider: {
-        fill: transparent,
-        thumb: LightTheme.colors.muted,
-        track: LightTheme.divider,
-        focus-border: LightTheme.colors.accent,
     };
 
     out property <RotationDialStyle> rotation-dial: {
@@ -1217,22 +1192,6 @@ export global DarkTheme {
         border: DarkTheme.divider,
     };
 
-    out property <EffectSliderStyle> effect-slider: {
-        pressed-thumb: DarkTheme.colors.accent.with-alpha(0.88),
-        track: DarkTheme.inspector-field.normal.background,
-        fill: DarkTheme.colors.accent,
-        thumb: DarkTheme.colors.accent,
-        border: DarkTheme.colors.surface,
-        foreground: DarkTheme.colors.foreground,
-    };
-
-    out property <RadiusSliderStyle> radius-slider: {
-        fill: DarkTheme.colors.accent,
-        thumb: DarkTheme.colors.accent,
-        track: DarkTheme.divider,
-        focus-border: DarkTheme.colors.accent,
-    };
-
     out property <RotationDialStyle> rotation-dial: {
         ring: @linear-gradient(145deg, #262a30, #737c87),
         face: @radial-gradient(circle at 10px 7px, #89919b, #5b626d, #343a43),
@@ -1451,15 +1410,11 @@ export global Theme {
     out property <InspectorTheme> inspector: root.current == ThemeKind.dark ? {
         divider: DarkTheme.divider,
         fill-picker: DarkTheme.fill-picker,
-        effect-slider: DarkTheme.effect-slider,
-        radius-slider: DarkTheme.radius-slider,
         rotation-dial: DarkTheme.rotation-dial,
         combo-menu: DarkTheme.combo-menu,
     } : {
         divider: LightTheme.divider,
         fill-picker: LightTheme.fill-picker,
-        effect-slider: LightTheme.effect-slider,
-        radius-slider: LightTheme.radius-slider,
         rotation-dial: LightTheme.rotation-dial,
         combo-menu: LightTheme.combo-menu,
     };
@@ -1755,24 +1710,19 @@ export global Style {
     };
 
     out property <EffectSliderStyle> effect-slider: {
-        shadow: { color: #00000028, blur: 6px, offset-y: 2px },
         control-height: root.inspector-field.height,
-        suffix-text: { size: 9px },
-        pressed-thumb: Theme.inspector.effect-slider.pressed-thumb,
-        track: Theme.inspector.effect-slider.track,
-        fill: Theme.inspector.effect-slider.fill,
-        thumb: Theme.inspector.effect-slider.thumb,
-        border: Theme.inspector.effect-slider.border,
-        foreground: Theme.inspector.effect-slider.foreground,
+        foreground: Colors.foreground,
     };
 
-    out property <RadiusSliderStyle> radius-slider: {
+    out property <InspectorSliderStyle> inspector-slider: {
         height: Metrics.control-compact,
         min-width: Metrics.control-medium,
-        fill: Theme.inspector.radius-slider.fill,
-        thumb: Theme.inspector.radius-slider.thumb,
-        track: Theme.inspector.radius-slider.track,
-        focus-border: Theme.inspector.radius-slider.focus-border,
+        fill: Colors.accent.with-alpha(0.65),
+        track: Theme.fields.inspector-field.normal.background,
+        track-border: Theme.fields.inspector-field.normal.border,
+        zero: Colors.muted.with-alpha(0.55),
+        hover-border: Colors.muted,
+        dial: root.rotation-dial,
     };
 
     out property <RotationDialStyle> rotation-dial: {
@@ -2011,7 +1961,7 @@ export global Style {
     out property <CornerEditorStyle> corner-editor: {
         gap: Metrics.space-compact,
         mode: root.corner-mode,
-        slider: root.radius-slider,
+        slider: root.inspector-slider,
         field: root.inspector-field,
     };
 

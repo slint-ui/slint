@@ -55,6 +55,11 @@ export struct ComponentListItem {
     components: [ComponentItem]
 }
 
+export struct InspectorNumberChange {
+    name: string,
+    value: float,
+}
+
 /// Some `Diagnostics` as raised by the compiler
 export enum DiagnosticSummary {
     NothingDetected,
@@ -750,6 +755,8 @@ export global Api {
     callback inspector-preview(key: string, name: string, value: float) -> bool;
     callback inspector-commit(key: string, name: string, value: float) -> bool;
     callback inspector-cancel();
+    callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
+    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
     callback inspector-fill-preview(key: string, name: string, value: FillData) -> bool;
     callback inspector-fill-commit(key: string, name: string, value: FillData) -> bool;
     callback dismiss-fill-picker(position: Point, button: PointerEventButton);

@@ -180,11 +180,10 @@ pub(super) fn cancel() {
     }
 }
 
-fn preview_value(
+fn preview_values<'a>(
     key: SharedString,
     node: ElementRcNode,
-    names: &[&str],
-    value: slint_interpreter::Value,
+    values: impl IntoIterator<Item = (&'a str, slint_interpreter::Value)>,
 ) -> bool {
     let hash = node.with_element_debug(|debug| debug.element_hash);
     if PREVIEW_STATE.with_borrow(|state| {
@@ -194,8 +193,8 @@ fn preview_value(
     }
     let overrides = PREVIEW_STATE.with_borrow(|state| state.debug_hook_overrides.clone());
     let mut overrides = (*overrides).borrow_mut();
-    for name in names {
-        let id = i_slint_compiler::passes::property_id(hash, &SmolStr::from(*name));
+    for (name, value) in values {
+        let id = i_slint_compiler::passes::property_id(hash, &SmolStr::from(name));
         let property = overrides
             .entry(id.clone())
             .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)));
@@ -208,7 +207,7 @@ fn preview_value(
                 edit.overrides.push((id, previous));
             }
         });
-        property.as_ref().set(Some(value.clone()));
+        property.as_ref().set(Some(value));
     }
     drop(overrides);
     if let Some(instance) = component_instance() {
@@ -219,7 +218,79 @@ fn preview_value(
 
 pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool {
     let Some((node, _, _, names)) = validate(&key, &name, value) else { return false };
-    preview_value(key, node, &names, slint_interpreter::Value::Number(value as f64))
+    preview_values(
+        key,
+        node,
+        names.into_iter().map(|name| (name, slint_interpreter::Value::Number(value as f64))),
+    )
+}
+
+fn valid_shadow_changes(changes: &[ui::InspectorNumberChange]) -> bool {
+    if !changes.iter().all(|change| change.value.is_finite()) {
+        return false;
+    }
+    ["drop-shadow-", "inner-shadow-"].into_iter().any(|prefix| match changes {
+        [change] => match change.name.strip_prefix(prefix) {
+            Some("blur") => change.value >= 0.,
+            Some("spread") => true,
+            _ => false,
+        },
+        [first, second] => matches!(
+            (first.name.strip_prefix(prefix), second.name.strip_prefix(prefix)),
+            (Some("offset-x"), Some("offset-y")) | (Some("offset-y"), Some("offset-x"))
+        ),
+        _ => false,
+    })
+}
+
+pub(super) fn preview_shadow(
+    key: SharedString,
+    changes: slint::ModelRc<ui::InspectorNumberChange>,
+) -> bool {
+    let changes = changes.iter().collect::<Vec<_>>();
+    let target = target(&key).filter(|_| valid_shadow_changes(&changes));
+    let Some((node, _, _)) = target else {
+        cancel();
+        return false;
+    };
+    preview_values(
+        key,
+        node,
+        changes.iter().map(|change| {
+            (change.name.as_str(), slint_interpreter::Value::Number(change.value as f64))
+        }),
+    )
+}
+
+pub(super) fn commit_shadow(
+    key: SharedString,
+    changes: slint::ModelRc<ui::InspectorNumberChange>,
+) -> bool {
+    let changes = changes.iter().collect::<Vec<_>>();
+    let target = target(&key).filter(|_| valid_shadow_changes(&changes));
+    let Some((node, url, version)) = target else {
+        cancel();
+        return false;
+    };
+    let changes = changes
+        .iter()
+        .map(|change| {
+            i_slint_editor_preview::editing::PropertyChange::new(
+                change.name.as_str(),
+                format!("{}px", change.value),
+            )
+        })
+        .collect();
+    let accepted = property_edit(node, url, version, changes)
+        .is_some_and(|edit| send_workspace_edit("Changing shadow".into(), edit, true));
+    if accepted {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.inspector_edit.take();
+        });
+    } else {
+        cancel();
+    }
+    accepted
 }
 
 fn fill_value(
@@ -258,7 +329,7 @@ pub(super) fn preview_fill(key: SharedString, name: SharedString, value: ui::Fil
         cancel();
         return false;
     };
-    preview_value(key, node, &[name.as_str()], value)
+    preview_values(key, node, [(name.as_str(), value)])
 }
 
 fn property_edit(
@@ -368,5 +439,52 @@ pub(super) fn refresh() {
     let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
     if let Some(api) = api {
         api.set_inspector_generation(api.get_inspector_generation().wrapping_add(1));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shadow_batches_validate_before_previewing() {
+        let change = |name: &str, value| ui::InspectorNumberChange { name: name.into(), value };
+        for prefix in ["drop-shadow-", "inner-shadow-"] {
+            for changes in [
+                vec![change(&format!("{prefix}blur"), 0.)],
+                vec![change(&format!("{prefix}spread"), -64.)],
+                vec![
+                    change(&format!("{prefix}offset-x"), -8.),
+                    change(&format!("{prefix}offset-y"), 0.),
+                ],
+                vec![
+                    change(&format!("{prefix}offset-y"), -8.),
+                    change(&format!("{prefix}offset-x"), 0.),
+                ],
+            ] {
+                assert!(valid_shadow_changes(&changes));
+            }
+        }
+        for changes in [
+            vec![],
+            vec![change("drop-shadow-blur", -1.)],
+            vec![change("drop-shadow-spread", f32::NAN)],
+            vec![change("drop-shadow-blur", f32::INFINITY)],
+            vec![change("background", 1.)],
+            vec![change("drop-shadow-offset-x", 8.)],
+            vec![change("drop-shadow-offset-x", 8.), change("inner-shadow-offset-y", 8.)],
+            vec![change("drop-shadow-spread", 1.), change("drop-shadow-spread", 2.)],
+            vec![change("drop-shadow-offset-x", 1.), change("drop-shadow-offset-x", 2.)],
+            vec![change("inner-shadow-blur", 1.), change("inner-shadow-spread", 2.)],
+            vec![change("inner-shadow-offset-x", f32::NAN), change("inner-shadow-offset-y", 8.)],
+            vec![change("drop-shadow-offset-y", f32::INFINITY), change("drop-shadow-offset-x", 8.)],
+            vec![
+                change("drop-shadow-offset-x", 8.),
+                change("drop-shadow-offset-y", 8.),
+                change("drop-shadow-blur", 16.),
+            ],
+        ] {
+            assert!(!valid_shadow_changes(&changes));
+        }
     }
 }

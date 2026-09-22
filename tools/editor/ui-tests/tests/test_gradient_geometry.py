@@ -134,6 +134,14 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         if kind == "radial":
             set_picker_mode(window, "Gradient radius mode", "Custom")
             picker_field(window, "Gradient radius").accessible_value = "95"
+        labels = [
+            text.accessible_label
+            for text in window.root_element.query_descendants()
+            .match_accessible_role(slint_testing.AccessibleRole.Text)
+            .find_all()
+        ]
+        assert "px" not in labels
+        assert "X / Y px" not in labels
         click_picker_button(window, "Close Custom")
         geometry = {
             "linear": "36deg",

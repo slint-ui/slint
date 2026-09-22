@@ -221,6 +221,8 @@ pub fn initialize_editor(
     api.on_inspector_preview(super::inspector::preview);
     api.on_inspector_commit(super::inspector::commit);
     api.on_inspector_cancel(super::inspector::cancel);
+    api.on_inspector_preview_shadow(super::inspector::preview_shadow);
+    api.on_inspector_commit_shadow(super::inspector::commit_shadow);
     api.on_inspector_fill_preview(super::inspector::preview_fill);
     api.on_inspector_fill_commit(super::inspector::commit_fill);
     let editor_weak = editor_ui.as_weak();

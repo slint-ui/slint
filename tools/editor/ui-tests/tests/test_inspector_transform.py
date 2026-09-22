@@ -9,6 +9,7 @@ import pytest
 import slint_testing
 from editor_sync import wait_for_source
 from inspector_interactions import edit_field as edit_inspector_field
+from inspector_interactions import slider_position
 from inspector_interactions import wait_for_field as wait_for_inspector_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
@@ -366,12 +367,8 @@ def test_corner_slider_previews_then_commits_once(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        slider = window_element_with_label(window, "All corner radii slider")
-        pos, size = slider.absolute_position, slider.size
-        start = slint_testing.LogicalPosition(
-            x=pos.x + 6 + (size.width - 12) / 4, y=pos.y + 12
-        )
-        end = slint_testing.LogicalPosition(x=pos.x + size.width - 6, y=pos.y + 12)
+        start = slider_position(window, "All corner radii slider", 0.25)
+        end = slider_position(window, "All corner radii slider", 1)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
                 start, slint_testing.PointerEventButton.Left
@@ -403,6 +400,46 @@ def test_corner_slider_previews_then_commits_once(
             snapshot.wait_for_applied(baseline, relative_path=SOURCE)
 
 
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [(keys.Home, 0), (keys.End, 48), (keys.RightArrow, 13), (keys.LeftArrow, 11)],
+)
+def test_corner_slider_keyboard_and_undo(
+    editor_binary, editor_environment, fixture_project, key, value
+):
+    baseline = prepare(fixture_project)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / SOURCE
+    ) as app:
+        wait_for_source(fixture_project / SOURCE, baseline)
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        position = slider_position(window, "All corner radii slider", 0.25)
+        window.dispatch_event(slint_testing.PointerMoveEvent(position))
+        window.dispatch_event(
+            slint_testing.PointerPressEvent(
+                position, slint_testing.PointerEventButton.Left
+            )
+        )
+        window.dispatch_event(
+            slint_testing.PointerReleaseEvent(
+                position, slint_testing.PointerEventButton.Left
+            )
+        )
+        snapshot.assert_unchanged()
+        press_keys(window, key)
+        expected = baseline
+        for name in PROPERTIES:
+            expected = expected.replace(
+                f"{name}: 12px".encode(), f"{name}: {value}px".encode()
+            )
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
+        wait_for_field(window, "All corner radii", str(value))
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, relative_path=SOURCE)
+
+
 @pytest.mark.parametrize("radius", ["0", "30.5"])
 def test_shared_radius_reads_effective_shorthand(
     editor_binary, editor_environment, fixture_project, radius
@@ -421,6 +458,47 @@ def test_shared_radius_reads_effective_shorthand(
         window = first_window(app)
         select_element(window, "Rectangle")
         wait_for_field(window, "All corner radii", radius)
+
+
+def test_corner_slider_preserves_fractional_value_and_clamps_endpoint(
+    editor_binary, editor_environment, fixture_project
+):
+    source = fixture_project / SOURCE
+    baseline = prepare(fixture_project, values=(30.5,) * 4).replace(
+        b"height: 96px;", b"height: 97px;"
+    )
+    source.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as app:
+        wait_for_source(source, baseline)
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        start = slider_position(window, "All corner radii slider", 30.5 / 48.5)
+        end = slider_position(window, "All corner radii slider", 1)
+        for position in [start, end]:
+            window.dispatch_event(slint_testing.PointerMoveEvent(start))
+            window.dispatch_event(
+                slint_testing.PointerPressEvent(
+                    start, slint_testing.PointerEventButton.Left
+                )
+            )
+            if position is not start:
+                window.dispatch_event(slint_testing.PointerMoveEvent(position))
+            window.dispatch_event(
+                slint_testing.PointerReleaseEvent(
+                    position, slint_testing.PointerEventButton.Left
+                )
+            )
+            if position is start:
+                snapshot.assert_unchanged()
+                wait_for_field(window, "All corner radii", "30.5")
+        expected = baseline
+        for name in PROPERTIES:
+            expected = expected.replace(
+                f"{name}: 30.5px".encode(), f"{name}: 48.5px".encode()
+            )
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
+        wait_for_field(window, "All corner radii", "48.5")
 
 
 def test_knob_shift_drag_snaps_and_retains_keyboard_focus(
