@@ -7913,6 +7913,7 @@ dependencies = [
  "anyhow",
  "async-compat",
  "block2 0.6.2",
+ "cfg_aliases",
  "clap",
  "i-slint-backend-android-activity",
  "i-slint-backend-selector",
