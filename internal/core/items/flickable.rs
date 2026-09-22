@@ -108,7 +108,11 @@ impl Item for Flickable {
                 let vpx = flick.content_x();
                 let vpy = flick.content_y();
                 let visible_geometry_size = Self::geometry_without_virtual_keyboard(&flick_rc).size;
-                let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), visible_geometry_size);
+                let p = ensure_in_bound(
+                    flick,
+                    LogicalPoint::from_lengths(vpx, vpy),
+                    visible_geometry_size,
+                );
 
                 let x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
                 if *x_out_of_bounds && !x.has_binding() {
