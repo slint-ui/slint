@@ -135,7 +135,7 @@ def test_root_fills_project_canvas(
         window = first_window(editor)
         wait_for_source(canvas_project, source.encode())
         assert_canvas(window, 390, 720)
-        assert not (canvas_project.parent / "slint-project.json").exists()
+        assert not (canvas_project.parent / "slint.project.json").exists()
         edit_field(window, "Project width", "640")
         edit_field(window, "Project height", "360")
         assert_canvas(window, 640, 360)
@@ -209,9 +209,9 @@ def test_project_and_source_history_share_order(
         history(window, redo=True)
         assert_canvas(window, 500, 500)
         settings = json.loads(
-            (canvas_project.parent / "slint-project.json").read_text()
+            (canvas_project.parent / "slint.project.json").read_text()
         )
-        assert settings["canvas"] == {"width": 500, "height": 500}
+        assert settings["visual-editor"]["canvas"] == {"width": 500, "height": 500}
 
 
 def test_large_canvas_scroll_and_shrink(
@@ -302,8 +302,8 @@ def test_external_settings_change_rejects_commit(
     with launch_editor(editor_binary, editor_environment, canvas_project) as editor:
         window = first_window(editor)
         wait_for_source(canvas_project, canvas_project.read_bytes())
-        path = canvas_project.parent / "slint-project.json"
-        external = '{"version":1,"canvas":{"width":200,"height":200}}'
+        path = canvas_project.parent / "slint.project.json"
+        external = '{"visual-editor":{"version":1,"canvas":{"width":200,"height":200}}}'
         path.write_text(external)
         edit_field(window, "Project width", "500")
         assert_canvas(window, 390, 720)
@@ -334,4 +334,4 @@ def test_root_source_size_is_editable_without_resizing_canvas(
         )
         assert_canvas(window, 390, 720)
         wait_for_field(window, "Root width", "250px")
-        assert not (canvas_project.parent / "slint-project.json").exists()
+        assert not (canvas_project.parent / "slint.project.json").exists()

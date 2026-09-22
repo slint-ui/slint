@@ -9,7 +9,7 @@ use slint::ComponentHandle;
 
 use super::{PreviewState, ui, undo_redo};
 
-const FILE_NAME: &str = "slint-project.json";
+const FILE_NAME: &str = "slint.project.json";
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub(super) struct CanvasSize {
@@ -47,7 +47,7 @@ impl ProjectSettings {
         let mut settings = Self {
             path: root.join(FILE_NAME),
             contents: None,
-            document: json!({"version": 1, "canvas": CanvasSize::default()}),
+            document: json!({"visual-editor": {"version": 1, "canvas": CanvasSize::default()}}),
             size: CanvasSize::default(),
             load_error: None,
             error: String::new(),
@@ -57,12 +57,22 @@ impl ProjectSettings {
             if let Some(contents) = &settings.contents {
                 let document: Value =
                     serde_json::from_slice(contents).map_err(|e| e.to_string())?;
-                if document.get("version").and_then(Value::as_u64) != Some(1) {
-                    return Err("Unsupported project settings version.".into());
+                if !document.is_object() {
+                    return Err("Project settings must be a JSON object.".into());
                 }
-                let size: CanvasSize = serde_json::from_value(document["canvas"].clone())
-                    .map_err(|e| e.to_string())?;
-                settings.size = size.validate()?;
+                if let Some(editor) = document.get("visual-editor") {
+                    if !editor.is_object() {
+                        return Err("Visual editor settings must be a JSON object.".into());
+                    }
+                    if editor.get("version").is_some_and(|v| v.as_u64() != Some(1)) {
+                        return Err("Unsupported visual editor settings version.".into());
+                    }
+                    if let Some(canvas) = editor.get("canvas") {
+                        let size: CanvasSize =
+                            serde_json::from_value(canvas.clone()).map_err(|e| e.to_string())?;
+                        settings.size = size.validate()?;
+                    }
+                }
                 settings.document = document;
             }
             Ok::<_, String>(())
@@ -83,8 +93,9 @@ impl ProjectSettings {
             return Err(format!("{FILE_NAME} changed outside the editor. Reopen the project."));
         }
         let mut document = self.document.clone();
-        document["canvas"]["width"] = json!(size.width);
-        document["canvas"]["height"] = json!(size.height);
+        document["visual-editor"]["version"] = json!(1);
+        document["visual-editor"]["canvas"]["width"] = json!(size.width);
+        document["visual-editor"]["canvas"]["height"] = json!(size.height);
         let mut contents = serde_json::to_vec_pretty(&document).map_err(|e| e.to_string())?;
         contents.push(b'\n');
         let mut temporary = tempfile::NamedTempFile::new_in(self.path.parent().unwrap())
@@ -258,13 +269,41 @@ mod tests {
         assert_eq!(settings.size, CanvasSize::default());
         assert!(!settings.path.exists());
         settings.document["custom"] = json!(true);
-        settings.document["canvas"]["custom"] = json!(42);
+        settings.document["visual-editor"]["custom"] = json!("preserved");
+        settings.document["visual-editor"]["canvas"]["custom"] = json!(42);
         let size = CanvasSize { width: 1200., height: 800. };
         settings.save(size).unwrap();
         let loaded = ProjectSettings::load(dir.path());
         assert_eq!(loaded.size, size);
         assert_eq!(loaded.document["custom"], true);
-        assert_eq!(loaded.document["canvas"]["custom"], 42);
+        assert_eq!(loaded.document["visual-editor"]["custom"], "preserved");
+        assert!(loaded.document.get("canvas").is_none());
+        assert!(loaded.document.get("version").is_none());
+        assert_eq!(loaded.document["visual-editor"]["canvas"]["custom"], 42);
+    }
+
+    #[test]
+    fn existing_project_without_canvas_settings_preserves_other_fields() {
+        for document in [
+            json!({"version": 42, "name": "Example"}),
+            json!({"version": 42, "visual-editor": {"custom": true}}),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            std::fs::write(dir.path().join(FILE_NAME), document.to_string()).unwrap();
+            let mut settings = ProjectSettings::load(dir.path());
+            assert_eq!(settings.size, CanvasSize::default());
+            assert!(settings.load_error.is_none());
+            let size = CanvasSize { width: 800., height: 600. };
+            settings.save(size).unwrap();
+            let loaded = ProjectSettings::load(dir.path());
+            assert_eq!(loaded.size, size);
+            assert_eq!(loaded.document["version"], 42);
+            assert_eq!(loaded.document["name"], document["name"]);
+            assert_eq!(
+                loaded.document["visual-editor"]["custom"],
+                document["visual-editor"]["custom"]
+            );
+        }
     }
 
     #[test]
@@ -273,8 +312,10 @@ mod tests {
         let path = dir.path().join(FILE_NAME);
         for contents in [
             "not json",
-            r#"{"version":2,"canvas":{"width":10,"height":10}}"#,
-            r#"{"version":1,"canvas":{"width":0,"height":10}}"#,
+            "[]",
+            r#"{"visual-editor":false}"#,
+            r#"{"visual-editor":{"version":2,"canvas":{"width":10,"height":10}}}"#,
+            r#"{"visual-editor":{"version":1,"canvas":{"width":0,"height":10}}}"#,
         ] {
             std::fs::write(&path, contents).unwrap();
             let mut settings = ProjectSettings::load(dir.path());
