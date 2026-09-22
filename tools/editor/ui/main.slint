@@ -14,6 +14,8 @@ import { StartupWizard } from "startup-wizard.slint";
 import { AppState, ElementKind, SidebarToggleButton } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
 import { GradientOverlay } from "components/gradient-overlay.slint";
+import { CanvasView } from "components/canvas-view.slint";
+import { CanvasPanArea } from "components/canvas-pan-area.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { EditorTopBar } from "components/top-bar.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
@@ -187,6 +189,9 @@ export component EditorUi inherits Window {
     callback outline-pane-reset();
     callback perform-native-window-zoom() -> bool;
     private property <string> new-file-error;
+    private property <string> canvas-document: Api.current-element.source-uri;
+    changed canvas-document => { CanvasView.manipulating = false; }
+
 
     function create-new-slint-file() {
         root.new-file-error = Project.create-new-slint-file();
@@ -238,6 +243,7 @@ export component EditorUi inherits Window {
                 activated => { root.apply-history(true); }
             }
         }
+
     }
 
     Rectangle {
@@ -259,6 +265,10 @@ export component EditorUi inherits Window {
             }
 
             capture-key-pressed(event) => {
+                if event.text == Key.Escape && CanvasView.panning {
+                    canvas-pan.cancel();
+                    return accept;
+                }
                 if event.text == Key.Shift || event.text == Key.ShiftR {
                     self.shift-pressed = true;
                     return reject;
@@ -267,6 +277,9 @@ export component EditorUi inherits Window {
             }
 
             capture-key-released(event) => {
+                if event.text == Key.Space {
+                    CanvasView.space-pressed = false;
+                }
                 if event.text == Key.Shift || event.text == Key.ShiftR {
                     self.shift-pressed = false;
                     return reject;
@@ -275,6 +288,11 @@ export component EditorUi inherits Window {
             }
 
             key-pressed(event) => {
+                if event.text == Key.Space && Api.editor-surface-mode == EditorSurfaceMode.component
+                    && CanvasView.navigation-enabled && !event.modifiers.control && !event.modifiers.meta && !event.modifiers.alt {
+                    CanvasView.space-pressed = true;
+                    return accept;
+                }
                 let redo-y = Platform.os == OperatingSystemType.windows && (event.text == "y" || event.text == "Y");
                 if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z" || redo-y) {
                     root.apply-history(event.modifiers.shift || redo-y);
@@ -294,6 +312,8 @@ export component EditorUi inherits Window {
 
             focus-lost => {
                 self.shift-pressed = false;
+                CanvasView.space-pressed = false;
+                CanvasView.panning = false;
             }
 
             DropArea {
@@ -430,6 +450,14 @@ export component EditorUi inherits Window {
                         Api.dismiss-fill-picker({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y }, event.button);
                     }
                 }
+                scroll-event(event) => {
+                    let x = self.absolute-position.x + self.mouse-x - canvas-viewport.absolute-position.x;
+                    let y = self.absolute-position.y + self.mouse-y - canvas-viewport.absolute-position.y;
+                    if x >= 0px && y >= 0px && x < canvas-viewport.width && y < canvas-viewport.height {
+                        return CanvasView.scroll({ x: event.delta-x, y: event.delta-y });
+                    }
+                    return reject;
+                }
                 if FillSession.canvas-active: Rectangle {
                     x: canvas-viewport.absolute-position.x - fill-layer.absolute-position.x;
                     y: canvas-viewport.absolute-position.y - fill-layer.absolute-position.y;
@@ -446,6 +474,14 @@ export component EditorUi inherits Window {
                     }
                 }
                 InspectorFillPicker { }
+            }
+            canvas-pan := CanvasPanArea {
+                x: canvas-viewport.absolute-position.x - editor.absolute-position.x;
+                y: canvas-viewport.absolute-position.y - editor.absolute-position.y;
+                width: canvas-viewport.width;
+                height: canvas-viewport.height;
+                component-visible: Api.editor-surface-mode == EditorSurfaceMode.component;
+                started => { editor.focus(); }
             }
         }
 

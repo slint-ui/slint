@@ -25,7 +25,7 @@ component PhoneChrome inherits Rectangle {
     }
 }
 
-export component EditorCanvas inherits Rectangle {
+export component EditorCanvas inherits TouchArea {
     in property <ArtboardStyle> artboard-style: Style.artboard;
     in property <CanvasSurfaceStyle> style: Style.canvas-surface;
     in property <bool> shift-pressed;
@@ -44,7 +44,10 @@ export component EditorCanvas inherits Rectangle {
 
     callback real-element-selected();
 
-    background: root.style.background;
+    scroll-event(event) => {
+        return CanvasView.scroll({ x: event.delta-x, y: event.delta-y });
+    }
+    Rectangle { background: root.style.background; }
 
     EditorGrid { style: root.style.grid; }
 
