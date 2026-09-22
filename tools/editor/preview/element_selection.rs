@@ -27,11 +27,8 @@ impl ElementSelection {
     pub fn as_element(&self) -> Option<ElementRc> {
         let component_instance = super::component_instance()?;
 
-        let elements = component_instance
-            .element_node_at_source_code_position(&self.path, self.offset.into())
-            .into_iter()
-            .filter(|(element, _)| !component_instance.element_positions(element).is_empty())
-            .collect::<Vec<_>>();
+        let elements =
+            component_instance.element_node_at_source_code_position(&self.path, self.offset.into());
         elements.get(self.instance_index).or_else(|| elements.first()).map(|(e, _)| e.clone())
     }
 
@@ -305,7 +302,12 @@ pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
         if e.debug.iter().any(|d| !i_slint_editor_preview::is_element_node_ignored(&d.node)) {
             return Some(element.clone());
         }
-        e.children.iter().find_map(source_root)
+        e.children.iter().find_map(source_root).or_else(|| match &e.base_type {
+            i_slint_compiler::langtype::ElementType::Component(component) => {
+                source_root(&component.root_element)
+            }
+            _ => None,
+        })
     }
     let root = component_instance.definition().root_component().root_element.clone();
     source_root(&root).unwrap_or(root)

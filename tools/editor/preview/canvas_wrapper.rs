@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_compiler::{
-    langtype::{ElementType, Type},
+    langtype::ElementType,
     object_tree::{Document, PropertyVisibility},
 };
 use std::rc::Rc;
@@ -48,26 +48,7 @@ pub(super) fn wrap(document: &Document, source: &str, selected: Option<&str>) ->
         {
             continue;
         }
-        if let Type::Function(function_type) = &declaration.property_type {
-            let function =
-                i_slint_compiler::parser::syntax_nodes::Function::new(declaration.node.clone()?)?;
-            let block = function.CodeBlock()?;
-            let offset = usize::from(block.text_range().start() - function.text_range().start());
-            let text = function.text().to_string();
-            let arguments = function
-                .ArgumentDeclaration()
-                .map(|arg| arg.DeclaredIdentifier().text().to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            let returns = if function_type.return_type == Type::Void { "" } else { "return " };
-            aliases.push_str(&format!(
-                "{}{{ {returns}{content}.{property}({arguments}); }}\n",
-                &text[..offset]
-            ));
-        } else if matches!(declaration.property_type, Type::Callback { .. }) {
-            let pure = if declaration.pure == Some(true) { "pure " } else { "" };
-            aliases.push_str(&format!("{pure}callback {property} <=> {content}.{property};\n"));
-        } else {
+        if declaration.property_type.is_property_type() {
             aliases.push_str(&format!(
                 "{} property {property} <=> {content}.{property};\n",
                 declaration.visibility
@@ -77,7 +58,7 @@ pub(super) fn wrap(document: &Document, source: &str, selected: Option<&str>) ->
     let ignore = i_slint_editor_preview::NODE_IGNORE_COMMENT;
     Some(Wrapper {
         source: format!(
-            "{source}\nexport component {name} inherits Window {{\n{aliases}\n{content} := {base} {{\nx: 0px; y: 0px; width: 100%; height: 100%;\n/* {ignore} */\n}}\n/* {ignore} */\n}}\nexport {{ {base} as {name}Source }}\n"
+            "{source}\nexport component {name} inherits Window {{\n{aliases}\n{content} := {base} {{\nx: 0px; y: 0px; width: 100%; height: 100%;\n/* {ignore} */\n}}\n/* {ignore} */\n}}\n"
         ),
         name,
         component_name: component.id.to_string(),
@@ -105,23 +86,36 @@ mod tests {
     }
 
     #[test]
-    fn preserves_preview_properties_callbacks_and_functions() {
-        let instance = crate::preview::test::interpret_test(
+    fn imported_functions_and_callbacks_work_without_wrapper_forwarding() {
+        use i_slint_editor_preview::test::{main_test_file_name, test_file_name};
+        use std::collections::HashMap;
+
+        let instance = crate::preview::test::interpret_test_with_sources(
             "fluent",
-            r#"
-            export component Main inherits Window {
-                in-out property <int> count: 4;
-                out property <int> doubled: count * 2;
-                callback add(int) -> int;
-                add(value) => { count += value; return count; }
-                public pure function multiply(value: int) -> int { return count * value; }
-            }
-        "#,
+            HashMap::from([
+                (
+                    main_test_file_name(),
+                    r#"import { Main } from "widget.slint"; export { Main }"#.into(),
+                ),
+                (
+                    test_file_name("widget.slint"),
+                    r#"
+                    export struct Payload { count: int }
+                    export component Main inherits Window {
+                        in-out property <int> count: 4;
+                        public pure function read(value: Payload) -> int { return value.count; }
+                        pure callback double(int) -> int;
+                        double(value) => { return value * 2; }
+                        out property <int> doubled: double(read({ count: count }));
+                    }
+                    "#
+                    .into(),
+                ),
+            ]),
         );
         assert_eq!(instance.get_property("count"), Ok(Value::Number(4.)));
+        assert_eq!(instance.get_property("doubled"), Ok(Value::Number(8.)));
         instance.set_property("count", Value::Number(7.)).unwrap();
         assert_eq!(instance.get_property("doubled"), Ok(Value::Number(14.)));
-        assert_eq!(instance.invoke("multiply", &[Value::Number(3.)]), Ok(Value::Number(21.)));
-        assert_eq!(instance.invoke("add", &[Value::Number(2.)]), Ok(Value::Number(9.)));
     }
 }
