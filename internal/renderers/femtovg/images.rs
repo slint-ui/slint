@@ -342,6 +342,9 @@ fn image_buffer_to_image_source(
         SharedImageBuffer::RGBA8Premultiplied(buffer) => {
             (image_source(buffer).into(), femtovg::ImageFlags::PREMULTIPLIED)
         }
+        SharedImageBuffer::Gray8(buffer) => {
+            (image_source(buffer).into(), femtovg::ImageFlags::empty())
+        }
     }
 }
 

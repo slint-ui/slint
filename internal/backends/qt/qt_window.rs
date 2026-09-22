@@ -1645,6 +1645,9 @@ fn shared_image_buffer_to_pixmap(buffer: &SharedImageBuffer) -> Option<qttypes::
         SharedImageBuffer::RGB565(img) => {
             (qttypes::ImageFormat::RGB16, img.width() * 2, img.as_bytes())
         }
+        SharedImageBuffer::Gray8(img) => {
+            (qttypes::ImageFormat::Grayscale8, img.width(), img.as_bytes())
+        }
     };
     let width: i32 = buffer.width() as _;
     let height: i32 = buffer.height() as _;
