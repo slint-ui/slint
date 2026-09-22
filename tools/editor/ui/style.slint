@@ -3,6 +3,19 @@
 
 import { Palette } from "std-widgets.slint";
 
+export struct ScrollIndicatorStyle {
+    thickness: length = 6px,
+    active-thickness: length = 8px,
+    hit-width: length = 12px,
+    inset: length = 2px,
+    minimum-length: length = 24px,
+    idle-duration: duration = 700ms,
+    reveal-duration: duration = 80ms,
+    fade-duration: duration = 200ms,
+    color: color,
+    active-color: color,
+}
+
 export struct TextStyle {
     size: length,
     weight: int = FontWeight.normal,
@@ -1496,6 +1509,11 @@ export global Colors {
 }
 
 export global Style {
+    out property <ScrollIndicatorStyle> scroll-indicator: {
+        color: Colors.foreground.with-alpha(0.4),
+        active-color: Colors.foreground.with-alpha(0.6),
+    };
+
     out property <ShellStyle> shell;
 
     out property <PanesStyle> panes;

@@ -9,6 +9,7 @@ import { OutlineDragRow } from "drag-preview.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
 
 import { ListView } from "std-widgets.slint";
+import { EditorScrollIndicators } from "editor-scroll-view.slint";
 
 component EditorTreeRow {
     in property <TreeStyle> style: Style.tree;
@@ -452,6 +453,8 @@ export component EditorTreeView inherits FocusScope {
     }
 
     tree := ListView {
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+        vertical-scrollbar-policy: ScrollBarPolicy.always-off;
         for row[i] in root.rows: EditorTreeRow {
             style: root.style;
             width: tree.visible-width;
@@ -514,5 +517,15 @@ export component EditorTreeView inherits FocusScope {
                 root.row-expanded-changed(row-index, expanded);
             }
         }
+    }
+
+    scroll-indicators := EditorScrollIndicators {
+        content-width: tree.content-width;
+        content-height: tree.content-height;
+        visible-width: tree.visible-width;
+        visible-height: tree.visible-height;
+        content-x <=> tree.content-x;
+        content-y <=> tree.content-y;
+        scrolled => { tree.scrolled(); }
     }
 }
