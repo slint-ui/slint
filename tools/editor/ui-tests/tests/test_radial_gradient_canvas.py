@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
 from gradient_interactions import center, click, control, gesture, open_radial, shifted
 from slint_testing import keys
@@ -91,17 +92,21 @@ def test_radial_translation(
         original.assert_unchanged()
 
 
+@pytest.mark.parametrize("percent", [50, 100, 200])
 def test_radial_radius_save_reopen_and_history(
-    editor_binary, editor_environment, radial_scene, tmp_path
+    editor_binary, editor_environment, radial_scene, tmp_path, percent
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
+        select_outline_row(window, "fill")
+        zoom_canvas(window, percent)
+        center_canvas_selection(window)
         open_radial(window)
         c = center(control(window, "Gradient center handle"), 35)
         r = center(control(window, "Gradient radius handle"), 35)
-        gesture(window, r, shifted(c, x=100))
+        gesture(window, r, shifted(c, x=percent))
         click(window, "Close Custom")
         saved = wait_for_source_change(
             radial_scene, original.sources[Path(radial_scene.name)]
@@ -120,7 +125,7 @@ def test_radial_radius_save_reopen_and_history(
         open_radial(window)
         c = center(control(window, "Gradient center handle"), 35)
         r = center(control(window, "Gradient radius handle"), 35)
-        assert math.hypot(r.x - c.x, r.y - c.y) == pytest.approx(100, abs=0.001)
+        assert math.hypot(r.x - c.x, r.y - c.y) == pytest.approx(percent, abs=0.001)
 
 
 def test_radial_guide_rotation_and_noop_do_not_write_source(

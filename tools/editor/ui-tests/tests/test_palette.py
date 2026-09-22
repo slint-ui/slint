@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
-from canvas_interactions import begin_palette_drag, center
+from canvas_interactions import begin_palette_drag, center, zoom_canvas
 from editor_sync import wait_for_source
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
@@ -34,29 +34,34 @@ def release_palette_drag(
     )
 
 
-def canvas_drop_position(window: slint_testing.Window) -> slint_testing.LogicalPosition:
+def canvas_drop_position(
+    window: slint_testing.Window, scale: float = 1
+) -> slint_testing.LogicalPosition:
     artboard = window_element_with_label(
         window, "Artboard", slint_testing.AccessibleRole.Region
     )
     return slint_testing.LogicalPosition(
-        x=artboard.absolute_position.x + 195,
-        y=artboard.absolute_position.y + 360,
+        x=artboard.absolute_position.x + 195 * scale,
+        y=artboard.absolute_position.y + 360 * scale,
     )
 
 
+@pytest.mark.parametrize("percent", [50, 100, 200])
 @pytest.mark.parametrize("kind", PALETTE_KINDS)
 def test_insert_palette_element_writes_exact_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
     kind: str,
+    percent: int,
 ) -> None:
     source_file = fixture_project / "Palette.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
-        target = canvas_drop_position(window)
+        zoom_canvas(window, percent)
+        target = canvas_drop_position(window, percent / 100)
         snapshot.assert_unchanged_now()
         begin_palette_drag(window, kind, target)
         release_palette_drag(window, target)

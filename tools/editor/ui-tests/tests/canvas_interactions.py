@@ -9,6 +9,7 @@ from source_snapshot import SourceSnapshot
 from ui_driver import (
     elements_with_label,
     palette_row,
+    press_shortcut,
     wait_until,
     window_element_with_label,
 )
@@ -385,4 +386,43 @@ def oriented_selection_frame(
         math.dist(a, b),
         math.dist(b, c),
         angle,
+    )
+
+
+def zoom_canvas(window: slint_testing.Window, percent: int) -> None:
+    levels = [25, 50, 75, 100, 125, 150, 200, 300, 400]
+    modifier = keys.Control
+    canvas = window_element_with_label(window, "Editor canvas")
+    current = levels.index(int(canvas.accessible_value.removesuffix("%")))
+    target = levels.index(percent)
+    direction = 1 if target > current else -1
+    for index in range(current + direction, target + direction, direction):
+        press_shortcut(window, modifier, "+" if direction > 0 else "-")
+        wait_until(
+            lambda index=index: (
+                True if canvas.accessible_value == f"{levels[index]}%" else None
+            )
+        )
+
+
+def center_canvas_selection(
+    window: slint_testing.Window, kind: str = "Rectangle"
+) -> None:
+    canvas = window_element_with_label(window, "Editor canvas")
+    frame = window_element_with_label(window, f"Selected {kind}")
+    target = center(canvas)
+    window.dispatch_event(
+        slint_testing.PointerScrolledEvent(
+            target,
+            delta_x=target.x - center(frame).x,
+            delta_y=target.y - center(frame).y,
+        )
+    )
+    wait_until(
+        lambda: (
+            True
+            if abs(center(frame).x - target.x) < 0.01
+            and abs(center(frame).y - target.y) < 0.01
+            else None
+        )
     )

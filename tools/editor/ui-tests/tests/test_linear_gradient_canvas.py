@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
 from gradient_interactions import center, click, control, gesture, shifted
 from slint_testing import keys
@@ -44,9 +45,10 @@ def open_linear(window):
     control(window, "Gradient start")
 
 
+@pytest.mark.parametrize("percent", [50, 100, 200])
 @pytest.mark.parametrize("rotation", [0, 45, 90, 180])
 def test_stop_drag_crosses_neighbors_without_losing_capture(
-    editor_binary, editor_environment, scene, tmp_path, rotation
+    editor_binary, editor_environment, scene, tmp_path, rotation, percent
 ):
     scene.write_text(
         scene.read_text().replace(
@@ -58,14 +60,17 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
     with launch_editor(editor_binary, editor_environment, scene) as editor:
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
+        select_outline_row(window, "fill")
+        zoom_canvas(window, percent)
+        center_canvas_selection(window)
         open_linear(window)
         start = center(control(window, "Gradient stop 2"), rotation)
 
         def destination(distance):
             return shifted(
                 start,
-                x=distance * math.cos(math.radians(rotation)),
-                y=distance * math.sin(math.radians(rotation)),
+                x=distance * percent / 100 * math.cos(math.radians(rotation)),
+                y=distance * percent / 100 * math.sin(math.radians(rotation)),
             )
 
         button = slint_testing.PointerEventButton.Left
