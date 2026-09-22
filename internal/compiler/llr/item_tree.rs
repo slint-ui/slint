@@ -701,7 +701,6 @@ pub enum TopLevelComponentType {
 
 #[derive(Debug, Clone)]
 pub struct PublicComponent {
-    pub fixed_root_size: [Option<MemberReference>; 2],
     pub public_properties: PublicProperties,
     pub private_properties: PrivateProperties,
     pub item_tree: ItemTree,
