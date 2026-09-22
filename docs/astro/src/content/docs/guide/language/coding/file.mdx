@@ -221,8 +221,9 @@ library called `mylibrary`, in which Slint looks for the `switch.slint` file. Th
 declared to refer to a directory, so that the subsequent search for `switch.slint`
 succeeds. `MyButton` will be imported from `otherlibrary`. Therefore `otherlibrary`
 must be declared to refer to a `.slint` file that exports `MyButton`.
-A library directory can hold the images and fonts that belong with it,
-which `@image-url("@mylibrary/logo.png")` and `import "@mylibrary/MyFont.ttf";` reach the same way.
+A library provides images and fonts as well as components.
+Reference them with the same prefix, as in `@image-url("@mylibrary/logo.png")`
+or `import "@mylibrary/MyFont.ttf";`.
 
 The path to each library, as file or directory, must be defined separately at compilation time.
 Use one of the following methods to help the Slint compiler resolve libraries to the correct

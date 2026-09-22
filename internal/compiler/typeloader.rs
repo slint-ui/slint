@@ -2528,8 +2528,8 @@ export component Test inherits Window {
         font.0
     );
 
-    // A file the library doesn't hold is reported, so the two assertions above say the prefix
-    // resolved rather than that nothing ever looked.
+    // A file the library doesn't provide is reported, so the two assertions above say the
+    // prefix resolved rather than that nothing ever looked.
     let (_, diagnostics, _) = compile(
         r#"
 export component Test inherits Window {
