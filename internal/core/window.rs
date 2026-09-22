@@ -2553,7 +2553,9 @@ pub mod ffi {
     use super::*;
     #[cfg(feature = "std")]
     use crate::SharedVector;
-    use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
+    use crate::api::{
+        RenderingNotifier, RenderingState, SetRenderingNotifierError, WindowModality,
+    };
     use crate::graphics::IntSize;
     #[cfg(feature = "std")]
     use crate::graphics::Rgba8Pixel;
@@ -3194,6 +3196,19 @@ pub mod ffi {
                 false
             }
         }
+    }
+
+    /// Calls [`Window::show_modal()`].
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_show_modal(
+        handle: *const WindowAdapterRcOpaque,
+        other: *const WindowAdapterRcOpaque,
+    ) -> bool {
+        let window_adapter = unsafe { &*(handle as *const Rc<dyn WindowAdapter>) };
+        let parent = unsafe { (other as *const Rc<dyn WindowAdapter>).as_ref() };
+        let modality =
+            parent.map_or(WindowModality::Application, |x| WindowModality::Window(x.window()));
+        window_adapter.window().show_modal(modality).is_ok()
     }
 }
 
