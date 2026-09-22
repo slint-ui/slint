@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { FillData, ElementKind, SelectionRectangle } from "../ui/api.slint";
+
+export struct GalleryPage { id: string, category: string, title: string, description: string }
+export struct GalleryNode {
+    id: int, label: string, kind: ElementKind,
+    x: float, y: float, width: float, height: float, rotation: float,
+    radius: float, fill: FillData, text: string,
+}
+export global Gallery {
+    in-out property <[GalleryPage]> pages;
+    in-out property <string> page: "composition";
+    in-out property <string> title;
+    in-out property <string> description;
+    in-out property <[string]> scenarios;
+    in-out property <string> scenario: "Default";
+    in-out property <int> scenario-index;
+    in-out property <[GalleryNode]> nodes;
+    in-out property <[SelectionRectangle]> highlights;
+    in-out property <int> selected: 2;
+    in-out property <int> generation;
+    in-out property <[string]> events;
+    in-out property <bool> disabled;
+    in-out property <bool> reject-edits;
+    in-out property <bool> show-guides: true;
+    in-out property <float> value: 24;
+    in-out property <string> text: "Hello Slint";
+    in-out property <float> preview-width;
+    in-out property <float> preview-height;
+    in property <image> sample-raster: @image-url("../../../examples/gallery/thumbsup.png");
+    in-out property <image> sample-image: @image-url("../ui-tests/fixtures/editor-project/assets/checker.svg");
+    pure callback matches(string, string) -> bool;
+    callback navigate(string, string);
+    callback reset();
+    callback record(string);
+    callback select(int);
+    callback open-picker(Point);
+}

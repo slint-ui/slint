@@ -1,0 +1,143 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ScrollView } from "std-widgets.slint";
+import { Gallery } from "../state.slint";
+import { Colors, Style, Typography, Metrics } from "../../ui/style.slint";
+import { BodyLabel, MutedLabel, SectionTitle, PrimerTextInput, SidebarToggleButton, HorizontalResizeDivider, ComponentPaletteRow } from "../../ui/components/common.slint";
+import { ElementKind } from "../../ui/api.slint";
+import { InspectorValueField } from "../../ui/components/inspector/value-field.slint";
+import { InspectorEditableField } from "../../ui/components/inspector/editable-field.slint";
+import { InspectorCodeField } from "../../ui/components/inspector/code-field.slint";
+import { InspectorComboBox } from "../../ui/components/inspector/combo-box.slint";
+import { InspectorEffectSlider } from "../../ui/components/inspector/effect-slider.slint";
+import { InspectorEffectDial } from "../../ui/components/inspector/effect-dial.slint";
+import { InspectorRotationKnob } from "../../ui/components/inspector/rotation-knob.slint";
+import { InspectorCornerEditor } from "../../ui/components/inspector/corner-editor.slint";
+import { InspectorIconButton } from "../../ui/components/inspector/icon-button.slint";
+import { InspectorSegment } from "../../ui/components/inspector/segment.slint";
+import { InspectorInfoIcon } from "../../ui/components/inspector/info-icon.slint";
+import { InspectorPropertyRow } from "../../ui/components/inspector/property-row.slint";
+
+export component GalleryControls inherits Rectangle {
+    in property <bool> inspector;
+    private property <int> segment;
+    private property <string> image-fit: "contain";
+    function accept(value: string) -> bool {
+        if Gallery.disabled || Gallery.reject-edits { Gallery.record("Rejected value: " + value); return false; }
+        Gallery.text = value;
+        Gallery.record("Accepted: " + value);
+        return true;
+    }
+    function number(value: float) -> bool {
+        if Gallery.disabled || Gallery.reject-edits { Gallery.record("Rejected numeric edit"); return false; }
+        Gallery.value = value;
+        Gallery.record("Value: " + value);
+        return true;
+    }
+    ScrollView {
+        horizontal-scrollbar-policy: always-off;
+        content-width: self.width;
+        VerticalLayout {
+            padding: 24px; spacing: 20px;
+            SectionTitle { label: root.inspector ? "INSPECTOR CONTROLS" : "EDITOR CONTROLS"; }
+            if !root.inspector: VerticalLayout {
+                spacing: 16px;
+                BodyLabel { text: "Text input"; }
+                PrimerTextInput { text <=> Gallery.text; placeholder: "Search elements…"; accessible-name: "Sample text input"; }
+                HorizontalLayout {
+                    alignment: start; spacing: 12px;
+                    SidebarToggleButton { accessible-role: AccessibleRole.button; accessible-label: "Toggle sidebar"; clicked => { Gallery.record("Toggle sidebar"); } }
+                    InspectorIconButton { kind: "plus"; label: "Add"; clicked => { Gallery.record("Add"); } }
+                    InspectorIconButton { kind: "minus"; label: "Remove"; clicked => { Gallery.record("Remove"); } }
+                    for i in 3: InspectorSegment { kind: "text"; label: ["One", "Two", "Three"][i]; selected: root.segment == i; clicked => { root.segment = i; Gallery.record("Segment " + (i + 1)); } }
+                }
+                ComponentPaletteRow { label: "Rectangle"; kind: ElementKind.rectangle; enabled: !Gallery.disabled; drag-enabled: false; }
+                HorizontalResizeDivider {
+                    resize-label: "Sample divider"; value: Gallery.value * 1px; value-maximum: 100px;
+                    value-set(v) => { root.number(v / 1px); }
+                    dragged(delta) => { root.number((Gallery.value + delta / 1px).clamp(0, 100)); }
+                    reset-requested => { root.number(24); }
+                }
+                MutedLabel { text: "Move the pointer and use Tab to inspect hover and focus states."; wrap: word-wrap; }
+            }
+            if root.inspector: VerticalLayout {
+                width: Style.inspector-layout.content-width;
+                spacing: 20px;
+                InspectorPropertyRow {
+                    InspectorValueField { accessible-name: "Sample numeric field"; prefix: "X"; value: Gallery.value; enabled: !Gallery.disabled; accepted(v) => { if !v.is-float() { return false; } return root.number(v.to-float()); } }
+                    InspectorEditableField { accessible-name: "Sample editable field"; value: Gallery.text; accepted(v) => { return root.accept(v); } }
+                }
+                InspectorCodeField { accessible-name: "Sample expression"; value: Gallery.text; accepted(v) => { return root.accept(v); } }
+                InspectorComboBox { accessible-name: "Sample image fit"; value: root.image-fit; options: [{value: "contain", label: "Contain"}, {value: "cover", label: "Cover"}, {value: "fill", label: "Fill"}]; accepted(v) => { if Gallery.disabled || Gallery.reject-edits { return false; } root.image-fit = v; Gallery.record("Image fit: " + v); return true; } }
+                InspectorEffectSlider { accessible-name: "Sample effect"; label: "Blur"; value: Gallery.value; accepted(v) => { return root.number(v); } }
+                HorizontalLayout {
+                    alignment: start; spacing: 24px;
+                    InspectorRotationKnob { value: Gallery.value; preview(v) => { return root.number(v); } accepted(v) => { return root.number(v); } canceled => { Gallery.value = 24; } }
+                    InspectorEffectDial { accessible-name: "Sample shadow angle"; value: Gallery.value * 1deg; accepted(v) => { return root.number(v / 1deg); } }
+                }
+                InspectorCornerEditor {
+                    width: Style.inspector-layout.content-width;
+                    values: [Gallery.value, Gallery.value, Gallery.value, Gallery.value]; maximum: 100;
+                    preview(v) => { return root.number(v); } accepted(i,v) => { return root.number(v); } canceled => { Gallery.value = 24; }
+                }
+            }
+            Rectangle { vertical-stretch: 1; }
+        }
+    }
+}
+
+export component GalleryFoundations inherits Rectangle {
+    ScrollView {
+        horizontal-scrollbar-policy: always-off;
+        content-width: self.width;
+        VerticalLayout {
+            padding: 24px; spacing: 24px;
+            SectionTitle { label: "SEMANTIC COLORS"; }
+            for token in [
+                {name: "Background", value: Colors.background}, {name: "Surface", value: Colors.surface},
+                {name: "Subtle", value: Colors.subtle}, {name: "Foreground", value: Colors.foreground},
+                {name: "Muted", value: Colors.muted}, {name: "Border", value: Colors.border},
+                {name: "Accent", value: Colors.accent}, {name: "Focus", value: Colors.focus},
+                {name: "Selection", value: Colors.selection}, {name: "Danger", value: Colors.danger}
+            ]: HorizontalLayout {
+                spacing: 12px;
+                Rectangle { width: 44px; height: 28px; background: token.value; border-width: 1px; border-color: Colors.border; border-radius: 4px; }
+                BodyLabel { text: token.name; horizontal-stretch: 1; }
+            }
+            SectionTitle { label: "TYPOGRAPHY"; }
+            Text { text: "Heading · Visual Editor"; font-size: Typography.heading.size; font-weight: Typography.heading.weight; color: Colors.foreground; }
+            BodyLabel { text: "Body · Build interfaces with Slint"; }
+            MutedLabel { text: "Muted · Supporting information"; }
+            SectionTitle { label: "SPACING & RADII"; }
+            HorizontalLayout {
+                alignment: start; spacing: Metrics.space-medium;
+                for size in [Metrics.radius-small / 1px, Metrics.radius-medium / 1px, Metrics.radius-large / 1px]: Rectangle {
+                    width: 56px; height: 56px; border-radius: size * 1px; background: Colors.subtle;
+                    Text { text: size + " px"; color: Colors.foreground; horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+            SectionTitle { label: "SPACING"; }
+            HorizontalLayout {
+                alignment: start; spacing: Metrics.space-medium;
+                for size in [Metrics.space-tight, Metrics.space-small, Metrics.space-compact, Metrics.space-regular, Metrics.space-medium, Metrics.space-large, Metrics.space-section]: Rectangle {
+                    width: 50px; height: 48px;
+                    Rectangle { width: size; height: 20px; background: Colors.accent; }
+                    MutedLabel { y: 28px; text: (size / 1px) + " px"; }
+                }
+            }
+            SectionTitle { label: "FLOATING SHADOW"; }
+            Rectangle {
+                width: 160px; height: 72px;
+                background: Colors.surface;
+                border-radius: Metrics.radius-large;
+                drop-shadow-blur: Style.fill-picker.shadow.blur;
+                drop-shadow-offset-y: Style.fill-picker.shadow.offset-y;
+                drop-shadow-color: Style.fill-picker.shadow.color;
+                BodyLabel { text: "Picker panel"; horizontal-alignment: center; vertical-alignment: center; }
+            }
+            SectionTitle { label: "ELEMENT ICONS"; }
+            for kind in [ElementKind.rectangle, ElementKind.text, ElementKind.image, ElementKind.touch-area]: ComponentPaletteRow { kind: kind; label: kind == ElementKind.rectangle ? "Rectangle" : kind == ElementKind.text ? "Text" : kind == ElementKind.image ? "Image" : "TouchArea"; drag-enabled: false; }
+        }
+    }
+}

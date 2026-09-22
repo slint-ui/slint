@@ -1,0 +1,215 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, Colors, PaletteCardStyle } from "../style.slint";
+import { BodyLabel, ComponentPaletteRow, MutedLabel, SectionTitle, PrimerTextInput } from "common.slint";
+import { Api, ElementLibraryGroup, ElementLibraryEntry } from "../api.slint";
+import { EditorTreeIcons } from "editor-tree-icons.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component ElementsUnavailableNotice inherits Rectangle {
+    in property <PaletteCardStyle> style: Style.palette-card;
+    height: root.style.height;
+    border-radius: Metrics.radius-large;
+    border-width: Metrics.border-width;
+    border-color: Colors.subtle-border;
+    background: root.style.background;
+
+    HorizontalLayout {
+        padding: Metrics.space-medium;
+        spacing: Metrics.space-medium;
+        cross-axis-alignment: center;
+
+        Rectangle {
+            width: 34px;
+            height: 34px;
+            border-radius: Metrics.radius-large;
+            border-width: Metrics.border-width;
+            border-color: root.style.border;
+            background: root.style.icon-background;
+
+            Rectangle {
+                x: 9px;
+                y: 9px;
+                width: Metrics.icon-medium;
+                height: Metrics.icon-medium;
+                border-radius: Metrics.radius-medium;
+                border-width: Metrics.focus-width;
+                border-color: root.style.muted-icon;
+                background: transparent;
+            }
+
+            Rectangle {
+                x: 7px;
+                y: 16px;
+                width: 20px;
+                height: 2px;
+                border-radius: 1px;
+                background: root.style.icon;
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: Metrics.space-small;
+            alignment: center;
+
+            BodyLabel {
+                text: "Unavailable for images";
+            }
+
+            MutedLabel {
+                text: "Open a component to drag elements.";
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+component ElementPaletteGroup inherits VerticalLayout {
+    vertical-stretch: 0;
+    in property <ElementLibraryGroup> group;
+    in property <string> query;
+    in property <bool> enabled: true;
+    in property <bool> drag-enabled: true;
+    callback drag-started();
+
+    private property <bool> collapsed: false;
+    private property <bool> expanded: root.query != "" || !root.collapsed;
+    private property <[ElementLibraryEntry]> matches: Api.element-library-filter-entries(root.group.entries, root.query);
+    function toggle() {
+        if root.query == "" { root.collapsed = !root.collapsed; }
+    }
+    spacing: 0px;
+
+    if root.matches.length > 0: Rectangle {
+        height: Metrics.control-medium;
+        border-radius: Metrics.radius-small;
+        border-width: group-focus.has-focus ? Metrics.focus-width : 0px;
+        border-color: Colors.focus;
+        background: transparent;
+        accessible-role: AccessibleRole.button;
+        accessible-label: root.group.label;
+        accessible-expanded: root.expanded;
+        accessible-enabled: root.query == "";
+        accessible-action-default => { root.toggle(); }
+
+        group-focus := FocusScope {
+            enabled: root.query == "";
+            key-pressed(event) => {
+                if event.text == Key.Return || event.text == Key.Space {
+                    root.toggle();
+                    return accept;
+                }
+                return reject;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Metrics.space-compact;
+            padding-left: Metrics.space-tight;
+            cross-axis-alignment: center;
+            Image {
+                visible: root.query == "";
+                width: Metrics.icon-small;
+                height: Metrics.icon-small;
+                source: root.expanded ? EditorTreeIcons.chevron-down : EditorTreeIcons.chevron-right;
+                colorize: Colors.muted;
+            }
+            MutedLabel { text: root.group.label; horizontal-stretch: 1; }
+        }
+        TouchArea {
+            enabled: root.query == "";
+            mouse-cursor: self.enabled ? pointer : default;
+            clicked => { group-focus.focus(); root.toggle(); }
+        }
+    }
+
+    if root.matches.length > 0 && root.expanded: VerticalLayout {
+        spacing: 0px;
+        for row in ceil(root.matches.length / 2): HorizontalLayout {
+            spacing: Metrics.space-small;
+            for column in 2: Rectangle {
+                horizontal-stretch: 1;
+                height: Metrics.control-large;
+                if row * 2 + column < root.matches.length: ComponentPaletteRow {
+                    width: parent.width;
+                    enabled: root.enabled;
+                    drag-enabled: root.drag-enabled;
+                    kind: root.matches[row * 2 + column].kind;
+                    label: root.matches[row * 2 + column].label;
+                    drag-started => { root.drag-started(); }
+                }
+            }
+        }
+    }
+}
+
+component ElementPaletteRows inherits VerticalLayout {
+    vertical-stretch: 1;
+    in property <bool> enabled: true;
+    in property <bool> drag-enabled: true;
+    in property <string> query: "";
+    callback drag-started();
+    spacing: 0px;
+
+    ScrollView {
+        accessible-role: AccessibleRole.list;
+        accessible-label: "Element library";
+        min-height: 0px;
+        vertical-stretch: 1;
+        content-width: self.width;
+        content-height: max(palette.preferred-height, self.height);
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+
+        palette := VerticalLayout {
+            width: parent.width;
+            for group in Api.element-library: ElementPaletteGroup {
+                group: group;
+                query: root.query;
+                enabled: root.enabled;
+                drag-enabled: root.drag-enabled;
+                drag-started => { root.drag-started(); }
+            }
+
+            Rectangle {
+                min-height: Metrics.control-compact;
+                vertical-stretch: 1;
+                if Api.element-library.length > 0 && !Api.element-library-has-matches(Api.element-library, root.query): MutedLabel {
+                    width: parent.width;
+                    height: parent.height;
+                    text: "No Results";
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
+
+export component ElementPalette inherits Rectangle {
+    in property <bool> image-mode: false;
+    callback drag-started();
+    VerticalLayout {
+            spacing: Metrics.space-regular;
+            padding: Metrics.space-medium;
+
+            SectionTitle { label: "ELEMENTS"; }
+
+            search := PrimerTextInput {
+                placeholder: "Search elements…";
+                accessible-name: "Search elements";
+                background: Colors.subtle;
+            }
+
+            if root.image-mode: ElementsUnavailableNotice { }
+
+            ElementPaletteRows {
+                vertical-stretch: 1;
+                query: Api.element-library-normalize-query(search.text);
+                enabled: !root.image-mode;
+                drag-enabled: Api.known-components.length > 0;
+                drag-started => { root.drag-started(); }
+            }
+        }
+}

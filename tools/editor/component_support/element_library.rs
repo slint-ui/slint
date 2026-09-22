@@ -3,10 +3,10 @@
 
 use slint::{Model, ModelExt, ModelRc, SharedString};
 
-use super::{Api, ElementLibraryEntry, ElementLibraryGroup};
+use crate::ui::{Api, ElementLibraryEntry, ElementLibraryGroup};
 
 fn catalog() -> ModelRc<ElementLibraryGroup> {
-    use super::super::element_catalog::{GROUPS, PRIMITIVES};
+    use super::element_catalog::{GROUPS, PRIMITIVES};
     ModelRc::new(slint::VecModel::from(
         GROUPS
             .iter()
@@ -48,7 +48,7 @@ fn has_matches(groups: ModelRc<ElementLibraryGroup>, query: SharedString) -> boo
     groups.iter().any(|group| group.entries.iter().any(|entry| matches_query(&entry, &query)))
 }
 
-pub(super) fn setup(api: &Api<'_>) {
+pub fn setup(api: &Api<'_>) {
     api.set_element_library(catalog());
     api.on_element_library_normalize_query(normalize_query);
     api.on_element_library_filter_entries(filter);
@@ -58,7 +58,7 @@ pub(super) fn setup(api: &Api<'_>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::preview::ui::ElementKind;
+    use crate::ui::ElementKind;
 
     #[test]
     fn library_is_alphabetical_and_search_preserves_order() {

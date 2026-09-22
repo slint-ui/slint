@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Gallery } from "../state.slint";
+import { Colors, Style } from "../../ui/style.slint";
+import { Api, ElementKind } from "../../ui/api.slint";
+import { EditorCanvas } from "../../ui/components/editor-canvas.slint";
+import { DragPreview } from "../../ui/components/drag-preview.slint";
+
+export component GalleryScene inherits Rectangle {
+    in property <bool> shift-pressed;
+    callback selected;
+    accessible-role: AccessibleRole.region;
+    accessible-label: "Sample canvas";
+    clip: true;
+    EditorCanvas {
+        style: { background: Style.canvas-surface.background, drop-indicator: Style.canvas-surface.drop-indicator,
+            grid: { pitch: Style.canvas-surface.grid.pitch, line-width: Style.canvas-surface.grid.line-width,
+                color: Gallery.show-guides ? Style.canvas-surface.grid.color : transparent } };
+        shift-pressed: root.shift-pressed;
+        real-element-selected => { root.selected(); }
+        Rectangle {
+            for node in Gallery.nodes: Rectangle {
+                x: node.x * 1px; y: node.y * 1px;
+                width: node.width * 1px; height: node.height * 1px;
+                transform-origin: { x: self.width / 2, y: self.height / 2 };
+                transform-rotation: node.rotation * 1deg;
+                background: node.kind == ElementKind.rectangle ? Api.fill-brush(node.fill) : transparent;
+                border-radius: node.radius * 1px;
+                if node.kind == ElementKind.text: Text {
+                    text: node.text; color: Api.fill-brush(node.fill); font-size: 22px; wrap: word-wrap;
+                }
+                if node.kind == ElementKind.image: Image { source: Gallery.sample-image; image-fit: contain; }
+                if node.kind == ElementKind.touch-area: Rectangle {
+                    border-width: 1px; border-color: Colors.accent;
+                    Text { text: "TouchArea"; color: #656d76; horizontal-alignment: center; vertical-alignment: center; }
+                }
+                TouchArea {
+                    accessible-role: AccessibleRole.button;
+                    accessible-label: "Select " + node.label;
+                    clicked => { Gallery.select(node.id); }
+                }
+            }
+        }
+    }
+    DragPreview { parent-origin: root.absolute-position; show-outline: false; }
+}

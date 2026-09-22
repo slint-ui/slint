@@ -1,0 +1,221 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, CheckBox, ComboBox, SpinBox, ScrollView, Palette } from "std-widgets.slint";
+import { Gallery } from "state.slint";
+import { Colors, Typography, Style } from "../ui/style.slint";
+import { Api, Hover, EditorSurfaceMode } from "../ui/api.slint";
+import { Project } from "../ui/project.slint";
+import { Preview } from "../ui/preview.slint";
+import { AppState, EditorWindow, EditorCursors, PrimerTextInput, BodyLabel, MutedLabel } from "../ui/components/common.slint";
+import { ElementPalette } from "../ui/components/element-palette.slint";
+import { LeftPane } from "../ui/components/left-pane.slint";
+import { OutlinePane } from "../ui/components/outline-pane.slint";
+import { FileTreeView } from "../ui/components/file-tree-view.slint";
+import { InspectorPane } from "../ui/components/inspector-pane.slint";
+import { InspectorFillPicker } from "../ui/components/inspector/fill-picker.slint";
+import { FillSession } from "../ui/components/inspector/fill-session.slint";
+import { DragPreview } from "../ui/components/drag-preview.slint";
+import { StartupWizard } from "../ui/startup-wizard.slint";
+import { ImageAssetEditor } from "../ui/components/image-asset-editor.slint";
+import { EditorTopBar } from "../ui/components/top-bar.slint";
+import { UpdateStatusPill, UpdateStatusBar } from "../ui/components/update-status.slint";
+import { NewFileErrorPopup } from "../ui/components/new-file-error-popup.slint";
+import { GradientOverlay } from "../ui/components/gradient-overlay.slint";
+import { GalleryScene } from "pages/scene.slint";
+import { GalleryControls, GalleryFoundations } from "pages/controls.slint";
+import "../ui/assets/Inter-VariableFont.ttf";
+
+export { Gallery, Api, Hover, Project, Preview, AppState, EditorWindow, EditorCursors, FillSession }
+export { GalleryPage, GalleryNode } from "state.slint";
+
+export component GalleryWindow inherits Window {
+    title: "Visual Editor · Component Gallery";
+    preferred-width: 1440px; preferred-height: 1000px;
+    min-width: 800px; min-height: 600px;
+    background: Colors.background;
+    default-font-family: Typography.family;
+    in-out property <int> theme-index;
+    private property <bool> expanded-preview;
+    private property <bool> show-events: true;
+    private property <ColorScheme> system-scheme;
+    in-out property <bool> mounted: true;
+    changed theme-index => { Palette.color-scheme = root.theme-index == 1 ? ColorScheme.light : root.theme-index == 2 ? ColorScheme.dark : root.system-scheme; }
+    init => { root.system-scheme = Palette.color-scheme; EditorWindow.width = root.width; EditorWindow.height = root.height; }
+    changed width => { EditorWindow.width = root.width; }
+    changed height => { EditorWindow.height = root.height; }
+    public function clear-transients() {
+        FillSession.close-picker(false, false);
+        AppState.cancel-active-drags();
+        AppState.finish-outline-drag();
+        AppState.finish-palette-drag();
+        Hover.tree-source-uri = "";
+        Hover.tree-offset = -1;
+    }
+    MenuBar {
+        Menu { title: "File"; MenuItem { title: "New Slint File"; activated => { Gallery.record("Simulated new Slint file"); } } }
+        Menu {
+            title: "Edit";
+            MenuItem { title: "Undo"; enabled: Api.undo-enabled; activated => { FillSession.apply-history(false); } }
+            MenuItem { title: "Redo"; enabled: Api.redo-enabled; activated => { FillSession.apply-history(true); } }
+        }
+    }
+    focus := FocusScope {
+        init => { self.focus(); }
+        private property <bool> shift;
+        capture-key-pressed(event) => {
+            if event.text == Key.Shift || event.text == Key.ShiftR { self.shift = true; }
+            if event.text == Key.Escape { AppState.cancel-active-drags(); }
+            return reject;
+        }
+        key-pressed(event) => {
+            if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z") {
+                FillSession.apply-history(event.modifiers.shift);
+                return accept;
+            }
+            return reject;
+        }
+        capture-key-released(event) => {
+            if event.text == Key.Shift || event.text == Key.ShiftR { self.shift = false; }
+            return reject;
+        }
+        VerticalLayout {
+            spacing: 0px;
+            Rectangle {
+                height: 64px; background: Colors.surface;
+                HorizontalLayout {
+                    padding: 16px; spacing: 12px;
+                    Text { text: "Visual Editor"; color: Colors.foreground; font-size: 18px; font-weight: 600; }
+                    MutedLabel { text: "Component Gallery"; horizontal-stretch: 1; }
+                    ComboBox { width: 170px; model: ["System", "Light", "Dark"]; current-index <=> root.theme-index; }
+                    Button { text: root.expanded-preview ? "Show panels" : "Expand preview"; clicked => { root.expanded-preview = !root.expanded-preview; } }
+                }
+            }
+            HorizontalLayout {
+                spacing: 1px;
+                if !root.expanded-preview: Rectangle {
+                    width: 218px; background: Colors.surface;
+                    VerticalLayout {
+                        padding: 12px; spacing: 12px;
+                        search := PrimerTextInput { placeholder: "Find components…"; accessible-name: "Find components"; }
+                        ScrollView {
+                            horizontal-scrollbar-policy: always-off;
+                            VerticalLayout {
+                                spacing: 4px;
+                                for page[i] in Gallery.pages: VerticalLayout {
+                                    visible: Gallery.matches(page.title, search.text);
+                                    spacing: 5px;
+                                    if i == 0 || Gallery.pages[i - 1].category != page.category: MutedLabel { text: page.category; height: 30px; }
+                                    Button { text: page.title; checked: Gallery.page == page.id; clicked => { Gallery.navigate(page.id, "Default"); } }
+                                }
+                                Rectangle { vertical-stretch: 1; }
+                            }
+                        }
+                    }
+                }
+                VerticalLayout {
+                    spacing: 0px;
+                    VerticalLayout {
+                        padding: 20px; spacing: 6px;
+                        Text { text: Gallery.title; color: Colors.foreground; font-size: 24px; font-weight: 600; }
+                        MutedLabel { text: Gallery.description; wrap: word-wrap; }
+                    }
+                    ScrollView {
+                        content-width: max(self.width, Gallery.preview-width * 1px);
+                        content-height: max(self.height, Gallery.preview-height * 1px);
+                        stage := Rectangle {
+                            width: Gallery.preview-width > 0 ? Gallery.preview-width * 1px : parent.width;
+                            height: Gallery.preview-height > 0 ? Gallery.preview-height * 1px : parent.height;
+                            background: Colors.surface;
+                            accessible-role: AccessibleRole.region;
+                            accessible-label: "Gallery preview";
+                            if root.mounted: Rectangle {
+                                if Gallery.page == "composition" || Gallery.page == "palette" || Gallery.page == "outline" || Gallery.page == "inspector" || Gallery.page == "canvas" || Gallery.page == "picker": HorizontalLayout {
+                                    spacing: 1px;
+                                    if Gallery.page == "composition": LeftPane { create-new-slint-file => { Project.create-new-slint-file(); } drag-started => { focus.focus(); } }
+                                    if Gallery.page == "palette": ElementPalette { width: 240px; image-mode: Api.editor-surface-mode == EditorSurfaceMode.image; drag-started => { focus.focus(); } }
+                                    scene := GalleryScene { horizontal-stretch: 1; shift-pressed: focus.shift; selected => { focus.focus(); } }
+                                    if Gallery.page == "outline": OutlinePane { width: 260px; drag-started => { focus.focus(); } }
+                                    if Gallery.page == "composition" || Gallery.page == "inspector": InspectorPane { element-information: Api.current-element; outline-drag-started => { focus.focus(); } }
+                                    if Gallery.page == "picker": VerticalLayout {
+                                        width: 250px; padding: 16px; spacing: 12px;
+                                        BodyLabel { text: "Fill playground"; }
+                                        Button { text: "Open color picker"; clicked => { Gallery.open-picker(self.absolute-position); } }
+                                        MutedLabel { text: "Edit the sample fill. Use the button to open the picker, then edit color or gradient stops."; wrap: word-wrap; }
+                                        Rectangle { vertical-stretch: 1; }
+                                    }
+                                }
+                                if Gallery.page == "files": FileTreeView { }
+                                if Gallery.page == "foundations": GalleryFoundations { }
+                                if Gallery.page == "controls" || Gallery.page == "inspector-controls": GalleryControls { inspector: Gallery.page == "inspector-controls"; }
+                                if Gallery.page == "images": ImageAssetEditor { sidebars-collapsed: true; }
+                                if Gallery.page == "welcome": StartupWizard { create-new-project => { Project.create-new-project(); } open-existing-project => { Project.open-existing-project(); } }
+                                if Gallery.page == "shell": VerticalLayout {
+                                    spacing: 20px;
+                                    EditorTopBar { }
+                                    HorizontalLayout { padding: 20px; UpdateStatusPill { } Rectangle { horizontal-stretch: 1; } }
+                                    Button { text: "Show file error"; clicked => { file-error.show(); } }
+                                    MutedLabel { text: "Run, file and update actions are simulated in the event log."; }
+                                    Rectangle { vertical-stretch: 1; }
+                                    UpdateStatusBar { }
+                                }
+                            }
+                        }
+                    }
+                    if root.show-events: Rectangle {
+                        height: 112px; background: Colors.subtle;
+                        VerticalLayout {
+                            padding: 12px; spacing: 4px;
+                            MutedLabel { text: "EVENTS · local fixture actions"; }
+                            ScrollView {
+                                VerticalLayout {
+                                    for message in Gallery.events: MutedLabel { text: message; }
+                                }
+                            }
+                        }
+                    }
+                }
+                if !root.expanded-preview: Rectangle {
+                    width: 228px; background: Colors.surface;
+                    VerticalLayout {
+                        padding: 16px; spacing: 12px;
+                        BodyLabel { text: "Playground"; }
+                        ComboBox { model: Gallery.scenarios; current-index: Gallery.scenario-index; selected(value) => { Gallery.navigate(Gallery.page, value); } }
+                        Button { text: "Reset example"; clicked => { Gallery.reset(); } }
+                        CheckBox { text: "Disable controls"; checked <=> Gallery.disabled; }
+                        CheckBox { text: "Reject edits"; checked <=> Gallery.reject-edits; }
+                        CheckBox { text: "Show grid"; checked <=> Gallery.show-guides; }
+                        CheckBox { text: "Event log"; checked <=> root.show-events; }
+                        MutedLabel { text: "Preview width · 0 fits"; }
+                        SpinBox { minimum: 0; maximum: 2000; value: Gallery.preview-width; edited(value) => { Gallery.preview-width = value; } }
+                        MutedLabel { text: "Preview height · 0 fits"; }
+                        SpinBox { minimum: 0; maximum: 1600; value: Gallery.preview-height; edited(value) => { Gallery.preview-height = value; } }
+                        MutedLabel { text: "Changes stay in this example. Reset restores its initial data."; wrap: word-wrap; }
+                        Rectangle { vertical-stretch: 1; }
+                    }
+                }
+            }
+        }
+    }
+    TouchArea {
+        visible: FillSession.open;
+        clicked => { FillSession.close-picker(true, true); }
+        if FillSession.canvas-active: Rectangle {
+            x: stage.absolute-position.x;
+            y: stage.absolute-position.y;
+            width: stage.width;
+            height: stage.height;
+            clip: true;
+            GradientOverlay {
+                x: FillSession.canvas-origin.x - parent.absolute-position.x;
+                y: FillSession.canvas-origin.y - parent.absolute-position.y;
+                width: FillSession.canvas-size.width;
+                height: FillSession.canvas-size.height;
+                selection: FillSession.selection;
+            }
+        }
+        InspectorFillPicker { }
+    }
+    DragPreview { parent-origin: { x: 0px, y: 0px }; show-palette: false; }
+    file-error := NewFileErrorPopup { error: "The sample directory is read-only."; dismissed => { Gallery.record("Dismissed file error"); } }
+}

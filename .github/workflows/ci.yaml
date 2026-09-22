@@ -124,7 +124,7 @@ jobs:
             - name: Test the visual editor
               if: matrix.suite == 'rust'
               run: cargo test --locked -p slint-editor --all-features --features slint/mcp --timings
-            - name: Build the visual editor UI test binary
+            - name: Build the visual editor and gallery UI test binaries
               if: matrix.suite == 'ui'
               run: cargo build --locked -p slint-editor --all-features --features slint/mcp --timings
             - name: Run visual editor UI tests
@@ -133,6 +133,7 @@ jobs:
               env:
                   SLINT_BACKEND: headless-skia
                   SLINT_EDITOR_BINARY: ${{ github.workspace }}/target/debug/slint-editor
+                  SLINT_GALLERY_BINARY: ${{ github.workspace }}/target/debug/slint-editor-gallery
               run: ./run-tests.sh
 
             - name: Upload Cargo timing reports
