@@ -189,6 +189,9 @@ export component EditorUi inherits Window {
     callback outline-pane-reset();
     callback perform-native-window-zoom() -> bool;
     private property <string> new-file-error;
+    private property <bool> canvas-zoom-enabled: !Api.startup-wizard-visible
+        && Api.editor-surface-mode == EditorSurfaceMode.component
+        && CanvasView.navigation-enabled && !CanvasView.panning;
     private property <string> canvas-document: Api.current-element.source-uri;
     changed canvas-document => { CanvasView.manipulating = false; }
 
@@ -243,7 +246,27 @@ export component EditorUi inherits Window {
                 activated => { root.apply-history(true); }
             }
         }
-
+        Menu {
+            title: @tr("View");
+            MenuItem {
+                title: @tr("Zoom In");
+                shortcut: @keys(Control + Plus);
+                enabled: root.canvas-zoom-enabled && CanvasView.zoom-index < CanvasView.zoom-levels.length - 1;
+                activated => { CanvasView.set-zoom(CanvasView.zoom-index + 1); }
+            }
+            MenuItem {
+                title: @tr("Zoom Out");
+                shortcut: @keys(Control + HyphenMinus);
+                enabled: root.canvas-zoom-enabled && CanvasView.zoom-index > 0;
+                activated => { CanvasView.set-zoom(CanvasView.zoom-index - 1); }
+            }
+            MenuItem {
+                title: @tr("Actual Size");
+                shortcut: @keys(Control + Digit0);
+                enabled: root.canvas-zoom-enabled;
+                activated => { CanvasView.set-zoom(3); }
+            }
+        }
     }
 
     Rectangle {
@@ -265,6 +288,10 @@ export component EditorUi inherits Window {
             }
 
             capture-key-pressed(event) => {
+                if root.canvas-zoom-enabled && event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta && event.text == "=" {
+                    CanvasView.set-zoom(CanvasView.zoom-index + 1);
+                    return accept;
+                }
                 if event.text == Key.Escape && CanvasView.panning {
                     canvas-pan.cancel();
                     return accept;
