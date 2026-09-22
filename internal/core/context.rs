@@ -152,6 +152,13 @@ impl SlintContext {
         this
     }
 
+    /// This thread's context, or `None` if none was created yet.
+    ///
+    /// Setting a platform creates the context, and creating a component needs a platform.
+    pub fn current() -> Option<Self> {
+        GLOBAL_CONTEXT.with(|slot| slot.get().cloned())
+    }
+
     /// Return a reference to the platform abstraction
     pub fn platform(&self) -> &dyn Platform {
         &*self.0.platform
@@ -351,6 +358,27 @@ impl SlintContext {
     /// Returns the locale's decimal separator, falling back to `translations::DEFAULT_SEPARATOR`.
     pub fn locale_decimal_separator(&self) -> char {
         self.0.as_ref().project_ref().locale_decimal_separator.get()
+    }
+
+    /// Format a number using this context's decimal separator.
+    pub fn format_number(&self, n: f64) -> crate::SharedString {
+        crate::string::format_number(self.locale_decimal_separator(), n)
+    }
+
+    /// Format a number with a fixed number of digits after the decimal point,
+    /// using this context's decimal separator.
+    pub fn format_number_fixed(&self, n: f64, digits: usize) -> crate::SharedString {
+        crate::string::format_number_fixed(self.locale_decimal_separator(), n, digits)
+    }
+
+    /// Format a number with the given precision, using this context's decimal separator.
+    pub fn format_number_precision(&self, n: f64, precision: usize) -> crate::SharedString {
+        crate::string::format_number_precision(self.locale_decimal_separator(), n, precision)
+    }
+
+    /// Parse a number written with this context's decimal separator.
+    pub fn parse_number(&self, string: &str) -> Option<f32> {
+        crate::string::parse_number(self.locale_decimal_separator(), string)
     }
 
     /// Override the locale used for decimal separator detection (testing only).

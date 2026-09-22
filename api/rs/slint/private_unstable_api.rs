@@ -202,9 +202,6 @@ pub mod re_exports {
         set_property_binding_erased, set_property_state_binding_erased, set_state_binding,
     };
     pub use i_slint_core::slice::Slice;
-    pub use i_slint_core::string::shared_string_from_number;
-    pub use i_slint_core::string::shared_string_from_number_fixed;
-    pub use i_slint_core::string::shared_string_from_number_precision;
     pub use i_slint_core::string::shared_string_from_number_unlocalized;
     pub use i_slint_core::string::shared_string_replace_all;
     pub use i_slint_core::timers::{Timer, TimerMode};
@@ -218,7 +215,6 @@ pub mod re_exports {
     };
     pub use i_slint_core::{
         Color, Coord, SharedString, SharedVector, format, string::ToSharedString,
-        string::string_to_float,
     };
     pub use i_slint_core::{ItemTreeVTable_static, MenuVTable_static};
     pub use num_traits::float::Float;
