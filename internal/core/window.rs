@@ -331,6 +331,13 @@ pub trait WindowAdapterInternal: core::any::Any {
     /// This is called while the user holds a mouse button pressed.
     /// The default implementation does nothing; backends without support ignore the request.
     fn start_window_move(&self) {}
+
+    /// Re-implement this to provide an implementation of [`Window::show_modal`].
+    ///
+    /// Note that [`WindowAdapter::set_visible()`] is not called but this function should also make the window visible.
+    fn show_modal(&self, _: crate::api::WindowModality<'_>) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported)
+    }
 }
 
 /// This is the parameter from [`WindowAdapterInternal::input_method_request()`] which lets the editable text input field
