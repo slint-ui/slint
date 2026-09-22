@@ -129,15 +129,15 @@ test("smoke test", async ({ page }) => {
     await page.goto("./getting-started/");
     await expect(page.locator('[id="_top"]')).toContainText("Getting Started");
     await expect(page.getByRole("main")).toContainText(
-        "Material 3 Design System",
+        "Material 3 design system",
     );
     const base = new URL("../", page.url());
     await expect(
         page.getByRole("link", {
-            name: "material component source",
+            name: "Download ZIP",
             exact: true,
         }),
-    ).toHaveAttribute("href", `${base.pathname}zip/material-1.0.1.zip`);
+    ).toHaveAttribute("href", `${base.pathname}zip/material-1.1.0.zip`);
     await page
         .getByLabel("Main")
         .getByRole("link", { name: "FilledButton" })

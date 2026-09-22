@@ -29,6 +29,7 @@ export default defineConfig({
                 src: "./src/assets/slint-logo-small-light.svg",
             },
             customCss: [
+                "./src/assets/styles/starlight-material-supplement.css",
                 "@slint/common-files/src/styles/starlight-slint-custom.css",
                 "@slint/common-files/src/styles/starlight-slint-theme.css",
             ],
@@ -39,6 +40,8 @@ export default defineConfig({
             },
             sidebar: [
                 { label: "Getting Started", link: "getting-started" },
+                { label: "Releases", link: "releases" },
+                { label: "Changelog", link: "changelog" },
                 {
                     label: "Components",
                     items: [{ autogenerate: { directory: "components" } }],

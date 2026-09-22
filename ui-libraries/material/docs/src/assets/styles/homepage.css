@@ -85,17 +85,6 @@ svg {
 .skip-link:focus {
     top: 0;
 }
-.announcement {
-    padding: 0.5rem 0.75rem;
-    background: #000;
-    color: #94a3b8;
-    font-size: 0.875rem;
-    font-weight: 500;
-    line-height: 1.25rem;
-}
-.announcement a:hover {
-    text-decoration: underline;
-}
 .site-header {
     position: sticky;
     top: 0;
@@ -543,11 +532,6 @@ footer {
     }
 }
 @media (max-width: 39.999rem) {
-    .announcement {
-        padding-left: 0.5rem;
-        font-size: 0.75rem;
-        line-height: 1rem;
-    }
     .material-hero {
         padding-left: 1rem;
         padding-right: 1rem;
@@ -583,10 +567,6 @@ footer {
     }
 }
 
-:root[data-theme="dark"] .announcement {
-    background: transparent;
-    border-bottom: 1px solid #1e293b;
-}
 :root[data-theme="dark"] h1 {
     color: #e5e7eb;
 }
