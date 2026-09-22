@@ -32,14 +32,6 @@ slint::slint! {
         out property<float> scroll-clip-y: scroll-clip.y / 1px;
         out property<float> scroll-clip-width: scroll-clip.width / 1px;
         out property<float> scroll-clip-height: scroll-clip.height / 1px;
-        out property<float> scroll-up-x: scroll-up.x / 1px;
-        out property<float> scroll-up-y: scroll-up.y / 1px;
-        out property<float> scroll-up-width: scroll-up.width / 1px;
-        out property<float> scroll-up-height: scroll-up.height / 1px;
-        out property<float> scroll-down-x: scroll-down.x / 1px;
-        out property<float> scroll-down-y: scroll-down.y / 1px;
-        out property<float> scroll-down-width: scroll-down.width / 1px;
-        out property<float> scroll-down-height: scroll-down.height / 1px;
         out property<float> native-editor-x: native-editor.x / 1px;
         out property<float> native-editor-y: native-editor.y / 1px;
         out property<float> native-editor-width: native-editor.width / 1px;
@@ -104,7 +96,7 @@ slint::slint! {
         scroll-clip := Rectangle {
             x: 24px;
             y: 246px;
-            width: root.width - 128px;
+            width: root.width - 48px;
             height: 140px;
             background: #dce4ef;
             border-radius: 12px;
@@ -151,46 +143,6 @@ slint::slint! {
                     font-size: 13px;
                     color: #536078;
                 }
-            }
-        }
-
-        scroll-up := Rectangle {
-            x: root.width - 92px;
-            y: 246px;
-            width: 68px;
-            height: 64px;
-            background: #1473e6;
-            border-radius: 12px;
-
-            Text {
-                width: parent.width;
-                height: parent.height;
-                text: "Scroll\nup";
-                color: #ffffff;
-                font-size: 14px;
-                font-weight: 600;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
-        }
-
-        scroll-down := Rectangle {
-            x: root.width - 92px;
-            y: 322px;
-            width: 68px;
-            height: 64px;
-            background: #1473e6;
-            border-radius: 12px;
-
-            Text {
-                width: parent.width;
-                height: parent.height;
-                text: "Scroll\ndown";
-                color: #ffffff;
-                font-size: 14px;
-                font-weight: 600;
-                horizontal-alignment: center;
-                vertical-alignment: center;
             }
         }
 
@@ -556,31 +508,6 @@ extern "C" fn native_menu_button_pressed(pressed: bool) {
     });
 }
 
-fn update_scroll_geometry(app: &NativeOverlayDemo) {
-    unsafe {
-        update_native_scroll_geometry(
-            app.get_second_editor_x(),
-            app.get_second_editor_y(),
-            app.get_second_editor_width(),
-            app.get_second_editor_height(),
-            app.get_scroll_clip_x(),
-            app.get_scroll_clip_y(),
-            app.get_scroll_clip_width(),
-            app.get_scroll_clip_height(),
-        );
-    }
-}
-
-#[unsafe(no_mangle)]
-extern "C" fn native_scroll_requested(direction: i32) {
-    APP.with(|slot| {
-        if let Some(app) = slot.borrow().as_ref().and_then(slint::Weak::upgrade) {
-            let delta = if direction < 0 { -36. } else { 36. };
-            app.set_scroll_offset((app.get_scroll_offset() + delta).clamp(-100., 0.));
-        }
-    });
-}
-
 #[unsafe(no_mangle)]
 extern "C" fn native_context_action(action: i32) {
     let result = match action {
@@ -611,14 +538,6 @@ unsafe extern "C" {
         scroll_clip_y: f32,
         scroll_clip_width: f32,
         scroll_clip_height: f32,
-        scroll_up_x: f32,
-        scroll_up_y: f32,
-        scroll_up_width: f32,
-        scroll_up_height: f32,
-        scroll_down_x: f32,
-        scroll_down_y: f32,
-        scroll_down_width: f32,
-        scroll_down_height: f32,
         native_editor_x: f32,
         native_editor_y: f32,
         native_editor_width: f32,
@@ -635,10 +554,6 @@ unsafe extern "C" {
         second_editor_y: f32,
         second_editor_width: f32,
         second_editor_height: f32,
-        scroll_clip_x: f32,
-        scroll_clip_y: f32,
-        scroll_clip_width: f32,
-        scroll_clip_height: f32,
     );
 }
 
@@ -648,7 +563,14 @@ fn main() {
     let weak = app.as_weak();
     app.on_scroll_geometry_changed(move || {
         if let Some(app) = weak.upgrade() {
-            update_scroll_geometry(&app);
+            unsafe {
+                update_native_scroll_geometry(
+                    app.get_second_editor_x(),
+                    app.get_second_editor_y(),
+                    app.get_second_editor_width(),
+                    app.get_second_editor_height(),
+                );
+            }
         }
     });
     let weak = app.as_weak();
@@ -675,14 +597,6 @@ fn main() {
                 app.get_scroll_clip_y(),
                 app.get_scroll_clip_width(),
                 app.get_scroll_clip_height(),
-                app.get_scroll_up_x(),
-                app.get_scroll_up_y(),
-                app.get_scroll_up_width(),
-                app.get_scroll_up_height(),
-                app.get_scroll_down_x(),
-                app.get_scroll_down_y(),
-                app.get_scroll_down_width(),
-                app.get_scroll_down_height(),
                 app.get_native_editor_x(),
                 app.get_native_editor_y(),
                 app.get_native_editor_width(),

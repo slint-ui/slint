@@ -18,9 +18,9 @@ The underlying Slint inputs are hidden from accessibility because the UIKit inpu
 A transparent UIKit button presents a native menu beneath a Slint-rendered button.
 The second field demonstrates wrapped multiline editing and responder transfer without dismissing
 the keyboard.
-It sits in a Slint `Flickable`: drag the exposed area below the field, or use the
-scroll buttons, to move it while a native selection is active. The UIKit clip follows the Slint
-viewport and passes empty-area touches through to Slint.
+It sits in a Slint `Flickable`.
+Drag the exposed area below the field to move it while a native selection is active.
+The UIKit clip follows the Slint viewport and passes empty-area touches through to Slint.
 Both fields keep their text, carets, and selection highlights rendered by Slint.
 
 See [Production Readiness](PRODUCTION.md) for the supported behavior, known gaps,
