@@ -12,7 +12,7 @@ use crate::expression_tree::{
     self, BindingExpression, Callable, ConditionLocation, Expression, Unit,
 };
 use crate::langtype::{
-    BuiltinElement, Enumeration, EnumerationValue, Function, NativeClass, Struct, StructName, Type,
+    BuiltinElement, Enumeration, EnumerationValue, Function, Struct, StructName, Type,
 };
 use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
@@ -709,12 +709,9 @@ impl Component {
         matches!(&self.root_element.borrow().base_type, ElementType::Interface)
     }
 
-    /// True if this component's root resolves to the `SystemTrayIcon` native class.
+    /// True if this component's root resolves to the `SystemTrayIcon` builtin.
     pub fn inherits_system_tray_icon(&self) -> bool {
-        self.root_element
-            .borrow()
-            .native_class()
-            .is_some_and(|n| n.class_name.as_str() == "SystemTrayIcon")
+        self.root_element.borrow().builtin_type().is_some_and(|b| b.name == "SystemTrayIcon")
     }
 
     /// Returns the names of aliases to global singletons, exactly as
@@ -3395,19 +3392,6 @@ impl Element {
             return Some(twb);
         }
         self.callback_alias_declaration_node(name)
-    }
-
-    pub fn native_class(&self) -> Option<Arc<NativeClass>> {
-        let mut base_type = self.base_type.clone();
-        loop {
-            match &base_type {
-                ElementType::Component(component) => {
-                    base_type = component.root_element.clone().borrow().base_type.clone();
-                }
-                ElementType::Builtin(builtin) => break Some(builtin.native_class.clone()),
-                _ => break None,
-            }
-        }
     }
 
     pub fn builtin_type(&self) -> Option<Rc<BuiltinElement>> {

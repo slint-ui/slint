@@ -6,7 +6,6 @@
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
@@ -46,15 +45,13 @@ pub fn handle_visible(
     }
 
     let clip_type = type_register.lookup_builtin_element("Clip").unwrap();
-    let native_clip = clip_type.as_builtin().native_class.clone();
 
     crate::object_tree::recurse_elem_including_sub_components(
         component,
         &(),
         &mut |elem: &ElementRc, _| {
-            let is_lowered_from_visible_property = elem.borrow().native_class().is_some_and(|n| {
-                Arc::ptr_eq(&n, &native_clip) && elem.borrow().id.ends_with("-visibility")
-            });
+            let is_lowered_from_visible_property =
+                elem.borrow().base_type == clip_type && elem.borrow().id.ends_with("-visibility");
             if is_lowered_from_visible_property {
                 // This is the element we just created. Skip it.
                 return;

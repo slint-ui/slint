@@ -5,7 +5,6 @@
 
 use smol_str::{SmolStr, format_smolstr};
 use std::rc::Rc;
-use std::sync::Arc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
@@ -19,14 +18,13 @@ pub fn handle_clip(
     diag: &mut BuildDiagnostics,
 ) {
     let clip_type = type_register.lookup_builtin_element("Clip").unwrap();
-    let native_clip = clip_type.as_builtin().native_class.clone();
 
     crate::object_tree::recurse_elem_including_sub_components(
         component,
         &(),
         &mut |elem_rc: &ElementRc, _| {
             let elem = elem_rc.borrow();
-            if elem.native_class().is_some_and(|n| Arc::ptr_eq(&n, &native_clip)) {
+            if elem.builtin_type().is_some_and(|b| b.name == "Clip") {
                 return;
             }
             if elem.binding("clip").is_some()

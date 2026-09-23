@@ -1007,18 +1007,8 @@ fn emit_tree(
     }
 }
 
-/// Whether the element is an image item: its resolved native class is, or
-/// inherits, the class that declares `source`. Class selection may land on
-/// the ImageItem base or a subclass of it, so the ancestry decides.
 fn is_image_item(elem: &ElementRc) -> bool {
-    let mut class = elem.borrow().native_class();
-    while let Some(native) = class {
-        if native.class_name == "ImageItem" {
-            return true;
-        }
-        class = native.parent.clone();
-    }
-    false
+    elem.borrow().builtin_type().is_some_and(|b| b.name == "Image")
 }
 
 /// The render code: every element paints its background, if it has one, where
@@ -1099,9 +1089,8 @@ fn emit_hit_test(ctx: &Ctx, areas: &mut Vec<TokenStream>) -> TokenStream {
     })
 }
 
-/// Whether the element is a `TouchArea`.
 fn is_touch_area(elem: &ElementRc) -> bool {
-    elem.borrow().native_class().is_some_and(|class| class.class_name == "TouchArea")
+    elem.borrow().builtin_type().is_some_and(|b| b.name == "TouchArea")
 }
 
 /// Compile a reference to a property.

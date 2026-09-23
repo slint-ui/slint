@@ -1320,7 +1320,8 @@ fn lower_global(
         );
     }
 
-    let is_builtin = if let Some(builtin) = global.root_element.borrow().native_class() {
+    let is_builtin = if let Some(builtin) = global.root_element.borrow().builtin_type() {
+        let builtin = &builtin.native_class;
         // We just generate the property so we know how to address them
         for (p, x) in &builtin.properties {
             let property_index = properties.push_and_get_key(Property {
@@ -1422,7 +1423,8 @@ fn lower_global_expressions(
         lowered.change_callbacks.insert(property_index, expression.into());
     }
 
-    if let Some(builtin) = global.root_element.borrow().native_class() {
+    if let Some(builtin) = global.root_element.borrow().builtin_type() {
+        let builtin = &builtin.native_class;
         if lowered.exported {
             lowered.public_properties = builtin
                 .properties
