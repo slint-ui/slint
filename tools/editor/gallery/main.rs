@@ -4,7 +4,14 @@
 use slint::ComponentHandle;
 
 mod ui {
-    include!(concat!(env!("OUT_DIR"), "/entry.rs"));
+    slint::slint! {
+        export { GalleryWindow, Gallery, GalleryPage } from "gallery.slint";
+        export {
+            Api, BrushKind, ColorData, ElementKind, ElementLibraryEntry,
+            ElementLibraryGroup, FillData, GradientStop, GradientStopOrder,
+            LinearGradientAxis
+        } from "../ui/api.slint";
+    }
 }
 
 #[allow(dead_code)]

@@ -11,7 +11,10 @@ fn main() {
     }
 
     // Some tests use the ElementHandle API, which requires debug info
-    let config = CompilerConfiguration::new().with_debug_info(true);
-    slint_build::compile_with_config("gallery/entry.slint", config.clone()).unwrap();
-    slint_build::compile_with_config("ui/main.slint", config).unwrap();
+    slint_build::compile_with_config(
+        "ui/main.slint",
+        CompilerConfiguration::new().with_debug_info(true),
+    )
+    .unwrap();
+    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
 }
