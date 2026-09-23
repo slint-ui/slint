@@ -1073,6 +1073,8 @@ public:
     ///
     /// \a path must be UTF-8 encoded; otherwise this function fails.
     ///
+    /// If `path` is a `slint-project.json`, its `entry` is compiled with its settings.
+    ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///
     /// Any diagnostics produced during the compilation, such as warnings or errors, are collected
