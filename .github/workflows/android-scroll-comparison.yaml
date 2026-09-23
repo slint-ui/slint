@@ -28,6 +28,7 @@ jobs:
       CARGO_INCREMENTAL: 0
       CARGO_PROFILE_RELEASE_DEBUG: 0
       CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      ANDROID_AVD_HOME: ${{ github.workspace }}/android-avd
       SCROLL_ARTIFACT_DIR: /tmp/android-scroll-artifacts
     steps:
       - name: Record disk space before expansion
@@ -38,7 +39,7 @@ jobs:
       - name: Maximize build space
         uses: easimon/maximize-build-space@v10
         with:
-          root-reserve-mb: 12288
+          root-reserve-mb: 24576
           temp-reserve-mb: 1024
           swap-size-mb: 1024
           remove-android: 'false'
@@ -63,8 +64,11 @@ jobs:
       - name: Install Android build tools
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
-            'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.0.12077973'
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
+            'platforms;android-35' 'build-tools;35.0.0'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            --sdk_root="$GITHUB_WORKSPACE/android-ndk" --install 'ndk;27.0.12077973'
+          echo "ANDROID_NDK_HOME=$GITHUB_WORKSPACE/android-ndk/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$GITHUB_WORKSPACE/android-ndk/ndk/27.0.12077973" >> "$GITHUB_ENV"
           cargo install --locked cargo-apk
 
       - name: Build optimized x86_64 comparison APK
@@ -82,6 +86,7 @@ jobs:
 
       - name: Enable KVM
         run: |
+          mkdir -p "$ANDROID_AVD_HOME"
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
