@@ -402,17 +402,20 @@ impl AndroidWindowAdapter {
                                 let event_pos = touch_pos_pointer(&p);
                                 let event_time =
                                     self.java_helper.input_timestamp(now_event_time, &self.window);
-                                let history = TouchHistory::from_positions(
-                                    event_time,
-                                    event_pos,
-                                    p.history().map(|sample| {
-                                        (
-                                            touch_pos_hist_pointer(&sample),
-                                            self.java_helper
-                                                .input_timestamp(sample.event_time(), &self.window),
-                                        )
-                                    }),
-                                );
+                                let history = TouchHistory {
+                                    history: p
+                                        .history()
+                                        .map(|sample| {
+                                            (
+                                                touch_pos_hist_pointer(&sample),
+                                                self.java_helper.input_timestamp(
+                                                    sample.event_time(),
+                                                    &self.window,
+                                                ),
+                                            )
+                                        })
+                                        .collect(),
+                                };
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
                                         id,

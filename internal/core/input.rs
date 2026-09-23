@@ -155,7 +155,14 @@ impl MouseEvent {
         let pos = match self {
             MouseEvent::Pressed { position, .. } => Some(position),
             MouseEvent::Released { position, .. } => Some(position),
-            MouseEvent::Moved { position, .. } => Some(position),
+            MouseEvent::Moved { position, history, .. } => {
+                if let Some(history) = history.0.as_deref_mut() {
+                    for (position, _) in &mut history.history {
+                        *position += vec;
+                    }
+                }
+                Some(position)
+            }
             MouseEvent::Wheel { position, .. } => Some(position),
             MouseEvent::PinchGesture { position, .. } => Some(position),
             MouseEvent::RotationGesture { position, .. } => Some(position),
@@ -177,7 +184,14 @@ impl MouseEvent {
         let pos = match self {
             MouseEvent::Pressed { position, .. } => Some(position),
             MouseEvent::Released { position, .. } => Some(position),
-            MouseEvent::Moved { position, .. } => Some(position),
+            MouseEvent::Moved { position, history, .. } => {
+                if let Some(history) = history.0.as_deref_mut() {
+                    for (position, _) in &mut history.history {
+                        *position = transform.transform_point(position.cast()).cast();
+                    }
+                }
+                Some(position)
+            }
             MouseEvent::Wheel { position, .. } => Some(position),
             MouseEvent::PinchGesture { position, .. } => Some(position),
             MouseEvent::RotationGesture { position, .. } => Some(position),
@@ -240,31 +254,9 @@ impl From<Option<crate::animations::Instant>> for EventTime {
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TouchHistory {
-    /// Chronological movement deltas and their sample times, including the current event.
-    /// The consumer reconstructs the first delta from the event's total movement.
+    /// Chronological positions and sample times preceding the current event.
+    /// Positions use the same coordinate system as the current event.
     pub history: Vec<(LogicalPoint, crate::animations::Instant)>,
-}
-
-impl TouchHistory {
-    /// Converts historical positions into deltas, retaining the first sample's time.
-    /// The first delta is unknown until the consumer supplies its previous pointer position.
-    pub fn from_positions(
-        event_time: crate::animations::Instant,
-        event_position: LogicalPoint,
-        positions: impl IntoIterator<Item = (LogicalPoint, crate::animations::Instant)>,
-    ) -> Self {
-        let mut history = Vec::new();
-        let mut previous = None;
-        for (position, time) in positions {
-            let delta = previous.map_or(LogicalVector::default(), |previous| position - previous);
-            history.push((delta.to_point(), time));
-            previous = Some(position);
-        }
-        if let Some(previous) = previous {
-            history.push(((event_position - previous).to_point(), event_time));
-        }
-        Self { history }
-    }
 }
 
 /// The [`TouchHistory`] of a move event.
