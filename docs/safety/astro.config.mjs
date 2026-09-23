@@ -266,7 +266,7 @@ export default defineConfig({
                                 slug: "qualification-plan/test-suites",
                             },
                             {
-                                label: "Test Coverage",
+                                label: "Coverage Criteria",
                                 slug: "qualification-plan/test-coverage",
                             },
                             {
