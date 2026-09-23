@@ -1,0 +1,15 @@
+---
+title: Qualification Report
+description: The evidence from running the Slint SC test suites.
+---
+
+The Qualification Report holds the evidence from running the suites described in [Test Suites](/qualification-plan/test-suites/).
+Each chapter answers one of the [pass criteria](/qualification-plan/verification/#pass-criteria):
+
+* [Test Results](/qualification-report/test-results/): did every suite pass?
+* [Traceability Matrix](/qualification-report/traceability-matrix/): is every requirement paragraph verified by at least one test?
+* [Test Coverage](/qualification-report/test-coverage/): is every line, function, and region of the runtime executed?
+
+`slint-doc-generator` writes all three chapters from an actual run, so they can't drift from what was tested.
+Without a run, Test Results and Test Coverage say so instead of showing data.
+Build the manual with `scripts/build_safety_manual_coverage.sh` to include them.

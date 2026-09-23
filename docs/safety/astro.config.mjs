@@ -240,53 +240,80 @@ export default defineConfig({
                         label: "Qualification Plan",
                         link: "/qualification-plan/",
                         items: [
-                            { label: "Overview", slug: "qualification-plan" },
                             {
-                                label: "Safety Policy",
-                                slug: "qualification-plan/safety-policy",
+                                label: "Overview",
+                                slug: "qualification-plan",
                             },
                             {
-                                label: "Architecture Design",
-                                slug: "qualification-plan/architecture",
+                                label: "Scope",
+                                items: [
+                                    {
+                                        label: "Standards Compliance",
+                                        slug: "qualification-plan/standards-compliance",
+                                    },
+                                    {
+                                        label: "Safety Policy",
+                                        slug: "qualification-plan/safety-policy",
+                                    },
+                                ],
                             },
                             {
-                                label: "Development Process",
-                                slug: "qualification-plan/development-process",
+                                label: "Design",
+                                items: [
+                                    {
+                                        label: "Architecture Design",
+                                        slug: "qualification-plan/architecture",
+                                    },
+                                ],
                             },
                             {
-                                label: "Development Phases",
-                                slug: "qualification-plan/development-phases",
-                            },
-                            {
-                                label: "Coding Standards",
-                                slug: "qualification-plan/coding-standards",
-                            },
-                            {
-                                label: "Test Suites",
-                                slug: "qualification-plan/test-suites",
-                            },
-                            {
-                                label: "Coverage Criteria",
-                                slug: "qualification-plan/test-coverage",
-                            },
-                            {
-                                label: "Coverage Tool Verification",
-                                slug: "qualification-plan/slint-coverage",
+                                label: "Process",
+                                items: [
+                                    {
+                                        label: "Development Process",
+                                        slug: "qualification-plan/development-process",
+                                    },
+                                    {
+                                        label: "Development Phases",
+                                        slug: "qualification-plan/development-phases",
+                                    },
+                                    {
+                                        label: "Coding Standards",
+                                        slug: "qualification-plan/coding-standards",
+                                    },
+                                ],
                             },
                             {
                                 label: "Verification",
-                                slug: "qualification-plan/verification",
-                            },
-                            {
-                                label: "Standards Compliance",
-                                slug: "qualification-plan/standards-compliance",
+                                items: [
+                                    {
+                                        label: "Verification",
+                                        slug: "qualification-plan/verification",
+                                    },
+                                    {
+                                        label: "Test Suites",
+                                        slug: "qualification-plan/test-suites",
+                                    },
+                                    {
+                                        label: "Coverage Criteria",
+                                        slug: "qualification-plan/test-coverage",
+                                    },
+                                    {
+                                        label: "Coverage Tool Verification",
+                                        slug: "qualification-plan/slint-coverage",
+                                    },
+                                ],
                             },
                         ],
                     },
                     {
                         label: "Evaluation Report",
-                        link: "/evaluation-report/use-cases/",
+                        link: "/evaluation-report/",
                         items: [
+                            {
+                                label: "Overview",
+                                slug: "evaluation-report",
+                            },
                             {
                                 label: "Use Cases",
                                 slug: "evaluation-report/use-cases",
@@ -296,10 +323,6 @@ export default defineConfig({
                                 slug: "evaluation-report/potential-errors",
                             },
                             {
-                                label: "Safety Analysis",
-                                slug: "evaluation-report/safety-analysis",
-                            },
-                            {
                                 label: "Tool Classification",
                                 slug: "evaluation-report/tool-classification",
                             },
@@ -307,12 +330,24 @@ export default defineConfig({
                                 label: "Qualification Method",
                                 slug: "evaluation-report/qualification-method",
                             },
+                            {
+                                label: "Safety Analysis",
+                                slug: "evaluation-report/safety-analysis",
+                            },
                         ],
                     },
                     {
                         label: "Qualification Report",
-                        link: "/qualification-report/traceability-matrix/",
+                        link: "/qualification-report/",
                         items: [
+                            {
+                                label: "Overview",
+                                slug: "qualification-report",
+                            },
+                            {
+                                label: "Test Results",
+                                slug: "qualification-report/test-results",
+                            },
                             {
                                 label: "Traceability Matrix",
                                 slug: "qualification-report/traceability-matrix",
@@ -320,10 +355,6 @@ export default defineConfig({
                             {
                                 label: "Test Coverage",
                                 slug: "qualification-report/test-coverage",
-                            },
-                            {
-                                label: "Test Results",
-                                slug: "qualification-report/test-results",
                             },
                         ],
                     },
