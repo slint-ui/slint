@@ -1066,6 +1066,7 @@ public:
     ///
     /// The `path` argument will be used for diagnostics and to compute relative
     /// paths while importing.
+    /// If `path` is a `slint-project.json`, its `entry` is compiled with its settings.
     ///
     /// Any diagnostics produced during the compilation, such as warnings or errors, are collected
     /// in this ComponentCompiler and can be retrieved after the call using the

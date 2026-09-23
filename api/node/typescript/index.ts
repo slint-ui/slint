@@ -666,6 +666,7 @@ function loadSlint(loadData: LoadData): Object {
  *
  * A `slint-project.json` in the directory of the file, or in a directory above it,
  * provides the settings that `options` leaves open.
+ * `filePath` can also be a `slint-project.json`, whose `entry` is loaded.
  *
  * @param filePath The path to the file to load as `string` or `URL`. Relative paths are resolved against the process' current working directory.
  * @param options An optional {@link LoadFileOptions} to configure additional Slint compilation settings,
