@@ -72,15 +72,12 @@ trait VelocityEstimator {
 pub(crate) trait VelocityTracker: VelocityEstimator {
     fn push(&mut self, time: Instant, position_delta: LogicalVector);
     fn last_time(&self) -> Option<Instant>;
-    fn push_precise(&mut self, time: Duration, delta: LogicalVector) {
-        self.push(Instant(time.as_millis() as u64), delta);
-    }
     fn last_sample_time(&self) -> Option<Duration> {
-        self.last_time().map(|time| Duration::from_millis(time.0))
+        self.last_time().map(|time| time.0)
     }
     fn estimate_velocity(&self) -> Option<VelocityEstimate> {
         if crate::animations::current_tick().0.saturating_sub(self.last_time()?.0)
-            > ASSUME_POINTER_MOVE_STOPPED.as_millis() as u64
+            > ASSUME_POINTER_MOVE_STOPPED
         {
             return None;
         }

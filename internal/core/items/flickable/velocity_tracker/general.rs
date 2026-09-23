@@ -21,7 +21,7 @@ const MIN_SAMPLE_SIZE: usize = 3;
 
 #[derive(Default, Debug)]
 pub(crate) struct GeneralVelocityTracker<const N: usize> {
-    buffer: VelocityRingBuffer<N, Duration>,
+    buffer: VelocityRingBuffer<N, Instant>,
 }
 
 impl<const N: usize> VelocityEstimator for GeneralVelocityTracker<N> {
@@ -88,16 +88,10 @@ impl<const N: usize> VelocityEstimator for GeneralVelocityTracker<N> {
 
 impl<const N: usize> VelocityTracker for GeneralVelocityTracker<N> {
     fn push(&mut self, time: Instant, position_delta: LogicalVector) {
-        self.push_precise(Duration::from_millis(time.0), position_delta);
+        self.buffer.push(time, position_delta);
     }
 
     fn last_time(&self) -> Option<Instant> {
-        self.last_sample_time().map(|time| Instant(time.as_millis() as u64))
-    }
-    fn push_precise(&mut self, time: Duration, delta: LogicalVector) {
-        self.buffer.push(time, delta);
-    }
-    fn last_sample_time(&self) -> Option<Duration> {
         self.buffer.last_time()
     }
 }

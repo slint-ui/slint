@@ -7,6 +7,7 @@ use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
 };
 use i_slint_core::SharedString;
+use i_slint_core::animations::Instant;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, TouchHistory, TouchPhase};
@@ -440,11 +441,7 @@ bind_java_type! {
 }
 
 impl JavaHelper {
-    pub fn input_timestamp(
-        &self,
-        event_nanos: i64,
-        window: &i_slint_core::api::Window,
-    ) -> Duration {
+    pub fn input_timestamp(&self, event_nanos: i64, window: &i_slint_core::api::Window) -> Instant {
         let offset = self.2.get_or_init(|| {
             let uptime = self
                 .with_jni_env(|env, _| AndroidSystemClock::uptime_millis(env))
@@ -452,7 +449,7 @@ impl JavaHelper {
             let ctx = i_slint_core::window::WindowInner::from_pub(window).context();
             (i_slint_core::animations::Instant::now(&ctx).0 as i64 - uptime) * 1_000_000
         });
-        Duration::from_nanos(event_nanos.saturating_add(*offset).max(0) as u64)
+        Instant(Duration::from_nanos(event_nanos.saturating_add(*offset).max(0) as u64))
     }
     pub fn new(app: &AndroidApp) -> Result<Self, jni::errors::Error> {
         Ok(Self(load_java_helper(app)?, app.clone(), Default::default()))

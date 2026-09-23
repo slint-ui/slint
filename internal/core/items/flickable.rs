@@ -491,9 +491,10 @@ struct FlickableDataInner {
 impl FlickableDataInner {
     /// Lose momentum if certain conditions are not fulfilled
     fn maybe_lose_momentum(&mut self, tick: &Instant) {
-        if self.last_scroll_event.is_none_or(|(time, _)| {
-            tick.0.saturating_sub(time.0) > MOMENTUM_RETAIN_TIMEOUT.as_millis() as u64
-        }) {
+        if self
+            .last_scroll_event
+            .is_none_or(|(time, _)| tick.0.saturating_sub(time.0) > MOMENTUM_RETAIN_TIMEOUT)
+        {
             self.retained_velocity = Default::default();
         }
     }
@@ -549,18 +550,17 @@ impl FlickableDataInner {
     }
 
     fn track_move(&mut self, current_tick: Instant, delta: LogicalVector, history: &TouchHistory) {
-        let current_tick = history.event_time.unwrap_or(Duration::from_millis(current_tick.0));
-        if self.last_mouse_position.is_none() {
-            if let Some(start_time) = history.start_time {
-                self.velocity_rb = VelocityTracker::default();
-                self.velocity_rb.push_precise(start_time, LogicalVector::default());
-            }
-        }
+        let current_tick = history.event_time.unwrap_or(current_tick);
+        // if self.last_mouse_position.is_none() {
+        //     if let Some(start_time) = history.start_time {
+        //         self.velocity_rb = VelocityTracker::default();
+        //         self.velocity_rb.push(start_time, LogicalVector::default());
+        //     }
+        // }
         if history.history.len() > 0 {
-            let mut last_time = self
-                .velocity_rb
-                .last_sample_time()
-                .unwrap_or(current_tick.saturating_sub(history.history.first().unwrap().1));
+            let mut last_time = self.velocity_rb.last_time().unwrap_or(Instant(
+                current_tick.0.saturating_sub(history.history.first().unwrap().1.0),
+            ));
 
             // Make sure we don't get a negative diff
             let mut clamp_time = |t| {
@@ -570,35 +570,33 @@ impl FlickableDataInner {
 
             if let Some(event_pos) = history.event_pos {
                 let first = history.history.first().unwrap();
-                let instant = clamp_time(current_tick.saturating_sub(first.1));
-                self.maybe_lose_momentum(&Instant(instant.as_millis() as u64));
-                self.velocity_rb.push_precise(instant, first.0 - (event_pos - delta));
+                let instant = clamp_time(current_tick.0.saturating_sub(first.1.0));
+                self.maybe_lose_momentum(&instant);
+                self.velocity_rb.push(instant, first.0 - (event_pos - delta));
                 for (older, newer) in history.history.iter().zip(history.history.iter().skip(1)) {
                     let instant = clamp_time(current_tick.saturating_sub(newer.1));
-                    self.maybe_lose_momentum(&Instant(instant.as_millis() as u64));
+                    self.maybe_lose_momentum(&Instant(instant));
                     let delta = newer.0 - older.0;
-                    self.velocity_rb.push_precise(instant, delta);
+                    self.velocity_rb.push(instant, delta);
                 }
-                self.maybe_lose_momentum(&Instant(current_tick.as_millis() as u64));
+                self.maybe_lose_momentum(&current_tick);
                 let delta = event_pos - history.history.last().unwrap().0;
-                self.velocity_rb.push_precise(current_tick, delta);
+                self.velocity_rb.push(current_tick, delta);
             } else {
                 // Every event is already a delta
                 for e in history.history.iter() {
                     let instant = clamp_time(current_tick.saturating_sub(e.1));
-                    self.maybe_lose_momentum(&Instant(instant.as_millis() as u64));
-                    self.velocity_rb.push_precise(
-                        instant,
-                        LogicalVector::from_lengths(e.0.x_length(), e.0.y_length()),
-                    );
+                    self.maybe_lose_momentum(&Instant(instant));
+                    self.velocity_rb
+                        .push(instant, LogicalVector::from_lengths(e.0.x_length(), e.0.y_length()));
                 }
 
                 // We cannot use the input delta because this is the sum of all history deltas
                 // So we don't have to push any further values here
             }
         } else {
-            self.maybe_lose_momentum(&Instant(current_tick.as_millis() as u64));
-            self.velocity_rb.push_precise(current_tick, delta);
+            self.maybe_lose_momentum(&current_tick);
+            self.velocity_rb.push(current_tick, delta);
         }
     }
 
