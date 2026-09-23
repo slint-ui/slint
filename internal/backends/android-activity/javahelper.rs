@@ -13,7 +13,7 @@ use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, TouchHistory, TouchPhase};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::items::{CapitalizationMode, ColorScheme, InputType};
-use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalVector, PhysicalEdges, PointLengths};
+use i_slint_core::lengths::{LogicalLength, PhysicalEdges};
 use i_slint_core::platform::{
     InternalEvent, Key, WindowAdapter, WindowEvent, WindowEventDispatchResult,
 };
@@ -771,35 +771,23 @@ fn callback_forward_touch<'local>(
             };
             let position = logical_position(position.0, position.1);
             let history = if phase == TouchPhase::Moved {
-                let mut history = Vec::with_capacity(historical_points.len());
-                let mut prev_pos = None;
-                for (x, y, time) in historical_points {
-                    let pos = logical_position(x, y);
-                    let instant = adapter.java_helper.input_timestamp(time, &adapter.window);
-                    if let Some(prev) = prev_pos {
-                        let delta: LogicalVector = pos - prev;
-                        history.push((
-                            LogicalPoint::from_lengths(delta.x_length(), delta.y_length()),
-                            instant,
-                        ));
-                    }
-                    prev_pos = Some(pos);
-                }
-                if let Some(prev) = prev_pos {
-                    let delta: LogicalVector = position - prev;
-                    history.push((
-                        LogicalPoint::from_lengths(delta.x_length(), delta.y_length()),
-                        adapter.java_helper.input_timestamp(event_time, &adapter.window),
-                    ));
-                }
+                TouchHistory::from_positions(
+                    adapter.java_helper.input_timestamp(event_time, &adapter.window),
+                    position,
+                    historical_points.into_iter().map(|(x, y, time)| {
+                        (
+                            logical_position(x, y),
+                            adapter.java_helper.input_timestamp(time, &adapter.window),
+                        )
+                    }),
+                )
+            } else {
                 TouchHistory {
                     event_time: Some(
                         adapter.java_helper.input_timestamp(event_time, &adapter.window),
                     ),
-                    history,
+                    ..Default::default()
                 }
-            } else {
-                Default::default()
             };
             adapter.window.dispatch_event(WindowEvent::internal(InternalEvent::Touch {
                 id: 0,

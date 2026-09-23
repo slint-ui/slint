@@ -551,12 +551,13 @@ impl FlickableDataInner {
 
     fn track_move(&mut self, current_tick: Instant, delta: LogicalVector, history: &TouchHistory) {
         let current_tick = history.event_time.unwrap_or(current_tick);
-        // if self.last_mouse_position.is_none() {
-        //     if let Some(start_time) = history.start_time {
-        //         self.velocity_rb = VelocityTracker::default();
-        //         self.velocity_rb.push(start_time, LogicalVector::default());
-        //     }
-        // }
+        if self.last_mouse_position.is_none() {
+            if let Some(start_time) = history.start_time {
+                // Sample intervals must use event times even when delivery is delayed.
+                self.velocity_rb = VelocityTracker::default();
+                self.velocity_rb.push(start_time, LogicalVector::default());
+            }
+        }
         if history.history.len() > 0 {
             let mut last_time =
                 self.velocity_rb.last_time().unwrap_or(history.history.first().unwrap().1);
@@ -567,12 +568,20 @@ impl FlickableDataInner {
                 last_time
             };
 
-            // Every event is already a delta
-            for e in history.history.iter() {
+            // Backends only know positions within this batch, so recover the leading
+            // movement from the full delta since the previous pointer event.
+            let leading_delta = history.history.iter().skip(1).fold(delta, |delta, (sample, _)| {
+                delta - LogicalVector::from_lengths(sample.x_length(), sample.y_length())
+            });
+            for (index, e) in history.history.iter().enumerate() {
                 let instant = clamp_time(e.1);
                 self.maybe_lose_momentum(&instant);
-                self.velocity_rb
-                    .push(instant, LogicalVector::from_lengths(e.0.x_length(), e.0.y_length()));
+                let delta = if index == 0 {
+                    leading_delta
+                } else {
+                    LogicalVector::from_lengths(e.0.x_length(), e.0.y_length())
+                };
+                self.velocity_rb.push(instant, delta);
             }
             // We cannot use the input delta because this is the sum of all history deltas
             // So we don't have to push any further values here
@@ -868,7 +877,7 @@ impl FlickableDataInner {
             let x_simulation = if inside_bounds_x {
                 match velocity_estimation.as_ref() {
                     Some(velocity_estimation)
-                        if velocity_estimation.velocity.x
+                        if velocity_estimation.velocity.x.abs()
                             >= FlickAnimation::minimum_flick_velocity_animation() =>
                     {
                         let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
@@ -916,7 +925,7 @@ impl FlickableDataInner {
             let y_simulation = if inside_bounds_y {
                 match velocity_estimation.as_ref() {
                     Some(velocity_estimation)
-                        if velocity_estimation.velocity.x
+                        if velocity_estimation.velocity.y.abs()
                             >= FlickAnimation::minimum_flick_velocity_animation() =>
                     {
                         let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
@@ -1381,30 +1390,155 @@ mod velocity_history_tests {
     }
 
     #[test]
+    fn delayed_touch_press_preserves_short_flick_velocity() {
+        use crate::input::TouchState;
+
+        for frame_offset_ms in [-8, 6, 20] {
+            for batched in [false, true] {
+                for sign in [-1., 1.] {
+                    let start = crate::animations::current_tick() + Duration::from_millis(100);
+                    let press_frame = if frame_offset_ms < 0 {
+                        start - Duration::from_millis((-frame_offset_ms) as u64)
+                    } else {
+                        start + Duration::from_millis(frame_offset_ms as u64)
+                    };
+                    let first = start + Duration::from_micros(7000);
+                    let end = start + Duration::from_micros(10500);
+                    let first_position = LogicalPoint::new(0., sign * 42.);
+                    let end_position = LogicalPoint::new(0., sign * 63.);
+                    let mut touch = TouchState::default();
+                    touch.process(
+                        0,
+                        LogicalPoint::default(),
+                        TouchPhase::Started,
+                        TouchHistory { event_time: Some(start), ..Default::default() },
+                    );
+                    let mut inner = FlickableDataInner::default();
+                    inner.velocity_rb.push(press_frame, LogicalVector::default());
+                    let moves = if batched {
+                        alloc::vec![(
+                            end_position,
+                            TouchHistory::from_positions(
+                                end,
+                                end_position,
+                                [(first_position, first)],
+                            )
+                        )]
+                    } else {
+                        alloc::vec![
+                            (
+                                first_position,
+                                TouchHistory::from_positions(first, first_position, [])
+                            ),
+                            (end_position, TouchHistory::from_positions(end, end_position, [])),
+                        ]
+                    };
+                    for (position, history) in moves {
+                        let events = touch.process(0, position, TouchPhase::Moved, history);
+                        for event in events.into_iter() {
+                            if let MouseEvent::Moved { position, history, .. } = event {
+                                assert_eq!(history.get().unwrap().start_time, Some(start));
+                                let delta =
+                                    position - inner.last_mouse_position.unwrap_or_default();
+                                inner.track_move(
+                                    start + Duration::from_millis(100),
+                                    delta,
+                                    history.get().unwrap(),
+                                );
+                                inner.last_mouse_position = Some(position);
+                            }
+                        }
+                    }
+                    let mut reference = VelocityTracker::default();
+                    reference.push(start, LogicalVector::default());
+                    reference.push(first, LogicalVector::new(0., sign * 42.));
+                    reference.push(end, LogicalVector::new(0., sign * 21.));
+                    let actual = inner.velocity_rb.estimate_velocity().unwrap().velocity;
+                    let expected = reference.estimate_velocity().unwrap().velocity;
+                    assert_eq!(
+                        actual, expected,
+                        "frame offset {frame_offset_ms}, batched {batched}, sign {sign}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn coalesced_history_preserves_leading_segment() {
+        for sign in [-1., 1.] {
+            for historical_positions in [alloc::vec![], alloc::vec![15], alloc::vec![12, 15]] {
+                let start = crate::animations::current_tick();
+                let mut inner = FlickableDataInner::default();
+                inner.velocity_rb.push(start, LogicalVector::default());
+                inner.track_move(
+                    start + Duration::from_millis(5),
+                    LogicalVector::new(sign * 5., sign * 10.),
+                    &TouchHistory::default(),
+                );
+                inner.track_move(
+                    start + Duration::from_millis(10),
+                    LogicalVector::new(sign * 5., sign * 10.),
+                    &TouchHistory::default(),
+                );
+                let end = start + Duration::from_millis(20);
+                let history = TouchHistory::from_positions(
+                    end,
+                    LogicalPoint::new(sign * 20., sign * 40.),
+                    historical_positions.into_iter().map(|time| {
+                        (
+                            LogicalPoint::new(sign * time as f32, sign * time as f32 * 2.),
+                            start + Duration::from_millis(time),
+                        )
+                    }),
+                );
+                inner.track_move(end, LogicalVector::new(sign * 10., sign * 20.), &history);
+                crate::animations::update_animations(end);
+                let estimate = inner.velocity_rb.estimate_velocity().unwrap();
+                assert!(
+                    (estimate.velocity.x - sign * 1000.).abs() < 0.01,
+                    "{}",
+                    estimate.velocity.x
+                );
+                assert!(
+                    (estimate.velocity.y - sign * 2000.).abs() < 0.01,
+                    "{}",
+                    estimate.velocity.y
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn coalesced_history_preserves_zero_leading_movement() {
         let start = crate::animations::current_tick();
-        let mut inner = FlickableDataInner::default();
-        inner.velocity_rb.push(start, LogicalVector::default());
-        inner.track_move(
-            start + Duration::from_millis(10),
-            LogicalVector::new(0., 10.),
-            &TouchHistory::default(),
-        );
+        let mut with_history = FlickableDataInner::default();
+        let mut without_history = FlickableDataInner::default();
+        for inner in [&mut with_history, &mut without_history] {
+            inner.velocity_rb.push(start, LogicalVector::default());
+            inner.track_move(
+                start + Duration::from_millis(10),
+                LogicalVector::new(0., 10.),
+                &TouchHistory::default(),
+            );
+        }
+        let middle = start + Duration::from_millis(15);
         let end = start + Duration::from_millis(20);
-        inner.track_move(
+        with_history.track_move(
             end,
             LogicalVector::new(0., 10.),
-            &TouchHistory {
-                event_time: Some(end),
-                history: alloc::vec![
-                    (LogicalPoint::new(0., 5.), start + Duration::from_millis(15)),
-                    (LogicalPoint::new(0., 5.), end),
-                ],
-                ..Default::default()
-            },
+            &TouchHistory::from_positions(
+                end,
+                LogicalPoint::new(0., 20.),
+                [(LogicalPoint::new(0., 10.), middle)],
+            ),
         );
+        without_history.track_move(middle, LogicalVector::default(), &TouchHistory::default());
+        without_history.track_move(end, LogicalVector::new(0., 10.), &TouchHistory::default());
         crate::animations::update_animations(end);
-        let estimate = inner.velocity_rb.estimate_velocity().unwrap();
-        assert!((estimate.velocity.y - 1000.).abs() < 0.01, "{}", estimate.velocity.y);
+        assert_eq!(
+            with_history.velocity_rb.estimate_velocity().unwrap().velocity,
+            without_history.velocity_rb.estimate_velocity().unwrap().velocity,
+        );
     }
 }

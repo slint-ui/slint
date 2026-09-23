@@ -17,7 +17,7 @@ use core::time::Duration;
 use euclid::Vector2D;
 
 const HORIZON: Duration = Duration::from_millis(100);
-const MIN_SAMPLE_SIZE: usize = 3;
+const MIN_SAMPLE_SIZE: usize = 2;
 
 #[derive(Default, Debug)]
 pub(crate) struct GeneralVelocityTracker<const N: usize> {

@@ -313,7 +313,12 @@ instance.window().dispatch_event(WindowEvent::PointerPressed { position: Logical
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
 slint_testing::mock_elapsed_time(300);
 assert_eq!(instance.get_flicked(), 0); //flicked didn't get called by just pressing
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) }); // At least two moves are required to determine the velocity
+// Two recent movements keep the release speed above the minimum fling threshold.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(125.0, 140.0) });
+assert_eq!(instance.get_flicked(), -8000085);
+instance.set_flicked(0);
+slint_testing::mock_elapsed_time(2);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) });
 slint_testing::mock_elapsed_time(2); // Below the threshold
 assert_eq!(instance.get_flicked(), -10500105); //flicked got called during drag
 instance.set_flicked(0);
@@ -342,7 +347,12 @@ instance.window().dispatch_event(WindowEvent::PointerPressed { position: Logical
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
 slint_testing::mock_elapsed_time(300);
 assert_eq!(instance.get_flicked(), 0); //flicked didn't get called by just pressing
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) }); // At least two moves are required to determine the velocity
+// Two recent movements keep the release speed above the minimum fling threshold.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(125.0, 140.0) });
+assert_eq!(instance.get_flicked(), -8000085);
+instance.set_flicked(0);
+slint_testing::mock_elapsed_time(2);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) });
 slint_testing::mock_elapsed_time(10000); // Long time
 assert_eq!(instance.get_flicked(), -10500105); //flicked got called during drag
 instance.set_flicked(0);

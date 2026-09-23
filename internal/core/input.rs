@@ -209,10 +209,33 @@ impl MouseEvent {
 pub struct TouchHistory {
     /// Original sample time on the animation clock, independent of event delivery.
     pub event_time: Option<crate::animations::Instant>,
-    /// - Duration to the event point this history relates
-    /// - If event_pos is not None, the history points are absolute values
-    /// otherwise they are deltas to the next event point
+    /// Original time of the press that began this single-touch gesture.
+    pub start_time: Option<crate::animations::Instant>,
+    /// Chronological movement deltas and their sample times, including the current event.
+    /// The consumer reconstructs the first delta from the event's total movement.
     pub history: Vec<(LogicalPoint, crate::animations::Instant)>,
+}
+
+impl TouchHistory {
+    /// Converts historical positions into deltas, retaining the first sample's time.
+    /// The first delta is unknown until the consumer supplies its previous pointer position.
+    pub fn from_positions(
+        event_time: crate::animations::Instant,
+        event_position: LogicalPoint,
+        positions: impl IntoIterator<Item = (LogicalPoint, crate::animations::Instant)>,
+    ) -> Self {
+        let mut history = Vec::new();
+        let mut previous = None;
+        for (position, time) in positions {
+            let delta = previous.map_or(LogicalVector::default(), |previous| position - previous);
+            history.push((delta.to_point(), time));
+            previous = Some(position);
+        }
+        if let Some(previous) = previous {
+            history.push(((event_position - previous).to_point(), event_time));
+        }
+        Self { event_time: Some(event_time), start_time: None, history }
+    }
 }
 
 /// The [`TouchHistory`] of a move event.
@@ -2200,6 +2223,7 @@ pub(crate) struct TouchState {
     active_touches: TouchMap,
     /// The finger forwarded as mouse events during single-touch.
     primary_touch_id: Option<i32>,
+    primary_touch_start_time: Option<crate::animations::Instant>,
     gesture_state: GestureRecognitionState,
 }
 
@@ -2208,6 +2232,7 @@ impl Default for TouchState {
         Self {
             active_touches: TouchMap::default(),
             primary_touch_id: None,
+            primary_touch_start_time: None,
             gesture_state: GestureRecognitionState::Idle,
         }
     }
@@ -2275,14 +2300,26 @@ impl TouchState {
         id: i32,
         position: LogicalPoint,
         phase: TouchPhase,
-        history: TouchHistory,
+        mut history: TouchHistory,
     ) -> TouchEventBuffer {
         let mut events = TouchEventBuffer::new();
+        let event_time = history.event_time;
+        history.start_time = self.primary_touch_start_time;
         match phase {
             TouchPhase::Started => self.process_started(id, position, &mut events),
             TouchPhase::Moved => self.process_moved(id, position, history, &mut events),
             TouchPhase::Ended => self.process_ended(id, position, false, &mut events),
             TouchPhase::Cancelled => self.process_ended(id, position, true, &mut events),
+        }
+        // Synthetic presses after a multi-touch gesture start a new velocity history.
+        for event in events.events[..events.len].iter().flatten() {
+            match event {
+                MouseEvent::Pressed { .. } => self.primary_touch_start_time = event_time,
+                MouseEvent::Released { .. } | MouseEvent::Exit => {
+                    self.primary_touch_start_time = None
+                }
+                _ => {}
+            }
         }
         events
     }
@@ -2534,6 +2571,45 @@ mod touch_tests {
 
     fn pt(x: f32, y: f32) -> LogicalPoint {
         euclid::point2(x, y)
+    }
+
+    #[test]
+    fn original_press_time_follows_synthetic_touch_presses() {
+        use crate::animations::Instant;
+
+        let mut state = TouchState::default();
+        for (id, phase, millis, expected_start) in [
+            (0, TouchPhase::Started, 100, None),
+            (0, TouchPhase::Moved, 110, Some(100)),
+            (1, TouchPhase::Started, 120, None),
+            (1, TouchPhase::Ended, 130, None),
+            (0, TouchPhase::Moved, 140, Some(130)),
+            (0, TouchPhase::Cancelled, 150, None),
+            (0, TouchPhase::Started, 160, None),
+            (0, TouchPhase::Moved, 170, Some(160)),
+        ] {
+            let events = state.process(
+                id,
+                pt(0., 0.),
+                phase,
+                TouchHistory {
+                    event_time: Some(Instant(Duration::from_millis(millis))),
+                    ..Default::default()
+                },
+            );
+            let starts: Vec<_> = events
+                .into_iter()
+                .filter_map(|event| match event {
+                    MouseEvent::Moved { history, .. } => Some(history.get().unwrap().start_time),
+                    _ => None,
+                })
+                .collect();
+            let expected: Vec<_> = expected_start
+                .into_iter()
+                .map(|millis| Some(Instant(Duration::from_millis(millis))))
+                .collect();
+            assert_eq!(starts, expected);
+        }
     }
 
     // -----------------------------------------------------------------------
