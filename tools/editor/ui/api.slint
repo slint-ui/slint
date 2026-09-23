@@ -90,6 +90,9 @@ export struct RemoteViewerInfo {
 export enum RemoteConnectionState {
     Disconnected,
     Connecting,
+    /// A session dropped and is being redialed. Connecting elsewhere
+    /// replaces the redial.
+    Reconnecting,
     /// The viewer is showing a pairing code and is waiting for it to be
     /// typed in here.
     PairingRequired,
