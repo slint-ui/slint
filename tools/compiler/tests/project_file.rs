@@ -180,3 +180,23 @@ fn a_project_file_argument_without_an_entry_is_reported() {
     assert!(!output.status.success());
     assert!(stderr(&output).contains("'entry'"), "{}", stderr(&output));
 }
+
+#[cfg(feature = "python")]
+#[test]
+fn generated_python_loads_the_project_file_it_was_generated_from() {
+    let project = Project::new(Some(r#"{ "entry": "ui/main.slint" }"#));
+    project.write("ui/main.slint", PLAIN);
+    let generated = project.root.join("app_window.py");
+    std::fs::write(&generated, "").unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
+        .args(["-f", "python", "-o"])
+        .arg(&generated)
+        .arg(project.root.join("slint-project.json"))
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", stderr(&output));
+
+    let code = std::fs::read_to_string(&generated).unwrap();
+    assert!(code.contains("r'slint-project.json'"), "{code}");
+}
