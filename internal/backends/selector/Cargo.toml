@@ -107,7 +107,7 @@ i-slint-renderer-femtovg = { workspace = true, optional = true }
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-backend-android-activity = { workspace = true, optional = true }
 
-[target.'cfg(not(target_os = "wasm"))'.dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 i-slint-backend-qt = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
