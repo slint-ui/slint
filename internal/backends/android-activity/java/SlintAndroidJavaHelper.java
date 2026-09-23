@@ -600,6 +600,17 @@ public class SlintAndroidJavaHelper {
     PopupWindow mControlPopup;
     private OnBackInvokedCallback mBackCallback;
 
+    public static long motionEventTime(MotionEvent event) {
+        return android.os.Build.VERSION.SDK_INT >= 34
+                ? event.getEventTimeNanos() : event.getEventTime() * 1000000L;
+    }
+
+    public static long historicalMotionEventTime(MotionEvent event, int index) {
+        return android.os.Build.VERSION.SDK_INT >= 34
+                ? event.getHistoricalEventTimeNanos(index)
+                : event.getHistoricalEventTime(index) * 1000000L;
+    }
+
     public SlintAndroidJavaHelper(Activity activity) {
         this.mActivity = activity;
         this.mInputView = new SlintInputView(activity);
@@ -614,6 +625,14 @@ public class SlintAndroidJavaHelper {
                 if ("dev.slint.androidscrollcomparison".equals(mActivity.getPackageName())) {
                     boolean nativeControl = mActivity.getIntent().getBooleanExtra("native_control", false);
                     float density = mActivity.getResources().getDisplayMetrics().density;
+                    for (int speed : new int[] { 50, 100, 200, 300, 376, 500, 600, 752,
+                            1000, 1250, 1504, 2000, 2500, 3008, 4000, 5000, 6000,
+                            7500, 9000, 12000 }) {
+                        android.widget.OverScroller probe = new android.widget.OverScroller(mActivity);
+                        probe.fling(0, 0, 0, Math.round(speed * density), 0, 0, 0, Integer.MAX_VALUE);
+                        Log.i("ScrollCompare", "PHYSICS," + speed + ","
+                                + probe.getFinalY() / density);
+                    }
                     LinearLayout nativePane = new LinearLayout(mActivity);
                 nativePane.setOrientation(LinearLayout.VERTICAL);
                 nativePane.setBackgroundColor(nativeControl

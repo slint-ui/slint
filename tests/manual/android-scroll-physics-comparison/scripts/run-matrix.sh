@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 # cspell:ignore androidscrollcomparison logcat
@@ -29,8 +29,12 @@ run_gesture() {
   adb -s "$serial" shell input swipe "$x" "$start_y" "$x" "$end_y" "$duration"
   sleep 6
   adb -s "$serial" logcat -d -v epoch \
-    -s ScrollCompare:I android_native_slint_scroll:I '*:S' \
+    -s ScrollCompare:I android_native_slint_scroll:I RustStdoutStderr:I '*:S' \
     > "$out/$name.log"
+  if ! grep -q 'ScrollCompare: A,' "$out/$name.log"; then
+    echo "No native comparison frames for $name; check that the device is awake and unlocked." >&2
+    exit 1
+  fi
 }
 
 for duration in 1000 500 250 125; do

@@ -207,6 +207,10 @@ impl MouseEvent {
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TouchHistory {
+    /// Original sample time on the animation clock, independent of event delivery.
+    pub event_time: Option<Duration>,
+    /// Touch-down time on the same clock.
+    pub start_time: Option<Duration>,
     pub event_pos: Option<LogicalPoint>,
     /// - Duration to the event point this history relates
     /// - If event_pos is not None, the history points are absolute values

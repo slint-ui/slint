@@ -160,6 +160,13 @@ impl FlickAnimation {
         )
     }
 
+    pub fn minimum_flick_velocity_animation() -> f32 {
+        #[cfg(target_os = "ios")]
+        return 250.;
+        #[cfg(not(target_os = "ios"))]
+        return 50.;
+    }
+
     pub fn carried_momentum(
         new_estimated_velocity: f32,
         current_velocity: f32,
@@ -231,7 +238,12 @@ impl FlickAnimation {
                     AndroidFlickParameters::new_with_default_friction(velocity)
                 }
                 FlickAnimationParameter::Distance { delta, duration } => {
-                    AndroidFlickParameters::new_with_distance(delta, duration)
+                    return FlickAnimation::Android(AndroidFlick::new_with_distance(
+                        start_value,
+                        limit_value,
+                        delta,
+                        duration,
+                    ));
                 }
             };
             FlickAnimation::Android(params.simulation(start_value, limit_value))

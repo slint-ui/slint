@@ -787,7 +787,7 @@ checksum = "48ce8546b993eaf241d69ded33b1be6d205dd9857ec879d9d18bd05d3676e144"
 
 [[package]]
 name = "i-slint-backend-android-activity"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "android-activity 0.5.2",
  "android-activity 0.6.1",
@@ -802,9 +802,8 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-selector"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
- "cfg-if",
  "cfg_aliases",
  "i-slint-backend-android-activity",
  "i-slint-common",
@@ -814,7 +813,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-common"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "derive_more",
  "fontique",
@@ -829,7 +828,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-compiler"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "annotate-snippets",
  "by_address",
@@ -855,10 +854,9 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "bitflags",
- "cfg-if",
  "chrono",
  "clru",
  "const-field-offset",
@@ -904,7 +902,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core-macros"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "quote",
  "serde_json",
@@ -913,10 +911,9 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-skia"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "bytemuck",
- "cfg-if",
  "cfg_aliases",
  "clru",
  "const-field-offset",
@@ -945,7 +942,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-software"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "bytemuck",
  "clru",
@@ -2194,7 +2191,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slint"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "const-field-offset",
  "i-slint-backend-android-activity",
@@ -2213,7 +2210,7 @@ dependencies = [
 
 [[package]]
 name = "slint-macros"
-version = "1.18.1"
+version = "1.19.0"
 dependencies = [
  "i-slint-compiler",
  "proc-macro2",

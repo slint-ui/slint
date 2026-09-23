@@ -416,6 +416,14 @@ impl AndroidWindowAdapter {
                                         position: event_pos,
                                         phase: TouchPhase::Moved,
                                         history: TouchHistory {
+                                            event_time: Some(
+                                                self.java_helper
+                                                    .input_timestamp(now_event_time, &self.window),
+                                            ),
+                                            start_time: Some(self.java_helper.input_timestamp(
+                                                motion_event.down_time(),
+                                                &self.window,
+                                            )),
                                             event_pos: Some(event_pos),
                                             history,
                                         },

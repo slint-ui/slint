@@ -77,13 +77,17 @@ slint_testing::mock_elapsed_time(1);
 let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
 assert!((velocity - (130. - 5.) / 10e-3).abs() < 100., "Received: {velocity}");
 
+// Compare the same interval after release for both flings. The AOSP table's
+// small nonzero first entry affects the first millisecond's finite difference.
+let first_velocity = velocity;
 // Flick again while the other is ongoing
 send_mouse_press_and_release(&instance, 5., 130., 5., 5.); // Finger moves up -> Scrolling down.
+slint_testing::mock_elapsed_time(5);
 
 let content_y = instance.get_fli_content_y();
 slint_testing::mock_elapsed_time(1);
 let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
-assert!((velocity - (130. - 5.) / 10e-3).abs() < 100., "Received: {velocity}. There is no velocity increase because carry-momentum is off");
+assert!((velocity - first_velocity).abs() < 1., "Received: {velocity}, first fling: {first_velocity}. There is no velocity increase because carry-momentum is off");
 ```
 
 // Testcase 2. Carry momentum is on

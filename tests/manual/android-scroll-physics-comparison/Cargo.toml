@@ -21,7 +21,9 @@ android_logger = "0.15.1"
 [package.metadata.android]
 package = "dev.slint.androidscrollcomparison"
 build_targets = ["aarch64-linux-android"]
-target_sdk_version = 35
+
+[package.metadata.android.sdk]
+target_sdk_version = 33
 min_sdk_version = 26
 
 [package.metadata.android.application]

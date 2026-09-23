@@ -59,5 +59,8 @@ in 20 ms.
 The diagnostic instrumentation records native and Slint frame offsets, native
 release velocity, Slint's estimated release velocity, and the interval between
 the last move event and release.
-It does not include the candidate fix for the missing leading Android history
-segment described in [FINDINGS.md](FINDINGS.md).
+The current checkout preserves the leading historical movement segment and original sample timing.
+Non-bouncing touch flings use Slint's standalone Rust implementation of the AOSP spline.
+Android `OverScroller` is only a comparison reference; it does not drive Slint motion.
+Keep the device awake and unlocked while running the matrix.
+See the latest validation section in [FINDINGS.md](FINDINGS.md) for measured alignment and remaining limitations.

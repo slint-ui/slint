@@ -466,7 +466,7 @@ struct FlickableDataInner {
     /// The last mouse position received, used to calculate the delta when flicking with the mouse.
     ///
     /// This position is in the coordinate system of the flickable, not of the content element.
-    last_mouse_position: LogicalPoint,
+    last_mouse_position: Option<LogicalPoint>,
     /// Set to true if the flickable is flicking and capturing all mouse event, not forwarding back to the children
     capture_events: Option<CaptureEvents>,
     /// Heuristics for filtering scroll events from children after we have scrolled ourselves.
@@ -491,10 +491,9 @@ struct FlickableDataInner {
 impl FlickableDataInner {
     /// Lose momentum if certain conditions are not fulfilled
     fn maybe_lose_momentum(&mut self, tick: &Instant) {
-        if self
-            .last_scroll_event
-            .is_none_or(|(time, _)| tick.duration_since(time) > MOMENTUM_RETAIN_TIMEOUT)
-        {
+        if self.last_scroll_event.is_none_or(|(time, _)| {
+            tick.0.saturating_sub(time.0) > MOMENTUM_RETAIN_TIMEOUT.as_millis() as u64
+        }) {
             self.retained_velocity = Default::default();
         }
     }
@@ -550,11 +549,18 @@ impl FlickableDataInner {
     }
 
     fn track_move(&mut self, current_tick: Instant, delta: LogicalVector, history: &TouchHistory) {
+        let current_tick = history.event_time.unwrap_or(Duration::from_millis(current_tick.0));
+        if self.last_mouse_position.is_none() {
+            if let Some(start_time) = history.start_time {
+                self.velocity_rb = VelocityTracker::default();
+                self.velocity_rb.push_precise(start_time, LogicalVector::default());
+            }
+        }
         if history.history.len() > 0 {
             let mut last_time = self
                 .velocity_rb
-                .last_time()
-                .unwrap_or(current_tick - history.history.first().unwrap().1);
+                .last_sample_time()
+                .unwrap_or(current_tick.saturating_sub(history.history.first().unwrap().1));
 
             // Make sure we don't get a negative diff
             let mut clamp_time = |t| {
@@ -563,30 +569,36 @@ impl FlickableDataInner {
             };
 
             if let Some(event_pos) = history.event_pos {
+                let first = history.history.first().unwrap();
+                let instant = clamp_time(current_tick.saturating_sub(first.1));
+                self.maybe_lose_momentum(&Instant(instant.as_millis() as u64));
+                self.velocity_rb.push_precise(instant, first.0 - (event_pos - delta));
                 for (older, newer) in history.history.iter().zip(history.history.iter().skip(1)) {
-                    let instant = clamp_time(current_tick - newer.1);
-                    self.maybe_lose_momentum(&instant);
+                    let instant = clamp_time(current_tick.saturating_sub(newer.1));
+                    self.maybe_lose_momentum(&Instant(instant.as_millis() as u64));
                     let delta = newer.0 - older.0;
-                    self.velocity_rb.push(instant, delta);
+                    self.velocity_rb.push_precise(instant, delta);
                 }
-                self.maybe_lose_momentum(&current_tick);
+                self.maybe_lose_momentum(&Instant(current_tick.as_millis() as u64));
                 let delta = event_pos - history.history.last().unwrap().0;
-                self.velocity_rb.push(current_tick, delta);
+                self.velocity_rb.push_precise(current_tick, delta);
             } else {
                 // Every event is already a delta
                 for e in history.history.iter() {
-                    let instant = clamp_time(current_tick - e.1);
-                    self.maybe_lose_momentum(&instant);
-                    self.velocity_rb
-                        .push(instant, LogicalVector::from_lengths(e.0.x_length(), e.0.y_length()));
+                    let instant = clamp_time(current_tick.saturating_sub(e.1));
+                    self.maybe_lose_momentum(&Instant(instant.as_millis() as u64));
+                    self.velocity_rb.push_precise(
+                        instant,
+                        LogicalVector::from_lengths(e.0.x_length(), e.0.y_length()),
+                    );
                 }
 
                 // We cannot use the input delta because this is the sum of all history deltas
                 // So we don't have to push any further values here
             }
         } else {
-            self.maybe_lose_momentum(&current_tick);
-            self.velocity_rb.push(current_tick, delta);
+            self.maybe_lose_momentum(&Instant(current_tick.as_millis() as u64));
+            self.velocity_rb.push_precise(current_tick, delta);
         }
     }
 
@@ -597,14 +609,11 @@ impl FlickableDataInner {
         flick_rc: &ItemRc,
         position: LogicalPoint,
         delta: LogicalVector,
-        history: &TouchHistory,
         content_x: &Pin<&Property<LogicalLength>>,
         content_y: &Pin<&Property<LogicalLength>>,
     ) -> bool {
         let current_tick = crate::animations::current_tick();
         let current_pos = LogicalPoint::from_lengths(content_x.get(), content_y.get());
-
-        self.track_move(current_tick, delta, history);
 
         // We calculate the new content position by adding the mouse delta in the flickable
         // coordinate system to the current content position.
@@ -673,15 +682,9 @@ impl FlickableDataInner {
         let mut flicked = false;
         match phase {
             TouchPhase::Cancelled => {
-                flicked = self.scroll_move(
-                    flick,
-                    flick_rc,
-                    position,
-                    delta,
-                    &Default::default(),
-                    &content_x,
-                    &content_y,
-                );
+                self.track_move(crate::animations::current_tick(), delta, &TouchHistory::default());
+                flicked =
+                    self.scroll_move(flick, flick_rc, position, delta, &content_x, &content_y);
             }
             TouchPhase::Started => {
                 self.velocity_rb = VelocityTracker::default();
@@ -698,16 +701,14 @@ impl FlickableDataInner {
                         delta.y = Self::subtract_distance_threshold(delta.y);
                     }
 
-                    // Touchpad case with different phases
-                    flicked = self.scroll_move(
-                        flick,
-                        flick_rc,
-                        position,
+                    self.track_move(
+                        crate::animations::current_tick(),
                         delta,
-                        &Default::default(),
-                        &content_x,
-                        &content_y,
+                        &TouchHistory::default(),
                     );
+                    // Touchpad case with different phases
+                    flicked =
+                        self.scroll_move(flick, flick_rc, position, delta, &content_x, &content_y);
                     self.capture_events = Some(CaptureEvents::WheelMove);
                 } else {
                     // Mousewheel case with no phase
@@ -886,7 +887,10 @@ impl FlickableDataInner {
 
             let x_simulation = if inside_bounds_x {
                 match velocity_estimation.as_ref() {
-                    Some(velocity_estimation) => {
+                    Some(velocity_estimation)
+                        if velocity_estimation.velocity.x
+                            >= FlickAnimation::minimum_flick_velocity_animation() =>
+                    {
                         let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
                         let carried_velocity_x = FlickAnimation::carried_momentum(
                             velocity_estimation.velocity.x,
@@ -931,7 +935,10 @@ impl FlickableDataInner {
 
             let y_simulation = if inside_bounds_y {
                 match velocity_estimation.as_ref() {
-                    Some(velocity_estimation) => {
+                    Some(velocity_estimation)
+                        if velocity_estimation.velocity.x
+                            >= FlickAnimation::minimum_flick_velocity_animation() =>
+                    {
                         let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
                         let carried_velocity_y = FlickAnimation::carried_momentum(
                             velocity_estimation.velocity.y,
@@ -1030,7 +1037,9 @@ impl FlickableData {
                 }
 
                 inner.pressed_mouse_state = Some((crate::animations::current_tick(), *position));
-                inner.last_mouse_position = *position;
+                inner.last_mouse_position = None;
+                inner.velocity_rb = VelocityTracker::default();
+                inner.velocity_rb.push(crate::animations::current_tick(), LogicalVector::default());
                 inner.capture_momentum();
                 inner.last_scroll_event =
                     Some((crate::animations::current_tick(), Default::default())); // The position is not important
@@ -1230,11 +1239,20 @@ impl FlickableData {
                 // So to correctly calculate the mouse delta, we need to use the position of
                 // the mouse in the flickables coordinate system and never the content coordinate
                 // system.
-                if let Some((_pressed_time, _pressed_mouse_position)) = inner.pressed_mouse_state {
-                    let mut mouse_delta = *position - inner.last_mouse_position;
+                if let Some((_pressed_time, pressed_position)) = inner.pressed_mouse_state {
                     let is_capturing = inner.capture_events.is_some_and(|f| {
                         matches!(f, CaptureEvents::MouseStart | CaptureEvents::MouseMove)
                     });
+                    let tracking_delta =
+                        *position - inner.last_mouse_position.unwrap_or(pressed_position);
+                    let mut mouse_delta =
+                        if is_capturing { tracking_delta } else { *position - pressed_position };
+                    inner.track_move(
+                        crate::animations::current_tick(),
+                        tracking_delta,
+                        history.get().unwrap_or(&TouchHistory::default()),
+                    );
+                    inner.last_mouse_position = Some(*position);
 
                     if is_capturing
                         || self.should_capture_mouse_direction(mouse_delta, flick, flick_rc)
@@ -1257,7 +1275,6 @@ impl FlickableData {
                             flick_rc,
                             *position,
                             mouse_delta,
-                            history.get().unwrap_or(&TouchHistory::default()),
                             &content_x,
                             &content_y,
                         );
@@ -1266,24 +1283,6 @@ impl FlickableData {
                         }
                         inner.capture_events = Some(CaptureEvents::MouseMove);
 
-                        // Only update the mouse position if we are actually applying the delta.
-                        // When the drag starts, there is a short dead zone that is determined by the
-                        // DISTANCE_THRESHOLD. We want to apply that threshold to the
-                        // delta once we've overcome it, so we need to update the position that we
-                        // calculate the delta from only after we've cleared the dead zone and are
-                        // actually moving.
-                        //
-                        // Note: As an alternative to updating the last_mouse_position to the new mouse position,
-                        // we could also update it by the amount that the content actually moved.
-                        // This would cause the mouse to stick to a given position in the content
-                        // instead of starting to drift if the drag goes into the content limits.
-                        // Then this code would need to be:
-                        //
-                        //  inner.last_mouse_position += new_content_position - current_content_position;
-                        //
-                        // But at least for a touchscreen, the current behavior is more intuitive.
-                        inner.last_mouse_position = *position;
-
                         InputEventResult::GrabMouse
                     } else if abs(mouse_delta.x_length()) > DISTANCE_THRESHOLD
                         || abs(mouse_delta.y_length()) > DISTANCE_THRESHOLD
@@ -1291,11 +1290,6 @@ impl FlickableData {
                         // drag in a unsupported direction gives up the grab
                         InputEventResult::EventIgnored
                     } else {
-                        inner.track_move(
-                            crate::animations::current_tick(),
-                            mouse_delta,
-                            history.get().unwrap_or(&TouchHistory::default()),
-                        );
                         // the mouse was moved, but not enough to start the drag, we still want to accept further events
                         // so that we may pass the threshold at some point
                         InputEventResult::EventAccepted
@@ -1383,5 +1377,52 @@ pub unsafe extern "C" fn slint_flickable_data_init(data: *mut FlickableDataBox) 
 pub unsafe extern "C" fn slint_flickable_data_free(data: *mut FlickableDataBox) {
     unsafe {
         core::ptr::drop_in_place(data);
+    }
+}
+
+#[cfg(test)]
+mod velocity_history_tests {
+    use super::*;
+
+    #[test]
+    fn original_sample_time_is_independent_of_delivery_delay() {
+        let start = crate::animations::current_tick();
+        let mut inner = FlickableDataInner::default();
+        inner.velocity_rb.push(start, LogicalVector::default());
+        inner.track_move(
+            start + Duration::from_millis(100),
+            LogicalVector::new(0., 120.),
+            &TouchHistory {
+                event_time: Some(Duration::from_millis(start.0 + 20)),
+                start_time: Some(Duration::from_millis(start.0)),
+                ..Default::default()
+            },
+        );
+        assert_eq!(inner.velocity_rb.last_time(), Some(start + Duration::from_millis(20)));
+    }
+
+    #[test]
+    fn coalesced_history_preserves_leading_segment() {
+        let start = crate::animations::current_tick();
+        let mut inner = FlickableDataInner::default();
+        inner.velocity_rb.push(start, LogicalVector::default());
+        inner.track_move(
+            start + Duration::from_millis(10),
+            LogicalVector::new(0., 10.),
+            &TouchHistory::default(),
+        );
+        let end = start + Duration::from_millis(20);
+        inner.track_move(
+            end,
+            LogicalVector::new(0., 10.),
+            &TouchHistory {
+                event_pos: Some(LogicalPoint::new(0., 20.)),
+                history: alloc::vec![(LogicalPoint::new(0., 15.), Duration::from_millis(5))],
+                ..Default::default()
+            },
+        );
+        crate::animations::update_animations(end);
+        let estimate = inner.velocity_rb.estimate_velocity().unwrap();
+        assert!((estimate.velocity.y - 1000.).abs() < 0.01, "{}", estimate.velocity.y);
     }
 }

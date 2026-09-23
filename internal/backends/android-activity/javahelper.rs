@@ -43,6 +43,8 @@ bind_java_type! {
         fn new(activity: AndroidActivity),
     },
     methods {
+        static fn motion_event_time { name = "motionEventTime", sig = (event: AndroidMotionEvent) -> jlong, },
+        static fn historical_motion_event_time { name = "historicalMotionEventTime", sig = (event: AndroidMotionEvent, index: jint) -> jlong, },
         fn accent_color {
             name = "accent_color",
             sig = () -> jint,
@@ -221,6 +223,10 @@ bind_java_type! {
             name = "getActionMasked",
             sig = () -> jint,
         },
+        fn get_down_time {
+            name = "getDownTime",
+            sig = () -> jlong,
+        },
         fn get_event_time {
             name = "getEventTime",
             sig = () -> jlong,
@@ -344,7 +350,11 @@ pub fn print_jni_error(_app: &AndroidApp, e: jni::errors::Error) -> ! {
 }
 
 #[allow(dead_code)]
-pub struct JavaHelper(jni::refs::Global<SlintAndroidJavaHelper<'static>>, AndroidApp);
+pub struct JavaHelper(
+    jni::refs::Global<SlintAndroidJavaHelper<'static>>,
+    AndroidApp,
+    std::cell::OnceCell<i64>,
+);
 
 fn get_helper_class_loader(
     env: &mut Env,
@@ -422,9 +432,30 @@ fn load_java_helper(
     })
 }
 
+bind_java_type! {
+    AndroidSystemClock => "android.os.SystemClock",
+    methods {
+        static fn uptime_millis { name = "uptimeMillis", sig = () -> jlong, },
+    }
+}
+
 impl JavaHelper {
+    pub fn input_timestamp(
+        &self,
+        event_nanos: i64,
+        window: &i_slint_core::api::Window,
+    ) -> Duration {
+        let offset = self.2.get_or_init(|| {
+            let uptime = self
+                .with_jni_env(|env, _| AndroidSystemClock::uptime_millis(env))
+                .unwrap_or_else(|e| print_jni_error(&self.1, e));
+            let ctx = i_slint_core::window::WindowInner::from_pub(window).context();
+            (i_slint_core::animations::Instant::now(&ctx).0 as i64 - uptime) * 1_000_000
+        });
+        Duration::from_nanos(event_nanos.saturating_add(*offset).max(0) as u64)
+    }
     pub fn new(app: &AndroidApp) -> Result<Self, jni::errors::Error> {
-        Ok(Self(load_java_helper(app)?, app.clone()))
+        Ok(Self(load_java_helper(app)?, app.clone(), Default::default()))
     }
 
     fn with_jni_env<R>(
@@ -703,9 +734,7 @@ fn callback_slint_scroll_offset<'local>(
     _env: &mut Env<'local>,
     _class: JClass<'local>,
 ) -> Result<jfloat, jni::errors::Error> {
-    Ok(f32::from_bits(
-        SCROLL_COMPARISON_OFFSET_BITS.load(std::sync::atomic::Ordering::Relaxed),
-    ))
+    Ok(f32::from_bits(SCROLL_COMPARISON_OFFSET_BITS.load(std::sync::atomic::Ordering::Relaxed)))
 }
 
 fn callback_forward_touch<'local>(
@@ -721,7 +750,8 @@ fn callback_forward_touch<'local>(
         3 => TouchPhase::Cancelled,
         _ => return Ok(()),
     };
-    let event_time = event.get_event_time(env)?;
+    let event_time = SlintAndroidJavaHelper::motion_event_time(env, &event)?;
+    let down_time = event.get_down_time(env)? * 1_000_000;
     let position = (event.get_x(env)?, event.get_y(env)?);
     let mut historical_points = Vec::new();
     if phase == TouchPhase::Moved {
@@ -729,9 +759,9 @@ fn callback_forward_touch<'local>(
             historical_points.push((
                 event.get_historical_x(env, index)?,
                 event.get_historical_y(env, index)?,
-                Duration::from_millis(
-                    event_time.saturating_sub(event.get_historical_event_time(env, index)?) as u64,
-                ),
+                Duration::from_nanos(event_time.saturating_sub(
+                    SlintAndroidJavaHelper::historical_motion_event_time(env, &event, index)?,
+                ) as u64),
             ));
         }
     }
@@ -748,6 +778,12 @@ fn callback_forward_touch<'local>(
             let position = logical_position(position.0, position.1);
             let history = if phase == TouchPhase::Moved {
                 TouchHistory {
+                    event_time: Some(
+                        adapter.java_helper.input_timestamp(event_time, &adapter.window),
+                    ),
+                    start_time: Some(
+                        adapter.java_helper.input_timestamp(down_time, &adapter.window),
+                    ),
                     event_pos: Some(position),
                     history: historical_points
                         .into_iter()
