@@ -12,7 +12,7 @@ the API reference of the items annotated with `\sc` in
 traceability matrix. The pages set their own `slug`, so their location under
 `generated/` doesn't affect their URL.
 
-The language specification under `src/content/docs/language/` is also
+The language specification under `src/content/docs/reference/language/` is also
 gitignored: its canonical source is the main Slint docs
 (`docs/astro/src/content/docs/reference/language/`), from which
 `scripts/sync-language-spec.mjs` copies it on every `pnpm dev`/`pnpm build`.
