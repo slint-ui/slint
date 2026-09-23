@@ -39,6 +39,9 @@ from ui_driver import (
 
 GOLDENS = Path(__file__).resolve().parents[1] / "goldens"
 CORNERS = ["top-left", "top-right", "bottom-right", "bottom-left"]
+EDGES = ["top", "right", "bottom", "left"]
+OPPOSITE_EDGES = {"top": "bottom", "right": "left", "bottom": "top", "left": "right"}
+EDGE_DELTAS = {"top": (0, -16), "right": (20, 0), "bottom": (0, 16), "left": (-20, 0)}
 OPPOSITE_CORNERS = {
     "top-left": "bottom-right",
     "top-right": "bottom-left",
@@ -59,6 +62,11 @@ RADIUS_DELTAS: dict[str, tuple[int, int]] = {
 }
 MOVE_KINDS = ("Rectangle", "Text", "Image")
 ROTATED_KINDS = ("Rectangle", "Text", "Image")
+ROTATED_GEOMETRIES = {
+    "Rectangle": (64, 56, 140, 96),
+    "Text": (160, 64, 180, 56),
+    "Image": (200, 208, 144, 96),
+}
 # The rotation the elements of RotatedCanvasCases.slint carry.
 ROTATED_FIXTURE_ANGLE = 30
 BOUNDARY_KINDS = ("Rectangle", "Text", "Image")
@@ -709,6 +717,27 @@ def rotated_resize_values(
     return (round(new_x), round(new_y), round(new_width), round(new_height))
 
 
+def rotated_edge_resize_values(
+    geometry: tuple[int, int, int, int], edge: str, dx: float, dy: float
+) -> tuple[int, int, int, int]:
+    angle = math.radians(ROTATED_FIXTURE_ANGLE)
+    local_dx = dx * math.cos(angle) + dy * math.sin(angle)
+    local_dy = -dx * math.sin(angle) + dy * math.cos(angle)
+    if edge in ("left", "right"):
+        local_dy = 0
+    else:
+        local_dx = 0
+    projected_dx = local_dx * math.cos(angle) - local_dy * math.sin(angle)
+    projected_dy = local_dx * math.sin(angle) + local_dy * math.cos(angle)
+    corner = {
+        "top": "top-left",
+        "right": "top-right",
+        "bottom": "bottom-left",
+        "left": "top-left",
+    }[edge]
+    return rotated_resize_values(*geometry, corner, projected_dx, projected_dy)
+
+
 def geometry_source(values: tuple[int, int, int, int]) -> bytes:
     x, y, width, height = values
     return (
@@ -946,6 +975,197 @@ def test_each_resize_handle_writes_exact_source_on_release(
         snapshot.wait_for_exact(expected)
 
 
+@pytest.mark.parametrize("edge", EDGES)
+def test_each_edge_resizes_only_its_axis(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    edge: str,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    baseline = source_file.read_bytes()
+    original = geometry_source((40, 40, 180, 120))
+    geometries = {
+        "top": (40, 24, 180, 136),
+        "right": (40, 40, 200, 120),
+        "bottom": (40, 40, 180, 136),
+        "left": (20, 40, 200, 120),
+    }
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_fixture_element(window, "Rectangle")
+        snapshot = SourceSnapshot.capture(fixture_project)
+        fixed_label = f"Rectangle resize {OPPOSITE_EDGES[edge]}"
+        fixed_center = manual_drag(
+            window,
+            window_element_with_label(window, f"Rectangle resize {edge}"),
+            *EDGE_DELTAS[edge],
+            snapshot,
+            fixed_handle_label=fixed_label,
+        )
+        snapshot.wait_for_applied(
+            replace_once(baseline, original, geometry_source(geometries[edge]))
+        )
+        assert fixed_center is not None
+        assert (
+            position_distance(
+                center(window_element_with_label(window, fixed_label)), fixed_center
+            )
+            < 1.5
+        )
+
+
+def test_shift_edge_resize_stays_single_axis(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    baseline = source_file.read_bytes()
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_fixture_element(window, "Rectangle")
+        snapshot = SourceSnapshot.capture(fixture_project)
+        manual_drag(
+            window,
+            window_element_with_label(window, "Rectangle resize right"),
+            20,
+            0,
+            snapshot,
+            shift=True,
+        )
+        snapshot.wait_for_applied(
+            replace_once(
+                baseline,
+                geometry_source((40, 40, 180, 120)),
+                geometry_source((40, 40, 200, 120)),
+            )
+        )
+
+
+@pytest.mark.parametrize("edge", ("top", "right"))
+@pytest.mark.parametrize("rotated", (False, True))
+def test_edge_click_and_tangential_drag_do_not_edit(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    edge: str,
+    rotated: bool,
+) -> None:
+    source_file = fixture_project / (
+        "RotatedCanvasCases.slint" if rotated else "Main.slint"
+    )
+    angle = math.radians(ROTATED_FIXTURE_ANGLE if rotated else 0)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        if rotated:
+            select_outline_row(window, "rotated-free-rectangle")
+        else:
+            select_fixture_element(window, "Rectangle")
+        snapshot = SourceSnapshot.capture(fixture_project)
+        handle = window_element_with_label(window, f"Rectangle resize {edge}")
+        start = center(handle, angle)
+        initial_frame = selection_frame(window, "Rectangle")
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(start, button))
+        assert selection_frame(window, "Rectangle") == initial_frame
+        snapshot.assert_unchanged()
+
+        normal = (
+            (-1.5 * math.sin(angle), 1.5 * math.cos(angle))
+            if edge == "top"
+            else (1.5 * math.cos(angle), 1.5 * math.sin(angle))
+        )
+        near = slint_testing.LogicalPosition(
+            x=start.x + normal[0], y=start.y + normal[1]
+        )
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(near))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(near, button))
+        assert selection_frame(window, "Rectangle") == initial_frame
+        snapshot.assert_unchanged()
+
+        tangent = (
+            (20 * math.cos(angle), 20 * math.sin(angle))
+            if edge == "top"
+            else (-20 * math.sin(angle), 20 * math.cos(angle))
+        )
+        end = slint_testing.LogicalPosition(
+            x=start.x + tangent[0], y=start.y + tangent[1]
+        )
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        assert selection_frame(window, "Rectangle") == initial_frame
+        snapshot.assert_unchanged_now()
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        snapshot.assert_unchanged()
+
+
+def test_layout_selection_has_no_edge_resize_controls(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "CanvasCases.slint"
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "layout-rectangle")
+        for edge in EDGES:
+            assert not elements_with_label(
+                window.root_element, f"Rectangle resize {edge}"
+            )
+
+
+@pytest.mark.parametrize(
+    ("size", "hidden_edges"),
+    [((10, 120), ("top", "bottom")), ((180, 10), ("left", "right"))],
+)
+def test_small_selection_keeps_corners_instead_of_short_edges(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    size: tuple[int, int],
+    hidden_edges: tuple[str, str],
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    source_file.write_bytes(
+        replace_once(
+            source_file.read_bytes(),
+            geometry_source((40, 40, 180, 120)),
+            geometry_source((40, 40, *size)),
+        )
+    )
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "root-rectangle")
+        for edge in hidden_edges:
+            assert not elements_with_label(
+                window.root_element, f"Rectangle resize {edge}"
+            )
+        for corner in CORNERS:
+            window_element_with_label(window, f"Rectangle resize {corner}")
+
+        baseline = source_file.read_bytes()
+        snapshot = SourceSnapshot.capture(fixture_project)
+        manual_drag(
+            window,
+            window_element_with_label(window, "Rectangle resize top-left"),
+            -16,
+            -16,
+            snapshot,
+            fixed_handle_label="Rectangle resize bottom-right",
+        )
+        snapshot.wait_for_applied(
+            replace_once(
+                baseline,
+                geometry_source((40, 40, *size)),
+                geometry_source((24, 24, size[0] + 16, size[1] + 16)),
+            )
+        )
+
+
 def test_shift_resize_is_proportional(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -1020,14 +1240,9 @@ def test_rotated_element_resize_writes_exact_source(
 ) -> None:
     source_file = fixture_project / "RotatedCanvasCases.slint"
     baseline = source_file.read_bytes()
-    geometries = {
-        "Rectangle": (64, 56, 140, 96),
-        "Text": (160, 64, 180, 56),
-        "Image": (200, 208, 144, 96),
-    }
     element_id = f"rotated-free-{kind.lower()}"
 
-    geometry = geometries[kind]
+    geometry = ROTATED_GEOMETRIES[kind]
     original = geometry_source(geometry)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
@@ -1060,6 +1275,53 @@ def test_rotated_element_resize_writes_exact_source(
                     math.radians(ROTATED_FIXTURE_ANGLE),
                 ),
                 fixed_handle_center,
+            )
+            < 1.5
+        )
+
+
+@pytest.mark.parametrize("kind", ROTATED_KINDS)
+@pytest.mark.parametrize("edge", EDGES)
+def test_rotated_element_edge_resize_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+    edge: str,
+) -> None:
+    source_file = fixture_project / "RotatedCanvasCases.slint"
+    baseline = source_file.read_bytes()
+    geometry = ROTATED_GEOMETRIES[kind]
+    dx, dy = EDGE_DELTAS[edge]
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        snapshot = SourceSnapshot.capture(fixture_project)
+        select_outline_row(window, f"rotated-free-{kind.lower()}")
+        fixed_label = f"{kind} resize {OPPOSITE_EDGES[edge]}"
+        fixed_center = manual_drag(
+            window,
+            window_element_with_label(window, f"{kind} resize {edge}"),
+            dx,
+            dy,
+            snapshot,
+            fixed_handle_label=fixed_label,
+            follow_pointer=False,
+        )
+        expected_geometry = rotated_edge_resize_values(geometry, edge, dx, dy)
+        snapshot.wait_for_applied(
+            replace_once(
+                baseline, geometry_source(geometry), geometry_source(expected_geometry)
+            ),
+            "RotatedCanvasCases.slint",
+        )
+        assert fixed_center is not None
+        assert (
+            position_distance(
+                center(
+                    window_element_with_label(window, fixed_label),
+                    math.radians(ROTATED_FIXTURE_ANGLE),
+                ),
+                fixed_center,
             )
             < 1.5
         )
