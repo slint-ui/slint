@@ -3,8 +3,9 @@
 
 import sys
 import typing
+import weakref
 from abc import abstractmethod
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
 from ._native import native
@@ -175,6 +176,71 @@ class ListModel[T](Model[T]):
         clamped = max(0, min(index, len(self.list)))
         self.list.insert(clamped, value)
         super().notify_row_added(clamped, 1)
+
+
+class MapModel[T, U](Model[U]):
+    """MapModel is a read-only `Model` that provides the rows of a source model,
+    each passed through a map function.
+
+    The MapModel follows the changes of the source model.
+
+    ```python
+    names = slint.ListModel([("Hans", "Emil"), ("Max", "Mustermann")])
+    full_names = slint.MapModel(names, lambda name: f"{name[1]}, {name[0]}")
+    assert full_names[0] == "Emil, Hans"
+    ```
+
+    Alternatively, subclass MapModel and implement `map_row`:
+
+    ```python
+    class FullNames(slint.MapModel[tuple[str, str], str]):
+        def map_row(self, row_data: tuple[str, str]) -> str:
+            return f"{row_data[1]}, {row_data[0]}"
+
+    full_names = FullNames(names)
+    ```
+    """
+
+    def __init__(
+        self,
+        source_model: Model[T],
+        map_function: Callable[[T], U] | None = None,
+    ):
+        """Constructs a new MapModel that maps the rows of `source_model` when
+        they are read.
+        Pass `map_function` to map the rows, or omit it in a subclass that
+        implements `map_row`."""
+        super().__init__()
+        self.source_model = source_model
+        if map_function is None:
+            if type(self).map_row is MapModel.map_row:
+                raise TypeError(
+                    "MapModel requires a map function or a subclass that implements map_row()"
+                )
+            this = weakref.ref(self)
+
+            def map_function(row_data: T) -> U:
+                model = this()
+                assert model is not None
+                return model.map_row(row_data)
+
+        self._adapter = native.PyModelAdapter.map(source_model, map_function, self)
+
+    def map_row(self, row_data: T) -> U:
+        """Returns the row of this model for `row_data`, a row of the source model.
+        Re-implement this method in a sub-class that doesn't pass a map function
+        to the constructor."""
+        raise NotImplementedError(f"{type(self).__name__} does not implement map_row()")
+
+    def row_count(self) -> int:
+        return self._adapter.row_count()
+
+    def row_data(self, row: int) -> U | None:
+        if row < 0:
+            row += self.row_count()
+            if row < 0:
+                return None
+        return typing.cast(U | None, self._adapter.row_data(row))
 
 
 class ModelIterator[T](Iterator[T]):

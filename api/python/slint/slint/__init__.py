@@ -25,7 +25,7 @@ from typing import Any
 from . import language
 from ._native import native
 from .loop import SlintEventLoop
-from .models import ListModel, Model
+from .models import ListModel, MapModel, Model
 
 _logger = logging.getLogger(__name__)
 
@@ -668,6 +668,7 @@ __all__ = [
     "ListModel",
     "LogicalPosition",
     "LogicalSize",
+    "MapModel",
     "Model",
     "StyledText",
     "Timer",

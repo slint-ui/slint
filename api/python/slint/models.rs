@@ -17,7 +17,7 @@ use crate::value::{SlintToPyValue, TypeCollection};
 
 #[derive(Default)]
 pub struct PyModelShared {
-    notify: ModelNotify,
+    pub(crate) notify: ModelNotify,
     self_ref: RefCell<Option<Py<PyAny>>>,
     /// The type collection is needed when calling a Python implementation of set_row_data and
     /// the model data provided (for example from within a .slint file) contains an enum. Then
@@ -68,22 +68,38 @@ impl PyModelShared {
 }
 
 /// Ownership of the shared model, from the Python wrapper's point of view.
-enum ModelOwnership {
+pub(crate) enum ModelOwnership {
     OwnedByWrapper(Rc<PyModelShared>),
     OwnedBySlint(Weak<PyModelShared>),
 }
 
+impl ModelOwnership {
+    pub(crate) fn shared_model(&self) -> Option<Rc<PyModelShared>> {
+        match self {
+            ModelOwnership::OwnedByWrapper(shared) => Some(shared.clone()),
+            ModelOwnership::OwnedBySlint(weak) => weak.upgrade(),
+        }
+    }
+}
+
 #[pyclass(unsendable, weakref, subclass, skip_from_py_object)]
 pub struct PyModelBase {
-    inner: RefCell<ModelOwnership>,
+    pub(crate) inner: Rc<RefCell<ModelOwnership>>,
 }
 
 impl PyModelBase {
     fn shared_model(&self) -> Option<Rc<PyModelShared>> {
-        match &*self.inner.borrow() {
-            ModelOwnership::OwnedByWrapper(shared) => Some(shared.clone()),
-            ModelOwnership::OwnedBySlint(weak) => weak.upgrade(),
-        }
+        self.inner.borrow().shared_model()
+    }
+
+    /// The shared model whose notifications reach this wrapper's views, for an
+    /// adapter to track. Attaches a fresh one if Slint dropped the previous one.
+    pub(crate) fn shared_model_for_adapter(&self) -> Rc<PyModelShared> {
+        self.shared_model().unwrap_or_else(|| {
+            let shared = Rc::new(PyModelShared::default());
+            *self.inner.borrow_mut() = ModelOwnership::OwnedBySlint(Rc::downgrade(&shared));
+            shared
+        })
     }
 
     /// Move ownership of the shared model to Slint; the wrapper keeps only a
@@ -107,7 +123,9 @@ impl PyModelBase {
     #[new]
     fn new() -> Self {
         Self {
-            inner: RefCell::new(ModelOwnership::OwnedByWrapper(Rc::new(PyModelShared::default()))),
+            inner: Rc::new(RefCell::new(ModelOwnership::OwnedByWrapper(Rc::new(
+                PyModelShared::default(),
+            )))),
         }
     }
 

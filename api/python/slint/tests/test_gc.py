@@ -402,3 +402,38 @@ def test_model_handoff_during_model_call() -> None:
     # row_count() re-assigns the model to the property while being called.
     assert instance.get_property("test-value").row_count() == 3
     assert instance.get_property("test-value").row_data(1) == 2
+
+
+def test_map_model_cycle_is_collectable() -> None:
+    """A MapModel whose map function refers back to the MapModel does not leak."""
+
+    class SelfReferencingModel(slint.MapModel[int, int]):
+        def __init__(self, source: slint.Model[int]) -> None:
+            super().__init__(source, self.transform)
+
+        def transform(self, value: int) -> int:
+            return value
+
+    model: SelfReferencingModel | None = SelfReferencingModel(slint.ListModel([1]))
+    model_weak = weakref.ref(model)
+    model = None
+
+    gc.collect()
+
+    assert model_weak() is None
+
+
+def test_map_model_subclass_released_by_refcount() -> None:
+    """A MapModel subclass implementing map_row() is freed without the cyclic collector."""
+
+    class Doubled(slint.MapModel[int, int]):
+        def map_row(self, row_data: int) -> int:
+            return row_data * 2
+
+    model: Doubled | None = Doubled(slint.ListModel([1]))
+    assert model is not None
+    assert model[0] == 2
+    model_weak = weakref.ref(model)
+    model = None
+
+    assert model_weak() is None

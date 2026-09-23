@@ -421,3 +421,168 @@ def test_list_model_append_alias() -> None:
     model = models.ListModel([1, 2])
     model.append(3)
     assert list(model) == [1, 2, 3]
+
+
+def test_map_model() -> None:
+    source = models.ListModel([1, 2, 3])
+    mapped = models.MapModel(source, lambda value: value * 10)
+
+    assert mapped.source_model is source
+    assert list(mapped) == [10, 20, 30]
+    assert mapped[1] == 20
+    assert mapped.row_data(3) is None
+
+    source[1] = 5
+    source.append(4)
+    del source[0]
+    assert list(mapped) == [50, 30, 40]
+
+
+def test_map_model_of_map_model() -> None:
+    source = models.ListModel([1, 2])
+    mapped = models.MapModel(
+        models.MapModel(source, lambda value: value + 1), lambda value: str(value)
+    )
+    assert list(mapped) == ["2", "3"]
+
+
+def test_map_model_notifies() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in property<[string]> texts;
+            out property<string> joined: texts[0] + texts[1] + texts[2];
+            out property<int> count: texts.length;
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    source = models.ListModel([1, 2, 3])
+    instance.set_property("texts", models.MapModel(source, lambda value: str(value)))
+    assert instance.get_property("joined") == "123"
+
+    source[1] = 5
+    assert instance.get_property("joined") == "153"
+    source.insert(0, 0)
+    assert instance.get_property("joined") == "015"
+    assert instance.get_property("count") == 4
+    del source[0]
+    assert instance.get_property("count") == 3
+
+
+def test_map_model_subclass_notifies() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in property<[int]> values;
+            out property<int> first: values[0];
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    class ScaledModel(models.MapModel[int, int]):
+        def __init__(self, source: models.Model[int]) -> None:
+            super().__init__(source)
+            self.factor = 2
+
+        def map_row(self, row_data: int) -> int:
+            return row_data * self.factor
+
+    mapped = ScaledModel(models.ListModel([1, 2]))
+    instance.set_property("values", mapped)
+    assert instance.get_property("first") == 2
+
+    mapped.factor = 3
+    mapped.notify_row_changed(0)
+    assert instance.get_property("first") == 3
+
+
+def test_map_model_of_slint_model() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> data: [1, 2, 3];
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    mapped = models.MapModel(instance.get_property("data"), lambda value: -value)
+    assert list(mapped) == [-1, -2, -3]
+
+
+def test_map_model_function_exception() -> None:
+    def fail(value: int) -> int:
+        raise ValueError(f"cannot map {value}")
+
+    mapped = models.MapModel(models.ListModel([1]), fail)
+    with pytest.raises(ValueError, match="cannot map 1"):
+        mapped.row_data(0)
+    assert mapped.row_count() == 1
+
+
+def test_map_model_source_exception() -> None:
+    class Failing(models.Model[int]):
+        def row_count(self) -> int:
+            raise RuntimeError("no count")
+
+        def row_data(self, row: int) -> int | None:
+            return None
+
+    mapped = models.MapModel(Failing(), lambda value: value)
+    with pytest.raises(RuntimeError, match="no count"):
+        mapped.row_count()
+
+
+def test_map_model_rejects_non_model_source() -> None:
+    with pytest.raises(TypeError):
+        models.MapModel(typing.cast(models.Model[int], [1, 2]), lambda value: value)
+
+
+def test_map_model_function_takes_precedence_over_map_row() -> None:
+    class Negated(models.MapModel[int, int]):
+        def map_row(self, row_data: int) -> int:
+            return -row_data
+
+    assert list(Negated(models.ListModel([1, 2]))) == [-1, -2]
+    assert list(Negated(models.ListModel([1, 2]), lambda value: value * 2)) == [2, 4]
+
+
+def test_map_model_requires_map_function_or_map_row() -> None:
+    with pytest.raises(TypeError, match="map_row"):
+        models.MapModel(models.ListModel([1]))
+
+
+def test_map_model_skips_missing_source_rows() -> None:
+    class Sparse(models.Model[int]):
+        def row_count(self) -> int:
+            return 2
+
+        def row_data(self, row: int) -> int | None:
+            return 1 if row == 0 else None
+
+    mapped = models.MapModel(Sparse(), lambda value: value * 10)
+    assert mapped.row_data(0) == 10
+    assert mapped.row_data(1) is None
+    assert mapped.row_data(5) is None
+
+
+def test_map_model_negative_index() -> None:
+    mapped = models.MapModel(models.ListModel([1, 2, 3]), lambda value: value * 10)
+    assert mapped[-1] == 30
+    assert mapped.row_data(-3) == 10
+    assert mapped.row_data(-4) is None
