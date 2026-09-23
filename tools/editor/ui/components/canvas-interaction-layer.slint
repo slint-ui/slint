@@ -185,13 +185,18 @@ component SelectedCanvasFrame inherits Rectangle {
     ]
 
     if frame.radius-tooltip-visible: CanvasValueTooltip {
+        private property <Point> corner-position: frame.local-point-to-parent({
+            x: frame.corner-on-left(frame.radius-edit-corner) ? 0px : frame.width,
+            y: frame.corner-on-top(frame.radius-edit-corner) ? 0px : frame.height,
+        });
+        private property <length> corner-clearance: frame.radius-tooltip-value * frame.geometry-scale;
         label: "Radius";
         value: (frame.radius-tooltip-value / 1px).to-fixed(0);
         value-label: "Radius value";
-        pointer-position: {
-            x: frame.x + frame.radius-tooltip-position.x,
-            y: frame.y + frame.radius-tooltip-position.y,
-        };
+        pointer-position: frame.local-point-to-parent(frame.radius-tooltip-position);
+        x: self.corner-position.x <= frame.x + frame.width / 2
+            ? max(self.pointer-position.x, self.corner-position.x + self.corner-clearance) + self.style.offset
+            : min(self.pointer-position.x, self.corner-position.x - self.corner-clearance) - self.width - self.style.offset;
     }
 
     if frame.rotation-tooltip-visible: CanvasValueTooltip {

@@ -138,7 +138,7 @@ export component MoveResizeFrame inherits Rectangle {
         };
     }
 
-    pure function local-point-to-parent(point: Point) -> Point {
+    public pure function local-point-to-parent(point: Point) -> Point {
         return root.local-point-to-parent-at(
             point,
             { x: root.x, y: root.y },

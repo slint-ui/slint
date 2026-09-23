@@ -16,6 +16,7 @@ from canvas_interactions import (
     manual_drag,
     manual_radius_drag,
     manual_rotation_drag,
+    offset_position,
     position_distance,
     radius_handle,
     rotation_delta,
@@ -1602,6 +1603,62 @@ def test_radius_handles_follow_preview_during_drag(
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
         if single:
             window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
+
+
+@pytest.mark.parametrize(
+    ("angle", "radius", "place_right"),
+    [(0, 40, True), (45, 40, True), (180, 12, False)],
+)
+def test_radius_tooltip_follows_handle_clear_of_corner(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    angle: int,
+    radius: int,
+    place_right: bool,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    source = replace_once(
+        source_file.read_bytes(),
+        b"        border-radius: 12px;",
+        f"        border-radius: {radius}px;\n        transform-rotation: {angle}deg;".encode(),
+    )
+    source_file.write_bytes(source)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        wait_for_source(source_file, source)
+        select_fixture_element(window, "Rectangle")
+        rotation = math.radians(angle)
+        handle = radius_handle(window, "top-left")
+        start = center(handle, rotation)
+        corner = center(
+            window_element_with_label(window, "Rectangle resize top-left"), rotation
+        )
+        end = offset_position(start, 12, 4, rotation)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+
+        wait_for_radius_tooltip(window, radius + 4)
+        tooltip = window_element_with_label(
+            window, "Radius value", slint_testing.AccessibleRole.Text
+        )
+        tip = tooltip.absolute_position
+        control = center(
+            window_element_with_label(window, "Rectangle radius top-left"), rotation
+        )
+        extent = radius + 4
+        if place_right:
+            assert tip.x == pytest.approx(
+                max(control.x, corner.x + extent) + 12, abs=1.5
+            )
+        else:
+            assert tip.x + tooltip.size.width == pytest.approx(
+                min(control.x, corner.x - extent) - 12, abs=1.5
+            )
+        assert tip.y + tooltip.size.height == pytest.approx(control.y - 12, abs=1.5)
+
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
 
 
 @pytest.mark.parametrize("corner", CORNERS)
