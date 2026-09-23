@@ -1,5 +1,6 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
 <!-- SPDX-License-Identifier: MIT -->
+<!-- cspell:ignore logcat -->
 
 # Android and Slint Scroll Comparison
 
