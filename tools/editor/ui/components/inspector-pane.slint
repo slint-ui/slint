@@ -11,7 +11,7 @@ import {
     InspectorInfoIcon, InspectorPropertyRow, InspectorRotationKnob, InspectorSection,
     InspectorValueField,
 } from "inspector/index.slint";
-import { ScrollView } from "std-widgets.slint";
+import { EditorScrollView } from "editor-scroll-view.slint";
 
 export component InspectorPane inherits Rectangle {
     in property <InspectorStyle> style: Style.inspector-layout;
@@ -528,7 +528,7 @@ export component InspectorPane inherits Rectangle {
         background: root.style.divider;
     }
 
-    inspector-scroll := ScrollView {
+    inspector-scroll := EditorScrollView {
         x: root.content-x;
         y: 0px;
         width: root.width - root.content-x;
@@ -537,7 +537,7 @@ export component InspectorPane inherits Rectangle {
         content-height: content.height;
         content-y <=> root.inspector-scroll-y;
         mouse-drag-pan-enabled: false;
-        vertical-scrollbar-policy: ScrollBarPolicy.always-off;
+        vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
         horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
         content := Rectangle {

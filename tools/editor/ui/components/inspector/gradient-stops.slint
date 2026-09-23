@@ -7,7 +7,7 @@ import { FillSession } from "fill-session.slint";
 
 import { InspectorSegment } from "segment.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
-import { ScrollView } from "std-widgets.slint";
+import { EditorScrollView } from "../editor-scroll-view.slint";
 
 import { GradientStopMarker } from "../../../../lsp/ui/components/widgets/gradient-stop-marker.slint";
 
@@ -125,7 +125,7 @@ export component InspectorGradientStops inherits Rectangle {
             Text { text: "Opacity"; width: root.style.row.opacity-width; color: Colors.muted; font-size: Typography.caption.size; }
             Rectangle { width: root.style.row.action-width; }
         }
-        ScrollView {
+        EditorScrollView {
             preferred-height: rows.preferred-height;
             min-height: root.style.row.height;
             max-height: self.preferred-height;

@@ -7,7 +7,7 @@ import { Api, EditorSurfaceMode, ElementLibraryGroup, ElementLibraryEntry } from
 import { EditorTreeIcons } from "editor-tree-icons.slint";
 import { Project } from "../project.slint";
 import { FileTreeView } from "file-tree-view.slint";
-import { ScrollView } from "std-widgets.slint";
+import { EditorScrollView } from "editor-scroll-view.slint";
 
 component NewSlintFileButton inherits Rectangle {
     in property <ButtonStyle> style: Style.compact-button;
@@ -246,7 +246,7 @@ component ElementPaletteRows inherits VerticalLayout {
     callback drag-started();
     spacing: 0px;
 
-    ScrollView {
+    EditorScrollView {
         accessible-role: AccessibleRole.list;
         accessible-label: "Element library";
         min-height: 0px;
