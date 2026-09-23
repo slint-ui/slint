@@ -1,5 +1,6 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
+# cspell:ignore logcat
 
 import re
 import sys

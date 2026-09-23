@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
+# cspell:ignore androidscrollcomparison logcat screencap
 
 set -euo pipefail
 
