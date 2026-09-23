@@ -843,7 +843,14 @@ impl WindowInner {
         // the tab holding it), drop the focus so that input methods get torn down.
         // The key-event handler does the same, but a tab is switched with a pointer
         // tap, not a key press, so it must also happen here.
-        if self.focus_item.borrow().upgrade().is_some_and(|i| !i.is_visible()) {
+        // An item that a Flickable only scrolled out of view keeps the focus:
+        // the wheel that scrolled it away is pointer input too (#13613).
+        if self
+            .focus_item
+            .borrow()
+            .upgrade()
+            .is_some_and(|i| !i.is_visible_or_clipped_by_flickable())
+        {
             self.take_focus_item(&FocusEvent::FocusOut(FocusReason::TabNavigation));
         }
 

@@ -438,15 +438,27 @@ impl ItemRc {
             return true;
         }
 
-        // The item is not visible. Walk toward the root and find the first
-        // clipping ancestor that actually hides the item: if it is a
-        // Flickable, scrolling can bring the item back into view.
+        // A clipping ancestor hides the item either with its own rectangle, or with the
+        // clips it inherits: a LineEdit's own clip once the Flickable scrolled it away,
+        // or a Flickable taller than the clip around it. Both readings are asked.
+        self.first_hiding_clip_is_flickable(false) || self.first_hiding_clip_is_flickable(true)
+    }
+
+    /// Walks toward the root to the first clipping ancestor that hides this item,
+    /// and returns true if it's a Flickable that is itself visible or scrolled away.
+    /// With `own_rect`, an ancestor hides the item when its own rectangle excludes it,
+    /// otherwise when that rectangle intersected with the clips above it does.
+    fn first_hiding_clip_is_flickable(&self, own_rect: bool) -> bool {
         let geometry = self.absolute_clip_rect_and_geometry().1.to_box2d();
         let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
         while let Some(ancestor) = parent {
             if ancestor.borrow().as_ref().clips_children() {
                 let (clip, ancestor_geo) = ancestor.absolute_clip_rect_and_geometry();
-                let clip = ancestor_geo.intersection(&clip).unwrap_or_default().to_box2d();
+                let clip = if own_rect {
+                    ancestor_geo.to_box2d()
+                } else {
+                    ancestor_geo.intersection(&clip).unwrap_or_default().to_box2d()
+                };
                 let item_in_clip = !clip.is_empty()
                     && clip.max.x >= geometry.min.x
                     && clip.max.y >= geometry.min.y

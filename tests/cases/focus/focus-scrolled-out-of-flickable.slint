@@ -1,0 +1,102 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A focused item that a Flickable only scrolled out of view keeps the focus through pointer input.
+// Once it's scrolled back, the next key reaches it.
+// A LineEdit clips its own content, so the nearest clip around its text input isn't the Flickable's.
+// Contrast text-input-focused-tabwidget.slint: an item hidden with `visible: false` loses the focus.
+
+import { LineEdit } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    out property <int> keys-heard;
+    out property <bool> inner-has-focus: inner.has-focus;
+    in-out property <length> scroll <=> flick.content-y;
+
+    public function focus-inner() {
+        inner.focus();
+    }
+
+    out property <bool> edit-has-focus: edit.has-focus;
+    out property <string> edit-text: edit.text;
+
+    public function focus-edit() {
+        edit.focus();
+    }
+
+    FocusScope {
+        key-pressed(event) => {
+            root.keys-heard += 1;
+            accept
+        }
+
+        flick := Flickable {
+            x: 0px;
+            y: 0px;
+            width: 200px;
+            height: 100px;
+            content-height: 1000px;
+
+            inner := FocusScope {
+                x: 0px;
+                y: 0px;
+                width: 200px;
+                height: 50px;
+            }
+
+            edit := LineEdit {
+                x: 0px;
+                y: 55px;
+                width: 200px;
+                height: 40px;
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+instance.invoke_focus_inner();
+assert!(instance.get_inner_has_focus());
+
+// The pointer moves while the Flickable has scrolled the focused item out of view.
+instance.set_scroll(-500.);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100., 150.) });
+assert!(instance.get_inner_has_focus());
+
+// The wheel scrolls it back, and the next key reaches it and bubbles up.
+for _ in 0..5 {
+    instance.window().dispatch_event(WindowEvent::PointerScrolled {
+        position: LogicalPosition::new(100., 50.),
+        delta_x: 0.,
+        delta_y: 100.,
+    });
+}
+assert_eq!(instance.get_scroll(), 0.);
+assert!(instance.get_inner_has_focus());
+slint_testing::send_keyboard_string_sequence(&instance, "a");
+assert_eq!(instance.get_keys_heard(), 1);
+```
+
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+instance.invoke_focus_edit();
+assert!(instance.get_edit_has_focus());
+
+instance.set_scroll(-500.);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100., 150.) });
+assert!(instance.get_edit_has_focus());
+
+instance.set_scroll(0.);
+slint_testing::send_keyboard_string_sequence(&instance, "a");
+assert_eq!(instance.get_edit_text(), "a");
+```
+*/

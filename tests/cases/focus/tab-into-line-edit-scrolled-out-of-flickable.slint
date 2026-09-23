@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Tab reaches a LineEdit that a Flickable scrolled out of view, like the FocusScopes in issue_10321_tab_focus_flickable.slint.
+// A LineEdit clips its own content, so the nearest clip around its text input isn't the Flickable's.
+
+import { LineEdit } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 110px;
+
+    out property <int> focused-index: -1;
+
+    Flickable {
+        width: 100%;
+        height: 100%;
+        content-height: 420px;
+
+        VerticalLayout {
+            width: parent.width;
+            spacing: 10px;
+
+            for _[index] in [0, 1, 2, 3, 4, 5]: LineEdit {
+                height: 60px;
+                changed has-focus => {
+                    if self.has-focus {
+                        root.focused-index = index;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_focused_index(), -1);
+
+for i in 0..=5 {
+    slint_testing::send_keyboard_string_sequence(&instance, "\t");
+    assert_eq!(instance.get_focused_index(), i, "tab to line edit {i}");
+}
+```
+*/
