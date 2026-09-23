@@ -397,6 +397,7 @@
     {
       "filename": "tools/figma-inspector/**",
       "words": [
+        "ALNUM",
         "aqid",
         "capturable",
         "currentpagechange",
@@ -416,6 +417,7 @@
         "resizer",
         "roundoff",
         "stylechange",
+        "twinkleplop",
         "ungenerated",
         "uninflated",
         "unoutlined",

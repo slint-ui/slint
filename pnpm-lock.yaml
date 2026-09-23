@@ -503,6 +503,9 @@ importers:
       '@shikijs/types':
         specifier: 4.4.3
         version: 4.4.3
+      '@twinkleplop/core':
+        specifier: 0.2.1
+        version: 0.2.1
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.0
@@ -2851,6 +2854,9 @@ packages:
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
+
+  '@twinkleplop/core@0.2.1':
+    resolution: {integrity: sha512-e/5EokljcDDsGvh55n0QO+HXDMVbpUhkNpg/QCWlY0Igw4a0qTB7fbJWtFrcRhBqfg+H7Wtw07A6U8YADm9J/A==}
 
   '@tybys/wasm-util@0.10.4':
     resolution: {integrity: sha512-W3c4gRigFS0T/Ma4qIYF3GDAc5AQdHb1yL5znJT1Zv1YaD9Kitx656wBjvr19qbiosmZT8lWDM5BEMynUqX65A==}
@@ -8930,6 +8936,8 @@ snapshots:
   '@sindresorhus/is@8.1.0': {}
 
   '@standard-schema/spec@1.1.0': {}
+
+  '@twinkleplop/core@0.2.1': {}
 
   '@tybys/wasm-util@0.10.4':
     dependencies:

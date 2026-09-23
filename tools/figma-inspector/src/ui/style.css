@@ -394,16 +394,73 @@ body {
     width: 100%;
 }
 
-.source-view .shiki {
+.source-view .twinkleplop {
     background-color: transparent !important;
-    color: inherit;
     font: inherit;
     margin: 0;
     min-width: max-content;
     padding: 0;
 }
 
-.source-view .line::before {
+.source-view .twinkleplop code {
+    font: inherit;
+}
+
+.source-view .twinkleplop.light-slint {
+    color: #aaa;
+}
+
+.source-view .twinkleplop.dark-slint {
+    color: #a4d4d4;
+}
+
+.source-view .tok.comment {
+    color: #6a9955;
+}
+
+.source-view .tok.string {
+    color: #ce9178;
+}
+
+.source-view .tok.escape {
+    color: #d7ba7d;
+}
+
+.source-view .tok.macro {
+    color: #dcdcaa;
+}
+
+.source-view .tok.conditional {
+    color: #c586c0;
+}
+
+.source-view .light-slint .tok.number {
+    color: #ea0fac;
+}
+
+.source-view .dark-slint .tok.number {
+    color: #fc9bdf;
+}
+
+.source-view .light-slint .tok.keyword,
+.source-view .light-slint .tok.property {
+    color: #191919;
+}
+
+.source-view .dark-slint .tok.keyword,
+.source-view .dark-slint .tok.property {
+    color: white;
+}
+
+.source-view .light-slint .tok.type {
+    color: #027be5;
+}
+
+.source-view .dark-slint .tok.type {
+    color: #7bc4f8;
+}
+
+.source-view .l::before {
     color: var(--figma-color-text-tertiary, #94a3b8);
     content: counter(step);
     counter-increment: step;
@@ -413,7 +470,7 @@ body {
     width: 30px;
 }
 
-.source-view .line {
+.source-view .l {
     position: relative;
 }
 
@@ -447,7 +504,7 @@ body {
         color: var(--figma-color-text, #f8fafc);
     }
 
-    .source-view .line::before {
+    .source-view .l::before {
         color: var(--figma-color-text-tertiary, #94a3b8);
     }
 

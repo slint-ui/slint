@@ -33,16 +33,17 @@
     "@figma/plugin-typings": "1.138.0",
     "@noble/hashes": "2.4.0",
     "@shikijs/types": "4.4.3",
+    "@twinkleplop/core": "0.2.1",
     "@types/node": "catalog:",
     "@vitest/browser-playwright": "catalog:",
+    "concurrently": "10.0.5",
+    "cspell": "catalog:",
     "jszip": "3.10.2",
     "playwright": "catalog:",
     "shiki": "4.4.3",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:",
-    "cspell": "catalog:",
     "vite-plugin-singlefile": "2.3.3",
-    "concurrently": "10.0.5"
+    "vitest": "catalog:"
   }
 }

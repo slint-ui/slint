@@ -244,7 +244,7 @@ test("real conversion worker supplies native source, raw clipboard text and the 
         .poll(() => p.element("#source-view").textContent)
         .toBe(expected.source);
     await expect
-        .poll(() => p.element("#source-view pre.shiki").checkVisibility())
+        .poll(() => p.element("#source-view pre.twinkleplop").checkVisibility())
         .toBe(true);
     const copied: string[] = [];
     p.doc.execCommand = () => {
@@ -412,15 +412,43 @@ test("highlighted source keeps long lines and the last line reachable", async ()
     await expect.poll(() => p.element("#source-view").textContent).toBe(source);
     const view = p.element("#source-view");
     await expect
-        .poll(() => view.querySelectorAll(".line").length)
+        .poll(() => view.querySelectorAll(".l").length)
         .toBe(source.split("\n").length);
     expect(view.scrollHeight).toBeGreaterThan(view.clientHeight);
     expect(view.scrollWidth).toBeGreaterThan(view.clientWidth);
     view.scrollTop = view.scrollHeight;
     view.scrollLeft = view.scrollWidth;
-    const last = view.querySelector(".line:last-child");
+    const last = view.querySelector(".l:last-child");
     if (!last) throw Error("Missing last source line");
     expect(last.getBoundingClientRect().bottom).toBeLessThanOrEqual(
         view.getBoundingClientRect().bottom + 1,
+    );
+});
+
+test("highlighted Slint uses the matching colors in both themes", async () => {
+    const p = await mountPreview();
+    p.send({
+        type: "preview-source",
+        revision: 1,
+        source: buttonSource,
+        exportPackage: { source: buttonSource, files: [] },
+    });
+    await p.ready(1);
+    const number = () =>
+        Array.from(p.doc.querySelectorAll<HTMLElement>(".tok.number")).find(
+            (token) => token.textContent === "240px",
+        );
+    await expect.poll(() => number() !== undefined).toBe(true);
+    expect(p.element("#source-view pre.twinkleplop.light-slint")).toBeTruthy();
+    expect(p.win.getComputedStyle(number() as HTMLElement).color).toBe(
+        "rgb(234, 15, 172)",
+    );
+
+    p.element("#source-view pre.twinkleplop").classList.replace(
+        "light-slint",
+        "dark-slint",
+    );
+    expect(p.win.getComputedStyle(number() as HTMLElement).color).toBe(
+        "rgb(252, 155, 223)",
     );
 });

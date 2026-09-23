@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export enum PreviewState { enabled, disabled }
+export global Palette {
+    out property <brush> accent: #3399FF;
+}
+
+export component HighlightCoverage inherits Window {
+    in property <PreviewState> preview-state: PreviewState.enabled;
+    in property <string> label: "Hello\nWorld";
+    width: 320px;
+    height: 180px;
+    background: @linear-gradient(90deg, #2F80ED 0%, #9B51E0 100%);
+    Rectangle {
+        x: -4px;
+        y: parent.height - 20px;
+        border-radius: 8px;
+        clip: true;
+        Text {
+            text: root.label;
+            color: Palette.accent;
+            font-size: 16px;
+        }
+    }
+    if root.preview-state == PreviewState.enabled: Image {
+        source: @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGPQqDjBAAADnQFp9MfBDQAAAABJRU5ErkJggg==");
+        width: 20px;
+        height: 20px;
+    }
+    StyledText {
+        text: @markdown("**Bold**\ntext");
+        default-color: #FFFFFF;
+    }
+}

@@ -48,7 +48,7 @@ for (const marker of [
     "compile_from_string",
     "light-slint",
     "dark-slint",
-    "source.slint",
+    "twinkleplop",
     "Roboto Mono",
     "counter(step)",
     'id="copy-button"',
