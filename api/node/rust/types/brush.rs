@@ -294,14 +294,19 @@ impl SlintBrush {
             Brush::SolidColor(_) => self.slint_color().to_string(),
             Brush::LinearGradient(gradient) => {
                 format!(
-                    "linear-gradient({}deg, {})",
+                    "linear-gradient({}{}deg, {})",
+                    gradient.color_space().css_prefix(),
                     gradient.angle(),
                     gradient_stops_to_string(gradient.stops())
                 )
             }
             Brush::RadialGradient(gradient) => {
                 let shape = slint_interpreter::radial_gradient_shape_to_string(gradient);
-                format!("radial-gradient({shape}, {})", gradient_stops_to_string(gradient.stops()))
+                format!(
+                    "radial-gradient({}{shape}, {})",
+                    gradient.color_space().css_prefix(),
+                    gradient_stops_to_string(gradient.stops())
+                )
             }
             _ => String::default(),
         }

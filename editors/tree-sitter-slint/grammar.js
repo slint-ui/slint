@@ -740,7 +740,8 @@ module.exports = grammar({
           field(
             "arguments",
             seq(
-              field("angle", $.expression),
+              optional(seq("in", field("color_space", $.gradient_color_space))),
+              optional(field("angle", $.expression)),
               ",",
               field("colors", commaSep2($.gradient_color)),
               optional(","),
@@ -754,6 +755,7 @@ module.exports = grammar({
           field(
             "arguments",
             seq(
+              optional(seq("in", field("color_space", $.gradient_color_space))),
               field("type", $.radial_gradient_kind),
               // One radius for a circle, two for an ellipse.
               optional(seq(
@@ -778,6 +780,7 @@ module.exports = grammar({
           field(
             "arguments",
             seq(
+              optional(seq("in", field("color_space", $.gradient_color_space))),
               optional(seq("from", field("from_angle", $.expression))),
               optional(seq(
                 "at",
@@ -792,6 +795,8 @@ module.exports = grammar({
           ")",
         ),
       ),
+
+    gradient_color_space: (_) => choice("oklch", "oklab", "srgb", "hsl"),
 
     gradient_color: ($) => seq($.argument, optional($.expression)),
     conic_gradient_color: ($) => seq($.argument, $.expression),

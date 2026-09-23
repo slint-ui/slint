@@ -400,7 +400,7 @@ export component GradientPicker inherits SimpleColumn {
                 }
 
                 Rectangle {
-                    background: Api.create-brush(BrushKind.linear, 90, PickerData.current-brush, PickerData.current-gradient-stops);
+                    background: Api.create-brush(BrushKind.linear, 90, PickerData.current-brush, PickerData.current-gradient-stops, PickerData.current-color-space);
 
                     TouchArea {
                         clicked() => {
@@ -490,7 +490,7 @@ export component GradientPicker inherits SimpleColumn {
             }
         }
         clicked => {
-            WindowManager.apply-current-value(Api.as-slint-brush(PickerData.current-brush-kind, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops));
+            WindowManager.apply-current-value(Api.as-slint-brush(PickerData.current-brush-kind, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops, PickerData.current-color-space));
         }
     }
 }
