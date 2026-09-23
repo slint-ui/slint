@@ -62,19 +62,15 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
-mod conic_gradient;
-mod linear_gradient;
-mod radial_gradient;
 pub(super) use brushes::{fill_brush, fill_expression};
-mod element_library;
 pub(super) mod file_tree;
 pub mod log_messages;
 pub mod palette;
 mod property_view;
-mod recent_fills;
 pub mod search_model;
 
-slint::include_modules!();
+use slint_editor::component_support::{element_library, recent_fills};
+pub use slint_editor::ui::*;
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
