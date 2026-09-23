@@ -131,6 +131,7 @@ def manual_drag(
     snapshot: SourceSnapshot,
     shift: bool = False,
     fixed_handle_label: str | None = None,
+    follow_pointer: bool = True,
 ) -> slint_testing.LogicalPosition | None:
     button = slint_testing.PointerEventButton.Left
     kind = handle.accessible_label.split(" ", 1)[0]
@@ -165,15 +166,17 @@ def manual_drag(
     assert len(set(transient_states)) >= 2
     if fixed_handle_center is not None:
         assert fixed_handle_label is not None
-        assert (
-            position_distance(
-                center(
-                    window_element_with_label(window, handle.accessible_label), rotation
-                ),
-                end,
+        if follow_pointer:
+            assert (
+                position_distance(
+                    center(
+                        window_element_with_label(window, handle.accessible_label),
+                        rotation,
+                    ),
+                    end,
+                )
+                < 1.5
             )
-            < 1.5
-        )
         assert (
             position_distance(
                 center(window_element_with_label(window, fixed_handle_label), rotation),

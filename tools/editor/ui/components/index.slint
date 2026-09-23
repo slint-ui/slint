@@ -16,6 +16,7 @@ export global EditorCursors {
         14,
     );
     pure callback rotation-image(angle) -> image;
+    pure callback resize-image(angle) -> image;
     out property <MouseCursor> canvas-default: MouseCursor.custom(
         @image-url("../assets/cursors/default-32.png"),
         14,

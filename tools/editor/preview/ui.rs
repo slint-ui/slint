@@ -96,6 +96,21 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
             })
             .clone()
     });
+    let resize_cursors = std::cell::RefCell::new(HashMap::<i32, slint::Image>::new());
+    ui.global::<EditorCursors>().on_resize_image(move |angle| {
+        let angle = angle.round().rem_euclid(180.0) as i32;
+        resize_cursors
+            .borrow_mut()
+            .entry(angle)
+            .or_insert_with(|| {
+                let svg = include_str!("../ui/assets/cursors/resize.svg")
+                    .replace("{angle}", &angle.to_string());
+                let image = slint::Image::load_from_svg_data(svg.as_bytes())
+                    .expect("valid resize cursor SVG");
+                slint::Image::from_rgba8(image.to_rgba8().expect("resize cursor pixels"))
+            })
+            .clone()
+    });
     Ok(ui)
 }
 
@@ -1633,6 +1648,87 @@ mod tests {
     };
 
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
+
+    #[test]
+    fn resize_cursor_rotates_and_reuses_half_turns() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let cursors = editor.global::<super::EditorCursors>();
+        let horizontal = cursors.invoke_resize_image(0.);
+        assert_eq!(horizontal, cursors.invoke_resize_image(180.));
+        assert_ne!(horizontal, cursors.invoke_resize_image(90.));
+    }
+
+    #[test]
+    fn rotated_edge_cursor_stays_during_drag() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection {
+            highlight_index: 0,
+            is_resizable: true,
+            ..Default::default()
+        });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                x: 40.,
+                y: 40.,
+                width: 180.,
+                height: 120.,
+                angle: 30.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+
+        let edge = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+            &editor,
+            "Rectangle resize right",
+        )
+        .next()
+        .unwrap();
+        let position = edge.absolute_position();
+        let size = edge.size();
+        let angle = 30_f32.to_radians();
+        let start = LogicalPosition::new(
+            position.x + size.width / 2. * angle.cos() - size.height / 2. * angle.sin(),
+            position.y + size.width / 2. * angle.sin() + size.height / 2. * angle.cos(),
+        );
+        let cursor = || {
+            i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                window.mouse_cursor()
+            })
+        };
+        editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+        let resize_cursor = cursor();
+        assert_eq!(
+            resize_cursor,
+            i_slint_core::cursor::MouseCursorInner::CustomMouseCursor {
+                image: editor.global::<super::EditorCursors>().invoke_resize_image(30.),
+                hotspot_x: 16,
+                hotspot_y: 16,
+            }
+        );
+
+        editor.window().dispatch_event(WindowEvent::PointerPressed {
+            position: start,
+            button: PointerEventButton::Left,
+        });
+        editor.window().dispatch_event(WindowEvent::PointerMoved {
+            position: LogicalPosition::new(start.x + 20., start.y + 16.),
+        });
+        assert_eq!(cursor(), resize_cursor);
+        editor.window().dispatch_event(WindowEvent::PointerReleased {
+            position: LogicalPosition::new(start.x + 20., start.y + 16.),
+            button: PointerEventButton::Left,
+        });
+    }
 
     #[test]
     fn corner_radius_cursor_changes_on_hover_and_stays_during_drag() {

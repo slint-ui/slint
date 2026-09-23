@@ -158,7 +158,7 @@ component SelectedCanvasFrame inherits Rectangle {
             root.radius-drag-active = true;
             Api.override-selected-element-border-radius(corner, radius, single-corner);
         }
-        resized-to(corner, position, size) => {
+        resized-to(position, size) => {
             root.preview-geometry(position, size);
         }
         moved-to(position) => {
