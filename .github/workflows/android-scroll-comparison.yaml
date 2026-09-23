@@ -28,7 +28,7 @@ jobs:
       CARGO_INCREMENTAL: 0
       CARGO_PROFILE_RELEASE_DEBUG: 0
       CARGO_TARGET_DIR: ${{ github.workspace }}/target
-      SCROLL_ARTIFACT_DIR: ${{ runner.temp }}/android-scroll-artifacts
+      SCROLL_ARTIFACT_DIR: /tmp/android-scroll-artifacts
     steps:
       - name: Record disk space before expansion
         run: |
@@ -105,5 +105,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-scroll-swipe
-          path: ${{ runner.temp }}/android-scroll-artifacts
+          path: /tmp/android-scroll-artifacts
           if-no-files-found: error
