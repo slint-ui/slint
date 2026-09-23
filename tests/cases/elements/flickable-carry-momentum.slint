@@ -13,12 +13,8 @@ export component TestCase inherits Window {
         // The content size is the same as the flickable geometry to test all for border limits
         content-height: parent.height * 100;
         content-width: parent.width;
-        carry-momentum: off;
-        bounce: off;
     }
 
-    in-out property bounce <=> fli.bounce;
-    in-out property carry-momentum <=> fli.carry-momentum;
     in-out property fli_width <=> fli.width;
     in-out property fli_height <=> fli.height;
     in-out property fli_content_width <=> fli.content_width;
@@ -65,9 +61,12 @@ pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
 }
 
 let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
 
 // Scroll down with no carry momentum
-assert_eq!(instance.get_carry_momentum(), AutoBool::Off);
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::Off);
 send_mouse_press_and_release(&instance, 5., 130., 5., 5.); // Finger moves up -> Scrolling down.
 slint_testing::mock_elapsed_time(5);
 
@@ -126,12 +125,14 @@ pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
 }
 
 let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
 
 const FLICK_DISTANCE: f32 = 20.;
 
 // Scroll down with no carry momentum
-instance.set_carry_momentum(AutoBool::On);
-assert_eq!(instance.get_carry_momentum(), AutoBool::On);
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::On);
 send_mouse_press_and_release(&instance, 5., 130., 5., 130. - FLICK_DISTANCE); // Finger moves up -> Scrolling down.
 slint_testing::mock_elapsed_time(5);
 
@@ -201,12 +202,14 @@ pub fn send_wheel_scroll<Component: slint::ComponentHandle>(
 }
 
 let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
 
 const FLICK_DISTANCE: f32 = 20.;
 
 // Scroll down with carry momentum
-instance.set_carry_momentum(AutoBool::On);
-assert_eq!(instance.get_carry_momentum(), AutoBool::On);
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::On);
 send_wheel_scroll(&instance, 5., 5., 0., -FLICK_DISTANCE); // Scrolling down.
 slint_testing::mock_elapsed_time(5);
 

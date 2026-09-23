@@ -40,8 +40,8 @@ pub enum FlickAnimationParameter {
 /// Either an Android-style hard-clamped fling or an iOS-style rubber-band
 /// fling. Wrapping both in one enum (rather than picking a single concrete
 /// type at compile time) lets `create_animation` choose per call, based on
-/// the `bounce` property and platform, since that decision can change at
-/// runtime even on a single platform (`bounce: on` forces iOS-style physics
+/// the internal `bounce` setting and platform, since that decision can change at
+/// runtime even on a single platform (`AutoBool::On` forces iOS-style physics
 /// anywhere).
 pub enum FlickAnimation {
     Android(AndroidFlick),
@@ -205,8 +205,8 @@ impl FlickAnimation {
     }
 
     /// Whether to use the iOS-style (rubber-band overscroll) animation rather
-    /// than the Android-style (hard-clamped) one: forced on by `bounce: on`,
-    /// forced off by `bounce: off`, and otherwise on exactly where iOS's own
+    /// than the Android-style (hard-clamped) one: forced on by `AutoBool::On`,
+    /// forced off by `AutoBool::Off`, and otherwise on exactly where iOS's own
     /// scroll views bounce.
     pub fn use_bounce(bounce: AutoBool) -> bool {
         match bounce {

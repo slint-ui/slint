@@ -1506,14 +1506,6 @@ fn build(l: &mut Loader) {
         /// When true, the content can be scrolled by clicking on it and dragging it with the cursor.
         /// Panning with a touch screen is only affected by `interactive`.
         in property <bool> mouse-drag-pan-enabled: true;
-        /// Enable scrolling beyond the content limits and bouncing back, on whichever axis
-        /// actually has content to overflow into.
-        /// When auto it imitates platform behavior. On iOs it is on and on all other platforms Off
-        in property <AutoBool> bounce: AutoBool.auto;
-        /// Carry the momentum of the previous scroll action to the next scroll action.
-        /// When auto it uses the platform behavior. iOs On and for all other platforms Off.
-        in property <AutoBool> carry-momentum: AutoBool.auto;
-
         /// The total width of the scrollable content.
         @shadowable in property <length> content-width;
         /// The total height of the scrollable content.

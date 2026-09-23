@@ -15,8 +15,6 @@ export component TestCase inherits Window {
         height: parent.height - 20phx;
         content_width: 2100phx;
         content_height: 2100phx;
-        bounce: off;
-        carry-momentum: off;
 
         flicked => {
             root.flicked += self.content_x/1phx * 100000 + self.content_y/1phx;
@@ -55,7 +53,12 @@ export component TestCase inherits Window {
 // Test 0
 // Test that basic scrolling works, and that releasing the mouse animates
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint::language::AutoBool;
 let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::f")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::Off);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 100.0) });
 slint_testing::mock_elapsed_time(5000);
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
@@ -112,7 +115,12 @@ assert_eq!(instance.get_double_clicked(), 0);
 // Test 1
 // Test interaction with inner mouse area
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint::language::AutoBool;
 let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::f")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::Off);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
 assert!(!instance.get_inner_ta_pressed());
 assert!(instance.get_inner_ta_has_hover());
@@ -249,7 +257,12 @@ assert!((instance.get_offset_y() - 55.).abs() < 5.);
 // Test 2
 // Test high-level wheel events stay synchronous
 use slint::{LogicalPosition, platform::{WindowEvent, Key} };
+use slint::language::AutoBool;
 let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::f")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::Off);
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
 assert_eq!(instance.get_offset_x(), 30.);
 assert_eq!(instance.get_offset_y(), 50.);
@@ -270,7 +283,12 @@ if !cfg!(target_os = "macos") {
 // Standalone wheel move events animate without a synthetic settle callback
 use slint::platform::WindowEvent;
 use slint_testing::{LogicalPoint, BackendMouseEvent, TouchPhase};
+use slint::language::AutoBool;
 let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::f")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::Off);
 let window = instance.window();
 
 assert_eq!(instance.get_flicked(), 0);
@@ -299,7 +317,12 @@ assert_eq!(instance.get_flicked(), 0);
 // Test flicked-Callback behavior
 // The pointer will be released after a short time after the last move event, so we start the animation
 use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton} };
+use slint::language::AutoBool;
 let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::f")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::Off);
 assert_eq!(instance.get_flicked(), 0);
 
 // test scrolling behavior
@@ -333,7 +356,12 @@ instance.set_flicked(0);
 // Test flicked-Callback behavior
 // The pointer will be released long after the last move event, so we don't start the animation
 use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton} };
+use slint::language::AutoBool;
 let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::f")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::Off);
 assert_eq!(instance.get_flicked(), 0);
 
 // test scrolling behavior
@@ -365,7 +393,12 @@ instance.set_flicked(0);
 // Test double click
 // Test interaction with inner mouse area
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint::language::AutoBool;
 let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::f")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::Off);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
 assert!(instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), 0);
@@ -408,7 +441,12 @@ assert_eq!(instance.get_offset_y(), 0.);
 ```rust
 // Same as first test, but wait a bit before moving the mouse, and move only a tiny  ()
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint::language::AutoBool;
 let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::f")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::Off);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 100.0) });
 slint_testing::mock_elapsed_time(5000);
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
