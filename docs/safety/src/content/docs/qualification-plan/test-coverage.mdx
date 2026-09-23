@@ -1,5 +1,5 @@
 ---
-title: Test Coverage
+title: Coverage Criteria
 description: How code coverage is measured, and the level we hold it at.
 ---
 
@@ -13,7 +13,7 @@ At the ASIL B we target, statement and branch coverage are highly recommended an
 The standard sets no percentage. 9.4.4 says only that coverage judged insufficient needs either more test cases or a rationale, and that no target value, or a low one without a rationale, counts as insufficient.
 
 Slint SC holds the runtime at complete line, function, and region coverage, and the build fails below it.
-Whether MC/DC is needed on top of that is still open; see the TODO in [Verification](/qualification-plan/verification/).
+Whether MC/DC is needed on top of that is still open; see the TODO in [Verification](/qualification-plan/verification/#pass-criteria).
 
 The `.slint` code of an application is measured as well, at the level of the language rather than of the generated code:
 which elements, bindings, handlers and calls the tests reached, and which outcomes of every `?:`, `&&` and `||` they took.

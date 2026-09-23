@@ -3,7 +3,11 @@ title: Architecture Design
 description: Software units of Slint SC and their static and dynamic architecture.
 ---
 
-## Slint SC Software Units (ISO 26262-6 7.4.4)
+This chapter describes the units that make up Slint SC, and how they fit together at build time and at run time.
+
+## Software Units
+
+**Addresses:** ISO 26262-6 7.4.4
 
 Slint SC consists of three units.
 
@@ -19,12 +23,14 @@ Slint SC consists of three units.
 The qualified subset currently contains the `Rectangle`, `Window`, and `TouchArea` elements, with basic properties.
 The element reference in the [Reference](/reference/) is generated from the `\sc` markers in the compiler's builtins, so it lists exactly what the subset contains.
 
-(TODO: `slint_build` doesn't support Slint SC yet, so there's no build-script
-integration; the compiler binary is invoked directly. Decide whether
-`slint_build` gains a safety-critical mode or the manual documents the direct
-invocation.)
+:::caution[TODO]
+`slint_build` doesn't support Slint SC yet, so there's no build-script integration; the compiler binary is invoked directly.
+Decide whether `slint_build` gains a safety-critical mode, or the manual documents the direct invocation.
+:::
 
-## Slint SC Architecture Design (ISO 26262-6 7.4)
+## Architectural Design
+
+**Addresses:** ISO 26262-6 7.4
 
 During the development of the software architectural design, 7.4.2 says the following shall be considered:
 
@@ -40,7 +46,7 @@ During the development of the software architectural design, 7.4.2 says the foll
 
 ### Properties
 
-Two properties of the design hold by construction, so nothing has to be done to maintain them and no constraint on the integrator depends on them.
+Three properties of the design hold by construction, so nothing has to be done to maintain them and no constraint on the integrator depends on them.
 
 * The architecture separates business logic, which the application owns, from presentation logic, which Slint SC owns.
   Slint SC renders; it doesn't hold application state.
@@ -51,8 +57,7 @@ Two properties of the design hold by construction, so nothing has to be done to 
 
 ### Static Design
 
-7.4.5 says the software architectural design shall describe its static design
-aspects, which address:
+7.4.5 says the software architectural design shall describe its static design aspects, which address:
 
 - the software structure including its hierarchical levels;
 - the data types and their characteristics;

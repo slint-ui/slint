@@ -29,9 +29,12 @@ They run automatically in CI on every change, and on demand when a release is ba
 
 A change is verified when every suite passes, every requirement paragraph is covered by at least one test, and the runtime is completely covered.
 
-The last two are checked by the generator: `slint-doc-generator --fail-on-gaps` exits with a distinct status when a source file is below complete coverage, or a requirement paragraph has no test. The chapters are written either way, so the reports of the run that found the gap are there to look at.
+The last two are checked by the generator.
+`slint-doc-generator --fail-on-gaps` exits with a distinct status when a source file is below complete coverage, or a requirement paragraph has no test.
+The chapters are written either way, so the reports of the run that found the gap are there to look at.
 
-(TODO: coverage is measured as lines, functions and regions. Modified
-Condition/Decision Coverage isn't measured, and static analysis beyond clippy
-isn't run. Decide whether either is needed for the ASIL we target, and if so,
-add it here and to the pass criteria.)
+:::caution[TODO]
+Coverage is measured as lines, functions and regions.
+Modified Condition/Decision Coverage isn't measured, and static analysis beyond clippy isn't run.
+Decide whether either is needed for the ASIL we target, and if so, add it here and to the pass criteria.
+:::

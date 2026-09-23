@@ -3,6 +3,9 @@ title: Standards Compliance
 description: The standards Slint SC targets, and which clause is addressed where.
 ---
 
+This chapter names the standards Slint SC targets and the integrity level it's developed for.
+It then maps each clause to the chapter that addresses it.
+
 ## Standards in Scope
 
 Slint SC targets three functional safety standards:
@@ -19,7 +22,9 @@ What differs is the integrity level each one asks for and the clauses each one i
 Nothing in this package is specific to one application domain.
 Slint SC renders a safety-related user interface; what that interface controls or reports is the integrator's concern.
 
-## Specification and Management of Safety Requirements (ISO 26262-8 6.x)
+## Safety Requirements
+
+**Addresses:** ISO 26262-8 Clause 6
 
 The standards tell us what properties a safety-critical system must have (traceability, freedom from interference, determinism, etc.), but they don't tell us how to write those requirements for a GUI toolkit.
 
@@ -33,26 +38,37 @@ Slint SC is a Safety Element out of Context (SEooC).
 It's developed without a specific application function, so it has no integrity level of its own to derive.
 Instead it's developed to be capable of the level below, and the integrator confirms that level is the one their application needs.
 
-* **ISO 26262: ASIL B.**
-  ASIL (Automotive Safety Integrity Level) describes the risk level of something.
-  ASIL D=highest, C=high, B=medium, A=low risk, QM = not safety critical.
-  Without an application function there's no HARA (Hazard Analysis and Risk Assessment) to derive an ASIL from, so ASIL B is a target rather than a result.
-* **IEC 61508: (TODO)** decide the SIL Slint SC is developed to be capable of.
-* **IEC 62304: (TODO)** decide the software safety class.
+| Standard | Level |
+| --- | --- |
+| ISO 26262 | ASIL B |
+| IEC 61508 | Not decided yet |
+| IEC 62304 | Not decided yet |
+
+ASIL (Automotive Safety Integrity Level) describes the risk level of something.
+ASIL D=highest, C=high, B=medium, A=low risk, QM = not safety critical.
+Without an application function there's no HARA (Hazard Analysis and Risk Assessment) to derive an ASIL from, so ASIL B is a target rather than a result.
+
+:::caution[TODO]
+Decide the SIL Slint SC is developed to be capable of under IEC 61508, and the software safety class under IEC 62304.
+:::
 
 Where an application isn't safety related at all, the full Slint framework can be used instead, and none of this applies.
 
 ## ISO 26262 Clause Map
 
-(TODO: the equivalent maps for IEC 61508 and IEC 62304.)
+| Clause | Topic | Where |
+| --- | --- | --- |
+| ISO 26262-4 Clause 8 | Safety validation | At the vehicle level, so it belongs to the integrator. See [User Responsibility](/user-manual/#user-responsibility). Our own verification is in [Verification](/qualification-plan/verification/). |
+| ISO 26262-6 Clause 7 | Software architectural design | [Architecture Design](/qualification-plan/architecture/#architectural-design) |
+| ISO 26262-8 Clause 5 | Distributed development | [Distributed Development](/qualification-plan/development-process/#distributed-development) |
+| ISO 26262-8 Clause 6 | Safety requirements | [Safety Requirements](#safety-requirements). 6.4.3.2 asks each safety requirement to reference its source one level up, what realizes it one level down, and the verification specification that checks it. |
+| ISO 26262-8 Clause 7 | Configuration management | [Configuration Management](/qualification-plan/development-process/#configuration-management) |
+| ISO 26262-8 Clause 8 | Change management | [Change Management](/qualification-plan/development-process/#change-management), and [Development Phases](/qualification-plan/development-phases/) for the change workflow itself. |
+| ISO 26262-8 9.4 | Verification | [Verification](/qualification-plan/verification/) |
+| ISO 26262-8 Clause 11 | Confidence in software tools | [Tool Classification](/evaluation-report/tool-classification/) for the confidence level, and [Qualification Method](/evaluation-report/qualification-method/) for how it's reached. The process the tool is built with is in [Development Process](/qualification-plan/development-process/). |
+| ISO 26262-8 Clause 12 | Qualification of software components | [Software Component Qualification](/qualification-plan/development-process/#software-component-qualification) |
+| ISO 26262-8 Clause 13 | Evaluation of hardware elements | Out of scope. See [Evaluation of Hardware Elements](/qualification-plan/development-process/#evaluation-of-hardware-elements). |
 
-* ISO 26262-4 8.x: Safety validation is at the vehicle level, so it belongs to the integrator. See [User Responsibility](/user-manual/#user-responsibility). Our own verification is in [Verification](/qualification-plan/verification/).
-* ISO 26262-6 7.x: See [Architecture Design](/qualification-plan/architecture/#slint-sc-architecture-design-iso-26262-6-74)
-* ISO 26262-8 5.x: See [Distributed Development](/qualification-plan/development-process/#distributed-development-iso-26262-8-5x)
-* ISO 26262-8 6.4: See [Specification and Management of Safety Requirements](#specification-and-management-of-safety-requirements-iso-26262-8-6x). 6.4.3.2 asks each safety requirement to reference its source one level up, what realizes it one level down, and the verification specification that checks it.
-* ISO 26262-8 7.x: See [Configuration Management](/qualification-plan/development-process/#configuration-management-iso-26262-8-7x)
-* ISO 26262-8 8.x: See [Change Management](/qualification-plan/development-process/#change-management-iso-26262-8-8x), and [Development Phases](/qualification-plan/development-phases/) for the change workflow itself.
-* ISO 26262-8 9.4.x: See [Verification](/qualification-plan/verification/).
-* ISO 26262-8 11.x: See [Tool Classification](/evaluation-report/tool-classification/) for the confidence level, and [Qualification Method](/evaluation-report/qualification-method/) for how it's reached. The process the tool is built with is in [The Development Process](/qualification-plan/development-process/#the-development-process-iso-26262-8).
-* ISO 26262-8 12.x: See [Software Component Qualification](/qualification-plan/development-process/#software-component-qualification-iso-26262-8-12x)
-
+:::caution[TODO]
+Write the equivalent maps for IEC 61508 and IEC 62304.
+:::
