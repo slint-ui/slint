@@ -859,33 +859,54 @@ impl Snapshotter {
                     expression_tree::Path::Commands(Box::new(self.snapshot_expression(ex)))
                 }
             }),
-            Expression::LinearGradient { angle, stops } => Expression::LinearGradient {
-                angle: Box::new(self.snapshot_expression(angle)),
-                stops: stops
-                    .iter()
-                    .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
-                    .collect(),
-            },
-            Expression::RadialGradient { center, radius, stops } => Expression::RadialGradient {
-                center: center.as_ref().map(|(cx, cy)| {
-                    (Box::new(self.snapshot_expression(cx)), Box::new(self.snapshot_expression(cy)))
-                }),
-                radius: radius.as_ref().map(|r| Box::new(self.snapshot_expression(r))),
-                stops: stops
-                    .iter()
-                    .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
-                    .collect(),
-            },
-            Expression::ConicGradient { from_angle, center, stops } => Expression::ConicGradient {
-                from_angle: Box::new(self.snapshot_expression(from_angle)),
-                center: center.as_ref().map(|(cx, cy)| {
-                    (Box::new(self.snapshot_expression(cx)), Box::new(self.snapshot_expression(cy)))
-                }),
-                stops: stops
-                    .iter()
-                    .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
-                    .collect(),
-            },
+            Expression::LinearGradient { angle, color_space, stops } => {
+                Expression::LinearGradient {
+                    angle: Box::new(self.snapshot_expression(angle)),
+                    color_space: *color_space,
+                    stops: stops
+                        .iter()
+                        .map(|(e1, e2)| {
+                            (self.snapshot_expression(e1), self.snapshot_expression(e2))
+                        })
+                        .collect(),
+                }
+            }
+            Expression::RadialGradient { center, radius, color_space, stops } => {
+                Expression::RadialGradient {
+                    center: center.as_ref().map(|(cx, cy)| {
+                        (
+                            Box::new(self.snapshot_expression(cx)),
+                            Box::new(self.snapshot_expression(cy)),
+                        )
+                    }),
+                    radius: radius.as_ref().map(|r| Box::new(self.snapshot_expression(r))),
+                    color_space: *color_space,
+                    stops: stops
+                        .iter()
+                        .map(|(e1, e2)| {
+                            (self.snapshot_expression(e1), self.snapshot_expression(e2))
+                        })
+                        .collect(),
+                }
+            }
+            Expression::ConicGradient { from_angle, center, color_space, stops } => {
+                Expression::ConicGradient {
+                    from_angle: Box::new(self.snapshot_expression(from_angle)),
+                    center: center.as_ref().map(|(cx, cy)| {
+                        (
+                            Box::new(self.snapshot_expression(cx)),
+                            Box::new(self.snapshot_expression(cy)),
+                        )
+                    }),
+                    color_space: *color_space,
+                    stops: stops
+                        .iter()
+                        .map(|(e1, e2)| {
+                            (self.snapshot_expression(e1), self.snapshot_expression(e2))
+                        })
+                        .collect(),
+                }
+            }
             Expression::ReturnStatement(expr) => Expression::ReturnStatement(
                 expr.as_ref().map(|e| Box::new(self.snapshot_expression(e))),
             ),

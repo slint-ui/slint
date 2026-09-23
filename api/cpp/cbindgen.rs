@@ -693,8 +693,8 @@ fn gen_corelib(
         ),
         (
             vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient", "ConicGradientBrush",
-                 "slint_conic_gradient_normalize_stops", "slint_conic_gradient_apply_rotation",
-                 "slint_brush_compare_equal"],
+                 "GradientColorSpace", "slint_conic_gradient_normalize_stops",
+                 "slint_conic_gradient_apply_rotation", "slint_brush_compare_equal"],
             "slint_brush_internal.h",
             "",
         ),
@@ -818,6 +818,7 @@ fn gen_corelib(
             "slint_windowrc_nsview_appkit",
             "GradientStop",
             "ConicGradientBrush",
+            "GradientColorSpace",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",

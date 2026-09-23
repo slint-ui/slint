@@ -269,6 +269,9 @@ export struct FillData {
     color: color,
     stops: [GradientStop],
     angle: float,
+    // The CSS-syntax name of the gradient's color space ("srgb", "oklch", "oklab", "hsl"),
+    // or empty for the default (srgb).
+    color-space: string,
     custom-center: bool,
     center-x: float,
     center-y: float,

@@ -11,7 +11,7 @@ use crate::Value;
 use crate::globals::{GlobalInstance, GlobalStorage};
 use crate::instance::SubComponentInstance;
 use i_slint_compiler::diagnostics::SourceLocation;
-use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
+use i_slint_compiler::expression_tree::{BuiltinFunction, GradientColorSpace, MinMaxOp};
 use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
 use i_slint_core::graphics::{
@@ -957,15 +957,16 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                 }
             })
         }
-        Expression::LinearGradient { angle, stops } => {
+        Expression::LinearGradient { angle, color_space, stops } => {
             let angle: f32 = eval_expression(ctx, angle).try_into().unwrap_or_default();
-            Value::Brush(Brush::LinearGradient(LinearGradientBrush::new(
-                angle,
-                eval_stops(ctx, stops),
-            )))
+            Value::Brush(Brush::LinearGradient(
+                (LinearGradientBrush::new(angle, eval_stops(ctx, stops)))
+                    .with_color_space(to_runtime_color_space(*color_space)),
+            ))
         }
-        Expression::RadialGradient { stops, center, radius } => {
-            let mut g = RadialGradientBrush::new_circle(eval_stops(ctx, stops));
+        Expression::RadialGradient { stops, center, radius, color_space } => {
+            let mut g = (RadialGradientBrush::new_circle(eval_stops(ctx, stops)))
+                .with_color_space(to_runtime_color_space(*color_space));
             if let Some((cx, cy)) = center {
                 let cx: f32 = eval_expression(ctx, cx).try_into().unwrap_or_default();
                 let cy: f32 = eval_expression(ctx, cy).try_into().unwrap_or_default();
@@ -977,9 +978,10 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             Value::Brush(Brush::RadialGradient(g))
         }
-        Expression::ConicGradient { from_angle, stops, center } => {
+        Expression::ConicGradient { from_angle, stops, center, color_space } => {
             let from_angle: f32 = eval_expression(ctx, from_angle).try_into().unwrap_or_default();
-            let mut g = ConicGradientBrush::new(from_angle, eval_stops(ctx, stops));
+            let mut g = (ConicGradientBrush::new(from_angle, eval_stops(ctx, stops)))
+                .with_color_space(to_runtime_color_space(*color_space));
             if let Some((cx, cy)) = center {
                 let cx: f32 = eval_expression(ctx, cx).try_into().unwrap_or_default();
                 let cy: f32 = eval_expression(ctx, cy).try_into().unwrap_or_default();
@@ -1737,6 +1739,17 @@ fn binary_op(op: char, lhs: Value, rhs: Value) -> Value {
         ('&', Value::Bool(a), Value::Bool(b)) => Value::Bool(a && b),
         ('|', Value::Bool(a), Value::Bool(b)) => Value::Bool(a || b),
         (op, a, b) => panic!("unsupported {a:?} {op} {b:?}"),
+    }
+}
+
+fn to_runtime_color_space(
+    color_space: GradientColorSpace,
+) -> i_slint_core::graphics::GradientColorSpace {
+    match color_space {
+        GradientColorSpace::Srgb => i_slint_core::graphics::GradientColorSpace::Srgb,
+        GradientColorSpace::Oklch => i_slint_core::graphics::GradientColorSpace::Oklch,
+        GradientColorSpace::Oklab => i_slint_core::graphics::GradientColorSpace::Oklab,
+        GradientColorSpace::Hsl => i_slint_core::graphics::GradientColorSpace::Hsl,
     }
 }
 

@@ -32,4 +32,10 @@ export X := Rectangle {
 
     property<brush> g14: @radial-gradient(circle 80px, red, blue);
     property<brush> g15: @radial-gradient(circle 80px at 50px 50px, red, blue);
+    property<brush> g16: @radial-gradient(in oklch circle, red, blue);
+    property<brush> g17: @radial-gradient(in hsl circle, red, blue);
+    property<brush> g18: @radial-gradient(in bogus circle, red, blue);
+//                                           >    <error{'bogus' is not a valid color space, expected 'srgb', 'oklch', 'oklab', or 'hsl'}
+    property<brush> g19: @radial-gradient(in, circle, red, blue);
+//                                        ><error{Expected a color space after 'in'}
 }
