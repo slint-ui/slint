@@ -313,6 +313,7 @@ inputchip
 intprop
 intval
 iocp
+iphoneos
 iphonesimulator
 IRAM
 Irqs
@@ -595,6 +596,7 @@ shikijs
 Shmelt
 signalsafe
 SIGUSR
+simctl
 singlefile
 singleshot
 skrifa
