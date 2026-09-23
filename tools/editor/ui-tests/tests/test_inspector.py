@@ -710,6 +710,21 @@ def shadow_expected(source: bytes, family: str, control: str, value: str) -> byt
     )
 
 
+def artboard_pixels(window: slint_testing.Window) -> bytes:
+    artboard = window_element_with_label(window, "Artboard")
+    image = screenshot(window)
+    scale = image.width / window.root_element.size.width
+    x, y = artboard.absolute_position.x, artboard.absolute_position.y
+    return image.crop(
+        (
+            round(x * scale),
+            round(y * scale),
+            round((x + artboard.size.width) * scale),
+            round((y + artboard.size.height) * scale),
+        )
+    ).tobytes()
+
+
 @pytest.mark.parametrize("family", ("drop", "inner"))
 @pytest.mark.parametrize(
     ("control", "label", "value"),
@@ -774,17 +789,7 @@ def test_shadow_slider_previews_without_source_writes(
         start = slider_position(window, label, initial)
         end = slider_position(window, label, progress)
         window.dispatch_event(slint_testing.PointerMoveEvent(start))
-        artboard = window_element_with_label(window, "Artboard")
-        image = screenshot(window)
-        scale = image.width / window.root_element.size.width
-        x, y = artboard.absolute_position.x, artboard.absolute_position.y
-        region = (
-            round(x * scale),
-            round(y * scale),
-            round((x + artboard.size.width) * scale),
-            round((y + artboard.size.height) * scale),
-        )
-        before = image.crop(region).tobytes()
+        before = artboard_pixels(window)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
                 start, slint_testing.PointerEventButton.Left
@@ -792,7 +797,7 @@ def test_shadow_slider_previews_without_source_writes(
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
         wait_for_field(window, label + " value", value)
-        assert screenshot(window).crop(region).tobytes() != before
+        assert artboard_pixels(window) != before
         snapshot.assert_unchanged()
         if outcome == "cancel":
             press_keys(window, keys.Escape)
@@ -817,7 +822,7 @@ def test_shadow_slider_previews_without_source_writes(
                 snapshot.assert_unchanged()
             if outcome == "selection":
                 select_element(window, "Rectangle")
-            assert screenshot(window).crop(region).tobytes() == before
+            assert artboard_pixels(window) == before
         else:
             expected = shadow_expected(baseline, family, control, value)
             snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
@@ -825,6 +830,54 @@ def test_shadow_slider_previews_without_source_writes(
             snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
             press_shortcut(window, keys.Control, keys.Shift, "z")
             snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
+
+
+@pytest.mark.parametrize("family", ("drop", "inner"))
+@pytest.mark.parametrize("outcome", ("commit", "cancel"))
+def test_shadow_angle_previews_without_source_writes(
+    editor_binary, editor_environment, fixture_project, family, outcome
+):
+    source = fixture_project / INSPECTOR_SOURCE
+    baseline = shadow_source(source.read_bytes(), family)
+    source.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, baseline)
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        dial = inspector_field(
+            window, "Shadow angle", slint_testing.AccessibleRole.Slider
+        )
+        position, size = dial.absolute_position, dial.size
+        center_x = position.x + size.width / 2
+        center_y = position.y + size.height / 2
+        start = slint_testing.LogicalPosition(center_x, center_y + size.height / 3)
+        end = slint_testing.LogicalPosition(center_x + size.width / 3, center_y)
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        before = artboard_pixels(window)
+        window.dispatch_event(
+            slint_testing.PointerPressEvent(
+                start, slint_testing.PointerEventButton.Left
+            )
+        )
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_field(window, "Shadow angle", "0", slint_testing.AccessibleRole.Slider)
+        assert artboard_pixels(window) != before
+        snapshot.assert_unchanged()
+        if outcome == "cancel":
+            press_keys(window, keys.Escape)
+        window.dispatch_event(
+            slint_testing.PointerReleaseEvent(
+                end, slint_testing.PointerEventButton.Left
+            )
+        )
+        if outcome == "cancel":
+            snapshot.assert_unchanged()
+            assert artboard_pixels(window) == before
+        else:
+            snapshot.wait_for_applied(
+                shadow_expected(baseline, family, "angle", "0"), INSPECTOR_SOURCE
+            )
 
 
 @pytest.mark.parametrize("family", ("drop", "inner"))
