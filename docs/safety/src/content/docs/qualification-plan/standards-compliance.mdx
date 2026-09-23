@@ -30,7 +30,7 @@ The standards tell us what properties a safety-critical system must have (tracea
 
 Slint SC states them in two places.
 The [Language Specification](/reference/language/) says what the language and the runtime must do, one identified paragraph at a time, and each paragraph is traced to the tests that verify it.
-The [Evaluation Report](/evaluation-report/potential-errors/) says what can go wrong instead, and what detects or constrains each of those.
+The [Tool Evaluation Report](/evaluation-report/potential-errors/) and the runtime's [Safety Analysis](/component-documentation/safety-analysis/) say what can go wrong instead, and what detects or constrains each of those.
 
 ## Integrity Level
 
@@ -59,14 +59,14 @@ Where an application isn't safety related at all, the full Slint framework can b
 | Clause | Topic | Where |
 | --- | --- | --- |
 | ISO 26262-4 Clause 8 | Safety validation | At the vehicle level, so it belongs to the integrator. See [User Responsibility](/user-manual/#user-responsibility). Our own verification is in [Verification](/qualification-plan/verification/). |
-| ISO 26262-6 Clause 7 | Software architectural design | [Architecture Design](/qualification-plan/architecture/#architectural-design) |
+| ISO 26262-6 Clause 7 | Software architectural design | [Architecture Design](/qualification-plan/architecture/#architectural-design), and the [Safety Analysis](/component-documentation/safety-analysis/) of 7.4.10 |
 | ISO 26262-8 Clause 5 | Distributed development | [Distributed Development](/qualification-plan/development-process/#distributed-development) |
 | ISO 26262-8 Clause 6 | Safety requirements | [Safety Requirements](#safety-requirements). 6.4.3.2 asks each safety requirement to reference its source one level up, what realizes it one level down, and the verification specification that checks it. |
 | ISO 26262-8 Clause 7 | Configuration management | [Configuration Management](/qualification-plan/development-process/#configuration-management) |
 | ISO 26262-8 Clause 8 | Change management | [Change Management](/qualification-plan/development-process/#change-management), and [Development Phases](/qualification-plan/development-phases/) for the change workflow itself. |
 | ISO 26262-8 9.4 | Verification | [Verification](/qualification-plan/verification/) |
-| ISO 26262-8 Clause 11 | Confidence in software tools | [Tool Classification](/evaluation-report/tool-classification/) for the confidence level, and [Qualification Method](/evaluation-report/qualification-method/) for how it's reached. The process the tool is built with is in [Development Process](/qualification-plan/development-process/). |
-| ISO 26262-8 Clause 12 | Qualification of software components | [Software Component Qualification](/qualification-plan/development-process/#software-component-qualification) |
+| ISO 26262-8 Clause 11 | Confidence in software tools | The criteria evaluation report of 11.5.1 is the [Tool Evaluation Report](/evaluation-report/). The qualification report of 11.5.2 is [Tool Qualification](/qualification-report/tool-qualification/). |
+| ISO 26262-8 Clause 12 | Qualification of software components | The plan of 12.4.1 e is the [Component Qualification Plan](/qualification-plan/component-qualification/). The documentation of 12.5.1 is the [Component Documentation](/component-documentation/). The qualification report of 12.5.2 is [Component Qualification](/qualification-report/component-qualification/). |
 | ISO 26262-8 Clause 13 | Evaluation of hardware elements | Out of scope. See [Evaluation of Hardware Elements](/qualification-plan/development-process/#evaluation-of-hardware-elements). |
 
 :::caution[TODO]

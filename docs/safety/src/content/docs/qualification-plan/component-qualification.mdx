@@ -1,0 +1,44 @@
+---
+title: Component Qualification Plan
+description: How the slint-sc runtime is qualified as a software component.
+---
+
+**Addresses:** ISO 26262-8 12.4.1 e
+
+Clause 12 governs pre-existing software integrated into the product.
+The `slint-sc` runtime ships in the customer's binary, so it's qualified this way, and verified rather than validated as a tool.
+Tools are the subject of Clause 11 instead, and are evaluated in the [Tool Evaluation Report](/evaluation-report/).
+The specification of the runtime is in the [Component Documentation](/component-documentation/).
+
+## Activities
+
+12.4.2.2 asks the verification of the component to show three things.
+
+| Asks for | How |
+| --- | --- |
+| a) Requirement coverage, per ISO 26262-6 Clause 9 | Every paragraph of the [rendering model](/reference/rendering/) and the [generated code contract](/reference/generated-code/) is traced to at least one test. See the [Traceability Matrix](/qualification-report/traceability-matrix/). |
+| b) Normal operating conditions and behavior in the case of failure | The runtime test cases cover both, such as a frame buffer of the wrong size. See [Test Suites](/qualification-plan/test-suites/#runtime-test-cases). |
+| c) No known errors that may violate a safety requirement | [Known Problems](/user-manual/known-problems/) |
+
+The runtime is also held at complete line, function, and region coverage.
+12.4.2.3 asks for structural coverage only at ASIL D; see [Coverage Criteria](/qualification-plan/test-coverage/) for why we measure it anyway.
+
+The verification is valid only for the unchanged implementation, as 12.4.2.4 asks.
+The [Test Results](/qualification-report/test-results/) chapter records the commit it was run on.
+
+:::caution[TODO]
+12.4.1 d asks for evidence that the development process of the component is based on an appropriate standard, such as ISO/IEC/IEEE 12207.
+Say which one [Development Process](/qualification-plan/development-process/) is based on.
+12.4.3 asks for the qualification results, and their validity for the intended use, to be verified per Clause 9.
+Say who verifies them, and where the verification report is.
+:::
+
+## Dependencies
+
+The runtime crate has **zero dependencies**: no other crates, no `std`, no `alloc`.
+There is nothing below it to qualify, and nothing whose failure it inherits.
+
+The compiler uses external crates, but it's a tool: its dependencies are covered by its tool qualification rather than by component qualification, because none of its code ships in the product.
+
+Should the runtime ever gain a dependency, that dependency becomes Software of Unknown Provenance (SOUP).
+It must then undergo rigorous evaluation before integration, including static analysis, functional testing, and security auditing, to justify its reuse in a safety-related context.
