@@ -18,6 +18,11 @@ The optional `NAMESPACE` argument will put the generated components in the given
 Use the `LIBRARY_PATHS` argument to specify the name and paths to <SlintRef type="ComponentLibraries" label="component libraries" code={false} />,
 separated by an equals sign (`=`).
 
+Instead of a `.slint` file, you can pass a `slint-project.json`.
+Its `entry` is compiled with the settings of that project file,
+and the header is named after the entry: `"entry": "ui/the_window.slint"` generates `the_window.h`.
+Changing the project file re-runs the CMake configure step.
+
 Given a file called `the_window.slint`, the following example will create a file called `the_window.h` that can
 be included from your .cpp file. Assuming the `the_window.slint` contains a component `TheWindow`, the output
 C++ class will be put in the namespace `ui`, resulting to `ui::TheWindow`. Any import from `@mycomponentlib/` will
