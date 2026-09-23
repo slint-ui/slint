@@ -132,6 +132,17 @@ component.model.append(4)
 del component.model[0]
 ```
 
+Use <XRef to="MapModel" /> to show the rows of another model through a map function.
+It follows the changes of the source model:
+
+```python
+numbers = slint.ListModel([1, 2, 3])
+component.labels = slint.MapModel(numbers, lambda n: f"Item {n}")
+numbers.append(4)
+```
+
+Alternatively, subclass <XRef to="MapModel" /> and implement `map_row()` instead of passing a function.
+
 ## Threading
 
 The event loop runs on the main thread, and components must be created and
