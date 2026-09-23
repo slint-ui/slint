@@ -16,4 +16,5 @@ fn main() {
         CompilerConfiguration::new().with_debug_info(true),
     )
     .unwrap();
+    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
 }

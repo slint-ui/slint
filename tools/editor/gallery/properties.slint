@@ -1,0 +1,88 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, ComboBox, ScrollView } from "std-widgets.slint";
+import { Gallery } from "state.slint";
+import { Api, BrushKind } from "../ui/api.slint";
+import { Colors, Typography } from "../ui/style.slint";
+import { PrimerTextInput, MutedLabel, SectionTitle } from "../ui/components/index.slint";
+import { InspectorValueField } from "../ui/components/inspector/value-field.slint";
+
+component NumberProperty inherits VerticalLayout {
+    in property <string> label;
+    in-out property <float> value;
+    in property <float> minimum: 0;
+    in property <float> maximum: 2000;
+    spacing: 6px;
+    MutedLabel { text: root.label; }
+    InspectorValueField {
+        accessible-name: root.label; value: root.value;
+        accepted(text) => {
+            if !text.is-float() { return false; }
+            let value = text.to-float();
+            if value < root.minimum || value > root.maximum { return false; }
+            root.value = value;
+            return true;
+        }
+    }
+}
+
+export component GalleryProperties inherits Rectangle {
+    in-out property <int> theme-index;
+    width: 248px; background: Colors.surface;
+    accessible-role: AccessibleRole.complementary;
+    accessible-label: "Gallery properties";
+    ScrollView {
+        horizontal-scrollbar-policy: always-off;
+        content-width: self.width;
+        VerticalLayout {
+            padding: 16px; spacing: 16px; alignment: start;
+            Text { text: "Properties"; color: Colors.foreground; font-size: Typography.heading.size; font-weight: Typography.heading.weight; }
+            MutedLabel { text: "Theme"; }
+            ComboBox { accessible-label: "Gallery theme"; model: ["System", "Light", "Dark"]; current-index <=> root.theme-index; }
+            if Gallery.scenarios.length > 1: VerticalLayout {
+                spacing: 6px;
+                MutedLabel { text: "State"; }
+                ComboBox { accessible-label: "Gallery state"; model: Gallery.scenarios; current-index: Gallery.scenario-index; selected(value) => { Gallery.navigate(Gallery.page-index, self.current-index); } }
+            }
+            SectionTitle { label: "PREVIEW"; }
+            NumberProperty { label: "Preview width"; value <=> Gallery.preview-width; }
+            NumberProperty { label: "Preview height"; value <=> Gallery.preview-height; }
+            MutedLabel { text: "0 fits the available space"; }
+            if Gallery.page == "palette" || Gallery.page == "outline": NumberProperty {
+                label: "Panel width"; value <=> Gallery.panel-width; minimum: 200; maximum: 600;
+            }
+            if Gallery.page == "controls": VerticalLayout {
+                spacing: 12px;
+                SectionTitle { label: "COMPONENT"; }
+                MutedLabel { text: "Input text"; }
+                PrimerTextInput { accessible-name: "Property input text"; text <=> Gallery.input-text; }
+                MutedLabel { text: "Selected segment"; }
+                ComboBox { model: ["One", "Two", "Three"]; current-index <=> Gallery.segment; }
+            }
+            if Gallery.page == "inspector-controls": VerticalLayout {
+                spacing: 12px;
+                SectionTitle { label: "COMPONENT"; }
+                MutedLabel { text: "Text"; }
+                PrimerTextInput { accessible-name: "Property sample text"; text <=> Gallery.sample-text; }
+                NumberProperty { label: "Numeric value"; value <=> Gallery.number; minimum: -2000; }
+                NumberProperty { label: "Slider value"; value <=> Gallery.slider; maximum: 100; }
+                NumberProperty { label: "Rotation value"; value <=> Gallery.rotation; minimum: -360; maximum: 360; }
+            }
+            if Gallery.page == "picker": VerticalLayout {
+                spacing: 12px;
+                SectionTitle { label: "FILL"; }
+                if Gallery.fill.kind == BrushKind.solid: VerticalLayout {
+                    spacing: 6px;
+                    MutedLabel { text: "Color"; }
+                    InspectorValueField {
+                        accessible-name: "Property fill color"; value: Api.fill-expression(Gallery.fill);
+                        accepted(text) => { if !Api.string-is-color(text) { return false; } Gallery.fill.color = Api.string-to-color(text); return true; }
+                    }
+                }
+                Button { text: "Edit fill"; clicked => { Gallery.open-picker(self.absolute-position); } }
+            }
+            Button { text: "Reset example"; clicked => { Gallery.preview-width = 0; Gallery.preview-height = 0; Gallery.panel-width = 260; Gallery.navigate(Gallery.page-index, Gallery.scenario-index); } }
+        }
+    }
+}

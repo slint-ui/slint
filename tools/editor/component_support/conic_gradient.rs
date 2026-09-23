@@ -90,7 +90,7 @@ pub fn remap(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::preview::ui::{BrushKind, GradientStop};
+    use crate::ui::{BrushKind, GradientStop};
     use slint::{Color, Model, VecModel};
     use std::rc::Rc;
 

@@ -15,9 +15,16 @@ rust-version.workspace = true
 version.workspace = true
 publish = false
 
+[lib]
+path = "lib.rs"
+
 [[bin]]
 name = "slint-editor"
 path = "main.rs"
+
+[[example]]
+name = "gallery"
+path = "gallery/main.rs"
 
 [features]
 ## Discover preview targets on the local network.

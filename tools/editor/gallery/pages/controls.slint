@@ -1,0 +1,158 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Gallery } from "../state.slint";
+import { ScrollView } from "std-widgets.slint";
+import { Colors, Style, Typography, Metrics } from "../../ui/style.slint";
+import { BodyLabel, MutedLabel, SectionTitle, PrimerTextInput, SidebarToggleButton, HorizontalResizeDivider, ComponentPaletteRow } from "../../ui/components/index.slint";
+import { ElementKind } from "../../ui/api.slint";
+import { InspectorValueField } from "../../ui/components/inspector/value-field.slint";
+import { InspectorEditableField } from "../../ui/components/inspector/editable-field.slint";
+import { InspectorCodeField } from "../../ui/components/inspector/code-field.slint";
+import { InspectorComboBox } from "../../ui/components/inspector/combo-box.slint";
+import { InspectorSlider } from "../../ui/components/inspector/slider.slint";
+import { InspectorEffectDial } from "../../ui/components/inspector/effect-dial.slint";
+import { InspectorRotationKnob } from "../../ui/components/inspector/rotation-knob.slint";
+import { InspectorCornerEditor } from "../../ui/components/inspector/corner-editor.slint";
+import { InspectorIconButton } from "../../ui/components/inspector/icon-button.slint";
+import { InspectorSegment } from "../../ui/components/inspector/segment.slint";
+
+export component GalleryControls inherits Rectangle {
+    in property <bool> inspector;
+    in-out property <int> segment <=> Gallery.segment;
+    in-out property <string> input-text <=> Gallery.input-text;
+    in property <int> reset-generation: Gallery.reset-generation;
+    changed reset-generation => { root.reset(); }
+    in-out property <string> text <=> Gallery.sample-text;
+    private property <string> expression: "parent.width / 2";
+    private property <string> image-fit: "contain";
+    in-out property <float> number <=> Gallery.number;
+    in-out property <float> slider <=> Gallery.slider;
+    in-out property <float> rotation <=> Gallery.rotation;
+    private property <angle> shadow-angle: 90deg;
+    private property <[float]> corners: [12, 12, 12, 12];
+    private property <length> divider: 24px;
+    private property <string> action: "Ready";
+    function reset() {
+        root.segment = 0;
+        root.text = "Hello Slint";
+        root.expression = "parent.width / 2";
+        root.image-fit = "contain";
+        root.number = 24;
+        root.slider = 24;
+        root.rotation = 24;
+        root.shadow-angle = 90deg;
+        root.corners = [12, 12, 12, 12];
+        root.divider = 24px;
+        root.action = "Ready";
+        root.input-text = "";
+    }
+    ScrollView {
+        horizontal-scrollbar-policy: always-off;
+        content-width: self.width;
+        VerticalLayout {
+            padding: 24px; spacing: 20px;
+            SectionTitle { label: root.inspector ? "INSPECTOR CONTROLS" : "EDITOR CONTROLS"; }
+            if !root.inspector: VerticalLayout {
+                spacing: 16px;
+                PrimerTextInput { text <=> root.input-text; placeholder: "Search elements…"; accessible-name: "Sample text input"; }
+                HorizontalLayout {
+                    alignment: start; spacing: 12px;
+                    SidebarToggleButton { accessible-role: AccessibleRole.button; accessible-label: "Toggle sidebar"; clicked => { root.action = "Toggle sidebar"; } }
+                    InspectorIconButton { kind: "eye"; label: "Visibility"; clicked => { root.action = "Clicked visibility"; } }
+                    InspectorIconButton { kind: "drop"; label: "Fill"; clicked => { root.action = "Clicked fill"; } }
+                    for i in 3: InspectorSegment { width: 60px; kind: "text"; label: ["One", "Two", "Three"][i]; selected: root.segment == i; clicked => { root.segment = i; } }
+                }
+                ComponentPaletteRow { label: "Rectangle"; kind: ElementKind.rectangle; drag-enabled: false; }
+                HorizontalResizeDivider {
+                    resize-label: "Sample divider"; value: root.divider; value-maximum: 100px;
+                    value-set(v) => { root.divider = v; }
+                    dragged(delta) => { root.divider = (root.divider + delta).clamp(0px, 100px); }
+                    reset-requested => { root.divider = 24px; }
+                }
+                MutedLabel { text: root.action; }
+            }
+            if root.inspector: HorizontalLayout {
+                vertical-stretch: 0;
+                VerticalLayout {
+                    width: Style.inspector-layout.content-width; spacing: 20px; alignment: start;
+                    HorizontalLayout { spacing: 8px;
+                        InspectorValueField { accessible-name: "Sample numeric field"; prefix: "X"; value: root.number; accepted(v) => { if !v.is-float() { return false; } root.number = v.to-float(); return true; } }
+                        InspectorEditableField { accessible-name: "Sample editable field"; value: root.text; accepted(v) => { root.text = v; return true; } }
+                    }
+                    InspectorCodeField { accessible-name: "Sample expression"; value: root.expression; accepted(v) => { root.expression = v; return true; } }
+                    InspectorComboBox { accessible-name: "Sample image fit"; value: root.image-fit; options: [{value: "contain", label: "Contain"}, {value: "cover", label: "Cover"}, {value: "fill", label: "Fill"}]; accepted(v) => { root.image-fit = v; return true; } }
+                    BodyLabel { text: "Slider · " + root.slider; }
+                    InspectorSlider { accessible-name: "Sample slider"; value: root.slider; maximum: 100; preview(v) => { return true; } accepted(v) => { root.slider = v; return true; } }
+                    HorizontalLayout {
+                        alignment: start; spacing: 24px;
+                        InspectorRotationKnob { value: root.rotation; preview(v) => { return true; } accepted(v) => { root.rotation = v; return true; } }
+                        InspectorEffectDial { accessible-name: "Sample shadow angle"; value: root.shadow-angle; accepted(v) => { root.shadow-angle = v; return true; } }
+                    }
+                    InspectorCornerEditor {
+                        values: root.corners; maximum: 100; selection-key: root.reset-generation;
+                        preview(v) => { return true; }
+                        accepted(i,v) => { if i < 0 { root.corners = [v, v, v, v]; } else { root.corners[i] = v; } return true; }
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; }
+            }
+            Rectangle { vertical-stretch: 1; }
+        }
+    }
+}
+
+export component GalleryFoundations inherits Rectangle {
+    ScrollView {
+        horizontal-scrollbar-policy: always-off;
+        content-width: self.width;
+        VerticalLayout {
+            padding: 24px; spacing: 24px;
+            SectionTitle { label: "SEMANTIC COLORS"; }
+            for token in [
+                {name: "Background", value: Colors.background}, {name: "Surface", value: Colors.surface},
+                {name: "Subtle", value: Colors.subtle}, {name: "Foreground", value: Colors.foreground},
+                {name: "Muted", value: Colors.muted}, {name: "Border", value: Colors.border},
+                {name: "Accent", value: Colors.accent}, {name: "Focus", value: Colors.focus},
+                {name: "Selection", value: Colors.selection}, {name: "Danger", value: Colors.danger}
+            ]: HorizontalLayout {
+                spacing: 12px;
+                Rectangle { width: 44px; height: 28px; background: token.value; border-width: 1px; border-color: Colors.border; border-radius: 4px; }
+                BodyLabel { text: token.name; horizontal-stretch: 1; }
+            }
+            SectionTitle { label: "TYPOGRAPHY"; }
+            Text { text: "Heading · Visual Editor"; font-size: Typography.heading.size; font-weight: Typography.heading.weight; color: Colors.foreground; }
+            BodyLabel { text: "Body · Build interfaces with Slint"; }
+            MutedLabel { text: "Muted · Supporting information"; }
+            SectionTitle { label: "SPACING & RADII"; }
+            HorizontalLayout {
+                alignment: start; spacing: Metrics.space-medium;
+                for size in [Metrics.radius-small / 1px, Metrics.radius-medium / 1px, Metrics.radius-large / 1px]: Rectangle {
+                    width: 56px; height: 56px; border-radius: size * 1px; background: Colors.subtle;
+                    Text { text: size + " px"; color: Colors.foreground; horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+            SectionTitle { label: "SPACING"; }
+            HorizontalLayout {
+                alignment: start; spacing: Metrics.space-medium;
+                for size in [Metrics.space-tight, Metrics.space-small, Metrics.space-compact, Metrics.space-regular, Metrics.space-medium, Metrics.space-large, Metrics.space-section]: Rectangle {
+                    width: 50px; height: 48px;
+                    Rectangle { width: size; height: 20px; background: Colors.accent; }
+                    MutedLabel { y: 28px; text: (size / 1px) + " px"; }
+                }
+            }
+            SectionTitle { label: "FLOATING SHADOW"; }
+            Rectangle {
+                width: 160px; height: 72px;
+                background: Colors.surface;
+                border-radius: Metrics.radius-large;
+                drop-shadow-blur: Style.fill-picker.shadow.blur;
+                drop-shadow-offset-y: Style.fill-picker.shadow.offset-y;
+                drop-shadow-color: Style.fill-picker.shadow.color;
+                BodyLabel { text: "Picker panel"; horizontal-alignment: center; vertical-alignment: center; }
+            }
+            SectionTitle { label: "ELEMENT ICONS"; }
+            for kind in [ElementKind.rectangle, ElementKind.text, ElementKind.image, ElementKind.touch-area]: ComponentPaletteRow { kind: kind; label: kind == ElementKind.rectangle ? "Rectangle" : kind == ElementKind.text ? "Text" : kind == ElementKind.image ? "Image" : "TouchArea"; drag-enabled: false; }
+        }
+    }
+}

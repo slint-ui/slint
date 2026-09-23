@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use crate::preview::ui;
+use crate::ui;
 
 use slint::Model;
 
@@ -29,11 +29,11 @@ pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
 }
 
 fn add_recent_fill(api: &ui::Api<'_>, value: ui::FillData) {
-    let brush = ui::fill_brush(value.clone());
+    let brush = super::brushes::fill_brush(value.clone());
     let mut fills = api
         .get_recent_fills()
         .iter()
-        .filter(|fill| ui::fill_brush(fill.clone()) != brush)
+        .filter(|fill| super::brushes::fill_brush(fill.clone()) != brush)
         .collect::<Vec<_>>();
     fills.insert(0, value);
     fills.truncate(MAX_RECENT_FILLS);
