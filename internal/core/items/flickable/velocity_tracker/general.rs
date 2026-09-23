@@ -21,7 +21,7 @@ const MIN_SAMPLE_SIZE: usize = 3;
 
 #[derive(Default, Debug)]
 pub(crate) struct GeneralVelocityTracker<const N: usize> {
-    buffer: VelocityRingBuffer<N, Instant>,
+    buffer: VelocityRingBuffer<N>,
 }
 
 impl<const N: usize> VelocityEstimator for GeneralVelocityTracker<N> {
@@ -34,17 +34,17 @@ impl<const N: usize> VelocityEstimator for GeneralVelocityTracker<N> {
         let mut x = Vec::with_capacity(self.buffer.len());
         let mut y = Vec::with_capacity(self.buffer.len());
 
-        let mut previous: Option<&(Duration, Vector2D<f32, LogicalPx>)> = None;
+        let mut previous: Option<&(Instant, Vector2D<f32, LogicalPx>)> = None;
         let mut iter = self.buffer.iter().rev(); // from newest to oldest
         let mut position = Vector2D::<f32, LogicalPx>::default(); // The entries are delta so we have to subtract
         while let Some(e) = iter.next() {
             let delta = previous
                 .map(|p| {
                     position -= p.1;
-                    p.0.saturating_sub(e.0)
+                    p.0.0.saturating_sub(e.0.0)
                 })
                 .unwrap_or_default();
-            let age = latest_time.saturating_sub(e.0);
+            let age = latest_time.0.saturating_sub(e.0.0);
             if delta > ASSUME_POINTER_MOVE_STOPPED || age > HORIZON {
                 break;
             }
@@ -131,7 +131,7 @@ mod tests_general_velocity_tracker {
     fn precise_samples_survive_buffer_wraparound() {
         let mut tracker = GeneralVelocityTracker::<3>::default();
         for i in 0..8 {
-            tracker.push_precise(Duration::from_micros(i * 3500), LogicalVector::new(0., 21.));
+            tracker.push(Instant(Duration::from_micros(i * 3500)), LogicalVector::new(0., 21.));
         }
         assert_eq!(tracker.buffer.len(), 3);
         assert_eq!(tracker.last_sample_time(), Some(Duration::from_micros(24500)));
@@ -142,9 +142,9 @@ mod tests_general_velocity_tracker {
     #[test]
     fn short_flick_preserves_submillisecond_timing() {
         let mut tracker = GeneralVelocityTracker::<8>::default();
-        tracker.push_precise(Duration::ZERO, LogicalVector::default());
-        tracker.push_precise(Duration::from_micros(7000), LogicalVector::new(0., 42.));
-        tracker.push_precise(Duration::from_micros(10500), LogicalVector::new(0., 21.));
+        tracker.push(Instant(Duration::ZERO), LogicalVector::default());
+        tracker.push(Instant(Duration::from_micros(7000)), LogicalVector::new(0., 42.));
+        tracker.push(Instant(Duration::from_micros(10500)), LogicalVector::new(0., 21.));
         let estimate = tracker.estimate_velocity_internal().unwrap();
         values_equal!(estimate.velocity.y, 6000., 0.1);
     }

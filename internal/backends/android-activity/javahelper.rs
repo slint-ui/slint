@@ -13,7 +13,7 @@ use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, TouchHistory, TouchPhase};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::items::{CapitalizationMode, ColorScheme, InputType};
-use i_slint_core::lengths::{LogicalLength, PhysicalEdges};
+use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalVector, PhysicalEdges, PointLengths};
 use i_slint_core::platform::{
     InternalEvent, Key, WindowAdapter, WindowEvent, WindowEventDispatchResult,
 };
@@ -447,7 +447,7 @@ impl JavaHelper {
                 .with_jni_env(|env, _| AndroidSystemClock::uptime_millis(env))
                 .unwrap_or_else(|e| print_jni_error(&self.1, e));
             let ctx = i_slint_core::window::WindowInner::from_pub(window).context();
-            (i_slint_core::animations::Instant::now(&ctx).0 as i64 - uptime) * 1_000_000
+            i_slint_core::animations::Instant::now(&ctx).0.as_nanos() as i64 - uptime * 1_000_000
         });
         Instant(Duration::from_nanos(event_nanos.saturating_add(*offset).max(0) as u64))
     }
@@ -748,7 +748,6 @@ fn callback_forward_touch<'local>(
         _ => return Ok(()),
     };
     let event_time = SlintAndroidJavaHelper::motion_event_time(env, &event)?;
-    let down_time = event.get_down_time(env)? * 1_000_000;
     let position = (event.get_x(env)?, event.get_y(env)?);
     let mut historical_points = Vec::new();
     if phase == TouchPhase::Moved {
@@ -756,9 +755,7 @@ fn callback_forward_touch<'local>(
             historical_points.push((
                 event.get_historical_x(env, index)?,
                 event.get_historical_y(env, index)?,
-                Duration::from_nanos(event_time.saturating_sub(
-                    SlintAndroidJavaHelper::historical_motion_event_time(env, &event, index)?,
-                ) as u64),
+                SlintAndroidJavaHelper::historical_motion_event_time(env, &event, index)?,
             ));
         }
     }
@@ -774,18 +771,32 @@ fn callback_forward_touch<'local>(
             };
             let position = logical_position(position.0, position.1);
             let history = if phase == TouchPhase::Moved {
+                let mut history = Vec::with_capacity(historical_points.len());
+                let mut prev_pos = None;
+                for (x, y, time) in historical_points {
+                    let pos = logical_position(x, y);
+                    let instant = adapter.java_helper.input_timestamp(time, &adapter.window);
+                    if let Some(prev) = prev_pos {
+                        let delta: LogicalVector = pos - prev;
+                        history.push((
+                            LogicalPoint::from_lengths(delta.x_length(), delta.y_length()),
+                            instant,
+                        ));
+                    }
+                    prev_pos = Some(pos);
+                }
+                if let Some(prev) = prev_pos {
+                    let delta: LogicalVector = position - prev;
+                    history.push((
+                        LogicalPoint::from_lengths(delta.x_length(), delta.y_length()),
+                        adapter.java_helper.input_timestamp(event_time, &adapter.window),
+                    ));
+                }
                 TouchHistory {
                     event_time: Some(
                         adapter.java_helper.input_timestamp(event_time, &adapter.window),
                     ),
-                    start_time: Some(
-                        adapter.java_helper.input_timestamp(down_time, &adapter.window),
-                    ),
-                    event_pos: Some(position),
-                    history: historical_points
-                        .into_iter()
-                        .map(|(x, y, age)| (logical_position(x, y), age))
-                        .collect(),
+                    history,
                 }
             } else {
                 Default::default()

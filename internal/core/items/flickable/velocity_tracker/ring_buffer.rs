@@ -8,22 +8,22 @@ use crate::lengths::{LogicalPx, LogicalVector};
 use euclid::Vector2D;
 
 /// Simple ringbuffer storing time and delta tuples
-pub(crate) struct VelocityRingBuffer<const N: usize, T = Instant> {
+pub(crate) struct VelocityRingBuffer<const N: usize> {
     /// Pointing to the next free element
     curr_index: usize,
     /// Indicates if the buffer is full
     full: bool,
-    values: [(T, Vector2D<f32, LogicalPx>); N],
+    values: [(Instant, Vector2D<f32, LogicalPx>); N],
 }
 
-impl<const N: usize, T: Copy + Default> Default for VelocityRingBuffer<N, T> {
+impl<const N: usize> Default for VelocityRingBuffer<N> {
     fn default() -> Self {
         // Placeholder timestamps; `curr_index`/`full` track which entries are real.
-        Self { curr_index: 0, full: false, values: [(T::default(), Vector2D::default()); N] }
+        Self { curr_index: 0, full: false, values: [(Default::default(), Vector2D::default()); N] }
     }
 }
 
-impl<const N: usize, T: Copy + core::fmt::Debug> core::fmt::Debug for VelocityRingBuffer<N, T> {
+impl<const N: usize> core::fmt::Debug for VelocityRingBuffer<N> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "VelocityRingBuffer({}): ", self.len())?;
         if self.empty() {
@@ -38,8 +38,8 @@ impl<const N: usize, T: Copy + core::fmt::Debug> core::fmt::Debug for VelocityRi
     }
 }
 
-impl<'a, const N: usize, T: Copy> VelocityRingBuffer<N, T> {
-    pub fn iter(&'a self) -> VelocityRingBufferIterator<'a, N, T> {
+impl<'a, const N: usize> VelocityRingBuffer<N> {
+    pub fn iter(&'a self) -> VelocityRingBufferIterator<'a, N> {
         VelocityRingBufferIterator::new(self)
     }
 
@@ -49,7 +49,7 @@ impl<'a, const N: usize, T: Copy> VelocityRingBuffer<N, T> {
     }
 
     /// Add a new element to the ringbuffer
-    pub fn push(&mut self, time: T, position_delta: LogicalVector) {
+    pub fn push(&mut self, time: Instant, position_delta: LogicalVector) {
         if self.curr_index < self.values.len() {
             self.values[self.curr_index] = (time, position_delta.cast());
         }
@@ -78,21 +78,21 @@ impl<'a, const N: usize, T: Copy> VelocityRingBuffer<N, T> {
     }
 
     /// Returns the last time value added to the buffer if not empty otherwise None
-    pub fn last_time(&self) -> Option<T> {
+    pub fn last_time(&self) -> Option<Instant> {
         if !self.empty() { Some(self.values[self.latest_index()].0) } else { None }
     }
 }
 
-pub(crate) struct VelocityRingBufferIterator<'a, const N: usize, T = Instant> {
+pub(crate) struct VelocityRingBufferIterator<'a, const N: usize> {
     count: usize,
     curr: usize,
     curr_back: usize,
-    buffer: &'a VelocityRingBuffer<N, T>,
+    buffer: &'a VelocityRingBuffer<N>,
     empty: bool,
 }
 
-impl<'a, const N: usize, T: Copy> VelocityRingBufferIterator<'a, N, T> {
-    fn new(buffer: &'a VelocityRingBuffer<N, T>) -> Self {
+impl<'a, const N: usize> VelocityRingBufferIterator<'a, N> {
+    fn new(buffer: &'a VelocityRingBuffer<N>) -> Self {
         let curr = if buffer.full {
             // curr_index points to the oldest value which will be overwritten
             // at the next push
@@ -104,8 +104,8 @@ impl<'a, const N: usize, T: Copy> VelocityRingBufferIterator<'a, N, T> {
     }
 }
 
-impl<'a, const N: usize, T: Copy> Iterator for VelocityRingBufferIterator<'a, N, T> {
-    type Item = &'a (T, Vector2D<f32, LogicalPx>);
+impl<'a, const N: usize> Iterator for VelocityRingBufferIterator<'a, N> {
+    type Item = &'a (Instant, Vector2D<f32, LogicalPx>);
 
     fn next(&mut self) -> Option<Self::Item> {
         let max_count = if self.buffer.full { N } else { self.buffer.latest_index() + 1 };
@@ -121,7 +121,7 @@ impl<'a, const N: usize, T: Copy> Iterator for VelocityRingBufferIterator<'a, N,
     }
 }
 
-impl<'a, const N: usize, T: Copy> DoubleEndedIterator for VelocityRingBufferIterator<'a, N, T> {
+impl<'a, const N: usize> DoubleEndedIterator for VelocityRingBufferIterator<'a, N> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let max_count = if self.buffer.full { N } else { self.buffer.latest_index() + 1 };
         if self.empty || self.count >= max_count {
