@@ -34,6 +34,9 @@ use std::sync::Arc;
 
 pub(crate) mod forward_inherited_expression;
 mod interfaces;
+mod match_element;
+
+pub(crate) use match_element::CaseValue;
 
 macro_rules! unwrap_or_continue {
     ($e:expr ; $diag:expr) => {
