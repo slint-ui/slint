@@ -3,8 +3,9 @@
 
 # cSpell: ignore AFAICT ARGN endwhile GENEX REALPATH
 # Set up machinery to handle SLINT_EMBED_RESOURCES target property
-# A web page can't read files from the build machine
-if(EMSCRIPTEN)
+# A web page can't read files from the build machine,
+# and an iOS app runs from its bundle, where absolute paths from the build host don't exist
+if(EMSCRIPTEN OR IOS)
     set(_slint_default_embed_resources embed-files)
 else()
     set(_slint_default_embed_resources as-absolute-path)
