@@ -82,6 +82,27 @@ export default defineConfig({
                         items: [
                             { label: "Overview", slug: "user-manual" },
                             {
+                                label: "Get Started",
+                                items: [
+                                    {
+                                        label: "Prerequisites",
+                                        slug: "user-manual/get-started/prerequisites",
+                                    },
+                                    {
+                                        label: "Installation",
+                                        slug: "user-manual/get-started/installation",
+                                    },
+                                    {
+                                        label: "Compiling .slint Files",
+                                        slug: "user-manual/get-started/compiling",
+                                    },
+                                    {
+                                        label: "Using the Generated Code",
+                                        slug: "user-manual/get-started/using-generated-code",
+                                    },
+                                ],
+                            },
+                            {
                                 label: "Known Problems",
                                 slug: "user-manual/known-problems",
                             },
