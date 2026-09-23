@@ -10,7 +10,6 @@
             "!**/fixtures",
             "!**/node_modules",
             "!**/playwright-report",
-            "!**/src/ui/syntax-assets",
             "!**/test-results",
             "!**/zip",
             "!**/.vitest-attachments",

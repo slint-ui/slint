@@ -1,29 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
-import type { LanguageRegistration, ThemeRegistration } from "@shikijs/types";
-import { createHighlighterCore } from "shiki/core";
-import { createOnigurumaEngine } from "shiki/engine/oniguruma";
-import OnigurumaEngine from "shiki/wasm";
 import { expect, test } from "vitest";
-import slintLanguage from "../../../docs/common/src/utils/slint.tmLanguage.json";
+import expectedColors from "../fixtures/highlight-colors.json";
 import { normalizeSource } from "../src/plugin/normalize";
 import type { SourceBytes, SourceCapture } from "../src/plugin/source";
 import { convertSnapshot } from "../src/preview/converter";
-import darkTheme from "../src/ui/syntax-assets/dark-theme.json";
-import lightTheme from "../src/ui/syntax-assets/light-theme.json";
 import {
     highlightSlint,
     tokenizeSlint,
     type SourceTheme,
 } from "../src/ui/slint-twinkle";
-
-const shiki = createHighlighterCore({
-    themes: [lightTheme as ThemeRegistration, darkTheme as ThemeRegistration],
-    langs: [slintLanguage as LanguageRegistration],
-    engine: createOnigurumaEngine(OnigurumaEngine),
-});
 
 const colors: Record<SourceTheme, Record<string, string>> = {
     "light-slint": {
@@ -79,29 +68,8 @@ async function fixtureSources(): Promise<{ name: string; source: string }[]> {
     );
 }
 
-async function shikiColors(
-    source: string,
-    theme: SourceTheme,
-): Promise<string[]> {
-    const result = (await shiki).codeToTokens(source, {
-        lang: "slint",
-        theme,
-    });
-    const mapped = new Array<string>(source.length).fill(colors[theme].default);
-    for (const row of result.tokens) {
-        for (const token of row) {
-            expect(token.fontStyle).toBe(0);
-            for (
-                let offset = token.offset;
-                offset < token.offset + token.content.length;
-                offset++
-            )
-                mapped[offset] = (
-                    token.color ?? colors[theme].default
-                ).toLowerCase();
-        }
-    }
-    return mapped;
+function sha256(value: string): string {
+    return createHash("sha256").update(value).digest("hex");
 }
 
 function twinkleColors(source: string, theme: SourceTheme): string[] {
@@ -120,7 +88,13 @@ function twinkleColors(source: string, theme: SourceTheme): string[] {
     return mapped;
 }
 
-test("Shiki colors the generated Slint syntax categories", async () => {
+function visibleColorHash(source: string, mapped: string[]): string {
+    return sha256(
+        mapped.filter((_, index) => !/\s/u.test(source[index])).join("\n"),
+    );
+}
+
+test("generated Slint syntax categories keep their expected colors", async () => {
     const source = await readFile("fixtures/highlight-coverage.slint", "utf8");
     const categories = [
         ["// Copyright", "comment"],
@@ -142,7 +116,7 @@ test("Shiki colors the generated Slint syntax categories", async () => {
         ["if root", "conditional"],
     ] as const;
     for (const theme of ["light-slint", "dark-slint"] as const) {
-        const actual = await shikiColors(source, theme);
+        const actual = twinkleColors(source, theme);
         for (const [sample, category] of categories) {
             const offset = source.indexOf(sample);
             expect(offset, sample).toBeGreaterThanOrEqual(0);
@@ -153,27 +127,25 @@ test("Shiki colors the generated Slint syntax categories", async () => {
     }
 });
 
-test("Twinkleplop matches Shiki colors across Figma conversions", async () => {
+test("Twinkleplop keeps the frozen colors across Figma conversions", async () => {
     const sources = [
         ...(await fixtureSources()),
         ...(await generatedSources()),
-    ];
-    expect(sources.length).toBeGreaterThanOrEqual(40);
-    for (const { name, source } of sources) {
-        for (const theme of ["light-slint", "dark-slint"] as const) {
-            const expected = await shikiColors(source, theme);
-            const actual = twinkleColors(source, theme);
-            const mismatches: string[] = [];
-            for (let i = 0; i < source.length; i++) {
-                if (/\s/u.test(source[i]) || actual[i] === expected[i])
-                    continue;
-                const line = source.slice(0, i).split("\n").length;
-                mismatches.push(
-                    `${line}: ${JSON.stringify(source.slice(i, i + 25))} ${expected[i]} != ${actual[i]}`,
-                );
-                if (mismatches.length === 5) break;
-            }
-            expect(mismatches, `${name} (${theme})`).toEqual([]);
+    ].sort((a, b) => a.name.localeCompare(b.name));
+    expect(sources.map(({ name }) => name)).toEqual(
+        expectedColors.map(({ name }) => name),
+    );
+    for (const [index, { name, source }] of sources.entries()) {
+        const expected = expectedColors[index];
+        expect(sha256(source), name).toBe(expected.sourceSha256);
+        for (const [theme, hash] of [
+            ["light-slint", expected.lightSha256],
+            ["dark-slint", expected.darkSha256],
+        ] as const) {
+            expect(
+                visibleColorHash(source, twinkleColors(source, theme)),
+                `${name} (${theme})`,
+            ).toBe(hash);
         }
     }
 });

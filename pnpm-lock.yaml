@@ -500,9 +500,6 @@ importers:
       '@noble/hashes':
         specifier: 2.4.0
         version: 2.4.0
-      '@shikijs/types':
-        specifier: 4.4.3
-        version: 4.4.3
       '@twinkleplop/core':
         specifier: 0.2.1
         version: 0.2.1
@@ -524,9 +521,6 @@ importers:
       playwright:
         specifier: 'catalog:'
         version: 1.63.0
-      shiki:
-        specifier: 4.4.3
-        version: 4.4.3
       typescript:
         specifier: 'catalog:'
         version: 6.0.3

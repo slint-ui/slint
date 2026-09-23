@@ -5,8 +5,11 @@ Conversion consumes versioned JSON; Figma API mocks belong only at the capture b
 
 - Root snapshot JSON and matching Slint files: `converter.unit.spec.ts` checks
   fixed frames, flex sizing, text overrides, nested instances, SVG and image fills.
-- `highlight-coverage.slint`: `highlight.unit.spec.ts` checks Shiki and
-  Twinkleplop colors for declarations, bindings, values, macros, and conditions.
+- `highlight-coverage.slint`: `highlight.unit.spec.ts` checks Twinkleplop colors
+  for declarations, bindings, values, macros, and conditions.
+- `highlight-colors.json`: source checksums and light/dark color fingerprints
+  frozen from Shiki after verifying parity across the authored Slint fixtures
+  and successful Figma conversions. Review output before updating a fingerprint.
 - `errors/`: `capture.unit.spec.ts` checks malformed and unsupported selections.
 - `source/`: normalization and transport tests use small source-format cases.
   Each case is named for the behavior it exercises; its matching unit test or

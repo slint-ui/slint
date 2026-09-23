@@ -9,7 +9,8 @@ Offline Figma-to-Slint plugin in the Slint monorepo. Target Slint 1.18+; no back
 - Build the interpreter from the exact clean Slint checkout in `runtime-pin.json`.
 - Treat an explicit `SLINT_REPO` checkout as read-only.
 - Use the root pnpm workspace, dependency catalog and lockfile.
-- Import the shared Slint grammar from `docs/common`; plugin themes live in `src/ui/syntax-assets`.
+- Keep the Twinkleplop grammar in `src/ui/slint-twinkle.ts` and its light and dark colors in `src/ui/style.css`.
+  Check token parity against the shared Slint grammar in `docs/common` when extending syntax coverage.
 - Never edit generated files in `.generated/` or `dist/`.
 
 ## Architecture
