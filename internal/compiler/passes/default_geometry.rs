@@ -45,8 +45,8 @@ pub fn default_geometry(
             gen_layout_info_prop(elem, diag, symbol_counters);
 
             let builtin_type = match elem.borrow().builtin_type() {
-                Some(b) => b,
-                None => return Some(elem.clone()),
+                Some(b) if !elem.borrow().is_flickable_content => b,
+                _ => return Some(elem.clone()),
             };
 
             let is_image = builtin_type.name == "Image";

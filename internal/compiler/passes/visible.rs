@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::{ElementType, NativeClass, PropertyLookupMode, Type};
+use crate::langtype::{ElementType, PropertyLookupMode, Type};
 use crate::object_tree::{self, Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 
@@ -45,8 +45,8 @@ pub fn handle_visible(
         );
     }
 
-    let native_clip =
-        type_register.lookup_builtin_element("Clip").unwrap().as_builtin().native_class.clone();
+    let clip_type = type_register.lookup_builtin_element("Clip").unwrap();
+    let native_clip = clip_type.as_builtin().native_class.clone();
 
     crate::object_tree::recurse_elem_including_sub_components(
         component,
@@ -84,7 +84,7 @@ pub fn handle_visible(
                 if child.borrow().repeated.is_some() {
                     let root_elem = child.borrow().base_type.as_component().root_element.clone();
                     if has_visible_binding(&root_elem) {
-                        let clip_elem = create_visibility_element(&root_elem, &native_clip);
+                        let clip_elem = create_visibility_element(&root_elem, &clip_type);
                         object_tree::inject_element_as_repeated_element(&child, clip_elem.clone());
                         // The width and the height must be null
                         let d = NamedReference::new(&clip_elem, SmolStr::new_static("dummy"));
@@ -92,7 +92,7 @@ pub fn handle_visible(
                         clip_elem.borrow_mut().geometry_props.as_mut().unwrap().height = d;
                     }
                 } else if has_visible_binding(&child) {
-                    let new_child = create_visibility_element(&child, &native_clip);
+                    let new_child = create_visibility_element(&child, &clip_type);
                     // The injected element takes the child's place among the z-sorted siblings
                     new_child.borrow_mut().z_order = child.borrow_mut().z_order.take();
                     new_child.borrow_mut().children.push(child);
@@ -105,10 +105,10 @@ pub fn handle_visible(
     );
 }
 
-fn create_visibility_element(child: &ElementRc, native_clip: &Arc<NativeClass>) -> ElementRc {
+fn create_visibility_element(child: &ElementRc, clip_type: &ElementType) -> ElementRc {
     let element = Element {
         id: format_smolstr!("{}-visibility", child.borrow().id),
-        base_type: ElementType::Native(native_clip.clone()),
+        base_type: clip_type.clone(),
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings: [
             (
