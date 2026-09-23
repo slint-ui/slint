@@ -1,14 +1,15 @@
 ---
 title: Tool Classification
-description: The tool confidence level of the Slint compiler, and how it is reached.
+description: The tool confidence level of each tool of Slint SC, and how it is reached.
 ---
 
+**Addresses:** ISO 26262-8 11.4.5
+
 This chapter classifies each tool whose failure could introduce an error into the product, or hide one.
-Slint SC targets ISO 26262, IEC 61508 and IEC 62304, and each one classifies tools its own way, so the classification is done once per standard.
 
 ## Summary
 
-The ISO 26262 classes follow ISO 26262-8 11.4.5: Tool Impact (TI), Tool error Detection (TD), and the resulting Tool Confidence Level (TCL).
+The classes are Tool Impact (TI), Tool error Detection (TD), and the resulting Tool Confidence Level (TCL).
 
 | Tool | Ships | TI | TD | TCL | Qualified by |
 | --- | --- | --- | --- | --- | --- |
@@ -22,10 +23,6 @@ The ISO 26262 classes follow ISO 26262-8 11.4.5: Tool Impact (TI), Tool error De
 
 The `slint-compiler` translates `.slint` files into Rust code that is compiled into the final executable.
 
-### ISO 26262
-
-**Addresses:** ISO 26262-8 11.4.5
-
 * **Tool Impact (TI2):** The `slint-compiler` can introduce errors into the executable.
 * **Tool Error Detection (TD2/TD3):** While Rust's strong type system and borrow checker catch many errors, compiler bugs might still bypass detection.
 * **Tool Confidence Level (TCL):** The combination of TI2 and TD2/TD3 results in a Tool Confidence Level of TCL2 or TCL3.
@@ -37,22 +34,6 @@ TD2 and TD3 lead to different qualification methods under ISO 26262-8 11.4.6, so
 The detection measures that back the choice belong here too, once the potential errors are written up.
 :::
 
-### IEC 61508
-
-:::caution[TODO]
-Classify the compiler as an offline support tool under IEC 61508-3 Clause 7.4.4, and state the class it falls into.
-:::
-
-### IEC 62304
-
-IEC 62304 has no tool classification scheme: nothing in it corresponds to a TCL or to an offline support tool class.
-What it asks instead is that 5.1.4 name the tools used to develop the software, and that anything the device software itself contains be handled as SOUP.
-The compiler is a tool and doesn't ship, so only 5.1.4 reaches it.
-
-:::caution[TODO]
-Write the 5.1.4 tool list, and say whether the ISO 26262 or IEC 61508 argument is offered to a medical integrator as supporting evidence.
-:::
-
 ## slint-sc-coverage
 
 `slint-sc-coverage` reports which parts of the `.slint` code the tests reached, from the map the Slint SC compiler writes and LLVM's coverage of the generated code,
@@ -62,8 +43,7 @@ It doesn't ship, and its output is evidence: a report of coverage that wasn't ac
 * **Tool Impact (TI2):** the tool can fail to detect an error, by reporting a point as reached that wasn't, or by leaving a point out.
 * **Tool Error Detection:** the runtime test cases that test the reporting state their expected coverage in the source and fail on any difference, on every run;
   see [Coverage Tool Verification](/qualification-plan/slint-coverage/).
-* **Qualification Strategy:** the tool is classified with the compiler, under ISO 26262-8 11.4.5 as above, under IEC 61508 as an offline support tool,
-  and under IEC 62304 in the 5.1.4 tool list.
+* **Qualification Strategy:** the tool is classified with the compiler, under ISO 26262-8 11.4.5 as above.
 
 :::caution[TODO]
 Settle TD, and with it the TCL, from the detection measures above, alongside the compiler's.
