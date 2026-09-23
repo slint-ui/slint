@@ -113,7 +113,10 @@ fn default(ty: &Type, text: &str) -> Option<ConstantExpression> {
             }
         }
         value if value.starts_with(|c: char| c.is_ascii_alphabetic()) => {
-            let (qualifier, value) = value.split_once('.').unwrap();
+            // Handling enums
+            let (qualifier, value) = value.split_once('.').expect(&format!(
+                "enums values must contain also the qualifier in the format `qualifier.value`: {value}"
+            ));
             let Type::Enumeration(enumeration) = ty else {
                 panic!("enum default `{qualifier}.{value}` on a property of type {ty}")
             };
