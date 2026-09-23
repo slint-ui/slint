@@ -927,7 +927,7 @@ impl RemoteLspToPreview {
         let target =
             format!("{}:{port}", addresses.first().map(String::as_str).unwrap_or_default());
         tracing::info!("Connection to remote viewer lost; reconnecting to {target}");
-        shared.emit_state(RemoteConnectionState::Connecting, target.clone(), None);
+        shared.emit_state(RemoteConnectionState::Reconnecting, target.clone(), None);
         loop {
             match Self::connect_impl(shared, addresses, port, generation).await {
                 Ok(()) => {
