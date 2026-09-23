@@ -3,21 +3,23 @@
 
 //! Types and functions for the 'match' element.
 
+use std::collections::HashSet;
+
 use smol_str::SmolStr;
 
 use crate::expression_tree::{Expression, Unit};
-use crate::langtype;
+use crate::langtype::{EnumerationValue, Type};
 
-#[derive(PartialEq)]
-pub(crate) enum CaseValue {
+#[derive(Clone, PartialEq)]
+pub enum CaseValue {
     Number(f64, Unit),
     String(SmolStr),
     Bool(bool),
-    Enumeration(langtype::EnumerationValue),
+    Enumeration(EnumerationValue),
 }
 
 impl CaseValue {
-    pub(crate) fn new(value: &Expression) -> Option<Self> {
+    pub fn new(value: &Expression) -> Option<Self> {
         match value {
             Expression::Cast { from, .. } => Self::new(from),
             Expression::UnaryOp { sub, op: '-' } => match Self::new(sub)? {
@@ -57,10 +59,59 @@ impl std::hash::Hash for CaseValue {
 impl std::fmt::Display for CaseValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CaseValue::Number(number, _) => write!(f, "{number}"),
+            CaseValue::Number(number, unit) => write!(f, "{number}{unit}"),
             CaseValue::String(string) => write!(f, "{string:?}"),
             CaseValue::Bool(boolean) => write!(f, "{boolean}"),
             CaseValue::Enumeration(value) => write!(f, "{value}"),
         }
     }
+}
+
+#[test]
+fn test_case_value_display() {
+    assert_eq!(CaseValue::Number(1.0, Unit::Px).to_string(), "1px");
+    assert_eq!(CaseValue::Number(-2.5, Unit::Ms).to_string(), "-2.5ms");
+    assert_eq!(CaseValue::Number(3.0, Unit::None).to_string(), "3");
+    assert_eq!(CaseValue::String("a\"b".into()).to_string(), r#""a\"b""#);
+}
+
+pub enum MatchSubjectDomain {
+    Unknown,
+    Exhaustive(Vec<CaseValue>),
+    Unbounded,
+}
+
+impl MatchSubjectDomain {
+    pub fn of(subject_type: &Type) -> Self {
+        match &subject_type {
+            Type::Bool => {
+                MatchSubjectDomain::Exhaustive(vec![CaseValue::Bool(true), CaseValue::Bool(false)])
+            }
+            Type::Enumeration(enumeration) => {
+                let values = (0..enumeration.values.len())
+                    .map(|value| {
+                        CaseValue::Enumeration(EnumerationValue {
+                            value,
+                            enumeration: enumeration.clone(),
+                        })
+                    })
+                    .collect();
+                MatchSubjectDomain::Exhaustive(values)
+            }
+            Type::Invalid => MatchSubjectDomain::Unknown,
+            _ => MatchSubjectDomain::Unbounded,
+        }
+    }
+}
+
+pub fn missing_case_values<'a, 'b>(
+    domain: &'a [CaseValue],
+    covered: impl IntoIterator<Item = &'b CaseValue>,
+) -> Vec<&'a CaseValue> {
+    #[allow(
+        clippy::mutable_key_type,
+        reason = "CaseValue's Enumeration variant has interior mutability, but Eq/Hash only use its Arc pointer and index, never the Enumeration's contents"
+    )]
+    let covered: HashSet<&CaseValue> = covered.into_iter().collect();
+    domain.iter().filter(|value| !covered.contains(value)).collect()
 }

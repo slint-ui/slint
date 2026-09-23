@@ -274,32 +274,22 @@ fn check_exhaustiveness(
     if !matches!(match_element.wildcard, WildcardMatchCaseInfo::None) {
         return;
     }
-    #[allow(
-        clippy::mutable_key_type,
-        reason = "CaseValue's Enumeration variant has interior mutability, but Eq/Hash only use its Arc pointer and index, never the Enumeration's contents"
-    )]
-    let mut covered: HashSet<&CaseValue> = HashSet::with_capacity(values.len());
+    let mut covered: Vec<&CaseValue> = Vec::with_capacity(values.len());
     for value in values {
         let Some(value) = value else {
             return;
         };
-        covered.insert(value);
+        covered.push(value);
     }
     let subject_node = match_element.node.Expression();
     let subject_type = match_element.subject.ty();
-    let expected: Vec<CaseValue> = match &subject_type {
-        Type::Bool => vec![CaseValue::Bool(true), CaseValue::Bool(false)],
-        Type::Enumeration(enumeration) => (0..enumeration.values.len())
-            .map(|value| {
-                CaseValue::Enumeration(langtype::EnumerationValue {
-                    value,
-                    enumeration: enumeration.clone(),
-                })
-            })
-            .collect(),
-        // The subject expression failed to resolve, so an error was already reported
-        Type::Invalid => return,
-        _ => {
+    let expected = match MatchSubjectDomain::of(&subject_type) {
+        MatchSubjectDomain::Unknown => {
+            // The subject expression failed to resolve, so an error was already reported
+            return;
+        }
+        MatchSubjectDomain::Exhaustive(case_values) => case_values,
+        MatchSubjectDomain::Unbounded => {
             diag.push_error(
                 format!("Non-exhaustive match on {subject_type}: a '*' case is required"),
                 &subject_node,
@@ -308,15 +298,12 @@ fn check_exhaustiveness(
         }
     };
 
-    let mut missing = Vec::new();
-    for value in &expected {
-        if !covered.contains(value) {
-            missing.push(format!("'{value}'"));
-        }
-    }
+    let missing = missing_case_values(&expected, covered);
     if !missing.is_empty() {
+        let missing =
+            missing.iter().map(|value| format!("'{value}'")).collect::<Vec<_>>().join(", ");
         diag.push_error(
-            format!("Non-exhaustive match on {subject_type}: missing {}", missing.join(", ")),
+            format!("Non-exhaustive match on {subject_type}: missing {missing}"),
             &subject_node,
         );
     }

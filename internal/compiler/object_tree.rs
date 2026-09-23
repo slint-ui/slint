@@ -36,7 +36,7 @@ pub(crate) mod forward_inherited_expression;
 mod interfaces;
 mod match_element;
 
-pub(crate) use match_element::CaseValue;
+pub use match_element::{CaseValue, MatchSubjectDomain, missing_case_values};
 
 macro_rules! unwrap_or_continue {
     ($e:expr ; $diag:expr) => {
