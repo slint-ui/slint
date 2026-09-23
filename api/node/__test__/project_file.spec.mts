@@ -117,3 +117,24 @@ test("a project file that isn't valid json is reported", () => {
         ),
     ).toBe(true);
 });
+
+test("loading the project file loads its entry", () => {
+    const directory = projectDirectory({
+        entry: "ui/main.slint",
+        "include-paths": ["include"],
+    });
+    fs.mkdirSync(path.join(directory, "ui"));
+    fs.mkdirSync(path.join(directory, "include"));
+    fs.writeFileSync(
+        path.join(directory, "include", "shared.slint"),
+        "export component Shared { }",
+    );
+    fs.writeFileSync(
+        path.join(directory, "ui", "main.slint"),
+        `import { Shared } from "shared.slint";
+         export component Main inherits Window { Shared { } }`,
+    );
+
+    const ui = loadFile(path.join(directory, "slint-project.json")) as any;
+    expect(ui.Main).toBeDefined();
+});
