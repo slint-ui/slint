@@ -23,6 +23,8 @@ struct ProjectFileData {
     style: Option<String>,
 
     enable_experimental_features: Option<bool>,
+
+    entry: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -32,6 +34,27 @@ pub struct ProjectFile {
 }
 
 pub const FILE_NAME: &str = "slint-project.json";
+
+/// Returns whether `path` names a project file, which tools compile by compiling its entry.
+pub fn is_project_file(path: &Path) -> bool {
+    path.file_name().is_some_and(|name| name == FILE_NAME)
+}
+
+/// Resolves the file a tool was asked to compile.
+///
+/// A project file resolves to its entry and applies itself, without a search.
+/// Any other path resolves to itself, with the project file found for its directory.
+pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), String> {
+    if !is_project_file(input) {
+        return Ok((input.to_path_buf(), ProjectFile::find(&crate::pathutils::dirname(input))?));
+    }
+    let project_file = ProjectFile::load(input)
+        .map_err(|error| format!("Cannot load {}: {error}", input.display()))?;
+    let entry = project_file.entry().ok_or_else(|| {
+        format!("{} has no 'entry' to compile", project_file.source_path().display())
+    })?;
+    Ok((entry, Some(project_file)))
+}
 
 /// Searches `directory` and its ancestors for a project file,
 /// returning the path of the first one found.
@@ -96,6 +119,12 @@ impl ProjectFile {
 
     pub fn enable_experimental_features(&self) -> Option<bool> {
         self.data.enable_experimental_features
+    }
+
+    /// The `.slint` file to compile when a tool is given this project file.
+    pub fn entry(&self) -> Option<PathBuf> {
+        let project_directory = crate::pathutils::dirname(&self.source_path);
+        self.data.entry.clone().map(|entry| resolve_relative_path(&project_directory, entry))
     }
 
     pub fn into_compiler_configuration(
@@ -238,7 +267,7 @@ fn resolve_relative_path(project_directory: &Path, path: PathBuf) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::{FILE_NAME, ProjectFile, find_project_file_path};
+    use super::{FILE_NAME, ProjectFile, find_project_file_path, is_project_file, resolve_input};
     use crate::generator::OutputFormat;
     use std::{
         collections::HashMap,
@@ -474,6 +503,62 @@ mod tests {
         assert_eq!(find_project_file_path(&nested).unwrap(), Some(root.join("a").join(FILE_NAME)));
 
         fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn the_entry_is_relative_to_the_project_file() {
+        with_project_file_contents(r#"{ "entry": "ui/main.slint" }"#, |path| {
+            let project = ProjectFile::load(path).unwrap();
+            assert_eq!(project.entry(), Some(path.parent().unwrap().join("ui/main.slint")));
+        });
+    }
+
+    #[test]
+    fn a_project_file_input_resolves_to_its_entry() {
+        with_project_file_contents(r#"{ "entry": "main.slint", "style": "material" }"#, |path| {
+            let (slint_file, project) = resolve_input(path).unwrap();
+            assert_eq!(slint_file, path.parent().unwrap().join("main.slint"));
+            assert_eq!(project.unwrap().style(), Some("material"));
+        });
+    }
+
+    #[test]
+    fn a_project_file_input_without_an_entry_is_an_error() {
+        with_project_file_contents("{}", |path| {
+            let error = resolve_input(path).unwrap_err();
+            assert!(error.contains("'entry'"), "{error}");
+        });
+    }
+
+    #[test]
+    fn a_project_file_input_ignores_a_nearer_project_file() {
+        with_project_file_contents(r#"{ "entry": "ui/main.slint", "style": "outer" }"#, |path| {
+            let ui = path.parent().unwrap().join("ui");
+            fs::create_dir_all(&ui).unwrap();
+            fs::write(ui.join(FILE_NAME), r#"{ "style": "inner" }"#).unwrap();
+
+            let (_, project) = resolve_input(path).unwrap();
+
+            fs::remove_dir_all(&ui).unwrap();
+            assert_eq!(project.unwrap().style(), Some("outer"));
+        });
+    }
+
+    #[test]
+    fn a_slint_file_input_resolves_to_itself() {
+        with_project_file_contents(r#"{ "entry": "other.slint" }"#, |path| {
+            let main = path.parent().unwrap().join("main.slint");
+            let (slint_file, project) = resolve_input(&main).unwrap();
+            assert_eq!(slint_file, main);
+            assert_eq!(project.unwrap().source_path(), path);
+        });
+    }
+
+    #[test]
+    fn only_the_exact_file_name_is_a_project_file() {
+        assert!(is_project_file(Path::new("ui/slint-project.json")));
+        assert!(!is_project_file(Path::new("ui/other.json")));
+        assert!(!is_project_file(Path::new("ui/main.slint")));
     }
 
     fn load_project_file(source: &str) -> Result<ProjectFile, Box<dyn std::error::Error>> {
