@@ -1102,21 +1102,30 @@ async fn build_with_project_file(
     config: &i_slint_compiler::CompilerConfiguration,
     overrides: &i_slint_compiler::project_file::Overrides,
 ) -> CompilationResult {
-    let mut config = config.clone();
     let directory = i_slint_compiler::pathutils::dirname(&path);
-    if let Err(message) = overrides.apply_with_project_file(&mut config, &directory) {
-        let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
-        diagnostics.push_error_with_span(message, Default::default());
-        return CompilationResult {
-            components: HashMap::new(),
-            diagnostics: diagnostics.into_iter().collect(),
-            #[cfg(feature = "internal")]
-            watch_paths: vec![i_slint_compiler::pathutils::clean_path(&path)],
-            #[cfg(feature = "internal")]
-            structs_and_enums: Vec::new(),
-        };
+    match i_slint_compiler::project_file::ProjectFile::find(&directory) {
+        Ok(project_file) => {
+            let mut config = config.clone();
+            overrides.apply(project_file.as_ref(), &mut config);
+            build_compilation_result(source_code, path, config, AnimationMode::Running).await
+        }
+        Err(message) => project_file_error(message, &path),
     }
-    build_compilation_result(source_code, path, config, AnimationMode::Running).await
+}
+
+/// The result of a compilation that failed because the project file couldn't be read.
+#[cfg_attr(not(feature = "internal"), allow(unused_variables))]
+fn project_file_error(message: String, path: &Path) -> CompilationResult {
+    let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
+    diagnostics.push_error_with_span(message, Default::default());
+    CompilationResult {
+        components: HashMap::new(),
+        diagnostics: diagnostics.into_iter().collect(),
+        #[cfg(feature = "internal")]
+        watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
+        #[cfg(feature = "internal")]
+        structs_and_enums: Vec::new(),
+    }
 }
 
 async fn build_compilation_result(

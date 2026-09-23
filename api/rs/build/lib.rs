@@ -15,6 +15,9 @@ Settings such as the style or the include paths can be put in a `slint-project.j
 file instead. The search for it starts in the directory of the `.slint` file and
 goes up from there. What you set on [`CompilerConfiguration`] wins over it.
 
+You can also pass the `slint-project.json` itself instead of a `.slint` file.
+Its `entry` is compiled with its settings, and there's no search.
+
 ## Example
 
 In your Cargo.toml:
@@ -313,15 +316,24 @@ impl CompilerConfiguration {
         self
     }
 
-    /// Applies the project file for `slint_file_directory`, then the settings set through this API.
+    /// Applies `project_file`, then the settings set through this API.
+    fn resolve(
+        self,
+        project_file: Option<&ProjectFile>,
+    ) -> i_slint_compiler::CompilerConfiguration {
+        let mut config = self.config;
+        self.overrides.apply(project_file, &mut config);
+        config
+    }
+
+    #[cfg(test)]
     fn resolve_project_file(
         self,
         slint_file_directory: &Path,
     ) -> Result<(i_slint_compiler::CompilerConfiguration, Option<ProjectFile>), String> {
-        let mut config = self.config;
-        let project_file =
-            self.overrides.apply_with_project_file(&mut config, slint_file_directory)?;
-        Ok((config, project_file))
+        let (_, project_file) =
+            project_file::resolve_input(&slint_file_directory.join("main.slint"))?;
+        Ok((self.resolve(project_file.as_ref()), project_file))
     }
 }
 
@@ -514,6 +526,7 @@ fn formatter_test() {
 ///
 /// A `slint-project.json` in the directory of `path`, or in a directory above it,
 /// provides the settings.
+/// `path` can also be a `slint-project.json`, whose `entry` is compiled.
 ///
 /// See also [`compile_with_config()`] if you want to specify a configuration.
 pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
@@ -540,7 +553,9 @@ pub fn compile_with_config(
     );
     let config = config.with_absolute_paths(&manifest_path);
 
-    let path = manifest_path.join(relative_slint_file_path.as_ref());
+    let (path, project_file) =
+        project_file::resolve_input(&manifest_path.join(relative_slint_file_path.as_ref()))
+            .map_err(CompileError::ProjectFileError)?;
 
     let absolute_rust_output_file_path =
         Path::new(&env::var_os("OUT_DIR").ok_or(CompileError::NotRunViaCargo)?).join(
@@ -568,7 +583,7 @@ pub fn compile_with_config(
     }
 
     let paths_dependencies =
-        compile_with_output_path(path, absolute_rust_output_file_path.clone(), config)?;
+        compile_resolved(&path, project_file.as_ref(), &absolute_rust_output_file_path, config)?;
 
     for path_dependency in paths_dependencies {
         println!("cargo:rerun-if-changed={}", path_dependency.display());
@@ -607,13 +622,22 @@ pub fn compile_with_output_path(
     output_rust_file_path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,
 ) -> Result<Vec<std::path::PathBuf>, CompileError> {
-    let slint_file_directory = i_slint_compiler::pathutils::dirname(input_slint_file_path.as_ref());
-    let (mut compiler_config, project_file) = config
-        .resolve_project_file(&slint_file_directory)
+    let (slint_file, project_file) = project_file::resolve_input(input_slint_file_path.as_ref())
         .map_err(CompileError::ProjectFileError)?;
+    compile_resolved(&slint_file, project_file.as_ref(), output_rust_file_path.as_ref(), config)
+}
+
+/// Compiles `input_slint_file_path` with `project_file` and `config` applied.
+fn compile_resolved(
+    input_slint_file_path: &Path,
+    project_file: Option<&ProjectFile>,
+    output_rust_file_path: &Path,
+    config: CompilerConfiguration,
+) -> Result<Vec<std::path::PathBuf>, CompileError> {
+    let mut compiler_config = config.resolve(project_file);
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse_file(&input_slint_file_path, &mut diag);
+    let syntax_node = i_slint_compiler::parser::parse_file(input_slint_file_path, &mut diag);
 
     if diag.has_errors() {
         let vec = diag.to_string_vec();
@@ -638,7 +662,7 @@ pub fn compile_with_output_path(
     }
 
     let output_file =
-        std::fs::File::create(&output_rust_file_path).map_err(CompileError::SaveError)?;
+        std::fs::File::create(output_rust_file_path).map_err(CompileError::SaveError)?;
     let mut code_formatter = CodeFormatter::new(BufWriter::new(output_file));
     let generated = i_slint_compiler::generator::rust::generate(&doc, &loader.compiler_config)
         .map_err(|e| CompileError::CompileError(vec![e.to_string()]))?;
@@ -659,10 +683,10 @@ pub fn compile_with_output_path(
     });
 
     write!(code_formatter, "{generated}").map_err(CompileError::SaveError)?;
-    dependencies.push(input_slint_file_path.as_ref().to_path_buf());
+    dependencies.push(input_slint_file_path.to_path_buf());
 
     dependencies.push(project_file.map_or_else(
-        || project_file_path_in(&slint_file_directory),
+        || project_file_path_in(i_slint_compiler::pathutils::dirname(input_slint_file_path)),
         |project_file| project_file.source_path().to_owned(),
     ));
 
@@ -950,5 +974,42 @@ fn output_path_compilation_tracks_missing_project_file_dependency() {
             "expected: {:?}\ndeps: {dependencies:#?}",
             project_file
         );
+    });
+}
+
+#[test]
+fn a_project_file_input_compiles_its_entry() {
+    use std::fs;
+
+    with_temp_test_dir("project-file-input", |test_root| {
+        let test_root = fs::canonicalize(test_root).unwrap();
+        let ui_dir = test_root.join("ui");
+        let shared_dir = test_root.join("shared");
+        fs::create_dir_all(&ui_dir).unwrap();
+        fs::create_dir_all(&shared_dir).unwrap();
+
+        let project_file = project_file_path_in(&test_root);
+        fs::write(&project_file, r#"{ "entry": "ui/main.slint", "include-paths": ["shared"] }"#)
+            .unwrap();
+        // Nearer to the entry, but not the project file that was passed in.
+        fs::write(project_file_path_in(&ui_dir), r#"{ "include-paths": ["nowhere"] }"#).unwrap();
+        fs::write(shared_dir.join("shared.slint"), "export component Shared {}").unwrap();
+        let entry = ui_dir.join("main.slint");
+        fs::write(
+            &entry,
+            r#"import { Shared } from "shared.slint";
+               export component Test inherits Rectangle { Shared {} }"#,
+        )
+        .unwrap();
+
+        let dependencies = compile_with_output_path(
+            &project_file,
+            test_root.join("main.rs"),
+            CompilerConfiguration::new(),
+        )
+        .unwrap();
+
+        assert!(dependencies.contains(&entry), "{dependencies:#?}");
+        assert!(dependencies.contains(&project_file), "{dependencies:#?}");
     });
 }
