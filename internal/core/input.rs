@@ -43,6 +43,8 @@ pub enum MouseEvent {
         click_count: u8,
         /// The touch ID if the event originated from touch input.
         touch_finger_id: i32,
+        /// Original sample time on the animation clock, independent of event delivery.
+        event_time: EventTime,
     },
     /// The mouse or finger was released
     Released {
@@ -61,7 +63,9 @@ pub enum MouseEvent {
         position: LogicalPoint,
         /// The touch ID if the event originated from touch input.
         touch_finger_id: i32,
-        /// When the event happened; see [`BackendMouseEvent::Moved`].
+        /// Original sample time on the animation clock, independent of event delivery.
+        event_time: EventTime,
+        /// Movement samples coalesced into this event.
         history: EventTouchHistory,
     },
     /// Wheel was operated.
@@ -203,14 +207,39 @@ impl MouseEvent {
     }
 }
 
+/// An optional input timestamp with C-compatible storage.
+/// `Option<Instant>` contains a Rust `Duration`, whose layout isn't guaranteed across the FFI boundary.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct EventTime {
+    seconds: u64,
+    nanoseconds: u32,
+    valid: bool,
+}
+
+impl EventTime {
+    /// Returns the original sample time when the backend supplies one.
+    pub fn get(self) -> Option<crate::animations::Instant> {
+        self.valid
+            .then(|| crate::animations::Instant(Duration::new(self.seconds, self.nanoseconds)))
+    }
+}
+
+impl From<Option<crate::animations::Instant>> for EventTime {
+    fn from(time: Option<crate::animations::Instant>) -> Self {
+        match time {
+            Some(time) => {
+                Self { seconds: time.0.as_secs(), nanoseconds: time.0.subsec_nanos(), valid: true }
+            }
+            None => Self::default(),
+        }
+    }
+}
+
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TouchHistory {
-    /// Original sample time on the animation clock, independent of event delivery.
-    pub event_time: Option<crate::animations::Instant>,
-    /// Original time of the press that began this single-touch gesture.
-    pub start_time: Option<crate::animations::Instant>,
     /// Chronological movement deltas and their sample times, including the current event.
     /// The consumer reconstructs the first delta from the event's total movement.
     pub history: Vec<(LogicalPoint, crate::animations::Instant)>,
@@ -234,7 +263,7 @@ impl TouchHistory {
         if let Some(previous) = previous {
             history.push(((event_position - previous).to_point(), event_time));
         }
-        Self { event_time: Some(event_time), start_time: None, history }
+        Self { history }
     }
 }
 
@@ -272,6 +301,7 @@ pub enum BackendMouseEvent {
         button: PointerEventButton,
         click_count: u8,
         touch_finger_id: i32,
+        event_time: EventTime,
     },
     /// The mouse or finger was released
     Released {
@@ -281,7 +311,12 @@ pub enum BackendMouseEvent {
         touch_finger_id: i32,
     },
     /// The position of the pointer has changed.
-    Moved { position: LogicalPoint, touch_finger_id: i32, history: EventTouchHistory },
+    Moved {
+        position: LogicalPoint,
+        touch_finger_id: i32,
+        event_time: EventTime,
+        history: EventTouchHistory,
+    },
     /// Wheel was operated.
     Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord, phase: TouchPhase },
     /// A platform-recognized pinch gesture (macOS/iOS trackpad, Qt).
@@ -295,14 +330,18 @@ pub enum BackendMouseEvent {
 impl From<BackendMouseEvent> for MouseEvent {
     fn from(event: BackendMouseEvent) -> Self {
         match event {
-            BackendMouseEvent::Pressed { position, button, click_count, touch_finger_id } => {
-                Self::Pressed { position, button, click_count, touch_finger_id }
-            }
+            BackendMouseEvent::Pressed {
+                position,
+                button,
+                click_count,
+                touch_finger_id,
+                event_time,
+            } => Self::Pressed { position, button, click_count, touch_finger_id, event_time },
             BackendMouseEvent::Released { position, button, click_count, touch_finger_id } => {
                 Self::Released { position, button, click_count, touch_finger_id }
             }
-            BackendMouseEvent::Moved { position, touch_finger_id, history } => {
-                Self::Moved { position, touch_finger_id, history }
+            BackendMouseEvent::Moved { position, touch_finger_id, event_time, history } => {
+                Self::Moved { position, touch_finger_id, event_time, history }
             }
             BackendMouseEvent::Wheel { position, delta_x, delta_y, phase } => {
                 Self::Wheel { position, delta_x, delta_y, phase }
@@ -1417,7 +1456,7 @@ impl ClickState {
     pub fn check_repeat(&self, mouse_event: MouseEvent, ctx: &crate::SlintContext) -> MouseEvent {
         let click_interval = ctx.platform().click_interval();
         match mouse_event {
-            MouseEvent::Pressed { position, button, touch_finger_id, .. } => {
+            MouseEvent::Pressed { position, button, touch_finger_id, event_time, .. } => {
                 let instant_now = crate::animations::Instant::now(ctx);
 
                 if let Some(click_count_time_stamp) = self.click_count_time_stamp.get() {
@@ -1439,6 +1478,7 @@ impl ClickState {
                     button,
                     click_count: self.click_count.get(),
                     touch_finger_id,
+                    event_time,
                 };
             }
             MouseEvent::Released { position, button, touch_finger_id, .. } => {
@@ -1686,6 +1726,11 @@ pub(crate) fn handle_mouse_grab(
                     MouseEvent::Moved {
                         position,
                         touch_finger_id: mouse_event.touch_finger_id(),
+                        event_time: match mouse_event {
+                            MouseEvent::Pressed { event_time, .. }
+                            | MouseEvent::Moved { event_time, .. } => *event_time,
+                            _ => Default::default(),
+                        },
                         history: Default::default(),
                     }
                 })),
@@ -1822,6 +1867,7 @@ pub fn process_mouse_input(
             &MouseEvent::Moved {
                 position: *position,
                 touch_finger_id: 0,
+                event_time: Default::default(),
                 history: Default::default(),
             },
             window_adapter,
@@ -2223,7 +2269,6 @@ pub(crate) struct TouchState {
     active_touches: TouchMap,
     /// The finger forwarded as mouse events during single-touch.
     primary_touch_id: Option<i32>,
-    primary_touch_start_time: Option<crate::animations::Instant>,
     gesture_state: GestureRecognitionState,
 }
 
@@ -2232,7 +2277,6 @@ impl Default for TouchState {
         Self {
             active_touches: TouchMap::default(),
             primary_touch_id: None,
-            primary_touch_start_time: None,
             gesture_state: GestureRecognitionState::Idle,
         }
     }
@@ -2300,24 +2344,20 @@ impl TouchState {
         id: i32,
         position: LogicalPoint,
         phase: TouchPhase,
-        mut history: TouchHistory,
+        event_time: Option<crate::animations::Instant>,
+        history: TouchHistory,
     ) -> TouchEventBuffer {
         let mut events = TouchEventBuffer::new();
-        let event_time = history.event_time;
-        history.start_time = self.primary_touch_start_time;
         match phase {
             TouchPhase::Started => self.process_started(id, position, &mut events),
             TouchPhase::Moved => self.process_moved(id, position, history, &mut events),
             TouchPhase::Ended => self.process_ended(id, position, false, &mut events),
             TouchPhase::Cancelled => self.process_ended(id, position, true, &mut events),
         }
-        // Synthetic presses after a multi-touch gesture start a new velocity history.
-        for event in events.events[..events.len].iter().flatten() {
+        for event in events.events[..events.len].iter_mut().flatten() {
             match event {
-                MouseEvent::Pressed { .. } => self.primary_touch_start_time = event_time,
-                MouseEvent::Released { .. } | MouseEvent::Exit => {
-                    self.primary_touch_start_time = None
-                }
+                MouseEvent::Pressed { event_time: time, .. }
+                | MouseEvent::Moved { event_time: time, .. } => *time = event_time.into(),
                 _ => {}
             }
         }
@@ -2337,6 +2377,7 @@ impl TouchState {
                 button: PointerEventButton::Left,
                 click_count: 0,
                 touch_finger_id: id + 1,
+                event_time: Default::default(),
             });
         } else if total == 2 {
             // Second finger: transition Idle → TwoFingersDown.
@@ -2389,6 +2430,7 @@ impl TouchState {
                     events.push(MouseEvent::Moved {
                         position,
                         touch_finger_id: id + 1,
+                        event_time: Default::default(),
                         history: history.into(),
                     });
                 }
@@ -2506,6 +2548,7 @@ impl TouchState {
                             button: PointerEventButton::Left,
                             click_count: 0,
                             touch_finger_id: remaining.id + 1,
+                            event_time: Default::default(),
                         });
                     } else {
                         self.primary_touch_id = None;
@@ -2550,6 +2593,7 @@ impl TouchState {
                         button: PointerEventButton::Left,
                         click_count: 0,
                         touch_finger_id: rid + 1,
+                        event_time: Default::default(),
                     });
                 } else {
                     events.push(MouseEvent::Exit);
@@ -2574,41 +2618,40 @@ mod touch_tests {
     }
 
     #[test]
-    fn original_press_time_follows_synthetic_touch_presses() {
+    fn original_event_times_follow_touch_and_synthetic_presses() {
         use crate::animations::Instant;
 
         let mut state = TouchState::default();
-        for (id, phase, millis, expected_start) in [
-            (0, TouchPhase::Started, 100, None),
-            (0, TouchPhase::Moved, 110, Some(100)),
-            (1, TouchPhase::Started, 120, None),
-            (1, TouchPhase::Ended, 130, None),
-            (0, TouchPhase::Moved, 140, Some(130)),
-            (0, TouchPhase::Cancelled, 150, None),
-            (0, TouchPhase::Started, 160, None),
-            (0, TouchPhase::Moved, 170, Some(160)),
+        for (id, phase, nanos, expected_time) in [
+            (0, TouchPhase::Started, 0, Some(0)),
+            (0, TouchPhase::Moved, 10_500_125, Some(10_500_125)),
+            (1, TouchPhase::Started, 20_000_000, None),
+            (1, TouchPhase::Ended, 30_250_375, Some(30_250_375)),
+            (0, TouchPhase::Moved, 40_000_000, Some(40_000_000)),
+            (0, TouchPhase::Cancelled, 50_000_000, None),
+            (0, TouchPhase::Started, 60_000_000, Some(60_000_000)),
+            (0, TouchPhase::Moved, 70_000_000, Some(70_000_000)),
         ] {
             let events = state.process(
                 id,
                 pt(0., 0.),
                 phase,
-                TouchHistory {
-                    event_time: Some(Instant(Duration::from_millis(millis))),
-                    ..Default::default()
-                },
+                Some(Instant(Duration::from_nanos(nanos))),
+                TouchHistory::default(),
             );
-            let starts: Vec<_> = events
+            let times: Vec<_> = events
                 .into_iter()
                 .filter_map(|event| match event {
-                    MouseEvent::Moved { history, .. } => Some(history.get().unwrap().start_time),
+                    MouseEvent::Pressed { event_time, .. }
+                    | MouseEvent::Moved { event_time, .. } => Some(event_time.get()),
                     _ => None,
                 })
                 .collect();
-            let expected: Vec<_> = expected_start
+            let expected: Vec<_> = expected_time
                 .into_iter()
-                .map(|millis| Some(Instant(Duration::from_millis(millis))))
+                .map(|nanos| Some(Instant(Duration::from_nanos(nanos))))
                 .collect();
-            assert_eq!(starts, expected);
+            assert_eq!(times, expected);
         }
     }
 
@@ -2751,13 +2794,13 @@ mod touch_tests {
     fn single_finger_press_move_release() {
         let mut state = TouchState::default();
 
-        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
+        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Started, None, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Pressed(100.0, 200.0)]);
 
-        let evs = state.process(1, pt(110.0, 200.0), TouchPhase::Moved, Default::default());
+        let evs = state.process(1, pt(110.0, 200.0), TouchPhase::Moved, None, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Moved(110.0, 200.0)]);
 
-        let evs = state.process(1, pt(110.0, 200.0), TouchPhase::Ended, Default::default());
+        let evs = state.process(1, pt(110.0, 200.0), TouchPhase::Ended, None, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Released(110.0, 200.0), Ev::Exit]);
     }
 
@@ -2765,9 +2808,10 @@ mod touch_tests {
     fn single_finger_cancel() {
         let mut state = TouchState::default();
 
-        state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started, None, Default::default());
 
-        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Cancelled, Default::default());
+        let evs =
+            state.process(1, pt(100.0, 200.0), TouchPhase::Cancelled, None, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Released(100.0, 200.0), Ev::Exit]);
     }
 
@@ -2775,10 +2819,10 @@ mod touch_tests {
     fn non_primary_move_ignored() {
         let mut state = TouchState::default();
         // Touch 1 is primary.
-        state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started, None, Default::default());
 
         // Move for a different ID that was never started (edge case).
-        let evs = state.process(99, pt(50.0, 50.0), TouchPhase::Moved, Default::default());
+        let evs = state.process(99, pt(50.0, 50.0), TouchPhase::Moved, None, Default::default());
         assert!(classify(&evs).is_empty());
     }
 
@@ -2791,16 +2835,16 @@ mod touch_tests {
         let mut state = TouchState::default();
 
         // Finger 1 down.
-        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
+        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Started, None, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Pressed(100.0, 200.0)]);
 
         // Finger 2 down → synthesized release for finger 1.
-        let evs = state.process(2, pt(200.0, 200.0), TouchPhase::Started, Default::default());
+        let evs = state.process(2, pt(200.0, 200.0), TouchPhase::Started, None, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Released(100.0, 200.0)]);
         assert!(matches!(state.gesture_state, GestureRecognitionState::TwoFingersDown { .. }));
 
         // Move finger 2 far enough to trigger pinch (> 8px threshold).
-        let evs = state.process(2, pt(220.0, 200.0), TouchPhase::Moved, Default::default());
+        let evs = state.process(2, pt(220.0, 200.0), TouchPhase::Moved, None, Default::default());
         assert_eq!(classify(&evs), vec![Ev::PinchStarted, Ev::RotationStarted]);
         assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
     }
@@ -2809,11 +2853,11 @@ mod touch_tests {
     fn two_fingers_below_threshold_no_gesture() {
         let mut state = TouchState::default();
 
-        state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
-        state.process(2, pt(200.0, 200.0), TouchPhase::Started, Default::default());
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started, None, Default::default());
+        state.process(2, pt(200.0, 200.0), TouchPhase::Started, None, Default::default());
 
         // Small movement within threshold.
-        let evs = state.process(2, pt(202.0, 200.0), TouchPhase::Moved, Default::default());
+        let evs = state.process(2, pt(202.0, 200.0), TouchPhase::Moved, None, Default::default());
         assert!(classify(&evs).is_empty());
         assert!(matches!(state.gesture_state, GestureRecognitionState::TwoFingersDown { .. }));
     }
@@ -2823,17 +2867,17 @@ mod touch_tests {
         let mut state = TouchState::default();
 
         // Set up: finger 1 at (0, 0), finger 2 at (100, 0) → distance = 100.
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, Default::default());
-        state.process(2, pt(100.0, 0.0), TouchPhase::Started, Default::default());
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started, None, Default::default());
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started, None, Default::default());
 
         // Move finger 2 to (120, 0) to exceed threshold and start pinching.
-        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, Default::default());
+        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, None, Default::default());
         assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
 
         // Now move finger 2 further to (180, 0).
         // New distance = 180, initial distance (re-snapshotted) = 120.
         // Scale = 180/120 = 1.5, delta = 1.5 - 1.0 = 0.5.
-        let evs = state.process(2, pt(180.0, 0.0), TouchPhase::Moved, Default::default());
+        let evs = state.process(2, pt(180.0, 0.0), TouchPhase::Moved, None, Default::default());
         let classified = classify(&evs);
         assert_eq!(classified.len(), 2);
         if let Ev::PinchMoved(delta) = classified[0] {
@@ -2849,18 +2893,18 @@ mod touch_tests {
 
         // Finger 1 at origin, finger 2 on the X axis at (100, 0).
         // Initial angle = atan2(0, 100) = 0°.
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, Default::default());
-        state.process(2, pt(100.0, 0.0), TouchPhase::Started, Default::default());
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started, None, Default::default());
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started, None, Default::default());
 
         // Move finger 2 far enough to trigger gesture.
-        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, Default::default());
+        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, None, Default::default());
         assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
 
         // Rotate ~45° clockwise: move finger 2 from (120, 0) to roughly
         // (70.7, 70.7) which is at 45° from origin.
         // atan2(70.7, 70.7) ≈ 45°. Delta from re-snapshotted 0° = +45°.
         // Slint convention: positive = clockwise → delta ≈ +45°.
-        let evs = state.process(2, pt(70.7, 70.7), TouchPhase::Moved, Default::default());
+        let evs = state.process(2, pt(70.7, 70.7), TouchPhase::Moved, None, Default::default());
         let classified = classify(&evs);
         assert_eq!(classified.len(), 2);
         if let Ev::RotationMoved(delta) = classified[1] {
@@ -2876,18 +2920,18 @@ mod touch_tests {
 
         // Finger 1 at origin, finger 2 at (-100, -10).
         // angle = atan2(-10, -100) ≈ -174.3°.
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, Default::default());
-        state.process(2, pt(-100.0, -10.0), TouchPhase::Started, Default::default());
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started, None, Default::default());
+        state.process(2, pt(-100.0, -10.0), TouchPhase::Started, None, Default::default());
 
         // Trigger gesture by moving far enough.
-        state.process(2, pt(-120.0, -10.0), TouchPhase::Moved, Default::default());
+        state.process(2, pt(-120.0, -10.0), TouchPhase::Moved, None, Default::default());
         assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
 
         // Rotate across the ±180° boundary: move finger 2 to (-100, 10).
         // New angle = atan2(10, -100) ≈ 174.3°.
         // Raw angular change crosses ±180°, but per-frame delta should be
         // small (~11.4° which is 2 * 5.7°), NOT a ~349° jump.
-        let evs = state.process(2, pt(-100.0, 10.0), TouchPhase::Moved, Default::default());
+        let evs = state.process(2, pt(-100.0, 10.0), TouchPhase::Moved, None, Default::default());
         let classified = classify(&evs);
         if let Ev::RotationMoved(delta) = classified[1] {
             assert!(
@@ -2908,13 +2952,13 @@ mod touch_tests {
     fn pinch_end_with_remaining_finger() {
         let mut state = TouchState::default();
 
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, Default::default());
-        state.process(2, pt(100.0, 0.0), TouchPhase::Started, Default::default());
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started, None, Default::default());
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started, None, Default::default());
         // Trigger pinch.
-        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, Default::default());
+        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, None, Default::default());
 
         // Lift finger 2 → gesture ends, finger 1 gets re-pressed.
-        let evs = state.process(2, pt(120.0, 0.0), TouchPhase::Ended, Default::default());
+        let evs = state.process(2, pt(120.0, 0.0), TouchPhase::Ended, None, Default::default());
         let classified = classify(&evs);
         assert_eq!(classified, vec![Ev::PinchEnded, Ev::RotationEnded, Ev::Pressed(0.0, 0.0)]);
         assert!(matches!(state.gesture_state, GestureRecognitionState::Idle));
@@ -2925,12 +2969,12 @@ mod touch_tests {
     fn pinch_cancel_emits_cancelled_and_exit() {
         let mut state = TouchState::default();
 
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, Default::default());
-        state.process(2, pt(100.0, 0.0), TouchPhase::Started, Default::default());
-        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, Default::default());
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started, None, Default::default());
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started, None, Default::default());
+        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, None, Default::default());
 
         // Cancel finger 2.
-        let evs = state.process(2, pt(120.0, 0.0), TouchPhase::Cancelled, Default::default());
+        let evs = state.process(2, pt(120.0, 0.0), TouchPhase::Cancelled, None, Default::default());
         let classified = classify(&evs);
         assert_eq!(classified, vec![Ev::PinchCancelled, Ev::RotationCancelled, Ev::Exit]);
         assert!(state.primary_touch_id.is_none());
@@ -2940,12 +2984,12 @@ mod touch_tests {
     fn two_fingers_down_lift_before_threshold_returns_to_idle() {
         let mut state = TouchState::default();
 
-        state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
-        state.process(2, pt(200.0, 200.0), TouchPhase::Started, Default::default());
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started, None, Default::default());
+        state.process(2, pt(200.0, 200.0), TouchPhase::Started, None, Default::default());
         assert!(matches!(state.gesture_state, GestureRecognitionState::TwoFingersDown { .. }));
 
         // Lift finger 2 without exceeding movement threshold.
-        let evs = state.process(2, pt(200.0, 200.0), TouchPhase::Ended, Default::default());
+        let evs = state.process(2, pt(200.0, 200.0), TouchPhase::Ended, None, Default::default());
         let classified = classify(&evs);
         // Remaining finger 1 gets re-pressed.
         assert_eq!(classified, vec![Ev::Pressed(100.0, 200.0)]);
@@ -2957,15 +3001,17 @@ mod touch_tests {
     fn two_fingers_down_cancel_both_emits_exit() {
         let mut state = TouchState::default();
 
-        state.process(1, pt(100.0, 200.0), TouchPhase::Started, Default::default());
-        state.process(2, pt(200.0, 200.0), TouchPhase::Started, Default::default());
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started, None, Default::default());
+        state.process(2, pt(200.0, 200.0), TouchPhase::Started, None, Default::default());
 
         // Cancel finger 2 (gesture finger, no remaining → Exit).
-        let evs = state.process(2, pt(200.0, 200.0), TouchPhase::Cancelled, Default::default());
+        let evs =
+            state.process(2, pt(200.0, 200.0), TouchPhase::Cancelled, None, Default::default());
         assert_eq!(classify(&evs), vec![Ev::Exit]);
 
         // Cancel finger 1 (now in Idle, but not primary since cancel cleared it).
-        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Cancelled, Default::default());
+        let evs =
+            state.process(1, pt(100.0, 200.0), TouchPhase::Cancelled, None, Default::default());
         assert!(classify(&evs).is_empty());
     }
 
@@ -2977,11 +3023,11 @@ mod touch_tests {
     fn third_finger_ignored_for_gesture() {
         let mut state = TouchState::default();
 
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, Default::default());
-        state.process(2, pt(100.0, 0.0), TouchPhase::Started, Default::default());
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started, None, Default::default());
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started, None, Default::default());
 
         // Third finger: no additional events.
-        let evs = state.process(3, pt(50.0, 50.0), TouchPhase::Started, Default::default());
+        let evs = state.process(3, pt(50.0, 50.0), TouchPhase::Started, None, Default::default());
         assert!(classify(&evs).is_empty());
         assert_eq!(state.active_touches.len(), 3);
     }
@@ -3006,12 +3052,12 @@ mod touch_tests {
         let mut state = TouchState::default();
 
         // Two fingers at the exact same position → distance = 0.
-        state.process(1, pt(100.0, 100.0), TouchPhase::Started, Default::default());
-        state.process(2, pt(100.0, 100.0), TouchPhase::Started, Default::default());
+        state.process(1, pt(100.0, 100.0), TouchPhase::Started, None, Default::default());
+        state.process(2, pt(100.0, 100.0), TouchPhase::Started, None, Default::default());
         assert!(matches!(state.gesture_state, GestureRecognitionState::TwoFingersDown { .. }));
 
         // Move one finger far enough to trigger gesture.
-        let evs = state.process(2, pt(120.0, 100.0), TouchPhase::Moved, Default::default());
+        let evs = state.process(2, pt(120.0, 100.0), TouchPhase::Moved, None, Default::default());
         assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
         let classified = classify(&evs);
         assert_eq!(classified.len(), 2);
@@ -3019,7 +3065,7 @@ mod touch_tests {
 
         // Move further — scale should not be inf/NaN despite initial_distance
         // having been 0 (re-snapshotted to 20.0 at threshold crossing).
-        let evs = state.process(2, pt(140.0, 100.0), TouchPhase::Moved, Default::default());
+        let evs = state.process(2, pt(140.0, 100.0), TouchPhase::Moved, None, Default::default());
         let classified = classify(&evs);
         if let Ev::PinchMoved(delta) = classified[0] {
             assert!(delta.is_finite(), "scale delta should be finite, got {}", delta);

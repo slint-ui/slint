@@ -549,15 +549,13 @@ impl FlickableDataInner {
         FlickAnimation::apply_friction(current_pos, new_pos - current_pos, flick, flick_rc)
     }
 
-    fn track_move(&mut self, current_tick: Instant, delta: LogicalVector, history: &TouchHistory) {
-        let current_tick = history.event_time.unwrap_or(current_tick);
-        if self.last_mouse_position.is_none() {
-            if let Some(start_time) = history.start_time {
-                // Sample intervals must use event times even when delivery is delayed.
-                self.velocity_rb = VelocityTracker::default();
-                self.velocity_rb.push(start_time, LogicalVector::default());
-            }
-        }
+    fn track_press(&mut self, event_time: Instant) {
+        self.last_mouse_position = None;
+        self.velocity_rb = VelocityTracker::default();
+        self.velocity_rb.push(event_time, LogicalVector::default());
+    }
+
+    fn track_move(&mut self, event_time: Instant, delta: LogicalVector, history: &TouchHistory) {
         if history.history.len() > 0 {
             let mut last_time =
                 self.velocity_rb.last_time().unwrap_or(history.history.first().unwrap().1);
@@ -586,8 +584,8 @@ impl FlickableDataInner {
             // We cannot use the input delta because this is the sum of all history deltas
             // So we don't have to push any further values here
         } else {
-            self.maybe_lose_momentum(&current_tick);
-            self.velocity_rb.push(current_tick, delta);
+            self.maybe_lose_momentum(&event_time);
+            self.velocity_rb.push(event_time, delta);
         }
     }
 
@@ -1017,7 +1015,9 @@ impl FlickableData {
     ) -> InputEventFilterResult {
         let mut inner = self.inner.borrow_mut();
         match event {
-            MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
+            MouseEvent::Pressed {
+                position, button: PointerEventButton::Left, event_time, ..
+            } => {
                 if inner.capture_events.is_none() && !Self::can_pan(flick, flick_rc) {
                     // There is nothing to pan in either direction: don't hold up the press waiting to see if it turns into a drag,
                     // just let it fall through to whatever is underneath,
@@ -1026,9 +1026,7 @@ impl FlickableData {
                 }
 
                 inner.pressed_mouse_state = Some((crate::animations::current_tick(), *position));
-                inner.last_mouse_position = None;
-                inner.velocity_rb = VelocityTracker::default();
-                inner.velocity_rb.push(crate::animations::current_tick(), LogicalVector::default());
+                inner.track_press(event_time.get().unwrap_or_else(crate::animations::current_tick));
                 inner.capture_momentum();
                 inner.last_scroll_event =
                     Some((crate::animations::current_tick(), Default::default())); // The position is not important
@@ -1218,7 +1216,7 @@ impl FlickableData {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Moved { position, history, .. } => {
+            MouseEvent::Moved { position, event_time, history, .. } => {
                 // Important constraint: The content_y might not be stable, and might jump around
                 // wildly!
                 // This is especially the case if a ListView is involved, which will continuously
@@ -1237,7 +1235,7 @@ impl FlickableData {
                     let mut mouse_delta =
                         if is_capturing { tracking_delta } else { *position - pressed_position };
                     inner.track_move(
-                        crate::animations::current_tick(),
+                        event_time.get().unwrap_or_else(crate::animations::current_tick),
                         tracking_delta,
                         history.get().unwrap_or(&TouchHistory::default()),
                     );
@@ -1376,15 +1374,13 @@ mod velocity_history_tests {
     #[test]
     fn original_sample_time_is_independent_of_delivery_delay() {
         let start = crate::animations::current_tick();
+        crate::animations::update_animations(start + Duration::from_millis(100));
         let mut inner = FlickableDataInner::default();
-        inner.velocity_rb.push(start, LogicalVector::default());
+        inner.track_press(start);
         inner.track_move(
-            start + Duration::from_millis(100),
+            start + Duration::from_millis(20),
             LogicalVector::new(0., 120.),
-            &TouchHistory {
-                event_time: Some(start + Duration::from_millis(20)),
-                ..Default::default()
-            },
+            &TouchHistory::default(),
         );
         assert_eq!(inner.velocity_rb.last_time(), Some(start + Duration::from_millis(20)));
     }
@@ -1407,17 +1403,23 @@ mod velocity_history_tests {
                     let first_position = LogicalPoint::new(0., sign * 42.);
                     let end_position = LogicalPoint::new(0., sign * 63.);
                     let mut touch = TouchState::default();
-                    touch.process(
+                    let pressed = touch.process(
                         0,
                         LogicalPoint::default(),
                         TouchPhase::Started,
-                        TouchHistory { event_time: Some(start), ..Default::default() },
+                        Some(start),
+                        TouchHistory::default(),
                     );
                     let mut inner = FlickableDataInner::default();
-                    inner.velocity_rb.push(press_frame, LogicalVector::default());
+                    for event in pressed.into_iter() {
+                        if let MouseEvent::Pressed { event_time, .. } = event {
+                            inner.track_press(event_time.get().unwrap_or(press_frame));
+                        }
+                    }
                     let moves = if batched {
                         alloc::vec![(
                             end_position,
+                            end,
                             TouchHistory::from_positions(
                                 end,
                                 end_position,
@@ -1428,22 +1430,28 @@ mod velocity_history_tests {
                         alloc::vec![
                             (
                                 first_position,
+                                first,
                                 TouchHistory::from_positions(first, first_position, [])
                             ),
-                            (end_position, TouchHistory::from_positions(end, end_position, [])),
+                            (
+                                end_position,
+                                end,
+                                TouchHistory::from_positions(end, end_position, [])
+                            ),
                         ]
                     };
-                    for (position, history) in moves {
-                        let events = touch.process(0, position, TouchPhase::Moved, history);
+                    for (position, time, history) in moves {
+                        let events =
+                            touch.process(0, position, TouchPhase::Moved, Some(time), history);
                         for event in events.into_iter() {
-                            if let MouseEvent::Moved { position, history, .. } = event {
-                                assert_eq!(history.get().unwrap().start_time, Some(start));
+                            if let MouseEvent::Moved { position, event_time, history, .. } = event {
+                                assert_eq!(event_time.get(), Some(time));
                                 let delta =
                                     position - inner.last_mouse_position.unwrap_or_default();
                                 inner.track_move(
-                                    start + Duration::from_millis(100),
+                                    event_time.get().unwrap_or(start + Duration::from_millis(100)),
                                     delta,
-                                    history.get().unwrap(),
+                                    history.get().unwrap_or(&TouchHistory::default()),
                                 );
                                 inner.last_mouse_position = Some(position);
                             }

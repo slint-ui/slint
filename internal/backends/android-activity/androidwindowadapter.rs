@@ -357,13 +357,11 @@ impl AndroidWindowAdapter {
                                         id: p.pointer_id(),
                                         position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Started,
-                                        history: TouchHistory {
-                                            event_time: Some(self.java_helper.input_timestamp(
-                                                motion_event.event_time(),
-                                                &self.window,
-                                            )),
-                                            ..Default::default()
-                                        },
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }
@@ -383,13 +381,11 @@ impl AndroidWindowAdapter {
                                         id: p.pointer_id(),
                                         position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Ended,
-                                        history: TouchHistory {
-                                            event_time: Some(self.java_helper.input_timestamp(
-                                                motion_event.event_time(),
-                                                &self.window,
-                                            )),
-                                            ..Default::default()
-                                        },
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }
@@ -432,6 +428,7 @@ impl AndroidWindowAdapter {
                                         id,
                                         position: event_pos,
                                         phase: TouchPhase::Moved,
+                                        event_time: Some(event_time),
                                         history,
                                     },
                                 ));
@@ -448,13 +445,11 @@ impl AndroidWindowAdapter {
                                         id: p.pointer_id(),
                                         position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Started,
-                                        history: TouchHistory {
-                                            event_time: Some(self.java_helper.input_timestamp(
-                                                motion_event.event_time(),
-                                                &self.window,
-                                            )),
-                                            ..Default::default()
-                                        },
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }
@@ -468,13 +463,11 @@ impl AndroidWindowAdapter {
                                         id: p.pointer_id(),
                                         position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Ended,
-                                        history: TouchHistory {
-                                            event_time: Some(self.java_helper.input_timestamp(
-                                                motion_event.event_time(),
-                                                &self.window,
-                                            )),
-                                            ..Default::default()
-                                        },
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }
@@ -495,13 +488,11 @@ impl AndroidWindowAdapter {
                                         id: p.pointer_id(),
                                         position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Cancelled,
-                                        history: TouchHistory {
-                                            event_time: Some(self.java_helper.input_timestamp(
-                                                motion_event.event_time(),
-                                                &self.window,
-                                            )),
-                                            ..Default::default()
-                                        },
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }

@@ -679,6 +679,7 @@ impl Window {
                     button,
                     click_count: 0,
                     touch_finger_id: 0,
+                    event_time: Default::default(),
                 })
                 .into(),
             crate::platform::WindowEvent::PointerReleased { position, button } => self
@@ -695,6 +696,7 @@ impl Window {
                 .process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
                     touch_finger_id: 0,
+                    event_time: Default::default(),
                     history: Default::default(),
                 })
                 .into(),
@@ -775,9 +777,13 @@ impl Window {
                 crate::platform::InternalEvent::Key(event) => {
                     self.0.process_key_input(event).into()
                 }
-                crate::platform::InternalEvent::Touch { id, position, phase, history } => {
-                    self.0.process_touch_input(id, position, phase, history).into()
-                }
+                crate::platform::InternalEvent::Touch {
+                    id,
+                    position,
+                    phase,
+                    event_time,
+                    history,
+                } => self.0.process_touch_input(id, position, phase, event_time, history).into(),
             },
         };
         if let Some(event_for_hook) = event_for_hook

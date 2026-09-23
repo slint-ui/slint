@@ -333,7 +333,9 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
                 let start_instant = if start_instant_ref.is_null() {
                     None
                 } else {
-                    Some(crate::animations::Instant(start_instant))
+                    Some(crate::animations::Instant(core::time::Duration::from_millis(
+                        start_instant,
+                    )))
                 };
                 (anim, start_instant)
             },

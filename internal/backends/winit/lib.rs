@@ -435,6 +435,7 @@ fn dispatch_mouse_move(window: &Weak<WinitWindowAdapter>, position: LogicalPoint
             i_slint_core::input::BackendMouseEvent::Moved {
                 position,
                 touch_finger_id: 0,
+                event_time: Default::default(),
                 history: Default::default(),
             },
         ));

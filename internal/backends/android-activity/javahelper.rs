@@ -770,9 +770,10 @@ fn callback_forward_touch<'local>(
                 )
             };
             let position = logical_position(position.0, position.1);
+            let event_time = adapter.java_helper.input_timestamp(event_time, &adapter.window);
             let history = if phase == TouchPhase::Moved {
                 TouchHistory::from_positions(
-                    adapter.java_helper.input_timestamp(event_time, &adapter.window),
+                    event_time,
                     position,
                     historical_points.into_iter().map(|(x, y, time)| {
                         (
@@ -782,17 +783,13 @@ fn callback_forward_touch<'local>(
                     }),
                 )
             } else {
-                TouchHistory {
-                    event_time: Some(
-                        adapter.java_helper.input_timestamp(event_time, &adapter.window),
-                    ),
-                    ..Default::default()
-                }
+                TouchHistory::default()
             };
             adapter.window.dispatch_event(WindowEvent::internal(InternalEvent::Touch {
                 id: 0,
                 position,
                 phase,
+                event_time: Some(event_time),
                 history,
             }));
         }

@@ -55,17 +55,17 @@ instance.set_content_y(0.);
 instance.set_flicked_count(0);
 
 // Dragging with a finger pans
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(300.0, 100.0), phase: TouchPhase::Started, history: Default::default() }));
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(300.0, 100.0), phase: TouchPhase::Moved, history: Default::default() }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(300.0, 100.0), phase: TouchPhase::Started, event_time: None, history: Default::default() }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(300.0, 100.0), phase: TouchPhase::Moved, event_time: None, history: Default::default() }));
 assert_eq!(instance.get_content_x(), 0.);
 assert_eq!(instance.get_content_y(), 0.);
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Moved, history: Default::default() }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Moved, event_time: None, history: Default::default() }));
 assert_eq!(instance.get_content_x(), -100. + DISTANCE_THRESHOLD);
 assert_eq!(instance.get_content_y(), -50. + DISTANCE_THRESHOLD);
 assert!(instance.get_flicked_count() > 0);
 // Release long after the last move so no fling animation starts
 slint_testing::mock_elapsed_time(1000);
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Ended, history: Default::default() }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Ended, event_time: None, history: Default::default() }));
 slint_testing::mock_elapsed_time(1000);
 assert_eq!(instance.get_content_x(), -100. + DISTANCE_THRESHOLD);
 assert_eq!(instance.get_content_y(), -50. + DISTANCE_THRESHOLD);
@@ -75,10 +75,10 @@ instance.set_flicked_count(0);
 
 // interactive: false disables touch panning too
 instance.set_interactive(false);
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 8, position: LogicalPoint::new(300.0, 100.0), phase: TouchPhase::Started, history: Default::default() }));
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 8, position: LogicalPoint::new(300.0, 100.0), phase: TouchPhase::Moved, history: Default::default() }));
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 8, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Moved, history: Default::default() }));
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 8, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Ended, history: Default::default() }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 8, position: LogicalPoint::new(300.0, 100.0), phase: TouchPhase::Started, event_time: None, history: Default::default() }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 8, position: LogicalPoint::new(300.0, 100.0), phase: TouchPhase::Moved, event_time: None, history: Default::default() }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 8, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Moved, event_time: None, history: Default::default() }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 8, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Ended, event_time: None, history: Default::default() }));
 slint_testing::mock_elapsed_time(1000);
 assert_eq!(instance.get_content_x(), 0.);
 assert_eq!(instance.get_content_y(), 0.);
