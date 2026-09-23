@@ -86,3 +86,20 @@ def test_an_invalid_project_file_is_reported(tmp_path: pathlib.Path) -> None:
 
     result = native.Compiler().build_from_path(main)
     assert any("slint-project.json" in message for message in messages(result))
+
+
+def test_building_the_project_file_builds_its_entry(tmp_path: pathlib.Path) -> None:
+    directory = project_directory(
+        tmp_path, {"entry": "ui/main.slint", "include-paths": ["include"]}
+    )
+    (directory / "include").mkdir()
+    (directory / "include" / "shared.slint").write_text("export component Shared { }")
+    (directory / "ui").mkdir()
+    (directory / "ui" / "main.slint").write_text(
+        """import { Shared } from "shared.slint";
+           export component Main inherits Window { Shared { } }"""
+    )
+
+    result = native.Compiler().build_from_path(directory / "slint-project.json")
+    assert messages(result) == []
+    assert "Main" in result.component_names
