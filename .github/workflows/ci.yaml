@@ -646,6 +646,20 @@ jobs:
                   ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_LATEST_HOME }}
               run: gradle assembleDebug
 
+    ios_cpp:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
+        runs-on: macos-26
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-apple-ios-sim
+            - run: brew install ninja
+            - name: Configure for the iOS simulator
+              run: cmake -S . -B build -GNinja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON
+            - name: Build todo example app bundle
+              run: cmake --build build --target todo
+
     test-figma-inspector:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'figma_inspector') }}
         runs-on: ubuntu-latest

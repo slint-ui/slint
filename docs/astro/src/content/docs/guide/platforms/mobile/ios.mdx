@@ -6,12 +6,12 @@ description: iOS Platform Guide
 import { Code } from '@astrojs/starlight/components';
 import Link from '@slint/common-files/src/components/Link.astro';
 import { Image } from 'astro:assets';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import scriptContent from './../../../../../../../../scripts/build_for_ios_with_cargo.bash?raw'
+import infoPlistContent from './../../../../../../../../examples/todo/cpp/ios/Info.plist.in?raw'
+import iosScreenshot from '/src/assets/ios-simulator.webp';
 
-:::note[Note]
-When developing Slint applications for iOS, you can only use Rust as the programming language.
-:::
-
-A Rust-based Slint application can be cross-compiled to iOS and runs on iPhones, iPads, and their
+Slint applications written in Rust or C++ can be cross-compiled to iOS and run on iPhones, iPads, and their
 respective simulators. This is implemented through the <Link type="WinitBackend" label="Winit backend" /> and the
 <Link type="skia_renderer" label="Skia Renderer" />.
 
@@ -19,12 +19,16 @@ respective simulators. This is implemented through the <Link type="WinitBackend"
 
  * A computer running macOS.
  * An up-to-date installation of [Xcode](https://developer.apple.com/xcode/).
- * [Xcodegen](https://github.com/yonaskolb/XcodeGen?tab=readme-ov-file#installing).
  * [Rust](https://rustup.rs)
  * The Rust device and simulator toolchains. Run `rustup target add aarch64-apple-ios` and `rustup target add aarch64-apple-ios-sim`
    to add them.
+ * For Rust: [Xcodegen](https://github.com/yonaskolb/XcodeGen?tab=readme-ov-file#installing).
+ * For C++: [CMake](https://cmake.org/download/) 3.21 or newer, and optionally [Ninja](https://ninja-build.org).
 
-## Adding iOS Support to an existing Rust Application
+## Adding iOS Support to an Existing Application
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
 
 The following steps assume that you have a Rust application with Slint prepared. If you're just getting started, use our [Slint Rust Template](https://github.com/slint-ui/slint-rust-template)
 to get a minimal application running.
@@ -95,14 +99,77 @@ The shell script is invoked with the name of the binary that cargo produces. Upd
 
 2. In a new file called `build_for_ios_with_cargo.bash`, paste the following script code:
 
-import scriptContent from './../../../../../../../../scripts/build_for_ios_with_cargo.bash?raw'
-
 <Code code={scriptContent} lang="bash" />
 
 3. Make the script executable with `chmod +x build_for_ios_with_cargo.bash`.
 
 4. Run `xcodegen` to create `My App.xcodeproj`, and open it in Xcode. Now you can build, deploy, and debug your iOS application.
 
-import iosScreenshot from '/src/assets/ios-simulator.webp';
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+
+A Slint C++ iOS application is a standard CMake project (see the <Link type="getting_started" label="getting started tutorial" />).
+Your `main()` function works as it is: `run()` hands control to UIKit and doesn't return.
+
+When you configure Slint with `CMAKE_SYSTEM_NAME` set to `iOS`, its `CMakeLists.txt` automatically:
+- Maps the SDK and architecture to the matching Rust target.
+- Builds Slint as a static library and selects the Skia renderer on Metal.
+- Sets the Cupertino style as default.
+- Embeds images and fonts in the binary, since paths from the build machine don't exist on the device.
+
+1. Build your application as an app bundle with an `Info.plist` template:
+
+```cmake
+if(IOS)
+    add_executable(my_app MACOSX_BUNDLE main.cpp)
+    set_target_properties(my_app PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/ios/Info.plist.in
+        MACOSX_BUNDLE_GUI_IDENTIFIER com.company.myapp
+        MACOSX_BUNDLE_BUNDLE_NAME "My App"
+        MACOSX_BUNDLE_BUNDLE_VERSION 1
+        MACOSX_BUNDLE_SHORT_VERSION_STRING 1.0)
+else()
+    add_executable(my_app main.cpp)
+endif()
+```
+
+2. Create `ios/Info.plist.in` with the following contents:
+
+<Code code={infoPlistContent} lang="xml" />
+
+The `UIApplicationSceneManifest` entry opts the app into UIKit's scene lifecycle,
+which iOS 27 requires: an app without it fails to launch.
+`SlintWindowSceneDelegate` is the scene delegate that Slint's winit backend provides.
+Keep the entry as it is.
+
+3. Configure and build for the simulator:
+
+```bash
+cmake -S . -B build-ios-sim -GNinja -DCMAKE_SYSTEM_NAME=iOS \
+      -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_OSX_ARCHITECTURES=arm64 \
+      -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+cmake --build build-ios-sim
+```
+
+4. Install and launch the app in a booted simulator:
+
+```bash
+xcrun simctl install booted build-ios-sim/my_app.app
+xcrun simctl launch booted com.company.myapp
+```
+
+5. For a device, generate an Xcode project, so that Xcode signs the app with your team:
+
+```bash
+cmake -S . -B build-ios -GXcode -DCMAKE_SYSTEM_NAME=iOS \
+      -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 \
+      -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+      -DCMAKE_XCODE_ATTRIBUTE_DEVELOPMENT_TEAM=<your team id>
+```
+
+Open `build-ios/*.xcodeproj` in Xcode to build, deploy, and debug the app.
+
+</TabItem>
+</Tabs>
 
 <Image src={iosScreenshot} style={{width: "500px"}} alt="Screenshot Slint Template running in iOS Simulator"  />
