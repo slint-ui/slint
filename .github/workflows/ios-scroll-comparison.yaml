@@ -4,11 +4,6 @@
 name: iOS scroll comparison
 
 on:
-  push:
-    branches: [nigel/ios-scroll-physics-comparison]
-    paths:
-      - .github/workflows/ios-scroll-comparison.yaml
-      - tests/manual/ios-scroll-physics-comparison/**
   pull_request:
     branches: [mm/flickable-scroll-animation-v2]
     paths:
