@@ -25,9 +25,9 @@ component EditorScrollBar inherits Rectangle {
     private property <length> thumb-position: root.style.inset
         + root.travel * clamp(-root.value / max(1px, root.maximum), 0, 1);
     private property <length> thickness: root.engaged ? root.style.active-thickness : root.style.thickness;
-    private property <float> alpha: root.needed && (root.active || root.engaged || root.policy == ScrollBarPolicy.always-on) ? 1 : 0;
+    private property <float> alpha: root.needed && (root.active || root.policy == ScrollBarPolicy.always-on) ? 1 : 0;
 
-    animate alpha { duration: root.active || root.engaged ? root.style.reveal-duration : root.style.fade-duration; }
+    animate alpha { duration: root.active ? root.style.reveal-duration : root.style.fade-duration; }
     animate thickness { duration: Motion.fast; easing: ease-out; }
 
     changed maximum => { if touch.pressed { touch.save-position(); } }
