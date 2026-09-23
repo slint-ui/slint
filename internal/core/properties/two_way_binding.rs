@@ -12,7 +12,7 @@ use core::pin::Pin;
 struct TwoWayBinding<T> {
     common_property: Pin<Rc<Property<T>>>,
 }
-unsafe impl<T: PartialEq + Clone + 'static> BindingCallable<T> for TwoWayBinding<T> {
+impl<T: PartialEq + Clone + 'static> BindingCallable<T> for TwoWayBinding<T> {
     fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
         *value = self.common_property.as_ref().get();
         BindingResult::KeepBinding
@@ -28,26 +28,20 @@ unsafe impl<T: PartialEq + Clone + 'static> BindingCallable<T> for TwoWayBinding
         true
     }
 
-    const IS_TWO_WAY_BINDING: bool = true;
+    fn common_property(self: Pin<&Self>) -> Option<&dyn core::any::Any> {
+        Some(&self.get_ref().common_property)
+    }
 }
+
+/// The common property of a two-way binding with a map.
+/// Its own type tells it apart from a plain two-way binding's common property,
+/// even when the map is between two properties of the same type.
+struct MappedCommonProperty<T>(Pin<Rc<Property<T>>>);
 
 impl<T: PartialEq + Clone + 'static> Property<T> {
     /// If the property is a two way binding, return the common property
     pub(crate) fn check_common_property(self: Pin<&Self>) -> Option<Pin<Rc<Property<T>>>> {
-        let handle_val = self.handle.handle.get();
-        if let Some(holder) = PropertyHandle::pointer_to_binding(handle_val) {
-            // Safety: the handle is a pointer to a binding
-            if unsafe { (*holder).is_two_way_binding } {
-                // Safety: the handle is a pointer to a binding whose B is a TwoWayBinding<T>
-                return Some(unsafe {
-                    (*(holder as *const BindingHolder<TwoWayBinding<T>>))
-                        .binding
-                        .common_property
-                        .clone()
-                });
-            }
-        }
-        None
+        self.with_common_property(|c: &Pin<Rc<Property<T>>>| c.clone())
     }
 
     /// If the property is linked through a mapping to a common property of type `U`,
@@ -56,11 +50,15 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
     pub(crate) fn check_mapped_common_property<U: 'static>(
         self: Pin<&Self>,
     ) -> Option<Pin<Rc<Property<U>>>> {
+        self.with_common_property(|c: &MappedCommonProperty<U>| c.0.clone())
+    }
+
+    /// Calls `f` with the common property of this property's binding, if it's a `C`
+    fn with_common_property<C: 'static, R>(self: Pin<&Self>, f: impl FnOnce(&C) -> R) -> Option<R> {
         let holder = PropertyHandle::pointer_to_binding(self.handle.handle.get())?;
-        // Safety: the handle is a pointer to a binding
-        let common = unsafe { ((*holder).vtable.two_way_common_property)(holder)? };
-        // Safety: the binding outlives this call, and we clone out of it
-        unsafe { (*common).downcast_ref::<Pin<Rc<Property<U>>>>() }.cloned()
+        // Safety: the handle is a pointer to a binding, which lives at least as long as this call
+        let common = unsafe { &*((*holder).vtable.common_property)(holder)? };
+        common.downcast_ref::<C>().map(f)
     }
 
     /// Link two property such that any change to one property is affecting the other property as if they
@@ -194,12 +192,12 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         preserve_prop2_binding: bool,
     ) {
         struct TwoWayBindingWithMap<T, T2, M1, M2> {
-            common_property: Pin<Rc<Property<T>>>,
+            common_property: MappedCommonProperty<T>,
             map_to: M1,
             map_from: M2,
             marker: PhantomData<(T, T2)>,
         }
-        unsafe impl<
+        impl<
             T: PartialEq + Clone + 'static,
             T2: PartialEq + Clone + 'static,
             M1: Fn(&T) -> T2 + Clone + 'static,
@@ -207,14 +205,14 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         > BindingCallable<T2> for TwoWayBindingWithMap<T, T2, M1, M2>
         {
             fn evaluate(self: Pin<&Self>, value: &mut T2) -> BindingResult {
-                *value = (self.map_to)(&self.common_property.as_ref().get());
+                *value = (self.map_to)(&self.common_property.0.as_ref().get());
                 BindingResult::KeepBinding
             }
 
             fn intercept_set(self: Pin<&Self>, value: &T2) -> bool {
-                let mut old = self.common_property.as_ref().get();
+                let mut old = self.common_property.0.as_ref().get();
                 (self.map_from)(&mut old, value);
-                self.common_property.as_ref().set(old);
+                self.common_property.0.as_ref().set(old);
                 true
             }
 
@@ -228,11 +226,11 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                     map_from: self.map_from.clone(),
                     marker: PhantomData,
                 });
-                self.common_property.handle.set_binding_impl(new_new_binding);
+                self.common_property.0.handle.set_binding_impl(new_new_binding);
                 true
             }
 
-            fn two_way_common_property(self: Pin<&Self>) -> Option<&dyn core::any::Any> {
+            fn common_property(self: Pin<&Self>) -> Option<&dyn core::any::Any> {
                 Some(&self.get_ref().common_property)
             }
         }
@@ -245,7 +243,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             map_from: M2,
             marker: PhantomData<(T, T2)>,
         }
-        unsafe impl<
+        impl<
             T: PartialEq + Clone + 'static,
             T2: PartialEq + Clone + 'static,
             M1: Fn(&T) -> T2 + 'static,
@@ -296,7 +294,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         unsafe {
             if let Some(old) = old_binding {
                 let new_binding = alloc_binding_holder(TwoWayBindingWithMap {
-                    common_property,
+                    common_property: MappedCommonProperty(common_property),
                     map_to,
                     map_from,
                     marker: PhantomData,
@@ -315,7 +313,12 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 }
             } else {
                 prop2.handle.set_binding(
-                    TwoWayBindingWithMap { common_property, map_to, map_from, marker: PhantomData },
+                    TwoWayBindingWithMap {
+                        common_property: MappedCommonProperty(common_property),
+                        map_to,
+                        map_from,
+                        marker: PhantomData,
+                    },
                     #[cfg(slint_debug_property)]
                     debug_name.as_str(),
                 );
@@ -331,8 +334,7 @@ struct TwoWayBindingModel<T, ItemTree, Getter, Setter> {
     setter: Setter,
 }
 
-// Safety: IS_TWO_WAY_BINDING is false
-unsafe impl<T, ItemTree, Getter, Setter> BindingCallable<T>
+impl<T, ItemTree, Getter, Setter> BindingCallable<T>
     for TwoWayBindingModel<T, ItemTree, Getter, Setter>
 where
     Getter: Fn(&ItemTree) -> Option<T>,
