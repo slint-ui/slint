@@ -182,6 +182,7 @@ fn resolve_project_file(args: &mut Cli) -> Option<i_slint_compiler::project_file
 fn main() -> std::io::Result<()> {
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
     let mut args = Cli::parse();
+    let input_is_project_file = i_slint_compiler::project_file::is_project_file(&args.path);
     let project_file = resolve_project_file(&mut args);
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse_file(&args.path, &mut diag);
@@ -282,6 +283,9 @@ fn main() -> std::io::Result<()> {
 
     if let Some(project_file) = &project_file {
         project_file.apply_to(&mut compiler_config);
+        if input_is_project_file {
+            compiler_config.input_project_file = Some(project_file.source_path().to_path_buf());
+        }
     }
 
     compiler_config.translation_domain = args.translation_domain;
