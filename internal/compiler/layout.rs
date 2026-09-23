@@ -6,7 +6,7 @@
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
 use crate::expression_tree::*;
 use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult, Type};
-use crate::object_tree::{Component, ElementRc};
+use crate::object_tree::{Component, Element, ElementRc};
 
 use smol_str::{SmolStr, ToSmolStr};
 
@@ -1009,6 +1009,34 @@ pub fn implicit_layout_info_call(
                 source_location: None,
             }),
         };
+    }
+}
+
+/// Whether `elem`'s own builtin (not one inherited through a component)
+/// computes its vertical layout info from its width.
+///
+/// The binding analysis records that width read, and the box layout lowering
+/// only forwards the layout's width to a repeated cell when this holds: a read
+/// the analysis doesn't see can close a loop that panics at runtime.
+/// `Element::is_builtin_height_for_width` is a looser variant for synthesis.
+pub fn builtin_height_depends_on_width(elem: &Element) -> bool {
+    // Before `resolve_native_classes`, a builtin's native class is its widest one.
+    let class = match &elem.base_type {
+        ElementType::Builtin(b) => &b.native_class,
+        ElementType::Native(n) => n,
+        _ => return false,
+    };
+    match class.class_name.as_str() {
+        "ImageItem" | "ClippedImage" | "StyledTextItem" => true,
+        "SimpleText" | "ComplexText" | "TextInput" => {
+            elem.is_binding_set("wrap", false)
+                || elem
+                    .property_analysis
+                    .borrow()
+                    .get("wrap")
+                    .is_some_and(|a| a.is_set || a.is_set_externally)
+        }
+        _ => false,
     }
 }
 
