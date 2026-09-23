@@ -1,0 +1,103 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Android scroll comparison
+
+on:
+  pull_request:
+    branches: [mm/flickable-scroll-animation-v2]
+    paths:
+      - .github/workflows/android-scroll-comparison.yaml
+      - internal/backends/android-activity/**
+      - tests/manual/android-scroll-physics-comparison/**
+
+permissions:
+  contents: read
+
+jobs:
+  swipe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_RELEASE_DEBUG: 0
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      SCROLL_ARTIFACT_DIR: ${{ runner.temp }}/android-scroll-artifacts
+    steps:
+      - name: Record disk space before expansion
+        run: |
+          mkdir -p "$SCROLL_ARTIFACT_DIR"
+          df -h / /mnt "$GITHUB_WORKSPACE" > "$SCROLL_ARTIFACT_DIR/disk-before.txt"
+
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@v10
+        with:
+          root-reserve-mb: 12288
+          temp-reserve-mb: 1024
+          swap-size-mb: 1024
+          remove-android: 'false'
+          remove-dotnet: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+
+      - name: Record disk space after expansion
+        run: df -h / /mnt "$GITHUB_WORKSPACE" > "$SCROLL_ARTIFACT_DIR/disk-after-cleanup.txt"
+
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-linux-android
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Android build tools
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.0.12077973'
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          cargo install --locked cargo-apk
+
+      - name: Build optimized x86_64 comparison APK
+        run: |
+          keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/debug.keystore" \
+            -storepass android -keypass android -alias androiddebugkey \
+            -dname 'CN=Android Debug,O=Android,C=US' -keyalg RSA -keysize 2048 -validity 10000
+          export CARGO_APK_RELEASE_KEYSTORE="$RUNNER_TEMP/debug.keystore"
+          export CARGO_APK_RELEASE_KEYSTORE_PASSWORD=android
+          cargo apk build --manifest-path tests/manual/android-scroll-physics-comparison/Cargo.toml \
+            --target x86_64-linux-android --lib --release
+          apk=$(find "$CARGO_TARGET_DIR/x86_64-linux-android/release" -name '*.apk' -print -quit)
+          test -n "$apk"
+          echo "SCROLL_APK=$apk" >> "$GITHUB_ENV"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Swipe the comparison screen
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_7_pro
+          disable-animations: false
+          script: bash tests/manual/android-scroll-physics-comparison/scripts/run-smoke.sh
+
+      - name: Record final disk space
+        if: always()
+        run: df -h / /mnt "$GITHUB_WORKSPACE" > "$SCROLL_ARTIFACT_DIR/disk-after-test.txt"
+
+      - name: Upload Android test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-scroll-swipe
+          path: ${{ runner.temp }}/android-scroll-artifacts
+          if-no-files-found: error
