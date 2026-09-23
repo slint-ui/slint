@@ -297,6 +297,7 @@ type DependencyListHead = dependency_tracker::DependencyListHead<*const BindingH
 type DependencyNode = dependency_tracker::DependencyNode<*const BindingHolder>;
 
 use alloc::boxed::Box;
+use core::any::Any;
 use core::cell::{Cell, RefCell, UnsafeCell};
 use core::ffi::c_void;
 use core::marker::PhantomPinned;
@@ -329,6 +330,8 @@ struct BindingVTable {
     intercept_set_binding:
         unsafe fn(_self: *const BindingHolder, new_binding: *mut BindingHolder) -> bool,
     velocity: unsafe fn(_self: *const BindingHolder) -> Option<f32>,
+    #[cfg_attr(not(feature = "rtti"), allow(dead_code))]
+    two_way_common_property: unsafe fn(_self: *const BindingHolder) -> Option<*const dyn Any>,
 }
 
 /// A binding trait object can be used to dynamically produces values for a property.
@@ -364,6 +367,12 @@ unsafe trait BindingCallable<T> {
     /// Returns the current velocity in the property's units per second so a spring retarget can
     /// maintain velocity. Non spring bindings return None
     fn velocity(self: Pin<&Self>) -> Option<f32> {
+        None
+    }
+
+    /// For a two-way binding that maps to a common property of another type,
+    /// returns that common property as a `Pin<Rc<Property<_>>>`.
+    fn two_way_common_property(self: Pin<&Self>) -> Option<&dyn Any> {
         None
     }
 
@@ -531,6 +540,17 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
         unsafe { Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding)).velocity() }
     }
 
+    /// Safety: _self must be a pointer to a `BindingHolder<B>`
+    unsafe fn two_way_common_property<T, B: BindingCallable<T>>(
+        _self: *const BindingHolder,
+    ) -> Option<*const dyn Any> {
+        unsafe {
+            Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
+                .two_way_common_property()
+                .map(|a| a as *const dyn Any)
+        }
+    }
+
     trait HasBindingVTable<T> {
         const VT: &'static BindingVTable;
     }
@@ -542,6 +562,7 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
             intercept_set: intercept_set::<T, B>,
             intercept_set_binding: intercept_set_binding::<T, B>,
             velocity: velocity::<T, B>,
+            two_way_common_property: two_way_common_property::<T, B>,
         };
     }
 
@@ -1283,6 +1304,7 @@ impl<const NEEDS_SET_DIRTY: bool> Default for PropertyTracker<NEEDS_SET_DIRTY, (
             intercept_set: |_, _| false,
             intercept_set_binding: |_, _| false,
             velocity: |_| None,
+            two_way_common_property: |_| None,
         };
 
         let holder = BindingHolder {
@@ -1408,6 +1430,7 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
                 intercept_set: |_, _| false,
                 intercept_set_binding: |_, _| false,
                 velocity: |_| None,
+                two_way_common_property: |_| None,
             };
         }
 

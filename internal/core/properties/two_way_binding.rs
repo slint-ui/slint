@@ -50,6 +50,19 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         None
     }
 
+    /// If the property is linked through a mapping to a common property of type `U`,
+    /// return that common property
+    #[cfg_attr(not(feature = "rtti"), allow(dead_code))]
+    pub(crate) fn check_mapped_common_property<U: 'static>(
+        self: Pin<&Self>,
+    ) -> Option<Pin<Rc<Property<U>>>> {
+        let holder = PropertyHandle::pointer_to_binding(self.handle.handle.get())?;
+        // Safety: the handle is a pointer to a binding
+        let common = unsafe { ((*holder).vtable.two_way_common_property)(holder)? };
+        // Safety: the binding outlives this call, and we clone out of it
+        unsafe { (*common).downcast_ref::<Pin<Rc<Property<U>>>>() }.cloned()
+    }
+
     /// Link two property such that any change to one property is affecting the other property as if they
     /// where, in fact, a single property.
     /// The value or binding of prop2 is kept.
@@ -217,6 +230,10 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 });
                 self.common_property.handle.set_binding_impl(new_new_binding);
                 true
+            }
+
+            fn two_way_common_property(self: Pin<&Self>) -> Option<&dyn core::any::Any> {
+                Some(&self.get_ref().common_property)
             }
         }
 
