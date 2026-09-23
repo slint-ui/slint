@@ -1,0 +1,201 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "RootSizing:gallery",
+    "name": "Gallery",
+    "type": "FRAME",
+    "properties": {"x": 0, "y": 0, "width": 300, "height": 100, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 1, "g": 1, "b": 1}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "MIN", "counterAxisAlignItems": "MIN", "paddingLeft": 0, "paddingRight": 0, "paddingTop": 0, "paddingBottom": 0, "itemSpacing": 0, "layoutWrap": "NO_WRAP"},
+    "errors": [],
+    "children": [
+      {
+        "id": "RootSizing:instance",
+        "name": "Position=leading",
+        "type": "INSTANCE",
+        "properties": {"x": 0, "y": 0, "width": 95, "height": 32, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 1}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "HUG", "layoutSizingVertical": "HUG", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "MIN", "counterAxisAlignItems": "CENTER", "paddingLeft": 12, "paddingRight": 12, "paddingTop": 6, "paddingBottom": 6, "itemSpacing": 8, "layoutWrap": "NO_WRAP"},
+        "errors": [],
+        "children": [
+          {
+            "id": "RootSizing:leading:leading",
+            "name": "Leading",
+            "type": "RECTANGLE",
+            "properties": {"x": 0, "y": 0, "width": 16, "height": 16, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 1, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+            "errors": []
+          },
+          {
+            "id": "RootSizing:leading:label",
+            "name": "Label",
+            "type": "RECTANGLE",
+            "properties": {"x": 0, "y": 0, "width": 47, "height": 20, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 1, "g": 0, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+            "errors": []
+          }
+        ]
+      }
+    ]
+  },
+  "components": {
+    "version": 1,
+    "definitions": [
+      {
+        "id": "RootSizing",
+        "name": "RootSizing",
+        "axes": {
+          "Position": {
+            "defaultValue": "leading",
+            "options": [
+              "leading",
+              "trailing",
+              "both"
+            ]
+          }
+        },
+        "contract": {
+          "version": 1,
+          "properties": {
+            "Label#1": {
+              "type": "TEXT",
+              "defaultValue": "Button"
+            },
+            "Icons#1": {
+              "type": "BOOLEAN",
+              "defaultValue": true
+            }
+          },
+          "bindings": {
+            "RootSizing:leading:label": {
+              "characters": "Label#1"
+            },
+            "RootSizing:leading:leading": {
+              "visible": "Icons#1"
+            },
+            "RootSizing:leading:trailing": {
+              "visible": "Icons#1"
+            },
+            "RootSizing:trailing:label": {
+              "characters": "Label#1"
+            },
+            "RootSizing:trailing:leading": {
+              "visible": "Icons#1"
+            },
+            "RootSizing:trailing:trailing": {
+              "visible": "Icons#1"
+            },
+            "RootSizing:both:label": {
+              "characters": "Label#1"
+            },
+            "RootSizing:both:leading": {
+              "visible": "Icons#1"
+            },
+            "RootSizing:both:trailing": {
+              "visible": "Icons#1"
+            }
+          }
+        },
+        "variants": [
+          {
+            "id": "RootSizing:leading",
+            "values": {
+              "Position": "leading"
+            },
+            "root": {
+              "id": "RootSizing:leading",
+              "name": "Position=leading",
+              "type": "COMPONENT",
+              "properties": {"x": 0, "y": 0, "width": 95, "height": 32, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 1}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "HUG", "layoutSizingVertical": "HUG", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "MIN", "counterAxisAlignItems": "CENTER", "paddingLeft": 12, "paddingRight": 12, "paddingTop": 6, "paddingBottom": 6, "itemSpacing": 8, "layoutWrap": "NO_WRAP"},
+              "errors": [],
+              "children": [
+                {
+                  "id": "RootSizing:leading:leading",
+                  "name": "Leading",
+                  "type": "RECTANGLE",
+                  "properties": {"x": 0, "y": 0, "width": 16, "height": 16, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 1, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                  "errors": []
+                },
+                {
+                  "id": "RootSizing:leading:label",
+                  "name": "Label",
+                  "type": "RECTANGLE",
+                  "properties": {"x": 0, "y": 0, "width": 47, "height": 20, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 1, "g": 0, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                  "errors": []
+                }
+              ]
+            }
+          },
+          {
+            "id": "RootSizing:trailing",
+            "values": {
+              "Position": "trailing"
+            },
+            "root": {
+              "id": "RootSizing:trailing",
+              "name": "Position=trailing",
+              "type": "COMPONENT",
+              "properties": {"x": 0, "y": 0, "width": 95, "height": 32, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 1}, "opacity": 1}], "strokes": [], "effects": [{"type": "DROP_SHADOW", "visible": true, "color": {"r": 0, "g": 0, "b": 0, "a": 0.25}, "offset": {"x": 0, "y": 1}, "radius": 0, "spread": 0}], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "HUG", "layoutSizingVertical": "HUG", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "MIN", "counterAxisAlignItems": "CENTER", "paddingLeft": 12, "paddingRight": 12, "paddingTop": 6, "paddingBottom": 6, "itemSpacing": 8, "layoutWrap": "NO_WRAP"},
+              "errors": [],
+              "children": [
+                {
+                  "id": "RootSizing:trailing:label",
+                  "name": "Label",
+                  "type": "RECTANGLE",
+                  "properties": {"x": 0, "y": 0, "width": 47, "height": 20, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 1, "g": 0, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                  "errors": []
+                },
+                {
+                  "id": "RootSizing:trailing:trailing",
+                  "name": "Trailing",
+                  "type": "RECTANGLE",
+                  "properties": {"x": 0, "y": 0, "width": 16, "height": 16, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 1, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                  "errors": []
+                }
+              ]
+            }
+          },
+          {
+            "id": "RootSizing:both",
+            "values": {
+              "Position": "both"
+            },
+            "root": {
+              "id": "RootSizing:both",
+              "name": "Position=both",
+              "type": "COMPONENT",
+              "properties": {"x": 0, "y": 0, "width": 119, "height": 32, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 1}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "HUG", "layoutSizingVertical": "HUG", "layoutMode": "HORIZONTAL", "primaryAxisAlignItems": "MIN", "counterAxisAlignItems": "CENTER", "paddingLeft": 12, "paddingRight": 12, "paddingTop": 6, "paddingBottom": 6, "itemSpacing": 8, "layoutWrap": "NO_WRAP"},
+              "errors": [],
+              "children": [
+                {
+                  "id": "RootSizing:both:leading",
+                  "name": "Leading",
+                  "type": "RECTANGLE",
+                  "properties": {"x": 0, "y": 0, "width": 16, "height": 16, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 1, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                  "errors": []
+                },
+                {
+                  "id": "RootSizing:both:label",
+                  "name": "Label",
+                  "type": "RECTANGLE",
+                  "properties": {"x": 0, "y": 0, "width": 47, "height": 20, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 1, "g": 0, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                  "errors": []
+                },
+                {
+                  "id": "RootSizing:both:trailing",
+                  "name": "Trailing",
+                  "type": "RECTANGLE",
+                  "properties": {"x": 0, "y": 0, "width": 16, "height": 16, "visible": true, "opacity": 1, "rotation": 0, "fills": [{"type": "SOLID", "color": {"r": 0, "g": 1, "b": 0}, "opacity": 1}], "strokes": [], "effects": [], "cornerRadius": 0, "clipsContent": false, "layoutSizingHorizontal": "FIXED", "layoutSizingVertical": "FIXED"},
+                  "errors": []
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "references": {
+      "RootSizing:instance": {
+        "definitionId": "RootSizing",
+        "variantId": "RootSizing:leading"
+      }
+    }
+  },
+  "exportScale": 1,
+  "pngEnabled": true,
+  "images": {}
+}

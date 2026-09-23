@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "1:2",
+    "nodeName": "Gradient"
+  },
+  "root": {
+    "kind": "rectangle",
+    "id": "1:2",
+    "name": "Gradient",
+    "x": 0,
+    "y": 0,
+    "width": 240,
+    "height": 72,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": null,
+    "layoutSizingVertical": null,
+    "fills": [
+      {
+        "kind": "linear-gradient",
+        "transform": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ]
+        ],
+        "stops": [
+          {
+            "position": 0,
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0,
+              "a": 1
+            }
+          }
+        ],
+        "opacity": 1
+      }
+    ],
+    "strokes": [],
+    "layoutPositioning": "auto",
+    "cornerRadii": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "clipsContent": false,
+    "containerKind": "native",
+    "layoutFallback": "freeform",
+    "shadows": []
+  }
+}
