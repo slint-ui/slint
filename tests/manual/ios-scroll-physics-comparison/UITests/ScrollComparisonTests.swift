@@ -103,6 +103,14 @@ final class ScrollComparisonTests: XCTestCase {
         return ScrollMetrics(uikitOffset: nativeOffset, slintOffset: slintOffset)
     }
 
+    func testComparisonScreenLaunches() {
+        let app = launch(scenario: "ci-launch")
+        XCTAssertTrue(app.staticTexts["Slint"].exists)
+        XCTAssertTrue(app.staticTexts["UIKit"].exists)
+        XCTAssertTrue(app.staticTexts["Scroll comparison metrics"].exists)
+        app.terminate()
+    }
+
     func testShortHardFlickRetainsReleaseMomentum() {
         for trial in 1...3 {
             let name = "short-hard-d120-v6400-trial-\(trial)"

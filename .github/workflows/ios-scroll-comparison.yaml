@@ -1,0 +1,75 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: iOS scroll comparison
+
+on:
+  pull_request:
+    branches: [mm/flickable-scroll-animation-v2]
+    paths:
+      - .github/workflows/ios-scroll-comparison.yaml
+      - tests/manual/ios-scroll-physics-comparison/**
+
+permissions:
+  contents: read
+
+jobs:
+  launch:
+    if: github.event.pull_request.number == 2
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_RELEASE_DEBUG: 0
+    steps:
+      - name: Record and free disk space
+        run: |
+          mkdir -p "$RUNNER_TEMP/ios-scroll-artifacts"
+          df -h / > "$RUNNER_TEMP/ios-scroll-artifacts/disk-before.txt"
+          sudo rm -rf "${ANDROID_HOME:-$HOME/Library/Android/sdk}" \
+            "${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}" \
+            "$HOME/Library/Android/sdk"
+          df -h / > "$RUNNER_TEMP/ios-scroll-artifacts/disk-after-cleanup.txt"
+
+      - uses: actions/checkout@v6
+
+      - name: Install build tools
+        run: |
+          rustup target add aarch64-apple-ios-sim
+          brew install xcodegen
+          xcodegen generate --spec tests/manual/ios-scroll-physics-comparison/project.yml \
+            --project tests/manual/ios-scroll-physics-comparison
+
+      - name: Boot iOS Simulator
+        run: |
+          xcrun simctl list -j devices available > "$RUNNER_TEMP/ios-scroll-artifacts/simulators.json"
+          udid=$(python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; phones=[d for runtime,items in devices.items() if "iOS" in runtime for d in items if d["name"].startswith("iPhone")]; print(next((d["udid"] for d in phones if d["name"] == "iPhone 17 Pro"), phones[0]["udid"]))' < "$RUNNER_TEMP/ios-scroll-artifacts/simulators.json")
+          echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+
+      - name: Test comparison screen in Release
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project tests/manual/ios-scroll-physics-comparison/NativeSlintScroll.xcodeproj \
+            -scheme NativeSlintScroll \
+            -configuration Release \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            -derivedDataPath "$RUNNER_TEMP/ios-scroll-derived-data" \
+            -resultBundlePath "$RUNNER_TEMP/ios-scroll-artifacts/ScrollComparison.xcresult" \
+            -parallel-testing-enabled NO \
+            -only-testing:NativeSlintScrollUITests/ScrollComparisonTests/testComparisonScreenLaunches \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/ios-scroll-artifacts/xcodebuild.log"
+
+      - name: Record final disk space
+        if: always()
+        run: df -h / > "$RUNNER_TEMP/ios-scroll-artifacts/disk-after-test.txt"
+
+      - name: Upload iOS test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-scroll-launch
+          path: ${{ runner.temp }}/ios-scroll-artifacts
+          if-no-files-found: error
