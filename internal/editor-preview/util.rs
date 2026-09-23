@@ -126,10 +126,9 @@ pub fn last_non_ws_token(node: &SyntaxNode) -> Option<SyntaxToken> {
     last_non_ws
 }
 
-// Find the indentation of the element node itself as well as the indentation of properties inside the
-// element. Returns the element indent.
-pub fn find_element_indent(element: &crate::ElementRcNode) -> Option<String> {
-    let mut token = element.with_element_node(|node| node.first_token()?.prev_token());
+/// The whitespace at the start of the line `node` begins on
+pub fn find_indent(node: &SyntaxNode) -> Option<String> {
+    let mut token = node.first_token()?.prev_token();
     while let Some(t) = token {
         if t.kind() == SyntaxKind::Whitespace && t.text().contains('\n') {
             return t.text().split('\n').next_back().map(|s| s.to_owned());
@@ -137,6 +136,10 @@ pub fn find_element_indent(element: &crate::ElementRcNode) -> Option<String> {
         token = t.prev_token();
     }
     None
+}
+
+pub fn find_element_indent(element: &crate::ElementRcNode) -> Option<String> {
+    element.with_element_node(|node| find_indent(node))
 }
 
 /// Given a node within an element, return the Type for the Element under that node.
