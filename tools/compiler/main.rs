@@ -87,6 +87,7 @@ struct Cli {
 
     /// Specify the path to the main .slint file to compile.
     /// A slint-project.json in its directory, or in a directory above it, provides the settings.
+    /// A slint-project.json given here compiles its entry.
     /// Use '-' to read from stdin.
     #[arg(name = "file")]
     path: std::path::PathBuf,
@@ -148,9 +149,40 @@ struct Cli {
     cpp_files: Vec<std::path::PathBuf>,
 }
 
+/// Replaces a project file given as input by its entry,
+/// and returns the project file that applies to the input.
+fn resolve_project_file(args: &mut Cli) -> Option<i_slint_compiler::project_file::ProjectFile> {
+    // The Slint SC subset rejects the flags a project file could set, so it has none.
+    #[cfg(feature = "slint-sc")]
+    if args.slint_sc {
+        if i_slint_compiler::project_file::is_project_file(&args.path) {
+            eprintln!("--slint-sc can't compile a project file, pass its entry instead");
+            std::process::exit(1);
+        }
+        return None;
+    }
+
+    // Reading from stdin gives no directory to search from.
+    if args.path == std::path::Path::new("-") {
+        return None;
+    }
+
+    match i_slint_compiler::project_file::resolve_input(&args.path) {
+        Ok((path, project_file)) => {
+            args.path = path;
+            project_file
+        }
+        Err(message) => {
+            eprintln!("{message}");
+            std::process::exit(1);
+        }
+    }
+}
+
 fn main() -> std::io::Result<()> {
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
-    let args = Cli::parse();
+    let mut args = Cli::parse();
+    let project_file = resolve_project_file(&mut args);
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse_file(&args.path, &mut diag);
     //println!("{:#?}", syntax_node);
@@ -248,25 +280,6 @@ fn main() -> std::io::Result<()> {
         compiler_config.coverage = args.coverage;
     }
 
-    // The Slint SC subset rejects the flags a project file could set, so it has none.
-    #[cfg(feature = "slint-sc")]
-    let look_for_project_file = !args.slint_sc;
-    #[cfg(not(feature = "slint-sc"))]
-    let look_for_project_file = true;
-
-    // Reading from stdin gives no directory to search from.
-    let project_file = if look_for_project_file && args.path != std::path::Path::new("-") {
-        let directory = i_slint_compiler::pathutils::dirname(&args.path);
-        match i_slint_compiler::project_file::ProjectFile::find(&directory) {
-            Ok(project_file) => project_file,
-            Err(message) => {
-                eprintln!("{message}");
-                std::process::exit(1);
-            }
-        }
-    } else {
-        None
-    };
     if let Some(project_file) = &project_file {
         project_file.apply_to(&mut compiler_config);
     }

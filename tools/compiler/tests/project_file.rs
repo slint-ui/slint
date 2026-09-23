@@ -149,3 +149,34 @@ fn compiling_without_a_project_file_works() {
     let output = project.compile(&main, &[]);
     assert!(output.status.success(), "{}", stderr(&output));
 }
+
+#[test]
+fn a_project_file_argument_compiles_its_entry() {
+    let project =
+        Project::new(Some(r#"{ "entry": "ui/main.slint", "include-paths": ["include"] }"#));
+    project.write("include/shared.slint", "export component Shared { }");
+    let main = project.write("ui/main.slint", IMPORTS_SHARED);
+    let depfile = project.root.join("generated.d");
+
+    let project_file = project.root.join("slint-project.json");
+    let output = project.compile(&project_file, &["--depfile", depfile.to_str().unwrap()]);
+    assert!(output.status.success(), "{}", stderr(&output));
+
+    let dependencies = std::fs::read_to_string(&depfile).unwrap();
+    for dependency in [&main, &project_file] {
+        assert!(
+            dependencies.contains(dependency.to_str().unwrap()),
+            "expected {} in {dependencies}",
+            dependency.display()
+        );
+    }
+}
+
+#[test]
+fn a_project_file_argument_without_an_entry_is_reported() {
+    let project = Project::new(Some(r#"{ "style": "fluent" }"#));
+
+    let output = project.compile(&project.root.join("slint-project.json"), &[]);
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("'entry'"), "{}", stderr(&output));
+}
