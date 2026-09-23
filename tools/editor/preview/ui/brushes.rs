@@ -21,11 +21,11 @@ pub fn fill_from_expression(
         value.is_finite().then_some(value)
     };
     let (stops, angle, center, radius) = match expression {
-        Expression::LinearGradient { angle, stops } => (stops, Some(&**angle), None, None),
-        Expression::RadialGradient { stops, center, radius } => {
+        Expression::LinearGradient { angle, stops, .. } => (stops, Some(&**angle), None, None),
+        Expression::RadialGradient { stops, center, radius, .. } => {
             (stops, None, center.as_ref(), radius.as_deref())
         }
-        Expression::ConicGradient { from_angle, stops, center } => {
+        Expression::ConicGradient { from_angle, stops, center, .. } => {
             (stops, Some(&**from_angle), center.as_ref(), None)
         }
         _ => return Some(fill),

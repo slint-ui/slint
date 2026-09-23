@@ -32,4 +32,13 @@ export X := Rectangle {
 //                                                      ^error{Unknown unqualified identifier 'o'}
     property<color> g16: @linear-gradient(0deg, red, green, blue); // #6819
 //                       >                                       <warning{Narrowing conversion from brush to color. This can lead to unexpected behavior because the brush is a gradient}
+    property<brush> g17: @linear-gradient(in oklch 40deg, red, blue);
+    property<brush> g18: @linear-gradient(in oklab 40deg, red, blue);
+    property<brush> g19: @linear-gradient(in srgb 40deg, red, blue);
+    property<brush> g20: @linear-gradient(in hsl 40deg, red, blue);
+    property<brush> g21: @linear-gradient(in bogus 40deg, red, blue);
+//                                           >    <error{'bogus' is not a valid color space, expected 'srgb', 'oklch', 'oklab', or 'hsl'}
+    property<brush> g22: @linear-gradient(in oklch, red, blue);
+    property<brush> g23: @linear-gradient(in, 40deg, red, blue);
+//                                        ><error{Expected a color space after 'in'}
 }

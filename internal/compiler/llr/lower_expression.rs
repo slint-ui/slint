@@ -395,9 +395,12 @@ fn lower_linear_gradient(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
 ) -> llr_Expression {
-    let tree_Expression::LinearGradient { angle, stops } = expression else { unreachable!() };
+    let tree_Expression::LinearGradient { angle, color_space, stops } = expression else {
+        unreachable!()
+    };
     llr_Expression::LinearGradient {
         angle: Box::new(lower_expression(angle, ctx)),
+        color_space: *color_space,
         stops: stops
             .iter()
             .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
@@ -410,7 +413,7 @@ fn lower_radial_gradient(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
 ) -> llr_Expression {
-    let tree_Expression::RadialGradient { center, radius, stops } = expression else {
+    let tree_Expression::RadialGradient { center, radius, color_space, stops } = expression else {
         unreachable!()
     };
     llr_Expression::RadialGradient {
@@ -418,6 +421,7 @@ fn lower_radial_gradient(
             (Box::new(lower_expression(cx, ctx)), Box::new(lower_expression(cy, ctx)))
         }),
         radius: radius.as_ref().map(|r| Box::new(lower_expression(r, ctx))),
+        color_space: *color_space,
         stops: stops
             .iter()
             .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
@@ -430,7 +434,8 @@ fn lower_conic_gradient(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
 ) -> llr_Expression {
-    let tree_Expression::ConicGradient { from_angle, center, stops } = expression else {
+    let tree_Expression::ConicGradient { from_angle, center, color_space, stops } = expression
+    else {
         unreachable!()
     };
     llr_Expression::ConicGradient {
@@ -438,6 +443,7 @@ fn lower_conic_gradient(
         center: center.as_ref().map(|(cx, cy)| {
             (Box::new(lower_expression(cx, ctx)), Box::new(lower_expression(cy, ctx)))
         }),
+        color_space: *color_space,
         stops: stops
             .iter()
             .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))

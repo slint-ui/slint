@@ -26,4 +26,12 @@ export component X {
 //                       >                    <error{Expected angle expression after 'from'}
     property<brush> g14: @conic-gradient(from 90deg blue 0deg, red 180deg);
 //                       >                                               <error{gradient header must be followed by a comma}
+
+    property<brush> g15: @conic-gradient(in oklch from 90deg, blue 0deg, red 180deg);
+    property<brush> g16: @conic-gradient(in hsl from 90deg, blue 0deg, red 180deg);
+    property<brush> g17: @conic-gradient(in bogus from 90deg, blue 0deg, red 180deg);
+//                                          >    <error{'bogus' is not a valid color space, expected 'srgb', 'oklch', 'oklab', or 'hsl'}
+    property<brush> g18: @conic-gradient(in oklch, blue 0deg, red 180deg);
+    property<brush> g19: @conic-gradient(in, from 90deg, blue 0deg, red 180deg);
+//                                       ><error{Expected a color space after 'in'}
 }
