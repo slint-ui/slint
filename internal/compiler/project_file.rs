@@ -177,15 +177,13 @@ pub struct Overrides {
 }
 
 impl Overrides {
-    /// Applies the project file for the files in `directory` to `config`, then these overrides.
-    /// Returns the project file that was applied.
-    pub fn apply_with_project_file(
+    /// Applies `project_file` to `config`, then these overrides.
+    pub fn apply(
         &self,
+        project_file: Option<&ProjectFile>,
         config: &mut crate::CompilerConfiguration,
-        directory: &Path,
-    ) -> Result<Option<ProjectFile>, String> {
-        let project_file = ProjectFile::find(directory)?;
-        if let Some(project_file) = &project_file {
+    ) {
+        if let Some(project_file) = project_file {
             project_file.apply_to(config);
         }
         if let Some(include_paths) = &self.include_paths {
@@ -197,7 +195,6 @@ impl Overrides {
         if let Some(style) = &self.style {
             config.style = Some(style.clone());
         }
-        Ok(project_file)
     }
 }
 
