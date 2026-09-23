@@ -2,23 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
-import { InspectorComboOption } from "inspector/control-data.slint";
 import { Api, CodeBinding, ElementInformation, InspectorNumberChange, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
-import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "common.slint";
+import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "shared.slint";
 import { OutlinePane } from "outline-pane.slint";
-
-import { InspectorInfoIcon } from "inspector/info-icon.slint";
-import { InspectorValueField } from "inspector/value-field.slint";
-import { InspectorEditableField } from "inspector/editable-field.slint";
-import { InspectorComboBox } from "inspector/combo-box.slint";
-import { InspectorColorField } from "inspector/color-field.slint";
-import { InspectorCodeField } from "inspector/code-field.slint";
-import { InspectorSection } from "inspector/section.slint";
-import { InspectorEffectDial } from "inspector/effect-dial.slint";
-import { InspectorEffectSlider } from "inspector/effect-slider.slint";
-import { InspectorPropertyRow } from "inspector/property-row.slint";
-import { InspectorRotationKnob } from "inspector/rotation-knob.slint";
-import { InspectorCornerEditor } from "inspector/corner-editor.slint";
+import {
+    InspectorCodeField, InspectorColorField, InspectorComboBox, InspectorComboOption,
+    InspectorCornerEditor, InspectorEditableField, InspectorEffectDial, InspectorEffectSlider,
+    InspectorInfoIcon, InspectorPropertyRow, InspectorRotationKnob, InspectorSection,
+    InspectorValueField,
+} from "inspector/index.slint";
 import { ScrollView } from "std-widgets.slint";
 
 export component InspectorPane inherits Rectangle {

@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Metrics, Colors, Typography, TreeStyle } from "../style.slint";
-import { Api, Hover, DropLocation, EditorSurfaceMode, OutlineTreeNode } from "../api.slint";
+import { Api, Hover, DropLocation, EditorSurfaceMode, ElementKind, OutlineTreeNode } from "../api.slint";
 import { DragPreview } from "drag-preview.slint";
 import { EditorTreeView } from "editor-tree-view.slint";
 
-import { AppState, ElementKind, SectionTitle } from "common.slint";
+import { AppState, SectionTitle } from "shared.slint";
 
 export component OutlinePane inherits Rectangle {
     in property <TreeStyle> style: Style.tree;
