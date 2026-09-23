@@ -437,3 +437,19 @@ def test_map_model_subclass_released_by_refcount() -> None:
     model = None
 
     assert model_weak() is None
+
+
+def test_reverse_model_released_by_refcount() -> None:
+    """A ReverseModel is freed without the cyclic collector, and releases its source."""
+
+    source: slint.ListModel[int] | None = slint.ListModel([1, 2])
+    model: slint.ReverseModel[int] | None = slint.ReverseModel(source)
+    assert model is not None
+    assert model[0] == 2
+    source_weak = weakref.ref(source)
+    model_weak = weakref.ref(model)
+    source = None
+    model = None
+
+    assert model_weak() is None
+    assert source_weak() is None

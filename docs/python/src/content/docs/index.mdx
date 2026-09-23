@@ -143,6 +143,9 @@ numbers.append(4)
 
 Alternatively, subclass <XRef to="MapModel" /> and implement `map_row()` instead of passing a function.
 
+Use <XRef to="ReverseModel" /> to show the rows of another model in reverse order.
+Setting one of its rows sets the corresponding row of the source model.
+
 ## Threading
 
 The event loop runs on the main thread, and components must be created and

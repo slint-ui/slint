@@ -4,13 +4,14 @@
 //! The model adapters of `i_slint_core::model` over Python models,
 //! backing the adapter classes in `slint.models`.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::pin::Pin;
 use std::rc::Rc;
 
 use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{
     MapModel, Model, ModelChangeListener, ModelChangeListenerBox, ModelRc, ModelTracker,
+    ReverseModel,
 };
 use pyo3::PyTraverseError;
 use pyo3::exceptions::{PyIndexError, PyTypeError};
@@ -23,13 +24,53 @@ use crate::value::TypeCollection;
 /// A Python object the adapter keeps alive, released by `__clear__`.
 type PyObjectSlot = Rc<RefCell<Option<Py<PyAny>>>>;
 
-/// The first exception raised by Python code while computing a row,
-/// raised again to the Python caller of the adapter.
-type ErrorSlot = Rc<RefCell<Option<PyErr>>>;
-
-fn record_error(errors: &ErrorSlot, err: PyErr) {
-    errors.borrow_mut().get_or_insert(err);
+/// Exceptions raised by the Python code an adapter calls.
+#[derive(Default)]
+struct Errors {
+    active_calls: Cell<usize>,
+    /// The first exception raised during a call, raised again to the Python caller of the adapter.
+    pending: RefCell<Option<PyErr>>,
 }
+
+impl Errors {
+    /// Records `err` for the active call, or reports it right away when it was
+    /// raised outside a call, while the adapter handled a change notification.
+    fn record(&self, py: Python<'_>, err: PyErr) {
+        if self.active_calls.get() > 0 {
+            self.pending.borrow_mut().get_or_insert(err);
+        } else {
+            crate::handle_unraisable(
+                py,
+                "Python: Model adapter caught an exception while handling a change notification"
+                    .into(),
+                err,
+            );
+        }
+    }
+
+    /// Runs `f` as a call of the adapter,
+    /// returning the first exception the Python code raised during it.
+    fn call<R>(&self, f: impl FnOnce() -> R) -> PyResult<R> {
+        struct ActiveCall<'a>(&'a Cell<usize>);
+        impl Drop for ActiveCall<'_> {
+            fn drop(&mut self) {
+                self.0.set(self.0.get() - 1);
+            }
+        }
+
+        self.active_calls.set(self.active_calls.get() + 1);
+        let result = {
+            let _active_call = ActiveCall(&self.active_calls);
+            f()
+        };
+        match self.pending.borrow_mut().take() {
+            Some(err) => Err(err),
+            None => Ok(result),
+        }
+    }
+}
+
+type ErrorSlot = Rc<Errors>;
 
 fn slot_object(py: Python<'_>, slot: &PyObjectSlot) -> Option<Py<PyAny>> {
     slot.borrow().as_ref().map(|obj| obj.clone_ref(py))
@@ -51,7 +92,7 @@ impl Model for PySourceModel {
             match model.bind(py).call_method0("row_count").and_then(|count| count.extract()) {
                 Ok(count) => count,
                 Err(err) => {
-                    record_error(&self.errors, err);
+                    self.errors.record(py, err);
                     0
                 }
             }
@@ -66,7 +107,7 @@ impl Model for PySourceModel {
                 Ok(data) => Some(data.unbind()),
                 Err(err) if err.is_instance_of::<PyIndexError>(py) => None,
                 Err(err) => {
-                    record_error(&self.errors, err);
+                    self.errors.record(py, err);
                     None
                 }
             }
@@ -77,7 +118,7 @@ impl Model for PySourceModel {
         Python::attach(|py| {
             let Some(model) = slot_object(py, &self.model) else { return };
             if let Err(err) = model.bind(py).call_method1("set_row_data", (row, data)) {
-                record_error(&self.errors, err);
+                self.errors.record(py, err);
             }
         })
     }
@@ -116,7 +157,7 @@ impl Model for RustSourceModel {
             {
                 Ok(data) => Some(data.unbind()),
                 Err(err) => {
-                    record_error(&self.errors, err);
+                    self.errors.record(py, err);
                     None
                 }
             }
@@ -131,10 +172,10 @@ impl Model for RustSourceModel {
                 Some(&self.type_collection),
                 self.element_type.as_ref(),
             )
+            .map_err(|err| self.errors.record(py, err))
         });
-        match value {
-            Ok(value) => self.model.set_row_data(row, value),
-            Err(err) => record_error(&self.errors, err),
+        if let Ok(value) = value {
+            self.model.set_row_data(row, value);
         }
     }
 
@@ -235,13 +276,6 @@ impl PyModelAdapter {
         model.model_tracker().attach_peer(forwarder.as_ref().model_peer());
         Self { _forwarder: forwarder, model, objects, errors }
     }
-
-    fn take_error(&self) -> PyResult<()> {
-        match self.errors.borrow_mut().take() {
-            Some(err) => Err(err),
-            None => Ok(()),
-        }
-    }
 }
 
 #[pymethods]
@@ -264,7 +298,7 @@ impl PyModelAdapter {
                 match function.bind(py).call1((data,)) {
                     Ok(mapped) => mapped.unbind(),
                     Err(err) => {
-                        record_error(&function_errors, err);
+                        function_errors.record(py, err);
                         py.None()
                     }
                 }
@@ -273,16 +307,28 @@ impl PyModelAdapter {
         Ok(Self::new(Rc::new(model).into(), &target, objects, errors))
     }
 
+    /// A `ReverseModel` over `source`, notifying the views of `target`.
+    #[staticmethod]
+    fn reverse(source: &Bound<'_, PyAny>, target: PyRef<'_, PyModelBase>) -> PyResult<Self> {
+        let errors = ErrorSlot::default();
+        let (source, objects) = source_model(source, &errors)?;
+        let model = ReverseModel::new(source);
+        Ok(Self::new(Rc::new(model).into(), &target, objects, errors))
+    }
+
     fn row_count(&self) -> PyResult<usize> {
-        let count = self.model.row_count();
-        self.take_error()?;
-        Ok(count)
+        self.errors.call(|| self.model.row_count())
     }
 
     fn row_data(&self, row: usize) -> PyResult<Option<Py<PyAny>>> {
-        let data = self.model.row_data(row);
-        self.take_error()?;
-        Ok(data)
+        self.errors.call(|| self.model.row_data(row))
+    }
+
+    fn set_row_data(&self, row: usize, data: Py<PyAny>) -> PyResult<()> {
+        if row >= self.row_count()? {
+            return Err(PyIndexError::new_err("row index out of range"));
+        }
+        self.errors.call(|| self.model.set_row_data(row, data))
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {

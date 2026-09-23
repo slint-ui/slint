@@ -178,7 +178,25 @@ class ListModel[T](Model[T]):
         super().notify_row_added(clamped, 1)
 
 
-class MapModel[T, U](Model[U]):
+class _AdapterModel[T](Model[T]):
+    """The base class of the models that wrap a model adapter of the Rust core library."""
+
+    _adapter: native.PyModelAdapter
+
+    def _row_index(self, row: int) -> int:
+        return row + self.row_count() if row < 0 else row
+
+    def row_count(self) -> int:
+        return self._adapter.row_count()
+
+    def row_data(self, row: int) -> T | None:
+        row = self._row_index(row)
+        if row < 0:
+            return None
+        return typing.cast(T | None, self._adapter.row_data(row))
+
+
+class MapModel[T, U](_AdapterModel[U]):
     """MapModel is a read-only `Model` that provides the rows of a source model,
     each passed through a map function.
 
@@ -232,15 +250,35 @@ class MapModel[T, U](Model[U]):
         to the constructor."""
         raise NotImplementedError(f"{type(self).__name__} does not implement map_row()")
 
-    def row_count(self) -> int:
-        return self._adapter.row_count()
 
-    def row_data(self, row: int) -> U | None:
-        if row < 0:
-            row += self.row_count()
-            if row < 0:
-                return None
-        return typing.cast(U | None, self._adapter.row_data(row))
+class ReverseModel[T](_AdapterModel[T]):
+    """ReverseModel is a `Model` that provides the rows of a source model in
+    reverse order.
+
+    The ReverseModel follows the changes of the source model.
+    Setting a row sets the corresponding row of the source model.
+
+    ```python
+    numbers = slint.ListModel([1, 2, 3])
+    reversed_numbers = slint.ReverseModel(numbers)
+    assert list(reversed_numbers) == [3, 2, 1]
+    ```
+    """
+
+    def __init__(self, source_model: Model[T]):
+        """Constructs a new ReverseModel that provides the rows of `source_model`
+        in reverse order."""
+        super().__init__()
+        self.source_model = source_model
+        self._adapter = native.PyModelAdapter.reverse(source_model, self)
+
+    def set_row_data(self, row: int, value: T) -> None:
+        """Sets the row of the source model that corresponds to `row`.
+        Raises IndexError if `row` is out of range."""
+        index = self._row_index(row)
+        if index < 0:
+            raise IndexError("row index out of range")
+        self._adapter.set_row_data(index, value)
 
 
 class ModelIterator[T](Iterator[T]):

@@ -1,8 +1,9 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore capfd
+# cSpell: ignore capfd unraisable unraisablehook
 
+import sys
 import typing
 from pathlib import Path
 
@@ -586,3 +587,117 @@ def test_map_model_negative_index() -> None:
     assert mapped[-1] == 30
     assert mapped.row_data(-3) == 10
     assert mapped.row_data(-4) is None
+
+
+def test_reverse_model() -> None:
+    source = models.ListModel([1, 2, 3])
+    reversed_model = models.ReverseModel(source)
+
+    assert reversed_model.source_model is source
+    assert list(reversed_model) == [3, 2, 1]
+    assert reversed_model[-1] == 1
+    assert reversed_model.row_data(3) is None
+    assert reversed_model.row_data(-4) is None
+
+    source.append(4)
+    del source[0]
+    source[0] = 20
+    assert list(reversed_model) == [4, 3, 20]
+
+
+def test_reverse_model_set_row_data() -> None:
+    source = models.ListModel([1, 2, 3])
+    reversed_model = models.ReverseModel(source)
+
+    reversed_model[0] = 30
+    reversed_model[-1] = 10
+    assert list(source) == [10, 2, 30]
+
+    with pytest.raises(IndexError):
+        reversed_model[3] = 0
+    with pytest.raises(IndexError):
+        reversed_model[-4] = 0
+
+
+def test_reverse_model_chained_with_map_model() -> None:
+    source = models.ListModel([1, 2, 3])
+    assert list(models.ReverseModel(models.MapModel(source, str))) == ["3", "2", "1"]
+    assert list(models.MapModel(models.ReverseModel(source), str)) == ["3", "2", "1"]
+
+
+def test_reverse_model_of_slint_model() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> data: [1, 2, 3];
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    reversed_model = models.ReverseModel(instance.get_property("data"))
+    assert list(reversed_model) == [3, 2, 1]
+    reversed_model[0] = 30
+    assert list(instance.get_property("data")) == [1, 2, 30]
+
+
+def test_reverse_model_notifies_and_writes_back() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> values;
+            out property<int> first: values[0];
+            out property<int> count: values.length;
+            public function set-first(value: int) { values[0] = value; }
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    source = models.ListModel([1, 2, 3])
+    instance.set_property("values", models.ReverseModel(source))
+    assert instance.get_property("first") == 3
+
+    source[2] = 30
+    assert instance.get_property("first") == 30
+    source.append(4)
+    assert instance.get_property("first") == 4
+    assert instance.get_property("count") == 4
+
+    instance.invoke("set_first", 40)
+    assert list(source) == [1, 2, 30, 40]
+
+
+def test_reverse_model_reports_notification_exception_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unraisable: list[typing.Any] = []
+    monkeypatch.setattr(sys, "unraisablehook", unraisable.append)
+
+    class FailingCount(models.ListModel[int]):
+        fail = False
+
+        def row_count(self) -> int:
+            if self.fail:
+                raise RuntimeError("no count")
+            return super().row_count()
+
+    source = FailingCount([1, 2])
+    reversed_model = models.ReverseModel(source)
+    source.fail = True
+    del source[0]
+
+    assert len(unraisable) == 1
+    assert isinstance(unraisable[0].exc_value, RuntimeError)
+    assert "change notification" in unraisable[0].exc_value.__notes__[0]
+
+    source.fail = False
+    assert list(reversed_model) == [2]
