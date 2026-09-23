@@ -77,24 +77,24 @@ export default defineConfig({
                 // each with its own URL prefix and its own sidebar.
                 starlightSidebarTopics([
                     {
-                        label: "Safety Manual",
-                        link: "/safety-manual/",
+                        label: "User Manual",
+                        link: "/user-manual/",
                         items: [
-                            { label: "Overview", slug: "safety-manual" },
+                            { label: "Overview", slug: "user-manual" },
                             {
                                 label: "Known Problems",
-                                slug: "safety-manual/known-problems",
+                                slug: "user-manual/known-problems",
                             },
                             {
                                 label: "Coverage of Slint Code",
-                                slug: "safety-manual/slint-coverage",
+                                slug: "user-manual/slint-coverage",
                             },
                             {
                                 label: "Slint Compiler",
                                 items: [
                                     {
                                         label: "Constraints",
-                                        slug: "safety-manual/compiler/constraints",
+                                        slug: "user-manual/compiler/constraints",
                                     },
                                 ],
                             },
@@ -103,7 +103,7 @@ export default defineConfig({
                                 items: [
                                     {
                                         label: "Constraints",
-                                        slug: "safety-manual/runtime/constraints",
+                                        slug: "user-manual/runtime/constraints",
                                     },
                                 ],
                             },
