@@ -21,6 +21,7 @@ Appbar
 appicon
 appiconset
 appkit
+APPL
 appmain
 appsink
 appview
@@ -308,6 +309,7 @@ inputchip
 intprop
 intval
 iocp
+iphonesimulator
 IRAM
 Irqs
 isinstance
