@@ -142,6 +142,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                                     p.error("Error: Expected '{'");
                                     had_parse_error = true;
                                 }
+                                p.consume();
                                 break;
                             }
                             _ => i += 1,
