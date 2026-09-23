@@ -9,7 +9,7 @@ use slint::ComponentHandle;
 
 use super::{PreviewState, ui, undo_redo};
 
-const FILE_NAME: &str = "slint.project.json";
+const FILE_NAME: &str = "slint-project.json";
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub(super) struct CanvasSize {
