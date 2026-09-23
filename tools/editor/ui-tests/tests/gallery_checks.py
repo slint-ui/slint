@@ -299,6 +299,31 @@ def test_gallery_basic_controls_pointer_targets(gallery_binary, editor_environme
         window_element_with_label(window, "Clicked visibility")
 
 
+def test_gallery_image_alignment_selection_and_reset(
+    gallery_binary, editor_environment
+):
+    with gallery(gallery_binary, editor_environment, "inspector-controls") as window:
+        center = window_element_with_label(
+            window, "Align image center", slint_testing.AccessibleRole.Button
+        )
+        assert center.accessible_checked
+        window_element_with_label(
+            window, "Align image bottom right", slint_testing.AccessibleRole.Button
+        ).invoke_accessible_default_action()
+        assert window_element_with_label(
+            window, "Align image bottom right", slint_testing.AccessibleRole.Button
+        ).accessible_checked
+        window_element_with_label(
+            window, "Bottom right", slint_testing.AccessibleRole.Text
+        )
+        window_element_with_label(
+            window, "Reset example"
+        ).invoke_accessible_default_action()
+        assert window_element_with_label(
+            window, "Align image center", slint_testing.AccessibleRole.Button
+        ).accessible_checked
+
+
 def test_gallery_properties_edit_component_values(gallery_binary, editor_environment):
     with gallery(gallery_binary, editor_environment, "inspector-controls") as window:
         value = window_element_with_label(

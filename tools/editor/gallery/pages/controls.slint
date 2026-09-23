@@ -12,6 +12,7 @@ import { InspectorCodeField } from "../../ui/components/inspector/code-field.sli
 import { InspectorComboBox } from "../../ui/components/inspector/combo-box.slint";
 import { InspectorSlider } from "../../ui/components/inspector/slider.slint";
 import { InspectorEffectDial } from "../../ui/components/inspector/effect-dial.slint";
+import { InspectorImageAlignment } from "../../ui/components/inspector/image-alignment.slint";
 import { InspectorRotationKnob } from "../../ui/components/inspector/rotation-knob.slint";
 import { InspectorCornerEditor } from "../../ui/components/inspector/corner-editor.slint";
 import { InspectorIconButton } from "../../ui/components/inspector/icon-button.slint";
@@ -26,6 +27,8 @@ export component GalleryControls inherits Rectangle {
     in-out property <string> text <=> Gallery.sample-text;
     private property <string> expression: "parent.width / 2";
     private property <string> image-fit: "contain";
+    private property <int> image-alignment-column: 1;
+    private property <int> image-alignment-row: 1;
     in-out property <float> number <=> Gallery.number;
     in-out property <float> slider <=> Gallery.slider;
     in-out property <float> rotation <=> Gallery.rotation;
@@ -33,11 +36,21 @@ export component GalleryControls inherits Rectangle {
     private property <[float]> corners: [12, 12, 12, 12];
     private property <length> divider: 24px;
     private property <string> action: "Ready";
+    function image-alignment-label() -> string {
+        if root.image-alignment-column == 1 && root.image-alignment-row == 1 {
+            return "Center";
+        }
+        let vertical = root.image-alignment-row == 0 ? "Top" : root.image-alignment-row == 1 ? "Middle" : "Bottom";
+        let horizontal = root.image-alignment-column == 0 ? "left" : root.image-alignment-column == 1 ? "center" : "right";
+        return vertical + " " + horizontal;
+    }
     function reset() {
         root.segment = 0;
         root.text = "Hello Slint";
         root.expression = "parent.width / 2";
         root.image-fit = "contain";
+        root.image-alignment-column = 1;
+        root.image-alignment-row = 1;
         root.number = 24;
         root.slider = 24;
         root.rotation = 24;
@@ -82,6 +95,35 @@ export component GalleryControls inherits Rectangle {
                     }
                     InspectorCodeField { accessible-name: "Sample expression"; value: root.expression; accepted(v) => { root.expression = v; return true; } }
                     InspectorComboBox { accessible-name: "Sample image fit"; value: root.image-fit; options: [{value: "contain", label: "Contain"}, {value: "cover", label: "Cover"}, {value: "fill", label: "Fill"}]; accepted(v) => { root.image-fit = v; return true; } }
+                    VerticalLayout {
+                        spacing: Metrics.space-compact;
+                        HorizontalLayout {
+                            width: Style.inspector-layout.content-width;
+                            spacing: Metrics.space-compact;
+                            Text {
+                                text: "Alignment";
+                                color: Colors.foreground;
+                                font-size: Typography.caption.size;
+                                font-weight: FontWeight.semi-bold;
+                                horizontal-stretch: 1;
+                            }
+                            Text {
+                                text: root.image-alignment-label();
+                                color: Colors.muted;
+                                font-size: Typography.caption.size;
+                                width: 88px;
+                                horizontal-alignment: right;
+                            }
+                        }
+                        InspectorImageAlignment {
+                            selected-column: root.image-alignment-column;
+                            selected-row: root.image-alignment-row;
+                            chosen(column, row) => {
+                                root.image-alignment-column = column;
+                                root.image-alignment-row = row;
+                            }
+                        }
+                    }
                     BodyLabel { text: "Slider · " + root.slider; }
                     InspectorSlider { accessible-name: "Sample slider"; value: root.slider; maximum: 100; preview(v) => { return true; } accepted(v) => { root.slider = v; return true; } }
                     HorizontalLayout {
