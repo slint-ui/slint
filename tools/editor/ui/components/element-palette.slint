@@ -5,7 +5,7 @@ import { Style, Metrics, Colors, PaletteCardStyle } from "../style.slint";
 import { BodyLabel, ComponentPaletteRow, MutedLabel, SectionTitle, PrimerTextInput } from "index.slint";
 import { Api, ElementLibraryGroup, ElementLibraryEntry } from "../api.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
-import { ScrollView } from "std-widgets.slint";
+import { EditorScrollView } from "editor-scroll-view.slint";
 
 component ElementsUnavailableNotice inherits Rectangle {
     in property <PaletteCardStyle> style: Style.palette-card;
@@ -153,7 +153,7 @@ component ElementPaletteRows inherits VerticalLayout {
     callback drag-started();
     spacing: 0px;
 
-    ScrollView {
+    EditorScrollView {
         accessible-role: AccessibleRole.list;
         accessible-label: "Element library";
         min-height: 0px;
