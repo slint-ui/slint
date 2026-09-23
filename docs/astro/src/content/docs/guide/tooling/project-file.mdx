@@ -48,6 +48,7 @@ Every setting is optional.
 | `include-paths` | array of strings | Directories to search for imported `.slint` files. |
 | `library-paths` | object | Maps a library name to a file or directory, for `@library` imports. |
 | `enable-experimental-features` | boolean | Turns on features that aren't stable yet. |
+| `entry` | string | The `.slint` file to compile when you pass the project file itself. See [Compiling the Project File](#compiling-the-project-file). |
 
 Relative paths are resolved against the directory that contains the project file.
 
@@ -62,6 +63,49 @@ From highest to lowest priority:
 
 For example, `--style fluent` wins over a project file that sets `material`,
 and that project file wins over `SLINT_STYLE`.
+
+## Compiling the Project File
+
+Set `entry` to the main `.slint` file of your application,
+then pass the project file wherever a `.slint` file is expected.
+Slint compiles the entry with the settings of that project file and doesn't look for another one.
+
+```json
+{
+    "entry": "ui/main.slint",
+    "style": "material"
+}
+```
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+```rust
+// build.rs
+fn main() {
+    slint_build::compile("slint-project.json").unwrap();
+}
+```
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+```cmake
+slint_target_sources(my_application slint-project.json)
+```
+
+The generated header is named after the entry, so you still `#include "main.h"`.
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+```javascript
+let ui = slint.loadFile("slint-project.json");
+```
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+```python
+ui = slint.load_file("slint-project.json")
+```
+</TabItem>
+</Tabs>
+
+The command line compiler accepts it too: `slint-compiler slint-project.json -o main.h`.
 
 ## Usage
 
