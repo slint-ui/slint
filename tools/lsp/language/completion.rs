@@ -3,7 +3,7 @@
 
 // cSpell: ignore rfind barbar funi
 
-mod match_element;
+pub mod match_element;
 
 use crate::editor_preview::component_catalog::{self, all_exported_components, all_exported_types};
 use crate::editor_preview::editing::import_edit::{create_import_edit_impl, find_import_locations};
