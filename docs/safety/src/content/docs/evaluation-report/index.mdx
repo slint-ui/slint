@@ -1,15 +1,53 @@
 ---
-title: Evaluation Report
-description: What can go wrong in the Slint SC compiler and runtime, and what we do about each.
+title: Tool Evaluation Report
+description: The tools Slint SC provides, how they're used, what can go wrong, and the confidence each one needs.
 ---
 
-The Evaluation Report analyzes how Slint SC is used, what can go wrong in that use, and how much confidence each part needs as a result.
+**Addresses:** ISO 26262-8 11.5.1, from 11.4.1 to 11.4.5
+
+This report evaluates the tools Slint SC provides: the Slint compiler and `slint-sc-coverage`.
+Neither ships in the product, but the compiler writes code that does, and `slint-sc-coverage` produces evidence.
+The runtime ships, so it's not a tool; the [Component Documentation](/component-documentation/) covers it.
+
 The chapters build on each other, so read them in order.
 
-* [Use Cases](/evaluation-report/use-cases/): how Slint SC is used in a project.
-* [Potential Errors](/evaluation-report/potential-errors/): what can go wrong in the compiler and the runtime, and the measure or constraint that covers each error.
+* [Use Cases](/evaluation-report/use-cases/): how each tool is used in a project.
+* [Potential Errors](/evaluation-report/potential-errors/): what can go wrong in each tool, and the measure or constraint that covers each error.
 * [Tool Classification](/evaluation-report/tool-classification/): the confidence level each tool needs, derived from the potential errors and their detection.
-* [Qualification Method](/evaluation-report/qualification-method/): how the compiler and the runtime reach that confidence.
-* [Safety Analysis](/evaluation-report/safety-analysis/): the safety-oriented analysis of the software architecture.
+* [Qualification Method](/evaluation-report/qualification-method/): how each tool reaches that confidence.
 
-How Slint SC is built and tested is in the [Qualification Plan](/qualification-plan/).
+The outcome of the qualification is in the [Tool Qualification](/qualification-report/tool-qualification/) chapter of the Qualification Report.
+
+## Planning of Usage
+
+11.4.4.1 asks for the usage of each tool to be planned.
+
+| | Slint compiler | slint-sc-coverage |
+| --- | --- | --- |
+| a) Identification and version | `slint-compiler` from `tools/compiler`, of the release under qualification | `slint-sc-coverage` from `tools/slint-sc-coverage`, of the release under qualification |
+| b) Configuration | Built with the `slint-sc` feature, invoked with `--slint-sc` | Given the `.slintcov` maps the compiler writes with `--coverage`, and an `llvm-cov` export |
+| c) Use cases | [UC_COMPILE_SLINT_FILE](/evaluation-report/use-cases/#compiling-a-slint-file-into-rust) | [UC_MEASURE_SLINT_COVERAGE](/evaluation-report/use-cases/#measuring-the-coverage-of-slint-code) |
+| d) Environment | The build host | The build host, where the LLVM profiler runtime is available |
+| e) Maximum ASIL | ASIL B, assumed; see [Integrity Level](/qualification-plan/standards-compliance/#integrity-level) | ASIL B, assumed |
+| f) Qualification methods | [Validation](/evaluation-report/qualification-method/#slint-compiler) | [Validation](/evaluation-report/qualification-method/#slint-sc-coverage) |
+
+The maximum ASIL is an assumption, since Slint SC is developed out of context.
+11.4.2 asks the integrator to verify it before using the tools on their item.
+
+## Available Information
+
+11.4.4.2 asks for this information to be available:
+
+| Information | Where |
+| --- | --- |
+| a) Features, functions, and technical properties | [Reference](/reference/), and [Coverage of Slint Code](/user-manual/slint-coverage/) |
+| b) User manual | [User Manual](/user-manual/) |
+| c) Environment required for operation | [Use Cases](/evaluation-report/use-cases/) |
+| d) Behavior under anomalous operating conditions | The compiler rejects everything outside the qualified subset with a diagnostic; see [Test Suites](/qualification-plan/test-suites/#compiler-syntax-tests) |
+| e) Known malfunctions, and safeguards | [Known Problems](/user-manual/known-problems/) |
+| f) Measures that prevent or detect malfunctions | [Potential Errors](/evaluation-report/potential-errors/) |
+
+:::caution[TODO]
+State the environment requirements of both tools, including the supported host platforms.
+Describe how `slint-sc-coverage` behaves under anomalous conditions, such as a map written for other code.
+:::

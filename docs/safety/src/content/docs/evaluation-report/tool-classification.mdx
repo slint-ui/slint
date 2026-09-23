@@ -13,10 +13,10 @@ The ISO 26262 classes follow ISO 26262-8 11.4.5: Tool Impact (TI), Tool error De
 | Tool | Ships | TI | TD | TCL | Qualified by |
 | --- | --- | --- | --- | --- | --- |
 | [Slint compiler](#slint-compiler) | No | TI2 | TD2 or TD3 | TCL2 or TCL3 | [Validation](/evaluation-report/qualification-method/#slint-compiler) |
-| [slint-sc-coverage](#slint-sc-coverage) | No | TI2 | Not decided yet | Not decided yet | Classified with the compiler |
+| [slint-sc-coverage](#slint-sc-coverage) | No | TI2 | Not decided yet | Not decided yet | [Validation](/evaluation-report/qualification-method/#slint-sc-coverage) |
 | [Rust toolchain](#rust-toolchain) | No | Not classified yet | | | |
 | [Test and coverage tooling](#test-and-coverage-tooling) | No | Not classified yet | | | |
-| [slint-sc runtime](#slint-sc-runtime) | Yes | Not a tool | | | [Component qualification](/evaluation-report/qualification-method/#slint-sc-runtime) |
+| [slint-sc runtime](#slint-sc-runtime) | Yes | Not a tool | | | [Component qualification](/qualification-plan/component-qualification/) |
 
 ## Slint Compiler
 
@@ -92,3 +92,4 @@ A harness that reports a passing suite that didn't pass, or coverage that wasn't
 
 The runtime is not a tool.
 It ships inside the customer's binary, so it is qualified as a software component under ISO 26262-8 Clause 12 and carries no tool confidence level.
+See the [Component Qualification Plan](/qualification-plan/component-qualification/).

@@ -7,13 +7,6 @@ This chapter describes the tools we use and the processes we follow to develop S
 It addresses the supporting processes of ISO 26262-8, Clauses 5 to 16.
 [Standards Compliance](/qualification-plan/standards-compliance/#iso-26262-clause-map) maps each clause to its section.
 
-:::caution[TODO]
-ISO 26262-8 11.4.8, "evaluation of the tool development process", is a qualification method for the compiler in its own right.
-11.4.8.3 wants that evaluation based on a recognized standard, such as Automotive SPICE, the ISO/IEC 33000 series, or CMMI.
-The [Qualification Method](/evaluation-report/qualification-method/) chapter picks validation instead.
-Decide whether 11.4.8 is also claimed, and if it is, say which standard the evaluation is against.
-:::
-
 ## Language and Compiler
 
 The `slint-compiler` translates `.slint` files into Rust code. Slint SC is itself written in Rust.
@@ -60,23 +53,6 @@ Show the Actions for Slint SC when we have some.
 
 The CI system doesn't generate code that ships, but a run that reports green without having run the tests would hide exactly the errors the tests exist to catch, which is the fail-to-detect case of tool classification.
 Its classification belongs with the rest of the test tooling in [Tool Classification](/evaluation-report/tool-classification/).
-
-## Software Component Qualification
-
-**Addresses:** ISO 26262-8 Clause 12
-
-Clause 12 governs pre-existing software integrated into the product.
-The `slint-sc` runtime is itself qualified this way; how is described in the [Qualification Method](/evaluation-report/qualification-method/).
-Tools are the subject of Clause 11 instead, and are classified in [Tool Classification](/evaluation-report/tool-classification/).
-
-### Dependencies
-
-The runtime crate has **zero dependencies**: no other crates, no `std`, no `alloc`.
-There is nothing below it to qualify, and nothing whose failure it inherits.
-
-The compiler uses external crates, but it's a tool: its dependencies are covered by its tool qualification rather than by component qualification, because none of its code ships in the product.
-
-* **Qualification Strategy:** Should the runtime ever gain a dependency, that dependency becomes Software of Unknown Provenance (SOUP) and must undergo rigorous evaluation, including static analysis, functional testing, and security auditing, to justify its suitability for reuse in a safety-related context before integration.
 
 ## Distributed Development
 

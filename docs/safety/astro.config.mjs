@@ -304,10 +304,19 @@ export default defineConfig({
                                     },
                                 ],
                             },
+                            {
+                                label: "Qualification",
+                                items: [
+                                    {
+                                        label: "Component Qualification Plan",
+                                        slug: "qualification-plan/component-qualification",
+                                    },
+                                ],
+                            },
                         ],
                     },
                     {
-                        label: "Evaluation Report",
+                        label: "Tool Evaluation Report",
                         link: "/evaluation-report/",
                         items: [
                             {
@@ -330,9 +339,19 @@ export default defineConfig({
                                 label: "Qualification Method",
                                 slug: "evaluation-report/qualification-method",
                             },
+                        ],
+                    },
+                    {
+                        label: "Component Documentation",
+                        link: "/component-documentation/",
+                        items: [
+                            {
+                                label: "Overview",
+                                slug: "component-documentation",
+                            },
                             {
                                 label: "Safety Analysis",
-                                slug: "evaluation-report/safety-analysis",
+                                slug: "component-documentation/safety-analysis",
                             },
                         ],
                     },
@@ -345,16 +364,29 @@ export default defineConfig({
                                 slug: "qualification-report",
                             },
                             {
-                                label: "Test Results",
-                                slug: "qualification-report/test-results",
+                                label: "Tool Qualification",
+                                slug: "qualification-report/tool-qualification",
                             },
                             {
-                                label: "Traceability Matrix",
-                                slug: "qualification-report/traceability-matrix",
+                                label: "Component Qualification",
+                                slug: "qualification-report/component-qualification",
                             },
                             {
-                                label: "Test Coverage",
-                                slug: "qualification-report/test-coverage",
+                                label: "Evidence",
+                                items: [
+                                    {
+                                        label: "Test Results",
+                                        slug: "qualification-report/test-results",
+                                    },
+                                    {
+                                        label: "Traceability Matrix",
+                                        slug: "qualification-report/traceability-matrix",
+                                    },
+                                    {
+                                        label: "Test Coverage",
+                                        slug: "qualification-report/test-coverage",
+                                    },
+                                ],
                             },
                         ],
                     },

@@ -1,0 +1,41 @@
+---
+title: Component Documentation
+description: The specification of the slint-sc runtime as a qualified software component.
+---
+
+**Addresses:** ISO 26262-8 12.5.1, from 12.4.2.1
+
+The `slint-sc` runtime ships inside the customer's binary, so it's qualified as a software component rather than as a tool.
+This document is its specification.
+The [Component Qualification Plan](/qualification-plan/component-qualification/) says how it's qualified.
+The [Component Qualification](/qualification-report/component-qualification/) chapter of the Qualification Report records the outcome.
+
+* [Safety Analysis](/component-documentation/safety-analysis/): what can go wrong in the runtime, and the measure or constraint that covers each error.
+
+## Specification
+
+12.4.2.1 asks the specification of the component to include the following.
+
+| Item | Where |
+| --- | --- |
+| a) Unique identification | The `slint-sc` crate from `api/slint-sc`, of the release under qualification |
+| b) Maximum target ASIL | ASIL B; see [Integrity Level](/qualification-plan/standards-compliance/#integrity-level) |
+| c) Qualification activities | [Component Qualification Plan](/qualification-plan/component-qualification/) |
+| d) Requirements of the component | The [rendering model](/reference/rendering/) and the [generated code contract](/reference/generated-code/), one identified paragraph per requirement |
+| e) Requirements of the intended use | [User Manual](/user-manual/), and the [runtime constraints](/user-manual/runtime/constraints/) |
+| f) Configuration | The crate has no features and no dependencies, so it has one configuration |
+| g) Interfaces and shared resources | The [slint-sc Runtime API](/api/slint_sc/), and the frame buffer the application owns; see [Architecture Design](/qualification-plan/architecture/#properties) |
+| h) Application manual | [User Manual](/user-manual/) |
+| i) Integration instructions | [Integration](#integration) below |
+| j) Reactions under anomalous operating conditions | [Safety Analysis](/component-documentation/safety-analysis/); a frame buffer of the wrong size is rejected per [`sls.gen.render-error`](/reference/generated-code/#sls.gen.render-error) |
+| k) Known anomalies and workarounds | [Known Problems](/user-manual/known-problems/) |
+
+## Integration
+
+When Slint SC is available, it will be a crate on [crates.io](https://crates.io/).
+To add it to a project, add Slint SC as a dependency in `Cargo.toml`.
+The generated code of the application's `.slint` files depends on it; see [Compiling a .slint File Into Rust](/evaluation-report/use-cases/#compiling-a-slint-file-into-rust).
+
+:::caution[TODO]
+Show an example, and state the configuration of the Rust toolchain the integration requires, as 12.4.2.1 i asks.
+:::
