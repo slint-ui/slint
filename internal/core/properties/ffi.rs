@@ -579,6 +579,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         intercept_set: |_, _| false,
         intercept_set_binding: |_, _| false,
         velocity: |_| None,
+        two_way_common_property: |_| None,
     };
 
     ct.clear();
