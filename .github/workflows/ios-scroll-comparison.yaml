@@ -4,6 +4,11 @@
 name: iOS scroll comparison
 
 on:
+  push:
+    branches: [nigel/ios-scroll-physics-comparison]
+    paths:
+      - .github/workflows/ios-scroll-comparison.yaml
+      - tests/manual/ios-scroll-physics-comparison/**
   pull_request:
     branches: [mm/flickable-scroll-animation-v2]
     paths:
@@ -15,7 +20,7 @@ permissions:
 
 jobs:
   launch:
-    if: github.event.pull_request.number == 2
+    if: github.event_name == 'push' || github.event.pull_request.number == 2
     runs-on: macos-26
     timeout-minutes: 90
     env:
