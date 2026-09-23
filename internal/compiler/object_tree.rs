@@ -709,10 +709,7 @@ impl Component {
         matches!(&self.root_element.borrow().base_type, ElementType::Interface)
     }
 
-    /// True if this component's root resolves to the `SystemTrayIcon` native
-    /// class. Uses `native_class()` rather than `builtin_type()` so the check
-    /// still matches once the root has been resolved to `Native(SystemTrayIcon)`
-    /// after `resolve_native_classes`.
+    /// True if this component's root resolves to the `SystemTrayIcon` native class.
     pub fn inherits_system_tray_icon(&self) -> bool {
         self.root_element
             .borrow()
@@ -3408,7 +3405,6 @@ impl Element {
                     base_type = component.root_element.clone().borrow().base_type.clone();
                 }
                 ElementType::Builtin(builtin) => break Some(builtin.native_class.clone()),
-                ElementType::Native(native) => break Some(native.clone()),
                 _ => break None,
             }
         }

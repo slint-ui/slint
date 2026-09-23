@@ -2920,7 +2920,6 @@ fn continue_lookup_within_element(
                 }
                 ElementType::Component(c) => format!("Element '{}'", c.id),
                 ElementType::Builtin(b) => format!("Element '{}'", b.name),
-                ElementType::Native(_) => unreachable!("the native pass comes later"),
                 ElementType::Error => {
                     assert!(ctx.diag.has_errors());
                     return;

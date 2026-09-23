@@ -1099,8 +1099,7 @@ fn emit_hit_test(ctx: &Ctx, areas: &mut Vec<TokenStream>) -> TokenStream {
     })
 }
 
-/// Whether the element is a `TouchArea`. The native class rather than the base
-/// type, which `resolve_native_classes` has replaced by then.
+/// Whether the element is a `TouchArea`.
 fn is_touch_area(elem: &ElementRc) -> bool {
     elem.borrow().native_class().is_some_and(|class| class.class_name == "TouchArea")
 }

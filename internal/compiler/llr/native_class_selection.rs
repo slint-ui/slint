@@ -1,80 +1,53 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! After inlining and moving declarations, all Element::base_type should be Type::BuiltinElement. This pass resolves them
-//! to NativeClass and picking a variant that only contains the used properties.
-//! The default values of the properties the variant doesn't have are dropped along with them.
+//! Picks, for each builtin element, the most minimal native class that still has every property
+//! the element uses. A binding that just restates the builtin default isn't a use,
+//! and is dropped when the selected class doesn't have the property.
 
 use smol_str::SmolStr;
 use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::langtype::{BuiltinElement, BuiltinPropertyDefault, ElementType, NativeClass};
-use crate::object_tree::{Component, recurse_elem_including_sub_components};
+use crate::langtype::{BuiltinElement, BuiltinPropertyDefault, NativeClass};
+use crate::object_tree::Element;
 
-pub fn resolve_native_classes(component: &Component) {
-    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
-        let (new_native_class, unused_defaults) = {
-            let elem = elem.borrow();
+pub fn select_native_class(elem: &Element, builtin: &BuiltinElement) -> Arc<NativeClass> {
+    let analysis = elem.property_analysis.borrow();
+    let native_properties_used: HashSet<_> = elem
+        .bindings_including_synthetic()
+        .filter(|(name, binding)| !is_default_value(builtin, name, &binding.borrow()))
+        .map(|(k, _)| k)
+        .chain(analysis.iter().filter(|(_, v)| v.is_used()).map(|(k, _)| k))
+        .filter(|k| {
+            !elem.property_declarations.contains_key(*k) && builtin.properties.contains_key(*k)
+        })
+        .collect();
 
-            let base_type = match &elem.base_type {
-                ElementType::Component(_) => {
-                    // recurse_elem_including_sub_components will recurse into it
-                    return;
-                }
-                ElementType::Builtin(b) => b,
-                ElementType::Native(_) => {
-                    // already native
-                    return;
-                }
-                ElementType::Interface | ElementType::Global | ElementType::Error => {
-                    panic!("This should not happen")
-                }
-            };
+    select_minimal_class_based_on_property_usage(
+        &builtin.native_class,
+        native_properties_used.into_iter(),
+    )
+}
 
-            let defaults: Vec<&SmolStr> = elem
-                .bindings_including_synthetic()
-                .filter(|(name, binding)| is_default_value(base_type, name, &binding.borrow()))
-                .map(|(name, _)| name)
-                .collect();
-
-            let analysis = elem.property_analysis.borrow();
-            let native_properties_used: HashSet<_> = elem
-                .bindings_including_synthetic()
-                .map(|(k, _)| k)
-                .filter(|k| !defaults.contains(k))
-                .chain(analysis.iter().filter(|(_, v)| v.is_used()).map(|(k, _)| k))
-                .filter(|k| {
-                    !elem.property_declarations.contains_key(*k)
-                        && base_type.as_ref().properties.contains_key(*k)
-                })
-                .collect();
-
-            let new_native_class = select_minimal_class_based_on_property_usage(
-                &base_type.native_class,
-                native_properties_used.into_iter(),
-            );
-
-            // A referenced property keeps its default: the reference materializes it in the
-            // enclosing component, which is how a lowered layout still reads its own alignment.
-            let unused_defaults: Vec<SmolStr> = defaults
-                .into_iter()
-                .filter(|name| {
-                    new_native_class.lookup_property(name).is_none()
-                        && !elem.named_references.is_referenced(name)
-                })
-                .cloned()
-                .collect();
-
-            (new_native_class, unused_defaults)
-        };
-
-        let mut elem = elem.borrow_mut();
-        for name in unused_defaults {
-            elem.take_binding_including_synthetic(&name);
-        }
-        elem.base_type = ElementType::Native(new_native_class);
+/// The bindings of `elem` that just restate the default of a property that `class`,
+/// the class selected by [`select_native_class`], doesn't have. They're dropped.
+///
+/// A referenced property keeps its default: the reference materializes it in the
+/// enclosing component, which is how a lowered layout still reads its own alignment.
+/// Call this before lowering the element's bindings,
+/// which holds a `NamedReference` to every property it visits.
+pub fn dropped_defaults<'a>(
+    elem: &'a Element,
+    builtin: &'a BuiltinElement,
+    class: &'a NativeClass,
+) -> impl Iterator<Item = &'a SmolStr> {
+    elem.bindings_including_synthetic().filter_map(move |(name, binding)| {
+        (is_default_value(builtin, name, &binding.borrow())
+            && class.lookup_property(name).is_none()
+            && !elem.named_references.is_referenced(name))
+        .then_some(name)
     })
 }
 
@@ -183,7 +156,7 @@ fn builtin_defaults_are_comparable() {
     let tr = crate::typeregister::TypeRegister::builtin();
     let tr = tr.borrow();
     for (name, element) in tr.all_elements() {
-        let ElementType::Builtin(element) = element else { continue };
+        let crate::langtype::ElementType::Builtin(element) = element else { continue };
         for (property, info) in &element.properties {
             if let BuiltinPropertyDefault::Expr(default) = &info.default_value {
                 let default = default.to_expression();
