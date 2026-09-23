@@ -11,9 +11,7 @@ fn main() {
     }
 
     // Some tests use the ElementHandle API, which requires debug info
-    slint_build::compile_with_config(
-        "gallery/entry.slint",
-        CompilerConfiguration::new().with_debug_info(true),
-    )
-    .unwrap();
+    let config = CompilerConfiguration::new().with_debug_info(true);
+    slint_build::compile_with_config("gallery/entry.slint", config.clone()).unwrap();
+    slint_build::compile_with_config("ui/main.slint", config).unwrap();
 }

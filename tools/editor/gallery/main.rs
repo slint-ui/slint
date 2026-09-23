@@ -2,10 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use slint::ComponentHandle;
-use slint_editor::{
-    component_support::{brushes, element_library, recent_fills},
-    ui::{Api, Gallery, GalleryWindow},
-};
+
+mod ui {
+    include!(concat!(env!("OUT_DIR"), "/entry.rs"));
+}
+
+#[allow(dead_code)]
+#[path = "../component_support/mod.rs"]
+mod component_support;
+
+use component_support::{brushes, element_library, recent_fills};
+use ui::{Api, Gallery, GalleryWindow};
 
 fn main() -> Result<(), slint::PlatformError> {
     let window = GalleryWindow::new()?;
