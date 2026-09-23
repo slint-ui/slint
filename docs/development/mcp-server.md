@@ -54,8 +54,8 @@ The central data structure, stored as a thread-local `Rc<IntrospectionState>`. `
 defined via `slotmap::new_key_type!`), not the `generational_arena` crate:
 
 - **`windows`** — `RefCell<SlotMap<ArenaIndex, TrackedWindow>>`: tracks live windows via weak references to their `WindowAdapter`.
-- **`element_handles`** — `RefCell<SlotMap<ArenaIndex, ElementHandle>>`: maps arena indices to `ElementHandle` instances.
-- **`element_handle_order`** — `RefCell<VecDeque<ArenaIndex>>`: tracks insertion order for FIFO eviction.
+- **`element_handles`** — `RefCell<SlotMap<ArenaIndex, TrackedElement>>`: maps arena indices to `ElementHandle` instances, each with the tick of its last use.
+- **`element_handle_clock`** — `Cell<u64>`: the tick, counted up on each use of a handle.
 
 ### Handle System
 
@@ -65,9 +65,13 @@ Handles are generational: if an element is evicted and its arena slot reused, st
 
 Window handles and element handles share the same `{index, generation}` shape, so clients (especially LLM agents) easily confuse them. To disambiguate, `tool_definitions()` gives the `windowHandle` and `elementHandle` parameters distinct `description`s, and the `initialize` instructions spell out that the two kinds are not interchangeable and where each one comes from.
 
-### FIFO Eviction
+### Eviction
 
-The element arena is capped at 10,000 entries (`ELEMENT_HANDLE_CAP`). When the cap is exceeded, the oldest handles are evicted (FIFO order), with one exception: root element handles for tracked windows are never evicted — they are pushed to the back of the queue instead.
+The element arena is capped at 10,000 entries (`ELEMENT_HANDLE_CAP`).
+A handle is used when a reply returns it, and when a request looks it up.
+When a new handle takes the arena past the cap, the least recently used handles are evicted,
+until the arena is an eighth under the cap (`ELEMENT_HANDLE_EVICTION_SLACK`).
+Root element handles for tracked windows are never evicted.
 
 ### Validity Checking
 
