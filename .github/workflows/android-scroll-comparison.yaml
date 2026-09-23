@@ -4,6 +4,12 @@
 name: Android scroll comparison
 
 on:
+  push:
+    branches: [nigel/android-scroll-ci]
+    paths:
+      - .github/workflows/android-scroll-comparison.yaml
+      - internal/backends/android-activity/**
+      - tests/manual/android-scroll-physics-comparison/**
   pull_request:
     branches: [mm/flickable-scroll-animation-v2]
     paths:
