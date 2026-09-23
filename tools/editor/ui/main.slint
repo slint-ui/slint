@@ -8,13 +8,19 @@ import { Api, EditorSurfaceMode, ElementKind, Hover } from "api.slint";
 import { Project } from "project.slint";
 import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
-import {
-    AppState, CanvasPanArea, CanvasView, DragPreview, EditorCanvas, EditorCursors,
-    EditorTopBar, EditorWindow, ElementVisuals, FillSession, FillSessionRequest,
-    FillSessionTarget, GradientOverlay, ImageAssetEditor, InspectorFillPicker,
-    InspectorPane, LeftPane, SidebarToggleButton, UpdateStatus, UpdateStatusBar,
-    UpdateStatusPill, ZoomLevel,
-} from "components/index.slint";
+import { AppState, EditorCursors, EditorWindow, SidebarToggleButton } from "components/index.slint";
+import { CanvasPanArea } from "components/canvas-pan-area.slint";
+import { CanvasView, ZoomLevel } from "components/canvas-view.slint";
+import { DragPreview } from "components/drag-preview.slint";
+import { EditorCanvas } from "components/editor-canvas.slint";
+import { ElementVisuals } from "components/element-presentation.slint";
+import { GradientOverlay } from "components/gradient-overlay.slint";
+import { ImageAssetEditor } from "components/image-asset-editor.slint";
+import { InspectorPane } from "components/inspector-pane.slint";
+import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker } from "components/inspector/index.slint";
+import { LeftPane } from "components/left-pane.slint";
+import { EditorTopBar } from "components/top-bar.slint";
+import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export {
     Api, EditorCursors, EditorWindow, ElementVisuals, FillSession, FillSessionRequest,
