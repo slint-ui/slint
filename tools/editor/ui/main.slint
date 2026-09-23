@@ -4,29 +4,28 @@
 import { Style, PaintStyle, Metrics, Typography, Colors, DialogStyle } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
-import { Api, EditorSurfaceMode, Hover } from "api.slint";
-import { InspectorFillPicker } from "components/inspector/fill-picker.slint";
-import { FillSession } from "components/inspector/fill-session.slint";
-export { FillSessionRequest, FillSessionTarget } from "components/inspector/fill-session.slint";
+import { Api, EditorSurfaceMode, ElementKind, Hover } from "api.slint";
 import { Project } from "project.slint";
 import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
-import { AppState, ElementKind, SidebarToggleButton } from "components/common.slint";
-import { DragPreview } from "components/drag-preview.slint";
-import { GradientOverlay } from "components/gradient-overlay.slint";
-import { CanvasView, ZoomLevel } from "components/canvas-view.slint";
+import { AppState, EditorCursors, EditorWindow, SidebarToggleButton } from "components/index.slint";
 import { CanvasPanArea } from "components/canvas-pan-area.slint";
+import { CanvasView, ZoomLevel } from "components/canvas-view.slint";
+import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
-import { EditorTopBar } from "components/top-bar.slint";
+import { ElementVisuals } from "components/element-presentation.slint";
+import { GradientOverlay } from "components/gradient-overlay.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
+import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker } from "components/inspector/index.slint";
 import { LeftPane } from "components/left-pane.slint";
-import { EditorWindow } from "components/common.slint";
+import { EditorTopBar } from "components/top-bar.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
-export { Api, Hover, Preview, Project, FillSession }
-export { ElementVisuals } from "components/element-presentation.slint";
-export { EditorCursors, EditorWindow } from "components/common.slint";
+export {
+    Api, EditorCursors, EditorWindow, ElementVisuals, FillSession, FillSessionRequest,
+    FillSessionTarget, Hover, Preview, Project,
+}
 
 component NewFileErrorPopup inherits PopupWindow {
     in property <DialogStyle> style: Style.dialog;
