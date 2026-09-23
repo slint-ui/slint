@@ -14,7 +14,6 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 publish = false
-default-run = "slint-editor"
 
 [lib]
 path = "lib.rs"
@@ -23,13 +22,11 @@ path = "lib.rs"
 name = "slint-editor"
 path = "main.rs"
 
-[[bin]]
-name = "slint-editor-gallery"
+[[example]]
+name = "gallery"
 path = "gallery/main.rs"
-required-features = ["gallery"]
 
 [features]
-gallery = []
 ## Discover preview targets on the local network.
 preview-remote = ["dep:mdns-sd"]
 ## Enable the out-of-process system-testing transport.

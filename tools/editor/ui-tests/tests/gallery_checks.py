@@ -44,11 +44,11 @@ PAGES = {
 def gallery_binary(editor_binary: Path) -> Path:
     binary = Path(
         os.environ.get(
-            "SLINT_GALLERY_BINARY", str(editor_binary.with_name("slint-editor-gallery"))
+            "SLINT_GALLERY_BINARY", str(editor_binary.parent / "examples" / "gallery")
         )
     )
     assert binary.is_file(), (
-        f"Build slint-editor with --features gallery,system-testing: {binary}"
+        f"Build with cargo build -p slint-editor --example gallery --features system-testing: {binary}"
     )
     return binary
 

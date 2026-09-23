@@ -12,11 +12,7 @@ fn main() {
 
     // Some tests use the ElementHandle API, which requires debug info
     slint_build::compile_with_config(
-        if std::env::var_os("CARGO_FEATURE_GALLERY").is_some() {
-            "gallery/entry.slint"
-        } else {
-            "ui/main.slint"
-        },
+        "gallery/entry.slint",
         CompilerConfiguration::new().with_debug_info(true),
     )
     .unwrap();
