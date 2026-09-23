@@ -4,12 +4,6 @@
 name: Android scroll comparison
 
 on:
-  push:
-    branches: [nigel/android-scroll-ci]
-    paths:
-      - .github/workflows/android-scroll-comparison.yaml
-      - internal/backends/android-activity/**
-      - tests/manual/android-scroll-physics-comparison/**
   pull_request:
     branches: [mm/flickable-scroll-animation-v2]
     paths:
@@ -65,8 +59,11 @@ jobs:
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
             'platforms;android-35' 'build-tools;35.0.0'
+          mkdir -p "$GITHUB_WORKSPACE/android-ndk/licenses"
+          cp "$ANDROID_HOME"/licenses/* "$GITHUB_WORKSPACE/android-ndk/licenses/"
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             --sdk_root="$GITHUB_WORKSPACE/android-ndk" --install 'ndk;27.0.12077973'
+          test -f "$GITHUB_WORKSPACE/android-ndk/ndk/27.0.12077973/source.properties"
           echo "ANDROID_NDK_HOME=$GITHUB_WORKSPACE/android-ndk/ndk/27.0.12077973" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_ROOT=$GITHUB_WORKSPACE/android-ndk/ndk/27.0.12077973" >> "$GITHUB_ENV"
           cargo install --locked cargo-apk
