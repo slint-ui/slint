@@ -35,6 +35,7 @@ pub mod namedreference;
 pub mod object_tree;
 pub mod parser;
 pub mod pathutils;
+pub mod project_file;
 pub mod symbol_counters;
 #[cfg(feature = "bundle-translations")]
 pub mod translations;
@@ -207,6 +208,11 @@ pub struct CompilerConfiguration {
     /// Specify the Rust module to place the generated code in.
     pub rust_module: Option<String>,
 
+    /// The project file that a tool was given as input, whose entry is being compiled.
+    /// Generated Python code loads it at run time instead of the entry,
+    /// so that run time applies the same project file.
+    pub input_project_file: Option<std::path::PathBuf>,
+
     /// Set automatically when the output format is `SlintSc`.
     /// The compiler rejects all features not supported by the
     /// safety-critical subset.
@@ -337,6 +343,7 @@ impl CompilerConfiguration {
                 .map(|x| x.into()),
             library_name: None,
             rust_module: None,
+            input_project_file: None,
             #[cfg(feature = "slint-sc")]
             slint_sc,
             is_preview: false,

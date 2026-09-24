@@ -7652,6 +7652,7 @@ dependencies = [
  "itertools 0.15.0",
  "proc-macro2",
  "spin_on",
+ "tempfile",
  "tikv-jemallocator",
 ]
 
@@ -7764,6 +7765,7 @@ dependencies = [
  "serde_json",
  "smol_str 0.3.2",
  "spin_on",
+ "tempfile",
  "typed-index-collections",
  "unicode-segmentation",
  "vtable",
@@ -7830,6 +7832,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "spin_on",
+ "tempfile",
 ]
 
 [[package]]
