@@ -4,7 +4,7 @@
 import { GradientMarkerStyle } from "../style.slint";
 import { ColorIndicator } from "../../../lsp/ui/components/widgets/color-indicator.slint";
 
-component ContrastTick inherits Rectangle {
+component ContrastTick {
     in property <GradientMarkerStyle> style;
     in property <bool> vertical;
     private property <length> outline: root.style.tick-keyline-width;
@@ -12,8 +12,6 @@ component ContrastTick inherits Rectangle {
     private property <length> surround: root.outline + root.halo;
     width: (root.vertical ? root.style.tick-width : root.style.tick-length) + 2 * root.surround;
     height: (root.vertical ? root.style.tick-length : root.style.tick-width) + 2 * root.surround;
-    border-radius: min(self.width, self.height) / 2;
-    background: root.style.inactive.with-alpha(0.62);
 
     Rectangle {
         x: root.halo;
@@ -36,7 +34,7 @@ component ContrastTick inherits Rectangle {
 
 export component EditorGradientStopMarker inherits Rectangle {
     in property <GradientMarkerStyle> style;
-    in property <bool> active;
+    in property <bool> active: true;
     in property <color> stop-color;
     width: root.style.size;
     height: root.style.size;
@@ -93,19 +91,19 @@ export component EditorGradientStopMarker inherits Rectangle {
 
     ContrastTick {
         style: root.style;
-        x: 0px;
+        x: 1px;
         y: root.center-y - self.height / 2;
     }
     ContrastTick {
         style: root.style;
-        x: root.width - self.width;
+        x: -1px + root.width - self.width;
         y: root.center-y - self.height / 2;
     }
     ContrastTick {
         style: root.style;
         vertical: true;
         x: root.center-x - self.width / 2;
-        y: root.height - self.height;
+        y: root.height - self.height + 1px;
     }
 
     @children
