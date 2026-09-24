@@ -18,6 +18,7 @@ const PAGE_FILE: &str = "test-coverage.mdx";
 
 /// Covered/total counts of one metric, from the `count`/`covered` pairs of
 /// the export's `summary` objects.
+#[derive(Default, Clone, Copy)]
 struct Counts {
     count: u64,
     covered: u64,
@@ -37,10 +38,18 @@ impl Counts {
     }
 }
 
-struct Summary {
-    lines: Counts,
-    functions: Counts,
-    regions: Counts,
+/// The metrics, each as its key in the export's `summary` objects, which
+/// capitalized heads its table column, and its name in "line coverage".
+/// Branches count each outcome of a condition, so an `if` counts two.
+const METRICS: [(&str, &str); 4] =
+    [("lines", "line"), ("functions", "function"), ("regions", "region"), ("branches", "branch")];
+
+/// One [`Counts`] per entry of [`METRICS`].
+type Summary = [Counts; METRICS.len()];
+
+fn capitalize(word: &str) -> String {
+    let mut chars = word.chars();
+    chars.next().map_or(String::new(), |c| c.to_ascii_uppercase().to_string() + chars.as_str())
 }
 
 /// How many of a file's functions are fully tested (every code region
@@ -73,6 +82,9 @@ struct FileCoverage {
     /// Start of each code region that never executed, in document order, for
     /// pointing at the gap rather than only counting it.
     uncovered_regions: Vec<(u64, u64)>,
+    /// Start of each condition with an outcome that never came about, and
+    /// that outcome, in document order.
+    untaken_branches: Vec<(u64, u64, bool)>,
 }
 
 /// The llvm-cov HTML report installed under the site's `public/` directory,
@@ -114,7 +126,8 @@ slug: qualification-report/test-coverage
 
 The tests of the `slint-sc` runtime crate run under LLVM source-based coverage instrumentation with [`cargo llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov):
 the unit tests, and the test driver that compiles the `.slint` test cases and runs them against the instrumented runtime.
-This chapter reports the measured line, function, and region coverage per source file of the runtime, addressing [the test coverage requirement](/qualification-plan/test-coverage/).
+This chapter reports the measured line, function, region, and branch coverage per source file of the runtime, addressing [the test coverage requirement](/qualification-plan/test-coverage/).
+Branch coverage counts each outcome of a condition: the two of an `if`, and of each operand of `&&` and `||`.
 A function counts as fully tested when every code region in it was executed, as partially tested when it was executed but some of its code regions weren't, and as untested when it was never executed."#
     )?;
 
@@ -157,29 +170,33 @@ A function counts as fully tested when every code region in it was executed, as 
 fn shortfalls(files: &[FileCoverage]) -> Vec<String> {
     let mut gaps = Vec::new();
     for f in files {
-        let metrics = [
-            ("line", &f.summary.lines),
-            ("function", &f.summary.functions),
-            ("region", &f.summary.regions),
-        ];
-        let short: Vec<String> = metrics
+        let short: Vec<String> = METRICS
             .iter()
+            .zip(&f.summary)
             .filter(|(_, c)| c.covered < c.count)
-            .map(|(name, c)| format!("{name} coverage {}", c.cell()))
+            .map(|((_, name), c)| format!("{name} coverage {}", c.cell()))
             .collect();
         if short.is_empty() {
             continue;
         }
         let mut msg = format!("{}: {}", f.path, short.join(", "));
-        if !f.uncovered_regions.is_empty() {
-            let at: Vec<String> = f
-                .uncovered_regions
+        let mut locate = |what: &str, at: Vec<String>| {
+            if !at.is_empty() {
+                msg.push_str(&format!("; {what} at {}", at.join(", ")));
+            }
+        };
+        let path = &f.path;
+        locate(
+            "never executed",
+            f.uncovered_regions.iter().map(|(line, col)| format!("{path}:{line}:{col}")).collect(),
+        );
+        locate(
+            "outcome never taken",
+            f.untaken_branches
                 .iter()
-                .map(|(line, col)| format!("{}:{line}:{col}", f.path))
-                .collect();
-            msg.push_str("; never executed at ");
-            msg.push_str(&at.join(", "));
-        }
+                .map(|(line, col, outcome)| format!("{path}:{line}:{col} ({outcome})"))
+                .collect(),
+        );
         gaps.push(msg);
     }
     gaps
@@ -216,11 +233,14 @@ fn parse_export(text: &str) -> anyhow::Result<Vec<FileCoverage>> {
             continue;
         }
         let summary = f.get("summary").with_context(|| format!("{path}: missing `summary`"))?;
+        let untaken_branches =
+            untaken_branches(f).with_context(|| format!("{path}: malformed `branches`"))?;
         files.push(FileCoverage {
             path,
             summary: parse_summary(summary)?,
             fn_stats: FnStats::default(),
             uncovered_regions: Vec::new(),
+            untaken_branches,
         });
     }
     anyhow::ensure!(!files.is_empty(), "no repository-relative files in the coverage export");
@@ -231,6 +251,16 @@ fn parse_export(text: &str) -> anyhow::Result<Vec<FileCoverage>> {
 
 /// A code region's source span: start line/column, end line/column.
 type Span = (u64, u64, u64, u64);
+
+/// The leading numbers of a region or branch entry of the export, which
+/// starts with its span and execution counts.
+fn numbers<const N: usize>(entry: &Value) -> anyhow::Result<[u64; N]> {
+    let mut out = [0; N];
+    for (i, n) in out.iter_mut().enumerate() {
+        *n = entry.get(i).and_then(Value::as_u64).context("malformed entry")?;
+    }
+    Ok(out)
+}
 
 /// Classify every function of the reported files as fully tested, partially
 /// tested, or untested. The export lists one entry per instantiation;
@@ -284,6 +314,30 @@ fn parse_fn_stats(data: &Value, files: &mut [FileCoverage]) -> anyhow::Result<()
     Ok(())
 }
 
+/// The conditions of one file entry with an outcome that never came about:
+/// start line/column and the outcome. The entry lists a condition once per
+/// instantiation, so the counts of the same span are summed first. An export
+/// taken without `--branch` has no branches.
+fn untaken_branches(file: &Value) -> anyhow::Result<Vec<(u64, u64, bool)>> {
+    let mut merged: std::collections::BTreeMap<Span, (u64, u64)> = Default::default();
+    for b in file.get("branches").and_then(Value::as_array).into_iter().flatten() {
+        let [line, col, end_line, end_col, taken, not_taken] = numbers(b)?;
+        let counts = merged.entry((line, col, end_line, end_col)).or_default();
+        counts.0 += taken;
+        counts.1 += not_taken;
+    }
+    let mut out = Vec::new();
+    for ((line, col, ..), (taken, not_taken)) in merged {
+        if taken == 0 {
+            out.push((line, col, true));
+        }
+        if not_taken == 0 {
+            out.push((line, col, false));
+        }
+    }
+    Ok(out)
+}
+
 /// The code regions of one function entry: source span and execution count.
 /// Gap and skipped regions don't count towards being fully tested.
 fn code_regions(function: &Value) -> anyhow::Result<Vec<(Span, u64)>> {
@@ -291,16 +345,17 @@ fn code_regions(function: &Value) -> anyhow::Result<Vec<(Span, u64)>> {
     const CODE: u64 = 0;
     let mut out = Vec::new();
     for r in function.get("regions").and_then(Value::as_array).context("missing `regions`")? {
-        let n = |i: usize| r.get(i).and_then(Value::as_u64).context("malformed region");
-        if n(7)? == CODE {
-            out.push(((n(0)?, n(1)?, n(2)?, n(3)?), n(4)?));
+        let [line, col, end_line, end_col, count, _, _, kind] = numbers(r)?;
+        if kind == CODE {
+            out.push(((line, col, end_line, end_col), count));
         }
     }
     Ok(out)
 }
 
 fn parse_summary(summary: &Value) -> anyhow::Result<Summary> {
-    let counts = |key: &str| {
+    let mut out = Summary::default();
+    for ((key, _), counts) in METRICS.iter().zip(&mut out) {
         let metric = summary.get(key).with_context(|| format!("missing `{key}` summary"))?;
         let field = |name: &str| {
             metric
@@ -308,13 +363,9 @@ fn parse_summary(summary: &Value) -> anyhow::Result<Summary> {
                 .and_then(Value::as_u64)
                 .with_context(|| format!("missing `{key}.{name}`"))
         };
-        anyhow::Ok(Counts { count: field("count")?, covered: field("covered")? })
-    };
-    Ok(Summary {
-        lines: counts("lines")?,
-        functions: counts("functions")?,
-        regions: counts("regions")?,
-    })
+        *counts = Counts { count: field("count")?, covered: field("covered")? };
+    }
+    Ok(out)
 }
 
 /// Copy the llvm-cov HTML report into the site's `public/` directory, where
@@ -350,16 +401,17 @@ fn group(path: &str) -> &str {
     path.match_indices('/').nth(1).map_or(path, |(i, _)| &path[..i])
 }
 
-/// Sum of one metric across the reported files, so the headline and the
+/// The metrics summed across the reported files, so the headline and the
 /// per-crate sum rows match the tables after filtering.
-fn sum<'a>(
-    files: impl IntoIterator<Item = &'a FileCoverage>,
-    metric: impl Fn(&Summary) -> &Counts,
-) -> Counts {
-    files.into_iter().fold(Counts { count: 0, covered: 0 }, |acc, f| {
-        let c = metric(&f.summary);
-        Counts { count: acc.count + c.count, covered: acc.covered + c.covered }
-    })
+fn sum<'a>(files: impl IntoIterator<Item = &'a FileCoverage>) -> Summary {
+    let mut total = Summary::default();
+    for f in files {
+        for (sum, c) in total.iter_mut().zip(&f.summary) {
+            sum.count += c.count;
+            sum.covered += c.covered;
+        }
+    }
+    total
 }
 
 /// Sum of the function test status across the reported files.
@@ -380,21 +432,23 @@ fn fn_stats_sentence(stats: &FnStats) -> String {
 
 /// The headline totals and one table per crate, a row per file and a sum
 /// row, with per-line detail links when the HTML report ships with the
-/// build. Branch coverage is omitted: stable Rust emits no branch data.
+/// build.
 fn write_report(
     out: &mut impl Write,
     files: &[FileCoverage],
     sha: &str,
     detail: Option<&DetailReport>,
 ) -> std::io::Result<()> {
+    let headline: Vec<String> = METRICS
+        .iter()
+        .zip(sum(files))
+        .map(|((_, name), c)| format!("{} coverage: {}.", capitalize(name), c.cell()))
+        .collect();
     writeln!(
         out,
-        "\n{commit}\n\n\
-         **Line coverage: {lines}. Function coverage: {functions}. Region coverage: {regions}.**",
+        "\n{commit}\n\n**{headline}**",
         commit = crate::traceability::commit_line(sha),
-        lines = sum(files, |s| &s.lines).cell(),
-        functions = sum(files, |s| &s.functions).cell(),
-        regions = sum(files, |s| &s.regions).cell(),
+        headline = headline.join(" "),
     )?;
 
     let stats = sum_fn_stats(files);
@@ -418,12 +472,18 @@ fn write_report(
     // The trailing Per-line column exists only when the HTML report ships
     // with the build; `extra` renders one cell of it.
     let extra = |cell: String| detail.map_or(String::new(), |_| format!(" {cell} |"));
+    // One cell per metric, each formatted by `cell`.
+    let cells = |summary: &Summary, cell: fn(String) -> String| -> String {
+        summary.iter().map(|c| format!(" {} |", cell(c.cell()))).collect()
+    };
+    let header: String = METRICS.iter().map(|(key, _)| format!(" {} |", capitalize(key))).collect();
+    let separator = " --- |".repeat(METRICS.len());
     // `parse_export` sorts by path, so the files of a crate are contiguous.
     for chunk in files.chunk_by(|a, b| group(&a.path) == group(&b.path)) {
         let section = group(&chunk[0].path);
         writeln!(out, "\n## {section}\n")?;
-        writeln!(out, "| File | Lines | Functions | Regions |{}", extra("Per-line".into()))?;
-        writeln!(out, "| --- | --- | --- | --- |{}", extra("---".into()))?;
+        writeln!(out, "| File |{header}{}", extra("Per-line".into()))?;
+        writeln!(out, "| --- |{separator}{}", extra("---".into()))?;
         for f in chunk {
             // Path shown relative to the section heading; `section` is either
             // a strict prefix of the path or the whole path.
@@ -433,20 +493,16 @@ fn write_report(
                 .map_or("-".into(), |url| format!("[view]({url})"));
             writeln!(
                 out,
-                "| [`{short}`]({REPO_URL}/blob/{sha}/{}) | {} | {} | {} |{}",
+                "| [`{short}`]({REPO_URL}/blob/{sha}/{}) |{}{}",
                 f.path,
-                f.summary.lines.cell(),
-                f.summary.functions.cell(),
-                f.summary.regions.cell(),
+                cells(&f.summary, |c| c),
                 extra(per_line),
             )?;
         }
         writeln!(
             out,
-            "| **Sum** | **{}** | **{}** | **{}** |{}",
-            sum(chunk, |s| &s.lines).cell(),
-            sum(chunk, |s| &s.functions).cell(),
-            sum(chunk, |s| &s.regions).cell(),
+            "| **Sum** |{}{}",
+            cells(&sum(chunk), |c| format!("**{c}**")),
             extra(String::new()),
         )?;
         writeln!(out, "\nFunctions: {}.", fn_stats_sentence(&sum_fn_stats(chunk)))?;
@@ -458,13 +514,15 @@ fn write_report(
 fn test_shortfalls() {
     let file = |path: &str, covered: u64, uncovered_regions: &[(u64, u64)]| FileCoverage {
         path: path.into(),
-        summary: Summary {
-            lines: Counts { count: 10, covered },
-            functions: Counts { count: 2, covered: 2 },
-            regions: Counts { count: 10, covered },
-        },
+        summary: [
+            Counts { count: 10, covered },
+            Counts { count: 2, covered: 2 },
+            Counts { count: 10, covered },
+            Counts { count: 4, covered: 4 },
+        ],
         fn_stats: FnStats::default(),
         uncovered_regions: uncovered_regions.to_vec(),
+        untaken_branches: Vec::new(),
     };
 
     // A completely covered file is no gap.
@@ -483,6 +541,17 @@ fn test_shortfalls() {
 
     // Every incomplete file is reported, not just the first.
     assert_eq!(shortfalls(&[file("a.rs", 8, &[]), file("b.rs", 9, &[])]).len(), 2);
+
+    // A branch outcome never taken is a gap even when every region executed,
+    // like the false outcome of an `if` without an `else`.
+    let mut branch_gap = file("api/slint-sc/lib.rs", 10, &[]);
+    branch_gap.summary[3].covered = 3;
+    branch_gap.untaken_branches = vec![(35, 8, false)];
+    assert_eq!(
+        shortfalls(&[branch_gap]),
+        ["api/slint-sc/lib.rs: branch coverage 75.0% (3/4); \
+          outcome never taken at api/slint-sc/lib.rs:35:8 (false)"]
+    );
 }
 
 #[test]
@@ -515,7 +584,8 @@ fn test_parse_export() {
         format!(
             r#"{{"lines": {{"count": {}, "covered": {}, "percent": 0}},
                  "functions": {{"count": 4, "covered": 2, "percent": 0}},
-                 "regions": {{"count": 10, "covered": 5, "percent": 0}}}}"#,
+                 "regions": {{"count": 10, "covered": 5, "percent": 0}},
+                 "branches": {{"count": 6, "covered": 3, "percent": 0}}}}"#,
             lines.0, lines.1
         )
     };
@@ -535,9 +605,17 @@ fn test_parse_export() {
         {"name": "d", "count": 5, "filenames": ["/root/.cargo/registry/dep.rs"],
          "regions": [[1,1,2,2,5,0,0,0]]}
     ]"#;
+    // A condition per line: listed twice, as by two instantiations, with each
+    // outcome taken by one of them (fully covered); never evaluated (both
+    // outcomes untaken); and only ever true.
+    let branches = r#"[
+        [5,8,5,20,0,0,0,0,4], [5,8,5,20,3,2,0,0,4],
+        [7,8,7,20,0,0,0,0,4],
+        [9,8,9,20,4,0,0,0,4]
+    ]"#;
     let text = format!(
         r#"{{"data": [{{"files": [
-            {{"filename": "api/slint-sc/lib.rs", "summary": {}}},
+            {{"filename": "api/slint-sc/lib.rs", "summary": {}, "branches": {branches}}},
             {{"filename": "target/llvm-cov-target/generated.rs", "summary": {}}},
             {{"filename": "/root/.cargo/registry/dep.rs", "summary": {}}}
         ], "functions": {functions}, "totals": {{}}}}], "type": "llvm.coverage.json.export", "version": "2.0.1"}}"#,
@@ -549,9 +627,13 @@ fn test_parse_export() {
     let files = parse_export(&text).unwrap();
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].path, "api/slint-sc/lib.rs");
-    assert_eq!(files[0].summary.lines.cell(), "80.0% (8/10)");
-    assert_eq!(files[0].summary.functions.cell(), "50.0% (2/4)");
-    assert_eq!(sum(&files, |s| &s.regions).cell(), "50.0% (5/10)");
+    let [lines, functions, regions, branches] = files[0].summary;
+    assert_eq!(lines.cell(), "80.0% (8/10)");
+    assert_eq!(functions.cell(), "50.0% (2/4)");
+    assert_eq!(regions.cell(), "50.0% (5/10)");
+    assert_eq!(branches.cell(), "50.0% (3/6)");
+    assert_eq!(sum(&files)[2].cell(), "50.0% (5/10)");
+    assert_eq!(files[0].untaken_branches, [(7, 8, true), (7, 8, false), (9, 8, false)]);
     let stats = files[0].fn_stats;
     assert_eq!((stats.full, stats.partial, stats.untested), (1, 1, 1));
     assert_eq!(fn_stats_sentence(&stats), "1 fully tested, 1 partially tested, 1 untested");

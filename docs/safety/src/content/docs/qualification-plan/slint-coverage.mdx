@@ -46,7 +46,7 @@ The driver rejects a caret line that is malformed, a caret line that differs fro
 A point in an imported file, which the case cannot annotate, is stated in a ` ```coverage ` block at the end of the case.
 
 Every case with caret lines tests the reporting, since the driver compares what it states with the measurement.
-The cases under `coverage/` exist to test the reporting, so the driver also fails one of them that states no coverage.
+The cases under `coverage/` test nothing else, so the driver also fails one of them that states no coverage.
 Each case that states its coverage pins one part of the reporting:
 
 | Case | What it pins |
