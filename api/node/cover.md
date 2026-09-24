@@ -255,13 +255,9 @@ Use this when you need to:
 - Pass compiler options like `style`, `includePaths`, or `libraryPaths`
 - Work without the `--import` flag
 
-`slint-compiler -f typescript ui/main.slint -o ui/main.slint.ts` is a third way:
-it writes a `.ts` module that calls `loadFile` itself and carries the types,
-so importing that module needs no flag either.
-
 #### Instantiating a Component
 
-With all of these,
+With both approaches,
 the exported component is available as a constructor function.
 The constructor takes an optional object to set initial property values and callbacks.
 The returned instance implements the {@link ComponentHandle} interface
