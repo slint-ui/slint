@@ -29,6 +29,8 @@ export component TestCase {
 instance = TestCase()
 assert instance.test
 
+# A dict converts to a struct that lacks the omitted fields.
+# An exported `Row` wouldn't: it initializes all of its fields.
 instance.rows = slint.ListModel[typing.Any]([{"name": "b"}])
 assert instance.ta_enabled
 assert instance.text == "b"
