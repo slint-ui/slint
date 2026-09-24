@@ -1542,6 +1542,55 @@ def radius_source(baseline: bytes, radii: dict[str, int]) -> bytes:
     return replace_once(baseline, original, changed)
 
 
+def test_zero_radius_handles_stay_inside_and_drag_back_to_zero(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    zero_source = replace_once(
+        source_file.read_bytes(),
+        b"        border-radius: 12px;",
+        b"        border-radius: 0px;",
+    )
+    source_file.write_bytes(zero_source)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_fixture_element(window, "Rectangle")
+        radius_handle(window, "top-left")
+        x, y, width, height = selection_frame(window, "Rectangle")
+        initial_positions = radius_handle_positions(window)
+        for corner, position in initial_positions.items():
+            expected_x = x + 12 if "left" in corner else x + width - 12
+            expected_y = y + 12 if "top" in corner else y + height - 12
+            assert abs(position.x - expected_x) < 1.5
+            assert abs(position.y - expected_y) < 1.5
+
+        start = initial_positions["top-left"]
+        corner_position = slint_testing.LogicalPosition(x=x, y=y)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(corner_position))
+        wait_for_radius_tooltip(window, 0)
+        for corner, position in radius_handle_positions(window).items():
+            expected_x = x if "left" in corner else x + width
+            expected_y = y if "top" in corner else y + height
+            assert (
+                position_distance(
+                    position,
+                    slint_testing.LogicalPosition(x=expected_x, y=expected_y),
+                )
+                < 1.5
+            )
+        window.dispatch_event(
+            slint_testing.PointerReleaseEvent(corner_position, button)
+        )
+        wait_for_source_change(source_file, zero_source)
+        radius_handle(window, "top-left")
+        for corner, position in radius_handle_positions(window).items():
+            assert position_distance(position, initial_positions[corner]) < 1.5
+
+
 @pytest.mark.parametrize("single", (False, True))
 @pytest.mark.parametrize("corner", CORNERS)
 def test_each_radius_handle_writes_exact_source(
@@ -1639,7 +1688,8 @@ def test_radius_tooltip_follows_handle_clear_of_corner(
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
 
-        wait_for_radius_tooltip(window, radius + 4)
+        dragged_radius = radius + 8
+        wait_for_radius_tooltip(window, dragged_radius)
         tooltip = window_element_with_label(
             window, "Radius value", slint_testing.AccessibleRole.Text
         )
@@ -1647,7 +1697,7 @@ def test_radius_tooltip_follows_handle_clear_of_corner(
         control = center(
             window_element_with_label(window, "Rectangle radius top-left"), rotation
         )
-        extent = radius + 4
+        extent = dragged_radius
         if place_right:
             assert tip.x == pytest.approx(
                 max(control.x, corner.x + extent) + 12, abs=1.5

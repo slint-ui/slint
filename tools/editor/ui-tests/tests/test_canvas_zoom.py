@@ -203,6 +203,8 @@ def test_zoomed_radius_and_rotation(
         center_canvas_selection(window)
         zoom_canvas(window, percent)
         if operation == "radius":
+            # Figma measures from the pointer even when the fixed handle inset exceeds the scaled radius.
+            radius = 32 if percent == 50 else 20
             manual_radius_drag(
                 window,
                 radius_handle(window, "top-left"),
@@ -213,11 +215,13 @@ def test_zoomed_radius_and_rotation(
             expected = replace_once(
                 baseline,
                 b"        border-radius: 12px;",
-                b"        border-bottom-left-radius: 20px;\n"
-                b"        border-bottom-right-radius: 20px;\n"
-                b"        border-radius: 12px;\n"
-                b"        border-top-left-radius: 20px;\n"
-                b"        border-top-right-radius: 20px;",
+                (
+                    f"        border-bottom-left-radius: {radius}px;\n"
+                    f"        border-bottom-right-radius: {radius}px;\n"
+                    "        border-radius: 12px;\n"
+                    f"        border-top-left-radius: {radius}px;\n"
+                    f"        border-top-right-radius: {radius}px;"
+                ).encode(),
             )
         else:
             handle = window_element_with_label(window, "Rectangle rotate top-left")
