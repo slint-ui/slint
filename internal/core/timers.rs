@@ -1443,7 +1443,7 @@ assert_eq!(i_slint_core::timers::TimerList::next_timeout(), None);
 
 // ... while driving its own context fires it.
 assert!(ctx.next_timer_timeout().is_some());
-assert!(ctx.maybe_activate_timers(i_slint_core::animations::Instant(10_000)));
+assert!(ctx.maybe_activate_timers(i_slint_core::animations::Instant(std::time::Duration::from_millis(10_000))));
 assert_eq!(fired.get(), 1);
 ```
  */

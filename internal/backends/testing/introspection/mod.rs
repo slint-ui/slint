@@ -1604,6 +1604,7 @@ mod dispatch_result_tests {
                     button: PointerEventButton::Left,
                     click_count: 0,
                     touch_finger_id: 0,
+                    event_time: Default::default(),
                 })
             ),
             vec![(
@@ -1703,6 +1704,8 @@ mod dispatch_result_tests {
                     id: 1,
                     position: LogicalPoint::new(50.0, 50.0),
                     phase: TouchPhase::Started,
+                    event_time: None,
+                    history: Default::default(),
                 })
             )
             .is_empty()

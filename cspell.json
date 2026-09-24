@@ -29,9 +29,12 @@
         "monomorphized",
         "monomorphizing",
         "peekable",
+        "overscroll",
+        "overscrolled",
         "Realloc",
         "refcell",
         "rtti",
+        "signum",
         "Smol",
         "smolstr",
         "subspan",
@@ -39,6 +42,7 @@
         "unlocalized",
         "Unlocalized",
         "unmap",
+        "unresisted",
         "unsync",
         "vecs", // plural of vec
         "vsync"

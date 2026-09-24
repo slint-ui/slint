@@ -13,7 +13,7 @@ use i_slint_core::SharedString;
 use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, PlatformError, Window,
 };
-use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase};
+use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, TouchHistory, TouchPhase};
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::{
     InternalEvent, Key, PointerEventButton, WindowAdapter, WindowEvent, WindowEventDispatchResult,
@@ -301,14 +301,18 @@ impl AndroidWindowAdapter {
                 InputEvent::MotionEvent(motion_event) => {
                     let offset = self.offset.get();
                     let scale = self.window.scale_factor();
-                    let touch_pos = |p: &android_activity::input::Pointer<'_>| {
+                    let touch_pos = |x: f32, y: f32| {
                         i_slint_core::lengths::logical_point_from_api(pointer_logical_position(
-                            p.x(),
-                            p.y(),
-                            offset,
-                            scale,
+                            x, y, offset, scale,
                         ))
                     };
+                    let touch_pos_pointer =
+                        |p: &android_activity::input::Pointer<'_>| touch_pos(p.x(), p.y());
+                    let touch_pos_hist_pointer =
+                        |p: &android_activity::input::HistoricalPointer<'_>| {
+                            touch_pos(p.x(), p.y())
+                        };
+
                     match motion_event.action() {
                         MotionAction::ButtonPress => {
                             result = self
@@ -353,8 +357,13 @@ impl AndroidWindowAdapter {
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
                                         id: p.pointer_id(),
-                                        position: touch_pos(&p),
+                                        position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Started,
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }
@@ -366,8 +375,13 @@ impl AndroidWindowAdapter {
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
                                         id: p.pointer_id(),
-                                        position: touch_pos(&p),
+                                        position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Ended,
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }
@@ -386,12 +400,34 @@ impl AndroidWindowAdapter {
                             }
                             drop(lp);
 
+                            // Get high frequency move samples
+                            let now_event_time = motion_event.event_time();
                             for p in motion_event.pointers() {
+                                let id = p.pointer_id();
+                                let event_pos = touch_pos_pointer(&p);
+                                let event_time =
+                                    self.java_helper.input_timestamp(now_event_time, &self.window);
+                                let history = TouchHistory {
+                                    history: p
+                                        .history()
+                                        .map(|sample| {
+                                            (
+                                                touch_pos_hist_pointer(&sample),
+                                                self.java_helper.input_timestamp(
+                                                    sample.event_time(),
+                                                    &self.window,
+                                                ),
+                                            )
+                                        })
+                                        .collect(),
+                                };
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
-                                        id: p.pointer_id(),
-                                        position: touch_pos(&p),
+                                        id,
+                                        position: event_pos,
                                         phase: TouchPhase::Moved,
+                                        event_time: Some(event_time),
+                                        history,
                                     },
                                 ));
                             }
@@ -405,8 +441,13 @@ impl AndroidWindowAdapter {
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
                                         id: p.pointer_id(),
-                                        position: touch_pos(&p),
+                                        position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Started,
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }
@@ -418,8 +459,13 @@ impl AndroidWindowAdapter {
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
                                         id: p.pointer_id(),
-                                        position: touch_pos(&p),
+                                        position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Ended,
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }
@@ -438,8 +484,13 @@ impl AndroidWindowAdapter {
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
                                         id: p.pointer_id(),
-                                        position: touch_pos(&p),
+                                        position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Cancelled,
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }

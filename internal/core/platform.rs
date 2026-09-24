@@ -212,7 +212,7 @@ static INITIAL_INSTANT: once_cell::sync::OnceCell<time::Instant> = once_cell::sy
 impl std::convert::From<crate::animations::Instant> for time::Instant {
     fn from(our_instant: crate::animations::Instant) -> Self {
         let the_beginning = *INITIAL_INSTANT.get_or_init(time::Instant::now);
-        the_beginning + core::time::Duration::from_millis(our_instant.0)
+        the_beginning + our_instant.0
     }
 }
 
@@ -312,8 +312,7 @@ pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
     match crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().cloned()) {
         Some(ctx) => ctx.duration_until_next_timer_update(),
         // No context, hence no clock: the deadline is measured from a zero origin.
-        None => crate::timers::TimerList::next_timeout()
-            .map(|timeout| core::time::Duration::from_millis(timeout.0)),
+        None => crate::timers::TimerList::next_timeout().map(|timeout| timeout.0),
     }
 }
 
@@ -590,6 +589,10 @@ pub enum InternalEvent {
         position: crate::lengths::LogicalPoint,
         /// Whether the finger was put down, moved, lifted or cancelled.
         phase: crate::input::TouchPhase,
+        /// Original sample time on the animation clock, independent of event delivery.
+        event_time: Option<crate::animations::Instant>,
+        /// Movement samples coalesced into this event.
+        history: crate::input::TouchHistory,
     },
 }
 
@@ -664,9 +667,18 @@ impl InternalEvent {
     /// The position of the pointer or finger for this event, if any.
     fn position(&self) -> Option<LogicalPosition> {
         match self {
-            Self::Mouse(event) => crate::input::MouseEvent::from(*event)
-                .position()
-                .map(crate::lengths::logical_position_to_api),
+            Self::Mouse(event) => match event {
+                crate::input::BackendMouseEvent::Pressed { position, .. } => Some(*position),
+                crate::input::BackendMouseEvent::Released { position, .. } => Some(*position),
+                crate::input::BackendMouseEvent::Moved { position, .. } => Some(*position),
+                crate::input::BackendMouseEvent::Wheel { position, .. } => Some(*position),
+                crate::input::BackendMouseEvent::PinchGesture { position, .. } => Some(*position),
+                crate::input::BackendMouseEvent::RotationGesture { position, .. } => {
+                    Some(*position)
+                }
+                crate::input::BackendMouseEvent::Exit => None,
+            }
+            .map(crate::lengths::logical_position_to_api),
             Self::Key(_) => None,
             Self::Touch { position, .. } => {
                 Some(crate::lengths::logical_position_to_api(*position))

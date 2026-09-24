@@ -1,0 +1,312 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+
+    fli := Flickable {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        // The content size is the same as the flickable geometry. So no bouncing is enabled
+        // The geometry will be changed below to enable the bounce
+        content-height: parent.height;
+        content-width: parent.width;
+    }
+
+    in-out property fli_width <=> fli.width;
+    in-out property fli_height <=> fli.height;
+    in-out property fli_content_width <=> fli.content_width;
+    in-out property fli_content_height <=> fli.content_height;
+    in-out property fli_content_x <=> fli.content_x;
+    in-out property fli_content_y <=> fli.content_y;
+}
+
+/*
+/// Check that bouncing is working as expected
+```rust
+use slint::language::AutoBool;
+
+/// Simulate a mouse press at `(pressed_x, pressed_y)` and release at `(released_x, released_y)`
+pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
+    component: &Component,
+    pressed_x: f32,
+    pressed_y: f32,
+    released_x: f32,
+    released_y: f32,
+) {
+    use slint::*;
+
+    let window = component.window();
+    let pressed_position = LogicalPosition::new(pressed_x, pressed_y);
+    let released_position = LogicalPosition::new(released_x, released_y);
+    let button = platform::PointerEventButton::Left;
+
+    const NUM_MOVEMENTS: u64 = 10;
+    const DURATION_MS: u64 = 50;
+    const TIME_TO_RELEASE_MS: u64 = 2; // Below threshold
+    let diff_x = (released_position.x - pressed_position.x) / NUM_MOVEMENTS as f32;
+    let diff_y = (released_position.y - pressed_position.y) / NUM_MOVEMENTS as f32;
+
+    window.dispatch_event(platform::WindowEvent::PointerMoved { position: pressed_position });
+    window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button });
+    for i in 0..NUM_MOVEMENTS {
+        slint_testing::mock_elapsed_time(DURATION_MS / NUM_MOVEMENTS);
+        window.dispatch_event(platform::WindowEvent::PointerMoved { position: LogicalPosition::new(pressed_position.x + i as f32 * diff_x, pressed_position.y + i as f32 * diff_y) });
+    }
+    slint_testing::mock_elapsed_time(TIME_TO_RELEASE_MS);
+    window.dispatch_event(platform::WindowEvent::PointerReleased { position: released_position, button });
+}
+
+// use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+const INFINITE_TIME_SPEND: u64 = 100000000;
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::Off);
+
+// Try to scroll up
+send_mouse_press_and_release(&instance, 5., 5., 5., 130.); // Finger moves down -> Scrolling up. Larger y is display bottom (Diff: 5 - 130 = -125)
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounce is off so scrolling up beyond the limit is not possible");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounce is off so scrolling up beyond the limit is not possible");
+
+// Try to scroll down
+send_mouse_press_and_release(&instance, 5., 130., 5., 5.); // Finger moves up -> Scrolling down.
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounce is off so scrolling up beyond the limit is not possible");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounce is off so scrolling up beyond the limit is not possible");
+
+// Try to scroll left
+send_mouse_press_and_release(&instance, 5., 5., 130., 5.); // Finger moves right -> Scrolling left. Larger x is display right (Diff: 5 - 130 = -125)
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_x(), 0., "Bounce is off so scrolling left beyond the limit is not possible");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_x(), 0., "Bounce is off so scrolling left beyond the limit is not possible");
+
+// Try to scroll right
+send_mouse_press_and_release(&instance, 130., 5., 5., 5.); // Finger moves left -> Scrolling right.
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_x(), 0., "Bounce is off so scrolling right beyond the limit is not possible");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_x(), 0., "Bounce is off so scrolling right beyond the limit is not possible");
+
+// Turning on Bouncing
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+
+// Change the content width to enable bouncing in the dimension y
+instance.set_fli_content_height(instance.get_fli_height() + 40.);
+
+// Try to scroll up again
+send_mouse_press_and_release(&instance, 5., 5., 5., 130.); // Finger moves down -> Scrolling up. Larger y is display bottom (Diff: 5 - 130 = -125)
+slint_testing::mock_elapsed_time(5);
+assert!(instance.get_fli_content_y() > 20., "We scrolled beyond the limits");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounced back");
+
+// Try to scroll down again
+send_mouse_press_and_release(&instance, 5., 130., 5., 5.); // Finger moves up -> Scrolling down.
+slint_testing::mock_elapsed_time(5);
+assert!(instance.get_fli_content_y() < -20., "We scrolled beyond the limits");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert!((instance.get_fli_content_y() - (-40.)).abs() < 0.01, "Bounced back, received: {}", instance.get_fli_content_y());
+
+// Try to scroll left -> Not possible because content size is smaller than actual geometry
+send_mouse_press_and_release(&instance, 5., 5., 130., 5.); // Finger moves right -> Scrolling left. Larger x is display right (Diff: 5 - 130 = -125)
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_x(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_x(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+
+// Try to scroll right -> Not possible because content size is smaller than actual geometry
+send_mouse_press_and_release(&instance, 130., 5., 5., 5.); // Finger moves left -> Scrolling right.
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_x(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_x(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+
+instance.set_fli_content_width(instance.get_fli_width() + 40.);
+instance.set_fli_content_height(instance.get_fli_height());
+
+// Try to scroll left again
+send_mouse_press_and_release(&instance, 5., 5., 130., 5.); // Finger moves right -> Scrolling left. Larger x is display right (Diff: 5 - 130 = -125)
+slint_testing::mock_elapsed_time(5);
+assert!(instance.get_fli_content_x() > 20., "We scrolled beyond the limits");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_x(), 0., "Bounced back");
+
+// Try to scroll right again
+send_mouse_press_and_release(&instance, 130., 5., 5., 5.); // Finger moves left -> Scrolling right.
+slint_testing::mock_elapsed_time(5);
+assert!(instance.get_fli_content_x() < -20., "We scrolled beyond the limits");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert!((instance.get_fli_content_x() - (-40.)).abs() < 0.01, "Bounced back, received: {}", instance.get_fli_content_x());
+
+// Try to scroll up
+send_mouse_press_and_release(&instance, 5., 5., 5., 130.); // Finger moves down -> Scrolling up. Larger y is display bottom (Diff: 5 - 130 = -125)
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_y(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_y(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+
+// Try to scroll down
+send_mouse_press_and_release(&instance, 5., 130., 5., 5.); // Finger moves up -> Scrolling down.
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_y(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_y(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+```
+
+// Test also for the touch pad with touch phase
+```rust
+use slint::language::AutoBool;
+use slint::platform::WindowEvent;
+use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
+
+/// Simulate a trackpad scroll gesture at `(x, y)` covering `(delta_x, delta_y)` in total.
+pub fn send_wheel_scroll<Component: slint::ComponentHandle>(
+    component: &Component,
+    x: f32,
+    y: f32,
+    delta_x: f32,
+    delta_y: f32,
+) {
+    let window = component.window();
+    let position = LogicalPoint::new(x, y);
+
+    const NUM_MOVEMENTS: u64 = 10;
+    const DURATION_MS: u64 = 50;
+    const TIME_TO_END_MS: u64 = 2; // Below threshold
+    let step_x = delta_x / NUM_MOVEMENTS as f32;
+    let step_y = delta_y / NUM_MOVEMENTS as f32;
+
+    window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+        position,
+        delta_x: 0.,
+        delta_y: 0.,
+        phase: TouchPhase::Started,
+    }));
+    for _ in 0..NUM_MOVEMENTS {
+        slint_testing::mock_elapsed_time(DURATION_MS / NUM_MOVEMENTS);
+        window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+            position,
+            delta_x: step_x,
+            delta_y: step_y,
+            phase: TouchPhase::Moved,
+        }));
+    }
+    slint_testing::mock_elapsed_time(TIME_TO_END_MS);
+    window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+        position,
+        delta_x: 0.,
+        delta_y: 0.,
+        phase: TouchPhase::Ended,
+    }));
+}
+
+const INFINITE_TIME_SPEND: u64 = 100000000;
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::Off);
+
+// Try to scroll up
+send_wheel_scroll(&instance, 5., 5., 0., 130. - 5.); // Trackpad moves up. Larger y is display bottom (Diff: 130 - 5 = 125)
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounce is off so scrolling up beyond the limit is not possible");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounce is off so scrolling up beyond the limit is not possible");
+
+// Try to scroll down
+send_wheel_scroll(&instance, 5., 5., 0., -(130. - 5.)); // Trackpad moves down.
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounce is off so scrolling up beyond the limit is not possible");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounce is off so scrolling up beyond the limit is not possible");
+
+// Try to scroll left
+send_wheel_scroll(&instance, 5., 5., 130. - 5., 0.); // Trackpad moves left. Larger x is display right (Diff: 130 - 5 = 125)
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_x(), 0., "Bounce is off so scrolling left beyond the limit is not possible");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_x(), 0., "Bounce is off so scrolling left beyond the limit is not possible");
+
+// Try to scroll right
+send_wheel_scroll(&instance, 5., 5., -(130. - 5.), 0.); // Trackpad moves right.
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_x(), 0., "Bounce is off so scrolling right beyond the limit is not possible");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_x(), 0., "Bounce is off so scrolling right beyond the limit is not possible");
+
+// Turning on Bouncing
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+
+// Change the content width to enable bouncing in the dimension y
+instance.set_fli_content_height(instance.get_fli_height() + 40.);
+
+// Try to scroll up again
+send_wheel_scroll(&instance, 5., 5., 0., 130. - 5.); // Trackpad moves up. Larger y is display bottom (Diff: 130 - 5 = 125)
+slint_testing::mock_elapsed_time(5);
+assert!(instance.get_fli_content_y() > 20., "We scrolled beyond the limits");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounced back");
+
+// Try to scroll down again
+send_wheel_scroll(&instance, 5., 5., 0., -(130. - 5.)); // Trackpad moves down.
+slint_testing::mock_elapsed_time(5);
+assert!(instance.get_fli_content_y() < -20., "We scrolled beyond the limits");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert!((instance.get_fli_content_y() - (-40.)).abs() < 0.01, "Bounced back, received: {}", instance.get_fli_content_y());
+
+// Try to scroll left -> Not possible because content size is smaller than actual geometry
+send_wheel_scroll(&instance, 5., 5., 130. - 5., 0.); // Trackpad moves left. Larger x is display right (Diff: 130 - 5 = 125)
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_x(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_x(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+
+// Try to scroll right -> Not possible because content size is smaller than actual geometry
+send_wheel_scroll(&instance, 5., 5., -(130. - 5.), 0.); // Trackpad moves right.
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_x(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_x(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+
+instance.set_fli_content_width(instance.get_fli_width() + 40.);
+instance.set_fli_content_height(instance.get_fli_height());
+
+// Try to scroll left again
+send_wheel_scroll(&instance, 5., 5., 130. - 5., 0.); // Trackpad moves left. Larger x is display right (Diff: 130 - 5 = 125)
+slint_testing::mock_elapsed_time(5);
+assert!(instance.get_fli_content_x() > 20., "We scrolled beyond the limits: {}", instance.get_fli_content_x());
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_x(), 0., "Bounced back");
+
+// Try to scroll right again
+send_wheel_scroll(&instance, 5., 5., -(130. - 5.), 0.); // Trackpad moves right.
+slint_testing::mock_elapsed_time(5);
+assert!(instance.get_fli_content_x() < -20., "We scrolled beyond the limits");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert!((instance.get_fli_content_x() - (-40.)).abs() < 0.01, "Bounced back, received: {}", instance.get_fli_content_x());
+
+// Try to scroll up
+send_wheel_scroll(&instance, 5., 5., 0., 130. - 5.); // Trackpad moves up. Larger y is display bottom (Diff: 130 - 5 = 125)
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_y(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_y(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+
+// Try to scroll down
+send_wheel_scroll(&instance, 5., 5., 0., -(130. - 5.)); // Trackpad moves down.
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_y(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_y(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
+```
+*/

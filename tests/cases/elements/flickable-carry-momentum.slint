@@ -1,0 +1,245 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+
+    fli := Flickable {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        // The content size is the same as the flickable geometry to test all for border limits
+        content-height: parent.height * 100;
+        content-width: parent.width;
+    }
+
+    in-out property fli_width <=> fli.width;
+    in-out property fli_height <=> fli.height;
+    in-out property fli_content_width <=> fli.content_width;
+    in-out property fli_content_height <=> fli.content_height;
+    in-out property fli_content_x <=> fli.content_x;
+    in-out property fli_content_y <=> fli.content_y;
+}
+
+/*
+/// Check that carry momentum is working as expected
+// Testcase 1. Carry momentum is off
+```rust
+use slint::language::AutoBool;
+
+/// Simulate a mouse press at `(pressed_x, pressed_y)` and release at `(released_x, released_y)`
+pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
+    component: &Component,
+    pressed_x: f32,
+    pressed_y: f32,
+    released_x: f32,
+    released_y: f32,
+) {
+    use slint::*;
+
+    let window = component.window();
+    let pressed_position = LogicalPosition::new(pressed_x, pressed_y);
+    let released_position = LogicalPosition::new(released_x, released_y);
+    let button = platform::PointerEventButton::Left;
+
+    const NUM_MOVEMENTS: u64 = 10;
+    const DURATION_MS: u64 = 10; // Must be shorter than MOMENTUM_RETAIN_TIMEOUT
+    const TIME_TO_RELEASE_MS: u64 = 2; // Below threshold
+    let diff_x = (released_position.x - pressed_position.x) / NUM_MOVEMENTS as f32;
+    let diff_y = (released_position.y - pressed_position.y) / NUM_MOVEMENTS as f32;
+
+    window.dispatch_event(platform::WindowEvent::PointerMoved { position: pressed_position });
+    window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button });
+    for i in 0..NUM_MOVEMENTS {
+        slint_testing::mock_elapsed_time(DURATION_MS / NUM_MOVEMENTS);
+        window.dispatch_event(platform::WindowEvent::PointerMoved { position: LogicalPosition::new(pressed_position.x + i as f32 * diff_x, pressed_position.y + i as f32 * diff_y) });
+    }
+    slint_testing::mock_elapsed_time(TIME_TO_RELEASE_MS);
+    window.dispatch_event(platform::WindowEvent::PointerReleased { position: released_position, button });
+}
+
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+
+// Scroll down with no carry momentum
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::Off);
+send_mouse_press_and_release(&instance, 5., 130., 5., 5.); // Finger moves up -> Scrolling down.
+slint_testing::mock_elapsed_time(5);
+
+let content_y = instance.get_fli_content_y();
+assert!(content_y < 0., "We started scrolling");
+slint_testing::mock_elapsed_time(1);
+let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
+assert!((velocity - (130. - 5.) / 10e-3).abs() < 100., "Received: {velocity}");
+
+// Compare the same interval after release for both flings. The AOSP table's
+// small nonzero first entry affects the first millisecond's finite difference.
+let first_velocity = velocity;
+// Flick again while the other is ongoing
+send_mouse_press_and_release(&instance, 5., 130., 5., 5.); // Finger moves up -> Scrolling down.
+slint_testing::mock_elapsed_time(5);
+
+let content_y = instance.get_fli_content_y();
+slint_testing::mock_elapsed_time(1);
+let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
+assert!((velocity - first_velocity).abs() < 1., "Received: {velocity}, first fling: {first_velocity}. There is no velocity increase because carry-momentum is off");
+```
+
+// Testcase 2. Carry momentum is on
+```rust
+use slint::language::AutoBool;
+
+/// Simulate a mouse press at `(pressed_x, pressed_y)` and release at `(released_x, released_y)`
+pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
+    component: &Component,
+    pressed_x: f32,
+    pressed_y: f32,
+    released_x: f32,
+    released_y: f32,
+) {
+    use slint::*;
+
+    let window = component.window();
+    let pressed_position = LogicalPosition::new(pressed_x, pressed_y);
+    let released_position = LogicalPosition::new(released_x, released_y);
+    let button = platform::PointerEventButton::Left;
+
+    const NUM_MOVEMENTS: u64 = 10;
+    const DURATION_MS: u64 = 10; // Must be shorter than MOMENTUM_RETAIN_TIMEOUT
+    const TIME_TO_RELEASE_MS: u64 = 2; // Below threshold
+    let diff_x = (released_position.x - pressed_position.x) / NUM_MOVEMENTS as f32;
+    let diff_y = (released_position.y - pressed_position.y) / NUM_MOVEMENTS as f32;
+
+    window.dispatch_event(platform::WindowEvent::PointerMoved { position: pressed_position });
+    window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button });
+    for i in 0..NUM_MOVEMENTS {
+        slint_testing::mock_elapsed_time(DURATION_MS / NUM_MOVEMENTS);
+        window.dispatch_event(platform::WindowEvent::PointerMoved { position: LogicalPosition::new(pressed_position.x + i as f32 * diff_x, pressed_position.y + i as f32 * diff_y) });
+    }
+    slint_testing::mock_elapsed_time(TIME_TO_RELEASE_MS);
+    window.dispatch_event(platform::WindowEvent::PointerReleased { position: released_position, button });
+}
+
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+
+const FLICK_DISTANCE: f32 = 20.;
+
+// Scroll down with no carry momentum
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::On);
+send_mouse_press_and_release(&instance, 5., 130., 5., 130. - FLICK_DISTANCE); // Finger moves up -> Scrolling down.
+slint_testing::mock_elapsed_time(5);
+
+let content_y = instance.get_fli_content_y();
+assert!(content_y < 0., "We started scrolling");
+slint_testing::mock_elapsed_time(1);
+let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
+assert!((velocity - FLICK_DISTANCE / 10e-3).abs() < 30., "Received: {velocity}");
+
+// Flick again, at the same strength, while the other is ongoing: this is
+// the one flick that's strong enough to clear the momentum-retention
+// threshold, so its velocity is boosted by the carried momentum.
+send_mouse_press_and_release(&instance, 5., 130., 5., 130. - FLICK_DISTANCE); // Finger moves up -> Scrolling down.
+
+let content_y = instance.get_fli_content_y();
+slint_testing::mock_elapsed_time(1);
+let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
+assert!(velocity.abs() > (2_f32 * FLICK_DISTANCE / 10e-3).abs(), "Received: {velocity}. There is a large velocity increase because the previous velocity is added to the newly estimated one");
+```
+
+Testcase 3. Carry momentum is on, driven by wheel/trackpad events instead of a mouse drag.
+```rust
+use slint::language::AutoBool;
+
+/// Simulate a trackpad scroll gesture at `(x, y)` covering `(delta_x, delta_y)` in total.
+pub fn send_wheel_scroll<Component: slint::ComponentHandle>(
+    component: &Component,
+    x: f32,
+    y: f32,
+    delta_x: f32,
+    delta_y: f32,
+) {
+    use slint::platform::WindowEvent;
+    use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
+
+    let window = component.window();
+    let position = LogicalPoint::new(x, y);
+
+    const NUM_MOVEMENTS: u64 = 10;
+    const DURATION_MS: u64 = 10; // Must be shorter than MOMENTUM_RETAIN_TIMEOUT
+    const TIME_TO_END_MS: u64 = 2; // Below threshold
+    let step_x = delta_x / NUM_MOVEMENTS as f32;
+    let step_y = delta_y / NUM_MOVEMENTS as f32;
+
+    window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+        position,
+        delta_x: 0.,
+        delta_y: 0.,
+        phase: TouchPhase::Started,
+    }));
+    for _ in 0..NUM_MOVEMENTS {
+        slint_testing::mock_elapsed_time(DURATION_MS / NUM_MOVEMENTS);
+        window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+            position,
+            delta_x: step_x,
+            delta_y: step_y,
+            phase: TouchPhase::Moved,
+        }));
+    }
+    slint_testing::mock_elapsed_time(TIME_TO_END_MS);
+    window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+        position,
+        delta_x: 0.,
+        delta_y: 0.,
+        phase: TouchPhase::Ended,
+    }));
+}
+
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+
+const FLICK_DISTANCE: f32 = 20.;
+
+// Scroll down with carry momentum
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::On);
+send_wheel_scroll(&instance, 5., 5., 0., -FLICK_DISTANCE); // Scrolling down.
+slint_testing::mock_elapsed_time(5);
+
+let content_y = instance.get_fli_content_y();
+assert!(content_y < 0., "We started scrolling");
+slint_testing::mock_elapsed_time(1);
+let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
+assert!((velocity - FLICK_DISTANCE / 10e-3).abs() < 30., "Received: {velocity}");
+
+// Flick again, at the same strength, while the other is ongoing: this one
+// is strong enough to clear the momentum-retention threshold, so its
+// velocity is boosted by the carried momentum.
+send_wheel_scroll(&instance, 5., 5., 0., -FLICK_DISTANCE); // Scrolling down.
+
+let content_y = instance.get_fli_content_y();
+slint_testing::mock_elapsed_time(1);
+let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
+assert!(velocity.abs() > (2_f32 * FLICK_DISTANCE / 10e-3).abs(), "Received: {velocity}. There is a large velocity increase because the previous velocity is added to the newly estimated one");
+
+for i in 0..4 {
+    send_wheel_scroll(&instance, 5., 5., 0., -FLICK_DISTANCE); // Scrolling down.
+
+    let content_y = instance.get_fli_content_y();
+    slint_testing::mock_elapsed_time(1);
+    let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
+    if i % 2 == 0 {
+        assert!((velocity - FLICK_DISTANCE / 10e-3).abs() < 30., "Iteration {i}. Received: {velocity}. The previous flick was boosted, so this same-strength repeat can no longer clear the now much larger momentum-retention threshold, and momentum is not carried");
+    } else {
+        assert!(velocity.abs() > (2_f32 * FLICK_DISTANCE / 10e-3).abs(), "Iteration {i}. Received: {velocity}. The previous flick was reset to un-boosted strength, so this same-strength repeat clears the threshold again and momentum is carried");
+    }
+}
+```
+*/

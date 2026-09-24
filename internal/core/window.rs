@@ -13,7 +13,7 @@ use crate::cursor::MouseCursorInner;
 use crate::input::{
     BackendDragEvent, ClickState, DragData, FocusEvent, FocusReason, InternalKeyEvent,
     KeyEventResult, KeyEventType, Keys, MouseEvent, MouseInputState, PointerEventButton,
-    TextCursorBlinker, TouchPhase, TouchState, key_codes,
+    TextCursorBlinker, TouchHistory, TouchPhase, TouchState, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
@@ -1144,7 +1144,12 @@ impl WindowInner {
 
         self.ensure_tree_instantiated();
         if let Some(position) = hover_position_after_drop {
-            self.process_mouse_input(MouseEvent::Moved { position, touch_finger_id: 0 });
+            self.process_mouse_input(MouseEvent::Moved {
+                position,
+                touch_finger_id: 0,
+                event_time: Default::default(),
+                history: Default::default(),
+            });
         }
 
         Some(MouseDispatchResult { drag_action, accepted })
@@ -1223,8 +1228,11 @@ impl WindowInner {
         id: i32,
         position: LogicalPoint,
         phase: TouchPhase,
+        event_time: Option<crate::animations::Instant>,
+        history: TouchHistory,
     ) -> Option<MouseDispatchResult> {
-        let events = self.touch_state.borrow_mut().process(id, position, phase);
+        let events =
+            self.touch_state.borrow_mut().process(id, position, phase, event_time, history);
         let mut aggregate: Option<MouseDispatchResult> = None;
         for event in events.into_iter() {
             if let Some(r) = self.process_mouse_input(event) {
@@ -1291,6 +1299,8 @@ impl WindowInner {
                 self.process_mouse_input(MouseEvent::Moved {
                     position: crate::lengths::logical_point_from_api(pos),
                     touch_finger_id: 0,
+                    event_time: Default::default(),
+                    history: Default::default(),
                 });
             }
         }
@@ -3088,7 +3098,9 @@ pub mod ffi {
     ) {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            window_adapter.window().dispatch_event(crate::platform::WindowEvent::internal(*event));
+            window_adapter
+                .window()
+                .dispatch_event(crate::platform::WindowEvent::internal(event.clone()));
         }
     }
 
