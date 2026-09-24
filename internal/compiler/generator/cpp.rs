@@ -5217,6 +5217,12 @@ fn compile_builtin_function_call(
                 ctx.generator_state.global_access
             )
         }
+        BuiltinFunction::ReducedMotion => {
+            format!(
+                "[&]{{ auto _root = (*{0}->root_weak.lock()).into_dyn(); return slint::cbindgen_private::slint_context_reduced_motion(&_root); }}()",
+                ctx.generator_state.global_access
+            )
+        }
         BuiltinFunction::SupportsNativeMenuBar => {
             format!("{}.supports_native_menu_bar()", access_window_field(ctx))
         }

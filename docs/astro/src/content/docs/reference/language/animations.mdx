@@ -114,6 +114,7 @@ When `false`, a change sets the property to its target value at once, with no de
 
 Slint follows the operating system's reduced-motion setting.
 While it is on, every `animate` block behaves as if `enabled` were `false`: a change sets the property to its target value at once.
+A change of the setting applies to animations that start afterwards; one already running finishes at its own pace.
 A `Flickable` still pans while the pointer is down, since that is the user's own movement, but a mouse wheel step lands at once and the content stops as soon as the pointer is released.
 Effects driven by `animation-tick()` are not animations of a property change and are left as they are.
 

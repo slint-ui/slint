@@ -752,10 +752,28 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
                         },
                         |v| lower_expression(&v.borrow().expression, ctx),
                     );
+                    let e = if k == "enabled" { honor_reduced_motion(e) } else { e };
                     (k, e)
                 })
                 .collect::<_>(),
             ty: animation_ty(),
+        }
+    }
+
+    /// An animation only runs when the user did not ask the operating system for less
+    /// motion. Evaluated in the generated code, where the component's context is reachable.
+    fn honor_reduced_motion(enabled: llr_Expression) -> llr_Expression {
+        llr_Expression::BinaryExpression {
+            lhs: Box::new(enabled),
+            rhs: Box::new(llr_Expression::UnaryOp {
+                sub: Box::new(llr_Expression::BuiltinFunctionCall {
+                    function: BuiltinFunction::ReducedMotion,
+                    arguments: Vec::new(),
+                    source_location: None,
+                }),
+                op: '!',
+            }),
+            op: '&',
         }
     }
 

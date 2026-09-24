@@ -39,7 +39,7 @@ pub enum CustomEvent {
     Muda(muda::MenuEvent),
     /// The Windows "Animation effects" setting changed; re-read it on the event loop thread.
     #[cfg(target_os = "windows")]
-    ReducedMotionChanged,
+    MotionPreferenceChanged,
 }
 
 impl std::fmt::Debug for CustomEvent {
@@ -55,7 +55,7 @@ impl std::fmt::Debug for CustomEvent {
             #[cfg(muda)]
             Self::Muda(e) => write!(f, "Muda({e:?})"),
             #[cfg(target_os = "windows")]
-            Self::ReducedMotionChanged => write!(f, "ReducedMotionChanged"),
+            Self::MotionPreferenceChanged => write!(f, "MotionPreferenceChanged"),
         }
     }
 }
@@ -213,10 +213,10 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 };
             }
             #[cfg(target_os = "windows")]
-            CustomEvent::ReducedMotionChanged => {
+            CustomEvent::MotionPreferenceChanged => {
                 self.shared_backend_data
                     .context()
-                    .set_reduced_motion(crate::windows_settings::reduced_motion());
+                    .set_motion_preference(crate::windows_settings::motion_preference());
             }
         }
     }

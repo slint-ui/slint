@@ -29,9 +29,9 @@ export component TestCase inherits Window {
 ```rust
 // A wheel step lands at once instead of easing over 180ms.
 use slint::platform::WindowEvent;
-use slint_testing::{LogicalPoint, BackendMouseEvent, TouchPhase};
+use slint_testing::{LogicalPoint, BackendMouseEvent, MotionPreference, TouchPhase};
 let instance = TestCase::new().unwrap();
-slint_testing::set_reduced_motion(true);
+slint_testing::set_motion_preference(MotionPreference::Reduced);
 
 instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
     position: LogicalPoint::new(175., 175.),
@@ -55,14 +55,15 @@ assert_eq!(instance.get_offset_y(), 100.);
 slint_testing::mock_elapsed_time(500);
 assert_eq!(instance.get_offset_x(), 30.);
 assert_eq!(instance.get_offset_y(), 100.);
-slint_testing::set_reduced_motion(false);
+slint_testing::set_motion_preference(MotionPreference::NoPreference);
 ```
 
 ```rust
 // Dragging pans as usual, and releasing the pointer stops the content where it is.
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint_testing::MotionPreference;
 let instance = TestCase::new().unwrap();
-slint_testing::set_reduced_motion(true);
+slint_testing::set_motion_preference(MotionPreference::Reduced);
 
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 100.0) });
@@ -84,6 +85,6 @@ assert_eq!(instance.get_offset_y(), 50.);
 slint_testing::mock_elapsed_time(2000);
 assert_eq!(instance.get_offset_x(), 200.);
 assert_eq!(instance.get_offset_y(), 50.);
-slint_testing::set_reduced_motion(false);
+slint_testing::set_motion_preference(MotionPreference::NoPreference);
 ```
 */

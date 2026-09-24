@@ -3,27 +3,28 @@
 
 //! Windows settings that the backend mirrors into the `SlintContext`.
 
+use i_slint_core::MotionPreference;
 use windows::Foundation::TypedEventHandler;
 use windows::UI::ViewManagement::{UISettings, UISettingsAnimationsEnabledChangedEventArgs};
 
-/// Whether the user turned off "Animation effects" under Settings > Accessibility >
-/// Visual effects. Defaults to animations on when the setting cannot be read.
-pub fn reduced_motion() -> bool {
-    UISettings::new()
-        .and_then(|settings| settings.AnimationsEnabled())
-        .is_ok_and(|animations_enabled| !animations_enabled)
+/// The "Animation effects" switch under Settings > Accessibility > Visual effects.
+/// Defaults to animations on when the setting cannot be read.
+pub fn motion_preference() -> MotionPreference {
+    let animations_enabled =
+        UISettings::new().and_then(|settings| settings.AnimationsEnabled()).unwrap_or(true);
+    if animations_enabled { MotionPreference::NoPreference } else { MotionPreference::Reduced }
 }
 
 /// Calls back whenever the "Animation effects" setting changes.
 ///
 /// Windows raises the change on a thread of its own, so `notify` has to hop back to the
 /// event loop before touching the context. The subscription ends when this is dropped.
-pub struct ReducedMotionObserver {
+pub struct MotionPreferenceObserver {
     settings: UISettings,
     token: i64,
 }
 
-impl ReducedMotionObserver {
+impl MotionPreferenceObserver {
     /// `None` on Windows versions without the change event (before Windows 10 1809),
     /// where the setting is read once at startup only.
     pub fn new(notify: impl Fn() + Send + 'static) -> Option<Self> {
@@ -40,7 +41,7 @@ impl ReducedMotionObserver {
     }
 }
 
-impl Drop for ReducedMotionObserver {
+impl Drop for MotionPreferenceObserver {
     fn drop(&mut self) {
         let _ = self.settings.RemoveAnimationsEnabledChanged(self.token);
     }

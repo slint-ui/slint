@@ -25,6 +25,16 @@ crate::thread_local! {
         = const { core::cell::OnceCell::new() }
 }
 
+/// Whether the user asked the operating system for less motion, as reported by the backend.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum MotionPreference {
+    /// No preference expressed: animations play as designed.
+    #[default]
+    NoPreference,
+    /// The user asked for less motion: animations go straight to their target.
+    Reduced,
+}
+
 #[pin_project::pin_project]
 pub(crate) struct SlintContextInner {
     platform: Box<dyn Platform>,
@@ -59,6 +69,10 @@ pub(crate) struct SlintContextInner {
     /// doesn't report one.
     #[pin]
     pub(crate) platform_default_font_size: Property<Option<LogicalLength>>,
+    /// Process-wide reduced-motion setting. Backends' settings observers write here;
+    /// every animation's `enabled` binding reads it through [`SlintContext::motion_preference`].
+    #[pin]
+    pub(crate) motion_preference: Property<MotionPreference>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     pub(crate) window_event_hook: core::cell::RefCell<Option<WindowEventHook>>,
@@ -112,6 +126,10 @@ impl SlintContext {
             platform_default_font_size: Property::new_named(
                 None,
                 "SlintContext::platform_default_font_size",
+            ),
+            motion_preference: Property::new_named(
+                MotionPreference::default(),
+                "SlintContext::motion_preference",
             ),
             window_shown_hook: Default::default(),
             window_event_hook: Default::default(),
@@ -294,19 +312,22 @@ impl SlintContext {
         self.0.as_ref().project_ref().platform_default_font_size.set(size);
     }
 
+    /// Returns the operating system's reduced-motion setting. Reads register a property
+    /// dependency, so bindings re-evaluate when the platform reports a change.
+    pub fn motion_preference(&self) -> MotionPreference {
+        self.0.as_ref().project_ref().motion_preference.get()
+    }
+
     /// Backend-side write path for the operating system's reduced-motion setting. Called
-    /// by each platform's settings observer at startup and whenever the setting changes.
+    /// by each platform's settings observer at startup and whenever the setting changes;
+    /// `Property::set` short-circuits no-op writes.
     ///
-    /// While set, every property animation goes straight to its target, and a `Flickable`
-    /// neither smooths wheel scrolling nor keeps moving after a drag is released. Panning
-    /// while the pointer is down is the user's own motion and stays as it is.
-    ///
-    /// The flag lives on the thread's [`crate::animations::AnimationDriver`], which is what
-    /// every animation consults, so this applies to every context driven on the calling
-    /// thread.
-    pub fn set_reduced_motion(&self, reduced: bool) {
-        crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.set_reduced_motion(reduced));
+    /// While [`MotionPreference::Reduced`], every property animation that starts goes
+    /// straight to its target, and a `Flickable` neither smooths wheel scrolling nor keeps
+    /// moving after a drag is released. Panning while the pointer is down is the user's own
+    /// motion and stays as it is.
+    pub fn set_motion_preference(&self, preference: MotionPreference) {
+        self.0.as_ref().project_ref().motion_preference.set(preference);
     }
 
     #[doc(hidden)]
