@@ -192,7 +192,6 @@ def test_picker_uses_live_preview_stop_markers(
         )
         assert stop.size.width == 40
         assert stop.size.height == 40
-        (tmp_path / "picker-stop-markers.png").write_bytes(window.grab_window_as_png())
 
 
 @pytest.mark.parametrize("loaded_custom", [False, True])

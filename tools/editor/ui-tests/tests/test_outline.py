@@ -330,7 +330,6 @@ def test_outline_ghost_follows_pointer_in_tree(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    tmp_path: Path,
     grab_fraction: float,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
@@ -360,7 +359,6 @@ def test_outline_ghost_follows_pointer_in_tree(
         assert ghost.absolute_position.y == pytest.approx(moved.y - grab.y)
         assert ghost.size.width == pytest.approx(row_width)
         assert ghost.size.height == pytest.approx(row_height)
-        (tmp_path / "outline-ghost.png").write_bytes(window.grab_window_as_png())
         press_key(window, keys.Escape)
         window.dispatch_event(slint_testing.PointerReleaseEvent(moved, button))
         assert outline_row(window, "sibling-a").size.height == pytest.approx(row_height)
@@ -372,7 +370,6 @@ def test_outline_gap_matches_drop_destination(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    tmp_path: Path,
     location: str,
 ) -> None:
     source = fixture_project / "OutlineCases.slint"
@@ -453,9 +450,6 @@ def test_outline_gap_matches_drop_destination(
         )
         difference = ImageChops.difference(actual_content, expected_content)
         assert difference.point(lambda value: 255 if value > 3 else 0).getbbox() is None
-        (tmp_path / f"outline-gap-{location}.png").write_bytes(
-            window.grab_window_as_png()
-        )
         snapshot.assert_unchanged()
         window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
         expected = {
@@ -494,9 +488,6 @@ def test_outline_gap_matches_drop_destination(
         assert frame.absolute_position.y == pytest.approx(image.absolute_position.y)
         assert frame.size.width == pytest.approx(image.size.width)
         assert frame.size.height == pytest.approx(image.size.height)
-        (tmp_path / f"outline-hover-after-drop-{location}.png").write_bytes(
-            window.grab_window_as_png()
-        )
         window.dispatch_event(
             slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(x=1, y=1))
         )
