@@ -294,16 +294,30 @@ impl SlintBrush {
             Brush::SolidColor(_) => self.slint_color().to_string(),
             Brush::LinearGradient(gradient) => {
                 format!(
-                    "linear-gradient({}deg, {})",
+                    "linear-gradient({}{}deg, {})",
+                    color_space_prefix(gradient.color_space()),
                     gradient.angle(),
                     gradient_stops_to_string(gradient.stops())
                 )
             }
             Brush::RadialGradient(gradient) => {
-                format!("radial-gradient(circle, {})", gradient_stops_to_string(gradient.stops()))
+                format!(
+                    "radial-gradient({}circle, {})",
+                    color_space_prefix(gradient.color_space()),
+                    gradient_stops_to_string(gradient.stops())
+                )
             }
             _ => String::default(),
         }
+    }
+}
+
+/// The CSS-syntax `in <space> ` prefix for a non-default color space, or an empty string.
+fn color_space_prefix(space: i_slint_core::graphics::GradientColorSpace) -> String {
+    if space == i_slint_core::graphics::GradientColorSpace::Srgb {
+        String::new()
+    } else {
+        format!("in {space} ")
     }
 }
 

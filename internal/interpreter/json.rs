@@ -88,6 +88,24 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
             },
             langtype::Type::Brush => {
                 fn string_to_brush(input: &str) -> Result<i_slint_core::graphics::Brush, String> {
+                    /// Strips a leading `in <space> ` clause, if present, returning the color
+                    /// space and the remainder of the string.
+                    fn strip_color_space(
+                        s: &str,
+                    ) -> Result<(i_slint_core::graphics::GradientColorSpace, &str), String>
+                    {
+                        let Some(rest) = s.strip_prefix("in ") else {
+                            return Ok((i_slint_core::graphics::GradientColorSpace::Srgb, s));
+                        };
+                        let Some((name, rest)) = rest.split_once(' ') else {
+                            return Err("Expected a color space after 'in'".into());
+                        };
+                        let space = name
+                            .parse()
+                            .map_err(|()| format!("'{name}' is not a valid color space"))?;
+                        Ok((space, rest))
+                    }
+
                     fn parse_stops<'a>(
                         it: impl Iterator<Item = &'a str>,
                     ) -> Result<Vec<i_slint_core::graphics::GradientStop>, String>
@@ -120,6 +138,7 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
                     };
 
                     if let Some(linear) = input.strip_prefix("@linear-gradient(") {
+                        let (color_space, linear) = strip_color_space(linear)?;
                         let mut split = linear.split(',').map(|p| p.trim());
 
                         let angle = {
@@ -141,17 +160,23 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
                                 })
                         }?;
 
-                        Ok(i_slint_core::graphics::LinearGradientBrush::new(
+                        Ok((i_slint_core::graphics::LinearGradientBrush::new(
                             angle,
                             parse_stops(split)?.drain(..),
-                        )
+                        ))
+                        .with_color_space(color_space)
                         .into())
-                    } else if let Some(radial) = input.strip_prefix("@radial-gradient(circle") {
+                    } else if let Some(radial) = input.strip_prefix("@radial-gradient(") {
+                        let (color_space, radial) = strip_color_space(radial)?;
+                        let Some(radial) = radial.strip_prefix("circle") else {
+                            return Err(format!("Could not parse gradient from '{input}'"));
+                        };
                         let split = radial.split(',').map(|p| p.trim());
 
-                        Ok(i_slint_core::graphics::RadialGradientBrush::new_circle(
+                        Ok((i_slint_core::graphics::RadialGradientBrush::new_circle(
                             parse_stops(split)?.drain(..),
-                        )
+                        ))
+                        .with_color_space(color_space)
                         .into())
                     } else {
                         Err(format!("Could not parse gradient from '{input}'"))
@@ -235,6 +260,15 @@ pub fn value_to_json(value: &Value) -> Result<serde_json::Value, String> {
         serde_json::Value::String(gradient)
     }
 
+    /// The CSS-syntax `in <space> ` prefix for a non-default color space, or an empty string.
+    fn color_space_prefix(space: i_slint_core::graphics::GradientColorSpace) -> String {
+        if space == i_slint_core::graphics::GradientColorSpace::Srgb {
+            String::new()
+        } else {
+            format!("in {space} ")
+        }
+    }
+
     match value {
         Value::Void => Ok(serde_json::Value::Null),
         Value::Bool(b) => Ok((*b).into()),
@@ -274,12 +308,17 @@ pub fn value_to_json(value: &Value) -> Result<serde_json::Value, String> {
         Value::Brush(brush) => match brush {
             Brush::SolidColor(color) => Ok(serde_json::Value::String(color_to_string(color))),
             Brush::LinearGradient(lg) => Ok(gradient_to_string_helper(
-                format!("@linear-gradient({}deg", lg.angle()),
+                format!(
+                    "@linear-gradient({}{}deg",
+                    color_space_prefix(lg.color_space()),
+                    lg.angle()
+                ),
                 lg.stops(),
             )),
-            Brush::RadialGradient(rg) => {
-                Ok(gradient_to_string_helper("@radial-gradient(circle".into(), rg.stops()))
-            }
+            Brush::RadialGradient(rg) => Ok(gradient_to_string_helper(
+                format!("@radial-gradient({}circle", color_space_prefix(rg.color_space())),
+                rg.stops(),
+            )),
             _ => Err("Cannot serialize an unknown brush type".into()),
         },
         Value::PathData(_) => Err("Cannot serialize path data".into()),
@@ -569,4 +608,102 @@ fn test_to_json() {
     )))
     .unwrap();
     assert_eq!(&v, "\"@radial-gradient(circle, #ff0000 0%, #00ff00 50%, #0000ff 100%)\"");
+
+    let v = value_to_json_string(&Value::Brush(Brush::LinearGradient(
+        (i_slint_core::graphics::LinearGradientBrush::new(
+            42.0,
+            vec![
+                i_slint_core::graphics::GradientStop {
+                    position: 0.0,
+                    color: Color::from_argb_u8(0xff, 0xff, 0x00, 0x00),
+                },
+                i_slint_core::graphics::GradientStop {
+                    position: 1.0,
+                    color: Color::from_argb_u8(0xff, 0x00, 0x00, 0xff),
+                },
+            ]
+            .drain(..),
+        ))
+        .with_color_space(i_slint_core::graphics::GradientColorSpace::Oklch),
+    )))
+    .unwrap();
+    assert_eq!(&v, "\"@linear-gradient(in oklch 42deg, #ff0000 0%, #0000ff 100%)\"");
+
+    let v = value_to_json_string(&Value::Brush(Brush::RadialGradient(
+        (i_slint_core::graphics::RadialGradientBrush::new_circle(
+            vec![
+                i_slint_core::graphics::GradientStop {
+                    position: 0.0,
+                    color: Color::from_argb_u8(0xff, 0xff, 0x00, 0x00),
+                },
+                i_slint_core::graphics::GradientStop {
+                    position: 1.0,
+                    color: Color::from_argb_u8(0xff, 0x00, 0x00, 0xff),
+                },
+            ]
+            .drain(..),
+        ))
+        .with_color_space(i_slint_core::graphics::GradientColorSpace::Hsl),
+    )))
+    .unwrap();
+    assert_eq!(&v, "\"@radial-gradient(in hsl circle, #ff0000 0%, #0000ff 100%)\"");
+}
+
+#[test]
+fn test_color_space_round_trips_through_json() {
+    for (space, name) in [
+        (i_slint_core::graphics::GradientColorSpace::Oklch, "oklch"),
+        (i_slint_core::graphics::GradientColorSpace::Oklab, "oklab"),
+        (i_slint_core::graphics::GradientColorSpace::Hsl, "hsl"),
+        (i_slint_core::graphics::GradientColorSpace::Srgb, "srgb"),
+    ] {
+        let linear = Value::Brush(Brush::LinearGradient(
+            (i_slint_core::graphics::LinearGradientBrush::new(
+                42.0,
+                vec![
+                    i_slint_core::graphics::GradientStop {
+                        position: 0.0,
+                        color: Color::from_argb_u8(0xff, 0xff, 0x00, 0x00),
+                    },
+                    i_slint_core::graphics::GradientStop {
+                        position: 1.0,
+                        color: Color::from_argb_u8(0xff, 0x00, 0x00, 0xff),
+                    },
+                ]
+                .drain(..),
+            ))
+            .with_color_space(space),
+        ));
+        let json = value_to_json_string(&linear).unwrap();
+        let Ok(Value::Brush(Brush::LinearGradient(g))) =
+            value_from_json_str(&langtype::Type::Brush, &json)
+        else {
+            panic!("Failed to round-trip linear gradient in {name} through JSON");
+        };
+        assert_eq!(g.color_space(), space, "linear gradient color space did not round-trip");
+
+        let radial = Value::Brush(Brush::RadialGradient(
+            (i_slint_core::graphics::RadialGradientBrush::new_circle(
+                vec![
+                    i_slint_core::graphics::GradientStop {
+                        position: 0.0,
+                        color: Color::from_argb_u8(0xff, 0xff, 0x00, 0x00),
+                    },
+                    i_slint_core::graphics::GradientStop {
+                        position: 1.0,
+                        color: Color::from_argb_u8(0xff, 0x00, 0x00, 0xff),
+                    },
+                ]
+                .drain(..),
+            ))
+            .with_color_space(space),
+        ));
+        let json = value_to_json_string(&radial).unwrap();
+        let Ok(Value::Brush(Brush::RadialGradient(g))) =
+            value_from_json_str(&langtype::Type::Brush, &json)
+        else {
+            panic!("Failed to round-trip radial gradient in {name} through JSON");
+        };
+        assert_eq!(g.color_space(), space, "radial gradient color space did not round-trip");
+    }
 }

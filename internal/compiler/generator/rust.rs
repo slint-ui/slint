@@ -15,7 +15,9 @@ Some convention used in the generated code:
 use super::accessor_names::{self, AccessorKind};
 use crate::CompilerConfiguration;
 use crate::diagnostics::SourceLocation;
-use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
+use crate::expression_tree::{
+    BuiltinFunction, EasingCurve, GradientColorSpace, MinMaxOp, OperatorClass,
+};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
@@ -4351,29 +4353,45 @@ fn compile_struct(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     }
 }
 
+/// Returns the tokens for `.with_color_space(...)`, or nothing when `color_space` is the
+/// default (sRGB), since the constructors already default to it.
+fn compile_gradient_color_space_suffix(color_space: GradientColorSpace) -> TokenStream {
+    let variant = match color_space {
+        GradientColorSpace::Srgb => return quote!(),
+        GradientColorSpace::Oklch => quote!(Oklch),
+        GradientColorSpace::Oklab => quote!(Oklab),
+        GradientColorSpace::Hsl => quote!(Hsl),
+    };
+    quote!(.with_color_space(sp::GradientColorSpace::#variant))
+}
+
 #[inline(never)]
 fn compile_linear_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::LinearGradient { angle, stops } = expr else { unreachable!() };
+    let Expression::LinearGradient { angle, color_space, stops } = expr else { unreachable!() };
     let angle = compile_expression(angle, ctx);
+    let color_space = compile_gradient_color_space_suffix(*color_space);
     let stops = stops.iter().map(|(color, stop)| {
         let color = compile_expression(color, ctx);
         let position = compile_expression(stop, ctx);
         quote!(sp::GradientStop{ color: #color, position: #position as _ })
     });
     quote!(slint::Brush::LinearGradient(
-        sp::LinearGradientBrush::new(#angle as _, [#(#stops),*])
+        sp::LinearGradientBrush::new(#angle as _, [#(#stops),*]) #color_space
     ))
 }
 
 #[inline(never)]
 fn compile_radial_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::RadialGradient { center, radius, stops } = expr else { unreachable!() };
+    let Expression::RadialGradient { center, radius, color_space, stops } = expr else {
+        unreachable!()
+    };
+    let color_space = compile_gradient_color_space_suffix(*color_space);
     let stops = stops.iter().map(|(color, stop)| {
         let color = compile_expression(color, ctx);
         let position = compile_expression(stop, ctx);
         quote!(sp::GradientStop{ color: #color, position: #position as _ })
     });
-    let brush_expr = quote!(sp::RadialGradientBrush::new_circle([#(#stops),*]));
+    let brush_expr = quote!(sp::RadialGradientBrush::new_circle([#(#stops),*]) #color_space);
     let brush_expr = if let Some((cx, cy)) = center {
         let cx = compile_expression(cx, ctx);
         let cy = compile_expression(cy, ctx);
@@ -4392,14 +4410,18 @@ fn compile_radial_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenS
 
 #[inline(never)]
 fn compile_conic_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::ConicGradient { from_angle, center, stops } = expr else { unreachable!() };
+    let Expression::ConicGradient { from_angle, center, color_space, stops } = expr else {
+        unreachable!()
+    };
     let from_angle = compile_expression(from_angle, ctx);
+    let color_space = compile_gradient_color_space_suffix(*color_space);
     let stops = stops.iter().map(|(color, stop)| {
         let color = compile_expression(color, ctx);
         let position = compile_expression(stop, ctx);
         quote!(sp::GradientStop{ color: #color, position: #position as _ })
     });
-    let brush_expr = quote!(sp::ConicGradientBrush::new(#from_angle as _, [#(#stops),*]));
+    let brush_expr =
+        quote!(sp::ConicGradientBrush::new(#from_angle as _, [#(#stops),*]) #color_space);
     let brush_expr = if let Some((cx, cy)) = center {
         let cx = compile_expression(cx, ctx);
         let cy = compile_expression(cy, ctx);

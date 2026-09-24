@@ -34,8 +34,8 @@ export component PropertyValueWidget inherits VerticalLayout {
     callback set-bool-binding(value: bool);
     callback set-color-binding(text: string);
     callback test-color-binding(text: string) -> bool;
-    callback set-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop]);
-    callback test-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> bool;
+    callback set-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop], color-space: string);
+    callback test-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop], color-space: string) -> bool;
     callback set-float-binding(text: string, unit: string);
     callback test-float-binding(text: string, unit: string) -> bool;
     callback set-code-binding(text: string);
@@ -84,11 +84,11 @@ export component PropertyValueWidget inherits VerticalLayout {
             root.set-color-binding(text);
         }
 
-        test-brush-binding(kind, angle, color, stops) => {
-            return root.test-brush-binding(kind, angle, color, stops);
+        test-brush-binding(kind, angle, color, stops, color-space) => {
+            return root.test-brush-binding(kind, angle, color, stops, color-space);
         }
-        set-brush-binding(kind, angle, color, stops) => {
-            root.set-brush-binding(kind, angle, color, stops);
+        set-brush-binding(kind, angle, color, stops, color-space) => {
+            root.set-brush-binding(kind, angle, color, stops, color-space);
         }
 
         update-display-string(value) => {
@@ -338,11 +338,11 @@ export component PropertyInformationWidget inherits TouchArea {
             set-bool-binding(value) => {
                 self.set-code-binding(value ? "true" : "false");
             }
-            set-brush-binding(kind, angle, color, stops) => {
-                self.set-code-binding(Api.as-slint-brush(kind, angle, color, stops));
+            set-brush-binding(kind, angle, color, stops, color-space) => {
+                self.set-code-binding(Api.as-slint-brush(kind, angle, color, stops, color-space));
             }
-            test-brush-binding(kind, angle, color, stops) => {
-                return self.test-code-binding(Api.as-slint-brush(kind, angle, color, stops));
+            test-brush-binding(kind, angle, color, stops, color-space) => {
+                return self.test-code-binding(Api.as-slint-brush(kind, angle, color, stops, color-space));
             }
             set-color-binding(text) => {
                 self.set-code-binding(text);
@@ -463,11 +463,11 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
         set-bool-binding(value) => {
             self.set-code-binding(value ? "true" : "false");
         }
-        set-brush-binding(kind, angle, color, stops) => {
-            self.set-code-binding(Api.as-json-brush(kind, angle, color, stops));
+        set-brush-binding(kind, angle, color, stops, color-space) => {
+            self.set-code-binding(Api.as-json-brush(kind, angle, color, stops, color-space));
         }
-        test-brush-binding(kind, angle, color, stops) => {
-            return self.test-code-binding(Api.as-json-brush(kind, angle, color, stops));
+        test-brush-binding(kind, angle, color, stops, color-space) => {
+            return self.test-code-binding(Api.as-json-brush(kind, angle, color, stops, color-space));
         }
         set-color-binding(text) => {
             self.set-code-binding("\"\{text}\"");

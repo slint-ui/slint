@@ -768,6 +768,47 @@ pub enum ConditionLocation {
     StateChange(SourceLocation),
 }
 
+/// The color space gradient stops are interpolated in
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GradientColorSpace {
+    /// Interpolate in sRGB, the default.
+    #[default]
+    Srgb,
+    /// Interpolate in the OKLCH color space.
+    Oklch,
+    /// Interpolate in the OKLab color space.
+    Oklab,
+    /// Interpolate in the HSL color space.
+    Hsl,
+}
+
+impl std::fmt::Display for GradientColorSpace {
+    /// The CSS-syntax name of the color space, as written in a gradient's `in <space>` clause.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            GradientColorSpace::Srgb => "srgb",
+            GradientColorSpace::Oklch => "oklch",
+            GradientColorSpace::Oklab => "oklab",
+            GradientColorSpace::Hsl => "hsl",
+        })
+    }
+}
+
+impl std::str::FromStr for GradientColorSpace {
+    type Err = ();
+
+    /// Parses the CSS-syntax name of a color space, as written in a gradient's `in <space>` clause.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "srgb" => Ok(GradientColorSpace::Srgb),
+            "oklch" => Ok(GradientColorSpace::Oklch),
+            "oklab" => Ok(GradientColorSpace::Oklab),
+            "hsl" => Ok(GradientColorSpace::Hsl),
+            _ => Err(()),
+        }
+    }
+}
+
 /// The Expression is held by properties, so it should not hold any strong references to node from the object_tree
 #[derive(Debug, Clone, Default)]
 pub enum Expression {
@@ -913,6 +954,8 @@ pub enum Expression {
 
     LinearGradient {
         angle: Box<Expression>,
+        /// The color space stops are interpolated in, corresponding to CSS's `in <space>`.
+        color_space: GradientColorSpace,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -924,6 +967,8 @@ pub enum Expression {
         /// Explicit radius in the element's local coordinate space (`circle <r>`).
         /// `None` means use the element's bbox half-diagonal.
         radius: Option<Box<Expression>>,
+        /// The color space stops are interpolated in, corresponding to CSS's `in <space>`.
+        color_space: GradientColorSpace,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -934,6 +979,8 @@ pub enum Expression {
         /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
         /// `None` means use the element's bbox centre.
         center: Option<(Box<Expression>, Box<Expression>)>,
+        /// The color space stops are interpolated in, corresponding to CSS's `in <space>`.
+        color_space: GradientColorSpace,
         /// First expression in the tuple is a color, second expression is the stop angle
         stops: Vec<(Expression, Expression)>,
     },
@@ -1245,14 +1292,14 @@ impl Expression {
                 }
                 MouseCursorInner::BuiltIn(e) => visitor(e),
             },
-            Expression::LinearGradient { angle, stops } => {
+            Expression::LinearGradient { angle, color_space: _, stops } => {
                 visitor(angle);
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, radius, color_space: _, stops } => {
                 if let Some((cx, cy)) = center {
                     visitor(cx);
                     visitor(cy);
@@ -1265,7 +1312,7 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::ConicGradient { from_angle, center, stops } => {
+            Expression::ConicGradient { from_angle, center, color_space: _, stops } => {
                 visitor(from_angle);
                 if let Some((cx, cy)) = center {
                     visitor(cx);
@@ -1394,14 +1441,14 @@ impl Expression {
                 }
                 MouseCursorInner::BuiltIn(e) => visitor(e),
             },
-            Expression::LinearGradient { angle, stops } => {
+            Expression::LinearGradient { angle, color_space: _, stops } => {
                 visitor(angle);
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, radius, color_space: _, stops } => {
                 if let Some((cx, cy)) = center {
                     visitor(cx);
                     visitor(cy);
@@ -1414,7 +1461,7 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::ConicGradient { from_angle, center, stops } => {
+            Expression::ConicGradient { from_angle, center, color_space: _, stops } => {
                 visitor(from_angle);
                 if let Some((cx, cy)) = center {
                     visitor(cx);
@@ -1550,16 +1597,16 @@ impl Expression {
                     image.is_constant(ga) && hotspot_x.is_constant(ga) && hotspot_y.is_constant(ga)
                 }
             },
-            Expression::LinearGradient { angle, stops } => {
+            Expression::LinearGradient { angle, color_space: _, stops } => {
                 angle.is_constant(ga)
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, radius, color_space: _, stops } => {
                 center.as_ref().is_none_or(|(cx, cy)| cx.is_constant(ga) && cy.is_constant(ga))
                     && radius.as_ref().is_none_or(|r| r.is_constant(ga))
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
-            Expression::ConicGradient { from_angle, center, stops } => {
+            Expression::ConicGradient { from_angle, center, color_space: _, stops } => {
                 from_angle.is_constant(ga)
                     && center
                         .as_ref()
@@ -2543,8 +2590,11 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::EmptyDataTransfer => write!(f, "{{ }}"),
         Expression::EasingCurve(e) => write!(f, "{e:?}"),
         Expression::MouseCursor(m) => write!(f, "{m:?}"),
-        Expression::LinearGradient { angle, stops } => {
+        Expression::LinearGradient { angle, color_space, stops } => {
             write!(f, "@linear-gradient(")?;
+            if *color_space != GradientColorSpace::Srgb {
+                write!(f, "in {} ", color_space)?;
+            }
             pretty_print(f, angle)?;
             for (c, s) in stops {
                 write!(f, ", ")?;
@@ -2554,8 +2604,12 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::RadialGradient { center, radius, stops } => {
-            write!(f, "@radial-gradient(circle")?;
+        Expression::RadialGradient { center, radius, color_space, stops } => {
+            write!(f, "@radial-gradient(")?;
+            if *color_space != GradientColorSpace::Srgb {
+                write!(f, "in {} ", color_space)?;
+            }
+            write!(f, "circle")?;
             if let Some(r) = radius {
                 write!(f, " ")?;
                 pretty_print(f, r)?;
@@ -2574,8 +2628,12 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::ConicGradient { from_angle, center, stops } => {
-            write!(f, "@conic-gradient(from ")?;
+        Expression::ConicGradient { from_angle, center, color_space, stops } => {
+            write!(f, "@conic-gradient(")?;
+            if *color_space != GradientColorSpace::Srgb {
+                write!(f, "in {} ", color_space)?;
+            }
+            write!(f, "from ")?;
             pretty_print(f, from_angle)?;
             if let Some((cx, cy)) = center {
                 write!(f, " at ")?;

@@ -904,6 +904,7 @@ fn map_value_and_type(
                         brush_kind: BrushKind::Linear,
                         value_float: lg.angle(),
                         value_brush: slint::Brush::LinearGradient(lg.clone()),
+                        color_space: lg.color_space().to_string().into(),
                         gradient_stops: Rc::new(VecModel::from(
                             lg.stops()
                                 .map(|gs| GradientStop { color: gs.color, position: gs.position })
@@ -923,6 +924,7 @@ fn map_value_and_type(
                         value_kind: PropertyValueKind::Brush,
                         brush_kind: BrushKind::Radial,
                         value_brush: slint::Brush::RadialGradient(rg.clone()),
+                        color_space: rg.color_space().to_string().into(),
                         gradient_stops: Rc::new(VecModel::from(
                             rg.stops()
                                 .map(|gs| GradientStop { color: gs.color, position: gs.position })
@@ -942,6 +944,7 @@ fn map_value_and_type(
                         value_kind: PropertyValueKind::Brush,
                         brush_kind: BrushKind::Conic,
                         value_brush: slint::Brush::ConicGradient(cg.clone()),
+                        color_space: cg.color_space().to_string().into(),
                         gradient_stops: Rc::new(VecModel::from(
                             cg.stops()
                                 .map(|gs| GradientStop { color: gs.color, position: gs.position })

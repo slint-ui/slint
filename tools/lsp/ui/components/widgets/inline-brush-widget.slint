@@ -286,12 +286,12 @@ export component InlineBrushWidget inherits VerticalLayout {
     callback set-color-binding(text: string);
     callback update-floating-editor();
 
-    callback test-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> bool;
-    callback set-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop]);
+    callback test-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop], color-space: string) -> bool;
+    callback set-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop], color-space: string);
 
-    function set-brush-binding_impl(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) {
+    function set-brush-binding_impl(kind: BrushKind, angle: float, color: color, stops: [GradientStop], color-space: string) {
         self.update-display-string(kind == BrushKind.solid ? "Solid Color" : kind == BrushKind.linear ? "Linear Gradient" : "Radial Gradient");
-        self.set-brush-binding(kind, angle, color, stops);
+        self.set-brush-binding(kind, angle, color, stops, color-space);
     }
 
     private property <brush> current-brush;
@@ -299,6 +299,7 @@ export component InlineBrushWidget inherits VerticalLayout {
     private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
     private property <BrushKind> current-brush-kind;
     private property <float> current-angle;
+    private property <string> current-color-space;
     private property <bool> has-focus;
 
     padding-left: 16px;
@@ -313,6 +314,7 @@ export component InlineBrushWidget inherits VerticalLayout {
             root.current-brush-kind = self.property-value.brush-kind;
             root.current-gradient-stops = self.property-value.gradient-stops;
             root.current-angle = self.property-value.value-float;
+            root.current-color-space = self.property-value.color-space;
         }
         if self.property-value.kind == PropertyValueKind.color {
             root.current-color = self.property-value.value-brush;
@@ -322,8 +324,8 @@ export component InlineBrushWidget inherits VerticalLayout {
     function update-brush() {
         if self.property-value.kind == PropertyValueKind.brush {
             // Always use the angle we expect in the preview!
-            root.current-brush = Api.create-brush(root.current-brush-kind, root.current-angle, root.current-brush, root.current-gradient-stops);
-            root.test-brush-binding(root.current-brush-kind, root.current-angle, root.current-brush, root.current-gradient-stops);
+            root.current-brush = Api.create-brush(root.current-brush-kind, root.current-angle, root.current-brush, root.current-gradient-stops, root.current-color-space);
+            root.test-brush-binding(root.current-brush-kind, root.current-angle, root.current-brush, root.current-gradient-stops, root.current-color-space);
         }
     }
 
