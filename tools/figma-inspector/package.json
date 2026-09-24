@@ -4,12 +4,12 @@
   "version": "1.19.0",
   "type": "module",
   "scripts": {
-    "check": "pnpm format && pnpm lint && pnpm type-check && pnpm knip && pnpm spellcheck",
+    "check": "pnpm format && pnpm lint && pnpm type-check && pnpm knip && pnpm spellcheck && pnpm check:fonts",
     "lint": "biome lint .",
     "format": "biome format .",
     "knip": "knip --directory ../.. --workspace tools/figma-inspector",
     "build": "vite build --config vite.config.code.ts && vite build",
-    "build:slint": "pnpm prepare:slint && node scripts/build-slint.mjs",
+    "build:slint": "wasm-pack build --release --target web ../../api/wasm-interpreter -- --features console_error_panic_hook",
     "test:bundle": "node tests/bundle-contract.mjs && node tests/sandbox-harness.mjs",
     "zip": "pnpm build && node scripts/package-plugin.mjs",
     "test:package": "node tests/package-contract.mjs",
@@ -25,8 +25,8 @@
     "spellcheck": "cspell --no-progress --gitignore \"src/**/*.{ts,css,html}\" \"scripts/**/*.mjs\" \"tests/**/*.{ts,mjs}\" \"*.md\" \"vite.config*.ts\" \"ui.html\"",
     "zip:nightly": "pnpm build && node scripts/package-plugin.mjs --nightly",
     "test:nightly": "pnpm zip:nightly && pnpm test:package",
-    "build:slint:dev": "pnpm prepare:slint && node scripts/build-slint.mjs --dev",
-    "prepare:slint": "node scripts/prepare-slint.mjs"
+    "build:slint:dev": "wasm-pack build --dev --target web ../../api/wasm-interpreter -- --features console_error_panic_hook",
+    "check:fonts": "node scripts/build-font-capabilities.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",

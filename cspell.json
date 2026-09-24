@@ -386,7 +386,6 @@
     ".cspell/slint-project-words-audit.tsv",
     "tools/figma-inspector/fixtures/**",
     "tools/figma-inspector/src/ui/syntax-assets/**",
-    "tools/figma-inspector/.generated/**",
     "**/*.gltf",
     "**/*.po",
     "**/*.pot",
@@ -417,14 +416,11 @@
         "resizer",
         "roundoff",
         "stylechange",
-        "ungenerated",
         "uninflated",
         "unoutlined",
         "unrenderable",
         "unstub",
         "uploadlabel",
-        "worktree",
-        "worktrees",
         "xlink"
       ]
     },
