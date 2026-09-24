@@ -349,6 +349,30 @@ pub(super) fn disallow_implement_in_non_root(
     }
 }
 
+pub struct MissingMembers {
+    pub statement: syntax_nodes::ImplementStatement,
+    pub declarations: Vec<String>,
+}
+
+pub fn missing_interface_members(root: &ElementRc) -> Vec<MissingMembers> {
+    let element = root.borrow();
+    element
+        .implement_statements
+        .iter()
+        .filter(|stmt| stmt.binding == ImplementBinding::OnSelf)
+        .filter_map(|stmt| {
+            let declarations: Vec<String> = declared_members(&stmt.interface)
+                .into_iter()
+                .filter(|(_, member)| member.declaration.property_type != Type::Invalid)
+                .filter(|(name, _)| member_is_absent(&element, name))
+                .map(|(name, member)| syntax_for_declaration(&member.declaration, &name))
+                .collect();
+            (!declarations.is_empty())
+                .then(|| MissingMembers { statement: stmt.node.clone(), declarations })
+        })
+        .collect()
+}
+
 /// A two-way binding written without a type only gets one in `infer_aliases_types`.
 /// This runs as a pass after it rather than while the object tree is built.
 pub(crate) fn validate_implement_statements(
