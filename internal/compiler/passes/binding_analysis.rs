@@ -1015,7 +1015,7 @@ fn visit_layout_items_dependencies<'a>(
             }
             element = it.element.borrow().base_type.as_component().root_element.clone();
             // Conservative for a repeated cell: whether the layout hands the
-            // instance its width depends on it (see `cell_is_height_for_width`).
+            // instance its width depends on it (see `builtin_height_depends_on_width`).
             CrossAxisSize::ReadByCell
         } else {
             cross_size
@@ -1222,9 +1222,6 @@ fn visit_implicit_layout_info_dependencies(
         "Image" => {
             vis(&NamedReference::new(item, SmolStr::new_static("source")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("source-clip-width")).into(), N);
-            if reads_own_width {
-                vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
-            }
             if orientation == Orientation::Vertical {
                 vis(
                     &NamedReference::new(item, SmolStr::new_static("source-clip-height")).into(),
@@ -1247,16 +1244,6 @@ fn visit_implicit_layout_info_dependencies(
                 );
             }
             vis(&NamedReference::new(item, SmolStr::new_static("wrap")).into(), N);
-            let wrap_set = item.borrow().is_binding_set("wrap", false)
-                || item
-                    .borrow()
-                    .property_analysis
-                    .borrow()
-                    .get("wrap")
-                    .is_some_and(|a| a.is_set || a.is_set_externally);
-            if wrap_set && reads_own_width {
-                vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
-            }
             if base_type.as_str() == "TextInput" {
                 vis(&NamedReference::new(item, SmolStr::new_static("single-line")).into(), N);
             } else {
@@ -1273,13 +1260,12 @@ fn visit_implicit_layout_info_dependencies(
             // A line dropped by the limit is also excluded from the content widths, so
             // `max-lines` is a dependency of both orientations, not just the height.
             vis(&NamedReference::new(item, SmolStr::new_static("max-lines")).into(), N);
-            if reads_own_width {
-                // StyledText always word-wraps, so its height depends on the width.
-                vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
-            }
         }
 
         _ => (),
+    }
+    if reads_own_width && crate::layout::builtin_height_depends_on_width(&item.borrow()) {
+        vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
     }
 }
 
