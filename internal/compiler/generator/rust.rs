@@ -21,7 +21,7 @@ use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::llr::{
     self, ArrayOutput, CROSS_WIDTH_LOCAL, EvaluationContext as llr_EvaluationContext,
     EvaluationScope, Expression, GRID_MEASURE_CHILD_INDEX_LOCAL, GRID_MEASURE_REPEATER_INDEX_LOCAL,
-    MEASURE_KNOWN_W_LOCAL, ParentScope, TypeResolutionContext as _,
+    MEASURE_KNOWN_W_LOCAL, ParentScope, RadialGradientShape, TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
 use crate::source_path::SourcePath;
@@ -4440,23 +4440,33 @@ fn compile_linear_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenS
 }
 
 fn compile_radial_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::RadialGradient { center, radius, stops } = expr else { unreachable!() };
+    let Expression::RadialGradient { center, shape, stops } = expr else { unreachable!() };
     let stops = stops.iter().map(|(color, stop)| {
         let color = compile_expression(color, ctx);
         let position = compile_expression(stop, ctx);
         quote!(sp::GradientStop{ color: #color, position: #position as _ })
     });
-    let brush_expr = quote!(sp::RadialGradientBrush::new_circle([#(#stops),*]));
+    let brush_expr = match shape {
+        RadialGradientShape::Circle(None) => {
+            quote!(sp::RadialGradientBrush::new_circle([#(#stops),*]))
+        }
+        RadialGradientShape::Circle(Some(r)) => {
+            let r = compile_expression(r, ctx);
+            quote!(sp::RadialGradientBrush::new_circle([#(#stops),*]).with_radius(#r as f32))
+        }
+        RadialGradientShape::Ellipse(None) => {
+            quote!(sp::RadialGradientBrush::new_ellipse([#(#stops),*]))
+        }
+        RadialGradientShape::Ellipse(Some((rx, ry))) => {
+            let rx = compile_expression(rx, ctx);
+            let ry = compile_expression(ry, ctx);
+            quote!(sp::RadialGradientBrush::new_ellipse([#(#stops),*]).with_radii(#rx as f32, #ry as f32))
+        }
+    };
     let brush_expr = if let Some((cx, cy)) = center {
         let cx = compile_expression(cx, ctx);
         let cy = compile_expression(cy, ctx);
         quote!(#brush_expr.with_center(#cx as f32, #cy as f32))
-    } else {
-        brush_expr
-    };
-    let brush_expr = if let Some(r) = radius {
-        let r = compile_expression(r, ctx);
-        quote!(#brush_expr.with_radius(#r as f32))
     } else {
         brush_expr
     };

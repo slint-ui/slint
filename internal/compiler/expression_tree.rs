@@ -5,7 +5,8 @@ use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, PropertyLookupMode};
 use crate::expression_types::{
-    EasingCurve, ImageReference, MinMaxOp, MouseCursorInner, OperatorClass, Unit, operator_class,
+    EasingCurve, ImageReference, MinMaxOp, MouseCursorInner, OperatorClass, RadialGradientShape,
+    Unit, operator_class,
 };
 use crate::langtype::{ConstantExpression, EnumerationValue, Keys, Struct, Type};
 use crate::lookup::{LookupCtx, TypeSpecificLookup};
@@ -375,9 +376,8 @@ pub enum Expression {
         /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
         /// `None` means use the element's bbox centre.
         center: Option<(Box<Expression>, Box<Expression>)>,
-        /// Explicit radius in the element's local coordinate space (`circle <r>`).
-        /// `None` means use the element's bbox half-diagonal.
-        radius: Option<Box<Expression>>,
+        /// Ending shape (`circle` or `ellipse`) with its optional explicit radii.
+        shape: RadialGradientShape<Expression>,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -710,12 +710,12 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 if let Some((cx, cy)) = center {
                     visitor(cx);
                     visitor(cy);
                 }
-                if let Some(r) = radius {
+                for r in shape.iter() {
                     visitor(r);
                 }
                 for (c, s) in stops {
@@ -860,12 +860,12 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 if let Some((cx, cy)) = center {
                     visitor(cx);
                     visitor(cy);
                 }
-                if let Some(r) = radius {
+                for r in shape.iter_mut() {
                     visitor(r);
                 }
                 for (c, s) in stops {
@@ -1014,9 +1014,9 @@ impl Expression {
                 angle.is_constant(ga)
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 center.as_ref().is_none_or(|(cx, cy)| cx.is_constant(ga) && cy.is_constant(ga))
-                    && radius.as_ref().is_none_or(|r| r.is_constant(ga))
+                    && shape.iter().all(|r| r.is_constant(ga))
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
             Expression::ConicGradient { from_angle, center, stops } => {
@@ -2019,11 +2019,24 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::RadialGradient { center, radius, stops } => {
-            write!(f, "@radial-gradient(circle")?;
-            if let Some(r) = radius {
-                write!(f, " ")?;
-                pretty_print(f, r)?;
+        Expression::RadialGradient { center, shape, stops } => {
+            match shape {
+                RadialGradientShape::Circle(r) => {
+                    write!(f, "@radial-gradient(circle")?;
+                    if let Some(r) = r {
+                        write!(f, " ")?;
+                        pretty_print(f, r)?;
+                    }
+                }
+                RadialGradientShape::Ellipse(r) => {
+                    write!(f, "@radial-gradient(ellipse")?;
+                    if let Some((rx, ry)) = r {
+                        write!(f, " ")?;
+                        pretty_print(f, rx)?;
+                        write!(f, " ")?;
+                        pretty_print(f, ry)?;
+                    }
+                }
             }
             if let Some((cx, cy)) = center {
                 write!(f, " at ")?;
