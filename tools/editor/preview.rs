@@ -612,8 +612,8 @@ fn set_contents(url: &VersionedUrl, content: String) {
             .as_ref()
             == Some(url.url());
         let dependency = preview_state.dependencies.contains(url.url());
-        let invalidate =
-            (selected_document && (changed || version_changed)) || (dependency && changed);
+        let invalidate = !own_document_edit
+            && ((selected_document && (changed || version_changed)) || (dependency && changed));
         let reload = (dependency && changed).then(|| preview_state.current_component()).flatten();
         (reload, invalidate)
     });
