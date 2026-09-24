@@ -386,4 +386,66 @@ for (bounce, name) in [(AutoBool::Off, "off"), (AutoBool::On, "on")] {
     assert!((instance.get_fli_content_y() - (-100.)).abs() < 0.01, "Bounce {name}: content y is brought back into range, received: {}", instance.get_fli_content_y());
 }
 ```
+
+// A mouse wheel notch (a wheel event without touch phases) scrolls by its own delta,
+// also with bounce on. Here the animation of the previous notch is finished.
+```rust
+use slint::language::AutoBool;
+use slint::platform::WindowEvent;
+use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
+
+const INFINITE_TIME_SPEND: u64 = 100000000;
+
+for (bounce, name) in [(AutoBool::Off, "off"), (AutoBool::On, "on")] {
+    let instance = TestCase::new().unwrap();
+    let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+        .next()
+        .unwrap();
+    slint_testing::set_flickable_physics(&flickable, bounce, AutoBool::Off);
+    instance.set_fli_content_height(instance.get_fli_height() + 1000.);
+    let notch = |delta_y: f32| {
+        instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: LogicalPoint::new(50., 50.), delta_x: 0., delta_y, phase: TouchPhase::Moved }));
+    };
+
+    let mut previous = instance.get_fli_content_y();
+    for i in 0..4 {
+        notch(-30.);
+        slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+        let current = instance.get_fli_content_y();
+        assert!((previous - current - 30.).abs() < 0.1, "Bounce {name}: notch {i} scrolls by 30, but by {}", previous - current);
+        previous = current;
+    }
+}
+```
+
+// Same, but the next notch comes while the previous one is still animating.
+// The distance the previous one has left is added, so two notches scroll by 60 in total.
+```rust
+use slint::language::AutoBool;
+use slint::platform::WindowEvent;
+use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
+
+const INFINITE_TIME_SPEND: u64 = 100000000;
+
+for (bounce, name) in [(AutoBool::Off, "off"), (AutoBool::On, "on")] {
+    let instance = TestCase::new().unwrap();
+    let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+        .next()
+        .unwrap();
+    slint_testing::set_flickable_physics(&flickable, bounce, AutoBool::Off);
+    instance.set_fli_content_height(instance.get_fli_height() + 1000.);
+    let notch = |delta_y: f32| {
+        instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: LogicalPoint::new(50., 50.), delta_x: 0., delta_y, phase: TouchPhase::Moved }));
+    };
+
+    notch(-30.);
+    slint_testing::mock_elapsed_time(100);
+    // Reading the position evaluates the animation, like a rendered frame does
+    let y = instance.get_fli_content_y();
+    assert!(y < 0. && y > -30., "Bounce {name}: the first notch is still animating, received: {y}");
+    notch(-30.);
+    slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+    assert!((instance.get_fli_content_y() - (-60.)).abs() < 0.1, "Bounce {name}: two notches scroll by 60, received: {}", instance.get_fli_content_y());
+}
+```
 */

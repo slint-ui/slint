@@ -132,8 +132,7 @@ impl IOsFlick {
 
         let drag_log = f32::ln(DRAG);
         let v0 = data.initial_velocity;
-        // See FrictionSimulation.finalX: the position as time approaches infinity.
-        let final_x = start_value - v0 / drag_log;
+        let final_x = Self::friction_end(start_value, v0);
 
         let needs_spring = match direction {
             Direction::Increasing => final_x > limit,
@@ -180,6 +179,22 @@ impl IOsFlick {
             return None;
         }
         Some(f32::ln(ratio) / drag_log)
+    }
+
+    /// The position the friction curve (starting at `x0` with velocity `v0`) comes to rest at.
+    /// See FrictionSimulation.finalX: the position as time approaches infinity.
+    fn friction_end(x0: f32, v0: f32) -> f32 {
+        x0 - v0 / f32::ln(DRAG)
+    }
+
+    /// The position the simulation comes to rest at: the limit if the spring takes over,
+    /// the end of the friction curve otherwise.
+    fn final_position(&self) -> f32 {
+        if self.spring_time.is_finite() {
+            self.limit_value.as_ref().get()
+        } else {
+            Self::friction_end(self.start_value, self.data.initial_velocity)
+        }
     }
 
     /// Position and velocity of the friction curve at elapsed time `t`.
@@ -237,7 +252,7 @@ impl Simulation for IOsFlick {
 impl PositionSimulation for IOsFlick {
     fn remaining_distance(&self, time_elapsed: Duration) -> f32 {
         let (position, _velocity, _done) = self.evaluate(time_elapsed.as_secs_f32());
-        position - self.start_value
+        self.final_position() - position
     }
 
     fn remaining_velocity(&self, time_elapsed: Duration) -> f32 {
@@ -327,6 +342,58 @@ mod tests {
         let finished = simulation.step(&mut current, time + Duration::from_secs(10));
         assert_eq!(finished, true);
         assert_approx_eq!(current, 10.);
+    }
+
+    /// The distance left shrinks to zero, and together with the distance moved so far it is
+    /// always the whole distance of the friction curve.
+    #[test]
+    fn remaining_distance_is_the_distance_left_to_rest() {
+        let time = Instant::default();
+        let simulation = IOsFlick::new_internal(
+            10.,
+            test_limit_property(2000.),
+            IOsFlickParameters::new(500.),
+            time,
+        );
+        let total = -500. / f32::ln(DRAG);
+        assert!((simulation.remaining_distance(Duration::ZERO) - total).abs() < 1e-2);
+
+        let mut previous = total;
+        for millis in [50, 300, 1000, 3000] {
+            let elapsed = Duration::from_millis(millis);
+            let remaining = simulation.remaining_distance(elapsed);
+            let (position, _, _) = simulation.evaluate(elapsed.as_secs_f32());
+            assert!(remaining > 0. && remaining < previous, "{millis}ms: {remaining}");
+            assert!((position - 10. + remaining - total).abs() < 1e-2, "{millis}ms");
+            previous = remaining;
+        }
+        assert!(simulation.remaining_distance(Duration::from_secs(60)).abs() < 1e-2);
+    }
+
+    /// With the spring, the position comes to rest at the limit, so the distance left is measured
+    /// to it. Beyond the limit that is the way back.
+    #[test]
+    fn remaining_distance_with_the_spring_is_measured_to_the_limit() {
+        let time = Instant::default();
+        let increasing = IOsFlick::new_internal(
+            10.,
+            test_limit_property(20.),
+            IOsFlickParameters::new(5000.),
+            time,
+        );
+        assert!((increasing.remaining_distance(Duration::ZERO) - 10.).abs() < 1e-2);
+        assert!(increasing.remaining_distance(Duration::from_millis(50)) < 0.);
+        assert!(increasing.remaining_distance(Duration::from_secs(10)).abs() < 1e-2);
+
+        let decreasing = IOsFlick::new_internal(
+            20.,
+            test_limit_property(10.),
+            IOsFlickParameters::new(-5000.),
+            time,
+        );
+        assert!((decreasing.remaining_distance(Duration::ZERO) + 10.).abs() < 1e-2);
+        assert!(decreasing.remaining_distance(Duration::from_millis(50)) > 0.);
+        assert!(decreasing.remaining_distance(Duration::from_secs(10)).abs() < 1e-2);
     }
 
     #[test]

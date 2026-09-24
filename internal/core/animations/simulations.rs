@@ -27,6 +27,8 @@ enum Direction {
 }
 
 pub trait PositionSimulation {
+    /// The signed distance the position still has to move until the simulation comes to rest,
+    /// `time_elapsed` after it started. Not the distance it already moved.
     fn remaining_distance(&self, time_elapsed: core::time::Duration) -> f32;
     fn remaining_velocity(&self, time_elapsed: core::time::Duration) -> f32;
 }
