@@ -120,7 +120,7 @@ impl BoxShadowOptions {
                 // lets us inset the fill, but shrinking both independently opens a gap.
                 layout.background_rect =
                     euclid::Rect::from_size(layout.brush_size).inflate(spread, spread);
-                layout.background_radius = (box_shadow.logical_border_radius() * scale_factor
+                layout.background_radius = (layout.outer_radius
                     + PhysicalBorderRadius::new_uniform(spread))
                 .max(Default::default());
             }

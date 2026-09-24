@@ -354,6 +354,8 @@ pub trait RenderBorderRectangle {
 pub struct BorderRectLayout {
     /// The size of the border box, for resolving the background and border brushes.
     pub brush_size: euclid::Size2D<f32, PhysicalPx>,
+    /// The corner radii of the outer border box, adjusted for the border width.
+    pub outer_radius: PhysicalBorderRadius,
     /// The rectangle to fill with the background brush.
     pub background_rect: euclid::Rect<f32, PhysicalPx>,
     /// The corner radii of `background_rect`.
@@ -415,6 +417,7 @@ impl BorderRectLayout {
 
         Some(Self {
             brush_size,
+            outer_radius: fill_radius,
             background_rect,
             background_radius,
             border_rect: geometry,
