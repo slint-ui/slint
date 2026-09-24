@@ -135,9 +135,6 @@ cfg_if::cfg_if! {
         const DEFAULT_RENDERER_NAME: &str = "Software";
     } else if #[cfg(feature = "renderer-vello")] {
         const DEFAULT_RENDERER_NAME: &str = "Vello";
-    } else if #[cfg(any(doc, feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu"))] {
-        // FemtoVG renderer temporarily disabled during winit 0.31 port
-        const DEFAULT_RENDERER_NAME: &str = "FemtoVG";
     } else {
         compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software` or `renderer-vello`");
     }
@@ -159,10 +156,6 @@ fn default_renderer_factory(
             // vello is opt-in and only becomes the default when it is the only renderer
             // built in.
             renderer::vello::WinitVelloRenderer::new_suspended(shared_backend_data)
-        } else if #[cfg(any(doc, feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu"))] {
-            let _ = shared_backend_data;
-            Err("The FemtoVG renderer is not available while the winit 0.31 port is in progress"
-                .into())
         } else {
             compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software` or `renderer-vello`");
         }
