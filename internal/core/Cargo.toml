@@ -54,13 +54,13 @@ image-decoders = ["dep:image", "dep:clru"]
 image-default-formats = ["image?/default-formats"]
 svg = ["dep:resvg", "i-slint-common/svg-text"]
 
-# Store an image's pixels in the RGB565 format, instead of expanding them to
-# RGB8. Disabled by default so that applications that don't need it don't pay
+# Store an image's pixels in the RGB565 format.
+# Disabled by default so that applications that don't need it don't pay
 # for the extra rendering code.
 image-pixel-format-rgb565 = []
 
-# Store an image's pixels as a single 8 bit grayscale channel, instead of
-# expanding them to RGB8. Disabled by default so that applications that don't
+# Store an image's pixels as a single 8 bit grayscale channel.
+# Disabled by default so that applications that don't
 # need it don't pay for the extra conversion code.
 image-pixel-format-gray8 = []
 
