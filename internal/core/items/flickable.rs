@@ -20,7 +20,6 @@ use crate::input::{
 use crate::input::{InternalKeyEvent, TouchHistory};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::ItemWeak;
-use crate::items::AutoBool;
 #[cfg(not(any(
     target_os = "ios",
     target_os = "linux",
@@ -82,6 +81,19 @@ enum Dimension {
     Y,
 }
 
+/// Whether a feature is on, off, or depends on the platform
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[repr(u32)]
+pub enum AutoBool {
+    /// Depends on the platform, to imitate its native behavior
+    #[default]
+    Auto,
+    /// Always on
+    On,
+    /// Always off
+    Off,
+}
+
 /// The implementation of the `Flickable` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
@@ -95,8 +107,10 @@ pub struct Flickable {
     pub interactive: Property<bool>,
     pub mouse_drag_pan_enabled: Property<bool>,
 
-    pub bounce: Property<AutoBool>,
-    pub carry_momentum: Property<AutoBool>,
+    // Not `pub`: only public properties are registered in the RTTI, and these are not part of
+    // the language. See `set_physics()`.
+    bounce: Property<AutoBool>,
+    carry_momentum: Property<AutoBool>,
 
     pub flicked: Callback<VoidArg>,
 
@@ -303,6 +317,14 @@ impl ItemConsts for Flickable {
 }
 
 impl Flickable {
+    /// Overrides the scrolling physics that depend on the platform otherwise.
+    /// For Slint's internal tests.
+    #[doc(hidden)]
+    pub fn set_physics(self: Pin<&Self>, bounce: AutoBool, carry_momentum: AutoBool) {
+        Self::FIELD_OFFSETS.bounce().apply_pin(self).set(bounce);
+        Self::FIELD_OFFSETS.carry_momentum().apply_pin(self).set(carry_momentum);
+    }
+
     /// Whether the event may pan this Flickable, given that `interactive` and
     /// `mouse-drag-pan-enabled` can disable it.
     fn accepts_pan_event(self: Pin<&Self>, event: &MouseEvent) -> bool {

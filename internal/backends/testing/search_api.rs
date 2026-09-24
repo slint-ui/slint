@@ -338,8 +338,7 @@ pub fn set_flickable_physics(
 
     let item = element.item.upgrade().expect("Flickable element has expired");
     let flickable = item.downcast::<Flickable>().expect("Element is not a Flickable");
-    Flickable::FIELD_OFFSETS.bounce().apply_pin(flickable.as_pin_ref()).set(bounce);
-    Flickable::FIELD_OFFSETS.carry_momentum().apply_pin(flickable.as_pin_ref()).set(carry_momentum);
+    flickable.as_pin_ref().set_physics(bounce, carry_momentum);
 }
 
 impl ElementHandle {

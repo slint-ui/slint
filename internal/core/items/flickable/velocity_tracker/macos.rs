@@ -4,8 +4,7 @@
 //! Ported from Flutter's `MacOSScrollViewFlingVelocityTracker` (velocity_tracker.dart), which is:
 //! Copyright 2014 The Flutter Authors. All rights reserved.
 //!
-//! Use of the original source is governed by a BSD-style license; see
-//! the "flutter" entry in THIRD_PARTY_LICENSES (or LICENSE-THIRD-PARTY).
+//! Use of the original source is governed by a BSD-style license;
 //!
 //! Original: <https://github.com/flutter/flutter/blob/d6bed8ff6135cdd414f14edc3063f761d47ca846/packages/flutter/lib/src/gestures/velocity_tracker.dart>
 //!

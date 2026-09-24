@@ -27,7 +27,7 @@ export component TestCase inherits Window {
 /// Check that carry momentum is working as expected
 // Testcase 1. Carry momentum is off
 ```rust
-use slint::language::AutoBool;
+use slint_testing::AutoBool;
 
 /// Simulate a mouse press at `(pressed_x, pressed_y)` and release at `(released_x, released_y)`
 pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
@@ -91,7 +91,7 @@ assert!((velocity - first_velocity).abs() < 1., "Received: {velocity}, first fli
 
 // Testcase 2. Carry momentum is on
 ```rust
-use slint::language::AutoBool;
+use slint_testing::AutoBool;
 
 /// Simulate a mouse press at `(pressed_x, pressed_y)` and release at `(released_x, released_y)`
 pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
@@ -155,7 +155,7 @@ assert!(velocity.abs() > (2_f32 * FLICK_DISTANCE / 10e-3).abs(), "Received: {vel
 
 Testcase 3. Carry momentum is on, driven by wheel/trackpad events instead of a mouse drag.
 ```rust
-use slint::language::AutoBool;
+use slint_testing::AutoBool;
 
 /// Simulate a trackpad scroll gesture at `(x, y)` covering `(delta_x, delta_y)` in total.
 pub fn send_wheel_scroll<Component: slint::ComponentHandle>(

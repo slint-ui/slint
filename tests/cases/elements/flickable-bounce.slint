@@ -27,7 +27,7 @@ export component TestCase inherits Window {
 /*
 /// Check that bouncing is working as expected
 ```rust
-use slint::language::AutoBool;
+use slint_testing::AutoBool;
 
 /// Simulate a mouse press at `(pressed_x, pressed_y)` and release at `(released_x, released_y)`
 pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
@@ -164,7 +164,7 @@ assert_eq!(instance.get_fli_content_y(), 0., "Bouncing is not possible, because 
 
 // Test also for the touch pad with touch phase
 ```rust
-use slint::language::AutoBool;
+use slint_testing::AutoBool;
 use slint::platform::WindowEvent;
 use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
 
@@ -313,7 +313,7 @@ assert_eq!(instance.get_fli_content_y(), 0., "Bouncing is not possible, because 
 // Content beyond its limits without any user interaction is brought back into range.
 // With bounce on it bounces back, otherwise it is set back. Here the content shrinks.
 ```rust
-use slint::language::AutoBool;
+use slint_testing::AutoBool;
 
 const INFINITE_TIME_SPEND: u64 = 100000000;
 
@@ -351,7 +351,7 @@ for (bounce, name) in [(AutoBool::Off, "off"), (AutoBool::On, "on")] {
 
 // Same, but the flickable grows instead of the content shrinking
 ```rust
-use slint::language::AutoBool;
+use slint_testing::AutoBool;
 
 const INFINITE_TIME_SPEND: u64 = 100000000;
 
@@ -390,7 +390,7 @@ for (bounce, name) in [(AutoBool::Off, "off"), (AutoBool::On, "on")] {
 // A mouse wheel notch (a wheel event without touch phases) scrolls by its own delta,
 // also with bounce on. Here the animation of the previous notch is finished.
 ```rust
-use slint::language::AutoBool;
+use slint_testing::AutoBool;
 use slint::platform::WindowEvent;
 use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
 
@@ -421,7 +421,7 @@ for (bounce, name) in [(AutoBool::Off, "off"), (AutoBool::On, "on")] {
 // Same, but the next notch comes while the previous one is still animating.
 // The distance the previous one has left is added, so two notches scroll by 60 in total.
 ```rust
-use slint::language::AutoBool;
+use slint_testing::AutoBool;
 use slint::platform::WindowEvent;
 use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
 

@@ -54,7 +54,7 @@ use vtable::*;
 mod component_container;
 pub use self::component_container::*;
 mod flickable;
-pub use flickable::Flickable;
+pub use flickable::{AutoBool, Flickable};
 mod text;
 pub use text::*;
 mod input_items;
