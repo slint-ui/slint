@@ -1041,6 +1041,23 @@ export component Test { in property <Foobar> test1; }"#,
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
 
         let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @radial-gradient(ellipse 40px 20px, #f00 0%, #00f 100%); }"#,
+            1,
+        );
+        assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+        assert!(!result.value_resolved);
+
+        let result = property_conversion_test(
+            r#"global Foo {
+                out property <brush> ellipse: @radial-gradient(ellipse, #f00 0%, #00f 100%);
+            }
+            export component Test { in property <brush> test1: Foo.ellipse; }"#,
+            3,
+        );
+        assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+        assert!(!result.value_resolved);
+
+        let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50% - 10%, #f69d3c 100%); }"#,
             1,
         );

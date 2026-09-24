@@ -90,11 +90,11 @@ fn without_side_effects(expression: &Expression) -> bool {
                     .iter()
                     .all(|(start, end)| without_side_effects(start) && without_side_effects(end))
         }
-        Expression::RadialGradient { center, radius, stops } => {
+        Expression::RadialGradient { center, shape, stops } => {
             center
                 .as_ref()
                 .is_none_or(|(cx, cy)| without_side_effects(cx) && without_side_effects(cy))
-                && radius.as_ref().is_none_or(|r| without_side_effects(r))
+                && shape.iter().all(without_side_effects)
                 && stops
                     .iter()
                     .all(|(start, end)| without_side_effects(start) && without_side_effects(end))

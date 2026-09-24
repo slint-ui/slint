@@ -300,7 +300,8 @@ impl SlintBrush {
                 )
             }
             Brush::RadialGradient(gradient) => {
-                format!("radial-gradient(circle, {})", gradient_stops_to_string(gradient.stops()))
+                let shape = if gradient.is_circle() { "circle" } else { "ellipse" };
+                format!("radial-gradient({shape}, {})", gradient_stops_to_string(gradient.stops()))
             }
             _ => String::default(),
         }
