@@ -7,6 +7,7 @@ pub mod completion;
 mod formatting;
 mod goto;
 mod hover;
+mod match_element;
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
