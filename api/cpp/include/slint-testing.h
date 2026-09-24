@@ -240,7 +240,8 @@ public:
     {
         cbindgen_private::Slice<uint8_t> name_view = private_api::string_to_slice(name);
         SharedString value;
-        if (cbindgen_private::slint_testing_element_testable_property_value(&inner, &name_view, &value)) {
+        if (cbindgen_private::slint_testing_element_testable_property_value(&inner, &name_view,
+                                                                            &value)) {
             return value;
         } else {
             return std::nullopt;
