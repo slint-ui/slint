@@ -24,16 +24,20 @@ The metrics are alternative entries, so 4.3 asks for an appropriate combination 
 The standard sets no percentage.
 9.4.4 says only that coverage judged insufficient needs either more test cases or a rationale, and that no target value, or a low one without a rationale, counts as insufficient.
 
-Slint SC holds the runtime at complete line, function, and region coverage, and the build fails below it.
+Slint SC holds the runtime at complete line, function, region, and branch coverage, and the build fails below it.
 Complete line coverage gives statement coverage.
+Branch coverage counts both outcomes of every `if` condition, `let`-`else`, and operand of `&&` and `||`.
+Each arm of a `match` is a region of its own, so complete region coverage takes every arm.
 MC/DC isn't measured, since it's only recommended at ASIL B.
 
+Branch coverage is measured with `cargo llvm-cov --branch`.
+It relies on the rustc option `-Zcoverage-options=branch`, which no stable release accepts.
+The suite enables it with `RUSTC_BOOTSTRAP=1` on the same stable compiler as the rest of the run,
+so the coverage evidence doesn't come from a different toolchain.
+
 :::caution[TODO]
-Branch coverage isn't measured.
-Complete region coverage comes close, since each arm of an `if`, `else`, or `match` is a region of its own.
-It doesn't show both outcomes of an `if` without an `else`, or of the left operand of `&&` and `||`.
-Either measure branch coverage, with `cargo llvm-cov --branch`, or give the rationale why region coverage is sufficient.
-Check whether `--branch` needs a nightly toolchain, since that would conflict with a qualified toolchain for evidence runs.
+The branch instrumentation is an unstable rustc feature.
+Argue why its output can serve as evidence, or check whether the qualified toolchain supports it.
 :::
 
 ## Coverage of Slint Code

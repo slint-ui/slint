@@ -87,15 +87,16 @@ SLINT_SYNTAX_TEST_UPDATE=1 cargo test -p i-slint-compiler --test syntax_tests  #
 The safety-critical runtime is held to complete coverage and full requirement
 traceability, both enforced in CI:
 
-- Every line, function, and code region of the crate must be covered. No
-  exceptions, no exclusion list, so code no test can reach has to go.
+- Every line, function, code region, and branch outcome of the crate must be
+  covered. No exceptions, no exclusion list, so code no test can reach has to
+  go.
 - Every requirement paragraph (a `{#sls.…}` anchor in an `SC: true` page,
   inside its `<SC>` block) needs at least one test declaring it with a
   `//#sls.…` comment. Add the test in the same change as the anchor.
 
 ```sh
 scripts/slint_sc_test_suite.sh target/slint-sc-coverage   # Run the suites, measure coverage
-cargo llvm-cov report --summary-only                      # Read the coverage back
+cargo llvm-cov report --branch --summary-only             # Read the coverage back
 scripts/build_safety_manual_coverage.sh                   # Full check: fails on any gap
 ```
 
