@@ -673,6 +673,15 @@ pub fn default_value_for_struct_field(
     }
 }
 
+pub(crate) fn fill_missing_struct_fields(
+    value: &mut crate::Struct,
+    ty: &i_slint_compiler::langtype::Struct,
+) {
+    for k in ty.fields.keys() {
+        value.0.entry(k.clone()).or_insert_with(|| default_value_for_struct_field(ty, k));
+    }
+}
+
 /// Evaluate a constant expression as stored in
 /// [`i_slint_compiler::langtype::Struct::field_defaults`].
 fn eval_constant_expression(expr: &ConstantExpression) -> Value {
@@ -761,7 +770,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             {
                 return v.clone();
             }
-            // Native code or JSON data can provide a struct that lacks the field.
+            // Native code can provide a struct that lacks the field.
             match base.ty(&*ctx) {
                 Type::Struct(s) if s.fields.contains_key(name) => {
                     default_value_for_struct_field(&s, name)
