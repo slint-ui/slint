@@ -110,6 +110,16 @@ Whether the animation runs.
 When `false`, a change sets the property to its target value at once, with no delay, easing, or iteration.
 </SlintProperty>
 
+## Reduced motion
+
+Slint follows the operating system's reduced-motion setting.
+While it is on, every `animate` block behaves as if `enabled` were `false`: a change sets the property to its target value at once.
+A `Flickable` still pans while the pointer is down, since that is the user's own movement, but a mouse wheel step lands at once and the content stops as soon as the pointer is released.
+Effects driven by `animation-tick()` are not animations of a property change and are left as they are.
+
+The setting is read at startup and followed while the application runs.
+It is currently honored on Windows ("Animation effects" under Settings > Accessibility > Visual effects) with the winit backend.
+
 ## Transitions
 
 Inside a [transition](../states-and-transitions/) an `animate` block instead describes how the property moves when the state changes.

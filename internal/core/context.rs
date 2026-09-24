@@ -294,6 +294,21 @@ impl SlintContext {
         self.0.as_ref().project_ref().platform_default_font_size.set(size);
     }
 
+    /// Backend-side write path for the operating system's reduced-motion setting. Called
+    /// by each platform's settings observer at startup and whenever the setting changes.
+    ///
+    /// While set, every property animation goes straight to its target, and a `Flickable`
+    /// neither smooths wheel scrolling nor keeps moving after a drag is released. Panning
+    /// while the pointer is down is the user's own motion and stays as it is.
+    ///
+    /// The flag lives on the thread's [`crate::animations::AnimationDriver`], which is what
+    /// every animation consults, so this applies to every context driven on the calling
+    /// thread.
+    pub fn set_reduced_motion(&self, reduced: bool) {
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.set_reduced_motion(reduced));
+    }
+
     #[doc(hidden)]
     pub fn dispatch_log_message(&self, message: crate::debug_log::LogMessage<'_>) {
         if let Some(handler) = self.0.log_message_handler.borrow().as_ref() {

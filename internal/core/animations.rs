@@ -240,6 +240,9 @@ pub struct AnimationDriver {
     /// Indicate whether there are any active animations that require a future call to update_animations.
     active_animations: Cell<bool>,
     global_instant: core::pin::Pin<Box<crate::Property<Instant>>>,
+    /// Whether the user asked the operating system for less motion. While set, property
+    /// animations go straight to their target instead of interpolating.
+    reduced_motion: Cell<bool>,
 }
 
 impl Default for AnimationDriver {
@@ -250,6 +253,7 @@ impl Default for AnimationDriver {
                 Instant::default(),
                 "i_slint_core::AnimationDriver::global_instant",
             )),
+            reduced_motion: Cell::default(),
         }
     }
 }
@@ -281,6 +285,20 @@ impl AnimationDriver {
     pub fn current_tick(&self) -> Instant {
         self.global_instant.as_ref().get()
     }
+
+    /// Whether animations driven by this driver go straight to their target.
+    ///
+    /// This is a plain flag, not a property: a running animation re-evaluates on the next
+    /// tick anyway, and finishes then.
+    pub fn reduced_motion(&self) -> bool {
+        self.reduced_motion.get()
+    }
+
+    /// Set by [`crate::SlintContext::set_reduced_motion`] when the backend reports the
+    /// operating system's reduced-motion setting.
+    pub fn set_reduced_motion(&self, reduced: bool) {
+        self.reduced_motion.set(reduced);
+    }
 }
 
 crate::thread_local!(
@@ -302,6 +320,12 @@ pub fn animation_tick() -> u64 {
         driver.set_has_active_animations();
         driver.current_tick().0
     })
+}
+
+/// Whether the user asked the operating system for less motion, as reported to this
+/// thread's animation driver. Animations then go straight to their target.
+pub fn reduced_motion() -> bool {
+    CURRENT_ANIMATION_DRIVER.with(|driver| driver.reduced_motion())
 }
 
 fn ease_out_bounce_curve(value: f32) -> f32 {

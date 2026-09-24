@@ -542,6 +542,11 @@ impl FlickableDataInner {
                     self.velocity_rb.push(crate::animations::current_tick(), new_pos - current_pos);
                     content_x.set(new_pos.x_length());
                     content_y.set(new_pos.y_length());
+                } else if crate::animations::reduced_motion() {
+                    // Mousewheel case with no phase, and the user asked for less motion:
+                    // land on the new position right away instead of easing towards it.
+                    content_x.set(new_pos.x_length());
+                    content_y.set(new_pos.y_length());
                 } else {
                     // Mousewheel case with no phase
                     // Add a short animation that covers the delta for smooth scrolling
@@ -653,7 +658,13 @@ impl FlickableDataInner {
         [limit_x, limit_y]
     }
 
+    /// Keeps the content moving after the finger or pointer let go, decelerating from the
+    /// velocity of the last moves. Skipped when the user asked for less motion: the content
+    /// then stays where the drag left it.
     fn animate(&self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
+        if crate::animations::reduced_motion() {
+            return;
+        }
         if let Some(last_time) = self.velocity_rb.last_time() {
             let mean_velocity = self.velocity_rb.mean_velocity();
             if self.capture_events.is_some()

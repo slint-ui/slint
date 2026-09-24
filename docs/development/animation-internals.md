@@ -19,8 +19,11 @@ The animation driver (`internal/core/animations.rs`) manages a global instant th
 AnimationDriver
 ├── global_instant: Pin<Box<Property<Instant>>>  // Current animation time
 ├── active_animations: Cell<bool>                // Whether animations are running
+├── reduced_motion: Cell<bool>                   // OS asked for less motion: animations jump to target
 └── update_animations(new_tick)                  // Called per frame by the backend
 ```
+
+The driver is per thread, not per context. A backend reports the operating system's reduced-motion setting through `SlintContext::set_reduced_motion`, which sets the flag on the calling thread's driver, where `compute_interpolated_value` reads it alongside the animation's `enabled` field. A running animation picks the change up on its next tick.
 
 **Key components:**
 

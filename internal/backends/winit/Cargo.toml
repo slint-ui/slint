@@ -150,7 +150,7 @@ objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["
 block2 = "0.6.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true, features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm"] }
+windows = { workspace = true, features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm", "UI_ViewManagement"] }
 arboard = { version = "3.6", default-features = false }
 
 [build-dependencies]

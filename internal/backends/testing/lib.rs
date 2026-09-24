@@ -97,6 +97,17 @@ pub fn set_system_accent_color(color: i_slint_core::Color) {
     .unwrap();
 }
 
+/// Set whether the user asked the operating system for less motion, as a platform backend
+/// would when the setting changes. While set, animations go straight to their target.
+/// Must be called after initializing the testing backend (e.g. after [`init_no_event_loop()`]).
+pub fn set_reduced_motion(reduced: bool) {
+    i_slint_core::context::with_global_context(
+        || panic!("the testing backend must be initialized first"),
+        |ctx| ctx.set_reduced_motion(reduced),
+    )
+    .unwrap();
+}
+
 /// Replace the font collection with embedded NotoSans fonts for deterministic test results.
 /// Must be called after initializing the testing backend (e.g. after [`init_no_event_loop()`]).
 #[cfg(feature = "internal")]

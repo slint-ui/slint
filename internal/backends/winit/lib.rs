@@ -41,6 +41,8 @@ mod ios;
 #[cfg(target_os = "macos")]
 mod macos;
 mod touch_finger_id;
+#[cfg(target_os = "windows")]
+mod windows_settings;
 
 /// Re-export of the winit crate.
 pub use winit;
@@ -421,6 +423,8 @@ impl BackendBuilder {
             custom_application_handler: self.custom_application_handler.into(),
             #[cfg(xdg_desktop_settings)]
             xdg_watcher: RefCell::new(None),
+            #[cfg(target_os = "windows")]
+            reduced_motion_observer: RefCell::new(None),
         })
     }
 }
@@ -718,6 +722,10 @@ pub struct Backend {
     /// and aborted on backend drop.
     #[cfg(xdg_desktop_settings)]
     xdg_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
+    /// Watches the Windows "Animation effects" setting. Installed in `bind_context`,
+    /// unsubscribed on backend drop.
+    #[cfg(target_os = "windows")]
+    reduced_motion_observer: RefCell<Option<windows_settings::ReducedMotionObserver>>,
 
     /// This hook is called before a Window is created.
     ///
@@ -895,6 +903,13 @@ impl i_slint_core::platform::Platform for Backend {
                     i_slint_core::lengths::LogicalLength::new(height as f32),
                 ));
             }
+
+            ctx.set_reduced_motion(windows_settings::reduced_motion());
+            let proxy = self.shared_data.event_loop_proxy.clone();
+            *self.reduced_motion_observer.borrow_mut() =
+                windows_settings::ReducedMotionObserver::new(move || {
+                    proxy.send_event(SlintEvent(CustomEvent::ReducedMotionChanged)).ok();
+                });
         }
     }
 

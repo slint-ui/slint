@@ -37,6 +37,9 @@ pub enum CustomEvent {
     Accesskit(accesskit_winit::Event),
     #[cfg(muda)]
     Muda(muda::MenuEvent),
+    /// The Windows "Animation effects" setting changed; re-read it on the event loop thread.
+    #[cfg(target_os = "windows")]
+    ReducedMotionChanged,
 }
 
 impl std::fmt::Debug for CustomEvent {
@@ -51,6 +54,8 @@ impl std::fmt::Debug for CustomEvent {
             Self::Accesskit(a) => write!(f, "AccessKit({a:?})"),
             #[cfg(muda)]
             Self::Muda(e) => write!(f, "Muda({e:?})"),
+            #[cfg(target_os = "windows")]
+            Self::ReducedMotionChanged => write!(f, "ReducedMotionChanged"),
         }
     }
 }
@@ -206,6 +211,12 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 {
                     window.muda_event(eid, muda_type);
                 };
+            }
+            #[cfg(target_os = "windows")]
+            CustomEvent::ReducedMotionChanged => {
+                self.shared_backend_data
+                    .context()
+                    .set_reduced_motion(crate::windows_settings::reduced_motion());
             }
         }
     }
