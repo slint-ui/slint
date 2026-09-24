@@ -35,6 +35,8 @@ The chapters are written either way, so the reports of the run that found the ga
 
 :::caution[TODO]
 Coverage is measured as lines, functions and regions.
-Modified Condition/Decision Coverage isn't measured, and static analysis beyond clippy isn't run.
-Decide whether either is needed for the ASIL we target, and if so, add it here and to the pass criteria.
+Branch coverage, which ISO 26262-6 Table 9 highly recommends at ASIL B, isn't; see [Coverage Criteria](/qualification-plan/test-coverage/#metrics).
+If it's measured, add it to the pass criteria.
+Static analysis beyond clippy isn't run.
+Decide whether it's needed for ASIL B.
 :::
