@@ -14,7 +14,7 @@ struct Request {
 
 fn response(request: &Request) -> serde_json::Value {
     super::PREVIEW_STATE.with_borrow(|state| {
-        let busy = state.workspace_edit_sent
+        let busy = super::document_edit::edit_pending(state)
             || !state.pending_history.is_empty()
             || !matches!(state.loading_state, super::PreviewFutureState::Pending);
         let cache = super::document_cache_from(state);
@@ -88,11 +88,11 @@ mod tests {
         assert_eq!(response(&request)["ready"], false);
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.loading_state = PreviewFutureState::Pending;
-            state.workspace_edit_sent = true;
+            super::super::document_edit::mark_pending_for_test(state);
         });
         assert_eq!(response(&request)["ready"], false);
         PREVIEW_STATE.with_borrow_mut(|state| {
-            state.workspace_edit_sent = false;
+            state.pending_document_edit = None;
             state.pending_history.push_back(false);
         });
         assert_eq!(response(&request)["ready"], false);

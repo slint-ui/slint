@@ -42,6 +42,7 @@ use std::rc::Rc;
 #[cfg(target_arch = "wasm32")]
 use i_slint_editor_preview::wasm_prelude::*;
 
+mod document_edit;
 mod drop_location;
 mod element_catalog;
 mod element_selection;
@@ -257,7 +258,7 @@ pub struct PreviewState {
     debug_hook_overrides: DebugHookOverrides,
     selected: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
-    workspace_edit_sent: bool,
+    pending_document_edit: Option<document_edit::PendingDocumentEdit>,
     known_components: Vec<ComponentInformation>,
     preview_loading_delay_timer: Option<slint::Timer>,
     initial_live_data: preview_data::PreviewDataMap,
@@ -265,7 +266,6 @@ pub struct PreviewState {
     undo_redo_stack: undo_redo::UndoRedoStack,
     pending_history: std::collections::VecDeque<bool>,
     inspector_edit: Option<inspector::Edit>,
-    fill_refresh: Option<inspector::FillRefresh>,
 
     source_code: SourceCodeCache,
     resources: HashSet<Url>,
@@ -330,11 +330,16 @@ fn file_edit_pending() -> bool {
 }
 
 fn invalidate_file_history() {
-    PREVIEW_STATE.with_borrow_mut(|state| {
+    let api = PREVIEW_STATE.with_borrow_mut(|state| {
         state.undo_redo_stack.clear();
         state.pending_history.clear();
+        state.pending_document_edit = None;
         undo_redo::set_undo_redo_enabled(state);
+        state.api.upgrade()
     });
+    if let Some(api) = api {
+        api.set_inspector_fill_refresh_pending(false);
+    }
 }
 thread_local! {pub static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -587,9 +592,9 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &VersionedUrl, content: String) {
-    let own_fill_edit = inspector::fill_contents_changed(url.url(), &content);
+    let own_document_edit = document_edit::contents_changed(url.url(), &content);
     let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if !own_fill_edit
+        if !own_document_edit
             && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
         {
             undo_redo::set_undo_redo_enabled(preview_state);
@@ -746,7 +751,11 @@ fn add_new_component() {
             })
         });
 
-        send_workspace_edit(format!("Add {component_name}"), edit, true);
+        document_edit::submit(
+            format!("Add {component_name}"),
+            edit,
+            document_edit::ValidationPolicy::Compile,
+        );
     }
 }
 
@@ -828,7 +837,11 @@ fn rename_component(
         });
         // Update which component to show after refresh from the editor.
 
-        send_workspace_edit(format!("Rename component {old_name} to {new_name}"), edit, true);
+        document_edit::submit(
+            format!("Rename component {old_name} to {new_name}"),
+            edit,
+            document_edit::ValidationPolicy::Compile,
+        );
     }
 }
 
@@ -916,7 +929,12 @@ fn set_code_bindings(
     else {
         return false;
     };
-    send_workspace_edit("Edit properties".to_string(), edit, true)
+    document_edit::submit(
+        "Edit properties".to_string(),
+        edit,
+        document_edit::ValidationPolicy::Compile,
+    )
+    .accepted()
 }
 
 fn set_color_binding(
@@ -968,10 +986,10 @@ fn set_element_id(
     }) else {
         return;
     };
-    send_workspace_edit(
+    document_edit::submit(
         "Rename element".to_string(),
         i_slint_editor_preview::editing::create_workspace_edit(element_url, element_version, edits),
-        true,
+        document_edit::ValidationPolicy::Compile,
     );
 }
 
@@ -1169,7 +1187,11 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
             SelectionNotification::AfterUpdate,
         );
 
-        send_workspace_edit(format!("Add element {component_name}"), edit, false);
+        document_edit::submit(
+            format!("Add element {component_name}"),
+            edit,
+            document_edit::ValidationPolicy::StructuralOnly,
+        );
     };
 }
 
@@ -1209,7 +1231,11 @@ fn drop_component_with_geometry(
             SelectionNotification::AfterUpdate,
         );
 
-        send_workspace_edit(format!("Add element {component_name}"), edit, false);
+        document_edit::submit(
+            format!("Add element {component_name}"),
+            edit,
+            document_edit::ValidationPolicy::StructuralOnly,
+        );
     };
 }
 
@@ -1255,7 +1281,11 @@ fn delete_selected_element() {
         vec![lsp_types::TextEdit { range, new_text }],
     );
 
-    send_workspace_edit("Delete element".to_string(), edit, true);
+    document_edit::submit(
+        "Delete element".to_string(),
+        edit,
+        document_edit::ValidationPolicy::Compile,
+    );
 }
 
 fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
@@ -1274,7 +1304,7 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
         return;
     };
 
-    send_workspace_edit(label, edit, true);
+    document_edit::submit(label, edit, document_edit::ValidationPolicy::Compile);
 }
 
 fn persist_selected_element_geometry() -> bool {
@@ -1289,7 +1319,7 @@ fn persist_selected_element_geometry() -> bool {
         return false;
     };
 
-    send_workspace_edit(label, edit, true)
+    document_edit::submit(label, edit, document_edit::ValidationPolicy::Compile).accepted()
 }
 
 fn rotate_selected_element(angle: f32) {
@@ -1302,7 +1332,7 @@ fn rotate_selected_element(angle: f32) {
         return;
     };
 
-    send_workspace_edit(label, edit, true);
+    document_edit::submit(label, edit, document_edit::ValidationPolicy::Compile);
 }
 
 fn rotate_selected_element_impl(
@@ -1694,7 +1724,11 @@ fn persist_selected_element_border_radius() {
         return;
     };
 
-    send_workspace_edit("Changing border radius".to_string(), updates, false);
+    document_edit::submit(
+        "Changing border radius".to_string(),
+        updates,
+        document_edit::ValidationPolicy::StructuralOnly,
+    );
 }
 
 fn resize_selected_element_impl(
@@ -1790,98 +1824,7 @@ enum CompilationResult {
 }
 
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
-    let _ =
-        slint::invoke_from_event_loop(move || inspector::workspace_edit_finished(edit, applied));
-}
-
-fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
-    submit_workspace_edit(label, edit, test_edit, None)
-}
-
-fn submit_workspace_edit(
-    label: String,
-    edit: lsp_types::WorkspaceEdit,
-    test_edit: bool,
-    fill: Option<ui::FillData>,
-) -> bool {
-    let Some(document_cache) = document_cache() else {
-        return false;
-    };
-    let Ok(result) = text_edit::apply_workspace_edit(&document_cache, &edit) else {
-        return false;
-    };
-    let fill_refresh = if let Some(fill) = fill.clone() {
-        let [expected] = result.as_slice() else { return false };
-        let unchanged = PREVIEW_STATE.with_borrow(|state| {
-            state
-                .source_code
-                .get(&expected.url)
-                .is_some_and(|source| source.code == expected.contents)
-        });
-        if unchanged {
-            inspector::cancel();
-            return true;
-        }
-        Some((
-            fill,
-            text_edit::EditedText {
-                url: expected.url.clone(),
-                contents: expected.contents.clone(),
-            },
-        ))
-    } else {
-        None
-    };
-    let file_hashes = undo_redo::compute_file_hashes(&result);
-
-    if test_edit {
-        let test_result = drop_location::edited_text_compiles(&document_cache, result);
-        match test_result {
-            CompilationResult::ChangeCompiles => {}
-            CompilationResult::ChangeFails => return false,
-            CompilationResult::NoChange => return true,
-        }
-    }
-
-    let reverse_edit = text_edit::reversed_edit(&document_cache, &edit);
-
-    let accepted = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if undo_redo::edit_pending(preview_state) {
-            return false;
-        }
-        if let Some((fill, expected)) = fill_refresh {
-            let Some(reverse) = reverse_edit else { return false };
-            preview_state.fill_refresh = Some(inspector::FillRefresh {
-                expected,
-                submitted_edit: edit.clone(),
-                fill,
-                undo: Some(undo_redo::EditItem {
-                    title: label.clone(),
-                    edit: reverse,
-                    file_hashes,
-                }),
-            });
-        } else {
-            preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
-        }
-        preview_state.workspace_edit_sent = true;
-        undo_redo::set_undo_redo_enabled(preview_state);
-        preview_state
-            .to_lsp
-            .borrow()
-            .as_ref()
-            .unwrap()
-            .send(&PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit })
-            .unwrap();
-        true
-    });
-    if accepted && fill.is_some() {
-        let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
-        if let Some(api) = api {
-            api.set_inspector_fill_refresh_pending(true);
-        }
-    }
-    accepted
+    let _ = slint::invoke_from_event_loop(move || document_edit::finished(edit, applied));
 }
 
 fn change_style() {
@@ -2705,7 +2648,7 @@ fn set_selected_element(
                 }
             } else if selection.is_none()
                 || (!notify_editor_about_selection_after_update
-                    && !preview_state.workspace_edit_sent)
+                    && !document_edit::edit_pending(preview_state))
             {
                 api.set_current_element(Default::default());
                 api.set_properties(Default::default());
@@ -2821,8 +2764,6 @@ fn update_preview_area(
     format: i_slint_editor_preview::ByteFormat,
 ) -> Result<(), PlatformError> {
     let editor_ui = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
-        preview_state.workspace_edit_sent = false;
-
         let editor_ui = preview_state.editor_ui.as_ref().unwrap();
         let api = preview_state.api.upgrade().unwrap();
         let shared_handle = preview_state.handle.clone();
@@ -3058,7 +2999,9 @@ export component Main inherits Rectangle {
                 reset_preview_state(messages.clone());
                 PREVIEW_STATE.with_borrow_mut(|state| {
                     state.document_cache.replace(Some(document_cache.clone()));
-                    state.workspace_edit_sent = case == "pending";
+                    if case == "pending" {
+                        document_edit::mark_pending_for_test(state);
+                    }
                 });
                 let version = if case == "stale" { 0 } else { 1 };
                 let name: SharedString =
