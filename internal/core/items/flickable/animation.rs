@@ -103,7 +103,8 @@ fn apply_friction_axis(pos: f32, delta: f32, min_pos: f32, viewport: f32) -> f32
     let overscroll_past_start = f32::max(pos, 0.);
     let overscroll_past_end = f32::max(min_pos - pos, 0.);
     let overscroll_past = f32::max(overscroll_past_start, overscroll_past_end);
-    if delta == 0. || overscroll_past <= 0. {
+    // no viewport fraction to compute friction from.
+    if delta == 0. || overscroll_past <= 0. || viewport <= 0. {
         return delta;
     }
 
@@ -238,5 +239,25 @@ impl FlickAnimation {
         limit_value: Pin<Box<Property<f32>>>,
     ) -> SpringSimulation {
         SpringSimulation::new_with_default_parameters(start_value, limit_value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A Flickable with no laid-out size yet, or one the virtual keyboard fully
+    /// covers, has zero (or negative) viewport extent on that axis. Dividing by
+    /// it must not corrupt the position with `inf`/`NaN`; there's no viewport
+    /// fraction to compute friction from, so the delta passes through unresisted.
+    #[test]
+    fn non_positive_viewport_does_not_produce_nan_or_inf() {
+        for viewport in [0., -5.] {
+            for delta in [-10., -1., 1., 10.] {
+                let result = apply_friction_axis(10., delta, -100., viewport);
+                assert!(result.is_finite(), "viewport {viewport}, delta {delta}: {result}");
+                assert_eq!(result, delta);
+            }
+        }
     }
 }
