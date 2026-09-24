@@ -251,7 +251,19 @@ class MapModel[T, U](_AdapterModel[U]):
         raise NotImplementedError(f"{type(self).__name__} does not implement map_row()")
 
 
-class ReverseModel[T](_AdapterModel[T]):
+class _WritableAdapterModel[T](_AdapterModel[T]):
+    """The base class of the adapter models whose rows can be set."""
+
+    def set_row_data(self, row: int, value: T) -> None:
+        """Sets the row of the source model that corresponds to `row`.
+        Raises IndexError if `row` is out of range."""
+        index = self._row_index(row)
+        if index < 0:
+            raise IndexError("row index out of range")
+        self._adapter.set_row_data(index, value)
+
+
+class ReverseModel[T](_WritableAdapterModel[T]):
     """ReverseModel is a `Model` that provides the rows of a source model in
     reverse order.
 
@@ -272,13 +284,89 @@ class ReverseModel[T](_AdapterModel[T]):
         self.source_model = source_model
         self._adapter = native.PyModelAdapter.reverse(source_model, self)
 
-    def set_row_data(self, row: int, value: T) -> None:
-        """Sets the row of the source model that corresponds to `row`.
+
+class FilterModel[T](_WritableAdapterModel[T]):
+    """FilterModel is a `Model` that provides the rows of a source model for
+    which a filter function returns true.
+
+    The FilterModel follows the changes of the source model.
+    Setting a row sets the corresponding row of the source model.
+
+    ```python
+    numbers = slint.ListModel([1, 2, 3, 4])
+    even_numbers = slint.FilterModel(numbers, lambda n: n % 2 == 0)
+    assert list(even_numbers) == [2, 4]
+    ```
+
+    Alternatively, subclass FilterModel and implement `filter_row`.
+    Call `reset` when the result of the filter changes for reasons other than
+    a change of the source model:
+
+    ```python
+    class Search(slint.FilterModel[str]):
+        def __init__(self, source: slint.Model[str]) -> None:
+            self.text = ""
+            super().__init__(source)
+
+        def filter_row(self, row_data: str) -> bool:
+            return self.text in row_data
+
+    search = Search(slint.ListModel(["Hans", "Max", "Roman"]))
+    search.text = "Max"
+    search.reset()
+    ```
+    """
+
+    def __init__(
+        self,
+        source_model: Model[T],
+        filter_function: Callable[[T], bool] | None = None,
+    ):
+        """Constructs a new FilterModel that provides the rows of `source_model`
+        for which the filter returns true.
+        Pass `filter_function` to filter the rows, or omit it in a subclass that
+        implements `filter_row`.
+        The constructor applies the filter to all rows of the source model, so
+        a subclass sets the state that `filter_row` uses before calling it."""
+        super().__init__()
+        self.source_model = source_model
+        if filter_function is None:
+            if type(self).filter_row is FilterModel.filter_row:
+                raise TypeError(
+                    "FilterModel requires a filter function or a subclass that implements filter_row()"
+                )
+            this = weakref.ref(self)
+
+            def filter_function(row_data: T) -> bool:
+                model = this()
+                assert model is not None
+                return model.filter_row(row_data)
+
+        self._adapter = native.PyModelAdapter.filter(
+            source_model, filter_function, self
+        )
+
+    def filter_row(self, row_data: T) -> bool:
+        """Returns true if `row_data`, a row of the source model, is a row of this model.
+        Re-implement this method in a sub-class that doesn't pass a filter function
+        to the constructor."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement filter_row()"
+        )
+
+    def reset(self) -> None:
+        """Applies the filter to all rows of the source model again.
+        Call this when the result of the filter changes for reasons other than
+        a change of the source model."""
+        self._adapter.reset()
+
+    def unfiltered_row(self, row: int) -> int:
+        """Returns the index of the row of the source model that is `row` in this model.
         Raises IndexError if `row` is out of range."""
         index = self._row_index(row)
         if index < 0:
             raise IndexError("row index out of range")
-        self._adapter.set_row_data(index, value)
+        return self._adapter.source_row(index)
 
 
 class ModelIterator[T](Iterator[T]):
