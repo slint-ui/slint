@@ -53,7 +53,9 @@ class Model[T](native.PyModelBase, Iterable[T]):
 
     @abstractmethod
     def row_data(self, row: int) -> T | None:
-        """Returns the data for the given row.
+        """Returns the data for the given row, or None if the row has no data.
+        None is not a row value of its own: models that wrap this model, such
+        as `FilterModel`, treat such a row as having no data.
         Re-implement this method in a sub-class to provide the data."""
         ...
 
