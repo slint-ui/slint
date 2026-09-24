@@ -55,7 +55,10 @@ renderer-skia-vulkan = [
   "i-slint-backend-linuxkms?/renderer-skia-vulkan",
   "i-slint-renderer-skia/vulkan",
 ]
-renderer-skia-software = ["i-slint-backend-winit?/renderer-skia", "i-slint-backend-linuxkms?/renderer-skia-software"]
+renderer-skia-software = [
+  "i-slint-backend-winit?/renderer-skia-software",
+  "i-slint-backend-linuxkms?/renderer-skia-software",
+]
 renderer-software = [
   "i-slint-backend-winit?/renderer-software",
   "i-slint-backend-linuxkms?/renderer-software",

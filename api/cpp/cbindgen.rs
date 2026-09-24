@@ -1341,6 +1341,7 @@ declare_features! {
     renderer_femtovg
     renderer_skia
     renderer_skia_opengl
+    renderer_skia_software
     renderer_skia_vulkan
     renderer_software
     gettext
