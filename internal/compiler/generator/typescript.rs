@@ -27,6 +27,29 @@ fn is_typescript_keyword(word: &str) -> bool {
     keywords.contains(word)
 }
 
+/// The built-in enums the Node API exposes as `slint.language.X`. The `pub` ones, which
+/// is the same set `slint::language` re-exports in Rust; the rest are not public API in
+/// any language binding.
+fn is_public_builtin_enum(name: &str) -> bool {
+    static PUBLIC: OnceLock<HashSet<&'static str>> = OnceLock::new();
+    PUBLIC
+        .get_or_init(|| {
+            let mut names = HashSet::new();
+            macro_rules! collect_public {
+                ($(
+                    $(#[doc = $enum_doc:literal])*
+                    $(#[non_exhaustive])?
+                    $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident, )* }
+                )*) => {
+                    $( if stringify!($vis) == "pub" { names.insert(stringify!($Name)); } )*
+                };
+            }
+            i_slint_common::for_each_enums!(collect_public);
+            names
+        })
+        .contains(name)
+}
+
 /// The name of a member: a property, a struct field, or an enum variant.
 /// A keyword is a valid member name, so only the dashes need replacing.
 fn member(name: &str) -> SmolStr {
@@ -193,8 +216,6 @@ struct TsEnum {
     name: SmolStr,
     variants: Vec<typescript_ast::EnumVariant>,
     aliases: Vec<SmolStr>,
-    /// A built-in enum is part of the language, so the module exports no object for it.
-    builtin: bool,
 }
 
 impl From<&Arc<crate::langtype::Enumeration>> for TsEnum {
@@ -207,7 +228,6 @@ impl From<&Arc<crate::langtype::Enumeration>> for TsEnum {
                 .map(|val| typescript_ast::EnumVariant { name: member(val), value: val.clone() })
                 .collect(),
             aliases: Vec::new(),
-            builtin: enumty.node.is_none(),
         }
     }
 }
@@ -217,10 +237,10 @@ impl TsEnum {
         typescript_ast::Declaration::Enum(typescript_ast::Enum {
             name: self.name.clone(),
             variants: self.variants.clone(),
-            value: (!self.builtin).then_some(match mode {
+            value: match mode {
                 OutputMode::Declarations => typescript_ast::EnumValue::Declared,
                 OutputMode::Module => typescript_ast::EnumValue::Defined,
-            }),
+            },
         })
     }
 }
@@ -358,7 +378,7 @@ mod typescript_ast {
     pub struct Enum {
         pub name: SmolStr,
         pub variants: Vec<EnumVariant>,
-        pub value: Option<EnumValue>,
+        pub value: EnumValue,
     }
 
     impl Display for Enum {
@@ -376,15 +396,14 @@ mod typescript_ast {
             writeln!(f, "export type {} = {};", self.name, union)?;
 
             match self.value {
-                None => {}
-                Some(EnumValue::Declared) => {
+                EnumValue::Declared => {
                     writeln!(f, "export declare const {}: {{", self.name)?;
                     for variant in &self.variants {
                         writeln!(f, "    readonly {}: \"{}\";", variant.name, variant.value)?;
                     }
                     writeln!(f, "}};")?;
                 }
-                Some(EnumValue::Defined) => {
+                EnumValue::Defined => {
                     writeln!(f, "export const {} = {{", self.name)?;
                     for variant in &self.variants {
                         writeln!(f, "    {}: \"{}\",", variant.name, variant.value)?;
@@ -472,7 +491,8 @@ pub fn generate(
                     Some(TsStructOrEnum::Struct(ts_struct))
                 }),
             ),
-            Type::Enumeration(en) => {
+            // A built-in enum is not declared here: it is `slint.language.X` or nothing.
+            Type::Enumeration(en) if en.node.is_some() => {
                 module.structs_and_enums.push({
                     let mut ts_enum = TsEnum::from(en);
                     ts_enum.aliases = aliases_of(&en.name);
@@ -491,31 +511,6 @@ pub fn generate(
         ts_compo.aliases = aliases_of(&llr_compo.name);
         ts_compo
     }));
-
-    // Collect built-in enums referenced by public properties or by struct fields,
-    // as used_types only contains the user-defined types.
-    let mut seen_enums: HashSet<SmolStr> = module
-        .structs_and_enums
-        .iter()
-        .filter_map(|se| match se {
-            TsStructOrEnum::Enum(e) => Some(e.name.clone()),
-            _ => None,
-        })
-        .collect();
-
-    let all_properties = llr
-        .public_components
-        .iter()
-        .flat_map(|c| c.public_properties.values())
-        .chain(globals.clone().flat_map(|g| g.public_properties.values()));
-
-    for prop in all_properties {
-        collect_builtin_enums(&prop.ty, &mut seen_enums, &mut module.structs_and_enums);
-    }
-
-    for ty in &doc.used_types.borrow().structs_and_enums {
-        collect_builtin_enums(ty, &mut seen_enums, &mut module.structs_and_enums);
-    }
 
     file.declarations.extend(module.structs_and_enums.iter().map(|se| se.declaration(mode)));
 
@@ -598,31 +593,6 @@ pub fn generate(
     Ok(file)
 }
 
-/// Recursively find built-in enums in a type and add them to the output list.
-fn collect_builtin_enums(ty: &Type, seen: &mut HashSet<SmolStr>, out: &mut Vec<TsStructOrEnum>) {
-    match ty {
-        Type::Enumeration(en) if en.node.is_none() => {
-            let name = ident(&en.name);
-            if seen.insert(name) {
-                out.push(TsStructOrEnum::Enum(TsEnum::from(en)));
-            }
-        }
-        Type::Array(elem) => collect_builtin_enums(elem, seen, out),
-        Type::Struct(s) => {
-            for field_ty in s.fields.values() {
-                collect_builtin_enums(field_ty, seen, out);
-            }
-        }
-        Type::Callback(f) | Type::Function(f) => {
-            for arg in &f.args {
-                collect_builtin_enums(arg, seen, out);
-            }
-            collect_builtin_enums(&f.return_type, seen, out);
-        }
-        _ => {}
-    }
-}
-
 fn ts_type_name(ty: &Type) -> SmolStr {
     match ty {
         Type::Invalid => panic!("Invalid type encountered in llr output"),
@@ -658,7 +628,13 @@ fn ts_type_name(ty: &Type) -> SmolStr {
                 format_smolstr!("{{ {} }}", fields.join("; "))
             }
         },
-        Type::Enumeration(enumeration) => ident(&enumeration.name),
+        // An enum declared in the .slint file is generated here. A built-in one comes from
+        // `slint.language` when it is public, and is otherwise unreachable, like in Rust.
+        Type::Enumeration(enumeration) if enumeration.node.is_some() => ident(&enumeration.name),
+        Type::Enumeration(enumeration) if is_public_builtin_enum(&enumeration.name) => {
+            format_smolstr!("slint.language.{}", enumeration.name)
+        }
+        Type::Enumeration(_) => SmolStr::new_static("void"),
         Type::Callback(function) | Type::Function(function) => {
             let args = function
                 .args

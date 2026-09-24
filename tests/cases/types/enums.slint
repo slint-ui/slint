@@ -18,6 +18,9 @@ export component TestCase  {
 
     in property <With-dash> dash: halloWorld;
 
+    // A built-in enum that `slint.language` and `slint::language` carry, unlike TextWrap.
+    in-out property <ColorScheme> scheme: ColorScheme.dark;
+
     in-out property <TextWrap> wrap: word-wrap;
 }
 
@@ -72,15 +75,14 @@ export declare const With_dash: {
     readonly halloWorld: "halloWorld";
 };
 
-export type TextWrap = "no-wrap" | "word-wrap" | "char-wrap";
-
 export interface TestCase {
     dash: With_dash;
     default: Foo;
     foo: Foo;
     input_type: InputType;
+    scheme: slint.language.ColorScheme;
     readonly test: boolean;
-    wrap: TextWrap;
+    wrap: void;
 }
 
 export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
@@ -110,6 +112,7 @@ class TestCase(slint.Component):
     default: Foo
     foo: Foo
     input_type: InputType
+    scheme: None
     test: bool
     wrap: None
 ```

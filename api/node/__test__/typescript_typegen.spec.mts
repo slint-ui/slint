@@ -293,11 +293,12 @@ if (new App().Settings.volume !== 0) throw new Error("global not reachable on th
 const ENUM_SLINT = `export enum Mood { happy, very-happy }
 export component App inherits Window {
     in-out property <Mood> mood: Mood.very-happy;
+    in-out property <ColorScheme> scheme;
     in-out property <TextWrap> wrap: word-wrap;
     t := Text { wrap: root.wrap; }
 }`;
 
-test("enum properties take a plain string and the generated value object", () => {
+test("a declared enum takes a plain string and the generated value object", () => {
     const dir = mkdtempSync(join(tmpdir(), "slint-ts-enum-"));
     try {
         writeFileSync(join(dir, "app.slint"), ENUM_SLINT);
@@ -325,18 +326,29 @@ test("enum properties take a plain string and the generated value object", () =>
         expect(
             tscCheck(
                 dir,
-                `import { App, Mood } from "./app.slint";
+                `import * as slint from "slint-ui";
+import { App, Mood } from "./app.slint";
 declare const app: App;
 app.mood = Mood.very_happy;
 app.mood = "happy";
-app.wrap = "no-wrap";
 const mood: Mood = app.mood;
+// A public built-in enum comes from slint.language, by either spelling.
+app.scheme = slint.language.ColorScheme.Dark;
+app.scheme = "dark";
 console.log(mood);
 `,
             ).success,
         ).toBe(true);
 
-        // A built-in enum has no value object, only the type.
+        expect(
+            tscCheck(
+                dir,
+                `import { App } from "./app.slint";\ndeclare const app: App;\napp.mood = "cheerful";\n`,
+            ).success,
+        ).toBe(false);
+
+        // A built-in enum that slint.language doesn't carry is not public API in any
+        // language binding, so the property is typed void, as in Rust and Python.
         expect(
             tscCheck(
                 dir,
@@ -347,7 +359,7 @@ console.log(mood);
         expect(
             tscCheck(
                 dir,
-                `import { App } from "./app.slint";\ndeclare const app: App;\napp.wrap = "wrap-around";\n`,
+                `import { App } from "./app.slint";\ndeclare const app: App;\napp.wrap = "no-wrap";\n`,
             ).success,
         ).toBe(false);
     } finally {
@@ -368,9 +380,6 @@ if (app.mood !== "very-happy") throw new Error("read gives the string the type p
 if (app.mood !== Mood.very_happy) throw new Error("the value object disagrees with the property");
 app.mood = "happy";
 if (app.mood !== Mood.happy) throw new Error("a plain string is not accepted");
-if (app.wrap !== "word-wrap") throw new Error("built-in enum property reads wrong");
-app.wrap = "no-wrap";
-if (app.wrap !== "no-wrap") throw new Error("built-in enum property does not take a string");
 `,
         );
 
