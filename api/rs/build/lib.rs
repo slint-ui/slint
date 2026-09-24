@@ -194,6 +194,17 @@ impl CompilerConfiguration {
         self
     }
 
+    /// Fixes the operating system's reduced-motion setting at compile time. This is only
+    /// intended for environments without such a setting, such as MCUs: animations then do
+    /// not consult the `SlintContext` at run time.
+    ///
+    /// If this is set, `SlintContext::set_motion_preference` will not have any effect.
+    #[must_use]
+    pub fn with_reduced_motion(mut self, reduced: bool) -> Self {
+        self.config.const_reduced_motion = Some(reduced);
+        self
+    }
+
     /// Configures the compiler to bundle translations when compiling Slint code.
     ///
     /// It expects the path to be the root directory of the translation files.

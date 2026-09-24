@@ -121,6 +121,9 @@ Effects driven by `animation-tick()` are not animations of a property change and
 The setting is read at startup and followed while the application runs.
 It is currently honored on Windows ("Animation effects" under Settings > Accessibility > Visual effects) with the winit backend.
 
+A build for a device without such a setting, such as a microcontroller, can fix the value at compile time (`with_reduced_motion` in `slint-build`, `--reduced-motion` for `slint-compiler`, the `SLINT_REDUCED_MOTION` CMake target property).
+Animations then do not read the setting at run time.
+
 ## Transitions
 
 Inside a [transition](../states-and-transitions/) an `animate` block instead describes how the property moves when the state changes.

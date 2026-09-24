@@ -2716,6 +2716,26 @@ pub mod ffi {
         }
     }
 
+    /// Fixes the reduced-motion setting for the process; called by generated code when the
+    /// build declared it constant.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_set_const_reduced_motion(
+        handle: *const WindowAdapterRcOpaque,
+        reduced: bool,
+    ) {
+        let preference = if reduced {
+            crate::MotionPreference::Reduced
+        } else {
+            crate::MotionPreference::NoPreference
+        };
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window())
+                .context()
+                .set_const_motion_preference(preference)
+        }
+    }
+
     /// Returns the text-input-focused property value.
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_get_text_input_focused(

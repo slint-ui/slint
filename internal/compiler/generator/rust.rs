@@ -612,6 +612,15 @@ fn generate_shared_globals(
     let apply_constant_scale_factor = compiler_config.const_scale_factor.map(|factor| {
         quote!(sp::WindowInner::from_pub(adapter.window()).set_const_scale_factor(#factor);)
     });
+    let apply_constant_motion_preference =
+        compiler_config.const_reduced_motion.map(|reduced| {
+            let preference = if reduced {
+                quote!(sp::MotionPreference::Reduced)
+            } else {
+                quote!(sp::MotionPreference::NoPreference)
+            };
+            quote!(sp::WindowInner::from_pub(adapter.window()).context().set_const_motion_preference(#preference);)
+        });
 
     let library_global_vars = llr
         .globals
@@ -670,6 +679,7 @@ fn generate_shared_globals(
                 let root_rc = self.root_item_tree_weak.upgrade().unwrap();
                 sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
                 #apply_constant_scale_factor
+                #apply_constant_motion_preference
                 self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
                 sp::Ok(())
             }
@@ -680,6 +690,7 @@ fn generate_shared_globals(
                 let root_rc = self.root_item_tree_weak.upgrade().unwrap();
                 sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
                 #apply_constant_scale_factor
+                #apply_constant_motion_preference
                 self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
                 sp::Ok(())
             }
@@ -744,6 +755,7 @@ fn generate_shared_globals(
                     let root_rc = self.root_item_tree_weak.upgrade().unwrap();
                     sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
                     #apply_constant_scale_factor
+                    #apply_constant_motion_preference
                     ::core::result::Result::Ok(adapter)
                 })
             }

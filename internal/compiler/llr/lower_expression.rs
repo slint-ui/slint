@@ -739,6 +739,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
         a: &ElementRc,
         ctx: &mut ExpressionLoweringCtx<'_>,
     ) -> llr_Expression {
+        let const_reduced_motion = ctx.state.const_reduced_motion;
         llr_Expression::Struct {
             values: animation_fields()
                 .map(|(k, ty)| {
@@ -752,7 +753,11 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
                         },
                         |v| lower_expression(&v.borrow().expression, ctx),
                     );
-                    let e = if k == "enabled" { honor_reduced_motion(e) } else { e };
+                    let e = if k == "enabled" {
+                        honor_reduced_motion(e, const_reduced_motion)
+                    } else {
+                        e
+                    };
                     (k, e)
                 })
                 .collect::<_>(),
@@ -761,19 +766,27 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
     }
 
     /// An animation only runs when the user did not ask the operating system for less
-    /// motion. Evaluated in the generated code, where the component's context is reachable.
-    fn honor_reduced_motion(enabled: llr_Expression) -> llr_Expression {
-        llr_Expression::BinaryExpression {
-            lhs: Box::new(enabled),
-            rhs: Box::new(llr_Expression::UnaryOp {
-                sub: Box::new(llr_Expression::BuiltinFunctionCall {
-                    function: BuiltinFunction::ReducedMotion,
-                    arguments: Vec::new(),
-                    source_location: None,
+    /// motion. Evaluated in the generated code, where the component's context is reachable,
+    /// unless the build fixed the setting: then nothing is read at run time.
+    fn honor_reduced_motion(
+        enabled: llr_Expression,
+        const_reduced_motion: Option<bool>,
+    ) -> llr_Expression {
+        match const_reduced_motion {
+            Some(true) => llr_Expression::BoolLiteral(false),
+            Some(false) => enabled,
+            None => llr_Expression::BinaryExpression {
+                lhs: Box::new(enabled),
+                rhs: Box::new(llr_Expression::UnaryOp {
+                    sub: Box::new(llr_Expression::BuiltinFunctionCall {
+                        function: BuiltinFunction::ReducedMotion,
+                        arguments: Vec::new(),
+                        source_location: None,
+                    }),
+                    op: '!',
                 }),
-                op: '!',
-            }),
-            op: '&',
+                op: '&',
+            },
         }
     }
 

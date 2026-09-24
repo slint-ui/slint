@@ -326,8 +326,24 @@ impl SlintContext {
     /// straight to its target, and a `Flickable` neither smooths wheel scrolling nor keeps
     /// moving after a drag is released. Panning while the pointer is down is the user's own
     /// motion and stays as it is.
+    ///
+    /// Has no effect once [`Self::set_const_motion_preference`] fixed the value.
     pub fn set_motion_preference(&self, preference: MotionPreference) {
-        self.0.as_ref().project_ref().motion_preference.set(preference);
+        let property = self.0.as_ref().project_ref().motion_preference;
+        if !property.is_constant() {
+            property.set(preference);
+        }
+    }
+
+    /// Fixes the reduced-motion setting for the rest of the process. Called by generated code
+    /// when the build declared the value constant, for environments without an operating
+    /// system setting to follow; later [`Self::set_motion_preference`] calls are ignored.
+    pub fn set_const_motion_preference(&self, preference: MotionPreference) {
+        let property = self.0.as_ref().project_ref().motion_preference;
+        if !property.is_constant() {
+            property.set(preference);
+            property.set_constant();
+        }
     }
 
     #[doc(hidden)]
@@ -493,3 +509,27 @@ pub fn set_window_event_hook(
         None => Err(PlatformError::NoPlatform),
     })
 }
+
+/**
+ * A motion preference fixed by the build wins over whatever a backend reports afterwards.
+```rust
+use i_slint_core::platform::*;
+struct DummyBackend;
+impl Platform for DummyBackend {
+    fn create_window_adapter(&self) -> Result<std::rc::Rc<dyn WindowAdapter>, PlatformError> {
+        Err(PlatformError::Other("not implemented".into()))
+    }
+}
+
+use i_slint_core::MotionPreference;
+let ctx = i_slint_core::SlintContext::new(Box::new(DummyBackend));
+ctx.set_motion_preference(MotionPreference::Reduced);
+assert_eq!(ctx.motion_preference(), MotionPreference::Reduced);
+
+ctx.set_const_motion_preference(MotionPreference::NoPreference);
+ctx.set_motion_preference(MotionPreference::Reduced);
+assert_eq!(ctx.motion_preference(), MotionPreference::NoPreference);
+```
+ */
+#[cfg(doctest)]
+const _CONST_MOTION_PREFERENCE_WINS: () = ();

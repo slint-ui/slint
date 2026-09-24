@@ -63,6 +63,9 @@ function(SLINT_TARGET_SOURCES target)
         set(scale_factor_target_prop "$<TARGET_GENEX_EVAL:${target},$<TARGET_PROPERTY:${target},SLINT_SCALE_FACTOR>>")
         set(scale_factor_arg "$<IF:$<STREQUAL:${scale_factor_target_prop},>,,--scale-factor=${scale_factor_target_prop}>")
 
+        set(reduced_motion_target_prop "$<TARGET_GENEX_EVAL:${target},$<TARGET_PROPERTY:${target},SLINT_REDUCED_MOTION>>")
+        set(reduced_motion_arg "$<IF:$<STREQUAL:${reduced_motion_target_prop},>,,--reduced-motion=${reduced_motion_target_prop}>")
+
         set(bundle_translations_prop "$<TARGET_GENEX_EVAL:${target},$<TARGET_PROPERTY:${target},SLINT_BUNDLE_TRANSLATIONS>>")
         set(bundle_translations_arg "$<IF:$<STREQUAL:${bundle_translations_prop},>,,--bundle-translations=${bundle_translations_prop}>")
 
@@ -94,6 +97,7 @@ function(SLINT_TARGET_SOURCES target)
                 ${_SLINT_CPP_NAMESPACE_ARG}
                 ${_SLINT_CPP_LIBRARY_PATHS_ARG}
                 ${scale_factor_arg}
+                ${reduced_motion_arg}
                 ${bundle_translations_arg}
                 ${cpp_files_arg}
             DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE}
