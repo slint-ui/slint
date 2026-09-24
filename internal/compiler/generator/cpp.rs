@@ -485,7 +485,7 @@ use crate::llr::lower_layout_expression::{
 };
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, EvaluationScope, ParentScope,
-    TypeResolutionContext as _,
+    RadialGradientShape, TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
 use cpp_ast::*;
@@ -4658,48 +4658,48 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 stops.len()
             )
         }
-        Expression::RadialGradient { center, radius, stops } => {
+        Expression::RadialGradient { center, shape, stops } => {
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
                 format!("slint::private_api::GradientStop{{ {color}, float({position}), }}")
             });
-            let center_setup = match (center, radius) {
-                (Some((cx, cy)), Some(r)) => {
-                    let cx = compile_expression(cx, ctx);
-                    let cy = compile_expression(cy, ctx);
-                    let r = compile_expression(r, ctx);
-                    format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), float({r})));",
-                        stops_count = stops.len()
-                    )
-                }
-                (Some((cx, cy)), None) => {
-                    let cx = compile_expression(cx, ctx);
-                    let cy = compile_expression(cy, ctx);
-                    format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), -1.0f));",
-                        stops_count = stops.len()
-                    )
-                }
-                (None, Some(r)) => {
-                    let r = compile_expression(r, ctx);
-                    format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN(), float({r})));",
-                        stops_count = stops.len()
-                    )
-                }
-                (None, None) => {
-                    format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {}));",
-                        stops.len()
-                    )
+            let (cx, cy) = match center {
+                Some((cx, cy)) => (
+                    format!("float({})", compile_expression(cx, ctx)),
+                    format!("float({})", compile_expression(cy, ctx)),
+                ),
+                None => {
+                    let nan = "std::numeric_limits<float>::quiet_NaN()".to_string();
+                    (nan.clone(), nan)
                 }
             };
+            let (radii_setup, radii) = match shape {
+                RadialGradientShape::Circle(None) => (
+                    String::new(),
+                    "slint::cbindgen_private::types::RADIAL_GRADIENT_DEFAULT_CIRCLE_RADIUS".into(),
+                ),
+                RadialGradientShape::Ellipse(None) => (
+                    String::new(),
+                    "slint::cbindgen_private::types::RADIAL_GRADIENT_DEFAULT_ELLIPSE_RADIUS".into(),
+                ),
+                RadialGradientShape::Circle(Some(r)) => (
+                    format!("const float r = float({});", compile_expression(r, ctx)),
+                    "r, r".into(),
+                ),
+                RadialGradientShape::Ellipse(Some((rx, ry))) => (
+                    String::new(),
+                    format!(
+                        "float({}), float({})",
+                        compile_expression(rx, ctx),
+                        compile_expression(ry, ctx)
+                    ),
+                ),
+            };
             format!(
-                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; {} }}()",
+                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; {radii_setup} return slint::Brush(slint::private_api::RadialGradientBrush(stops, {}, {cx}, {cy}, {radii})); }}()",
                 stops_it.join(", "),
-                center_setup
+                stops.len(),
             )
         }
         Expression::ConicGradient { from_angle, center, stops } => {

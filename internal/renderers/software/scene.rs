@@ -578,8 +578,9 @@ pub struct RadialGradientCommand {
     /// Stored as f32 to avoid i16 saturation for off-bbox centers at high scale factors.
     pub center_x: f32,
     pub center_y: f32,
-    /// Explicit radius in physical pixels. Always resolved (non-negative) before command construction.
-    pub radius: f32,
+    /// Radii in physical pixels. Always resolved (positive) before command construction.
+    pub radius_x: f32,
+    pub radius_y: f32,
 }
 
 /// Conic gradient that interpolates colors around a center point

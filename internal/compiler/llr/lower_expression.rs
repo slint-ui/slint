@@ -410,14 +410,14 @@ fn lower_radial_gradient(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
 ) -> llr_Expression {
-    let tree_Expression::RadialGradient { center, radius, stops } = expression else {
+    let tree_Expression::RadialGradient { center, shape, stops } = expression else {
         unreachable!()
     };
     llr_Expression::RadialGradient {
         center: center.as_ref().map(|(cx, cy)| {
             (Box::new(lower_expression(cx, ctx)), Box::new(lower_expression(cy, ctx)))
         }),
-        radius: radius.as_ref().map(|r| Box::new(lower_expression(r, ctx))),
+        shape: shape.map(|r| lower_expression(r, ctx)),
         stops: stops
             .iter()
             .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))

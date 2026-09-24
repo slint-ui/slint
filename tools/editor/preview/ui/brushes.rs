@@ -12,7 +12,7 @@ pub fn fill_from_expression(
     window: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> Option<ui::FillData> {
     use crate::preview::eval::fully_eval_expression_tree_expression as eval;
-    use i_slint_compiler::expression_tree::Expression;
+    use i_slint_compiler::expression_tree::{Expression, RadialGradientShape};
     if let Expression::Cast { from, .. } = expression {
         return fill_from_expression(from, fill, window);
     }
@@ -22,8 +22,9 @@ pub fn fill_from_expression(
     };
     let (stops, angle, center, radius) = match expression {
         Expression::LinearGradient { angle, stops } => (stops, Some(&**angle), None, None),
-        Expression::RadialGradient { stops, center, radius } => {
-            (stops, None, center.as_ref(), radius.as_deref())
+        Expression::RadialGradient { stops, center, shape } => {
+            let RadialGradientShape::Circle(radius) = shape else { return None };
+            (stops, None, center.as_ref(), radius.as_ref())
         }
         Expression::ConicGradient { from_angle, stops, center } => {
             (stops, Some(&**from_angle), center.as_ref(), None)

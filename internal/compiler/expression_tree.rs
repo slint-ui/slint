@@ -921,9 +921,8 @@ pub enum Expression {
         /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
         /// `None` means use the element's bbox centre.
         center: Option<(Box<Expression>, Box<Expression>)>,
-        /// Explicit radius in the element's local coordinate space (`circle <r>`).
-        /// `None` means use the element's bbox half-diagonal.
-        radius: Option<Box<Expression>>,
+        /// Ending shape (`circle` or `ellipse`) with its optional explicit radii.
+        shape: RadialGradientShape,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -1252,12 +1251,12 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 if let Some((cx, cy)) = center {
                     visitor(cx);
                     visitor(cy);
                 }
-                if let Some(r) = radius {
+                for r in shape.iter() {
                     visitor(r);
                 }
                 for (c, s) in stops {
@@ -1401,12 +1400,12 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 if let Some((cx, cy)) = center {
                     visitor(cx);
                     visitor(cy);
                 }
-                if let Some(r) = radius {
+                for r in shape.iter_mut() {
                     visitor(r);
                 }
                 for (c, s) in stops {
@@ -1554,9 +1553,9 @@ impl Expression {
                 angle.is_constant(ga)
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 center.as_ref().is_none_or(|(cx, cy)| cx.is_constant(ga) && cy.is_constant(ga))
-                    && radius.as_ref().is_none_or(|r| r.is_constant(ga))
+                    && shape.iter().all(|r| r.is_constant(ga))
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
             Expression::ConicGradient { from_angle, center, stops } => {
@@ -2380,6 +2379,50 @@ impl<E: Default> Default for MouseCursorInner<E> {
     }
 }
 
+/// The ending shape of a `@radial-gradient`, with its explicit size in the element's local
+/// coordinate space. `None` means the shape's default size.
+/// Generic over the expression type so both the tree and the LLR reuse the same shape.
+#[derive(Clone, Debug)]
+pub enum RadialGradientShape<E = Expression> {
+    /// `circle [<radius>]`
+    Circle(Option<Box<E>>),
+    /// `ellipse [<radius-x> <radius-y>]`
+    Ellipse(Option<(Box<E>, Box<E>)>),
+}
+
+impl<E> RadialGradientShape<E> {
+    /// Iterates over the explicit radii.
+    pub fn iter(&self) -> impl Iterator<Item = &E> {
+        let (a, b) = match self {
+            Self::Circle(r) => (r.as_deref(), None),
+            Self::Ellipse(r) => {
+                r.as_ref().map_or((None, None), |(rx, ry)| (Some(&**rx), Some(&**ry)))
+            }
+        };
+        a.into_iter().chain(b)
+    }
+
+    /// Iterates mutably over the explicit radii.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut E> {
+        let (a, b) = match self {
+            Self::Circle(r) => (r.as_deref_mut(), None),
+            Self::Ellipse(r) => {
+                r.as_mut().map_or((None, None), |(rx, ry)| (Some(&mut **rx), Some(&mut **ry)))
+            }
+        };
+        a.into_iter().chain(b)
+    }
+
+    pub fn map<F>(&self, mut f: impl FnMut(&E) -> F) -> RadialGradientShape<F> {
+        match self {
+            Self::Circle(r) => RadialGradientShape::Circle(r.as_ref().map(|r| Box::new(f(r)))),
+            Self::Ellipse(r) => RadialGradientShape::Ellipse(
+                r.as_ref().map(|(rx, ry)| (Box::new(f(rx)), Box::new(f(ry)))),
+            ),
+        }
+    }
+}
+
 // The compiler resolves every `@image-url("foo.png")` into a `Path`, `Url`, or
 // `DataUri` reference; the resource lowering pass may then replace it with
 // `EmbeddedData`/`EmbeddedTexture` if configured.
@@ -2554,11 +2597,24 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::RadialGradient { center, radius, stops } => {
-            write!(f, "@radial-gradient(circle")?;
-            if let Some(r) = radius {
-                write!(f, " ")?;
-                pretty_print(f, r)?;
+        Expression::RadialGradient { center, shape, stops } => {
+            match shape {
+                RadialGradientShape::Circle(r) => {
+                    write!(f, "@radial-gradient(circle")?;
+                    if let Some(r) = r {
+                        write!(f, " ")?;
+                        pretty_print(f, r)?;
+                    }
+                }
+                RadialGradientShape::Ellipse(r) => {
+                    write!(f, "@radial-gradient(ellipse")?;
+                    if let Some((rx, ry)) = r {
+                        write!(f, " ")?;
+                        pretty_print(f, rx)?;
+                        write!(f, " ")?;
+                        pretty_print(f, ry)?;
+                    }
+                }
             }
             if let Some((cx, cy)) = center {
                 write!(f, " at ")?;

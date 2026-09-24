@@ -13,7 +13,9 @@ use crate::instance::SubComponentInstance;
 use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
 use i_slint_compiler::langtype::{ConstantExpression, Type};
-use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
+use i_slint_compiler::llr::{
+    self, Expression, LocalMemberIndex, MemberReference, RadialGradientShape,
+};
 use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };
@@ -981,16 +983,22 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                 eval_stops(ctx, stops),
             )))
         }
-        Expression::RadialGradient { stops, center, radius } => {
-            let mut g = RadialGradientBrush::new_circle(eval_stops(ctx, stops));
+        Expression::RadialGradient { stops, center, shape } => {
+            let stops = eval_stops(ctx, stops);
+            let mut number =
+                |e: &Expression| -> f32 { eval_expression(ctx, e).try_into().unwrap_or_default() };
+            let mut g = match shape {
+                RadialGradientShape::Circle(None) => RadialGradientBrush::new_circle(stops),
+                RadialGradientShape::Circle(Some(r)) => {
+                    RadialGradientBrush::new_circle(stops).with_radius(number(r))
+                }
+                RadialGradientShape::Ellipse(None) => RadialGradientBrush::new_ellipse(stops),
+                RadialGradientShape::Ellipse(Some((rx, ry))) => {
+                    RadialGradientBrush::new_ellipse(stops).with_radii(number(rx), number(ry))
+                }
+            };
             if let Some((cx, cy)) = center {
-                let cx: f32 = eval_expression(ctx, cx).try_into().unwrap_or_default();
-                let cy: f32 = eval_expression(ctx, cy).try_into().unwrap_or_default();
-                g = g.with_center(cx, cy);
-            }
-            if let Some(r) = radius {
-                let r: f32 = eval_expression(ctx, r).try_into().unwrap_or_default();
-                g = g.with_radius(r);
+                g = g.with_center(number(cx), number(cy));
             }
             Value::Brush(Brush::RadialGradient(g))
         }

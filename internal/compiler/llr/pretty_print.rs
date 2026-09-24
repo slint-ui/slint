@@ -11,7 +11,7 @@ use crate::layout::Orientation;
 
 use super::{
     Animation, CompilationUnit, EvaluationContext, Expression, LocalMemberIndex,
-    LocalMemberReference, MemberReference, ParentScope, SubComponentIdx,
+    LocalMemberReference, MemberReference, ParentScope, RadialGradientShape, SubComponentIdx,
 };
 
 pub fn pretty_print(root: &CompilationUnit, writer: &mut dyn Write) -> Result {
@@ -566,15 +566,28 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 e(angle),
                 stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
             ),
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 let center_str = center
                     .as_ref()
                     .map(|(cx, cy)| format!(" at {} {}", e(cx), e(cy)))
                     .unwrap_or_default();
-                let radius_str = radius.as_ref().map(|r| format!(" {}", e(r))).unwrap_or_default();
+                let shape_str = match shape {
+                    RadialGradientShape::Circle(r) => {
+                        format!(
+                            "circle{}",
+                            r.as_ref().map(|r| format!(" {}", e(r))).unwrap_or_default()
+                        )
+                    }
+                    RadialGradientShape::Ellipse(r) => format!(
+                        "ellipse{}",
+                        r.as_ref()
+                            .map(|(rx, ry)| format!(" {} {}", e(rx), e(ry)))
+                            .unwrap_or_default()
+                    ),
+                };
                 write!(
                     f,
-                    "@radial-gradient(circle{radius_str}{center_str}, {})",
+                    "@radial-gradient({shape_str}{center_str}, {})",
                     stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
                 )
             }

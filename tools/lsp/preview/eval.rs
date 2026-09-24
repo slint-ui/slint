@@ -232,27 +232,34 @@ fn eval_expression(
                 ),
             ))
         }
-        Expression::RadialGradient { stops, center, radius } => {
-            let mut gradient = i_slint_core::graphics::RadialGradientBrush::new_circle(
-                stops.iter().map(|(color, stop)| {
+        Expression::RadialGradient { stops, center, shape } => {
+            use expression_tree::RadialGradientShape;
+            use i_slint_core::graphics::RadialGradientBrush;
+            let stops = stops
+                .iter()
+                .map(|(color, stop)| {
                     let color =
                         eval_expression(color, local_context, None).try_into().unwrap_or_default();
                     let position =
                         eval_expression(stop, local_context, None).try_into().unwrap_or_default();
                     i_slint_core::graphics::GradientStop { color, position }
-                }),
-            );
+                })
+                .collect::<Vec<_>>();
+            let mut number = |e: &Expression| -> f32 {
+                eval_expression(e, local_context, None).try_into().unwrap_or_default()
+            };
+            let mut gradient = match shape {
+                RadialGradientShape::Circle(None) => RadialGradientBrush::new_circle(stops),
+                RadialGradientShape::Circle(Some(r)) => {
+                    RadialGradientBrush::new_circle(stops).with_radius(number(r))
+                }
+                RadialGradientShape::Ellipse(None) => RadialGradientBrush::new_ellipse(stops),
+                RadialGradientShape::Ellipse(Some((rx, ry))) => {
+                    RadialGradientBrush::new_ellipse(stops).with_radii(number(rx), number(ry))
+                }
+            };
             if let Some((cx, cy)) = center {
-                let cx: f32 =
-                    eval_expression(cx, local_context, None).try_into().unwrap_or_default();
-                let cy: f32 =
-                    eval_expression(cy, local_context, None).try_into().unwrap_or_default();
-                gradient = gradient.with_center(cx, cy);
-            }
-            if let Some(radius) = radius {
-                let r: f32 =
-                    eval_expression(radius, local_context, None).try_into().unwrap_or_default();
-                gradient = gradient.with_radius(r);
+                gradient = gradient.with_center(number(cx), number(cy));
             }
             Value::Brush(slint::Brush::RadialGradient(gradient))
         }
