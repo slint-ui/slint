@@ -453,3 +453,19 @@ def test_reverse_model_released_by_refcount() -> None:
 
     assert model_weak() is None
     assert source_weak() is None
+
+
+def test_filter_model_subclass_released_by_refcount() -> None:
+    """A FilterModel subclass implementing filter_row() is freed without the cyclic collector."""
+
+    class Positive(slint.FilterModel[int]):
+        def filter_row(self, row_data: int) -> bool:
+            return row_data > 0
+
+    model: Positive | None = Positive(slint.ListModel([-1, 1]))
+    assert model is not None
+    assert list(model) == [1]
+    model_weak = weakref.ref(model)
+    model = None
+
+    assert model_weak() is None

@@ -146,6 +146,9 @@ Alternatively, subclass <XRef to="MapModel" /> and implement `map_row()` instead
 Use <XRef to="ReverseModel" /> to show the rows of another model in reverse order.
 Setting one of its rows sets the corresponding row of the source model.
 
+Use <XRef to="FilterModel" /> to show only the rows of another model for which a filter function returns true.
+Alternatively, subclass it and implement `filter_row()`, and call `reset()` when the filter's result changes.
+
 ## Threading
 
 The event loop runs on the main thread, and components must be created and

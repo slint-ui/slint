@@ -10,8 +10,8 @@ use std::rc::Rc;
 
 use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{
-    MapModel, Model, ModelChangeListener, ModelChangeListenerBox, ModelRc, ModelTracker,
-    ReverseModel,
+    FilterModel, MapModel, Model, ModelChangeListener, ModelChangeListenerBox, ModelRc,
+    ModelTracker, ReverseModel,
 };
 use pyo3::PyTraverseError;
 use pyo3::exceptions::{PyIndexError, PyTypeError};
@@ -262,6 +262,10 @@ pub struct PyModelAdapter {
     model: ModelRc<Py<PyAny>>,
     objects: Vec<PyObjectSlot>,
     errors: ErrorSlot,
+    /// Applies the adapter's function again, for adapters that support it.
+    reset: Option<Box<dyn Fn()>>,
+    /// Maps a row of the adapter to the row of the source, for adapters that support it.
+    source_row: Option<Box<dyn Fn(usize) -> usize>>,
 }
 
 impl PyModelAdapter {
@@ -274,7 +278,14 @@ impl PyModelAdapter {
         let forwarder =
             ModelChangeListenerBox::new(NotifyForwarder { target: target.inner.clone() });
         model.model_tracker().attach_peer(forwarder.as_ref().model_peer());
-        Self { _forwarder: forwarder, model, objects, errors }
+        Self { _forwarder: forwarder, model, objects, errors, reset: None, source_row: None }
+    }
+
+    fn check_row(&self, row: usize) -> PyResult<()> {
+        if row >= self.row_count()? {
+            return Err(PyIndexError::new_err("row index out of range"));
+        }
+        Ok(())
     }
 }
 
@@ -316,6 +327,41 @@ impl PyModelAdapter {
         Ok(Self::new(Rc::new(model).into(), &target, objects, errors))
     }
 
+    /// A `FilterModel` over `source`, notifying the views of `target`.
+    #[staticmethod]
+    fn filter(
+        source: &Bound<'_, PyAny>,
+        filter_function: Py<PyAny>,
+        target: PyRef<'_, PyModelBase>,
+    ) -> PyResult<Self> {
+        let errors = ErrorSlot::default();
+        let (source, mut objects) = source_model(source, &errors)?;
+        let function: PyObjectSlot = Rc::new(RefCell::new(Some(filter_function)));
+        objects.push(function.clone());
+        let function_errors = errors.clone();
+        let filter = move |data: &Py<PyAny>| {
+            Python::attach(|py| {
+                let Some(function) = slot_object(py, &function) else { return false };
+                match function.bind(py).call1((data.clone_ref(py),)).and_then(|r| r.is_truthy()) {
+                    Ok(keep) => keep,
+                    Err(err) => {
+                        function_errors.record(py, err);
+                        false
+                    }
+                }
+            })
+        };
+        // FilterModel applies the filter function right away.
+        let model = Rc::new(errors.call(|| FilterModel::new(source, filter))?);
+        let mut adapter = Self::new(model.clone().into(), &target, objects, errors);
+        adapter.reset = Some(Box::new({
+            let model = model.clone();
+            move || model.reset()
+        }));
+        adapter.source_row = Some(Box::new(move |row| model.unfiltered_row(row)));
+        Ok(adapter)
+    }
+
     fn row_count(&self) -> PyResult<usize> {
         self.errors.call(|| self.model.row_count())
     }
@@ -325,10 +371,23 @@ impl PyModelAdapter {
     }
 
     fn set_row_data(&self, row: usize, data: Py<PyAny>) -> PyResult<()> {
-        if row >= self.row_count()? {
-            return Err(PyIndexError::new_err("row index out of range"));
-        }
+        self.check_row(row)?;
         self.errors.call(|| self.model.set_row_data(row, data))
+    }
+
+    fn reset(&self) -> PyResult<()> {
+        match &self.reset {
+            Some(reset) => self.errors.call(reset),
+            None => Err(PyTypeError::new_err("this model adapter doesn't support reset()")),
+        }
+    }
+
+    fn source_row(&self, row: usize) -> PyResult<usize> {
+        let Some(source_row) = &self.source_row else {
+            return Err(PyTypeError::new_err("this model adapter doesn't map rows to its source"));
+        };
+        self.check_row(row)?;
+        self.errors.call(|| source_row(row))
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {

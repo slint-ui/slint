@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore capfd unraisable unraisablehook
+# cSpell: ignore capfd Maxime unraisable unraisablehook
 
 import sys
 import typing
@@ -701,3 +701,183 @@ def test_reverse_model_reports_notification_exception_immediately(
 
     source.fail = False
     assert list(reversed_model) == [2]
+
+
+def test_filter_model() -> None:
+    source = models.ListModel([1, 2, 3, 4])
+    even = models.FilterModel(source, lambda value: value % 2 == 0)
+
+    assert even.source_model is source
+    assert list(even) == [2, 4]
+    assert even[-1] == 4
+    assert even.row_data(2) is None
+    assert even.row_data(-3) is None
+
+    source.append(6)
+    source.append(7)
+    source[0] = 0
+    source[1] = 5
+    assert list(even) == [0, 4, 6]
+    del source[0]
+    assert list(even) == [4, 6]
+
+
+def test_filter_model_unfiltered_row() -> None:
+    even = models.FilterModel(
+        models.ListModel([1, 2, 3, 4]), lambda value: value % 2 == 0
+    )
+    assert even.unfiltered_row(0) == 1
+    assert even.unfiltered_row(-1) == 3
+    with pytest.raises(IndexError):
+        even.unfiltered_row(2)
+    with pytest.raises(IndexError):
+        even.unfiltered_row(-3)
+
+
+def test_filter_model_set_row_data() -> None:
+    source = models.ListModel([1, 2, 3, 4])
+    even = models.FilterModel(source, lambda value: value % 2 == 0)
+
+    even[1] = 40
+    assert list(source) == [1, 2, 3, 40]
+    even[0] = 5
+    assert list(source) == [1, 5, 3, 40]
+    assert list(even) == [40]
+
+    with pytest.raises(IndexError):
+        even[1] = 0
+
+
+def test_filter_model_subclass_reset() -> None:
+    class Search(models.FilterModel[str]):
+        def __init__(self, source: models.Model[str]) -> None:
+            self.text = ""
+            super().__init__(source)
+
+        def filter_row(self, row_data: str) -> bool:
+            return self.text in row_data
+
+    search = Search(models.ListModel(["Hans", "Max", "Maxime"]))
+    assert list(search) == ["Hans", "Max", "Maxime"]
+
+    search.text = "Max"
+    assert list(search) == ["Hans", "Max", "Maxime"]
+    search.reset()
+    assert list(search) == ["Max", "Maxime"]
+
+
+def test_filter_model_constructor_raises_filter_exception() -> None:
+    class Search(models.FilterModel[str]):
+        def __init__(self, source: models.Model[str]) -> None:
+            super().__init__(source)
+            self.text = ""
+
+        def filter_row(self, row_data: str) -> bool:
+            return self.text in row_data
+
+    with pytest.raises(AttributeError, match="text"):
+        Search(models.ListModel(["Hans"]))
+
+
+def test_filter_model_reset_raises_filter_exception() -> None:
+    fail = False
+
+    def keep(value: int) -> bool:
+        if fail:
+            raise ValueError(f"cannot filter {value}")
+        return True
+
+    filtered = models.FilterModel(models.ListModel([1]), keep)
+    fail = True
+    with pytest.raises(ValueError, match="cannot filter 1"):
+        filtered.reset()
+
+
+def test_filter_model_requires_filter_function_or_filter_row() -> None:
+    with pytest.raises(TypeError, match="filter_row"):
+        models.FilterModel(models.ListModel([1]))
+
+
+def test_filter_model_reports_notification_exception_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unraisable: list[typing.Any] = []
+    monkeypatch.setattr(sys, "unraisablehook", unraisable.append)
+
+    def keep(value: int) -> bool:
+        if value < 0:
+            raise ValueError("negative")
+        return True
+
+    source = models.ListModel([1])
+    filtered = models.FilterModel(source, keep)
+    source.append(-1)
+
+    assert len(unraisable) == 1
+    assert isinstance(unraisable[0].exc_value, ValueError)
+    assert list(filtered) == [1]
+
+
+def test_filter_model_of_slint_model() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> data: [1, 2, 3, 4];
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    even = models.FilterModel(
+        instance.get_property("data"), lambda value: value % 2 == 0
+    )
+    assert list(even) == [2, 4]
+    even[0] = 20
+    assert list(instance.get_property("data")) == [1, 20, 3, 4]
+
+
+def test_filter_model_notifies_and_writes_back() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> values;
+            out property<int> first: values[0];
+            out property<int> count: values.length;
+            public function set-first(value: int) { values[0] = value; }
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    class Above(models.FilterModel[int]):
+        def __init__(self, source: models.Model[int]) -> None:
+            self.limit = 1
+            super().__init__(source)
+
+        def filter_row(self, row_data: int) -> bool:
+            return row_data > self.limit
+
+    source = models.ListModel([1, 2, 3])
+    above = Above(source)
+    instance.set_property("values", above)
+    assert instance.get_property("first") == 2
+    assert instance.get_property("count") == 2
+
+    source.insert(0, 5)
+    assert instance.get_property("first") == 5
+    assert instance.get_property("count") == 3
+
+    above.limit = 2
+    above.reset()
+    assert instance.get_property("count") == 2
+
+    instance.invoke("set_first", 50)
+    assert list(source) == [50, 1, 2, 3]
