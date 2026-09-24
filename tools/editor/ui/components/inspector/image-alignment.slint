@@ -8,8 +8,8 @@ component AlignmentPoint inherits FocusScope {
     in property <bool> selected;
     callback activated();
 
-    width: 40px;
-    height: 40px;
+    width: 30px;
+    height: 30px;
     accessible-role: AccessibleRole.button;
     accessible-label: root.label;
     accessible-checked: root.selected;
@@ -23,19 +23,19 @@ component AlignmentPoint inherits FocusScope {
     }
 
     Rectangle {
-        border-radius: 20px;
+        border-radius: 15px;
         background: root.selected || touch.has-hover ? Colors.focus-background : transparent;
-        border-width: root.has-focus ? Metrics.focus-width : 0px;
+        border-width: root.has-focus ? Metrics.focus-width * 0.75 : 0px;
         border-color: Colors.focus;
 
         Rectangle {
-            x: 10px;
-            y: 10px;
-            width: 20px;
-            height: 20px;
-            border-radius: 10px;
+            x: 7.5px;
+            y: 7.5px;
+            width: 15px;
+            height: 15px;
+            border-radius: 7.5px;
             background: root.selected ? Colors.accent : Colors.surface;
-            border-width: root.selected ? 0px : Metrics.border-width;
+            border-width: root.selected ? 0px : Metrics.border-width * 0.75;
             border-color: Colors.border;
         }
     }
@@ -55,7 +55,7 @@ export component InspectorImageAlignment inherits Rectangle {
     callback chosen(int, int);
 
     horizontal-stretch: 1;
-    height: 160px;
+    height: 120px;
 
     function point-label(row: int, column: int) -> string {
         if row == 1 && column == 1 {
@@ -68,32 +68,32 @@ export component InspectorImageAlignment inherits Rectangle {
 
     Rectangle {
         x: (parent.width - self.width) / 2;
-        width: 160px;
-        height: 160px;
+        width: 120px;
+        height: 120px;
 
         for line in 3: Rectangle {
-            x: 20px;
-            y: 20px + line * 60px;
-            width: 120px;
-            height: Metrics.border-width;
+            x: 15px;
+            y: 15px + line * 45px;
+            width: 90px;
+            height: Metrics.border-width * 0.75;
             background: Colors.subtle-border;
         }
 
         for line in 3: Rectangle {
-            x: 20px + line * 60px;
-            y: 20px;
-            width: Metrics.border-width;
-            height: 120px;
+            x: 15px + line * 45px;
+            y: 15px;
+            width: Metrics.border-width * 0.75;
+            height: 90px;
             background: Colors.subtle-border;
         }
 
         for row in 3: Rectangle {
-            y: row * 60px;
-            width: 160px;
-            height: 40px;
+            y: row * 45px;
+            width: 120px;
+            height: 30px;
 
             for column in 3: AlignmentPoint {
-                x: column * 60px;
+                x: column * 45px;
                 label: root.point-label(row, column);
                 selected: root.selected-row == row && root.selected-column == column;
                 activated => { root.chosen(column, row); }
