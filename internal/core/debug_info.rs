@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! String encoding of declared-property values
-//! for the debug-info introspection channel (`ItemTreeVTable::element_property_value`).
+//! String encoding of testable-property values
+//! for the debug-info introspection channel (`ItemTreeVTable::element_testable_property_value`).
 //!
 //! Compiler-generated code and the interpreter share these helpers,
 //! so both encode the same value to the same string:

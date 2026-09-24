@@ -383,7 +383,7 @@ declare_syntax! {
         /// inheriting from this one may declare a member of the same name, shadowing this one.
         ShadowableAttribute -> [],
         /// `@testable` prefixing a property declaration: the property is guaranteed to appear
-        /// in the declared-property introspection channel, regardless of its visibility or
+        /// in the testable-property introspection channel, regardless of its visibility or
         /// whether anything else in the document reads it.
         TestableAttribute -> [],
         /// QualifiedName are the properties name

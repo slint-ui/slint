@@ -670,13 +670,13 @@ fn convert_event_dispatch_result(
 // ============================================================================
 
 pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPropertiesResponse {
-    let declared = element.declared_properties();
-    let declared_properties_available = declared.is_some();
-    let declared_properties = declared
+    let declared = element.testable_properties();
+    let testable_properties_available = declared.is_some();
+    let testable_properties = declared
         .unwrap_or_default()
         .into_iter()
-        .map(|(name, type_name)| proto::DeclaredProperty {
-            value: element.declared_property_value(&name).map(|v| v.to_string()),
+        .map(|(name, type_name)| proto::TestableProperty {
+            value: element.testable_property_value(&name).map(|v| v.to_string()),
             name: name.to_string(),
             type_name: type_name.to_string(),
         })
@@ -741,8 +741,8 @@ pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPrope
         )
         .unwrap_or_default()
         .into(),
-        declared_properties,
-        declared_properties_available,
+        testable_properties,
+        testable_properties_available,
     }
 }
 
