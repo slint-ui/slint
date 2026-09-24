@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Unbounded spline fling from Android's OverScroller.java, android-15.0.0_r1.
-//! https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/core/java/android/widget/OverScroller.java
+//! <https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/core/java/android/widget/OverScroller.java>
 //! Coordinates are logical pixels (Android density 1). Bounds are handled by
 //! the caller
 

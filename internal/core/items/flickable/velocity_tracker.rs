@@ -57,7 +57,7 @@ pub(crate) type Velocity = euclid::Vector2D<f32, LogicalPx>;
 
 pub(crate) struct VelocityEstimate {
     pub(crate) velocity: Velocity,
-    #[expect(unused, reason = "Confidence is not yet considered")]
+    #[cfg_attr(not(test), expect(unused, reason = "Confidence is not yet considered"))]
     pub(crate) confidence: f32,
 }
 

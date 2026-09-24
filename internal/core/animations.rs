@@ -235,6 +235,28 @@ impl Instant {
     }
 }
 
+/// A timestamp on the animation clock, in whole milliseconds since the backend has started.
+///
+/// Unlike [`Instant`], this has the same layout on every target, so it's the type to use for a
+/// timestamp that crosses the C++ FFI boundary or goes through the interpreter's dynamic `Value`;
+/// `Instant`'s `Duration` payload has a target-dependent layout (field order, size) that neither
+/// can represent.
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Ord, PartialOrd)]
+pub struct InstantMillisecond(pub u64);
+
+impl From<Instant> for InstantMillisecond {
+    fn from(instant: Instant) -> Self {
+        Self(instant.as_millis())
+    }
+}
+
+impl From<InstantMillisecond> for Instant {
+    fn from(millis: InstantMillisecond) -> Self {
+        Instant(Duration::from_millis(millis.0))
+    }
+}
+
 /// The AnimationDriver
 pub struct AnimationDriver {
     /// Indicate whether there are any active animations that require a future call to update_animations.
@@ -478,31 +500,4 @@ pub fn update_animations(now: Instant) {
         };
         driver.update_animations(Instant(duration))
     });
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// The C++ headers mirror `Instant` as `{ uint64_t seconds; uint32_t nanoseconds; }`
-    /// (see `api/cpp/cbindgen.rs`), because cbindgen can't see into `core::time::Duration`.
-    /// `StateInfo` embeds an `Instant` and is shared with C++, so a different layout would
-    /// have C++ and Rust disagree about its size and corrupt the memory around it.
-    #[test]
-    #[allow(unsafe_code)]
-    fn instant_layout_matches_the_cpp_mirror() {
-        #[repr(C)]
-        struct CppInstant {
-            seconds: u64,
-            nanoseconds: u32,
-        }
-        assert_eq!(size_of::<Instant>(), size_of::<CppInstant>());
-        assert_eq!(align_of::<Instant>(), align_of::<CppInstant>());
-
-        let instant = Instant(Duration::new(0x0102_0304_0506_0708, 0x0a0b_0c0d));
-        // Safety: both types are plain data of the same size, and the padding isn't read as a value.
-        let mirrored: CppInstant = unsafe { core::mem::transmute_copy(&instant) };
-        assert_eq!(mirrored.seconds, 0x0102_0304_0506_0708);
-        assert_eq!(mirrored.nanoseconds, 0x0a0b_0c0d);
-    }
 }

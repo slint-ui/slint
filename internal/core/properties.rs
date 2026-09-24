@@ -1188,7 +1188,7 @@ pub struct StateInfo {
     /// The previous state
     pub previous_state: i32,
     /// The instant in which the state changed last
-    pub change_time: crate::animations::Instant,
+    pub change_time: crate::animations::InstantMillisecond,
 }
 
 struct StateInfoBinding<F, T> {
@@ -1210,7 +1210,8 @@ where
         let mut state_info: StateInfo = core::mem::take(value).try_into().unwrap_or_default();
         if new_state != state_info.current_state {
             state_info.previous_state = state_info.current_state;
-            state_info.change_time = timestamp.unwrap_or_else(crate::animations::current_tick);
+            state_info.change_time =
+                timestamp.unwrap_or_else(crate::animations::current_tick).into();
             state_info.current_state = new_state;
         }
         *value = T::from(state_info);

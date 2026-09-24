@@ -1660,8 +1660,10 @@ mod velocity_history_tests {
                     }
                     crate::animations::update_animations(start + Duration::from_millis(20));
                     let actual = inner.velocity_rb.estimate_velocity().unwrap().velocity;
+                    // Relative, since the general velocity tracker (used on Windows, for one)
+                    // fits in f32 and is off by about 2e-6 of the velocity
                     assert!(
-                        (actual - expected_velocity).length() < 0.01,
+                        (actual - expected_velocity).length() < expected_velocity.length() * 1e-4,
                         "velocity {actual:?}, expected {expected_velocity:?}, batched {batched}"
                     );
                 }
