@@ -927,25 +927,6 @@ impl<T: Default> Default for Property<T> {
     }
 }
 
-/// Formats a property value for the `slint_debug_property` set-logging above,
-/// falling back to a placeholder for types this doesn't know how to format.
-///
-/// This can't be done with a `T: Debug` bound, even cfg-gated to just this
-/// function: `debug_print_set` is itself generic over `T`, so a bound can
-/// only be *used* here if it's *provable* here, which means it would have to
-/// hold for every property value type in the codebase, not just the ones
-/// that happen to implement `Debug`. Downcasting via `Any` sidesteps that,
-/// since it's a runtime check rather than a trait bound: it costs nothing
-/// for types this doesn't recognize, instead of failing to compile.
-#[cfg(slint_debug_property)]
-fn format_property_value<T: 'static>(t: &T) -> alloc::string::String {
-    if let Some(v) = (t as &dyn core::any::Any).downcast_ref::<crate::lengths::LogicalLength>() {
-        alloc::format!("{v:?}")
-    } else {
-        "<value>".into()
-    }
-}
-
 impl<T: Clone> Property<T> {
     /// Create a new property with this value
     pub fn new(value: T) -> Self {
@@ -1046,13 +1027,6 @@ impl<T: Clone> Property<T> {
     /// be marked as dirty.
     // FIXME  pub fn set(self: Pin<&Self>, t: T) {
     pub fn set(&self, t: T)
-    where
-        T: PartialEq,
-    {
-        self.set_impl(t)
-    }
-
-    fn set_impl(&self, t: T)
     where
         T: PartialEq,
     {
