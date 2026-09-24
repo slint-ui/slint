@@ -6,17 +6,11 @@ import { ScrollView } from "std-widgets.slint";
 import { Colors, Style, Typography, Metrics } from "../../ui/style.slint";
 import { BodyLabel, MutedLabel, SectionTitle, PrimerTextInput, SidebarToggleButton, HorizontalResizeDivider, ComponentPaletteRow } from "../../ui/components/index.slint";
 import { ElementKind } from "../../ui/api.slint";
-import { InspectorValueField } from "../../ui/components/inspector/value-field.slint";
-import { InspectorEditableField } from "../../ui/components/inspector/editable-field.slint";
-import { InspectorCodeField } from "../../ui/components/inspector/code-field.slint";
-import { InspectorComboBox } from "../../ui/components/inspector/combo-box.slint";
-import { InspectorSlider } from "../../ui/components/inspector/slider.slint";
-import { InspectorEffectDial } from "../../ui/components/inspector/effect-dial.slint";
-import { InspectorImageAlignment } from "../../ui/components/inspector/image-alignment.slint";
-import { InspectorRotationKnob } from "../../ui/components/inspector/rotation-knob.slint";
-import { InspectorCornerEditor } from "../../ui/components/inspector/corner-editor.slint";
-import { InspectorIconButton } from "../../ui/components/inspector/icon-button.slint";
-import { InspectorSegment } from "../../ui/components/inspector/segment.slint";
+import {
+    InspectorCodeField, InspectorComboBox, InspectorCornerEditor, InspectorEditableField,
+    InspectorEffectDial, InspectorIconButton, InspectorImageAlignment, InspectorRotationKnob,
+    InspectorSegment, InspectorSlider, InspectorValueField,
+} from "../../ui/components/inspector/index.slint";
 
 export component GalleryControls inherits Rectangle {
     in property <bool> inspector;
