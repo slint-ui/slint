@@ -271,6 +271,13 @@ export component EditorUi inherits Window {
                 activated => { CanvasView.set-zoom(ZoomLevel.actual-size); }
             }
         }
+        Menu {
+            title: @tr("Help");
+            MenuItem {
+                title: @tr("Slint Documentation");
+                activated => { Platform.open-url("https://docs.slint.dev"); }
+            }
+        }
     }
 
     Rectangle {
