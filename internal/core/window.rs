@@ -844,7 +844,7 @@ impl WindowInner {
         // The key-event handler does the same, but a tab is switched with a pointer
         // tap, not a key press, so it must also happen here.
         // An item that a Flickable only scrolled out of view keeps the focus:
-        // the wheel that scrolled it away is pointer input too (#13613).
+        // the wheel that scrolled it away is pointer input too.
         if self
             .focus_item
             .borrow()
