@@ -63,7 +63,9 @@ renderer-software = [
   "i-slint-renderer-software/std",
   "dep:bytemuck",
 ]
-accessibility = ["dep:accesskit", "dep:accesskit_winit", "i-slint-core/accessibility-text"]
+# accesskit_winit is disabled until it supports winit 0.31, see enable_accesskit in build.rs
+# accessibility = ["dep:accesskit", "dep:accesskit_winit", "i-slint-core/accessibility-text"]
+accessibility = ["dep:accesskit", "i-slint-core/accessibility-text"]
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
 unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "i-slint-renderer-skia?/unstable-wgpu-29"]
 unstable-wgpu-30 = [
@@ -117,7 +119,7 @@ glutin = { workspace = true, optional = true, default-features = false, features
 glutin-winit = { workspace = true, optional = true, default-features = false, features = ["egl", "wgl"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 accesskit = { version = "0.24", optional = true }
-accesskit_winit = { version = "0.33", optional = true, default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
+# accesskit_winit = { version = "0.33", optional = true, default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
 # The browser decodes images on the web; decode with the image and resvg crates elsewhere.
 i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
 # For encoding drag-and-drop image payloads
