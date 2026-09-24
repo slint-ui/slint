@@ -170,14 +170,14 @@ pub extern "C" fn slint_testing_element_bases(
     }
 }
 
-/// Fills `out` with the element's declared properties as flattened (name, type) pairs:
+/// Fills `out` with the element's testable properties as flattened (name, type) pairs:
 /// `out[2 * i]` is a name, `out[2 * i + 1]` its type.
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_testing_element_declared_properties(
+pub extern "C" fn slint_testing_element_testable_properties(
     element: &ElementHandle,
     out: &mut SharedVector<SharedString>,
 ) -> bool {
-    if let Some(props) = element.declared_properties() {
+    if let Some(props) = element.testable_properties() {
         out.extend(props.into_iter().flat_map(|(name, ty)| [name, ty]));
         true
     } else {
@@ -186,13 +186,13 @@ pub extern "C" fn slint_testing_element_declared_properties(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_testing_element_property_value(
+pub extern "C" fn slint_testing_element_testable_property_value(
     element: &ElementHandle,
     name: &Slice<u8>,
     out: &mut SharedString,
 ) -> bool {
     let Ok(name) = core::str::from_utf8(name.as_slice()) else { return false };
-    if let Some(value) = element.declared_property_value(name) {
+    if let Some(value) = element.testable_property_value(name) {
         *out = value;
         true
     } else {

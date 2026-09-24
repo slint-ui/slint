@@ -180,7 +180,7 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
     let move_properties = &mut |elem: &ElementRc| {
         // take_from_element clears shadowing_members; keep the effective-shadow index
         // so the moved list can rank the winning declaration of each source name first
-        // (the first entry per name wins in the LLR's collect_element_properties).
+        // (the first entry per name wins in the LLR's collect_testable_properties).
         let shadowing = std::mem::take(&mut elem.borrow_mut().shadowing_members);
         let elem_decl = Declarations::take_from_element(&mut elem.borrow_mut());
         let mut moved = Vec::new();

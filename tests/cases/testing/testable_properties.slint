@@ -4,47 +4,48 @@
 // C++ live preview: no element search (wrapper has no item tree)
 //ignore: cpp-live-preview
 
-// Reading declared properties back through the debug-info channel.
+// Reading `@testable` properties back through the debug-info channel.
 // The same source and expectations run under the interpreter in
-// internal/interpreter/tests/declared_properties.rs, keeping the
+// internal/interpreter/tests/testable_properties.rs, keeping the
 // generated-code and interpreter encodings identical.
 //
-// `@testable` (experimental) is exercised by testable-unread (private, unread,
-// listed with its value) and testable-struct (private, unread struct, listed
-// with value None like any other struct property).
+// Only `@testable` declarations are listed: public-unmarked (in-out, read by a
+// binding) and gone-unread (in, never read) are not, whatever the optimizer
+// does with them. testable-unread and testable-struct are private and unread,
+// and listed anyway: the int with its value, the struct with value None like
+// any other struct property.
 
 enum Mood { happy, grumpy }
 
 component Base inherits Rectangle {
-    in property <string> base-text: "from-base";
+    @testable in property <string> base-text: "from-base";
     property <int> base-private: 42;
     Text { text: root.base-text; }
 }
 
 component Widget inherits Base {
-    in-out property <bool> flag: true;
-    out property <float> ratio: flag ? 0.5 : 0.25;
-    changed ratio => { }
-    in property <float> big: 0.0;
-    changed big => { }
-    in property <length> len: 12px;
-    in property <duration> dur: 250ms;
-    in property <angle> ang: 90deg;
-    in property <percent> pct: 25%;
-    in property <color> tint: #112233;
-    in property <brush> solid: #445566;
-    in property <Mood> mood: Mood.grumpy;
-    in property <{a: int, b: string}> record: { a: 1, b: "x" };
+    @testable in-out property <bool> flag: true;
+    @testable out property <float> ratio: flag ? 0.5 : 0.25;
+    @testable in property <float> big: 0.0;
+    @testable in property <length> len: 12px;
+    @testable in property <duration> dur: 250ms;
+    @testable in property <angle> ang: 90deg;
+    @testable in property <percent> pct: 25%;
+    @testable in property <color> tint: #112233;
+    @testable in property <brush> solid: #445566;
+    @testable in property <Mood> mood: Mood.grumpy;
+    @testable in property <{a: int, b: string}> record: { a: 1, b: "x" };
     in property <int> gone-unread: 4;
+    in-out property <int> public-unmarked: 6;
     @testable property <int> testable-unread: 55;
     @testable property <{a: int, b: string}> testable-struct: { a: 3, b: "s" };
-    in-out property <string> aliased <=> inner.text;
+    @testable in-out property <string> aliased <=> inner.text;
     inner := Text { text: "hello"; }
     Rectangle {
         x: root.len;
         background: root.tint;
         border-color: root.solid;
-        opacity: root.flag && root.mood == Mood.grumpy && root.record.a == 1 ? root.ratio : 0.0;
+        opacity: root.flag && root.mood == Mood.grumpy && root.record.a == 1 && root.public-unmarked == 6 ? root.ratio : 0.0;
         border-width: root.dur > 100ms && root.ang > 45deg ? 1px : 2px;
         width: root.pct * 1px;
         height: root.ratio * 100px;
@@ -52,7 +53,7 @@ component Widget inherits Base {
 }
 
 component Row inherits Rectangle {
-    in property <bool> selected;
+    @testable in property <bool> selected;
     background: selected ? #ff0000 : #00ff00;
 }
 
@@ -63,8 +64,7 @@ export component TestCase inherits Window {
     VerticalLayout {
         w := Widget {
             property <int> use-site-private: 7;
-            in property <int> extra: root.toggle ? 8 : 9;
-            changed extra => { }
+            @testable in property <int> extra: root.toggle ? 8 : 9;
             flag: root.toggle;
             big: root.toggle ? 0.1 : 100000000000000000000.0;
             len: root.toggle ? 12px : 13px;
@@ -87,7 +87,7 @@ export component TestCase inherits Window {
 let instance = TestCase::new().unwrap();
 let widget = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::w").next().unwrap();
 
-let mut props = widget.declared_properties().unwrap();
+let mut props = widget.testable_properties().unwrap();
 props.sort();
 let props: Vec<(&str, &str)> = props.iter().map(|(name, ty)| (name.as_str(), ty.as_str())).collect();
 assert_eq!(props, [
@@ -109,7 +109,7 @@ assert_eq!(props, [
     ("tint", "color"),
 ]);
 
-let value = |name: &str| widget.declared_property_value(name).map(|v| v.to_string());
+let value = |name: &str| widget.testable_property_value(name).map(|v| v.to_string());
 assert_eq!(value("flag").as_deref(), Some("true"));
 assert_eq!(value("ratio").as_deref(), Some("0.5"));
 assert_eq!(value("big").as_deref(), Some("0.1"));
@@ -126,16 +126,17 @@ assert_eq!(value("aliased").as_deref(), Some("hello"));
 // A struct value has no string encoding; the property is only listed.
 assert_eq!(value("record"), None);
 assert_eq!(value("testable-struct"), None);
-// `@testable` guarantees listing regardless of visibility, and pins the binding.
+// Listed regardless of visibility and use, with the binding kept alive.
 assert_eq!(value("testable-unread").as_deref(), Some("55"));
-// Unknown or optimized-out names read as None; private declarations are not listed.
+// Unmarked declarations are not listed, whether public and read, unread, or private.
+assert_eq!(value("public-unmarked"), None);
 assert_eq!(value("gone-unread"), None);
 assert_eq!(value("use-site-private"), None);
 assert_eq!(value("no-such-property"), None);
 
 let rows: Vec<_> = slint_testing::ElementHandle::find_by_element_type_name(&instance, "Row").collect();
 assert_eq!(rows.len(), 2);
-let selected: Vec<_> = rows.iter().map(|r| r.declared_property_value("selected").unwrap().to_string()).collect();
+let selected: Vec<_> = rows.iter().map(|r| r.testable_property_value("selected").unwrap().to_string()).collect();
 assert_eq!(selected, ["true", "false"]);
 
 instance.set_toggle(false);
@@ -152,10 +153,9 @@ auto widget_search = slint::testing::ElementHandle::find_by_element_id(handle, "
 assert_eq(widget_search.size(), 1);
 auto widget = widget_search[0];
 
-// Flattened (name, type) pairs; 16 readable properties. Private declarations
-// (base-private, use-site-private) and optimized-out ones (gone-unread) are not
-// listed, unless marked `@testable` (testable-unread, testable-struct).
-auto props = widget.declared_properties().value();
+// Flattened (name, type) pairs; 16 `@testable` properties. Unmarked declarations
+// (public-unmarked, gone-unread, base-private, use-site-private) are not listed.
+auto props = widget.testable_properties().value();
 assert_eq(props.size(), 32);
 auto has_prop = [&](const char *name, const char *type) {
     for (std::size_t i = 0; i + 1 < props.size(); i += 2) {
@@ -175,7 +175,7 @@ assert(has_prop("record", "{ a: int,b: string,}"));
 assert(has_prop("testable-unread", "int"));
 assert(has_prop("testable-struct", "{ a: int,b: string,}"));
 
-auto value = [&](const char *name) { return widget.declared_property_value(name); };
+auto value = [&](const char *name) { return widget.testable_property_value(name); };
 assert_eq(value("flag").value(), "true");
 assert_eq(value("ratio").value(), "0.5");
 assert_eq(value("big").value(), "0.1");
@@ -192,17 +192,18 @@ assert_eq(value("aliased").value(), "hello");
 // A struct value has no string encoding; the property is only listed.
 assert(!value("record").has_value());
 assert(!value("testable-struct").has_value());
-// `@testable` guarantees listing regardless of visibility, and pins the binding.
+// Listed regardless of visibility and use, with the binding kept alive.
 assert_eq(value("testable-unread").value(), "55");
-// Unknown or optimized-out names read as nullopt; private declarations are not listed.
+// Unmarked declarations are not listed, whether public and read, unread, or private.
+assert(!value("public-unmarked").has_value());
 assert(!value("gone-unread").has_value());
 assert(!value("use-site-private").has_value());
 assert(!value("no-such-property").has_value());
 
 auto rows = slint::testing::ElementHandle::find_by_element_type_name(handle, "Row");
 assert_eq(rows.size(), 2);
-assert_eq(rows[0].declared_property_value("selected").value(), "true");
-assert_eq(rows[1].declared_property_value("selected").value(), "false");
+assert_eq(rows[0].testable_property_value("selected").value(), "true");
+assert_eq(rows[1].testable_property_value("selected").value(), "false");
 
 handle->set_toggle(false);
 assert_eq(value("flag").value(), "false");

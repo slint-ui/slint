@@ -97,8 +97,8 @@ inline void debug(const SharedString &str)
     cbindgen_private::slint_debug(&str);
 }
 
-/// Value formatting for the declared-property debug channel
-/// (`ItemTreeVTable::element_property_value`).
+/// Value formatting for the testable-property debug channel
+/// (`ItemTreeVTable::element_testable_property_value`).
 /// Mirrors the Rust `i_slint_core::debug_info` encoding,
 /// so both code generators produce the same string for the same value.
 inline SharedString debug_info_format_bool(bool value)
