@@ -438,7 +438,13 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
             picker_field(window, "No recent fills", slint_testing.AccessibleRole.Text)
             click_picker_button(window, "Add gradient stop")
             click_picker_button(window, "Edit stop 2 color")
-            picker_field(window, "Hex color").accessible_value = "#12345680"
+            color = picker_field(window, "Hex color")
+            color.accessible_value = "#12345680"
+            wait_until(
+                lambda color=color: (
+                    color if color.accessible_value == "#12345680" else None
+                )
+            )
             click_picker_button(window, "Close Stop color")
             set_picker_mode(window, "Gradient type", "Conic")
             rotate_conic(window, 0, 37)

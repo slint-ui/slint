@@ -236,6 +236,15 @@ export component EditorUi inherits Window {
                 title: @tr("Open...");
                 activated => { Project.open-existing-project(); }
             }
+            Menu {
+                title: @tr("Open Recent");
+                enabled: Project.recent.length > 0;
+
+                for project in Project.recent: MenuItem {
+                    title: project.name;
+                    activated => { Project.open-recent-project(project); }
+                }
+            }
         }
         Menu {
             title: @tr("Edit");
