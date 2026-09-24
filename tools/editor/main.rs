@@ -76,19 +76,18 @@ fn main() -> Result<()> {
     let _updater = windows::connect(&editor_ui);
 
     let settings = startup::load_settings();
-    let active_session =
-        Rc::new(RefCell::new(None::<crossbeam_channel::Sender<EditorToSessionMessage>>));
+    let active_session = RefCell::new(None::<crossbeam_channel::Sender<EditorToSessionMessage>>);
     let editor_ui_weak = editor_ui.as_weak();
     let session_settings = settings.clone();
     let start_project = Rc::new(move |project| {
-        let mut active_session = active_session.borrow_mut();
-        if let Some(active_session) = active_session.as_ref() {
-            return active_session.send(EditorToSessionMessage::SwitchProject(project)).is_ok();
+        let mut session_slot = active_session.borrow_mut();
+        if let Some(session_sender) = session_slot.as_ref() {
+            return session_sender.send(EditorToSessionMessage::SwitchProject(project)).is_ok();
         }
         let Some(editor_ui) = editor_ui_weak.upgrade() else {
             return false;
         };
-        *active_session = Some(start_editor_session(&editor_ui, project, session_settings.clone()));
+        *session_slot = Some(start_editor_session(&editor_ui, project, session_settings.clone()));
         true
     });
     startup::setup(&editor_ui, &settings, start_project.clone());
@@ -329,14 +328,17 @@ async fn lsp_main(
                         run_preview(&mut session, &mut run_preview_state);
                     }
                     Some(EditorToSessionMessage::SwitchProject(project)) => {
-                        switch_project(
+                        watch_paths_revision = None;
+                        if let Err(error) = switch_project(
                             &mut session,
                             &mut file_watcher,
                             &mut project_root,
                             project,
-                        ).await?;
-                        watch_paths_revision = None;
-                        run_preview_state = RunPreviewState::default();
+                        ).await {
+                            tracing::warn!("Failed to switch project: {error}");
+                        } else {
+                            run_preview_state = RunPreviewState::default();
+                        }
                     }
                     None => break Ok(()),
                 }
@@ -627,11 +629,16 @@ async fn switch_project(
     project_root: &mut PathBuf,
     project: Project,
 ) -> Result<()> {
-    session.send_to_preview(RUN_PREVIEW_INDEX, &LspToPreviewMessage::Quit);
     let to_previews = session.previews.iter().map(|preview| preview.to_preview.clone()).collect();
-    *session = new_editor_session(to_previews);
-    *project_root = project.root;
-    open_initial_preview(session, file_watcher, project_root, project.preview).await
+    let mut next_session = new_editor_session(to_previews);
+    let next_project_root = project.root;
+    open_initial_preview(&mut next_session, file_watcher, &next_project_root, project.preview)
+        .await?;
+
+    session.send_to_preview(RUN_PREVIEW_INDEX, &LspToPreviewMessage::Quit);
+    *session = next_session;
+    *project_root = next_project_root;
+    Ok(())
 }
 
 fn send_run_preview_highlight(
@@ -895,6 +902,45 @@ mod tests {
                 .iter()
                 .any(|message| matches!(message, LspToPreviewMessage::Quit))
         );
+    }
+
+    #[test]
+    fn failed_project_switch_preserves_the_active_session() {
+        let (mut session, messages) = session_with_recording_previews();
+        let old_project = tempfile::tempdir().unwrap();
+        let old_path = old_project.path().join("old.slint");
+        let old_url = Url::from_file_path(&old_path).unwrap();
+        spin_on::spin_on(session.load_document_impl(
+            "export component Old {}".into(),
+            old_url.clone(),
+            None,
+        ));
+        let mut project_root = old_project.path().to_path_buf();
+        let expected_root = project_root.clone();
+        let missing_root = old_project.path().join("missing");
+        let project = Project {
+            root: missing_root.clone(),
+            preview: PreviewComponent {
+                url: Url::from_file_path(missing_root.join("main.slint")).unwrap(),
+                component: Some("Missing".into()),
+            },
+        };
+        let mut watcher = FileWatcher::start(|_| {}, |_| {}).unwrap();
+        clear_messages(&messages);
+
+        assert!(
+            spin_on::spin_on(switch_project(
+                &mut session,
+                &mut watcher,
+                &mut project_root,
+                project,
+            ))
+            .is_err()
+        );
+
+        assert_eq!(project_root, expected_root);
+        assert!(session.document_cache.get_document(&old_url).is_some());
+        assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
     }
 
     #[test]

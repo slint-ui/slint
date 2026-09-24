@@ -276,6 +276,7 @@ pub struct PreviewState {
     settings: VisualEditorSettings,
     current_previewed_component: Option<PreviewComponent>,
     current_project_root: Option<Url>,
+    project_generation: u64,
     file_tree_controller: Option<ui::file_tree::SharedFileTreeController>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
@@ -400,6 +401,7 @@ fn reset_project_state(root: Url) {
         state.dependencies.clear();
         state.current_previewed_component = None;
         state.current_project_root = Some(root);
+        state.project_generation = state.project_generation.wrapping_add(1);
         (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
     });
 
@@ -418,6 +420,10 @@ fn reset_project_state(root: Url) {
         editor_ui.global::<ui::Preview>().set_can_run(false);
     }
     inspector::invalidate_fill();
+}
+
+fn is_current_project_generation(project_generation: u64) -> bool {
+    PREVIEW_STATE.with_borrow(|state| state.project_generation == project_generation)
 }
 
 pub fn set_user_settings(name: String, contents: String) {
@@ -2111,8 +2117,8 @@ async fn reload_timer_function() {
     });
 
     loop {
-        let Some((preview_component, config, behavior)) =
-            PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        let Some((preview_component, config, behavior, project_generation)) = PREVIEW_STATE
+            .with_borrow_mut(|preview_state| {
                 let behavior = preview_state.current_load_behavior.take()?;
                 let preview_component = preview_state.current_component()?;
 
@@ -2121,7 +2127,12 @@ async fn reload_timer_function() {
                 preview_state.loading_state = PreviewFutureState::Loading;
                 preview_state.dependencies.clear();
 
-                Some((preview_component, preview_state.config.clone(), behavior))
+                Some((
+                    preview_component,
+                    preview_state.config.clone(),
+                    behavior,
+                    preview_state.project_generation,
+                ))
             })
         else {
             return;
@@ -2130,7 +2141,9 @@ async fn reload_timer_function() {
         // the ComboBox is updated to the resolved style once the build finishes.
         let style = config.style.clone();
 
-        match reload_preview_impl(preview_component, behavior, style, config).await {
+        match reload_preview_impl(preview_component, behavior, style, config, project_generation)
+            .await
+        {
             Ok(()) => {}
             Err(e) => {
                 tracing::debug!("Preview reload failed: {}", e);
@@ -2303,6 +2316,7 @@ async fn reload_preview_impl(
     behavior: LoadBehavior,
     style: String,
     config: PreviewConfig,
+    project_generation: u64,
 ) -> Result<(), PlatformError> {
     start_parsing();
 
@@ -2345,6 +2359,12 @@ async fn reload_preview_impl(
         },
     )
     .await;
+
+    if !is_current_project_generation(project_generation) {
+        tracing::debug!("Discarding preview compiled for an inactive project");
+        finish_parsing();
+        return Ok(());
+    }
 
     let success = compiled.is_some();
     let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
@@ -2955,6 +2975,7 @@ mod tests {
         reset_preview_state(Default::default());
         let old_url = Url::parse("file:///old/main.slint").unwrap();
         let new_root = Url::parse("file:///new/").unwrap();
+        let old_project_generation = PREVIEW_STATE.with_borrow(|state| state.project_generation);
         let live_data_key = preview_data::PreviewDataKey {
             container: preview_data::PropertyContainer::Main,
             property_name: "value".into(),
@@ -2988,8 +3009,9 @@ mod tests {
 
         lsp_to_preview(LspToPreviewMessage::OpenProject { root: new_root.clone() });
 
-        PREVIEW_STATE.with_borrow_mut(|state| {
+        let new_project_generation = PREVIEW_STATE.with_borrow_mut(|state| {
             assert_eq!(state.current_project_root, Some(new_root));
+            assert_ne!(state.project_generation, old_project_generation);
             assert!(state.current_previewed_component.is_none());
             assert!(state.source_code.is_empty());
             assert!(state.dependencies.is_empty());
@@ -3001,7 +3023,10 @@ mod tests {
                     .undo_redo_stack
                     .check_set_contents_valid(&old_url, "export component Changed {}")
             );
+            state.project_generation
         });
+        assert!(!is_current_project_generation(old_project_generation));
+        assert!(is_current_project_generation(new_project_generation));
     }
 
     #[test]
