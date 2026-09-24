@@ -149,6 +149,13 @@ Setting one of its rows sets the corresponding row of the source model.
 Use <XRef to="FilterModel" /> to show only the rows of another model for which a filter function returns true.
 Alternatively, subclass it and implement `filter_row()`, and call `reset()` when the filter's result changes.
 
+Use <XRef to="SortModel" /> to show the rows of another model in sorted order.
+Like `sorted()`, it takes an optional `key` function and a `reverse` flag:
+
+```python
+component.names = slint.SortModel(people, key=lambda person: person.name)
+```
+
 ## Threading
 
 The event loop runs on the main thread, and components must be created and
