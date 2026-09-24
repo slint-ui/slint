@@ -624,6 +624,7 @@ export component InspectorPane inherits Rectangle {
 
                         if root.is-rectangle-selection(): InspectorColorField {
                             accessible-name: "Rectangle background";
+                            element-rotation: root.control-values[0];
                             target-size: { width: root.selected-width(), height: root.selected-height() };
                             value: root.rectangle-background-code();
                             swatch: root.rectangle-background-swatch();

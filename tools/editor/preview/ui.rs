@@ -1803,10 +1803,10 @@ mod tests {
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
         super::brushes::setup(&api);
-        api.on_inspector_fill_preview(|_, _, _| true);
+        api.on_inspector_fill_preview(|_, _, _, _, _| true);
         let commits = std::rc::Rc::new(std::cell::Cell::new(0));
         let count = commits.clone();
-        api.on_inspector_fill_commit(move |key, property, _| {
+        api.on_inspector_fill_commit(move |key, property, _, _, _, _| {
             assert_eq!(key, "first");
             assert_eq!(property, "background");
             count.set(count.get() + 1);
@@ -1845,7 +1845,7 @@ mod tests {
             let editor = super::EditorUi::new().unwrap();
             let api = editor.global::<super::Api>();
             super::brushes::setup(&api);
-            api.on_inspector_fill_preview(|_, _, _| true);
+            api.on_inspector_fill_preview(|_, _, _, _, _| true);
             let session = editor.global::<super::FillSession>();
             let mut element = api.get_current_element();
             element.type_name = "Rectangle".into();
@@ -1933,8 +1933,10 @@ mod tests {
             let editor = super::EditorUi::new().unwrap();
             let api = editor.global::<super::Api>();
             super::brushes::setup(&api);
-            api.on_inspector_fill_preview(|_, _, _| true);
-            api.on_inspector_fill_commit(|_, _, _| panic!("stale sessions must not commit"));
+            api.on_inspector_fill_preview(|_, _, _, _, _| true);
+            api.on_inspector_fill_commit(|_, _, _, _, _, _| {
+                panic!("stale sessions must not commit")
+            });
             let canceled = std::rc::Rc::new(std::cell::Cell::new(0));
             let count = canceled.clone();
             api.on_inspector_cancel(move || count.set(count.get() + 1));
@@ -1988,7 +1990,7 @@ mod tests {
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
         super::brushes::setup(&api);
-        api.on_inspector_fill_preview(|_, _, _| true);
+        api.on_inspector_fill_preview(|_, _, _, _, _| true);
         let session = editor.global::<super::FillSession>();
         session.invoke_begin(Default::default());
         let kinds = [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic];
@@ -2065,7 +2067,7 @@ mod tests {
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
         super::brushes::setup(&api);
-        api.on_inspector_fill_preview(|_, _, _| true);
+        api.on_inspector_fill_preview(|_, _, _, _, _| true);
         let session = editor.global::<super::FillSession>();
         session.invoke_begin(super::FillSessionRequest {
             fill: super::FillData {
@@ -2100,7 +2102,7 @@ mod tests {
         assert_eq!(session.get_request().fill.stops.iter().collect::<Vec<_>>(), stops);
         assert!(session.invoke_preview_fill(snapshot));
         assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), stops);
-        api.on_inspector_fill_preview(|_, _, _| false);
+        api.on_inspector_fill_preview(|_, _, _, _, _| false);
         assert!(!session.invoke_move_stop_position(0.75));
         assert!(!session.get_open());
         assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), stops);
@@ -2130,7 +2132,7 @@ mod tests {
                 ..Default::default()
             });
             let expected = target.clone();
-            api.on_inspector_fill_preview(move |key, property, _| {
+            api.on_inspector_fill_preview(move |key, property, _, _, _| {
                 assert_eq!(key, expected);
                 assert_eq!(property, "background");
                 true
@@ -2140,11 +2142,11 @@ mod tests {
             api.on_inspector_cancel(move || count.set(count.get() + 1));
             assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(0, 0, 255)));
             if reject_preview {
-                api.on_inspector_fill_preview(|_, _, _| false);
+                api.on_inspector_fill_preview(|_, _, _, _, _| false);
                 assert!(!session.invoke_preview_color(slint::Color::from_rgb_u8(0, 255, 0)));
             } else {
                 let expected = target.clone();
-                api.on_inspector_fill_commit(move |key, property, _| {
+                api.on_inspector_fill_commit(move |key, property, _, _, _, _| {
                     assert_eq!(key, expected);
                     assert_eq!(property, "background");
                     false

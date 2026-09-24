@@ -303,7 +303,9 @@ fn fill_value(
         || !fill.center_x.is_finite()
         || !fill.center_y.is_finite()
         || !fill.radius.is_finite()
+        || !fill.radius_y.is_finite()
         || (fill.custom_radius && fill.radius <= 0.)
+        || (fill.custom_radius && fill.radial_ellipse && fill.radius_y <= 0.)
         || fill.stops.iter().any(|s| !s.position.is_finite())
     {
         return None;
@@ -320,7 +322,13 @@ fn fill_value(
     }
 }
 
-pub(super) fn preview_fill(key: SharedString, name: SharedString, value: ui::FillData) -> bool {
+pub(super) fn preview_fill(
+    key: SharedString,
+    name: SharedString,
+    value: ui::FillData,
+    rotation: f32,
+    rotate_element: bool,
+) -> bool {
     let Some((node, _, _)) = fill_target(&key, &name) else {
         cancel();
         return false;
@@ -329,7 +337,15 @@ pub(super) fn preview_fill(key: SharedString, name: SharedString, value: ui::Fil
         cancel();
         return false;
     };
-    preview_values(key, node, [(name.as_str(), value)])
+    if rotate_element && !rotation.is_finite() {
+        cancel();
+        return false;
+    }
+    let mut values = vec![(name.as_str(), value)];
+    if rotate_element {
+        values.push(("transform-rotation", slint_interpreter::Value::Number(rotation as f64)));
+    }
+    preview_values(key, node, values)
 }
 
 fn property_edit(
@@ -350,29 +366,52 @@ fn property_edit(
     )
 }
 
-pub(super) fn commit_fill(key: SharedString, name: SharedString, value: ui::FillData) -> bool {
+pub(super) fn commit_fill(
+    key: SharedString,
+    name: SharedString,
+    value: ui::FillData,
+    rotation: f32,
+    fill_changed: bool,
+    rotation_changed: bool,
+) -> bool {
     let Some((node, url, version)) = fill_target(&key, &name) else {
         cancel();
         return false;
     };
-    if fill_value(&node, &name, &value).is_none() {
+    if fill_value(&node, &name, &value).is_none()
+        || !rotation.is_finite()
+        || (!fill_changed && !rotation_changed)
+    {
         cancel();
         return false;
     }
-    let fill = ui::fill_expression(value.clone());
-    let edit = property_edit(
-        node,
-        url,
-        version,
-        vec![i_slint_editor_preview::editing::PropertyChange::new(name.as_str(), fill.to_string())],
-    );
+    let mut changes = Vec::new();
+    if fill_changed {
+        let fill = ui::fill_expression(value.clone());
+        changes.push(i_slint_editor_preview::editing::PropertyChange::new(
+            name.as_str(),
+            fill.to_string(),
+        ));
+    }
+    if rotation_changed {
+        changes.push(i_slint_editor_preview::editing::PropertyChange::new(
+            "transform-rotation",
+            format!("{rotation}deg"),
+        ));
+    }
+    let edit = property_edit(node, url, version, changes);
     let Some(edit) = edit else {
         cancel();
         return false;
     };
-    let accepted = submit_workspace_edit("Editing fill".into(), edit, true, Some(value));
+    let accepted =
+        submit_workspace_edit("Editing fill".into(), edit, true, fill_changed.then_some(value));
     if !accepted {
         cancel();
+    } else if !fill_changed {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.inspector_edit.take();
+        });
     }
     accepted
 }
