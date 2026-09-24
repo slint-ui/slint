@@ -88,7 +88,6 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(destination(20), button)
         )
-        (tmp_path / "gradient-stop-marker.png").write_bytes(window.grab_window_as_png())
         press_key(window, keys.Delete)
         assert not elements_with_label(window.root_element, "Gradient stop 3")
         press_key(window, keys.Escape)
@@ -149,9 +148,6 @@ def test_linear_canvas_activation_and_colour(
         click(window, "Gradient")
         control(window, "Gradient start")
         original.assert_unchanged_now()
-        (tmp_path / "linear-gradient-editor.png").write_bytes(
-            window.grab_window_as_png()
-        )
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
