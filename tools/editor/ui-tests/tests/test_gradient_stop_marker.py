@@ -43,7 +43,9 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
     role: slint_testing.AccessibleRole,
 ) -> None:
     prefix = {"linear": "90deg", "radial": "circle", "conic": "from 0deg"}[kind]
-    positions = ("0deg", "180deg", "360deg") if kind == "conic" else ("0%", "50%", "100%")
+    positions = (
+        ("0deg", "180deg", "360deg") if kind == "conic" else ("0%", "50%", "100%")
+    )
     expression = f"@{kind}-gradient({prefix}, red {positions[0]}, #0000ff80 {positions[1]}, white {positions[2]})"
     source_file = gradient_document(tmp_path, expression)
     original = SourceSnapshot.capture(tmp_path)
@@ -113,9 +115,7 @@ def test_ramp_marker_shows_opaque_and_alpha_halves(
         select_outline_row(window, "fill")
         open_gradient(window)
 
-        marker = control(
-            window, "Gradient stop 2", slint_testing.AccessibleRole.Slider
-        )
+        marker = control(window, "Gradient stop 2", slint_testing.AccessibleRole.Slider)
         image = screenshot(window)
         x = round(marker.absolute_position.x)
         y = round(marker.absolute_position.y)
