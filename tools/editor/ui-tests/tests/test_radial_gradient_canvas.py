@@ -45,9 +45,6 @@ def test_radial_activation_preserves_the_actual_picker(
         control(window, "Gradient stop 1", slint_testing.AccessibleRole.Slider)
         control(window, "Edit stop 1 color")
         assert not elements_with_label(window.root_element, "Hex color")
-        (tmp_path / "radial-picker-and-canvas.png").write_bytes(
-            window.grab_window_as_png()
-        )
         click(window, "Solid")
         assert not elements_with_label(window.root_element, "Gradient center handle")
         control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
@@ -186,8 +183,5 @@ def test_radial_stops_cross_insert_delete_and_color(
         press_key(window, keys.Delete)
         control(window, "Gradient center handle")
         control(window, "Gradient stop 2")
-        (tmp_path / "radial-gradient-editor.png").write_bytes(
-            window.grab_window_as_png()
-        )
         press_key(window, keys.Escape)
         original.assert_unchanged()
