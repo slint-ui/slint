@@ -1,0 +1,127 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component PathDashArray inherits Window {
+    width: 820px;
+    height: 480px;
+    background: #fbfcfe;
+
+    GridLayout {
+        padding: 28px;
+        spacing: 20px;
+
+        Row {
+            Text {
+                width: 300px;
+                vertical-alignment: center;
+                text: "Simple dashes";
+            }
+
+            Path {
+                width: 340px;
+                height: 24px;
+                viewbox-width: 340;
+                viewbox-height: 24;
+                fill: transparent;
+                stroke: Colors.blue;
+                stroke-width: 20px;
+                stroke-dash-array: "0.01 20";
+                stroke-line-cap: round;
+
+                MoveTo {
+                    x: 0;
+                    y: 12;
+                }
+
+                LineTo {
+                    x: 340;
+                    y: 12;
+                }
+            }
+        }
+
+        Row {
+            Text {
+                width: 300px;
+                vertical-alignment: center;
+                text: "Dash-dot";
+            }
+
+            Path {
+                width: 340px;
+                height: 24px;
+                viewbox-width: 340;
+                viewbox-height: 24;
+                fill: transparent;
+                stroke: Colors.red;
+                stroke-width: 10px;
+                stroke-dash-array: "0 16";
+                stroke-line-cap: round;
+
+                MoveTo {
+                    x: 0;
+                    y: 12;
+                }
+
+                LineTo {
+                    x: 340;
+                    y: 12;
+                }
+            }
+        }
+
+        Row {
+            Text {
+                width: 300px;
+                vertical-alignment: center;
+                text: "Animated stroke-dash-offset";
+            }
+
+            Path {
+                width: 340px;
+                height: 24px;
+                viewbox-width: 340;
+                viewbox-height: 24;
+                fill: transparent;
+                stroke: Colors.seagreen;
+                stroke-width: 3px;
+                stroke-dash-array: "12 10 0 10 0 10";
+                stroke-dash-offset: (animation-tick() / 1s * 20) * 1px;
+                stroke-line-cap: round;
+
+                MoveTo {
+                    x: 0;
+                    y: 12;
+                }
+
+                QuadraticTo {
+                    control-x: 42.5;
+                    control-y: -6;
+                    x: 85;
+                    y: 12;
+                }
+
+                QuadraticTo {
+                    control-x: 127.5;
+                    control-y: 30;
+                    x: 170;
+                    y: 12;
+                }
+
+                QuadraticTo {
+                    control-x: 212.5;
+                    control-y: -6;
+                    x: 255;
+                    y: 12;
+                }
+
+                QuadraticTo {
+                    control-x: 297.5;
+                    control-y: 30;
+                    x: 340;
+                    y: 12;
+                }
+            }
+        }
+    }
+}
