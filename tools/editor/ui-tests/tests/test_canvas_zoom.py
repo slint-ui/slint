@@ -4,6 +4,8 @@
 # cspell:ignore getpixel
 
 
+import math
+
 import pytest
 import slint_testing
 from canvas_interactions import (
@@ -20,6 +22,7 @@ from editor_sync import wait_for_source
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
 from ui_driver import (
+    elements_with_label,
     file_row,
     first_window,
     launch_editor,
@@ -31,6 +34,15 @@ from ui_driver import (
     wait_until,
     window_element_with_label,
 )
+
+ZOOM_LEVELS = [25, 50, 75, 100, 125, 150, 200, 300, 400]
+
+
+def expected_fit_zoom(
+    canvas: slint_testing.Element, width: float, height: float
+) -> int:
+    fit = min((canvas.size.width - 64) / width, (canvas.size.height - 64) / height)
+    return max((level for level in ZOOM_LEVELS if level / 100 <= fit), default=25)
 
 
 @pytest.mark.parametrize("percent", [25, 50, 75, 100, 125, 150, 200, 300, 400])
@@ -78,6 +90,92 @@ def test_zoom_scales_content_and_preserves_controls(
         press_shortcut(window, keys.Control, "0")
         wait_until(lambda: True if frame.size.width == pytest.approx(180) else None)
         screenshot(window).save(tmp_path / "actual-size.png")
+        original.assert_unchanged()
+
+
+@pytest.mark.parametrize(
+    ("file_name", "row", "width", "height", "angle_degrees"),
+    [
+        ("Main.slint", "root-rectangle", 180, 120, 0),
+        ("RotatedCanvasCases.slint", "rotated-free-rectangle", 140, 96, 30),
+    ],
+)
+def test_zoom_to_selection_uses_largest_fitting_level(
+    editor_binary,
+    editor_environment,
+    fixture_project,
+    file_name,
+    row,
+    width,
+    height,
+    angle_degrees,
+):
+    source = fixture_project / file_name
+    original = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
+        window = first_window(editor)
+        select_outline_row(window, row)
+        canvas = window_element_with_label(window, "Editor canvas")
+        angle = math.radians(angle_degrees)
+        bounds_width = width * abs(math.cos(angle)) + height * abs(math.sin(angle))
+        bounds_height = width * abs(math.sin(angle)) + height * abs(math.cos(angle))
+        expected = expected_fit_zoom(canvas, bounds_width, bounds_height)
+        press_shortcut(window, keys.Shift, "2")
+        wait_until(lambda: True if canvas.accessible_value == f"{expected}%" else None)
+        frame = window_element_with_label(window, "Selected Rectangle")
+        assert center(frame).x == pytest.approx(center(canvas).x)
+        assert center(frame).y == pytest.approx(center(canvas).y)
+        original.assert_unchanged()
+
+
+def test_zoom_to_selection_centers_canvas_when_unselected(
+    editor_binary, editor_environment, fixture_project
+):
+    source = fixture_project / "Main.slint"
+    original = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
+        window = first_window(editor)
+        select_outline_row(window, "root-rectangle")
+        window_element_with_label(window, "Selected Rectangle")
+        canvas = window_element_with_label(window, "Editor canvas")
+        clear_point = slint_testing.LogicalPosition(
+            x=canvas.absolute_position.x + 10,
+            y=canvas.absolute_position.y + 10,
+        )
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(clear_point, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(clear_point, button))
+        wait_until(
+            lambda: (
+                True
+                if not elements_with_label(window.root_element, "Selected Rectangle")
+                else None
+            )
+        )
+        target = center(canvas)
+        window.dispatch_event(
+            slint_testing.PointerScrolledEvent(target, delta_x=80, delta_y=-120)
+        )
+        artboard = window_element_with_label(
+            window, "Artboard", slint_testing.AccessibleRole.Region
+        )
+        assert center(artboard).x != pytest.approx(target.x)
+        assert center(artboard).y != pytest.approx(target.y)
+        press_shortcut(window, keys.Shift, "2")
+        wait_until(
+            lambda: (
+                True
+                if center(artboard).x == pytest.approx(target.x)
+                and center(artboard).y == pytest.approx(target.y)
+                else None
+            )
+        )
+        assert canvas.accessible_value == "100%"
+        zoom_canvas(window, 125)
+        press_shortcut(window, keys.Shift, "2")
+        assert canvas.accessible_value == "125%"
         original.assert_unchanged()
 
 
@@ -254,6 +352,7 @@ def test_zoom_is_blocked_during_resize(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         press_shortcut(window, keys.Control, "+")
+        press_shortcut(window, keys.Shift, "2")
         assert (
             window_element_with_label(window, "Editor canvas").accessible_value
             == "100%"

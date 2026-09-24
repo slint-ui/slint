@@ -265,6 +265,16 @@ export component EditorUi inherits Window {
                 activated => { CanvasView.set-zoom(CanvasView.previous-zoom-level); }
             }
             MenuItem {
+                title: @tr("Zoom to Selection");
+                shortcut: @keys(Shift + "2");
+                enabled: root.canvas-zoom-enabled;
+                activated => {
+                    CanvasView.zoom-to-selection(
+                        Api.current-element.source-uri != "" && Api.selection.highlight-index >= 0,
+                    );
+                }
+            }
+            MenuItem {
                 title: @tr("Actual Size");
                 shortcut: @keys(Control + Digit0);
                 enabled: root.canvas-zoom-enabled;
