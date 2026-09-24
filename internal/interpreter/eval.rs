@@ -755,10 +755,18 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             ctx.locals.get(name).cloned().unwrap_or(Value::Void)
         }
         Expression::StructFieldAccess { base, name } => {
-            if let Value::Struct(s) = eval_expression(ctx, base) {
-                s.get_field(name).cloned().unwrap_or(Value::Void)
-            } else {
-                Value::Void
+            if let Value::Struct(s) = eval_expression(ctx, base)
+                && let Some(v) = s.get_field(name)
+                && !matches!(v, Value::Void)
+            {
+                return v.clone();
+            }
+            // Native code or JSON data can provide a struct that lacks the field.
+            match base.ty(&*ctx) {
+                Type::Struct(s) if s.fields.contains_key(name) => {
+                    default_value_for_struct_field(&s, name)
+                }
+                _ => Value::Void,
             }
         }
         Expression::ArrayIndex { array, index } => {
