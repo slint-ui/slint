@@ -1,12 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { ButtonInterface } from "../common/std-widget-interfaces.slint";
 import { Button as ButtonControl } from "../headless/controls.slint";
 
 import { FluentFontSettings, FluentPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
-export component Button inherits ButtonControl {
+export component Button {
+    implement ButtonInterface <=> control;
+
     in property <image> icon;
     in property <length> icon-size: 20px;
     in property <bool> primary;
@@ -18,6 +21,14 @@ export component Button inherits ButtonControl {
     min-height: max(32px, i-layout.min-height);
     horizontal-stretch: 0;
     vertical-stretch: 0;
+    forward-focus: control;
+
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.activate(); }
 
     states [
         disabled when !root.enabled : {
@@ -79,6 +90,8 @@ export component Button inherits ButtonControl {
             }
         }
     }
+
+    control := ButtonControl { }
 
     // focus border
     if (root.has-focus && root.enabled) : FocusBorder {

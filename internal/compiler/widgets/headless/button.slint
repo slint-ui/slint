@@ -1,9 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { ButtonInterface } from "../common/std-widget-interfaces.slint";
 import { Pressable } from "pressable.slint";
 
-export component Button inherits Rectangle {
+export component Button {
+    implement ButtonInterface <=> self;
+
     in property <string> text;
     in property <bool> enabled: true;
     in property <bool> checkable: false;
@@ -18,16 +21,11 @@ export component Button inherits Rectangle {
 
     callback clicked;
 
+    preferred-width: 100%;
+    preferred-height: 100%;
     min-width: pressable.min-width;
     min-height: pressable.min-height;
     forward-focus: pressable;
-
-    accessible-role: button;
-    accessible-label: root.text;
-    accessible-enabled: root.enabled;
-    accessible-checkable: root.checkable;
-    accessible-checked: root.checked;
-    accessible-action-default => { root.activate(); }
 
     public function activate() {
         if (root.enabled) {

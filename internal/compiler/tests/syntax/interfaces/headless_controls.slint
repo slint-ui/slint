@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, CheckBox, Switch, RadioButton, RadioGroup, Slider } from "../../../widgets/headless/controls.slint";
+import { Pressable } from "../../../widgets/headless/pressable.slint";
+
+export component Test inherits Window {
+    Button {
+        background: #ff0000;
+//      >        <error{Unknown property background in Button}
+        border-radius: 4px;
+//      >           <error{Unknown property border-radius in Button}
+    }
+    Pressable {
+        background: #ff0000;
+//      >        <error{Unknown property background in Pressable}
+        border-radius: 4px;
+//      >           <error{Unknown property border-radius in Pressable}
+    }
+    CheckBox {
+        background: #ff0000;
+//      >        <error{Unknown property background in CheckBox}
+        border-radius: 4px;
+//      >           <error{Unknown property border-radius in CheckBox}
+    }
+    Switch {
+        background: #ff0000;
+//      >        <error{Unknown property background in Switch}
+        border-radius: 4px;
+//      >           <error{Unknown property border-radius in Switch}
+    }
+    RadioButton {
+        background: #ff0000;
+//      >        <error{Unknown property background in RadioButton}
+        border-radius: 4px;
+//      >           <error{Unknown property border-radius in RadioButton}
+    }
+    RadioGroup {
+        background: #ff0000;
+//      >        <error{Unknown property background in RadioGroup}
+        border-radius: 4px;
+//      >           <error{Unknown property border-radius in RadioGroup}
+    }
+    Slider {
+        background: #ff0000;
+//      >        <error{Unknown property background in Slider}
+        border-radius: 4px;
+//      >           <error{Unknown property border-radius in Slider}
+    }
+
+}

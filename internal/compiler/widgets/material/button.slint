@@ -1,11 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { ButtonInterface } from "../common/std-widget-interfaces.slint";
 import { Button as ButtonControl } from "../headless/controls.slint";
 import { StateLayerBase } from "components.slint";
 import { MaterialFontSettings, MaterialPalette, Elevation } from "styling.slint";
 
-component MaterialButtonBase inherits ButtonControl {
+component MaterialButtonBase inherits Rectangle {
+    implement ButtonInterface <=> control;
+
+    forward-focus: control;
+
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.activate(); }
+
     in property <image> icon;
     in property <length> icon-size: 24px;
     in property <brush> text-color;
@@ -31,8 +43,8 @@ component MaterialButtonBase inherits ButtonControl {
         pressed: root.pressed;
         has-hover: root.has-hover;
         has-focus: root.has-focus;
-        pressed-x: root.pressed-x;
-        pressed-y: root.pressed-y;
+        pressed-x: control.pressed-x;
+        pressed-y: control.pressed-y;
     }
 
     layout := HorizontalLayout {
@@ -66,6 +78,8 @@ component MaterialButtonBase inherits ButtonControl {
             }
         }
     }
+
+    control := ButtonControl { }
 }
 
 // Default button widget with Material Design Filled Button look and feel.

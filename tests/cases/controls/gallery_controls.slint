@@ -1,0 +1,162 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { GalleryCheckBox, GallerySwitch, GalleryRadioGroup } from "../../../examples/headless-controls-gallery/components/selection-controls.slint";
+import { GallerySlider } from "../../../examples/headless-controls-gallery/components/slider.slint";
+
+export component TestCase inherits Window {
+    width: 240px;
+    height: 240px;
+    in-out property <bool> enabled: true;
+    in-out property <bool> read-only: false;
+    in-out property <bool> checked <=> checkbox.checked;
+    in-out property <bool> switched <=> toggle.checked;
+    in-out property <string> selected-value <=> group.selected-value;
+    in-out property <float> value <=> slider.value;
+    out property <bool> slider-focused: slider.has-focus;
+    out property <int> toggles;
+    out property <int> selections;
+    out property <int> changes;
+    out property <int> releases;
+
+    public function focus-checkbox() { checkbox.focus(); }
+    public function focus-slider() { slider.focus(); }
+    public function set-value(value: float) { slider.set-value(value); }
+    public function select(value: string) { group.select(value); }
+
+    VerticalLayout {
+        checkbox := GalleryCheckBox {
+            text: "Notifications";
+            enabled: root.enabled;
+            read-only: root.read-only;
+            toggled => { root.toggles += 1; }
+        }
+        toggle := GallerySwitch {
+            text: "Live updates";
+            enabled: root.enabled;
+            toggled => { root.toggles += 1; }
+        }
+        group := GalleryRadioGroup {
+            text: "Density";
+            enabled: root.enabled;
+            read-only: root.read-only;
+            selected-value: "comfortable";
+            selected(_) => { root.selections += 1; }
+        }
+        slider := GallerySlider {
+            text: "Volume";
+            enabled: root.enabled;
+            minimum: 0;
+            maximum: 100;
+            step: 5;
+            value: 50;
+            changed(_) => { root.changes += 1; }
+            released(_) => { root.releases += 1; }
+        }
+    }
+}
+
+/*
+```rust
+fn selection_controls_delegate_state_and_expose_one_accessible_target() {
+    use slint::{SharedString, platform::{Key, PointerEventButton}};
+    use slint_testing::{AccessibleRole, ElementHandle};
+    let instance = TestCase::new().unwrap();
+    for (label, role) in [
+        ("Notifications", AccessibleRole::Checkbox),
+        ("Live updates", AccessibleRole::Switch),
+        ("Density", AccessibleRole::RadioGroup),
+        ("Comfortable", AccessibleRole::RadioButton),
+        ("Compact", AccessibleRole::RadioButton),
+    ] {
+        let elements: Vec<_> = ElementHandle::find_by_accessible_label(&instance, label).collect();
+        assert_eq!(elements.len(), 1, "{label}");
+        assert_eq!(elements[0].accessible_role(), Some(role), "{label}");
+    }
+    let checkbox = ElementHandle::find_by_accessible_label(&instance, "Notifications").next().unwrap();
+    let toggle = ElementHandle::find_by_accessible_label(&instance, "Live updates").next().unwrap();
+    let comfortable = ElementHandle::find_by_accessible_label(&instance, "Comfortable").next().unwrap();
+    let compact = ElementHandle::find_by_accessible_label(&instance, "Compact").next().unwrap();
+    checkbox.mock_single_click(PointerEventButton::Left);
+    assert!(instance.get_checked());
+    assert_eq!(instance.get_toggles(), 1);
+    instance.set_checked(false);
+    assert_eq!(checkbox.accessible_checked(), Some(false));
+    checkbox.invoke_accessible_default_action();
+    assert!(instance.get_checked());
+    assert_eq!(instance.get_toggles(), 2);
+    toggle.invoke_accessible_default_action();
+    assert!(instance.get_switched());
+    assert_eq!(instance.get_toggles(), 3);
+
+    compact.mock_single_click(PointerEventButton::Left);
+    assert_eq!(instance.get_selected_value(), "compact");
+    assert_eq!(compact.accessible_checked(), Some(true));
+    assert_eq!(comfortable.accessible_checked(), Some(false));
+    assert_eq!(instance.get_selections(), 1);
+    compact.invoke_accessible_default_action();
+    assert_eq!(instance.get_selections(), 1);
+
+    instance.set_read_only(true);
+    instance.invoke_focus_checkbox();
+    slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
+    checkbox.invoke_accessible_default_action();
+    comfortable.invoke_accessible_default_action();
+    instance.invoke_select("comfortable".into());
+    assert_eq!(instance.get_toggles(), 3);
+    assert_eq!(instance.get_selections(), 1);
+    assert_eq!(checkbox.accessible_read_only(), Some(true));
+    instance.set_read_only(false);
+    comfortable.invoke_accessible_default_action();
+    assert_eq!(instance.get_selected_value(), "comfortable");
+    assert_eq!(instance.get_selections(), 2);
+
+    instance.set_enabled(false);
+    checkbox.invoke_accessible_default_action();
+    toggle.mock_single_click(PointerEventButton::Left);
+    compact.invoke_accessible_default_action();
+    assert_eq!(instance.get_toggles(), 3);
+    assert_eq!(instance.get_selections(), 2);
+    assert_eq!(compact.accessible_enabled(), Some(false));
+}
+selection_controls_delegate_state_and_expose_one_accessible_target();
+```
+
+```rust
+fn slider_delegates_value_keyboard_pointer_and_accessible_actions() {
+    use slint::{SharedString, platform::Key};
+    let instance = TestCase::new().unwrap();
+    let sliders: Vec<_> = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Volume").collect();
+    assert_eq!(sliders.len(), 1);
+    let slider = &sliders[0];
+    assert_eq!(slider.accessible_role(), Some(slint_testing::AccessibleRole::Slider));
+    assert_eq!(slider.accessible_value(), Some(SharedString::from("50")));
+    assert_eq!(slider.accessible_value_step(), Some(5.0));
+    instance.invoke_focus_slider();
+    assert!(instance.get_slider_focused());
+    slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::RightArrow));
+    assert_eq!(instance.get_value(), 55.0);
+    assert_eq!(instance.get_changes(), 1);
+    assert_eq!(instance.get_releases(), 1);
+    slider.invoke_accessible_increment_action();
+    slider.invoke_accessible_decrement_action();
+    assert_eq!(instance.get_value(), 55.0);
+    assert_eq!(instance.get_changes(), 3);
+    slider.set_accessible_value("75");
+    assert_eq!(instance.get_value(), 75.0);
+    instance.invoke_set_value(200.0);
+    assert_eq!(instance.get_value(), 100.0);
+    let origin = slider.absolute_position();
+    let size = slider.size();
+    slint_testing::send_mouse_click(&instance, origin.x + size.width / 4.0, origin.y + size.height / 2.0);
+    assert!((instance.get_value() - 25.0).abs() < 0.1);
+    let changes = instance.get_changes();
+    instance.set_enabled(false);
+    slider.set_accessible_value("80");
+    slider.invoke_accessible_increment_action();
+    instance.invoke_set_value(90.0);
+    assert_eq!(instance.get_changes(), changes);
+}
+slider_delegates_value_keyboard_pointer_and_accessible_actions();
+```
+*/

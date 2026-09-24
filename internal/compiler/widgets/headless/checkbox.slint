@@ -1,9 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { CheckBoxInterface } from "../common/std-widget-interfaces.slint";
+
 import { Pressable } from "pressable.slint";
 
-export component CheckBox inherits Rectangle {
+export component CheckBox {
+    implement CheckBoxInterface <=> self;
+
     in property <string> text;
     in property <bool> enabled: true;
     in property <bool> read-only: false;
@@ -15,17 +19,11 @@ export component CheckBox inherits Rectangle {
 
     callback toggled;
 
+    preferred-width: 100%;
+    preferred-height: 100%;
     min-width: pressable.min-width;
     min-height: pressable.min-height;
     forward-focus: pressable;
-
-    accessible-role: checkbox;
-    accessible-label: root.text;
-    accessible-enabled: root.enabled;
-    accessible-read-only: root.read-only;
-    accessible-checkable: true;
-    accessible-checked: root.checked;
-    accessible-action-default => { root.toggle(); }
 
     public function toggle() {
         if (root.enabled && !root.read-only) {

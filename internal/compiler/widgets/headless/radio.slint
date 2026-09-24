@@ -1,9 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { RadioButtonInterface, RadioGroupInterface } from "../common/std-widget-interfaces.slint";
+
 import { Pressable } from "pressable.slint";
 
-export component RadioButton inherits Rectangle {
+export component RadioButton {
+    implement RadioButtonInterface <=> self;
+
     in property <string> text;
     in property <string> value;
     in property <bool> enabled: true;
@@ -15,21 +19,13 @@ export component RadioButton inherits Rectangle {
     out property <bool> pressed: pressable.pressed;
 
     callback selected;
-    callback focus-change <=> pressable.focus-change;
+    callback focus-change(bool);
 
+    preferred-width: 100%;
+    preferred-height: 100%;
     min-width: pressable.min-width;
     min-height: pressable.min-height;
     forward-focus: pressable;
-
-    accessible-role: radio-button;
-    accessible-label: root.text;
-    accessible-enabled: root.enabled;
-    accessible-read-only: root.read-only;
-    accessible-checkable: true;
-    accessible-checked: root.checked;
-    accessible-item-selectable: true;
-    accessible-item-selected: root.checked;
-    accessible-action-default => { root.select(); }
 
     public function select() {
         if (root.enabled && !root.read-only && !root.checked) {
@@ -41,11 +37,14 @@ export component RadioButton inherits Rectangle {
         enabled: root.enabled;
         activate-on-enter: false;
         clicked => { root.select(); }
+        focus-change(gained) => { root.focus-change(gained); }
 
         @children
     }
 }
-export component RadioGroup inherits Rectangle {
+export component RadioGroup {
+    implement RadioGroupInterface <=> self;
+
     in property <string> text;
     in property <bool> enabled: true;
     in property <bool> read-only: false;
@@ -53,13 +52,10 @@ export component RadioGroup inherits Rectangle {
 
     callback selected(string);
 
+    preferred-width: 100%;
+    preferred-height: 100%;
     min-width: content.min-width;
     min-height: content.min-height;
-
-    accessible-role: radio-group;
-    accessible-label: root.text;
-    accessible-enabled: root.enabled;
-    accessible-read-only: root.read-only;
 
     public function select(value: string) {
         if (root.enabled && !root.read-only && root.selected-value != value) {

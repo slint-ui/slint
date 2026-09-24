@@ -1,11 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { CheckBoxInterface } from "../common/std-widget-interfaces.slint";
 import { CheckBox as Control } from "../headless/controls.slint";
 import { MaterialPalette, MaterialFontSettings, Icons } from "styling.slint";
 
 // Selection control that can be toggled between checked und unchecked by click.
-export component CheckBox inherits Control {
+export component CheckBox {
+    implement CheckBoxInterface <=> control;
+
+    forward-focus: control;
+
+    accessible-role: checkbox;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-read-only: root.read-only;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.toggle(); }
+
     in property <length> font-size: MaterialFontSettings.title-small.font-size;
     in property <int> font-weight: MaterialFontSettings.title-small.font-weight;
 
@@ -122,4 +135,6 @@ export component CheckBox inherits Control {
             accessible-role: none;
         }
     }
+
+    control := Control { }
 }

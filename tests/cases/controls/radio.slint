@@ -4,6 +4,16 @@
 import { RadioButton, RadioGroup } from "../../../internal/compiler/widgets/headless/controls.slint";
 
 component StyledRadio inherits RadioButton {
+    accessible-role: radio-button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-read-only: root.read-only;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.checked;
+    accessible-action-default => { root.select(); }
+
     HorizontalLayout {
         Rectangle { background: root.checked ? green : gray; width: 20px; }
         Text { text: root.text; }

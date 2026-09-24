@@ -1,0 +1,117 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { GalleryButton } from "../../../examples/headless-controls-gallery/components/button.slint";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 80px;
+
+    in-out property <bool> enabled <=> button.enabled;
+    in-out property <bool> checked <=> button.checked;
+    out property <bool> focused: button.has-focus;
+    out property <bool> hovered: button.has-hover;
+    out property <bool> pressed: button.pressed;
+    out property <bool> checked-at-click;
+    out property <int> clicks;
+
+    public function activate() { button.activate(); }
+    public function focus-button() { button.focus(); }
+
+    button := GalleryButton {
+        text: "Delegated Button";
+        checkable: true;
+        accessible-description: "Gallery button";
+        clicked => {
+            root.checked-at-click = self.checked;
+            root.clicks += 1;
+        }
+    }
+}
+
+/*
+```rust
+fn delegated_button_exposes_state_and_activation() {
+    use slint::platform::{Key, WindowEvent};
+
+    let instance = TestCase::new().unwrap();
+    assert!(instance.get_enabled());
+    assert!(!instance.get_checked());
+    instance.invoke_activate();
+    assert!(instance.get_checked());
+    assert!(instance.get_checked_at_click());
+    assert_eq!(instance.get_clicks(), 1);
+
+    instance.set_checked(false);
+    instance.invoke_activate();
+    assert!(instance.get_checked());
+    assert!(instance.get_checked_at_click());
+    assert_eq!(instance.get_clicks(), 2);
+
+    instance.invoke_focus_button();
+    assert!(instance.get_focused());
+    instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Space.into() });
+    assert!(instance.get_pressed());
+    assert_eq!(instance.get_clicks(), 2);
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Space.into() });
+    assert!(!instance.get_pressed());
+    assert!(!instance.get_checked());
+    assert!(!instance.get_checked_at_click());
+    assert_eq!(instance.get_clicks(), 3);
+
+    instance.set_enabled(false);
+    instance.invoke_activate();
+    assert_eq!(instance.get_clicks(), 3);
+    assert!(!instance.get_checked());
+}
+
+delegated_button_exposes_state_and_activation();
+```
+
+```rust
+fn delegated_button_has_one_accessible_target_and_full_hit_area() {
+    use slint::{LogicalPosition, SharedString, platform::{PointerEventButton, WindowEvent}};
+
+    let instance = TestCase::new().unwrap();
+    let buttons: Vec<_> = slint_testing::ElementHandle::find_by_accessible_label(
+        &instance, "Delegated Button",
+    ).collect();
+    assert_eq!(buttons.len(), 1);
+    let button = &buttons[0];
+    assert_eq!(button.accessible_role(), Some(slint_testing::AccessibleRole::Button));
+    assert_eq!(button.accessible_description(), Some(SharedString::from("Gallery button")));
+    assert_eq!(button.accessible_checkable(), Some(true));
+    assert_eq!(button.accessible_checked(), Some(false));
+    button.invoke_accessible_default_action();
+    assert_eq!(instance.get_clicks(), 1);
+    assert_eq!(button.accessible_checked(), Some(true));
+
+    let origin = button.absolute_position();
+    let size = button.size();
+    assert!(size.width >= 80.0);
+    assert!(size.height >= 40.0);
+    let position = LogicalPosition::new(origin.x + size.width - 2.0, origin.y + size.height - 2.0);
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position });
+    assert!(instance.get_hovered());
+    instance.window().dispatch_event(WindowEvent::PointerPressed {
+        position, button: PointerEventButton::Left,
+    });
+    assert!(instance.get_pressed());
+    instance.window().dispatch_event(WindowEvent::PointerReleased {
+        position, button: PointerEventButton::Left,
+    });
+    assert!(!instance.get_pressed());
+    assert_eq!(instance.get_clicks(), 2);
+    assert_eq!(button.accessible_checked(), Some(false));
+
+    instance.set_enabled(false);
+    assert_eq!(button.accessible_enabled(), Some(false));
+    assert!(!instance.get_hovered());
+    button.invoke_accessible_default_action();
+    button.mock_single_click(PointerEventButton::Left);
+    assert_eq!(instance.get_clicks(), 2);
+}
+
+delegated_button_has_one_accessible_target_and_full_hit_area();
+```
+*/

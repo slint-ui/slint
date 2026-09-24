@@ -4,6 +4,13 @@
 import { Switch } from "../../../internal/compiler/widgets/headless/controls.slint";
 
 component StyledSwitch inherits Switch {
+    accessible-role: switch;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.toggle(); }
+
     Rectangle {
         background: root.checked ? green : gray;
     }

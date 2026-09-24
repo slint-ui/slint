@@ -1,13 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-/// Provides slider interaction and accessibility without prescribing an appearance.
+import { SliderInterface } from "../common/std-widget-interfaces.slint";
+
+/// Provides slider interaction without prescribing an appearance.
 ///
 /// Set `handle-x`, `handle-y`, `handle-width`, and `handle-height` to the bounds of the
-/// visual thumb supplied through `@children`. The slider uses these bounds for pointer
-/// interaction and dragging.
-export component Slider inherits Rectangle {
-    /// Identifies the slider to assistive technologies.
+/// visual thumb in the control's coordinate system. The slider uses these bounds for
+/// pointer interaction and dragging.
+export component Slider {
+    implement SliderInterface <=> self;
+
     in property <string> text;
     in property <bool> enabled: true;
     in property <float> minimum: 0;
@@ -31,32 +34,18 @@ export component Slider inherits Rectangle {
     out property <bool> handle-pressed;
     out property <bool> vertical: root.orientation == Orientation.vertical;
 
-    /// Reports each value change during pointer, keyboard, or accessibility interaction.
+    /// Reports each value change during interaction or a call to `set-value()`.
     callback changed(value: float);
     /// Reports the final value when pointer or keyboard interaction ends.
     callback released(value: float);
 
     private property <length> handle-size: root.vertical ? root.handle-height : root.handle-width;
 
+    preferred-width: 100%;
+    preferred-height: 100%;
     min-width: content.min-width;
     min-height: content.min-height;
     forward-focus: focus-scope;
-
-    accessible-role: slider;
-    accessible-orientation: root.orientation;
-    accessible-label: root.text;
-    accessible-enabled: root.enabled;
-    accessible-value: root.value;
-    accessible-value-minimum: root.minimum;
-    accessible-value-maximum: root.maximum;
-    accessible-value-step: root.step;
-    accessible-action-set-value(new-value) => {
-        if (new-value.is-float()) {
-            root.set-value(new-value.to-float());
-        }
-    }
-    accessible-action-increment => { root.increment(); }
-    accessible-action-decrement => { root.decrement(); }
 
     /// Clamps the value and invokes `changed` when interaction is enabled and the value changes.
     public function set-value(new-value: float) {

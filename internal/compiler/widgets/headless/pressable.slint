@@ -1,9 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// Shared pointer, keyboard, and focus behavior. Semantic controls own their
-// accessibility contract and state changes.
-export component Pressable inherits Rectangle {
+export component Pressable {
     in property <bool> enabled: true;
     in property <bool> activate-on-enter: true;
     in property <bool> activate-on-space: true;
@@ -21,10 +19,11 @@ export component Pressable inherits Rectangle {
 
     private property <bool> keyboard-pressed: false;
 
+    preferred-width: 100%;
+    preferred-height: 100%;
     min-width: content.min-width;
     min-height: content.min-height;
     forward-focus: focus-scope;
-    accessible-role: none;
 
     changed enabled => {
         if (!root.enabled) {

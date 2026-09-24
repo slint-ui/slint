@@ -4,6 +4,14 @@
 import { CheckBox } from "../../../internal/compiler/widgets/headless/controls.slint";
 
 component StyledCheckBox inherits CheckBox {
+    accessible-role: checkbox;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-read-only: root.read-only;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.toggle(); }
+
     HorizontalLayout {
         Rectangle { background: root.checked ? green : gray; width: 20px; }
         Text { text: root.text; }

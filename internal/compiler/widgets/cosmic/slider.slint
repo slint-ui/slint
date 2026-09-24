@@ -3,18 +3,33 @@
 
 import { CosmicPalette } from "styling.slint";
 import { StateLayerBase } from "components.slint";
+import { SliderInterface } from "../common/std-widget-interfaces.slint";
 import { Slider as SliderControl } from "../headless/controls.slint";
 
-export component Slider inherits SliderControl {
-    handle-x: thumb.x;
-    handle-y: thumb.y;
-    handle-width: thumb.width;
-    handle-height: thumb.height;
+export component Slider {
+    implement SliderInterface <=> control;
 
-    min-width: root.vertical ? 20px : 0px;
-    min-height: root.vertical ? 0px : 20px;
-    vertical-stretch: root.vertical ? 1 : 0;
-    horizontal-stretch: root.vertical ? 0 : 1;
+    forward-focus: control;
+
+    accessible-role: slider;
+    accessible-orientation: root.orientation;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-action-set-value(new-value) => {
+        if (new-value.is-float()) {
+            root.set-value(new-value.to-float());
+        }
+    }
+    accessible-action-increment => { root.increment(); }
+    accessible-action-decrement => { root.decrement(); }
+
+    min-width: control.vertical ? 20px : 0px;
+    min-height: control.vertical ? 0px : 20px;
+    vertical-stretch: control.vertical ? 1 : 0;
+    horizontal-stretch: control.vertical ? 0 : 1;
     accessible-value-step: min(root.step, (root.maximum - root.minimum) / 100);
 
     states [
@@ -24,26 +39,26 @@ export component Slider inherits SliderControl {
     ]
 
     rail := Rectangle {
-        x: root.vertical ? (parent.width - self.width) / 2 : thumb.width / 2;
-        y: root.vertical ? thumb.height / 2 : (parent.height - self.height) / 2;
-        width: root.vertical ? 4px : parent.width - thumb.width;
-        height: root.vertical ? parent.height - thumb.height : 4px;
+        x: control.vertical ? (parent.width - self.width) / 2 : thumb.width / 2;
+        y: control.vertical ? thumb.height / 2 : (parent.height - self.height) / 2;
+        width: control.vertical ? 4px : parent.width - thumb.width;
+        height: control.vertical ? parent.height - thumb.height : 4px;
         background: CosmicPalette.neutral-6-background;
         border-radius: 2px;
     }
 
     track := Rectangle {
-        x: root.vertical ? (parent.width - self.width) / 2 : thumb.width / 2;
-        y: root.vertical ? thumb.y + thumb.height / 2 : (parent.height - self.height) / 2;
-        width: root.vertical ? rail.width : thumb.x;
-        height: root.vertical ? parent.height - thumb.y - thumb.height : rail.height;
+        x: control.vertical ? (parent.width - self.width) / 2 : thumb.width / 2;
+        y: control.vertical ? thumb.y + thumb.height / 2 : (parent.height - self.height) / 2;
+        width: control.vertical ? rail.width : thumb.x;
+        height: control.vertical ? parent.height - thumb.y - thumb.height : rail.height;
         background: CosmicPalette.secondary-accent-background;
         border-radius: rail.border-radius;
     }
 
     thumb := Rectangle {
-        x: root.vertical ? (parent.width - self.width) / 2 : clamp((parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, parent.width - self.width);
-        y: root.vertical ? clamp((parent.height - self.height) * (root.maximum - root.value) / (root.maximum - root.minimum), 0, parent.height - self.height) : (parent.height - self.height) / 2;
+        x: control.vertical ? (parent.width - self.width) / 2 : clamp((parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, parent.width - self.width);
+        y: control.vertical ? clamp((parent.height - self.height) * (root.maximum - root.value) / (root.maximum - root.minimum), 0, parent.height - self.height) : (parent.height - self.height) / 2;
         width: 20px;
         height: self.width;
         border-radius: 10px;
@@ -55,9 +70,16 @@ export component Slider inherits SliderControl {
             border-radius: max(self.width, self.height) / 2;
             enabled: root.enabled;
             focus-border-margin: 0px;
-            pressed: root.handle-pressed;
+            pressed: control.handle-pressed;
             has-hover: root.has-hover;
             has-focus: root.has-focus;
         }
+    }
+
+    control := SliderControl {
+        handle-x: thumb.x;
+        handle-y: thumb.y;
+        handle-width: thumb.width;
+        handle-height: thumb.height;
     }
 }

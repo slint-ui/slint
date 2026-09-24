@@ -1,11 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { SwitchInterface } from "../common/std-widget-interfaces.slint";
 import { Switch as Control } from "../headless/controls.slint";
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
 import { StateLayerBase } from "components.slint";
 
-export component Switch inherits Control {
+export component Switch {
+    implement SwitchInterface <=> control;
+
+    forward-focus: control;
+
+    accessible-role: switch;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.toggle(); }
+
 
     private property <color> text-color: CosmicPalette.foreground;
 
@@ -68,4 +80,6 @@ export component Switch inherits Control {
             accessible-role: none;
         }
     }
+
+    control := Control { }
 }

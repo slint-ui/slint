@@ -1,19 +1,31 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { ButtonInterface } from "../../../internal/compiler/widgets/common/std-widget-interfaces.slint";
 import { Button } from "../../../internal/compiler/widgets/headless/controls.slint";
 
 component InheritedButton inherits Button {
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.activate(); }
+
     Rectangle {
         background: root.pressed ? blue : root.has-hover ? green : gray;
     }
 }
 
 component ComposedButton inherits Rectangle {
-    in property <string> text <=> behavior.text;
-    in property <bool> enabled <=> behavior.enabled;
-    out property <bool> has-focus: behavior.has-focus;
-    callback clicked <=> behavior.clicked;
+    implement ButtonInterface <=> behavior;
+
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.activate(); }
 
     forward-focus: behavior;
 

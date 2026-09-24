@@ -1,9 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { CheckBoxInterface, SwitchInterface, RadioButtonInterface, RadioGroupInterface } from "../../../internal/compiler/widgets/common/std-widget-interfaces.slint";
 import { CheckBox, RadioButton, RadioGroup, Switch } from "../../../internal/compiler/widgets/headless/controls.slint";
 
-export component GalleryCheckBox inherits CheckBox {
+export component GalleryCheckBox {
+    implement CheckBoxInterface <=> control;
+
+    forward-focus: control;
+
+    accessible-role: checkbox;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-read-only: root.read-only;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.toggle(); }
+
+    control := CheckBox { }
+
     min-height: 28px;
 
     HorizontalLayout {
@@ -19,6 +34,7 @@ export component GalleryCheckBox inherits CheckBox {
             background: root.checked ? #2563eb : #ffffff;
 
             if root.checked: Text {
+                accessible-role: none;
                 text: "✓";
                 color: #ffffff;
                 font-size: 13px;
@@ -29,6 +45,7 @@ export component GalleryCheckBox inherits CheckBox {
         }
 
         Text {
+            accessible-role: none;
             text: root.text;
             color: root.enabled ? #0f172a : #94a3b8;
             vertical-alignment: center;
@@ -36,7 +53,20 @@ export component GalleryCheckBox inherits CheckBox {
     }
 }
 
-export component GallerySwitch inherits Switch {
+export component GallerySwitch {
+    implement SwitchInterface <=> control;
+
+    forward-focus: control;
+
+    accessible-role: switch;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.toggle(); }
+
+    control := Switch { }
+
     min-height: 28px;
 
     HorizontalLayout {
@@ -65,6 +95,7 @@ export component GallerySwitch inherits Switch {
         }
 
         Text {
+            accessible-role: none;
             text: root.text;
             color: root.enabled ? #0f172a : #94a3b8;
             vertical-alignment: center;
@@ -72,7 +103,23 @@ export component GallerySwitch inherits Switch {
     }
 }
 
-component GalleryRadioButton inherits RadioButton {
+component GalleryRadioButton {
+    implement RadioButtonInterface <=> control;
+
+    forward-focus: control;
+
+    accessible-role: radio-button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-read-only: root.read-only;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.checked;
+    accessible-action-default => { root.select(); }
+
+    control := RadioButton { }
+
     min-height: 28px;
 
     HorizontalLayout {
@@ -100,6 +147,7 @@ component GalleryRadioButton inherits RadioButton {
         }
 
         Text {
+            accessible-role: none;
             text: root.text;
             color: root.enabled ? #0f172a : #94a3b8;
             vertical-alignment: center;
@@ -107,7 +155,16 @@ component GalleryRadioButton inherits RadioButton {
     }
 }
 
-export component GalleryRadioGroup inherits RadioGroup {
+export component GalleryRadioGroup {
+    implement RadioGroupInterface <=> control;
+
+    accessible-role: radio-group;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-read-only: root.read-only;
+
+    control := RadioGroup { }
+
     VerticalLayout {
         spacing: 4px;
 

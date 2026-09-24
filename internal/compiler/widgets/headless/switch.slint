@@ -1,9 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { SwitchInterface } from "../common/std-widget-interfaces.slint";
+
 import { Pressable } from "pressable.slint";
 
-export component Switch inherits Rectangle {
+export component Switch {
+    implement SwitchInterface <=> self;
+
     in property <string> text;
     in property <bool> enabled: true;
     in-out property <bool> checked: false;
@@ -14,16 +18,11 @@ export component Switch inherits Rectangle {
 
     callback toggled;
 
+    preferred-width: 100%;
+    preferred-height: 100%;
     min-width: pressable.min-width;
     min-height: pressable.min-height;
     forward-focus: pressable;
-
-    accessible-role: switch;
-    accessible-label: root.text;
-    accessible-enabled: root.enabled;
-    accessible-checkable: true;
-    accessible-checked: root.checked;
-    accessible-action-default => { root.toggle(); }
 
     public function toggle() {
         if (root.enabled) {

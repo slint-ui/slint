@@ -2,10 +2,22 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
+import { ButtonInterface } from "../common/std-widget-interfaces.slint";
 import { Button as ButtonControl } from "../headless/controls.slint";
 import { StateLayerBase } from "components.slint";
 
-export component Button inherits ButtonControl {
+export component Button {
+    implement ButtonInterface <=> control;
+
+    forward-focus: control;
+
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.activate(); }
+
     in property <image> icon;
     in property <length> icon-size: 20px;
     in property <bool> primary;
@@ -66,4 +78,6 @@ export component Button inherits ButtonControl {
         has-hover: root.has-hover;
         pressed: root.pressed;
     }
+
+    control := ButtonControl { }
 }
