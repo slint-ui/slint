@@ -8,6 +8,9 @@ import {
     loadSource,
     private_api,
     ArrayModel,
+    FilterModel,
+    SortModel,
+    MapModel,
     Model,
 } from "../dist/index.js";
 
@@ -683,6 +686,51 @@ test("custom model capturing instance does not prevent GC", async () => {
     const weakRef = makeInstance();
     await gcAndYield();
     expect(weakRef.deref()).toBeUndefined();
+});
+
+// --- Adapter model callback GC tests ---
+//
+// native_{filter,sort,map}_model_new hold the user's callback only weakly;
+// NativeAdapterModel keeps it alive for as long as the adapter lives.
+
+test("FilterModel predicate function survives GC", async () => {
+    const source = new ArrayModel([1, 2, 3, 4, 5, 6]);
+    const even = new FilterModel(source, (x) => x % 2 === 0);
+
+    await gcAndYield();
+
+    // FilterModel builds its mapping eagerly at construction time (before the
+    // GC pass), so reading it back proves nothing about the predicate's
+    // survival on its own; `reset()` forces a fresh evaluation.
+    even.reset();
+
+    // A collected predicate degrades to "drop every row" (see
+    // native_filter_model_new): row_count staying at 3 proves the closure
+    // is still callable.
+    expect(even.rowCount()).toBe(3);
+    expect(Array.from(even)).toEqual([2, 4, 6]);
+});
+
+test("SortModel compare function survives GC", async () => {
+    const source = new ArrayModel([5, 3, 1, 4, 2]);
+    const sorted = new SortModel(source, (a, b) => a - b);
+
+    await gcAndYield();
+
+    // A collected comparator degrades to Ordering::Equal for every pair
+    // (see native_sort_model_new), leaving the source order unchanged.
+    expect(Array.from(sorted)).toEqual([1, 2, 3, 4, 5]);
+});
+
+test("MapModel map function survives GC", async () => {
+    const source = new ArrayModel([1, 2, 3]);
+    const doubled = new MapModel(source, (x) => x * 2);
+
+    await gcAndYield();
+
+    // A collected map function degrades to the identity (see
+    // native_map_model_new), returning the untransformed source values.
+    expect(Array.from(doubled)).toEqual([2, 4, 6]);
 });
 
 // --- DataTransfer userData ---
