@@ -181,7 +181,7 @@ pub fn embed_glyphs(
                 .binding("default-font-family")
                 .and_then(|binding| match binding.value_expression() {
                     Expression::StringLiteral(family) => {
-                        Some((Some(family.clone()), binding.span.clone()))
+                        Some((Some(family.clone()).filter(|f| !f.is_empty()), binding.span.clone()))
                     }
                     _ => None,
                 })
