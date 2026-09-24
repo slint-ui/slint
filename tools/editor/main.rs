@@ -627,6 +627,7 @@ async fn switch_project(
     project_root: &mut PathBuf,
     project: Project,
 ) -> Result<()> {
+    session.send_to_preview(RUN_PREVIEW_INDEX, &LspToPreviewMessage::Quit);
     let to_previews = session.previews.iter().map(|preview| preview.to_preview.clone()).collect();
     *session = new_editor_session(to_previews);
     *project_root = project.root;
@@ -882,6 +883,18 @@ mod tests {
             matches!(message, LspToPreviewMessage::ShowPreview(component)
                 if component == &expected_component)
         }));
+        assert!(
+            messages[PRIMARY_PREVIEW_INDEX]
+                .borrow()
+                .iter()
+                .all(|message| !matches!(message, LspToPreviewMessage::Quit))
+        );
+        assert!(
+            messages[RUN_PREVIEW_INDEX]
+                .borrow()
+                .iter()
+                .any(|message| matches!(message, LspToPreviewMessage::Quit))
+        );
     }
 
     #[test]
