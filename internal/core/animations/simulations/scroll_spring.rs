@@ -1,13 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Ported from Flutter's `ClampingScrollSimulation`
-//! (scroll_simulation.dart.dart), which is:
+//! Ported from Flutter's `SpringSimulation` (physics/spring_simulation.dart), which is:
 //! Copyright 2014 The Flutter Authors. All rights reserved.
 //!
 //! Use of the original source is governed by a BSD-style license
 //!
-//! Original: <https://github.com/flutter/flutter/blob/d6bed8ff6135cdd414f14edc3063f761d47ca846/packages/flutter/lib/src/widgets/scroll_physics.dart>
+//! Original: <https://github.com/flutter/flutter/blob/d6bed8ff6135cdd414f14edc3063f761d47ca846/packages/flutter/lib/src/physics/spring_simulation.dart>
 
 use crate::animations::Instant;
 use crate::animations::simulations::spring::{

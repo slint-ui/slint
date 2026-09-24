@@ -446,6 +446,21 @@ SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = [
+  "internal/core/animations/simulations/ios.rs",
+  "internal/core/animations/simulations/scroll_spring.rs",
+  "internal/core/items/flickable/animation.rs",
+  "internal/core/items/flickable/velocity_tracker.rs",
+  "internal/core/items/flickable/velocity_tracker/fling.rs",
+  "internal/core/items/flickable/velocity_tracker/ios.rs",
+  "internal/core/items/flickable/velocity_tracker/least_square.rs",
+  "internal/core/items/flickable/velocity_tracker/macos.rs",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright 2014 The Flutter Authors <https://github.com/flutter/flutter>"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = [
   "tools/figma-inspector/fixtures/**.png",
   "tools/figma-inspector/fixtures/**.svg",
   "tools/figma-inspector/fixtures/**.slint",
