@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=480x220
+// BASE_THRESHOLD=3
+//ignore: software
+
+export component TestCase inherits Window {
+    width: 480px;
+    height: 220px;
+    background: white;
+
+    // The renderer increases positive radii smaller than half the border width.
+    // The shadow preserves that painted shape when spread expands or contracts it.
+    for row in 2: Rectangle {
+        y: row * 110px;
+        height: 110px;
+        for column in 3: Rectangle {
+            x: 10px + column * 160px;
+            y: 20px;
+            width: 50px;
+            height: 50px;
+            background: #00800080;
+            border-width: 20px;
+            border-color: row == 0 ? #0000ff80 : blue;
+            border-top-left-radius: 1px;
+            border-bottom-right-radius: 3px;
+            drop-shadow-color: red;
+            drop-shadow-offset-x: 75px;
+            drop-shadow-blur: row == 0 ? 0px : 4px;
+            drop-shadow-spread: (column - 1) * 2px;
+        }
+    }
+}
