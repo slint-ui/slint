@@ -3264,7 +3264,8 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             screen_size: rounded_geom.size.cast::<i16>() + euclid::size2(1, 1),
         };
 
-        let offset = offset * self.scale_factor + (physical_geom_f32.origin - rounded_geom.origin);
+        let offset =
+            offset.cast() * self.scale_factor + (physical_geom_f32.origin - rounded_geom.origin);
 
         // Convert to zeno commands
         let zeno_commands =
@@ -3299,7 +3300,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         // Draw stroke if specified
         let stroke_brush = path.stroke();
         let stroke_width = path.stroke_width();
-        if !stroke_brush.is_transparent() && stroke_width.get() > 0.0 {
+        if !stroke_brush.is_transparent() && stroke_width.get() > 0 as Coord {
             let stroke_color = self.alpha_color(stroke_brush.color());
             if stroke_color.alpha() > 0 {
                 let physical_stroke_width = (stroke_width.cast() * self.scale_factor).get();
