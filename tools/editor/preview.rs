@@ -1823,8 +1823,14 @@ enum CompilationResult {
     NoChange,
 }
 
-pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
-    let _ = slint::invoke_from_event_loop(move || document_edit::finished(edit, applied));
+pub(super) fn workspace_edit_finished(
+    edit: lsp_types::WorkspaceEdit,
+    applied: bool,
+    changed_on_failure: bool,
+) {
+    let _ = slint::invoke_from_event_loop(move || {
+        document_edit::finished(edit, applied, changed_on_failure)
+    });
 }
 
 fn change_style() {

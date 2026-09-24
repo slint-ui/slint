@@ -226,7 +226,7 @@ pub(super) fn contents_changed(url: &Url, content: &str) -> bool {
     })
 }
 
-pub(super) fn finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
+pub(super) fn finished(edit: lsp_types::WorkspaceEdit, applied: bool, changed_on_failure: bool) {
     let result = PREVIEW_STATE.with_borrow_mut(|state| {
         let mut pending = state.pending_document_edit.take()?;
         if pending.submitted_edit != edit {
@@ -256,8 +256,14 @@ pub(super) fn finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
             if !pending.expected.is_empty() {
                 state.pending_document_edit = Some(pending);
             }
-        } else if let Completion::Commit { inspector, .. } = completion {
-            cancel_inspector = inspector;
+        } else {
+            if changed_on_failure {
+                state.undo_redo_stack.clear();
+                state.pending_history.clear();
+            }
+            if let Completion::Commit { inspector, .. } = completion {
+                cancel_inspector = inspector;
+            }
         }
         undo_redo::set_undo_redo_enabled(state);
         Some((state.api.upgrade(), fill, cancel_inspector))
@@ -377,7 +383,7 @@ mod tests {
         );
         assert_eq!(stack_lengths(), (0, 0));
         assert!(PREVIEW_STATE.with_borrow(edit_pending));
-        finished(edit.clone(), false);
+        finished(edit.clone(), false, false);
         assert_eq!(stack_lengths(), (0, 0));
         assert!(!PREVIEW_STATE.with_borrow(edit_pending));
 
@@ -385,7 +391,7 @@ mod tests {
             submit("Change width".into(), edit.clone(), ValidationPolicy::StructuralOnly),
             SubmitEditOutcome::Submitted
         );
-        finished(edit, true);
+        finished(edit, true, false);
         assert_eq!(stack_lengths(), (1, 0));
         assert!(PREVIEW_STATE.with_borrow(edit_pending));
         assert!(contents_changed(
@@ -448,7 +454,7 @@ mod tests {
             submit("Change widths".into(), edit.clone(), ValidationPolicy::StructuralOnly),
             SubmitEditOutcome::Submitted
         );
-        finished(edit, true);
+        finished(edit, true, false);
         assert_eq!(stack_lengths(), (1, 0));
         assert!(contents_changed(
             &Url::parse("file:///first-document-edit.slint").unwrap(),
@@ -473,7 +479,7 @@ mod tests {
             submit("First width".into(), first.clone(), ValidationPolicy::StructuralOnly),
             SubmitEditOutcome::Submitted
         );
-        finished(first, true);
+        finished(first, true, false);
         let changed = SOURCE.replace("30px", "40px");
         assert!(contents_changed(&url, &changed));
         assert_eq!(stack_lengths(), (1, 0));
@@ -489,7 +495,7 @@ mod tests {
         PREVIEW_STATE.with_borrow_mut(|state| {
             assert!(!state.undo_redo_stack.check_set_contents_valid(&url, &external));
         });
-        finished(second, true);
+        finished(second, true, false);
         assert_eq!(stack_lengths(), (0, 0));
         assert!(!PREVIEW_STATE.with_borrow(edit_pending));
     }
@@ -506,7 +512,7 @@ mod tests {
             submit("Change width".into(), edit.clone(), ValidationPolicy::StructuralOnly),
             SubmitEditOutcome::Submitted
         );
-        finished(edit, true);
+        finished(edit, true, false);
 
         let changed = SOURCE.replace("30px", "40px");
         std::fs::write(&path, &changed).unwrap();
@@ -515,14 +521,14 @@ mod tests {
         submit_history(HistoryDirection::Undo);
         let undo = sent_edit(&messages, 1);
         assert_eq!(stack_lengths(), (1, 0));
-        finished(undo.clone(), false);
+        finished(undo.clone(), false, false);
         assert_eq!(stack_lengths(), (1, 0));
 
         submit_history(HistoryDirection::Undo);
         let undo = sent_edit(&messages, 2);
         submit_history(HistoryDirection::Redo);
         assert_eq!(PREVIEW_STATE.with_borrow(|state| state.pending_history.len()), 1);
-        finished(undo, true);
+        finished(undo, true, false);
         assert_eq!(stack_lengths(), (0, 1));
         assert!(PREVIEW_STATE.with_borrow(edit_pending));
         std::fs::write(&path, SOURCE).unwrap();
@@ -531,7 +537,7 @@ mod tests {
         undo_redo::apply_pending();
         assert!(PREVIEW_STATE.with_borrow(edit_pending));
         let redo = sent_edit(&messages, 3);
-        finished(redo, true);
+        finished(redo, true, false);
         assert_eq!(stack_lengths(), (1, 0));
         std::fs::write(&path, &changed).unwrap();
         reset_cache(&[(Url::from_file_path(&path).unwrap(), changed.as_str())]);
