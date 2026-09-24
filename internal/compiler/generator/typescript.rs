@@ -232,15 +232,11 @@ impl From<&Arc<crate::langtype::Enumeration>> for TsEnum {
     }
 }
 
-impl TsEnum {
-    fn declaration(&self, mode: OutputMode) -> typescript_ast::Declaration {
+impl From<&TsEnum> for typescript_ast::Declaration {
+    fn from(ts_enum: &TsEnum) -> Self {
         typescript_ast::Declaration::Enum(typescript_ast::Enum {
-            name: self.name.clone(),
-            variants: self.variants.clone(),
-            value: match mode {
-                OutputMode::Declarations => typescript_ast::EnumValue::Declared,
-                OutputMode::Module => typescript_ast::EnumValue::Defined,
-            },
+            name: ts_enum.name.clone(),
+            variants: ts_enum.variants.clone(),
         })
     }
 }
@@ -251,10 +247,10 @@ enum TsStructOrEnum {
 }
 
 impl TsStructOrEnum {
-    fn declaration(&self, mode: OutputMode) -> typescript_ast::Declaration {
+    fn declaration(&self) -> typescript_ast::Declaration {
         match self {
             TsStructOrEnum::Struct(ts_struct) => ts_struct.into(),
-            TsStructOrEnum::Enum(ts_enum) => ts_enum.declaration(mode),
+            TsStructOrEnum::Enum(ts_enum) => ts_enum.into(),
         }
     }
 }
@@ -365,20 +361,10 @@ mod typescript_ast {
         }
     }
 
-    /// Where the object holding an enum's values comes from.
-    #[derive(Debug, Clone, Copy)]
-    pub enum EnumValue {
-        /// The `.slint` module exports it, so only declare its shape.
-        Declared,
-        /// This file is the module, so define it here.
-        Defined,
-    }
-
     #[derive(Debug)]
     pub struct Enum {
         pub name: SmolStr,
         pub variants: Vec<EnumVariant>,
-        pub value: EnumValue,
     }
 
     impl Display for Enum {
@@ -395,22 +381,11 @@ mod typescript_ast {
             let union = if union.is_empty() { "never".into() } else { union };
             writeln!(f, "export type {} = {};", self.name, union)?;
 
-            match self.value {
-                EnumValue::Declared => {
-                    writeln!(f, "export declare const {}: {{", self.name)?;
-                    for variant in &self.variants {
-                        writeln!(f, "    readonly {}: \"{}\";", variant.name, variant.value)?;
-                    }
-                    writeln!(f, "}};")?;
-                }
-                EnumValue::Defined => {
-                    writeln!(f, "export const {} = {{", self.name)?;
-                    for variant in &self.variants {
-                        writeln!(f, "    {}: \"{}\",", variant.name, variant.value)?;
-                    }
-                    writeln!(f, "}} as const;")?;
-                }
+            writeln!(f, "export declare const {}: {{", self.name)?;
+            for variant in &self.variants {
+                writeln!(f, "    readonly {}: \"{}\";", variant.name, variant.value)?;
             }
+            writeln!(f, "}};")?;
             Ok(())
         }
     }
@@ -441,14 +416,6 @@ use crate::llr;
 use crate::object_tree::Document;
 use typescript_ast::*;
 
-/// Whether the output describes the module that `slint-ui/register` makes of the `.slint`
-/// file (a `.d.ts`), or is itself that module (a `.ts`).
-#[derive(Clone, Copy)]
-enum OutputMode {
-    Declarations,
-    Module,
-}
-
 /// Returns the text of the TypeScript code produced by the given root component
 pub fn generate(
     doc: &Document,
@@ -458,11 +425,15 @@ pub fn generate(
     let mut file = File { ..Default::default() };
     file.imports.push(SmolStr::new_static("import * as slint from \"slint-ui\";"));
 
-    let is_dts = destination_path
-        .and_then(|p| p.file_name())
-        .and_then(|n| n.to_str())
-        .is_some_and(|n| n.ends_with(".d.ts"));
-    let mode = if is_dts { OutputMode::Declarations } else { OutputMode::Module };
+    // The output describes the module that `slint-ui/register` makes of the `.slint` file,
+    // so it is a declaration file. A destination named otherwise would silently be one too.
+    if let Some(name) = destination_path.and_then(|p| p.file_name()).and_then(|n| n.to_str())
+        && !name.ends_with(".d.ts")
+    {
+        return Err(std::io::Error::other(format!(
+            "The TypeScript output is a declaration file, so '{name}' should be named '.d.ts'"
+        )));
+    }
 
     let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
@@ -512,7 +483,7 @@ pub fn generate(
         ts_compo
     }));
 
-    file.declarations.extend(module.structs_and_enums.iter().map(|se| se.declaration(mode)));
+    file.declarations.extend(module.structs_and_enums.iter().map(TsStructOrEnum::declaration));
 
     for global in &module.globals {
         global.generate(ComponentType::Global, &mut file);
@@ -527,8 +498,8 @@ pub fn generate(
         struct_or_enum.generate_aliases(&mut file);
     }
 
-    if is_dts {
-        // Declare runtime values so TypeScript allows `new MainWindow()` etc.
+    // Declare runtime values so TypeScript allows `new MainWindow()` etc.
+    {
         for compo in &module.components {
             file.trailing_code.push(format_smolstr!(
                 "export declare const {name}: {{ new(properties?: Partial<{name}>): {name} & slint.ComponentHandle }};",
@@ -539,51 +510,6 @@ pub fn generate(
             if let TsStructOrEnum::Struct(s) = se {
                 file.trailing_code.push(format_smolstr!(
                     "export declare function {name}(properties?: Partial<{name}>): {name};",
-                    name = s.name
-                ));
-            }
-        }
-    }
-
-    let relative_path = if is_dts {
-        None
-    } else {
-        let main_file = std::path::absolute(
-            doc.node
-                .as_ref()
-                .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?
-                .source_file
-                .path(),
-        )
-        .unwrap();
-
-        let destination_dir = destination_path.and_then(|p| {
-            std::path::absolute(p).ok().and_then(|p| p.parent().map(std::path::PathBuf::from))
-        });
-
-        destination_dir
-            .and_then(|dir| pathdiff::diff_paths(main_file.parent().unwrap(), dir))
-            .map(|rel| rel.join(main_file.file_name().unwrap()).to_string_lossy().into_owned())
-    };
-
-    if let Some(slint_file_relative) = relative_path {
-        let slint_file_relative = slint_file_relative.replace('\\', "/");
-        file.trailing_code.push(format_smolstr!(
-            "const _module: any = slint.loadFile(new URL(\"./{}\", import.meta.url));",
-            slint_file_relative
-        ));
-
-        for compo in &module.components {
-            file.trailing_code.push(format_smolstr!(
-                "export const {name}: {{ new(properties?: Partial<{name}>): {name} & slint.ComponentHandle }} = _module.{name};",
-                name = compo.name
-            ));
-        }
-
-        for se in &module.structs_and_enums {
-            if let TsStructOrEnum::Struct(s) = se {
-                file.trailing_code.push(format_smolstr!(
-                    "export const {name}: (properties?: Partial<{name}>) => {name} = _module.{name};",
                     name = s.name
                 ));
             }

@@ -161,79 +161,23 @@ app.counter = "not a number";
 // Full module mode: `-o app.slint.ts` emits a self-contained module with a
 // loadFile() wrapper instead of ambient declarations.
 
-const MODULE_MODE_SLINT_SOURCE = `export struct Item { name: string, checked: bool }
-export enum Mode { light, dark }
-export component App inherits Window {
-    in-out property <string> greeting;
-    in-out property <int> counter;
-    callback clicked();
-}`;
-
-function setupModuleModeDir(parent: string): string {
-    const dir = mkdtempSync(join(parent, "slint-ts-module-"));
-    writeFileSync(join(dir, "app.slint"), MODULE_MODE_SLINT_SOURCE);
-    execSync(`${COMPILER} -f typescript app.slint -o app.slint.ts`, {
-        cwd: dir,
-    });
-    return dir;
-}
-
-test("full module mode passes type checking", () => {
-    const dir = setupModuleModeDir(tmpdir());
+test("the destination has to be a declaration file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "slint-ts-dest-"));
     try {
         writeFileSync(
-            join(dir, "tsconfig.json"),
-            JSON.stringify({
-                compilerOptions: {
-                    module: "esnext",
-                    moduleResolution: "bundler",
-                    // The generated module uses `new URL(..., import.meta.url)`
-                    target: "es2022",
-                    lib: ["es2022", "dom"],
-                    strict: true,
-                    noEmit: true,
-                    skipLibCheck: true,
-                    paths: {
-                        "slint-ui": [
-                            join(__dirname, "..", "dist", "index.d.ts"),
-                        ],
-                    },
-                },
+            join(dir, "app.slint"),
+            "export component App inherits Window { in-out property <int> counter; }",
+        );
+        expect(() =>
+            execSync(`${COMPILER} -f typescript app.slint -o app.slint.ts`, {
+                cwd: dir,
+                stdio: "pipe",
             }),
-        );
-        const result = tscCheck(
-            dir,
-            `import { App, Item, Mode } from "./app.slint";
-const app = new App({ greeting: "hello" });
-app.counter = 42;
-const item: Item = Item({ name: "milk", checked: false });
-const mode: Mode = Mode.dark;
-console.log(app, item, mode);
-`,
-        );
-        expect(result.success).toBe(true);
-        expect(result.output).toBe("");
-    } finally {
-        rmSync(dir, { recursive: true });
-    }
-}, 120_000);
-
-test("full module mode loads and instantiates at runtime", async () => {
-    // Generate inside the package so the module's `import "slint-ui"` resolves.
-    const dir = setupModuleModeDir(__dirname);
-    try {
-        const mod = await import(pathToFileURL(join(dir, "app.slint.ts")).href);
-
-        const app = new mod.App({ greeting: "hello" });
-        expect(app.greeting).toBe("hello");
-        app.counter = 42;
-        expect(app.counter).toBe(42);
-
-        const item = mod.Item({ name: "milk" });
-        expect(item.name).toBe("milk");
-        expect(item.checked).toBe(false);
-
-        expect(mod.Mode.dark).toBe("dark");
+        ).toThrow();
+        execSync(`${COMPILER} -f typescript app.slint -o app.slint.d.ts`, {
+            cwd: dir,
+            stdio: "pipe",
+        });
     } finally {
         rmSync(dir, { recursive: true });
     }

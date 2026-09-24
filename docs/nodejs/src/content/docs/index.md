@@ -210,8 +210,8 @@ This is your main TypeScript entry point:
 
 ### Loading `.slint` Files
 
-There are three ways to load a `.slint` file.
-All of them compile the `.slint` markup and return constructor functions
+There are two ways to load a `.slint` file.
+Both compile the `.slint` markup and return constructor functions
 for each exported component.
 
 #### Option 1: `import` the `.slint` File (Recommended)
@@ -263,29 +263,7 @@ require("slint-ui/register");
 const { MainWindow } = require("./ui/main.slint");
 ```
 
-Option 2 is the one that keeps an ordinary static `import`.
-
-#### Option 2: A Generated TypeScript Module
-
-`slint-compiler` can turn a `.slint` file into a `.ts` module that loads itself:
-
-```sh
-slint-compiler -f typescript ui/main.slint -o ui/main.slint.ts
-```
-
-Import that module instead of the `.slint` file:
-
-```ts
-import { MainWindow } from "./ui/main.slint.ts";
-
-let component = new MainWindow({ counter: 42 });
-```
-
-Use this when you can't pass a flag to the runtime,
-or when a bundler has to see a plain `.ts` file.
-It needs no `--import`, and gives the same types as Option 1.
-
-#### Option 3: `loadFile()`
+#### Option 2: `loadFile()`
 
 Call `loadFile()` to compile and load a `.slint` file at runtime:
 
@@ -549,13 +527,6 @@ slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts
 
 This gives you full IDE autocomplete and type checking for all properties,
 callbacks, structs, and enums exported from the `.slint` file.
-
-The same command with a `.ts` extension generates Option 2's self-contained module,
-which carries the same types and needs no `--import`:
-
-```sh
-slint-compiler -f typescript ui/main.slint -o ui/main.slint.ts
-```
 
 Wire it into `package.json` so types stay in sync:
 
