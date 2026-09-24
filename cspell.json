@@ -5,6 +5,7 @@
     {
       "languageId": "rust",
       "words": [
+        "AOSP", // Android Open Source Project
         "bbox",
         "bindgen",
         "boxshadowcache",
@@ -37,6 +38,8 @@
         "signum",
         "Smol",
         "smolstr",
+        "submillisecond",
+        "subsec", // std::time::Duration::subsec_nanos
         "subspan",
         "uninit",
         "unlocalized",

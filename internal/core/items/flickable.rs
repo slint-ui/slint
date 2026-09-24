@@ -107,8 +107,7 @@ pub struct Flickable {
     pub interactive: Property<bool>,
     pub mouse_drag_pan_enabled: Property<bool>,
 
-    // Not `pub`: only public properties are registered in the RTTI, and these are not part of
-    // the language. See `set_physics()`.
+    // Not public api yet
     bounce: Property<AutoBool>,
     carry_momentum: Property<AutoBool>,
 
