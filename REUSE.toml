@@ -84,6 +84,11 @@ SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
+path = ["tools/editor/ui/assets/cursors/scrub-horizontal.svg"]
+SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
+SPDX-License-Identifier = "CC-PDDC"
+
+[[annotations]]
 path = ["tools/editor/ui/assets/cursors/resize.svg"]
 SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
 SPDX-License-Identifier = "MIT"

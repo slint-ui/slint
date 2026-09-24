@@ -178,6 +178,23 @@ export component InspectorPane inherits Rectangle {
         return false;
     }
 
+    function preview-geometry-property(name: string, value: float) -> bool {
+        if !root.has-backend-rect() {
+            return false;
+        }
+        Api.override-selected-element-geometry(
+            name == "x" ? value * 1px : root.selected-x(),
+            name == "y" ? value * 1px : root.selected-y(),
+            name == "width" ? value * 1px : root.selected-width(),
+            name == "height" ? value * 1px : root.selected-height(),
+        );
+        return true;
+    }
+
+    function accept-geometry-scrub() -> bool {
+        return Api.persist-selected-element-geometry();
+    }
+
     function commit-code(property-name: string, value: string) -> bool {
         if value == "" || root.element-information.source-uri == "" {
             return false;
@@ -549,12 +566,20 @@ export component InspectorPane inherits Rectangle {
                             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
                             accessible-name: "Position X"; prefix: "X";
                             value: root.selected-x-label(); commit-key: root.field-key("x");
+                            scrubbable: true; scrub-value: root.selected-x() / 1px;
+                            scrub-preview(value) => { return root.preview-geometry-property("x", value); }
+                            scrub-accepted(value) => { return root.accept-geometry-scrub(); }
+                            scrub-canceled(value) => { root.preview-geometry-property("x", value); }
                             accepted(text) => { return root.commit-geometry(text, root.selected-y-label(), root.selected-width-label(), root.selected-height-label()); }
                         }
                         InspectorValueField {
                             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
                             accessible-name: "Position Y"; prefix: "Y";
                             value: root.selected-y-label(); commit-key: root.field-key("y");
+                            scrubbable: true; scrub-value: root.selected-y() / 1px;
+                            scrub-preview(value) => { return root.preview-geometry-property("y", value); }
+                            scrub-accepted(value) => { return root.accept-geometry-scrub(); }
+                            scrub-canceled(value) => { root.preview-geometry-property("y", value); }
                             accepted(text) => { return root.commit-geometry(root.selected-x-label(), text, root.selected-width-label(), root.selected-height-label()); }
                         }
                     }
@@ -564,12 +589,22 @@ export component InspectorPane inherits Rectangle {
                             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
                             accessible-name: "Width"; prefix: "W";
                             value: root.selected-width-label(); commit-key: root.field-key("width");
+                            scrubbable: true; scrub-value: root.selected-width() / 1px;
+                            scrub-has-minimum: true; scrub-minimum: 1;
+                            scrub-preview(value) => { return root.preview-geometry-property("width", value); }
+                            scrub-accepted(value) => { return root.accept-geometry-scrub(); }
+                            scrub-canceled(value) => { root.preview-geometry-property("width", value); }
                             accepted(text) => { return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), text, root.selected-height-label()); }
                         }
                         InspectorValueField {
                             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
                             accessible-name: "Height"; prefix: "H";
                             value: root.selected-height-label(); commit-key: root.field-key("height");
+                            scrubbable: true; scrub-value: root.selected-height() / 1px;
+                            scrub-has-minimum: true; scrub-minimum: 1;
+                            scrub-preview(value) => { return root.preview-geometry-property("height", value); }
+                            scrub-accepted(value) => { return root.accept-geometry-scrub(); }
+                            scrub-canceled(value) => { root.preview-geometry-property("height", value); }
                             accepted(text) => { return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), root.selected-width-label(), text); }
                         }
                     }
@@ -588,6 +623,10 @@ export component InspectorPane inherits Rectangle {
                             accessible-name: "Rotation"; prefix: "°";
                             value: "\{EditorAngles.normalize(knob.visual-value * 1deg) / 1deg}";
                             commit-key: root.inspector-key;
+                            scrubbable: true; scrub-value: knob.visual-value;
+                            scrub-preview(value) => { return Api.inspector-preview(root.inspector-key, "transform-rotation", value); }
+                            scrub-accepted(value) => { return root.commit-inspector("transform-rotation", value); }
+                            scrub-canceled(value) => { Api.inspector-cancel(); }
                             accepted(text) => { return text.is-float() && root.commit-inspector("transform-rotation", text.to-float()); }
                         }
                     }

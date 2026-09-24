@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from canvas_interactions import center
 from editor_sync import wait_for_source
 from inspector_interactions import edit_field as edit_inspector_field
 from inspector_interactions import slider_position
@@ -109,6 +110,39 @@ def test_rotation_numeric_exact_source_and_undo(
         press_shortcut(window, keys.Control, keys.Shift, "z")
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, "Rotation", display)
+
+
+def test_rotation_prefix_scrubs_with_transient_preview(
+    editor_binary, editor_environment, fixture_project
+):
+    baseline = prepare(fixture_project)
+    expected = baseline.replace(
+        b"transform-rotation: 32deg", b"transform-rotation: 44deg"
+    )
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / SOURCE
+    ) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        scrubber = window_element_with_label(
+            window, "Rotation scrubber", slint_testing.AccessibleRole.Slider
+        )
+        start = center(scrubber)
+        end = slint_testing.LogicalPosition(x=start.x + 12, y=start.y)
+        button = slint_testing.PointerEventButton.Left
+
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_field(window, "Rotation", "44")
+        snapshot.assert_unchanged()
+
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, relative_path=SOURCE)
+        wait_for_field(window, "Rotation", "32")
 
 
 @pytest.mark.parametrize("index", range(4))
