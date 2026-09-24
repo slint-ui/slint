@@ -229,17 +229,86 @@ slint_testing::mock_elapsed_time(1);
 let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
 assert!(velocity.abs() > (2_f32 * FLICK_DISTANCE / 10e-3).abs(), "Received: {velocity}. There is a large velocity increase because the previous velocity is added to the newly estimated one");
 
+// Real repeated same-strength, same-direction flicks (measured on a live iOS
+// UIScrollView, see /home/martin/Downloads/iosFlick) keep compounding release over
+// release; they don't alternate between a boosted and an un-boosted repeat.
+let mut previous_velocity = velocity;
 for i in 0..4 {
     send_wheel_scroll(&instance, 5., 5., 0., -FLICK_DISTANCE); // Scrolling down.
 
     let content_y = instance.get_fli_content_y();
     slint_testing::mock_elapsed_time(1);
     let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
-    if i % 2 == 0 {
-        assert!((velocity - FLICK_DISTANCE / 10e-3).abs() < 30., "Iteration {i}. Received: {velocity}. The previous flick was boosted, so this same-strength repeat can no longer clear the now much larger momentum-retention threshold, and momentum is not carried");
-    } else {
-        assert!(velocity.abs() > (2_f32 * FLICK_DISTANCE / 10e-3).abs(), "Iteration {i}. Received: {velocity}. The previous flick was reset to un-boosted strength, so this same-strength repeat clears the threshold again and momentum is carried");
+    assert!(velocity.abs() >= previous_velocity.abs(), "Iteration {i}. Received: {velocity}, previous: {previous_velocity}. Repeating the flick must not lose the carried momentum");
+    previous_velocity = velocity;
+}
+```
+
+// A same-direction touch flick that starts while the previous one is still gliding must
+// still carry momentum, even with an unremarkable ~25ms gap between two tracked move
+// samples (slower than an idealized 60Hz, but a plausible real cadence once dispatch and
+// processing delay are accounted for). Real device timings for the flick shape used here:
+// /home/martin/Downloads/iosFlick, uniform-flick-events-t1.csv.
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint_testing::AutoBool;
+
+// One flick: press, drag upward in 25ms steps (a plausible touch/processing cadence,
+// slower than an idealized 60Hz), release. Does not wait for the resulting animation to settle.
+fn flick(window: &slint::Window) {
+    const STEPS: u64 = 12;
+    const STEP_MS: u64 = 25;
+    const STEP_TRAVEL: f32 = 19.0; // -> roughly matches the measured ~780px/s release speed
+    let start = LogicalPosition::new(200.0, 450.0);
+    window.dispatch_event(WindowEvent::PointerMoved { position: start });
+    window.dispatch_event(WindowEvent::PointerPressed { position: start, button: PointerEventButton::Left });
+    let mut y = start.y;
+    for _ in 0..STEPS {
+        slint_testing::mock_elapsed_time(STEP_MS);
+        y -= STEP_TRAVEL;
+        window.dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0, y) });
+    }
+    window.dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(200.0, y), button: PointerEventButton::Left });
+}
+
+fn settle(instance: &TestCase) {
+    let mut last = instance.get_fli_content_y();
+    loop {
+        slint_testing::mock_elapsed_time(200);
+        let now = instance.get_fli_content_y();
+        if (now - last).abs() < 0.01 {
+            break;
+        }
+        last = now;
     }
 }
+
+// Baseline: a single flick with nothing before or after it.
+let baseline = TestCase::new().unwrap();
+let baseline_flickable = slint_testing::ElementHandle::find_by_element_id(&baseline, "TestCase::fli").next().unwrap();
+slint_testing::set_flickable_physics(&baseline_flickable, AutoBool::On, AutoBool::On);
+flick(baseline.window());
+let baseline_release_y = baseline.get_fli_content_y();
+settle(&baseline);
+let baseline_travel = (baseline.get_fli_content_y() - baseline_release_y).abs();
+
+// The second flick interrupts the first one's still-running animation (60Hz touch delivery
+// means ~17ms between samples, well over the retention timeout from before this fix), so it
+// must carry momentum and travel noticeably farther, once settled, than the isolated baseline.
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli").next().unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::On);
+flick(instance.window());
+slint_testing::mock_elapsed_time(220); // real measured inter-flick gap
+flick(instance.window());
+let second_release_y = instance.get_fli_content_y();
+settle(&instance);
+let second_travel = (instance.get_fli_content_y() - second_release_y).abs();
+
+assert!(
+    second_travel > baseline_travel * 1.2,
+    "The second flick should carry momentum from the still-running first one, \
+     traveling noticeably farther once settled: baseline {baseline_travel}px, second flick {second_travel}px"
+);
 ```
 */

@@ -25,7 +25,12 @@ const IOS_FRICTION_FACTOR: f32 = 0.52;
 /// `BouncingScrollPhysics.frictionFactor`'s base factor for
 /// `ScrollDecelerationRate.fast`, used on macOS.
 const MACOS_FRICTION_FACTOR: f32 = 0.26;
-const MOMENTUM_RETAIN_VELOCITY_THRESHOLD_FACTOR: f32 = 0.5;
+/// `FlickAnimation::carried_momentum`'s growth curve: `carried = CARRY_SCALE *
+/// current_velocity.abs().powf(CARRY_EXPONENT)`. Fit by log-log least squares (R² = 0.76)
+/// against 112 real same-direction repeat flicks (a rapid flick starting while the previous
+/// one was still gliding), captured from a live iOS UIScrollView via XCTest.
+const CARRY_SCALE: f32 = 0.3522;
+const CARRY_EXPONENT: f32 = 1.1674;
 
 pub enum FlickAnimationParameter {
     /// Cover a fixed distance in a fixed duration, e.g. wheel scrolling.
@@ -173,21 +178,13 @@ impl FlickAnimation {
             AutoBool::On => true,
             AutoBool::Off => false,
         };
-        if current_velocity == 0. || !cm {
+        let same_direction = new_estimated_velocity.signum() == current_velocity.signum();
+        if current_velocity == 0. || !cm || !same_direction {
             return 0.;
         }
 
-        let carried_velocity = current_velocity.signum()
-            * f32::min(0.000816 * f32::powf(current_velocity.abs(), 1.967), 40000.0);
-
-        let is_velocity_not_substantially_less_than_carried_momentum = new_estimated_velocity.abs()
-            > carried_velocity.abs() * MOMENTUM_RETAIN_VELOCITY_THRESHOLD_FACTOR;
-        let same_direction = new_estimated_velocity.signum() == current_velocity.signum();
-
-        if is_velocity_not_substantially_less_than_carried_momentum && same_direction {
-            return carried_velocity;
-        }
-        0.
+        current_velocity.signum()
+            * f32::min(CARRY_SCALE * f32::powf(current_velocity.abs(), CARRY_EXPONENT), 40000.0)
     }
 
     /// Wether to bounce or not depending on the bounce variable
@@ -245,6 +242,46 @@ impl FlickAnimation {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn carried_momentum_is_zero_when_off_stopped_or_reversed() {
+        assert_eq!(FlickAnimation::carried_momentum(2000., 2000., AutoBool::Off), 0.);
+        assert_eq!(FlickAnimation::carried_momentum(2000., 0., AutoBool::On), 0.);
+        assert_eq!(FlickAnimation::carried_momentum(-2000., 2000., AutoBool::On), 0.);
+    }
+
+    /// The growth curve grows with the residual velocity a same-direction flick interrupts,
+    /// and never depends on the new flick's own estimated velocity (unlike the old
+    /// threshold-gated version, real repeated same-strength flicks keep compounding rather
+    /// than alternating between a boosted and an un-boosted repeat).
+    #[test]
+    fn carried_momentum_grows_with_residual_velocity() {
+        let mut previous = 0.;
+        for current_velocity in [500., 1000., 2000., 3000., 3625.] {
+            let carried = FlickAnimation::carried_momentum(1., current_velocity, AutoBool::On);
+            assert!(carried > previous, "{current_velocity}: {carried} <= {previous}");
+            previous = carried;
+        }
+    }
+
+    /// Five real (residual velocity, required carry boost) pairs decomposed from repeated
+    /// same-direction flicks measured on a live iOS UIScrollView (see
+    /// /home/martin/Downloads/iosFlick, uniform-flick-events-t1.csv, releases 4-8), using the
+    /// DRAG constant in `simulations::ios` to turn each release's total measured travel back
+    /// into an effective launch velocity. `CARRY_SCALE`/`CARRY_EXPONENT` are fit to this data
+    /// (and 107 further points from other real flick sequences) by log-log least squares.
+    #[test]
+    fn carried_momentum_matches_real_device_measurements() {
+        for (current_velocity, measured_carry) in
+            [(550.4, 628.1), (1028.3, 1570.4), (1644.5, 2826.6), (2642.8, 4397.7), (3625.8, 6282.2)]
+        {
+            let carried = FlickAnimation::carried_momentum(1., current_velocity, AutoBool::On);
+            assert!(
+                (carried - measured_carry).abs() < measured_carry * 0.35,
+                "current_velocity={current_velocity}: predicted {carried}, measured {measured_carry}"
+            );
+        }
+    }
 
     /// A Flickable with no laid-out size yet, or one the virtual keyboard fully
     /// covers, has zero (or negative) viewport extent on that axis. Dividing by

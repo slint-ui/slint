@@ -63,7 +63,9 @@ use animation::{FlickAnimation, FlickAnimationParameter};
 const WHEEL_SCROLL_DURATION: Duration = Duration::from_millis(180);
 #[cfg(not(any(target_os = "ios", target_os = "linux", target_os = "none", target_os = "macos")))]
 const VELOCITY_TRACKER_SAMPLES: usize = 20;
-const MOMENTUM_RETAIN_TIMEOUT: Duration = Duration::from_millis(20);
+/// How long a pause between two tracked move samples is still considered part of the same
+/// flick
+const MOMENTUM_RETAIN_TIMEOUT: Duration = Duration::from_millis(100);
 
 // We use for linux and no os the ios velocity tracker because embedded is
 // computational power constraint and embedded linux can be as well and the
