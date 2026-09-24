@@ -28,8 +28,8 @@ fn segment_velocity(
     let (Some(sample), Some(previous)) = (sample, previous) else {
         return Velocity::default();
     };
-    let dt = sample.0.duration_since(previous.0).as_millis() as f32;
-    if dt > 0.0 { sample.1 * (1000.0 / dt) } else { Velocity::default() }
+    let dt = sample.0.duration_since(previous.0).as_secs_f32();
+    if dt > 0.0 { sample.1 / dt } else { Velocity::default() }
 }
 
 /// Blends the velocities of the last 3 recorded segments in `buffer` using
