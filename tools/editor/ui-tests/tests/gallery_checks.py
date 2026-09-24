@@ -266,6 +266,20 @@ def test_gallery_slider_drag_cancel_and_reset(
         )
 
 
+def test_gallery_shadow_angle_drag(gallery_binary, editor_environment):
+    with gallery(gallery_binary, editor_environment, "inspector-controls") as window:
+        dial = window_element_with_label(
+            window, "Sample shadow angle", slint_testing.AccessibleRole.Slider
+        )
+        assert float(dial.accessible_value) == 90
+        middle = center(dial)
+        radius = dial.size.width / 3
+        start = slint_testing.LogicalPosition(middle.x, middle.y + radius)
+        end = slint_testing.LogicalPosition(middle.x + radius, middle.y)
+        gesture(window, start, end)
+        wait_until(lambda: True if float(dial.accessible_value) == 0 else None)
+
+
 def test_gallery_basic_controls_pointer_targets(gallery_binary, editor_environment):
     with gallery(gallery_binary, editor_environment, "controls") as window:
         previous_right = 0

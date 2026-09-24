@@ -87,7 +87,7 @@ export component GalleryControls inherits Rectangle {
                     HorizontalLayout {
                         alignment: start; spacing: 24px;
                         InspectorRotationKnob { value: root.rotation; preview(v) => { return true; } accepted(v) => { root.rotation = v; return true; } }
-                        InspectorEffectDial { accessible-name: "Sample shadow angle"; value: root.shadow-angle; accepted(v) => { root.shadow-angle = v; return true; } }
+                        InspectorEffectDial { accessible-name: "Sample shadow angle"; value: root.shadow-angle; preview(v) => { return true; } accepted(v) => { root.shadow-angle = v; return true; } }
                     }
                     InspectorCornerEditor {
                         values: root.corners; maximum: 100; selection-key: root.reset-generation;

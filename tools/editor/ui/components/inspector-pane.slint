@@ -698,9 +698,13 @@ export component InspectorPane inherits Rectangle {
                                 accessible-name: "Shadow angle";
                                 commit-key: root.inspector-key + ":" + root.current-shadow-prefix();
                                 value: root.shadow-angle();
+                                preview(angle) => {
+                                    return Api.inspector-preview-shadow(root.inspector-key, root.shadow-offset-changes(angle, root.shadow-distance()));
+                                }
                                 accepted(angle) => {
                                     return root.commit-shadow-offsets(angle, root.shadow-distance());
                                 }
+                                canceled => { Api.inspector-cancel(); }
                             }
 
                             VerticalLayout {
