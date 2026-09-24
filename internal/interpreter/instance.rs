@@ -472,8 +472,6 @@ impl Instance {
     }
 
     /// Ensure the repeater at `tree_index` is populated from its model.
-    /// Called by `get_subtree_range`, `get_subtree` and
-    /// `visit_dynamic_children` before reading the repeater's instances.
     ///
     /// When the LLR `RepeatedElement` is actually a `ComponentContainer`
     /// placeholder (`container_item_index = Some`), defer to the
