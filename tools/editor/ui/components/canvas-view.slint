@@ -17,6 +17,7 @@ export enum ZoomLevel {
 }
 
 export global CanvasView {
+    private property <length> fit-padding: 32px;
     out property <ZoomLevel> zoom-level: ZoomLevel.actual-size;
     out property <float> zoom:
         self.zoom-level == ZoomLevel.percent-25 ? 0.25 :
@@ -53,6 +54,9 @@ export global CanvasView {
     in-out property <bool> manipulating;
     in-out property <bool> panning;
     in-out property <bool> space-pressed;
+    in-out property <Point> selection-position;
+    in-out property <Size> selection-size;
+    in-out property <angle> selection-angle;
     out property <bool> navigation-enabled: !self.manipulating && !AppState.has-active-drag();
     public pure function canvas-origin(size: Size) -> Point {
         return {
@@ -83,5 +87,48 @@ export global CanvasView {
             x: self.pan.x + center.x - scaled.x - origin.x,
             y: self.pan.y + center.y - scaled.y - origin.y,
         };
+    }
+
+    function center-point(point: Point) {
+        let center = { x: self.viewport-size.width / 2, y: self.viewport-size.height / 2 };
+        let origin = self.canvas-origin(self.viewport-size);
+        let scaled = self.to-view(point);
+        self.pan = {
+            x: self.pan.x + center.x - scaled.x - origin.x,
+            y: self.pan.y + center.y - scaled.y - origin.y,
+        };
+    }
+
+    public function zoom-to-selection(has-selection: bool) {
+        if !self.navigation-enabled || self.panning { return; }
+        if !has-selection || self.selection-size.width <= 0px || self.selection-size.height <= 0px {
+            self.center-point({
+                x: PreviewMetrics.canvas-width / 2,
+                y: PreviewMetrics.canvas-height / 2,
+            });
+            return;
+        }
+
+        let sine = self.selection-angle.sin().abs();
+        let cosine = self.selection-angle.cos().abs();
+        let bounds-width = self.selection-size.width * cosine + self.selection-size.height * sine;
+        let bounds-height = self.selection-size.width * sine + self.selection-size.height * cosine;
+        let available-width = max(self.viewport-size.width - 2 * self.fit-padding, 1px);
+        let available-height = max(self.viewport-size.height - 2 * self.fit-padding, 1px);
+        let fit = min(available-width / bounds-width, available-height / bounds-height);
+        let level = fit >= 4 ? ZoomLevel.percent-400
+            : fit >= 3 ? ZoomLevel.percent-300
+            : fit >= 2 ? ZoomLevel.percent-200
+            : fit >= 1.5 ? ZoomLevel.percent-150
+            : fit >= 1.25 ? ZoomLevel.percent-125
+            : fit >= 1 ? ZoomLevel.actual-size
+            : fit >= 0.75 ? ZoomLevel.percent-75
+            : fit >= 0.5 ? ZoomLevel.percent-50
+            : ZoomLevel.percent-25;
+        self.set-zoom(level);
+        self.center-point({
+            x: Style.artboard.padding + self.selection-position.x + self.selection-size.width / 2,
+            y: Style.artboard.padding + self.selection-position.y + self.selection-size.height / 2,
+        });
     }
 }
