@@ -1,8 +1,11 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore capfd Maxime unraisable unraisablehook
+# cSpell: ignore capfd Maxime unorderable unraisable unraisablehook
 
+import functools
+import math
+import random
 import sys
 import typing
 from pathlib import Path
@@ -881,3 +884,242 @@ def test_filter_model_notifies_and_writes_back() -> None:
 
     instance.invoke("set_first", 50)
     assert list(source) == [50, 1, 2, 3]
+
+
+def test_sort_model() -> None:
+    source = models.ListModel([3, 1, 2])
+    sorted_model = models.SortModel(source)
+
+    assert sorted_model.source_model is source
+    assert list(sorted_model) == [1, 2, 3]
+    assert sorted_model[-1] == 3
+    assert sorted_model.row_data(3) is None
+    assert sorted_model.row_data(-4) is None
+
+    source.append(0)
+    source[0] = 10
+    assert list(sorted_model) == [0, 1, 2, 10]
+    del source[1]
+    assert list(sorted_model) == [0, 2, 10]
+
+
+def test_sort_model_key_and_reverse() -> None:
+    source = models.ListModel(["ccc", "a", "bb"])
+    assert list(models.SortModel(source, key=len)) == ["a", "bb", "ccc"]
+    assert list(models.SortModel(source, key=len, reverse=True)) == ["ccc", "bb", "a"]
+    assert list(models.SortModel(source, reverse=True)) == ["ccc", "bb", "a"]
+
+
+def test_sort_model_is_stable() -> None:
+    source = models.ListModel([("b", 1), ("a", 2), ("b", 3), ("a", 4)])
+    assert list(models.SortModel(source, key=lambda row: row[0])) == [
+        ("a", 2),
+        ("a", 4),
+        ("b", 1),
+        ("b", 3),
+    ]
+
+
+def test_sort_model_cmp_to_key() -> None:
+    def by_last_digit(lhs: int, rhs: int) -> int:
+        return lhs % 10 - rhs % 10
+
+    source = models.ListModel([13, 21, 32])
+    sorted_model = models.SortModel(source, key=functools.cmp_to_key(by_last_digit))
+    assert list(sorted_model) == [21, 32, 13]
+
+
+def test_sort_model_unsorted_row() -> None:
+    sorted_model = models.SortModel(models.ListModel([3, 1, 2]))
+    assert sorted_model.unsorted_row(0) == 1
+    assert sorted_model.unsorted_row(-1) == 0
+    with pytest.raises(IndexError):
+        sorted_model.unsorted_row(3)
+    with pytest.raises(IndexError):
+        sorted_model.unsorted_row(-4)
+
+
+def test_sort_model_set_row_data() -> None:
+    source = models.ListModel([3, 1, 2])
+    sorted_model = models.SortModel(source)
+
+    sorted_model[0] = 10
+    assert list(source) == [3, 10, 2]
+    assert list(sorted_model) == [2, 3, 10]
+
+    with pytest.raises(IndexError):
+        sorted_model[3] = 0
+
+
+def test_sort_model_subclass_reset() -> None:
+    class ByField(models.SortModel[dict[str, int]]):
+        def __init__(self, source: models.Model[dict[str, int]]) -> None:
+            super().__init__(source)
+            self.field = "a"
+
+        def sort_key(self, row_data: dict[str, int]) -> int:
+            return row_data[self.field]
+
+    rows = [{"a": 1, "b": 2}, {"a": 2, "b": 1}]
+    by_field = ByField(models.ListModel(rows))
+    assert list(by_field) == rows
+
+    by_field.field = "b"
+    by_field.reset()
+    assert list(by_field) == [rows[1], rows[0]]
+
+
+def test_sort_model_key_exception() -> None:
+    def fail(value: int) -> int:
+        raise ValueError(f"cannot sort {value}")
+
+    sorted_model = models.SortModel(models.ListModel([1, 2]), key=fail)
+    with pytest.raises(ValueError, match="cannot sort"):
+        sorted_model.row_data(0)
+    assert list(sorted_model) == [1, 2]
+
+
+def test_sort_model_rows_with_raising_key_sort_last() -> None:
+    def key(value: int) -> int:
+        if value == 2:
+            raise ValueError("cannot sort 2")
+        return value
+
+    values = [random.Random(1).randrange(100) + 3 for _ in range(40)]
+    values[7] = 2
+    sorted_model = models.SortModel(models.ListModel(values), key=key)
+    with pytest.raises(ValueError, match="cannot sort 2"):
+        sorted_model.row_data(0)
+    assert list(sorted_model) == [*sorted(v for v in values if v != 2), 2]
+
+
+def test_sort_model_nan_keys_sort_last() -> None:
+    generator = random.Random(1)
+    values = [generator.random() for _ in range(40)]
+    for row in range(0, 40, 5):
+        values[row] = math.nan
+    ordered = sorted(v for v in values if not math.isnan(v))
+
+    ascending = list(models.SortModel(models.ListModel(values)))
+    assert ascending[:32] == ordered
+    assert all(math.isnan(v) for v in ascending[32:])
+
+    descending = list(models.SortModel(models.ListModel(values), reverse=True))
+    assert descending[:32] == ordered[::-1]
+    assert all(math.isnan(v) for v in descending[32:])
+
+
+def test_sort_model_unorderable_keys() -> None:
+    generator = random.Random(1)
+    values = [(generator.random(), row) for row in range(40)]
+    for row in range(0, 40, 5):
+        values[row] = (math.nan, row)
+    sorted_model = models.SortModel(models.ListModel(values))
+    with pytest.raises(ValueError, match="can't order the keys"):
+        sorted_model.row_data(0)
+
+
+def test_sort_model_incomparable_rows() -> None:
+    sorted_model = models.SortModel(models.ListModel([1, "a"]))
+    with pytest.raises(TypeError):
+        list(sorted_model)
+
+
+def test_sort_model_reports_notification_exception_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unraisable: list[typing.Any] = []
+    monkeypatch.setattr(sys, "unraisablehook", unraisable.append)
+
+    def key(value: int) -> int:
+        if value < 0:
+            raise ValueError("negative")
+        return value
+
+    source = models.ListModel([2, 1])
+    sorted_model = models.SortModel(source, key=key)
+    assert list(sorted_model) == [1, 2]
+    source.append(-1)
+
+    # One report per failed comparison while placing the new row.
+    assert unraisable
+    assert all(isinstance(u.exc_value, ValueError) for u in unraisable)
+    assert sorted_model.row_count() == 3
+
+
+def test_sort_model_of_slint_model() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> data: [3, 1, 2];
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    sorted_model = models.SortModel(instance.get_property("data"))
+    assert list(sorted_model) == [1, 2, 3]
+    sorted_model[0] = 10
+    assert list(instance.get_property("data")) == [3, 10, 2]
+
+
+def test_sort_model_notifies_and_writes_back() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> values;
+            out property<int> first: values[0];
+            out property<int> count: values.length;
+            public function set-first(value: int) { values[0] = value; }
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    class Ordered(models.SortModel[int]):
+        def __init__(self, source: models.Model[int]) -> None:
+            super().__init__(source)
+            self.descending = False
+
+        def sort_key(self, row_data: int) -> int:
+            return -row_data if self.descending else row_data
+
+    source = models.ListModel([3, 1, 2])
+    ordered = Ordered(source)
+    instance.set_property("values", ordered)
+    assert instance.get_property("first") == 1
+
+    source.append(0)
+    assert instance.get_property("first") == 0
+    assert instance.get_property("count") == 4
+
+    ordered.descending = True
+    ordered.reset()
+    assert instance.get_property("first") == 3
+
+    instance.invoke("set_first", 30)
+    assert list(source) == [30, 1, 2, 0]
+
+
+def test_model_subclass_with_keyword_arguments() -> None:
+    class Repeated(models.Model[int]):
+        def __init__(self, value: int, *, count: int) -> None:
+            super().__init__()
+            self.value = value
+            self.count = count
+
+        def row_count(self) -> int:
+            return self.count
+
+        def row_data(self, row: int) -> int | None:
+            return self.value
+
+    assert list(Repeated(7, count=2)) == [7, 7]

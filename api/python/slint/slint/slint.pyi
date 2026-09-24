@@ -271,6 +271,13 @@ class PyModelAdapter:
     @staticmethod
     def reverse(source: typing.Any, target: PyModelBase) -> PyModelAdapter: ...
     @staticmethod
+    def sort(
+        source: typing.Any,
+        key: typing.Callable[[typing.Any], typing.Any] | None,
+        reverse: bool,
+        target: PyModelBase,
+    ) -> PyModelAdapter: ...
+    @staticmethod
     def filter(
         source: typing.Any,
         filter_function: typing.Callable[[typing.Any], bool],

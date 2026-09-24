@@ -5,18 +5,20 @@
 //! backing the adapter classes in `slint.models`.
 
 use std::cell::{Cell, RefCell};
+use std::cmp::Ordering;
 use std::pin::Pin;
 use std::rc::Rc;
 
 use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelChangeListener, ModelChangeListenerBox, ModelRc,
-    ModelTracker, ReverseModel,
+    ModelTracker, ReverseModel, SortModel,
 };
 use pyo3::PyTraverseError;
-use pyo3::exceptions::{PyIndexError, PyTypeError};
+use pyo3::exceptions::{PyIndexError, PyTypeError, PyValueError};
 use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
+use pyo3::types::PyFloat;
 
 use crate::models::{ModelOwnership, PyModelBase, PyModelShared, ReadOnlyRustModel};
 use crate::value::TypeCollection;
@@ -61,16 +63,36 @@ impl Errors {
         self.active_calls.set(self.active_calls.get() + 1);
         let result = {
             let _active_call = ActiveCall(&self.active_calls);
-            f()
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(f))
         };
-        match self.pending.borrow_mut().take() {
-            Some(err) => Err(err),
-            None => Ok(result),
+        // A panic, such as Rust's sort rejecting an inconsistent order, usually
+        // follows an exception of the Python code: raise that one instead.
+        match (self.pending.borrow_mut().take(), result) {
+            (Some(err), _) => Err(err),
+            (None, Ok(result)) => Ok(result),
+            (None, Err(panic)) => std::panic::resume_unwind(panic),
         }
     }
 }
 
 type ErrorSlot = Rc<Errors>;
+
+/// The key of a row of a `SortModel`, in the order the rows sort.
+enum SortKey<'py> {
+    Ordered(Bound<'py, PyAny>),
+    NaN,
+    Raised,
+}
+
+impl SortKey<'_> {
+    fn rank(&self) -> u8 {
+        match self {
+            SortKey::Ordered(_) => 0,
+            SortKey::NaN => 1,
+            SortKey::Raised => 2,
+        }
+    }
+}
 
 fn slot_object(py: Python<'_>, slot: &PyObjectSlot) -> Option<Py<PyAny>> {
     slot.borrow().as_ref().map(|obj| obj.clone_ref(py))
@@ -359,6 +381,80 @@ impl PyModelAdapter {
             move || model.reset()
         }));
         adapter.source_row = Some(Box::new(move |row| model.unfiltered_row(row)));
+        Ok(adapter)
+    }
+
+    /// A `SortModel` over `source`, ordering the rows by `key`, or by the rows
+    /// themselves without a key, notifying the views of `target`.
+    #[staticmethod]
+    fn sort(
+        source: &Bound<'_, PyAny>,
+        key: Option<Py<PyAny>>,
+        reverse: bool,
+        target: PyRef<'_, PyModelBase>,
+    ) -> PyResult<Self> {
+        let errors = ErrorSlot::default();
+        let (source, mut objects) = source_model(source, &errors)?;
+        let key: PyObjectSlot = Rc::new(RefCell::new(key));
+        objects.push(key.clone());
+        let compare_errors = errors.clone();
+        // Rust's sort may panic when the comparison isn't a total order, so rows
+        // without an ordered key sort last: first float NaN keys, then rows whose
+        // key raised. Keys that can't be ordered otherwise raise an exception.
+        let compare = move |lhs: &Py<PyAny>, rhs: &Py<PyAny>| {
+            Python::attach(|py| {
+                let sort_key = |row: &Py<PyAny>| {
+                    let key = match slot_object(py, &key) {
+                        Some(key) => key.bind(py).call1((row.clone_ref(py),)),
+                        None => Ok(row.bind(py).clone()),
+                    };
+                    match key {
+                        Ok(key) if key.cast::<PyFloat>().is_ok_and(|key| key.value().is_nan()) => {
+                            SortKey::NaN
+                        }
+                        Ok(key) => SortKey::Ordered(key),
+                        Err(err) => {
+                            compare_errors.record(py, err);
+                            SortKey::Raised
+                        }
+                    }
+                };
+                let (lhs, rhs) = match (sort_key(lhs), sort_key(rhs)) {
+                    (SortKey::Ordered(lhs), SortKey::Ordered(rhs)) => (lhs, rhs),
+                    (lhs, rhs) => return lhs.rank().cmp(&rhs.rank()),
+                };
+                let ordering = (|| {
+                    PyResult::Ok(if lhs.lt(&rhs)? {
+                        Ordering::Less
+                    } else if rhs.lt(&lhs)? {
+                        Ordering::Greater
+                    } else if lhs.eq(&rhs)? {
+                        Ordering::Equal
+                    } else {
+                        return Err(PyValueError::new_err(format!(
+                            "SortModel can't order the keys {} and {}",
+                            lhs.repr()?,
+                            rhs.repr()?
+                        )));
+                    })
+                })();
+                match ordering {
+                    Ok(ordering) if reverse => ordering.reverse(),
+                    Ok(ordering) => ordering,
+                    Err(err) => {
+                        compare_errors.record(py, err);
+                        Ordering::Equal
+                    }
+                }
+            })
+        };
+        let model = Rc::new(SortModel::new(source, compare));
+        let mut adapter = Self::new(model.clone().into(), &target, objects, errors);
+        adapter.reset = Some(Box::new({
+            let model = model.clone();
+            move || model.reset()
+        }));
+        adapter.source_row = Some(Box::new(move |row| model.unsorted_row(row)));
         Ok(adapter)
     }
 

@@ -18,7 +18,7 @@ class Model[T](native.PyModelBase, Iterable[T]):
 
     Models are iterable and can be used in for loops."""
 
-    def __new__(cls, *args: Any) -> typing.Self:
+    def __new__(cls, *args: Any, **kwargs: Any) -> typing.Self:
         return super().__new__(cls)
 
     def __init__(self) -> None:
@@ -361,6 +361,77 @@ class FilterModel[T](_WritableAdapterModel[T]):
         self._adapter.reset()
 
     def unfiltered_row(self, row: int) -> int:
+        """Returns the index of the row of the source model that is `row` in this model.
+        Raises IndexError if `row` is out of range."""
+        index = self._row_index(row)
+        if index < 0:
+            raise IndexError("row index out of range")
+        return self._adapter.source_row(index)
+
+
+class SortModel[T](_WritableAdapterModel[T]):
+    """SortModel is a `Model` that provides the rows of a source model in
+    sorted order.
+
+    Like `sorted()`, it orders the rows by the result of the `key` function,
+    or by the rows themselves without a key, and in descending order with
+    `reverse=True`.
+    To sort by a comparison function, pass `key=functools.cmp_to_key(compare)`.
+    Rows with a float NaN key sort last, followed by rows whose key raises an
+    exception, regardless of `reverse`.
+    Keys that can't be ordered, such as tuples that contain NaN, raise ValueError.
+
+    The SortModel follows the changes of the source model.
+    Setting a row sets the corresponding row of the source model.
+
+    ```python
+    names = slint.ListModel(["Max", "Hans", "Roman"])
+    sorted_names = slint.SortModel(names)
+    assert list(sorted_names) == ["Hans", "Max", "Roman"]
+    by_length = slint.SortModel(names, key=len, reverse=True)
+    ```
+
+    Alternatively, subclass SortModel and implement `sort_key`.
+    Call `reset` when the order changes for reasons other than a change of
+    the source model.
+    """
+
+    def __init__(
+        self,
+        source_model: Model[T],
+        key: Callable[[T], Any] | None = None,
+        reverse: bool = False,
+    ):
+        """Constructs a new SortModel that provides the rows of `source_model`
+        ordered by `key`.
+        Omit `key` to order the rows by themselves, or by `sort_key` in a
+        subclass that implements it."""
+        super().__init__()
+        self.source_model = source_model
+        if key is None and type(self).sort_key is not SortModel.sort_key:
+            this = weakref.ref(self)
+
+            def key(row_data: T) -> Any:
+                model = this()
+                assert model is not None
+                return model.sort_key(row_data)
+
+        self._adapter = native.PyModelAdapter.sort(source_model, key, reverse, self)
+
+    def sort_key(self, row_data: T) -> Any:
+        """Returns the value to order `row_data`, a row of the source model, by.
+        The default implementation returns `row_data` itself.
+        Re-implement this method in a sub-class that doesn't pass a key to the
+        constructor."""
+        return row_data
+
+    def reset(self) -> None:
+        """Sorts all rows of the source model again.
+        Call this when the order changes for reasons other than a change of
+        the source model."""
+        self._adapter.reset()
+
+    def unsorted_row(self, row: int) -> int:
         """Returns the index of the row of the source model that is `row` in this model.
         Raises IndexError if `row` is out of range."""
         index = self._row_index(row)
