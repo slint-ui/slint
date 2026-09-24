@@ -1875,6 +1875,8 @@ trait ProcessScene {
         stroke_line_cap: i_slint_core::items::LineCap,
         stroke_line_join: i_slint_core::items::LineJoin,
         stroke_miter_limit: f32,
+        stroke_dash_array: &[f32],
+        stroke_dash_offset: f32,
     );
 }
 
@@ -2277,6 +2279,8 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         stroke_line_cap: i_slint_core::items::LineCap,
         stroke_line_join: i_slint_core::items::LineJoin,
         stroke_miter_limit: f32,
+        stroke_dash_array: &[f32],
+        stroke_dash_offset: f32,
     ) {
         path::render_stroked_path(
             &commands,
@@ -2287,6 +2291,8 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             stroke_line_cap,
             stroke_line_join,
             stroke_miter_limit,
+            stroke_dash_array,
+            stroke_dash_offset,
             self.buffer,
         );
     }
@@ -2449,6 +2455,8 @@ impl ProcessScene for PrepareScene {
         _stroke_line_cap: i_slint_core::items::LineCap,
         _stroke_line_join: i_slint_core::items::LineJoin,
         _stroke_miter_limit: f32,
+        _stroke_dash_array: &[f32],
+        _stroke_dash_offset: f32,
     ) {
         // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
         // Only works with buffer-based rendering (RenderToBuffer)
@@ -3306,6 +3314,17 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 let stroke_line_cap = path.stroke_line_cap();
                 let stroke_line_join = path.stroke_line_join();
                 let stroke_miter_limit = path.stroke_miter_limit();
+                let stroke_dash_array = path
+                    .stroke_dash_array()
+                    .split_whitespace()
+                    .map(|v| v.parse::<f32>().ok())
+                    .map(|v| match v {
+                        Some(x) if x >= 0.0 => Some(x * self.scale_factor.get()),
+                        _ => None,
+                    })
+                    .collect::<Option<Vec<_>>>()
+                    .map_or_default(|v| if v.len() % 2 == 1 { v.repeat(2) } else { v });
+                let stroke_dash_offset = path.stroke_dash_offset().get() * self.scale_factor.get();
                 self.processor.process_stroked_path(
                     physical_geom,
                     clipped_geom,
@@ -3315,6 +3334,8 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     stroke_line_cap,
                     stroke_line_join,
                     stroke_miter_limit,
+                    &stroke_dash_array,
+                    stroke_dash_offset,
                 );
             }
         }

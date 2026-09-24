@@ -493,7 +493,21 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                 items::LineJoin::Bevel => kurbo::Join::Bevel,
                 _ => kurbo::Join::Miter,
             };
-            let stroke = kurbo::Stroke::new(stroke_width).with_caps(cap).with_join(join);
+            let dash_array = path
+                .stroke_dash_array()
+                .split_whitespace()
+                .map(|v| v.parse::<f32>().ok())
+                .map(|v| match v {
+                    Some(x) if x >= 0.0 => Some((x * self.scale_factor.get() + 0.01) as f64),
+                    _ => None,
+                })
+                .collect::<Option<Vec<_>>>()
+                .map_or_default(|v| if v.len() % 2 == 1 { v.repeat(2) } else { v });
+            let dash_offset = (path.stroke_dash_offset().get() * self.scale_factor.get()) as f64;
+            let stroke = kurbo::Stroke::new(stroke_width)
+                .with_caps(cap)
+                .with_join(join)
+                .with_dashes(dash_offset, &dash_array);
             self.stroke_with_brush(stroke_brush, brush_size, transform, &stroke, &bezpath);
         }
     }

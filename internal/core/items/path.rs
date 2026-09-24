@@ -50,6 +50,8 @@ pub struct Path {
     pub stroke_line_cap: Property<LineCap>,
     pub stroke_line_join: Property<LineJoin>,
     pub stroke_miter_limit: Property<f32>,
+    pub stroke_dash_array: Property<crate::SharedString>,
+    pub stroke_dash_offset: Property<LogicalLength>,
     pub viewbox_x: Property<f32>,
     pub viewbox_y: Property<f32>,
     pub viewbox_width: Property<f32>,

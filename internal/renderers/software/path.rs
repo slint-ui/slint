@@ -173,6 +173,8 @@ pub fn render_stroked_path<T: TargetPixel>(
     stroke_line_cap: i_slint_core::items::LineCap,
     stroke_line_join: i_slint_core::items::LineJoin,
     stroke_miter_limit: f32,
+    stroke_dash_array: &[f32],
+    stroke_dash_offset: f32,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
     let mut stroke = Stroke::new(stroke_width);
@@ -187,7 +189,9 @@ pub fn render_stroked_path<T: TargetPixel>(
             i_slint_core::items::LineJoin::Bevel => Join::Bevel,
             i_slint_core::items::LineJoin::Miter | _ => Join::Miter,
         })
-        .miter_limit(stroke_miter_limit);
+        .miter_limit(stroke_miter_limit)
+        .dash(stroke_dash_array, stroke_dash_offset);
+
     let style = Style::Stroke(stroke);
     render_path_with_style(commands, path_geometry, clip_geometry, color, style, buffer);
 }
