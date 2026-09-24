@@ -399,9 +399,11 @@ test("highlighted source keeps long lines and the last line reachable", async ()
         buttonSource +
         "\n" +
         Array.from(
-            { length: 30 },
-            (_, i) => `// line ${i} ${"x".repeat(150)}`,
+            { length: 2_100 },
+            (_, i) => `// line ${i} ${"x".repeat(i === 1_000 ? 2_100 : 40)}`,
         ).join("\n");
+    expect(source.length).toBeGreaterThan(100_000);
+    expect(source.split("\n").length).toBeGreaterThan(2_000);
     p.send({
         type: "preview-source",
         revision: 1,

@@ -11,40 +11,6 @@ export type SourcePanelOptions = {
     onHighlightAccepted?: (revision: number) => void;
 };
 
-// Bound the text and resulting DOM without changing the raw source used by Copy.
-function sourceForDisplay(source: string): string {
-    const maxCharacters = 100_000;
-    const maxLines = 2_000;
-    const maxLineLength = 2_000;
-    const lines: string[] = [];
-    let offset = 0;
-    let characters = 0;
-    let shortened = false;
-    while (
-        offset < source.length &&
-        lines.length < maxLines &&
-        characters < maxCharacters
-    ) {
-        const end = source.indexOf("\n", offset);
-        const stop = end < 0 ? source.length : end;
-        let line = source.slice(offset, Math.min(stop, offset + maxLineLength));
-        if (stop - offset > maxLineLength) {
-            line = `${line.slice(0, maxLineLength - 250)} … [line shortened] … ${source.slice(stop - 200, stop)}`;
-            shortened = true;
-        }
-        lines.push(line);
-        characters += line.length + 1;
-        offset = end < 0 ? source.length : end + 1;
-    }
-    if (offset < source.length) shortened = true;
-    if (shortened)
-        lines.push(
-            "// Code view shortened for responsiveness. Copy Slint includes the complete source.",
-        );
-    else if (source.endsWith("\n")) lines.push("");
-    return lines.join("\n");
-}
-
 function writeTextToClipboard(value: string): boolean {
     const previousActive = document.activeElement;
     const textArea = document.createElement("textarea");
@@ -132,7 +98,7 @@ export class SourcePanelController {
         this.invalidate();
         const request = this.request;
         const revision = this.options.getRevision();
-        const source = sourceForDisplay(this.source);
+        const source = this.source;
         const theme = this.theme;
         const isCurrent = (): boolean =>
             !this.disposed &&
