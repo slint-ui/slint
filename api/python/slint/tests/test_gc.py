@@ -471,6 +471,22 @@ def test_filter_model_subclass_released_by_refcount() -> None:
     assert model_weak() is None
 
 
+def test_sort_model_subclass_released_by_refcount() -> None:
+    """A SortModel subclass implementing sort_key() is freed without the cyclic collector."""
+
+    class Descending(slint.SortModel[int]):
+        def sort_key(self, row_data: int) -> int:
+            return -row_data
+
+    model: Descending | None = Descending(slint.ListModel([1, 2]))
+    assert model is not None
+    assert list(model) == [2, 1]
+    model_weak = weakref.ref(model)
+    model = None
+
+    assert model_weak() is None
+
+
 def test_adapter_cycle_through_unbound_source_is_collectable() -> None:
     """A source that Slint no longer holds, in a cycle with its adapter, is freed."""
 
