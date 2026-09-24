@@ -47,6 +47,6 @@ A constraint is something we ask the integrator to do, and it exists only becaus
 | <span id="slint.compiler.avd.opaque-window">`slint.compiler.avd.opaque-window`</span> | The compiler rejects a window whose background it can't prove is opaque, so a frame can't depend on what the buffer held beforehand. |
 | <span id="slint.compiler.avd.resource-check">`slint.compiler.avd.resource-check`</span> | The compiler resolves every referenced asset at compile time and fails if one is missing or doesn't decode. |
 | <span id="slint.compiler.avd.spec-tests">`slint.compiler.avd.spec-tests`</span> | Every paragraph of the language specification is traced to at least one test. See the [Traceability Matrix](/qualification-report/traceability-matrix/). |
-| <span id="slint.coverage.avd.stated-coverage">`slint.coverage.avd.stated-coverage`</span> | Every runtime test case that tests the reporting states its expected coverage in the source, and fails on any difference from the measurement. See [Coverage Tool Verification](/qualification-plan/slint-coverage/). |
+| <span id="slint.coverage.avd.stated-coverage">`slint.coverage.avd.stated-coverage`</span> | Runtime test cases state their expected coverage in the source, and fail on any difference from the measurement. The cases under `coverage/` must state it. See [Coverage Tool Verification](/qualification-plan/slint-coverage/). |
 
 The errors no measure covers become [compiler constraints](/user-manual/compiler/constraints/).
