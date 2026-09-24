@@ -338,7 +338,7 @@ impl FittedPath {
         let sample = sampler.sample(rem);
         let pos = Point2D::new(sample.position().x, sample.position().y);
         let angle = sample.tangent().angle_from_x_axis().to_degrees();
-        Some((pos + self.offset, angle))
+        Some((pos + self.offset.cast(), angle))
     }
 }
 
